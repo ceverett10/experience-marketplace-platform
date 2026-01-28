@@ -51,14 +51,37 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run tests
-        run: npm run test:coverage
+      - name: Generate Prisma Client
+        run: npm run db:generate --workspace=@experience-marketplace/database
+        env:
+          DATABASE_URL: 'postgresql://dummy:dummy@localhost:5432/dummy'
+
+      - name: Run tests - Shared
+        run: npm run test:coverage --workspace=@experience-marketplace/shared
+
+      - name: Run tests - Database
+        run: npm run test:coverage --workspace=@experience-marketplace/database
+
+      - name: Run tests - Holibob API
+        run: npm run test:coverage --workspace=@experience-marketplace/holibob-api
+
+      - name: Run tests - UI Components
+        run: npm run test:coverage --workspace=@experience-marketplace/ui-components
+
+      - name: Run tests - Demand Generation
+        run: npm run test:coverage --workspace=@experience-marketplace/demand-generation
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
+          files: |
+            packages/shared/coverage/lcov.info
+            packages/database/coverage/lcov.info
+            packages/holibob-api/coverage/lcov.info
+            packages/ui-components/coverage/lcov.info
+            apps/demand-generation/coverage/lcov.info
 
   build:
     name: Build
