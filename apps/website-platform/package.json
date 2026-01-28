@@ -16,6 +16,7 @@
     "clean": "rm -rf .next coverage"
   },
   "dependencies": {
+    "@experience-marketplace/database": "*",
     "@experience-marketplace/shared": "*",
     "@experience-marketplace/holibob-api": "*",
     "@experience-marketplace/ui-components": "*",
