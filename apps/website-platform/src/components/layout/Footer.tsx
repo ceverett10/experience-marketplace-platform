@@ -49,9 +49,9 @@ export function Footer() {
             </p>
             {/* Social links */}
             <div className="flex space-x-6">
-              {socialLinks.facebook && (
+              {socialLinks['facebook'] && (
                 <a
-                  href={socialLinks.facebook}
+                  href={socialLinks['facebook']}
                   className="text-gray-400 hover:text-gray-300"
                   target="_blank"
                   rel="noopener noreferrer"
@@ -66,9 +66,9 @@ export function Footer() {
                   </svg>
                 </a>
               )}
-              {socialLinks.instagram && (
+              {socialLinks['instagram'] && (
                 <a
-                  href={socialLinks.instagram}
+                  href={socialLinks['instagram']}
                   className="text-gray-400 hover:text-gray-300"
                   target="_blank"
                   rel="noopener noreferrer"
@@ -83,9 +83,9 @@ export function Footer() {
                   </svg>
                 </a>
               )}
-              {socialLinks.twitter && (
+              {socialLinks['twitter'] && (
                 <a
-                  href={socialLinks.twitter}
+                  href={socialLinks['twitter']}
                   className="text-gray-400 hover:text-gray-300"
                   target="_blank"
                   rel="noopener noreferrer"
