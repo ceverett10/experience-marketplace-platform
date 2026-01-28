@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { Card, CardHeader, CardTitle, CardContent } from "@repo/ui-components";
+import { Card, CardHeader, CardTitle, CardContent } from "@experience-marketplace/ui-components";
 
 interface DashboardStats {
   totalSites: number;

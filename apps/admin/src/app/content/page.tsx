@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Card, CardHeader, CardTitle, CardContent, Button } from "@repo/ui-components";
+import { Card, CardHeader, CardTitle, CardContent, Button } from "@experience-marketplace/ui-components";
 
 interface ContentItem {
   id: string;
