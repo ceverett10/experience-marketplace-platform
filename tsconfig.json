@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "references": [
+    { "path": "./packages/shared" },
+    { "path": "./packages/database" },
+    { "path": "./packages/holibob-api" },
+    { "path": "./packages/ui-components" },
+    { "path": "./apps/demand-generation" },
+    { "path": "./apps/website-platform" },
+    { "path": "./apps/admin" }
+  ],
+  "include": [],
+  "exclude": ["node_modules"]
+}

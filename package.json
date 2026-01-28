@@ -6,8 +6,8 @@
   "author": "Holibob <craig@holibob.tech>",
   "license": "UNLICENSED",
   "engines": {
-    "node": ">=20.0.0",
-    "npm": ">=10.0.0"
+    "node": "20.x",
+    "npm": "10.x"
   },
   "workspaces": [
     "apps/*",
@@ -32,8 +32,7 @@
     "db:migrate:deploy": "npm run db:migrate:deploy --workspace=@experience-marketplace/database",
     "db:push": "npm run db:push --workspace=@experience-marketplace/database",
     "db:seed": "npm run db:seed --workspace=@experience-marketplace/database",
-    "db:studio": "npm run db:studio --workspace=@experience-marketplace/database",
-    "postinstall": "npm run db:generate"
+    "db:studio": "npm run db:studio --workspace=@experience-marketplace/database"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
