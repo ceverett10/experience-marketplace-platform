@@ -15,7 +15,7 @@
   ],
   "scripts": {
     "build": "npm run build:packages && npm run build:apps",
-    "build:packages": "npm run build -w @experience-marketplace/shared -w @experience-marketplace/database -w @experience-marketplace/holibob-api -w @experience-marketplace/ui-components --if-present",
+    "build:packages": "npm run build -w @experience-marketplace/shared -w @experience-marketplace/database -w @experience-marketplace/holibob-api -w @experience-marketplace/ui-components -w @experience-marketplace/content-engine --if-present",
     "build:apps": "npm run build -w @experience-marketplace/admin -w @experience-marketplace/demand-generation -w @experience-marketplace/website-platform --if-present",
     "dev": "npm run dev --workspaces --if-present",
     "start": "npm run start --workspaces --if-present",
