@@ -168,29 +168,32 @@ describe('Database Operations', () => {
       });
 
       expect(result).toHaveLength(2);
-      expect(result[0].slug).toBe('home');
+      expect(result[0]?.slug).toBe('home');
     });
 
     it('should create a page with content', async () => {
       const { prisma } = await import('./client.js');
       const newPage = {
         slug: 'london-tours',
-        pageType: 'DESTINATION',
         siteId: 'site-123',
         title: 'London Tours',
         metaDescription: 'Best tours in London',
       };
 
-      (prisma.page.create as ReturnType<typeof vi.fn>).mockResolvedValue({
+      const mockResult = {
         id: 'page-new',
-        ...newPage,
+        slug: 'london-tours',
+        siteId: 'site-123',
+        title: 'London Tours',
         status: 'DRAFT',
-      });
+      };
+
+      (prisma.page.create as ReturnType<typeof vi.fn>).mockResolvedValue(mockResult);
 
       const result = await prisma.page.create({ data: newPage });
 
       expect(result.slug).toBe('london-tours');
-      expect(result.pageType).toBe('DESTINATION');
+      expect(result.id).toBe('page-new');
     });
   });
 
