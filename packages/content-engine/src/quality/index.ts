@@ -3,10 +3,9 @@ import type {
   QualityScoreBreakdown,
   QualityIssue,
   ContentBrief,
-  GeneratedContent,
 } from '../types';
-import { ClaudeClient, type ModelAlias } from '../client';
-import { SYSTEM_PROMPTS, buildQualityAssessmentPrompt } from '../prompts';
+import { type ClaudeClient, type ModelAlias } from '../client';
+import { buildQualityAssessmentPrompt } from '../prompts';
 
 /**
  * Quality score weights for calculating overall score
@@ -91,6 +90,25 @@ export class QualityGate {
    * Parse the JSON response from Claude into a structured assessment
    */
   private parseAssessmentResponse(responseText: string): QualityAssessment {
+    // Interface for the expected parsed response structure
+    interface ParsedAssessmentResponse {
+      scores?: {
+        factualAccuracy?: number;
+        seoCompliance?: number;
+        readability?: number;
+        uniqueness?: number;
+        engagement?: number;
+      };
+      issues?: Array<{
+        type?: string;
+        severity?: string;
+        description?: string;
+        location?: string;
+        suggestion?: string;
+      }>;
+      suggestions?: string[];
+    }
+
     try {
       // Try to extract JSON from the response
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
@@ -98,7 +116,7 @@ export class QualityGate {
         throw new Error('No JSON found in response');
       }
 
-      const parsed = JSON.parse(jsonMatch[0]);
+      const parsed = JSON.parse(jsonMatch[0]) as ParsedAssessmentResponse;
 
       // Map the parsed response to our types
       const breakdown: QualityScoreBreakdown = {
@@ -113,16 +131,10 @@ export class QualityGate {
       const overallScore = this.calculateOverallScore(breakdown);
 
       // Parse issues with proper typing
-      const issues: QualityIssue[] = (parsed.issues || []).map((issue: {
-        type?: string;
-        severity?: string;
-        description?: string;
-        location?: string;
-        suggestion?: string;
-      }) => ({
+      const issues: QualityIssue[] = (parsed.issues ?? []).map((issue) => ({
         type: this.normalizeIssueType(issue.type),
         severity: this.normalizeSeverity(issue.severity),
-        description: issue.description || 'Unspecified issue',
+        description: issue.description ?? 'Unspecified issue',
         location: issue.location,
         suggestion: issue.suggestion,
       }));
@@ -138,7 +150,7 @@ export class QualityGate {
         breakdown,
         passed: overallScore >= this.threshold,
         issues,
-        suggestions: parsed.suggestions || [],
+        suggestions: parsed.suggestions ?? [],
         assessedAt: new Date(),
         assessedBy: this.model,
       };

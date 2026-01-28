@@ -4,11 +4,10 @@ import type {
   ContentStatus,
   PipelineConfig,
   QualityAssessment,
-  QualityIssue,
   RewriteRecord,
 } from '../types';
 import { DEFAULT_PIPELINE_CONFIG } from '../types';
-import { ClaudeClient, getClaudeClient, type ModelAlias } from '../client';
+import { type ClaudeClient, getClaudeClient, type ModelAlias } from '../client';
 import { SYSTEM_PROMPTS, getPromptBuilder, buildRewritePrompt } from '../prompts';
 import { QualityGate } from '../quality';
 
@@ -156,7 +155,7 @@ export class ContentPipeline {
   /**
    * Check if we can afford an operation
    */
-  private async checkCostBudget(estimatedCost: number): Promise<boolean> {
+  private checkCostBudget(estimatedCost: number): boolean {
     const summary = this.client.getDailyCostSummary();
 
     if (summary.remaining < estimatedCost) {
@@ -216,7 +215,7 @@ export class ContentPipeline {
       while (rewriteCount <= this.config.maxRewrites) {
         // Check cost budget before assessment
         const estimatedAssessmentCost = this.client.estimateCost(this.config.qualityModel, 2000, 1000);
-        if (!await this.checkCostBudget(estimatedAssessmentCost)) {
+        if (!this.checkCostBudget(estimatedAssessmentCost)) {
           throw new Error('Daily cost limit reached during assessment');
         }
 
@@ -267,7 +266,7 @@ export class ContentPipeline {
 
         // Check cost budget before rewrite
         const estimatedRewriteCost = this.client.estimateCost(this.config.rewriteModel, 3000, 2000);
-        if (!await this.checkCostBudget(estimatedRewriteCost)) {
+        if (!this.checkCostBudget(estimatedRewriteCost)) {
           throw new Error('Daily cost limit reached during rewrite');
         }
 

@@ -1,10 +1,5 @@
-import type {
-  ContentBrief,
-  ContentType,
-  GeneratedContent,
-} from '../types';
-import { ContentPipeline, createPipeline, type PipelineResult } from '../pipeline';
-import type { PipelineConfig } from '../types';
+import type { ContentBrief, PipelineConfig } from '../types';
+import { createPipeline, type ContentPipeline, type PipelineResult, type PipelineEventHandler } from '../pipeline';
 
 /**
  * Base content generator options
@@ -447,8 +442,8 @@ export class ContentGenerator {
   /**
    * Subscribe to pipeline events
    */
-  onEvent(handler: (event: unknown) => void) {
-    return this.pipeline.onEvent(handler as any);
+  onEvent(handler: PipelineEventHandler) {
+    return this.pipeline.onEvent(handler);
   }
 }
 

@@ -223,7 +223,7 @@ export class ClaudeClient {
    * Send a message to Claude with rate limiting and cost tracking
    */
   async sendMessage(options: {
-    model: ModelAlias | string;
+    model: string;
     messages: ClaudeMessage[];
     system?: string;
     maxTokens?: number;
@@ -376,7 +376,7 @@ export class ClaudeClient {
    * Calculate estimated cost for a request
    */
   estimateCost(
-    model: ModelAlias | string,
+    model: string,
     estimatedInputTokens: number,
     estimatedOutputTokens: number
   ): number {
