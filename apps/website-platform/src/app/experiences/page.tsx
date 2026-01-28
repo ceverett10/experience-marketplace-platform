@@ -79,16 +79,10 @@ async function getExperiences(
         price: {
           amount: product.priceFrom ?? 0,
           currency: product.currency ?? 'GBP',
-          formatted: formatPrice(
-            product.priceFrom ?? 0,
-            product.currency ?? 'GBP'
-          ),
+          formatted: formatPrice(product.priceFrom ?? 0, product.currency ?? 'GBP'),
         },
         duration: {
-          formatted: formatDuration(
-            product.duration ?? 0,
-            'minutes'
-          ),
+          formatted: formatDuration(product.duration ?? 0, 'minutes'),
         },
         rating: product.rating
           ? {
@@ -237,7 +231,7 @@ function getMockExperiences(): ExperienceListItem[] {
       id: '9',
       title: 'Camden Market Food Tour',
       slug: 'camden-market-food-tour',
-      shortDescription: 'Taste your way through London\'s most eclectic market.',
+      shortDescription: "Taste your way through London's most eclectic market.",
       imageUrl: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800',
       price: { amount: 4500, currency: 'GBP', formatted: '£45.00' },
       duration: { formatted: '3 hours' },
@@ -259,7 +253,7 @@ function getMockExperiences(): ExperienceListItem[] {
       id: '11',
       title: 'Jack the Ripper Walking Tour',
       slug: 'jack-the-ripper-walking-tour',
-      shortDescription: 'Explore the dark history of Victorian London\'s most infamous murders.',
+      shortDescription: "Explore the dark history of Victorian London's most infamous murders.",
       imageUrl: 'https://images.unsplash.com/photo-1491897554428-130a60dd4757?w=800',
       price: { amount: 1500, currency: 'GBP', formatted: '£15.00' },
       duration: { formatted: '2 hours' },
@@ -304,9 +298,7 @@ export default async function ExperiencesPage({ searchParams }: Props) {
       {/* Header */}
       <div className="bg-white py-8 shadow-sm">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900">
-            {pageTitle}
-          </h1>
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900">{pageTitle}</h1>
           <p className="mt-2 text-gray-600">
             {totalCount} {totalCount === 1 ? 'experience' : 'experiences'} available
           </p>
@@ -317,7 +309,9 @@ export default async function ExperiencesPage({ searchParams }: Props) {
               variant="compact"
               defaultLocation={resolvedSearchParams.location}
               defaultDate={resolvedSearchParams.date}
-              defaultGuests={resolvedSearchParams.guests ? parseInt(resolvedSearchParams.guests, 10) : 2}
+              defaultGuests={
+                resolvedSearchParams.guests ? parseInt(resolvedSearchParams.guests, 10) : 2
+              }
             />
           </div>
         </div>
@@ -347,8 +341,18 @@ export default async function ExperiencesPage({ searchParams }: Props) {
                 type="button"
                 className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
+                <svg
+                  className="h-5 w-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth="1.5"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75"
+                  />
                 </svg>
                 Filters
               </button>
@@ -400,12 +404,8 @@ export default async function ExperiencesPage({ searchParams }: Props) {
                     d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
                   />
                 </svg>
-                <h3 className="mt-4 text-lg font-semibold text-gray-900">
-                  No experiences found
-                </h3>
-                <p className="mt-2 text-gray-600">
-                  Try adjusting your filters or search criteria
-                </p>
+                <h3 className="mt-4 text-lg font-semibold text-gray-900">No experiences found</h3>
+                <p className="mt-2 text-gray-600">Try adjusting your filters or search criteria</p>
               </div>
             )}
           </main>

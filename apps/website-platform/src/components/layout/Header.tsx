@@ -23,11 +23,7 @@ export function Header() {
         <div className="flex lg:flex-1">
           <Link href="/" className="-m-1.5 p-1.5">
             {brand?.logoUrl ? (
-              <img
-                className="h-8 w-auto"
-                src={brand.logoUrl}
-                alt={site.name}
-              />
+              <img className="h-8 w-auto" src={brand.logoUrl} alt={site.name} />
             ) : (
               <span
                 className="text-xl font-bold"
@@ -55,11 +51,7 @@ export function Header() {
               stroke="currentColor"
             >
               {mobileMenuOpen ? (
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M6 18L18 6M6 6l12 12"
-                />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
               ) : (
                 <path
                   strokeLinecap="round"

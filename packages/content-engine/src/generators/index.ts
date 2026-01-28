@@ -1,5 +1,10 @@
 import type { ContentBrief, PipelineConfig } from '../types';
-import { createPipeline, type ContentPipeline, type PipelineResult, type PipelineEventHandler } from '../pipeline';
+import {
+  createPipeline,
+  type ContentPipeline,
+  type PipelineResult,
+  type PipelineEventHandler,
+} from '../pipeline';
 
 /**
  * Base content generator options
@@ -93,9 +98,7 @@ export async function generateDestinationPage(
 /**
  * Generate category page content
  */
-export async function generateCategoryPage(
-  options: CategoryOptions
-): Promise<PipelineResult> {
+export async function generateCategoryPage(options: CategoryOptions): Promise<PipelineResult> {
   const brief: ContentBrief = {
     type: 'category',
     siteId: options.siteId,
@@ -146,9 +149,7 @@ export async function generateExperienceDescription(
 /**
  * Generate blog post
  */
-export async function generateBlogPost(
-  options: BlogOptions
-): Promise<PipelineResult> {
+export async function generateBlogPost(options: BlogOptions): Promise<PipelineResult> {
   const brief: ContentBrief = {
     type: 'blog',
     siteId: options.siteId,
@@ -169,9 +170,7 @@ export async function generateBlogPost(
 /**
  * Generate meta description
  */
-export async function generateMetaDescription(
-  options: MetaOptions
-): Promise<PipelineResult> {
+export async function generateMetaDescription(options: MetaOptions): Promise<PipelineResult> {
   const brief: ContentBrief = {
     type: 'meta_description',
     siteId: options.siteId,
@@ -191,9 +190,7 @@ export async function generateMetaDescription(
 /**
  * Generate SEO title
  */
-export async function generateSeoTitle(
-  options: MetaOptions
-): Promise<PipelineResult> {
+export async function generateSeoTitle(options: MetaOptions): Promise<PipelineResult> {
   const brief: ContentBrief = {
     type: 'seo_title',
     siteId: options.siteId,

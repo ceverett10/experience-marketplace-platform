@@ -100,8 +100,14 @@ describe('Header', () => {
   it('should have correct hrefs for navigation links', () => {
     renderWithProviders(<Header />);
 
-    expect(screen.getByRole('link', { name: 'Experiences' })).toHaveAttribute('href', '/experiences');
-    expect(screen.getByRole('link', { name: 'Destinations' })).toHaveAttribute('href', '/destinations');
+    expect(screen.getByRole('link', { name: 'Experiences' })).toHaveAttribute(
+      'href',
+      '/experiences'
+    );
+    expect(screen.getByRole('link', { name: 'Destinations' })).toHaveAttribute(
+      'href',
+      '/destinations'
+    );
     expect(screen.getByRole('link', { name: 'Categories' })).toHaveAttribute('href', '/categories');
     expect(screen.getByRole('link', { name: 'About' })).toHaveAttribute('href', '/about');
   });

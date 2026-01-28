@@ -119,10 +119,12 @@ export function mapProductToExperience(product: {
   };
   priceFrom?: number;
   currency?: string;
-  duration?: number | {
-    value?: number;
-    unit?: string;
-  };
+  duration?:
+    | number
+    | {
+        value?: number;
+        unit?: string;
+      };
   durationText?: string;
   reviews?: {
     averageRating?: number;
@@ -166,9 +168,10 @@ export function mapProductToExperience(product: {
   const reviewCount = product.reviews?.totalCount ?? product.reviewCount ?? 0;
 
   // Handle cancellation policy as string or object
-  const cancellationPolicy = typeof product.cancellationPolicy === 'string'
-    ? product.cancellationPolicy
-    : product.cancellationPolicy?.description ?? '';
+  const cancellationPolicy =
+    typeof product.cancellationPolicy === 'string'
+      ? product.cancellationPolicy
+      : (product.cancellationPolicy?.description ?? '');
 
   return {
     id: product.id,

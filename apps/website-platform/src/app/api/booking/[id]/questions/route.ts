@@ -94,27 +94,26 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     const booking = await client.getBookingQuestions(bookingId);
 
     if (!booking) {
-      return NextResponse.json(
-        { error: 'Booking not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
     }
 
     // Extract questions summary for easier consumption
     const questionsSummary = {
       bookingQuestions: booking.questionList?.nodes ?? [],
-      availabilityQuestions: booking.availabilityList?.nodes.map((avail: BookingAvailabilityNode) => ({
-        availabilityId: avail.id,
-        productName: avail.product?.name,
-        date: avail.date,
-        questions: avail.questionList?.nodes ?? [],
-        personQuestions: avail.personList?.nodes.map((person: BookingPersonNode) => ({
-          personId: person.id,
-          category: person.pricingCategoryLabel,
-          isComplete: person.isQuestionsComplete,
-          questions: person.questionList?.nodes ?? [],
+      availabilityQuestions:
+        booking.availabilityList?.nodes.map((avail: BookingAvailabilityNode) => ({
+          availabilityId: avail.id,
+          productName: avail.product?.name,
+          date: avail.date,
+          questions: avail.questionList?.nodes ?? [],
+          personQuestions:
+            avail.personList?.nodes.map((person: BookingPersonNode) => ({
+              personId: person.id,
+              category: person.pricingCategoryLabel,
+              isComplete: person.isQuestionsComplete,
+              questions: person.questionList?.nodes ?? [],
+            })) ?? [],
         })) ?? [],
-      })) ?? [],
       canCommit: booking.canCommit ?? false,
     };
 
@@ -130,17 +129,11 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 
     if (error instanceof Error) {
       if (error.message.includes('not found')) {
-        return NextResponse.json(
-          { error: 'Booking not found' },
-          { status: 404 }
-        );
+        return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
       }
     }
 
-    return NextResponse.json(
-      { error: 'Failed to fetch booking questions' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch booking questions' }, { status: 500 });
   }
 }
 
@@ -206,22 +199,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     if (error instanceof Error) {
       if (error.message.includes('not found')) {
-        return NextResponse.json(
-          { error: 'Booking not found' },
-          { status: 404 }
-        );
+        return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
       }
       if (error.message.includes('invalid')) {
-        return NextResponse.json(
-          { error: error.message },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: error.message }, { status: 400 });
       }
     }
 
-    return NextResponse.json(
-      { error: 'Failed to answer booking questions' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to answer booking questions' }, { status: 500 });
   }
 }

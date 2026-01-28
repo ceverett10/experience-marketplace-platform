@@ -139,7 +139,10 @@ export class ContentPipeline {
    */
   private extractExcerpt(content: string, maxLength: number = 160): string {
     // Strip HTML tags and get first paragraph
-    const text = content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    const text = content
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
     if (text.length <= maxLength) return text;
     return text.slice(0, maxLength - 3).trim() + '...';
   }
@@ -214,7 +217,11 @@ export class ContentPipeline {
       // Step 2: Quality Assessment Loop
       while (rewriteCount <= this.config.maxRewrites) {
         // Check cost budget before assessment
-        const estimatedAssessmentCost = this.client.estimateCost(this.config.qualityModel, 2000, 1000);
+        const estimatedAssessmentCost = this.client.estimateCost(
+          this.config.qualityModel,
+          2000,
+          1000
+        );
         if (!this.checkCostBudget(estimatedAssessmentCost)) {
           throw new Error('Daily cost limit reached during assessment');
         }
@@ -272,7 +279,7 @@ export class ContentPipeline {
 
         const rewrite = await this.client.rewrite({
           originalContent: currentContent,
-          feedback: issues.map(i => i.description).join('; '),
+          feedback: issues.map((i) => i.description).join('; '),
           prompt: rewritePrompt,
           model: this.config.rewriteModel as ModelAlias,
           maxTokens: this.calculateMaxTokens(brief),
@@ -318,7 +325,10 @@ export class ContentPipeline {
         });
 
         // Check if improvement is sufficient
-        if (newScore - previousScore < this.config.rewriteScoreImprovement && newScore < this.config.qualityThreshold) {
+        if (
+          newScore - previousScore < this.config.rewriteScoreImprovement &&
+          newScore < this.config.qualityThreshold
+        ) {
           // Not improving enough, stop rewriting
           currentAssessment = quickAssess.assessment;
           break;

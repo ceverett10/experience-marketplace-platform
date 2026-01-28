@@ -206,12 +206,12 @@ describe('ContentPipeline', () => {
       const pipeline = new ContentPipeline();
       const events: any[] = [];
 
-      pipeline.onEvent(event => events.push(event));
+      pipeline.onEvent((event) => events.push(event));
       await pipeline.generate(testBrief);
 
       expect(events.length).toBeGreaterThan(0);
-      expect(events.some(e => e.type === 'generation_started')).toBe(true);
-      expect(events.some(e => e.type === 'generation_completed')).toBe(true);
+      expect(events.some((e) => e.type === 'generation_started')).toBe(true);
+      expect(events.some((e) => e.type === 'generation_completed')).toBe(true);
     });
   });
 

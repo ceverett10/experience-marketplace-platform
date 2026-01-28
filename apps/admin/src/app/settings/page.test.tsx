@@ -8,7 +8,9 @@ describe('AdminSettingsPage', () => {
     renderWithProviders(<AdminSettingsPage />);
 
     expect(screen.getByRole('heading', { name: 'Platform Settings' })).toBeInTheDocument();
-    expect(screen.getByText('Configure global settings for the Experience Marketplace')).toBeInTheDocument();
+    expect(
+      screen.getByText('Configure global settings for the Experience Marketplace')
+    ).toBeInTheDocument();
   });
 
   it('should render save button (disabled initially)', () => {
@@ -186,8 +188,12 @@ describe('AdminSettingsPage', () => {
       const featuresTab = screen.getByRole('button', { name: /Features/i });
       fireEvent.click(featuresTab);
 
-      expect(screen.getByText('Enable AI-powered content generation for storefronts')).toBeInTheDocument();
-      expect(screen.getByText('Automatically publish approved content without manual review')).toBeInTheDocument();
+      expect(
+        screen.getByText('Enable AI-powered content generation for storefronts')
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText('Automatically publish approved content without manual review')
+      ).toBeInTheDocument();
       expect(screen.getByText('Track page views, clicks, and conversions')).toBeInTheDocument();
       expect(screen.getByText('Show maintenance page to all visitors')).toBeInTheDocument();
     });

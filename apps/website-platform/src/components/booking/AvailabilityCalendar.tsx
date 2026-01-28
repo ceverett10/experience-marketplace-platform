@@ -195,7 +195,13 @@ export function AvailabilityCalendar({
           disabled={currentMonth <= new Date(new Date().getFullYear(), new Date().getMonth(), 1)}
           aria-label="Previous month"
         >
-          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+          <svg
+            className="h-5 w-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth="2"
+            stroke="currentColor"
+          >
             <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
           </svg>
         </button>
@@ -207,7 +213,13 @@ export function AvailabilityCalendar({
           className="rounded-lg p-2 hover:bg-gray-100"
           aria-label="Next month"
         >
-          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+          <svg
+            className="h-5 w-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth="2"
+            stroke="currentColor"
+          >
             <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
           </svg>
         </button>
@@ -217,7 +229,14 @@ export function AvailabilityCalendar({
       {isLoading && (
         <div className="flex items-center justify-center py-8">
           <svg className="h-6 w-6 animate-spin text-gray-400" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            />
             <path
               className="opacity-75"
               fill="currentColor"
@@ -231,10 +250,7 @@ export function AvailabilityCalendar({
       {error && !isLoading && (
         <div className="rounded-lg bg-red-50 p-4 text-center text-sm text-red-600">
           {error}
-          <button
-            onClick={fetchAvailability}
-            className="ml-2 underline hover:no-underline"
-          >
+          <button onClick={fetchAvailability} className="ml-2 underline hover:no-underline">
             Retry
           </button>
         </div>
@@ -246,10 +262,7 @@ export function AvailabilityCalendar({
           {/* Week days header */}
           <div className="grid grid-cols-7 gap-1">
             {weekDays.map((day) => (
-              <div
-                key={day}
-                className="py-2 text-center text-xs font-medium text-gray-500"
-              >
+              <div key={day} className="py-2 text-center text-xs font-medium text-gray-500">
                 {day}
               </div>
             ))}
@@ -279,14 +292,18 @@ export function AvailabilityCalendar({
                     ${!isPast && isAvailable && !isSelected ? 'cursor-pointer text-gray-900 hover:bg-gray-100' : ''}
                     ${isSelected ? 'text-white' : ''}
                   `}
-                  style={isSelected ? { backgroundColor: brand?.primaryColor ?? '#6366f1' } : undefined}
+                  style={
+                    isSelected ? { backgroundColor: brand?.primaryColor ?? '#6366f1' } : undefined
+                  }
                   aria-label={`${date.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}${isAvailable ? ' - Available' : ' - Not available'}`}
                 >
                   {date.getDate()}
                   {isAvailable && !isPast && (
                     <span
                       className="mx-auto mt-0.5 block h-1 w-1 rounded-full"
-                      style={{ backgroundColor: isSelected ? 'white' : (brand?.primaryColor ?? '#6366f1') }}
+                      style={{
+                        backgroundColor: isSelected ? 'white' : (brand?.primaryColor ?? '#6366f1'),
+                      }}
                     />
                   )}
                 </button>
@@ -308,19 +325,28 @@ export function AvailabilityCalendar({
                       onClick={() => onTimeSlotSelect(isSlotSelected ? null : slot)}
                       className={`
                         rounded-lg border px-3 py-2 text-sm transition-colors
-                        ${isSlotSelected
-                          ? 'border-transparent text-white'
-                          : 'border-gray-200 text-gray-900 hover:border-gray-300'
+                        ${
+                          isSlotSelected
+                            ? 'border-transparent text-white'
+                            : 'border-gray-200 text-gray-900 hover:border-gray-300'
                         }
                       `}
-                      style={isSlotSelected ? { backgroundColor: brand?.primaryColor ?? '#6366f1' } : undefined}
+                      style={
+                        isSlotSelected
+                          ? { backgroundColor: brand?.primaryColor ?? '#6366f1' }
+                          : undefined
+                      }
                     >
                       <div className="font-medium">{slot.time}</div>
-                      <div className={`text-xs ${isSlotSelected ? 'text-white/80' : 'text-gray-500'}`}>
+                      <div
+                        className={`text-xs ${isSlotSelected ? 'text-white/80' : 'text-gray-500'}`}
+                      >
                         {formatPrice(slot.price, slot.currency)}
                       </div>
                       {slot.remainingCapacity !== undefined && slot.remainingCapacity <= 5 && (
-                        <div className={`text-xs ${isSlotSelected ? 'text-white/80' : 'text-orange-600'}`}>
+                        <div
+                          className={`text-xs ${isSlotSelected ? 'text-white/80' : 'text-orange-600'}`}
+                        >
                           {slot.remainingCapacity} left
                         </div>
                       )}

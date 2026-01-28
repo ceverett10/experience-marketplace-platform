@@ -34,7 +34,10 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
-      '@experience-marketplace/ui-components': path.resolve(__dirname, './src/test/__mocks__/ui-components.tsx'),
+      '@experience-marketplace/ui-components': path.resolve(
+        __dirname,
+        './src/test/__mocks__/ui-components.tsx'
+      ),
     },
   },
 });

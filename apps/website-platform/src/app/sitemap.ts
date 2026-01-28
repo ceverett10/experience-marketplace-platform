@@ -11,9 +11,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const hostname = headersList.get('host') ?? 'localhost';
   const site = await getSiteFromHostname(hostname);
 
-  const baseUrl = site.primaryDomain
-    ? `https://${site.primaryDomain}`
-    : `https://${hostname}`;
+  const baseUrl = site.primaryDomain ? `https://${site.primaryDomain}` : `https://${hostname}`;
 
   // Static pages
   const staticPages: MetadataRoute.Sitemap = [
@@ -74,14 +72,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     'cotswolds-village-tour',
   ];
 
-  const experiencePages: MetadataRoute.Sitemap = mockExperienceSlugs.map(
-    (slug) => ({
-      url: `${baseUrl}/experiences/${slug}`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly' as const,
-      priority: 0.7,
-    })
-  );
+  const experiencePages: MetadataRoute.Sitemap = mockExperienceSlugs.map((slug) => ({
+    url: `${baseUrl}/experiences/${slug}`,
+    lastModified: new Date(),
+    changeFrequency: 'weekly' as const,
+    priority: 0.7,
+  }));
 
   // Mock category pages
   const categories = [

@@ -1,7 +1,13 @@
-"use client";
+'use client';
 
-import React, { useState } from "react";
-import { Card, CardHeader, CardTitle, CardContent, Button } from "@experience-marketplace/ui-components";
+import React, { useState } from 'react';
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  Button,
+} from '@experience-marketplace/ui-components';
 
 interface PlatformSettings {
   branding: {
@@ -28,18 +34,18 @@ interface PlatformSettings {
 
 const defaultSettings: PlatformSettings = {
   branding: {
-    platformName: "Experience Marketplace",
-    primaryColor: "#0ea5e9",
-    secondaryColor: "#06b6d4",
+    platformName: 'Experience Marketplace',
+    primaryColor: '#0ea5e9',
+    secondaryColor: '#06b6d4',
   },
   domains: {
-    storefrontDomain: "v3.experiences.holibob.tech",
-    apiDomain: "api.holibob.com",
+    storefrontDomain: 'v3.experiences.holibob.tech',
+    apiDomain: 'api.holibob.com',
   },
   commissions: {
     defaultRate: 12,
     minPayoutAmount: 50,
-    payoutCurrency: "GBP",
+    payoutCurrency: 'GBP',
   },
   features: {
     aiContentGeneration: true,
@@ -51,7 +57,7 @@ const defaultSettings: PlatformSettings = {
 
 export default function AdminSettingsPage() {
   const [settings, setSettings] = useState<PlatformSettings>(defaultSettings);
-  const [activeTab, setActiveTab] = useState("branding");
+  const [activeTab, setActiveTab] = useState('branding');
   const [saved, setSaved] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
 
@@ -78,10 +84,10 @@ export default function AdminSettingsPage() {
   };
 
   const tabs = [
-    { id: "branding", label: "Branding", icon: "🎨" },
-    { id: "domains", label: "Domains", icon: "🌐" },
-    { id: "commissions", label: "Commissions", icon: "💰" },
-    { id: "features", label: "Features", icon: "⚡" },
+    { id: 'branding', label: 'Branding', icon: '🎨' },
+    { id: 'domains', label: 'Domains', icon: '🌐' },
+    { id: 'commissions', label: 'Commissions', icon: '💰' },
+    { id: 'features', label: 'Features', icon: '⚡' },
   ];
 
   return (
@@ -97,9 +103,9 @@ export default function AdminSettingsPage() {
         <Button
           onClick={handleSave}
           disabled={!hasChanges}
-          className={`px-4 py-2 rounded-lg font-medium ${hasChanges ? "bg-sky-600 hover:bg-sky-700 text-white" : "bg-slate-200 text-slate-500"}`}
+          className={`px-4 py-2 rounded-lg font-medium ${hasChanges ? 'bg-sky-600 hover:bg-sky-700 text-white' : 'bg-slate-200 text-slate-500'}`}
         >
-          💾 {saved ? "Saved!" : "Save Changes"}
+          💾 {saved ? 'Saved!' : 'Save Changes'}
         </Button>
       </div>
 
@@ -122,8 +128,8 @@ export default function AdminSettingsPage() {
                     onClick={() => setActiveTab(tab.id)}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
                       activeTab === tab.id
-                        ? "bg-sky-50 text-sky-700"
-                        : "text-slate-600 hover:bg-slate-50"
+                        ? 'bg-sky-50 text-sky-700'
+                        : 'text-slate-600 hover:bg-slate-50'
                     }`}
                   >
                     <span>{tab.icon}</span>
@@ -138,7 +144,7 @@ export default function AdminSettingsPage() {
         {/* Settings Content */}
         <div className="flex-1">
           {/* Branding Settings */}
-          {activeTab === "branding" && (
+          {activeTab === 'branding' && (
             <Card>
               <CardHeader>
                 <CardTitle>Branding Settings</CardTitle>
@@ -151,7 +157,7 @@ export default function AdminSettingsPage() {
                   <input
                     type="text"
                     value={settings.branding.platformName}
-                    onChange={(e) => updateSettings("branding", "platformName", e.target.value)}
+                    onChange={(e) => updateSettings('branding', 'platformName', e.target.value)}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"
                   />
                 </div>
@@ -169,7 +175,7 @@ export default function AdminSettingsPage() {
                       <input
                         type="text"
                         value={settings.branding.primaryColor}
-                        onChange={(e) => updateSettings("branding", "primaryColor", e.target.value)}
+                        onChange={(e) => updateSettings('branding', 'primaryColor', e.target.value)}
                         className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 font-mono"
                       />
                     </div>
@@ -186,7 +192,9 @@ export default function AdminSettingsPage() {
                       <input
                         type="text"
                         value={settings.branding.secondaryColor}
-                        onChange={(e) => updateSettings("branding", "secondaryColor", e.target.value)}
+                        onChange={(e) =>
+                          updateSettings('branding', 'secondaryColor', e.target.value)
+                        }
                         className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 font-mono"
                       />
                     </div>
@@ -197,7 +205,7 @@ export default function AdminSettingsPage() {
           )}
 
           {/* Domains Settings */}
-          {activeTab === "domains" && (
+          {activeTab === 'domains' && (
             <Card>
               <CardHeader>
                 <CardTitle>Domain Configuration</CardTitle>
@@ -207,7 +215,9 @@ export default function AdminSettingsPage() {
                   <div className="flex items-center gap-2 mb-2">
                     <span>🔒</span>
                     <span className="font-medium text-sky-900">SSL Enabled</span>
-                    <span className="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded ml-auto">Active</span>
+                    <span className="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded ml-auto">
+                      Active
+                    </span>
                   </div>
                   <p className="text-sm text-sky-700">
                     All domains are secured with SSL certificates
@@ -222,11 +232,14 @@ export default function AdminSettingsPage() {
                     <input
                       type="text"
                       value={settings.domains.storefrontDomain}
-                      onChange={(e) => updateSettings("domains", "storefrontDomain", e.target.value)}
+                      onChange={(e) =>
+                        updateSettings('domains', 'storefrontDomain', e.target.value)
+                      }
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"
                     />
                     <p className="text-xs text-slate-500 mt-1">
-                      Base domain for storefronts (e.g., site-name.{settings.domains.storefrontDomain})
+                      Base domain for storefronts (e.g., site-name.
+                      {settings.domains.storefrontDomain})
                     </p>
                   </div>
 
@@ -237,7 +250,7 @@ export default function AdminSettingsPage() {
                     <input
                       type="text"
                       value={settings.domains.apiDomain}
-                      onChange={(e) => updateSettings("domains", "apiDomain", e.target.value)}
+                      onChange={(e) => updateSettings('domains', 'apiDomain', e.target.value)}
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"
                     />
                   </div>
@@ -247,7 +260,7 @@ export default function AdminSettingsPage() {
           )}
 
           {/* Commissions Settings */}
-          {activeTab === "commissions" && (
+          {activeTab === 'commissions' && (
             <Card>
               <CardHeader>
                 <CardTitle>Commission Settings</CardTitle>
@@ -262,10 +275,14 @@ export default function AdminSettingsPage() {
                       <input
                         type="number"
                         value={settings.commissions.defaultRate}
-                        onChange={(e) => updateSettings("commissions", "defaultRate", Number(e.target.value))}
+                        onChange={(e) =>
+                          updateSettings('commissions', 'defaultRate', Number(e.target.value))
+                        }
                         className="w-full px-3 py-2 pr-8 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"
                       />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500">%</span>
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500">
+                        %
+                      </span>
                     </div>
                   </div>
 
@@ -275,11 +292,15 @@ export default function AdminSettingsPage() {
                         Minimum Payout Amount
                       </label>
                       <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">£</span>
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">
+                          £
+                        </span>
                         <input
                           type="number"
                           value={settings.commissions.minPayoutAmount}
-                          onChange={(e) => updateSettings("commissions", "minPayoutAmount", Number(e.target.value))}
+                          onChange={(e) =>
+                            updateSettings('commissions', 'minPayoutAmount', Number(e.target.value))
+                          }
                           className="w-full px-3 py-2 pl-8 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"
                         />
                       </div>
@@ -290,7 +311,9 @@ export default function AdminSettingsPage() {
                       </label>
                       <select
                         value={settings.commissions.payoutCurrency}
-                        onChange={(e) => updateSettings("commissions", "payoutCurrency", e.target.value)}
+                        onChange={(e) =>
+                          updateSettings('commissions', 'payoutCurrency', e.target.value)
+                        }
                         className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"
                       >
                         <option value="GBP">GBP (£)</option>
@@ -305,7 +328,7 @@ export default function AdminSettingsPage() {
           )}
 
           {/* Features Settings */}
-          {activeTab === "features" && (
+          {activeTab === 'features' && (
             <Card>
               <CardHeader>
                 <CardTitle>Feature Flags</CardTitle>
@@ -313,28 +336,28 @@ export default function AdminSettingsPage() {
               <CardContent className="space-y-6">
                 {[
                   {
-                    id: "aiContentGeneration",
-                    label: "AI Content Generation",
-                    desc: "Enable AI-powered content generation for storefronts",
+                    id: 'aiContentGeneration',
+                    label: 'AI Content Generation',
+                    desc: 'Enable AI-powered content generation for storefronts',
                     enabled: settings.features.aiContentGeneration,
                   },
                   {
-                    id: "autoPublish",
-                    label: "Auto-Publish Content",
-                    desc: "Automatically publish approved content without manual review",
+                    id: 'autoPublish',
+                    label: 'Auto-Publish Content',
+                    desc: 'Automatically publish approved content without manual review',
                     enabled: settings.features.autoPublish,
                     warning: true,
                   },
                   {
-                    id: "analyticsEnabled",
-                    label: "Analytics Tracking",
-                    desc: "Track page views, clicks, and conversions",
+                    id: 'analyticsEnabled',
+                    label: 'Analytics Tracking',
+                    desc: 'Track page views, clicks, and conversions',
                     enabled: settings.features.analyticsEnabled,
                   },
                   {
-                    id: "maintenanceMode",
-                    label: "Maintenance Mode",
-                    desc: "Show maintenance page to all visitors",
+                    id: 'maintenanceMode',
+                    label: 'Maintenance Mode',
+                    desc: 'Show maintenance page to all visitors',
                     enabled: settings.features.maintenanceMode,
                     danger: true,
                   },
@@ -342,17 +365,21 @@ export default function AdminSettingsPage() {
                   <div
                     key={item.id}
                     className={`flex items-center justify-between py-4 border-b border-slate-100 last:border-0 ${
-                      item.danger && item.enabled ? "bg-red-50 -mx-6 px-6 rounded-lg" : ""
+                      item.danger && item.enabled ? 'bg-red-50 -mx-6 px-6 rounded-lg' : ''
                     }`}
                   >
                     <div>
                       <div className="flex items-center gap-2">
                         <p className="font-medium text-slate-900">{item.label}</p>
                         {item.warning && (
-                          <span className="bg-amber-100 text-amber-800 text-xs px-2 py-0.5 rounded">Caution</span>
+                          <span className="bg-amber-100 text-amber-800 text-xs px-2 py-0.5 rounded">
+                            Caution
+                          </span>
                         )}
                         {item.danger && (
-                          <span className="bg-red-100 text-red-800 text-xs px-2 py-0.5 rounded">Dangerous</span>
+                          <span className="bg-red-100 text-red-800 text-xs px-2 py-0.5 rounded">
+                            Dangerous
+                          </span>
                         )}
                       </div>
                       <p className="text-sm text-slate-500">{item.desc}</p>
@@ -363,8 +390,8 @@ export default function AdminSettingsPage() {
                         checked={item.enabled}
                         onChange={(e) =>
                           updateSettings(
-                            "features",
-                            item.id as keyof PlatformSettings["features"],
+                            'features',
+                            item.id as keyof PlatformSettings['features'],
                             e.target.checked
                           )
                         }

@@ -59,9 +59,7 @@ describe('L2B Booking Flow E2E Integration', () => {
     it('completes full booking flow from product discovery to confirmation', async () => {
       // Step 1: Product Discovery
       mockClient.searchProducts.mockResolvedValue({
-        products: [
-          { id: 'product-london-eye', name: 'London Eye Experience', guidePrice: 3500 },
-        ],
+        products: [{ id: 'product-london-eye', name: 'London Eye Experience', guidePrice: 3500 }],
         totalCount: 1,
       });
 
@@ -94,7 +92,11 @@ describe('L2B Booking Flow E2E Integration', () => {
         },
       });
 
-      const availability = await mockClient.discoverAvailability(productId, '2025-02-01', '2025-02-07');
+      const availability = await mockClient.discoverAvailability(
+        productId,
+        '2025-02-01',
+        '2025-02-07'
+      );
       expect(availability.nodes).toHaveLength(2);
       expect(availability.optionList.isComplete).toBe(true);
 
@@ -104,8 +106,20 @@ describe('L2B Booking Flow E2E Integration', () => {
         date: '2025-02-01',
         pricingCategoryList: {
           nodes: [
-            { id: 'adult', label: 'Adult', minParticipants: 1, maxParticipants: 10, unitPrice: { gross: 3500, currency: 'GBP' } },
-            { id: 'child', label: 'Child (3-15)', minParticipants: 0, maxParticipants: 10, unitPrice: { gross: 2500, currency: 'GBP' } },
+            {
+              id: 'adult',
+              label: 'Adult',
+              minParticipants: 1,
+              maxParticipants: 10,
+              unitPrice: { gross: 3500, currency: 'GBP' },
+            },
+            {
+              id: 'child',
+              label: 'Child (3-15)',
+              minParticipants: 0,
+              maxParticipants: 10,
+              unitPrice: { gross: 2500, currency: 'GBP' },
+            },
           ],
         },
       });
@@ -158,7 +172,10 @@ describe('L2B Booking Flow E2E Integration', () => {
         },
       });
 
-      const bookingWithAvailability = await mockClient.addAvailabilityToBooking(bookingId, 'avail-1');
+      const bookingWithAvailability = await mockClient.addAvailabilityToBooking(
+        bookingId,
+        'avail-1'
+      );
       expect(bookingWithAvailability.availabilityList.nodes).toHaveLength(1);
 
       // Step 8: Get and Answer Booking Questions
@@ -166,9 +183,7 @@ describe('L2B Booking Flow E2E Integration', () => {
         id: bookingId,
         canCommit: false,
         questionList: {
-          nodes: [
-            { id: 'q-lead-name', label: 'Lead passenger name', answerValue: null },
-          ],
+          nodes: [{ id: 'q-lead-name', label: 'Lead passenger name', answerValue: null }],
         },
         availabilityList: {
           nodes: [
@@ -181,27 +196,21 @@ describe('L2B Booking Flow E2E Integration', () => {
                     id: 'person-1',
                     pricingCategoryLabel: 'Adult',
                     questionList: {
-                      nodes: [
-                        { id: 'pq-name', label: 'Full name', answerValue: null },
-                      ],
+                      nodes: [{ id: 'pq-name', label: 'Full name', answerValue: null }],
                     },
                   },
                   {
                     id: 'person-2',
                     pricingCategoryLabel: 'Adult',
                     questionList: {
-                      nodes: [
-                        { id: 'pq-name', label: 'Full name', answerValue: null },
-                      ],
+                      nodes: [{ id: 'pq-name', label: 'Full name', answerValue: null }],
                     },
                   },
                   {
                     id: 'person-3',
                     pricingCategoryLabel: 'Child',
                     questionList: {
-                      nodes: [
-                        { id: 'pq-name', label: 'Full name', answerValue: null },
-                      ],
+                      nodes: [{ id: 'pq-name', label: 'Full name', answerValue: null }],
                     },
                   },
                 ],
@@ -219,9 +228,7 @@ describe('L2B Booking Flow E2E Integration', () => {
         id: bookingId,
         canCommit: true,
         questionList: {
-          nodes: [
-            { id: 'q-lead-name', label: 'Lead passenger name', answerValue: 'John Doe' },
-          ],
+          nodes: [{ id: 'q-lead-name', label: 'Lead passenger name', answerValue: 'John Doe' }],
         },
       });
 
@@ -267,13 +274,15 @@ describe('L2B Booking Flow E2E Integration', () => {
     it('handles sold out availability gracefully', async () => {
       mockClient.discoverAvailability.mockResolvedValue({
         sessionId: 'session-123',
-        nodes: [
-          { id: 'avail-1', date: '2025-02-01', soldOut: true },
-        ],
+        nodes: [{ id: 'avail-1', date: '2025-02-01', soldOut: true }],
         optionList: { isComplete: true, nodes: [] },
       });
 
-      const availability = await mockClient.discoverAvailability('product-1', '2025-02-01', '2025-02-01');
+      const availability = await mockClient.discoverAvailability(
+        'product-1',
+        '2025-02-01',
+        '2025-02-01'
+      );
       expect(availability.nodes[0]!.soldOut).toBe(true);
     });
 
@@ -288,7 +297,9 @@ describe('L2B Booking Flow E2E Integration', () => {
       const committed = await mockClient.commitBooking({ id: 'booking-123' });
       expect(committed.state).toBe('PENDING');
 
-      await expect(mockClient.waitForConfirmation('booking-123')).rejects.toThrow('Booking REJECTED');
+      await expect(mockClient.waitForConfirmation('booking-123')).rejects.toThrow(
+        'Booking REJECTED'
+      );
     });
 
     it('handles pricing category dependencies', async () => {
@@ -312,7 +323,9 @@ describe('L2B Booking Flow E2E Integration', () => {
       });
 
       const pricing = await mockClient.getAvailabilityPricing('avail-1');
-      const childCategory = pricing.pricingCategoryList.nodes.find((n: { id: string }) => n.id === 'child');
+      const childCategory = pricing.pricingCategoryList.nodes.find(
+        (n: { id: string }) => n.id === 'child'
+      );
       expect(childCategory.maxParticipantsDepends).toBeDefined();
       expect(childCategory.maxParticipantsDepends.multiplier).toBe(2);
     });
@@ -325,33 +338,32 @@ describe('L2B Booking Flow E2E Integration', () => {
           nodes: [],
           optionList: {
             isComplete: false,
-            nodes: [
-              { id: 'START_DATE', label: 'Start Date', type: 'DATE_RANGE', required: true },
-            ],
+            nodes: [{ id: 'START_DATE', label: 'Start Date', type: 'DATE_RANGE', required: true }],
           },
         })
         // Second call - need to select time slot
         .mockResolvedValueOnce({
           sessionId: 'session-1',
-          nodes: [
-            { id: 'avail-1', date: '2025-02-01' },
-          ],
+          nodes: [{ id: 'avail-1', date: '2025-02-01' }],
           optionList: {
             isComplete: false,
             nodes: [
-              { id: 'TIME_SLOT', label: 'Time', type: 'SINGLE_CHOICE', availableOptions: [
-                { value: '09:00', label: '9:00 AM' },
-                { value: '14:00', label: '2:00 PM' },
-              ]},
+              {
+                id: 'TIME_SLOT',
+                label: 'Time',
+                type: 'SINGLE_CHOICE',
+                availableOptions: [
+                  { value: '09:00', label: '9:00 AM' },
+                  { value: '14:00', label: '2:00 PM' },
+                ],
+              },
             ],
           },
         })
         // Third call - complete
         .mockResolvedValueOnce({
           sessionId: 'session-1',
-          nodes: [
-            { id: 'avail-1', date: '2025-02-01', guidePriceFormattedText: '£35.00' },
-          ],
+          nodes: [{ id: 'avail-1', date: '2025-02-01', guidePriceFormattedText: '£35.00' }],
           optionList: {
             isComplete: true,
             nodes: [],
@@ -362,10 +374,14 @@ describe('L2B Booking Flow E2E Integration', () => {
       let result = await mockClient.getAvailabilityList('product-1');
       expect(result.optionList.isComplete).toBe(false);
 
-      result = await mockClient.getAvailabilityList('product-1', 'session-1', [{ id: 'START_DATE', value: '2025-02-01' }]);
+      result = await mockClient.getAvailabilityList('product-1', 'session-1', [
+        { id: 'START_DATE', value: '2025-02-01' },
+      ]);
       expect(result.optionList.isComplete).toBe(false);
 
-      result = await mockClient.getAvailabilityList('product-1', 'session-1', [{ id: 'TIME_SLOT', value: '09:00' }]);
+      result = await mockClient.getAvailabilityList('product-1', 'session-1', [
+        { id: 'TIME_SLOT', value: '09:00' },
+      ]);
       expect(result.optionList.isComplete).toBe(true);
     });
   });
@@ -377,9 +393,7 @@ describe('L2B Booking Flow E2E Integration', () => {
         canCommit: false,
         // Booking-level questions
         questionList: {
-          nodes: [
-            { id: 'bq-1', label: 'Special requirements', type: 'TEXTAREA' },
-          ],
+          nodes: [{ id: 'bq-1', label: 'Special requirements', type: 'TEXTAREA' }],
         },
         availabilityList: {
           nodes: [
@@ -387,9 +401,7 @@ describe('L2B Booking Flow E2E Integration', () => {
               id: 'avail-1',
               // Availability-level questions
               questionList: {
-                nodes: [
-                  { id: 'aq-1', label: 'Pickup location', type: 'TEXT' },
-                ],
+                nodes: [{ id: 'aq-1', label: 'Pickup location', type: 'TEXT' }],
               },
               // Person-level questions
               personList: {
@@ -421,7 +433,9 @@ describe('L2B Booking Flow E2E Integration', () => {
       expect(questions.availabilityList.nodes[0]!.questionList.nodes).toHaveLength(1);
 
       // Verify person-level questions
-      expect(questions.availabilityList.nodes[0]!.personList.nodes[0]!.questionList.nodes).toHaveLength(2);
+      expect(
+        questions.availabilityList.nodes[0]!.personList.nodes[0]!.questionList.nodes
+      ).toHaveLength(2);
     });
   });
 });

@@ -76,10 +76,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     if (error instanceof Error) {
       if (error.message.includes('not found')) {
-        return NextResponse.json(
-          { error: 'Booking or availability not found' },
-          { status: 404 }
-        );
+        return NextResponse.json({ error: 'Booking or availability not found' }, { status: 404 });
       }
       if (error.message.includes('invalid') || error.message.includes('not valid')) {
         return NextResponse.json(
@@ -89,9 +86,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
     }
 
-    return NextResponse.json(
-      { error: 'Failed to add availability to booking' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to add availability to booking' }, { status: 500 });
   }
 }

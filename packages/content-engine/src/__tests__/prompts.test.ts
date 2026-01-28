@@ -155,7 +155,7 @@ describe('buildExperiencePrompt', () => {
     const prompt = buildExperiencePrompt(baseBrief);
     expect(prompt).toContain('Opening Hook');
     expect(prompt).toContain('Experience Overview');
-    expect(prompt).toContain('What You\'ll Discover');
+    expect(prompt).toContain("What You'll Discover");
     expect(prompt).toContain('Practical Details');
     expect(prompt).toContain('Call to Action');
   });

@@ -34,9 +34,7 @@ export async function generateMetadata(): Promise<Metadata> {
     description: site.seoConfig?.defaultDescription ?? site.description ?? '',
     keywords: site.seoConfig?.keywords ?? [],
     metadataBase: new URL(
-      site.primaryDomain
-        ? `https://${site.primaryDomain}`
-        : `https://${hostname}`
+      site.primaryDomain ? `https://${site.primaryDomain}` : `https://${hostname}`
     ),
     openGraph: {
       type: 'website',
@@ -62,11 +60,7 @@ export const viewport: Viewport = {
   themeColor: '#6366f1',
 };
 
-export default async function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const headersList = await headers();
   const hostname = headersList.get('host') ?? 'localhost';
   const site = await getSiteFromHostname(hostname);
@@ -74,9 +68,7 @@ export default async function RootLayout({
 
   return (
     <html lang="en" className={`${inter.variable} ${playfair.variable}`}>
-      <head>
-        {brandCSS && <style dangerouslySetInnerHTML={{ __html: brandCSS }} />}
-      </head>
+      <head>{brandCSS && <style dangerouslySetInnerHTML={{ __html: brandCSS }} />}</head>
       <body className="min-h-screen bg-white font-sans antialiased">
         <SiteProvider site={site}>
           <div className="flex min-h-screen flex-col">

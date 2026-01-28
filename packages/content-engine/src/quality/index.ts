@@ -11,20 +11,20 @@ import { buildQualityAssessmentPrompt } from '../prompts';
  * Quality score weights for calculating overall score
  */
 const SCORE_WEIGHTS: Record<keyof QualityScoreBreakdown, number> = {
-  factualAccuracy: 0.25,    // Critical - must match source data
-  seoCompliance: 0.20,      // Important for search visibility
-  readability: 0.15,        // User experience
-  uniqueness: 0.20,         // Differentiation from competitors
-  engagement: 0.20,         // Conversion potential
+  factualAccuracy: 0.25, // Critical - must match source data
+  seoCompliance: 0.2, // Important for search visibility
+  readability: 0.15, // User experience
+  uniqueness: 0.2, // Differentiation from competitors
+  engagement: 0.2, // Conversion potential
 };
 
 /**
  * Severity thresholds for automatic issue classification
  */
 const SEVERITY_THRESHOLDS = {
-  critical: 40,   // Score below this is critical
-  high: 60,       // Score below this is high severity
-  medium: 75,     // Score below this is medium severity
+  critical: 40, // Score below this is critical
+  high: 60, // Score below this is high severity
+  medium: 75, // Score below this is medium severity
   // Above 75 is low severity
 };
 
@@ -141,9 +141,11 @@ export class QualityGate {
 
       // Add issues for any category scoring below threshold
       const additionalIssues = this.generateScoreBasedIssues(breakdown);
-      issues.push(...additionalIssues.filter(
-        ai => !issues.some(i => i.type === ai.type && i.severity === ai.severity)
-      ));
+      issues.push(
+        ...additionalIssues.filter(
+          (ai) => !issues.some((i) => i.type === ai.type && i.severity === ai.severity)
+        )
+      );
 
       return {
         overallScore,
@@ -168,12 +170,14 @@ export class QualityGate {
           engagement: 0,
         },
         passed: false,
-        issues: [{
-          type: 'factual',
-          severity: 'critical',
-          description: 'Quality assessment failed to parse - content requires manual review',
-          suggestion: 'Please review the content manually or regenerate',
-        }],
+        issues: [
+          {
+            type: 'factual',
+            severity: 'critical',
+            description: 'Quality assessment failed to parse - content requires manual review',
+            suggestion: 'Please review the content manually or regenerate',
+          },
+        ],
         suggestions: ['Manual review required due to assessment error'],
         assessedAt: new Date(),
         assessedBy: this.model,
@@ -209,7 +213,13 @@ export class QualityGate {
    * Normalize issue type to valid enum value
    */
   private normalizeIssueType(type?: string): QualityIssue['type'] {
-    const validTypes: QualityIssue['type'][] = ['factual', 'seo', 'readability', 'uniqueness', 'engagement'];
+    const validTypes: QualityIssue['type'][] = [
+      'factual',
+      'seo',
+      'readability',
+      'uniqueness',
+      'engagement',
+    ];
     if (type && validTypes.includes(type as QualityIssue['type'])) {
       return type as QualityIssue['type'];
     }
@@ -287,7 +297,7 @@ export class QualityGate {
 
     // Must not have any critical or high severity issues
     const hasBlockingIssues = assessment.issues.some(
-      issue => issue.severity === 'critical' || issue.severity === 'high'
+      (issue) => issue.severity === 'critical' || issue.severity === 'high'
     );
 
     return !hasBlockingIssues;
@@ -298,7 +308,7 @@ export class QualityGate {
    */
   shouldRewrite(assessment: QualityAssessment): boolean {
     // If passed and no critical issues, don't need rewrite
-    if (assessment.passed && !assessment.issues.some(i => i.severity === 'critical')) {
+    if (assessment.passed && !assessment.issues.some((i) => i.severity === 'critical')) {
       return false;
     }
 
@@ -316,7 +326,7 @@ export class QualityGate {
   getRewriteIssues(assessment: QualityAssessment): QualityIssue[] {
     // Prioritize critical and high severity issues
     return assessment.issues
-      .filter(issue => issue.severity === 'critical' || issue.severity === 'high')
+      .filter((issue) => issue.severity === 'critical' || issue.severity === 'high')
       .sort((a, b) => {
         const severityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
         return severityOrder[a.severity] - severityOrder[b.severity];
@@ -326,10 +336,7 @@ export class QualityGate {
   /**
    * Calculate the improvement from a previous assessment
    */
-  calculateImprovement(
-    previous: QualityAssessment,
-    current: QualityAssessment
-  ): number {
+  calculateImprovement(previous: QualityAssessment, current: QualityAssessment): number {
     return current.overallScore - previous.overallScore;
   }
 

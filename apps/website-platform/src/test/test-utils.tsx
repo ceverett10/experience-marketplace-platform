@@ -14,10 +14,7 @@ interface CustomRenderOptions extends Omit<RenderOptions, 'wrapper'> {
 /**
  * Custom render function that wraps components with necessary providers
  */
-export function renderWithProviders(
-  ui: React.ReactElement,
-  options: CustomRenderOptions = {}
-) {
+export function renderWithProviders(ui: React.ReactElement, options: CustomRenderOptions = {}) {
   const { siteConfig = DEFAULT_SITE_CONFIG, ...renderOptions } = options;
 
   function Wrapper({ children }: WrapperProps) {
@@ -34,14 +31,20 @@ export function createMockSiteConfig(overrides: Partial<SiteConfig> = {}): SiteC
   return {
     ...DEFAULT_SITE_CONFIG,
     ...overrides,
-    brand: overrides.brand === null ? null : {
-      ...DEFAULT_SITE_CONFIG.brand!,
-      ...overrides.brand,
-    },
-    seoConfig: overrides.seoConfig === null ? null : {
-      ...DEFAULT_SITE_CONFIG.seoConfig!,
-      ...overrides.seoConfig,
-    },
+    brand:
+      overrides.brand === null
+        ? null
+        : {
+            ...DEFAULT_SITE_CONFIG.brand!,
+            ...overrides.brand,
+          },
+    seoConfig:
+      overrides.seoConfig === null
+        ? null
+        : {
+            ...DEFAULT_SITE_CONFIG.seoConfig!,
+            ...overrides.seoConfig,
+          },
   };
 }
 

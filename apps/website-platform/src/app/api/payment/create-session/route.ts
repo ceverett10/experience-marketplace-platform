@@ -52,10 +52,7 @@ export async function POST(request: NextRequest) {
     const booking = await client.getBooking(bookingId);
 
     if (!booking) {
-      return NextResponse.json(
-        { error: 'Booking not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
     }
 
     if (booking.status !== 'PENDING') {
@@ -126,15 +123,9 @@ export async function POST(request: NextRequest) {
     console.error('Create payment session error:', error);
 
     if (error instanceof Stripe.errors.StripeError) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    return NextResponse.json(
-      { error: 'Failed to create payment session' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to create payment session' }, { status: 500 });
   }
 }

@@ -96,7 +96,8 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
   },
   seoConfig: {
     titleTemplate: '%s | Experience Marketplace',
-    defaultDescription: 'Discover and book unique experiences, tours, and activities in your destination.',
+    defaultDescription:
+      'Discover and book unique experiences, tours, and activities in your destination.',
     keywords: ['experiences', 'tours', 'activities', 'travel', 'booking'],
   },
 };
@@ -107,10 +108,7 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
  */
 export async function getSiteFromHostname(hostname: string): Promise<SiteConfig> {
   // Remove port and www prefix for matching
-  const cleanHostname = hostname
-    .split(':')[0]
-    ?.replace(/^www\./, '')
-    ?? hostname;
+  const cleanHostname = hostname.split(':')[0]?.replace(/^www\./, '') ?? hostname;
 
   // Development: localhost or preview deployments
   if (

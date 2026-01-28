@@ -20,20 +20,20 @@ export type ContentStatus =
 
 // Quality Score Breakdown
 export interface QualityScoreBreakdown {
-  factualAccuracy: number;      // 0-100: How accurate vs source data
-  seoCompliance: number;        // 0-100: Keyword usage, structure, etc.
-  readability: number;          // 0-100: Flesch-Kincaid score converted
-  uniqueness: number;           // 0-100: Original content vs templates
-  engagement: number;           // 0-100: Hooks, CTAs, persuasiveness
+  factualAccuracy: number; // 0-100: How accurate vs source data
+  seoCompliance: number; // 0-100: Keyword usage, structure, etc.
+  readability: number; // 0-100: Flesch-Kincaid score converted
+  uniqueness: number; // 0-100: Original content vs templates
+  engagement: number; // 0-100: Hooks, CTAs, persuasiveness
 }
 
 // Quality Assessment Result
 export interface QualityAssessment {
-  overallScore: number;         // 0-100 weighted average
+  overallScore: number; // 0-100 weighted average
   breakdown: QualityScoreBreakdown;
-  passed: boolean;              // true if overallScore >= threshold
-  issues: QualityIssue[];       // List of identified issues
-  suggestions: string[];        // Improvement suggestions
+  passed: boolean; // true if overallScore >= threshold
+  issues: QualityIssue[]; // List of identified issues
+  suggestions: string[]; // Improvement suggestions
   assessedAt: Date;
   assessedBy: 'haiku' | 'sonnet' | 'opus';
 }
@@ -43,8 +43,8 @@ export interface QualityIssue {
   type: 'factual' | 'seo' | 'readability' | 'uniqueness' | 'engagement';
   severity: 'low' | 'medium' | 'high' | 'critical';
   description: string;
-  location?: string;            // Where in the content the issue occurs
-  suggestion?: string;          // How to fix it
+  location?: string; // Where in the content the issue occurs
+  suggestion?: string; // How to fix it
 }
 
 // Content Brief - Input for generation
@@ -61,9 +61,9 @@ export interface ContentBrief {
     min: number;
     max: number;
   };
-  includeElements?: string[];   // e.g., ['hero_section', 'faq', 'cta']
+  includeElements?: string[]; // e.g., ['hero_section', 'faq', 'cta']
   excludeElements?: string[];
-  sourceData?: Record<string, unknown>;  // Holibob product data, etc.
+  sourceData?: Record<string, unknown>; // Holibob product data, etc.
   competitorContent?: string[]; // URLs or content to differentiate from
 }
 
@@ -78,7 +78,7 @@ export interface GeneratedContent {
   title: string;
   metaTitle?: string;
   metaDescription?: string;
-  content: string;              // Main content body (HTML or Markdown)
+  content: string; // Main content body (HTML or Markdown)
   excerpt?: string;
 
   // SEO fields
@@ -100,7 +100,7 @@ export interface GeneratedContent {
   generatedAt: Date;
   generatedBy: 'haiku' | 'sonnet' | 'opus';
   tokensUsed: number;
-  estimatedCost: number;        // In USD
+  estimatedCost: number; // In USD
   generationTimeMs: number;
 
   // Rewrite tracking
@@ -124,24 +124,24 @@ export interface RewriteRecord {
 // Pipeline Configuration
 export interface PipelineConfig {
   // Model selection
-  draftModel: 'haiku' | 'sonnet';           // For initial draft
-  qualityModel: 'sonnet' | 'opus';          // For quality assessment
-  rewriteModel: 'haiku' | 'sonnet';         // For rewrites
+  draftModel: 'haiku' | 'sonnet'; // For initial draft
+  qualityModel: 'sonnet' | 'opus'; // For quality assessment
+  rewriteModel: 'haiku' | 'sonnet'; // For rewrites
 
   // Quality thresholds
-  qualityThreshold: number;                  // Minimum score to pass (0-100)
-  autoPublishThreshold: number;              // Score for auto-publish (0-100)
+  qualityThreshold: number; // Minimum score to pass (0-100)
+  autoPublishThreshold: number; // Score for auto-publish (0-100)
 
   // Rewrite settings
-  maxRewrites: number;                       // Max rewrite attempts
-  rewriteScoreImprovement: number;           // Min improvement to continue
+  maxRewrites: number; // Max rewrite attempts
+  rewriteScoreImprovement: number; // Min improvement to continue
 
   // Cost controls
-  maxCostPerContent: number;                 // Max USD per content piece
-  dailyCostLimit: number;                    // Daily budget in USD
+  maxCostPerContent: number; // Max USD per content piece
+  dailyCostLimit: number; // Daily budget in USD
 
   // Rate limiting
-  requestsPerMinute: number;                 // API rate limit
+  requestsPerMinute: number; // API rate limit
   maxConcurrentRequests: number;
 }
 
@@ -186,13 +186,13 @@ export interface CostRecord {
   model: string;
   inputTokens: number;
   outputTokens: number;
-  cost: number;                 // USD
+  cost: number; // USD
   operation: 'generate' | 'assess' | 'rewrite';
   timestamp: Date;
 }
 
 export interface DailyCostSummary {
-  date: string;                 // YYYY-MM-DD
+  date: string; // YYYY-MM-DD
   totalCost: number;
   byModel: Record<string, number>;
   byOperation: Record<string, number>;
@@ -244,8 +244,8 @@ export const DEFAULT_PIPELINE_CONFIG: PipelineConfig = {
   autoPublishThreshold: 90,
   maxRewrites: 3,
   rewriteScoreImprovement: 5,
-  maxCostPerContent: 0.50,      // 50 cents max per content
-  dailyCostLimit: 50.00,        // $50 daily limit
+  maxCostPerContent: 0.5, // 50 cents max per content
+  dailyCostLimit: 50.0, // $50 daily limit
   requestsPerMinute: 50,
   maxConcurrentRequests: 5,
 };

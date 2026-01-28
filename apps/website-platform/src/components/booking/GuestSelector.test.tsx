@@ -24,10 +24,7 @@ describe('GuestSelector', () => {
 
   it('renders guest type options', () => {
     renderWithProvider(
-      <GuestSelector
-        guestCounts={defaultGuestCounts}
-        onGuestCountChange={mockOnGuestCountChange}
-      />
+      <GuestSelector guestCounts={defaultGuestCounts} onGuestCountChange={mockOnGuestCountChange} />
     );
 
     expect(screen.getByText('Adults')).toBeInTheDocument();
@@ -84,10 +81,7 @@ describe('GuestSelector', () => {
 
   it('calls onGuestCountChange when incrementing', () => {
     renderWithProvider(
-      <GuestSelector
-        guestCounts={defaultGuestCounts}
-        onGuestCountChange={mockOnGuestCountChange}
-      />
+      <GuestSelector guestCounts={defaultGuestCounts} onGuestCountChange={mockOnGuestCountChange} />
     );
 
     const increaseButtons = screen.getAllByLabelText(/Increase.*count/i);
@@ -98,10 +92,7 @@ describe('GuestSelector', () => {
 
   it('calls onGuestCountChange when decrementing', () => {
     renderWithProvider(
-      <GuestSelector
-        guestCounts={defaultGuestCounts}
-        onGuestCountChange={mockOnGuestCountChange}
-      />
+      <GuestSelector guestCounts={defaultGuestCounts} onGuestCountChange={mockOnGuestCountChange} />
     );
 
     const decreaseButtons = screen.getAllByLabelText(/Decrease.*count/i);
@@ -179,7 +170,13 @@ describe('GuestSelector', () => {
   it('supports custom guest types', () => {
     const customGuestTypes = [
       { id: 'senior', name: 'Seniors', description: 'Ages 65+', price: 2500, currency: 'GBP' },
-      { id: 'student', name: 'Students', description: 'With valid ID', price: 2000, currency: 'GBP' },
+      {
+        id: 'student',
+        name: 'Students',
+        description: 'With valid ID',
+        price: 2000,
+        currency: 'GBP',
+      },
     ];
 
     renderWithProvider(
@@ -265,9 +262,7 @@ describe('GuestDetailsForm', () => {
     fireEvent.change(firstNameInput, { target: { value: 'John' } });
 
     expect(mockOnGuestDetailsChange).toHaveBeenCalledWith(
-      expect.arrayContaining([
-        expect.objectContaining({ firstName: 'John' }),
-      ])
+      expect.arrayContaining([expect.objectContaining({ firstName: 'John' })])
     );
   });
 

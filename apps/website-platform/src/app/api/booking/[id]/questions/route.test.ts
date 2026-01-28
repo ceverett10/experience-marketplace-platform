@@ -3,9 +3,11 @@ import { NextRequest } from 'next/server';
 
 // Mock the modules
 vi.mock('next/headers', () => ({
-  headers: vi.fn(() => Promise.resolve({
-    get: vi.fn().mockReturnValue('localhost:3000'),
-  })),
+  headers: vi.fn(() =>
+    Promise.resolve({
+      get: vi.fn().mockReturnValue('localhost:3000'),
+    })
+  ),
 }));
 
 vi.mock('@/lib/tenant', () => ({
@@ -54,9 +56,7 @@ describe('Booking Questions API Route - GET', () => {
     const mockBooking = {
       id: 'booking-123',
       questionList: {
-        nodes: [
-          { id: 'q1', label: 'Pickup location', answerValue: null },
-        ],
+        nodes: [{ id: 'q1', label: 'Pickup location', answerValue: null }],
       },
       availabilityList: {
         nodes: [
@@ -72,9 +72,7 @@ describe('Booking Questions API Route - GET', () => {
                   pricingCategoryLabel: 'Adult',
                   isQuestionsComplete: false,
                   questionList: {
-                    nodes: [
-                      { id: 'pq1', label: 'Full name', answerValue: null },
-                    ],
+                    nodes: [{ id: 'pq1', label: 'Full name', answerValue: null }],
                   },
                 },
               ],
@@ -129,9 +127,7 @@ describe('Booking Questions API Route - POST', () => {
     const request = new NextRequest('http://localhost:3000/api/booking/booking-123/questions', {
       method: 'POST',
       body: JSON.stringify({
-        questionList: [
-          { id: 'q1', value: 'Hotel lobby' },
-        ],
+        questionList: [{ id: 'q1', value: 'Hotel lobby' }],
       }),
     });
 
@@ -161,9 +157,7 @@ describe('Booking Questions API Route - POST', () => {
             personList: [
               {
                 id: 'person-1',
-                questionList: [
-                  { id: 'pq1', value: 'John Doe' },
-                ],
+                questionList: [{ id: 'pq1', value: 'John Doe' }],
               },
             ],
           },

@@ -9,11 +9,7 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
       include: ['src/**/*.ts'],
-      exclude: [
-        'src/**/*.test.ts',
-        'src/**/*.d.ts',
-        'prisma/**',
-      ],
+      exclude: ['src/**/*.test.ts', 'src/**/*.d.ts', 'prisma/**'],
       thresholds: {
         statements: 80,
         branches: 70,

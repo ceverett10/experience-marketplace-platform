@@ -25,11 +25,7 @@ export function Hero({ title, subtitle, backgroundImage }: HeroProps) {
       {/* Background */}
       <div className="absolute inset-0">
         {backgroundImage ? (
-          <img
-            src={backgroundImage}
-            alt=""
-            className="h-full w-full object-cover"
-          />
+          <img src={backgroundImage} alt="" className="h-full w-full object-cover" />
         ) : (
           <div
             className="h-full w-full"
@@ -47,9 +43,7 @@ export function Hero({ title, subtitle, backgroundImage }: HeroProps) {
           <h1 className="font-display text-4xl font-bold tracking-tight text-white sm:text-5xl lg:text-6xl">
             {heroTitle}
           </h1>
-          <p className="mx-auto mt-6 max-w-xl text-lg leading-8 text-white/90">
-            {heroSubtitle}
-          </p>
+          <p className="mx-auto mt-6 max-w-xl text-lg leading-8 text-white/90">{heroSubtitle}</p>
 
           {/* Search Bar */}
           <div className="mt-10">
@@ -59,17 +53,15 @@ export function Hero({ title, subtitle, backgroundImage }: HeroProps) {
           {/* Quick Links */}
           <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
             <span className="text-sm text-white/70">Popular:</span>
-            {['Tours', 'Day Trips', 'Food & Drink', 'Attractions'].map(
-              (category) => (
-                <a
-                  key={category}
-                  href={`/experiences?category=${category.toLowerCase().replace(/ & /g, '-')}`}
-                  className="rounded-full bg-white/20 px-4 py-1.5 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/30"
-                >
-                  {category}
-                </a>
-              )
-            )}
+            {['Tours', 'Day Trips', 'Food & Drink', 'Attractions'].map((category) => (
+              <a
+                key={category}
+                href={`/experiences?category=${category.toLowerCase().replace(/ & /g, '-')}`}
+                className="rounded-full bg-white/20 px-4 py-1.5 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/30"
+              >
+                {category}
+              </a>
+            ))}
           </div>
         </div>
       </div>

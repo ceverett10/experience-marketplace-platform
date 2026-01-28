@@ -109,32 +109,27 @@ describe('cn', () => {
 
     it('should handle conditional disabled state', () => {
       const isDisabled = true;
-      const classes = cn(
-        'btn',
-        isDisabled && 'opacity-50 cursor-not-allowed'
-      );
+      const classes = cn('btn', isDisabled && 'opacity-50 cursor-not-allowed');
 
       expect(classes).toBe('btn opacity-50 cursor-not-allowed');
     });
 
     it('should handle conditional active state', () => {
       const isActive = false;
-      const classes = cn(
-        'nav-item',
-        isActive && 'bg-primary text-white'
-      );
+      const classes = cn('nav-item', isActive && 'bg-primary text-white');
 
       expect(classes).toBe('nav-item');
     });
 
     it('should handle card component pattern', () => {
-      const classes = cn(
-        'rounded-lg border bg-card text-card-foreground shadow-sm',
-        'p-6',
-        { 'border-red-500': false, 'border-green-500': true }
-      );
+      const classes = cn('rounded-lg border bg-card text-card-foreground shadow-sm', 'p-6', {
+        'border-red-500': false,
+        'border-green-500': true,
+      });
 
-      expect(classes).toBe('rounded-lg border bg-card text-card-foreground shadow-sm p-6 border-green-500');
+      expect(classes).toBe(
+        'rounded-lg border bg-card text-card-foreground shadow-sm p-6 border-green-500'
+      );
     });
   });
 });

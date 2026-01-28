@@ -4,11 +4,11 @@ import React from 'react';
 export const Card = ({
   children,
   className,
-  onClick
+  onClick,
 }: {
   children: React.ReactNode;
   className?: string;
-  onClick?: () => void
+  onClick?: () => void;
 }) => (
   <div className={`${className || ''} cursor-pointer`} onClick={onClick} data-testid="card">
     {children}
@@ -17,10 +17,10 @@ export const Card = ({
 
 export const CardHeader = ({
   children,
-  className
+  className,
 }: {
   children: React.ReactNode;
-  className?: string
+  className?: string;
 }) => (
   <div className={className} data-testid="card-header">
     {children}
@@ -33,10 +33,10 @@ export const CardTitle = ({ children }: { children: React.ReactNode }) => (
 
 export const CardContent = ({
   children,
-  className
+  className,
 }: {
   children: React.ReactNode;
-  className?: string
+  className?: string;
 }) => (
   <div className={className} data-testid="card-content">
     {children}
@@ -48,12 +48,12 @@ export const Button = ({
   children,
   onClick,
   disabled,
-  className
+  className,
 }: {
   children: React.ReactNode;
   onClick?: () => void;
   disabled?: boolean;
-  className?: string
+  className?: string;
 }) => (
   <button onClick={onClick} disabled={disabled} className={className}>
     {children}

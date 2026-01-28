@@ -1,67 +1,77 @@
-"use client";
+'use client';
 
-import React, { useState, useEffect } from "react";
-import { Card, CardHeader, CardTitle, CardContent, Button } from "@experience-marketplace/ui-components";
+import React, { useState, useEffect } from 'react';
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  Button,
+} from '@experience-marketplace/ui-components';
 
 interface ContentItem {
   id: string;
-  type: "experience" | "collection" | "seo" | "blog";
+  type: 'experience' | 'collection' | 'seo' | 'blog';
   title: string;
   content: string;
   siteName: string;
-  status: "pending" | "approved" | "rejected" | "published";
+  status: 'pending' | 'approved' | 'rejected' | 'published';
   qualityScore: number;
   generatedAt: string;
 }
 
 const mockContent: ContentItem[] = [
   {
-    id: "1",
-    type: "experience",
-    title: "London Eye Sunset Experience",
-    content: "Experience the magic of London as the sun sets over the city skyline. This exclusive evening ride offers breathtaking panoramic views...",
-    siteName: "London Explorer",
-    status: "pending",
+    id: '1',
+    type: 'experience',
+    title: 'London Eye Sunset Experience',
+    content:
+      'Experience the magic of London as the sun sets over the city skyline. This exclusive evening ride offers breathtaking panoramic views...',
+    siteName: 'London Explorer',
+    status: 'pending',
     qualityScore: 92,
-    generatedAt: "2024-01-15T14:30:00Z",
+    generatedAt: '2024-01-15T14:30:00Z',
   },
   {
-    id: "2",
-    type: "collection",
-    title: "Best Paris Hidden Gems",
-    content: "Discover the Paris that locals love with this curated collection of off-the-beaten-path experiences...",
-    siteName: "Paris Highlights",
-    status: "approved",
+    id: '2',
+    type: 'collection',
+    title: 'Best Paris Hidden Gems',
+    content:
+      'Discover the Paris that locals love with this curated collection of off-the-beaten-path experiences...',
+    siteName: 'Paris Highlights',
+    status: 'approved',
     qualityScore: 88,
-    generatedAt: "2024-01-14T10:15:00Z",
+    generatedAt: '2024-01-14T10:15:00Z',
   },
   {
-    id: "3",
-    type: "seo",
-    title: "SEO: Tokyo Food Tours",
-    content: "Discover authentic Tokyo food tours with local guides. Experience ramen shops, sushi bars, and hidden izakayas.",
-    siteName: "Tokyo Adventures",
-    status: "published",
+    id: '3',
+    type: 'seo',
+    title: 'SEO: Tokyo Food Tours',
+    content:
+      'Discover authentic Tokyo food tours with local guides. Experience ramen shops, sushi bars, and hidden izakayas.',
+    siteName: 'Tokyo Adventures',
+    status: 'published',
     qualityScore: 95,
-    generatedAt: "2024-01-13T08:00:00Z",
+    generatedAt: '2024-01-13T08:00:00Z',
   },
   {
-    id: "4",
-    type: "blog",
-    title: "Top 10 Adventure Activities in New Zealand",
-    content: "New Zealand is a paradise for thrill-seekers. From bungee jumping in Queenstown to glacier hiking...",
-    siteName: "NZ Explorer",
-    status: "pending",
+    id: '4',
+    type: 'blog',
+    title: 'Top 10 Adventure Activities in New Zealand',
+    content:
+      'New Zealand is a paradise for thrill-seekers. From bungee jumping in Queenstown to glacier hiking...',
+    siteName: 'NZ Explorer',
+    status: 'pending',
     qualityScore: 78,
-    generatedAt: "2024-01-15T16:45:00Z",
+    generatedAt: '2024-01-15T16:45:00Z',
   },
 ];
 
 export default function AdminContentPage() {
   const [content, setContent] = useState<ContentItem[]>(mockContent);
   const [filteredContent, setFilteredContent] = useState<ContentItem[]>(mockContent);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedContent, setSelectedContent] = useState<ContentItem | null>(null);
 
   useEffect(() => {
@@ -75,7 +85,7 @@ export default function AdminContentPage() {
       );
     }
 
-    if (statusFilter !== "all") {
+    if (statusFilter !== 'all') {
       filtered = filtered.filter((item) => item.status === statusFilter);
     }
 
@@ -84,64 +94,68 @@ export default function AdminContentPage() {
 
   const stats = {
     total: content.length,
-    pending: content.filter((c) => c.status === "pending").length,
-    approved: content.filter((c) => c.status === "approved").length,
-    published: content.filter((c) => c.status === "published").length,
+    pending: content.filter((c) => c.status === 'pending').length,
+    approved: content.filter((c) => c.status === 'approved').length,
+    published: content.filter((c) => c.status === 'published').length,
   };
 
   const handleApprove = (id: string) => {
     setContent((prev) =>
-      prev.map((item) =>
-        item.id === id ? { ...item, status: "approved" as const } : item
-      )
+      prev.map((item) => (item.id === id ? { ...item, status: 'approved' as const } : item))
     );
     setSelectedContent(null);
   };
 
   const handleReject = (id: string) => {
     setContent((prev) =>
-      prev.map((item) =>
-        item.id === id ? { ...item, status: "rejected" as const } : item
-      )
+      prev.map((item) => (item.id === id ? { ...item, status: 'rejected' as const } : item))
     );
     setSelectedContent(null);
   };
 
   const handlePublish = (id: string) => {
     setContent((prev) =>
-      prev.map((item) =>
-        item.id === id ? { ...item, status: "published" as const } : item
-      )
+      prev.map((item) => (item.id === id ? { ...item, status: 'published' as const } : item))
     );
     setSelectedContent(null);
   };
 
-  const getStatusBadge = (status: ContentItem["status"]) => {
+  const getStatusBadge = (status: ContentItem['status']) => {
     switch (status) {
-      case "pending":
-        return <span className="bg-amber-100 text-amber-800 text-xs px-2 py-1 rounded">Pending</span>;
-      case "approved":
-        return <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">Approved</span>;
-      case "rejected":
+      case 'pending':
+        return (
+          <span className="bg-amber-100 text-amber-800 text-xs px-2 py-1 rounded">Pending</span>
+        );
+      case 'approved':
+        return (
+          <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">Approved</span>
+        );
+      case 'rejected':
         return <span className="bg-red-100 text-red-800 text-xs px-2 py-1 rounded">Rejected</span>;
-      case "published":
-        return <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">Published</span>;
+      case 'published':
+        return (
+          <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">Published</span>
+        );
     }
   };
 
-  const getTypeIcon = (type: ContentItem["type"]) => {
+  const getTypeIcon = (type: ContentItem['type']) => {
     switch (type) {
-      case "experience": return "🎯";
-      case "collection": return "📚";
-      case "seo": return "🔍";
-      case "blog": return "📝";
+      case 'experience':
+        return '🎯';
+      case 'collection':
+        return '📚';
+      case 'seo':
+        return '🔍';
+      case 'blog':
+        return '📝';
     }
   };
 
   const getQualityColor = (score: number) => {
-    if (score >= 85) return "text-green-600";
-    if (score >= 70) return "text-amber-600";
-    return "text-red-600";
+    if (score >= 85) return 'text-green-600';
+    if (score >= 70) return 'text-amber-600';
+    return 'text-red-600';
   };
 
   return (
@@ -167,7 +181,9 @@ export default function AdminContentPage() {
               <div className="mb-4">
                 <h4 className="text-xl font-semibold text-slate-900">{selectedContent.title}</h4>
                 <div className="flex items-center gap-4 mt-2 text-sm text-slate-500">
-                  <span>{getTypeIcon(selectedContent.type)} {selectedContent.type}</span>
+                  <span>
+                    {getTypeIcon(selectedContent.type)} {selectedContent.type}
+                  </span>
                 </div>
               </div>
 
@@ -182,7 +198,11 @@ export default function AdminContentPage() {
                 <div className="w-full bg-slate-200 rounded-full h-2">
                   <div
                     className={`h-2 rounded-full ${
-                      selectedContent.qualityScore >= 85 ? "bg-green-500" : selectedContent.qualityScore >= 70 ? "bg-amber-500" : "bg-red-500"
+                      selectedContent.qualityScore >= 85
+                        ? 'bg-green-500'
+                        : selectedContent.qualityScore >= 70
+                          ? 'bg-amber-500'
+                          : 'bg-red-500'
                     }`}
                     style={{ width: `${selectedContent.qualityScore}%` }}
                   />
@@ -199,7 +219,7 @@ export default function AdminContentPage() {
             <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between bg-slate-50">
               <div>{getStatusBadge(selectedContent.status)}</div>
               <div className="flex items-center gap-2">
-                {selectedContent.status === "pending" && (
+                {selectedContent.status === 'pending' && (
                   <>
                     <Button
                       onClick={() => handleReject(selectedContent.id)}
@@ -215,7 +235,7 @@ export default function AdminContentPage() {
                     </Button>
                   </>
                 )}
-                {selectedContent.status === "approved" && (
+                {selectedContent.status === 'approved' && (
                   <Button
                     onClick={() => handlePublish(selectedContent.id)}
                     className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm"
@@ -239,25 +259,37 @@ export default function AdminContentPage() {
 
       {/* Stats cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setStatusFilter("all")}>
+        <Card
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => setStatusFilter('all')}
+        >
           <CardContent className="p-4">
             <p className="text-2xl font-bold text-slate-900">{stats.total}</p>
             <p className="text-sm text-slate-500">Total</p>
           </CardContent>
         </Card>
-        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setStatusFilter("pending")}>
+        <Card
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => setStatusFilter('pending')}
+        >
           <CardContent className="p-4">
             <p className="text-2xl font-bold text-amber-600">{stats.pending}</p>
             <p className="text-sm text-slate-500">Pending</p>
           </CardContent>
         </Card>
-        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setStatusFilter("approved")}>
+        <Card
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => setStatusFilter('approved')}
+        >
           <CardContent className="p-4">
             <p className="text-2xl font-bold text-green-600">{stats.approved}</p>
             <p className="text-sm text-slate-500">Approved</p>
           </CardContent>
         </Card>
-        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setStatusFilter("published")}>
+        <Card
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => setStatusFilter('published')}
+        >
           <CardContent className="p-4">
             <p className="text-2xl font-bold text-blue-600">{stats.published}</p>
             <p className="text-sm text-slate-500">Published</p>
@@ -297,9 +329,9 @@ export default function AdminContentPage() {
             <div className="text-4xl mb-4">📄</div>
             <h3 className="text-lg font-medium text-slate-900">No content found</h3>
             <p className="text-slate-500 mt-1">
-              {searchQuery || statusFilter !== "all"
-                ? "Try adjusting your filters"
-                : "No AI-generated content available"}
+              {searchQuery || statusFilter !== 'all'
+                ? 'Try adjusting your filters'
+                : 'No AI-generated content available'}
             </p>
           </CardContent>
         </Card>
@@ -312,9 +344,13 @@ export default function AdminContentPage() {
                   <div className="flex items-start gap-4 flex-1">
                     <div
                       className={`h-12 w-12 rounded-xl flex items-center justify-center text-2xl ${
-                        item.status === "pending" ? "bg-amber-100" :
-                        item.status === "approved" ? "bg-green-100" :
-                        item.status === "rejected" ? "bg-red-100" : "bg-blue-100"
+                        item.status === 'pending'
+                          ? 'bg-amber-100'
+                          : item.status === 'approved'
+                            ? 'bg-green-100'
+                            : item.status === 'rejected'
+                              ? 'bg-red-100'
+                              : 'bg-blue-100'
                       }`}
                     >
                       {getTypeIcon(item.type)}
@@ -328,7 +364,10 @@ export default function AdminContentPage() {
                       <p className="text-sm text-slate-600 line-clamp-2">{item.content}</p>
                       <div className="flex items-center gap-4 mt-3 text-xs text-slate-500">
                         <span className="flex items-center gap-1">
-                          ✨ Quality: <span className={getQualityColor(item.qualityScore)}>{item.qualityScore}/100</span>
+                          ✨ Quality:{' '}
+                          <span className={getQualityColor(item.qualityScore)}>
+                            {item.qualityScore}/100
+                          </span>
                         </span>
                         <span>Generated: {new Date(item.generatedAt).toLocaleDateString()}</span>
                       </div>
@@ -343,7 +382,7 @@ export default function AdminContentPage() {
                     >
                       👁️
                     </button>
-                    {item.status === "pending" && (
+                    {item.status === 'pending' && (
                       <>
                         <button
                           onClick={() => handleReject(item.id)}
@@ -361,7 +400,7 @@ export default function AdminContentPage() {
                         </button>
                       </>
                     )}
-                    {item.status === "approved" && (
+                    {item.status === 'approved' && (
                       <button
                         onClick={() => handlePublish(item.id)}
                         className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"

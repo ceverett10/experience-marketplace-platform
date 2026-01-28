@@ -130,10 +130,12 @@ export function SearchBar({
         <button
           type="submit"
           className="flex items-center justify-center gap-2 rounded-xl px-6 py-4 text-base font-semibold text-white transition-all hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2"
-          style={{
-            backgroundColor: brand?.primaryColor ?? '#6366f1',
-            '--tw-ring-color': brand?.primaryColor ?? '#6366f1',
-          } as React.CSSProperties}
+          style={
+            {
+              backgroundColor: brand?.primaryColor ?? '#6366f1',
+              '--tw-ring-color': brand?.primaryColor ?? '#6366f1',
+            } as React.CSSProperties
+          }
         >
           <svg
             className="h-5 w-5"

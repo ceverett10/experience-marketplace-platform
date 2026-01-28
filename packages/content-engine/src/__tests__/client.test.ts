@@ -32,7 +32,7 @@ describe('ClaudeClient', () => {
 
     it('should create client with custom config', () => {
       const client = new ClaudeClient({
-        dailyCostLimit: 100.00,
+        dailyCostLimit: 100.0,
         rateLimiter: { requestsPerMinute: 100, maxConcurrentRequests: 10 },
       });
       expect(client).toBeInstanceOf(ClaudeClient);
@@ -67,13 +67,13 @@ describe('ClaudeClient', () => {
 
   describe('canAfford', () => {
     it('should return true when within budget', () => {
-      const client = new ClaudeClient({ dailyCostLimit: 50.00 });
-      expect(client.canAfford(10.00)).toBe(true);
+      const client = new ClaudeClient({ dailyCostLimit: 50.0 });
+      expect(client.canAfford(10.0)).toBe(true);
     });
 
     it('should return false when exceeding budget', () => {
-      const client = new ClaudeClient({ dailyCostLimit: 5.00 });
-      expect(client.canAfford(10.00)).toBe(false);
+      const client = new ClaudeClient({ dailyCostLimit: 5.0 });
+      expect(client.canAfford(10.0)).toBe(false);
     });
   });
 
@@ -92,11 +92,11 @@ describe('ClaudeClient', () => {
     });
 
     it('should start with zero costs', () => {
-      const client = new ClaudeClient({ dailyCostLimit: 50.00 });
+      const client = new ClaudeClient({ dailyCostLimit: 50.0 });
       const summary = client.getDailyCostSummary();
 
       expect(summary.totalCost).toBe(0);
-      expect(summary.remaining).toBe(50.00);
+      expect(summary.remaining).toBe(50.0);
     });
   });
 });
@@ -149,7 +149,7 @@ describe('CostTracker', () => {
     tracker.recordCost('claude-3-5-haiku-20241022', 1000, 500, 'generate', 'c1');
     tracker.recordCost('claude-3-5-sonnet-20241022', 2000, 1000, 'assess', 'c1');
 
-    const summary = tracker.getDailySummary(50.00);
+    const summary = tracker.getDailySummary(50.0);
 
     expect(summary.contentCount).toBe(1);
     expect(summary.byOperation).toHaveProperty('generate');

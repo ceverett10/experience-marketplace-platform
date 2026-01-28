@@ -99,10 +99,9 @@ export class HolibobClient {
    * Get a single product by ID with full details
    */
   async getProduct(productId: string): Promise<Product | null> {
-    const response = await this.executeQuery<{ product: Product | null }>(
-      PRODUCT_DETAIL_QUERY,
-      { id: productId }
-    );
+    const response = await this.executeQuery<{ product: Product | null }>(PRODUCT_DETAIL_QUERY, {
+      id: productId,
+    });
 
     return response.product;
   }
@@ -324,10 +323,7 @@ export class HolibobClient {
    * Answer booking questions
    * Must iterate until canCommit = true
    */
-  async answerBookingQuestions(
-    bookingId: string,
-    input: BookingInput
-  ): Promise<Booking> {
+  async answerBookingQuestions(bookingId: string, input: BookingInput): Promise<Booking> {
     const response = await this.executeQuery<{
       booking: Booking;
     }>(BOOKING_ANSWER_QUESTIONS_QUERY, {
@@ -424,10 +420,7 @@ export class HolibobClient {
   /**
    * Cancel a booking
    */
-  async cancelBooking(
-    selector: BookingSelectorInput,
-    reason?: string
-  ): Promise<Booking> {
+  async cancelBooking(selector: BookingSelectorInput, reason?: string): Promise<Booking> {
     const response = await this.executeQuery<{
       bookingCancel: Booking;
     }>(BOOKING_CANCEL_MUTATION, {
@@ -456,10 +449,7 @@ export class HolibobClient {
   /**
    * Get places, optionally filtered by parent or type
    */
-  async getPlaces(options?: {
-    parentId?: string;
-    type?: PlaceType;
-  }): Promise<Place[]> {
+  async getPlaces(options?: { parentId?: string; type?: PlaceType }): Promise<Place[]> {
     const response = await this.executeQuery<{
       placeList: { nodes: Place[] };
     }>(PLACES_QUERY, options);
@@ -496,10 +486,7 @@ export class HolibobClient {
    * Complete booking flow helper:
    * Answers questions → Commits → Waits for confirmation
    */
-  async completeBookingFlow(
-    bookingId: string,
-    questionAnswers: BookingInput
-  ): Promise<Booking> {
+  async completeBookingFlow(bookingId: string, questionAnswers: BookingInput): Promise<Booking> {
     // Answer questions
     let booking = await this.answerBookingQuestions(bookingId, questionAnswers);
 
@@ -534,7 +521,7 @@ export class HolibobClient {
     // Convert to legacy format
     return {
       productId,
-      options: result.nodes.map(slot => ({
+      options: result.nodes.map((slot) => ({
         id: slot.id,
         date: slot.date,
         price: 0, // Would need pricing call to get this
@@ -548,10 +535,7 @@ export class HolibobClient {
   // HELPERS
   // ==========================================================================
 
-  private async executeQuery<T>(
-    query: string,
-    variables?: Record<string, unknown>
-  ): Promise<T> {
+  private async executeQuery<T>(query: string, variables?: Record<string, unknown>): Promise<T> {
     let lastError: Error | null = null;
 
     for (let attempt = 1; attempt <= (this.config.retries ?? 3); attempt++) {
@@ -600,16 +584,15 @@ export class HolibobClient {
         children: filter.children ?? 0,
         infants: filter.infants ?? 0,
       },
-      what: filter.categoryIds
-        ? { categoryIds: filter.categoryIds }
-        : undefined,
-      price: filter.priceMin || filter.priceMax
-        ? {
-            min: filter.priceMin,
-            max: filter.priceMax,
-            currency: filter.currency,
-          }
-        : undefined,
+      what: filter.categoryIds ? { categoryIds: filter.categoryIds } : undefined,
+      price:
+        filter.priceMin || filter.priceMax
+          ? {
+              min: filter.priceMin,
+              max: filter.priceMax,
+              currency: filter.currency,
+            }
+          : undefined,
     };
   }
 

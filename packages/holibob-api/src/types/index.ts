@@ -109,9 +109,11 @@ export const ProductSchema = z.object({
 
   // Media
   imageUrl: z.string().optional(),
-  imageList: z.object({
-    nodes: z.array(ProductImageSchema),
-  }).optional(),
+  imageList: z
+    .object({
+      nodes: z.array(ProductImageSchema),
+    })
+    .optional(),
   images: z.array(ProductImageSchema).optional(),
 
   // Details
@@ -126,9 +128,11 @@ export const ProductSchema = z.object({
   location: ProductLocationSchema.optional(),
 
   // Categorization
-  categoryList: z.object({
-    nodes: z.array(ProductCategorySchema),
-  }).optional(),
+  categoryList: z
+    .object({
+      nodes: z.array(ProductCategorySchema),
+    })
+    .optional(),
   categories: z.array(ProductCategorySchema).optional(),
   tags: z.array(z.string()).optional(),
 
@@ -220,9 +224,11 @@ export const AvailabilityOptionSchema = z.object({
   availableOptions: z.array(AvailableOptionChoiceSchema).optional(),
   answerValue: z.string().nullable().optional(),
   answerFormattedText: z.string().nullable().optional(),
-  errorList: z.object({
-    nodes: z.array(z.string()),
-  }).optional(),
+  errorList: z
+    .object({
+      nodes: z.array(z.string()),
+    })
+    .optional(),
 });
 
 export type AvailabilityOption = z.infer<typeof AvailabilityOptionSchema>;
@@ -329,9 +335,11 @@ export const AvailabilityDetailSchema = z.object({
   maxParticipants: z.number().optional(),
   isValid: z.boolean().optional(),
   totalPrice: PriceSchema.optional(),
-  pricingCategoryList: z.object({
-    nodes: z.array(PricingCategorySchema),
-  }).optional(),
+  pricingCategoryList: z
+    .object({
+      nodes: z.array(PricingCategorySchema),
+    })
+    .optional(),
 });
 
 export type AvailabilityDetail = z.infer<typeof AvailabilityDetailSchema>;
@@ -341,10 +349,14 @@ export type AvailabilityDetail = z.infer<typeof AvailabilityDetailSchema>;
  */
 export const AvailabilityInputSchema = z.object({
   optionList: z.array(AvailabilityOptionInputSchema).optional(),
-  pricingCategoryList: z.array(z.object({
-    id: z.string(),
-    units: z.number(),
-  })).optional(),
+  pricingCategoryList: z
+    .array(
+      z.object({
+        id: z.string(),
+        units: z.number(),
+      })
+    )
+    .optional(),
 });
 
 export type AvailabilityInput = z.infer<typeof AvailabilityInputSchema>;
@@ -420,9 +432,11 @@ export const BookingPersonSchema = z.object({
   id: z.string(),
   pricingCategoryLabel: z.string().optional(),
   isQuestionsComplete: z.boolean().optional(),
-  questionList: z.object({
-    nodes: z.array(BookingQuestionSchema),
-  }).optional(),
+  questionList: z
+    .object({
+      nodes: z.array(BookingQuestionSchema),
+    })
+    .optional(),
 });
 
 export type BookingPerson = z.infer<typeof BookingPersonSchema>;
@@ -434,21 +448,29 @@ export const BookingAvailabilitySchema = z.object({
   id: z.string(),
   date: z.string(),
   startTime: z.string().optional(),
-  product: z.object({
-    id: z.string(),
-    name: z.string(),
-    shortDescription: z.string().optional(),
-    imageList: z.object({
-      nodes: z.array(ProductImageSchema),
-    }).optional(),
-  }).optional(),
+  product: z
+    .object({
+      id: z.string(),
+      name: z.string(),
+      shortDescription: z.string().optional(),
+      imageList: z
+        .object({
+          nodes: z.array(ProductImageSchema),
+        })
+        .optional(),
+    })
+    .optional(),
   totalPrice: PriceSchema.optional(),
-  questionList: z.object({
-    nodes: z.array(BookingQuestionSchema),
-  }).optional(),
-  personList: z.object({
-    nodes: z.array(BookingPersonSchema),
-  }).optional(),
+  questionList: z
+    .object({
+      nodes: z.array(BookingQuestionSchema),
+    })
+    .optional(),
+  personList: z
+    .object({
+      nodes: z.array(BookingPersonSchema),
+    })
+    .optional(),
 });
 
 export type BookingAvailability = z.infer<typeof BookingAvailabilitySchema>;
@@ -512,14 +534,18 @@ export const BookingSchema = z.object({
   totalPrice: PriceSchema.optional(),
 
   // Questions at booking level
-  questionList: z.object({
-    nodes: z.array(BookingQuestionSchema),
-  }).optional(),
+  questionList: z
+    .object({
+      nodes: z.array(BookingQuestionSchema),
+    })
+    .optional(),
 
   // Availabilities (items) in booking
-  availabilityList: z.object({
-    nodes: z.array(BookingAvailabilitySchema),
-  }).optional(),
+  availabilityList: z
+    .object({
+      nodes: z.array(BookingAvailabilitySchema),
+    })
+    .optional(),
 
   // Timestamps
   createdAt: z.string().optional(),
@@ -576,14 +602,22 @@ export type BookingQuestionAnswer = z.infer<typeof BookingQuestionAnswerSchema>;
 
 export const BookingInputSchema = z.object({
   questionList: z.array(BookingQuestionAnswerSchema).optional(),
-  availabilityList: z.array(z.object({
-    id: z.string(),
-    questionList: z.array(BookingQuestionAnswerSchema).optional(),
-    personList: z.array(z.object({
-      id: z.string(),
-      questionList: z.array(BookingQuestionAnswerSchema).optional(),
-    })).optional(),
-  })).optional(),
+  availabilityList: z
+    .array(
+      z.object({
+        id: z.string(),
+        questionList: z.array(BookingQuestionAnswerSchema).optional(),
+        personList: z
+          .array(
+            z.object({
+              id: z.string(),
+              questionList: z.array(BookingQuestionAnswerSchema).optional(),
+            })
+          )
+          .optional(),
+      })
+    )
+    .optional(),
 });
 
 export type BookingInput = z.infer<typeof BookingInputSchema>;
@@ -632,13 +666,7 @@ export const CategorySchema = z.object({
 
 export type Category = z.infer<typeof CategorySchema>;
 
-export const PlaceTypeSchema = z.enum([
-  'COUNTRY',
-  'REGION',
-  'CITY',
-  'DISTRICT',
-  'POI',
-]);
+export const PlaceTypeSchema = z.enum(['COUNTRY', 'REGION', 'CITY', 'DISTRICT', 'POI']);
 
 export type PlaceType = z.infer<typeof PlaceTypeSchema>;
 
@@ -689,34 +717,44 @@ export type CreateBookingInput = BookingCreateInput;
 // Legacy availability response (simplified)
 export const AvailabilityResponseSchema = z.object({
   productId: z.string(),
-  options: z.array(z.object({
-    id: z.string(),
-    name: z.string().optional(),
-    description: z.string().optional(),
-    price: z.number(),
-    originalPrice: z.number().optional(),
-    currency: z.string(),
-    date: z.string(),
-    startTime: z.string().optional(),
-    endTime: z.string().optional(),
-    maxCapacity: z.number().optional(),
-    remainingCapacity: z.number().optional(),
-    guestTypes: z.array(z.object({
+  options: z.array(
+    z.object({
       id: z.string(),
-      name: z.string(),
-      minAge: z.number().optional(),
-      maxAge: z.number().optional(),
+      name: z.string().optional(),
+      description: z.string().optional(),
       price: z.number(),
-    })).optional(),
-    extras: z.array(z.object({
-      id: z.string(),
-      name: z.string(),
-      price: z.number(),
-      isRequired: z.boolean().optional(),
-    })).optional(),
-    cutoffMinutes: z.number().optional(),
-    instantConfirmation: z.boolean().optional(),
-  })),
+      originalPrice: z.number().optional(),
+      currency: z.string(),
+      date: z.string(),
+      startTime: z.string().optional(),
+      endTime: z.string().optional(),
+      maxCapacity: z.number().optional(),
+      remainingCapacity: z.number().optional(),
+      guestTypes: z
+        .array(
+          z.object({
+            id: z.string(),
+            name: z.string(),
+            minAge: z.number().optional(),
+            maxAge: z.number().optional(),
+            price: z.number(),
+          })
+        )
+        .optional(),
+      extras: z
+        .array(
+          z.object({
+            id: z.string(),
+            name: z.string(),
+            price: z.number(),
+            isRequired: z.boolean().optional(),
+          })
+        )
+        .optional(),
+      cutoffMinutes: z.number().optional(),
+      instantConfirmation: z.boolean().optional(),
+    })
+  ),
 });
 
 export type AvailabilityResponse = z.infer<typeof AvailabilityResponseSchema>;

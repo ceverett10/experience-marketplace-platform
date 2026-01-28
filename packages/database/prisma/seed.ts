@@ -37,7 +37,8 @@ async function main() {
       isAutomatic: true,
       seoConfig: {
         titleTemplate: '%s | Barcelona Adventures',
-        defaultDescription: 'Discover amazing tours, activities, and experiences in Barcelona. Book tickets online with instant confirmation.',
+        defaultDescription:
+          'Discover amazing tours, activities, and experiences in Barcelona. Book tickets online with instant confirmation.',
         keywords: ['barcelona tours', 'barcelona activities', 'things to do in barcelona'],
       },
     },
@@ -71,7 +72,8 @@ async function main() {
       type: 'HOMEPAGE',
       title: 'Barcelona Adventures - Tours & Activities',
       metaTitle: 'Barcelona Adventures | Best Tours & Activities in Barcelona',
-      metaDescription: 'Discover the best tours, activities, and experiences in Barcelona. Book online with instant confirmation and skip-the-line access.',
+      metaDescription:
+        'Discover the best tours, activities, and experiences in Barcelona. Book online with instant confirmation and skip-the-line access.',
       status: 'PUBLISHED',
       siteId: site.id,
       publishedAt: new Date(),
@@ -84,7 +86,8 @@ async function main() {
       type: 'CATEGORY',
       title: 'Barcelona Tours',
       metaTitle: 'Best Barcelona Tours 2026 | Guided Tours & Day Trips',
-      metaDescription: 'Explore Barcelona with our curated selection of guided tours. From Gaudi architecture to wine tasting, find your perfect Barcelona tour.',
+      metaDescription:
+        'Explore Barcelona with our curated selection of guided tours. From Gaudi architecture to wine tasting, find your perfect Barcelona tour.',
       status: 'PUBLISHED',
       siteId: site.id,
       publishedAt: new Date(),
@@ -99,7 +102,7 @@ async function main() {
       keyword: 'sagrada familia skip the line tickets',
       searchVolume: 12000,
       difficulty: 45,
-      cpc: 2.50,
+      cpc: 2.5,
       intent: 'TRANSACTIONAL',
       niche: 'barcelona-attractions',
       location: 'ES',

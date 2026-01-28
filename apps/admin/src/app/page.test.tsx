@@ -8,7 +8,9 @@ describe('AdminDashboardPage', () => {
     renderWithProviders(<AdminDashboardPage />);
 
     expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeInTheDocument();
-    expect(screen.getByText('Overview of your Experience Marketplace platform')).toBeInTheDocument();
+    expect(
+      screen.getByText('Overview of your Experience Marketplace platform')
+    ).toBeInTheDocument();
   });
 
   it('should render stat cards with correct values', () => {
@@ -36,7 +38,7 @@ describe('AdminDashboardPage', () => {
     renderWithProviders(<AdminDashboardPage />);
 
     expect(screen.getByText('↑ 25%')).toBeInTheDocument(); // sites
-    expect(screen.getByText('↑ 8%')).toBeInTheDocument();  // bookings
+    expect(screen.getByText('↑ 8%')).toBeInTheDocument(); // bookings
     expect(screen.getByText('↑ 15%')).toBeInTheDocument(); // revenue
   });
 
@@ -45,7 +47,10 @@ describe('AdminDashboardPage', () => {
 
     expect(screen.getByText('5 content items pending review')).toBeInTheDocument();
     expect(screen.getByText('Review and approve AI-generated content')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Review Content' })).toHaveAttribute('href', '/content');
+    expect(screen.getByRole('link', { name: 'Review Content' })).toHaveAttribute(
+      'href',
+      '/content'
+    );
   });
 
   it('should render top performing sites table', () => {
@@ -132,9 +137,12 @@ describe('AdminDashboardPage', () => {
     expect(refreshButton).toBeDisabled();
 
     // Wait for loading to complete
-    await waitFor(() => {
-      expect(refreshButton).not.toBeDisabled();
-    }, { timeout: 2000 });
+    await waitFor(
+      () => {
+        expect(refreshButton).not.toBeDisabled();
+      },
+      { timeout: 2000 }
+    );
   });
 
   it('should render View all link for top sites', () => {
@@ -147,11 +155,11 @@ describe('AdminDashboardPage', () => {
   it('should render external site links', () => {
     renderWithProviders(<AdminDashboardPage />);
 
-    const externalLinks = screen.getAllByRole('link').filter(
-      link => link.getAttribute('target') === '_blank'
-    );
+    const externalLinks = screen
+      .getAllByRole('link')
+      .filter((link) => link.getAttribute('target') === '_blank');
     expect(externalLinks.length).toBeGreaterThan(0);
-    externalLinks.forEach(link => {
+    externalLinks.forEach((link) => {
       expect(link).toHaveAttribute('rel', 'noopener noreferrer');
     });
   });
@@ -160,9 +168,9 @@ describe('AdminDashboardPage', () => {
     renderWithProviders(<AdminDashboardPage />);
 
     // The Total Sites card should link to /sites
-    const sitesLinks = screen.getAllByRole('link').filter(
-      link => link.getAttribute('href') === '/sites'
-    );
+    const sitesLinks = screen
+      .getAllByRole('link')
+      .filter((link) => link.getAttribute('href') === '/sites');
     expect(sitesLinks.length).toBeGreaterThan(0);
   });
 });

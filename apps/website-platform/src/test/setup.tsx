@@ -25,7 +25,11 @@ vi.mock('next/headers', () => ({
 // Mock Next.js Link component
 vi.mock('next/link', () => ({
   default: ({ children, href, ...props }: { children: React.ReactNode; href: string }) => {
-    return <a href={href} {...props}>{children}</a>;
+    return (
+      <a href={href} {...props}>
+        {children}
+      </a>
+    );
   },
 }));
 

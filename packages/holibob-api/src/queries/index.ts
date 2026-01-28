@@ -9,16 +9,8 @@ import { gql } from 'graphql-request';
  * Use productList query with filters and pagination
  */
 export const PRODUCT_LIST_QUERY = gql`
-  query ProductList(
-    $filter: ProductFilterInput
-    $first: Int
-    $after: String
-  ) {
-    productList(
-      filter: $filter
-      first: $first
-      after: $after
-    ) {
+  query ProductList($filter: ProductFilterInput, $first: Int, $after: String) {
+    productList(filter: $filter, first: $first, after: $after) {
       nodes {
         id
         name
@@ -121,11 +113,7 @@ export const AVAILABILITY_LIST_QUERY = gql`
     $sessionId: String
     $optionList: [AvailabilityOptionInput!]
   ) {
-    availabilityList(
-      productId: $productId
-      sessionId: $sessionId
-      optionList: $optionList
-    ) {
+    availabilityList(productId: $productId, sessionId: $sessionId, optionList: $optionList) {
       sessionId
       nodes {
         id
@@ -184,10 +172,7 @@ export const AVAILABILITY_QUERY = gql`
  * Set option answers for an availability
  */
 export const AVAILABILITY_SET_OPTIONS_QUERY = gql`
-  query AvailabilitySetOptions(
-    $id: ID!
-    $input: AvailabilityInput!
-  ) {
+  query AvailabilitySetOptions($id: ID!, $input: AvailabilityInput!) {
     availability(id: $id, input: $input) {
       id
       optionList {
@@ -260,10 +245,7 @@ export const AVAILABILITY_PRICING_QUERY = gql`
  * Set units for pricing categories
  */
 export const AVAILABILITY_SET_PRICING_QUERY = gql`
-  query AvailabilitySetPricing(
-    $id: ID!
-    $input: AvailabilityInput!
-  ) {
+  query AvailabilitySetPricing($id: ID!, $input: AvailabilityInput!) {
     availability(id: $id, input: $input) {
       id
       isValid
@@ -510,16 +492,8 @@ export const BOOKING_FULL_QUERY = gql`
  * List bookings for a consumer trip or consumer
  */
 export const BOOKING_LIST_QUERY = gql`
-  query BookingList(
-    $filter: BookingListFilterInput
-    $first: Int
-    $after: String
-  ) {
-    bookingList(
-      filter: $filter
-      first: $first
-      after: $after
-    ) {
+  query BookingList($filter: BookingListFilterInput, $first: Int, $after: String) {
+    bookingList(filter: $filter, first: $first, after: $after) {
       recordCount
       nodes {
         code

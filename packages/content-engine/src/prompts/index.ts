@@ -81,8 +81,12 @@ export function buildDestinationPrompt(brief: ContentBrief): string {
    - Unique value proposition
    - Clear CTA
 
-${sourceData ? `## Source Data (Use as factual reference)
-${JSON.stringify(sourceData, null, 2)}` : ''}
+${
+  sourceData
+    ? `## Source Data (Use as factual reference)
+${JSON.stringify(sourceData, null, 2)}`
+    : ''
+}
 
 ## Output Format
 Return the content in HTML format with semantic headings (h2, h3), paragraphs, and lists where appropriate.
@@ -93,7 +97,15 @@ Do not include <html>, <head>, or <body> tags - just the content.`;
  * Category page content prompt
  */
 export function buildCategoryPrompt(brief: ContentBrief): string {
-  const { targetKeyword, secondaryKeywords, category, destination, sourceData, tone, targetLength } = brief;
+  const {
+    targetKeyword,
+    secondaryKeywords,
+    category,
+    destination,
+    sourceData,
+    tone,
+    targetLength,
+  } = brief;
 
   return `Create engaging category page content for "${category}" experiences${destination ? ` in ${destination}` : ''}, targeting the keyword "${targetKeyword}".
 
@@ -123,8 +135,12 @@ export function buildCategoryPrompt(brief: ContentBrief): string {
    - Group size considerations
    - Preparation advice
 
-${sourceData ? `## Source Data
-${JSON.stringify(sourceData, null, 2)}` : ''}
+${
+  sourceData
+    ? `## Source Data
+${JSON.stringify(sourceData, null, 2)}`
+    : ''
+}
 
 ## Output Format
 Return HTML content with semantic structure. No wrapper tags.`;
@@ -136,21 +152,25 @@ Return HTML content with semantic structure. No wrapper tags.`;
 export function buildExperiencePrompt(brief: ContentBrief): string {
   const { targetKeyword, secondaryKeywords, sourceData, tone, targetLength } = brief;
 
-  const experienceData = sourceData as {
-    title?: string;
-    description?: string;
-    duration?: string;
-    price?: string;
-    location?: string;
-    highlights?: string[];
-    inclusions?: string[];
-    exclusions?: string[];
-  } | undefined;
+  const experienceData = sourceData as
+    | {
+        title?: string;
+        description?: string;
+        duration?: string;
+        price?: string;
+        location?: string;
+        highlights?: string[];
+        inclusions?: string[];
+        exclusions?: string[];
+      }
+    | undefined;
 
   return `Create a compelling experience description for "${experienceData?.title || 'this experience'}", targeting the keyword "${targetKeyword}".
 
 ## Experience Details
-${experienceData ? `
+${
+  experienceData
+    ? `
 - Title: ${experienceData.title || 'N/A'}
 - Duration: ${experienceData.duration || 'N/A'}
 - Price: ${experienceData.price || 'N/A'}
@@ -158,7 +178,9 @@ ${experienceData ? `
 - Highlights: ${experienceData.highlights?.join(', ') || 'N/A'}
 - Inclusions: ${experienceData.inclusions?.join(', ') || 'N/A'}
 - Exclusions: ${experienceData.exclusions?.join(', ') || 'N/A'}
-` : 'Use general best practices for experience descriptions.'}
+`
+    : 'Use general best practices for experience descriptions.'
+}
 
 ## Content Requirements
 - Target length: ${targetLength.min}-${targetLength.max} words
@@ -199,11 +221,24 @@ Return HTML content optimized for an experience detail page.`;
  * Blog post prompt
  */
 export function buildBlogPrompt(brief: ContentBrief): string {
-  const { targetKeyword, secondaryKeywords, destination, category, sourceData, tone, targetLength, includeElements } = brief;
+  const {
+    targetKeyword,
+    secondaryKeywords,
+    destination,
+    category,
+    sourceData,
+    tone,
+    targetLength,
+    includeElements,
+  } = brief;
 
-  const blogType = includeElements?.includes('listicle') ? 'listicle' :
-                   includeElements?.includes('guide') ? 'guide' :
-                   includeElements?.includes('comparison') ? 'comparison' : 'guide';
+  const blogType = includeElements?.includes('listicle')
+    ? 'listicle'
+    : includeElements?.includes('guide')
+      ? 'guide'
+      : includeElements?.includes('comparison')
+        ? 'comparison'
+        : 'guide';
 
   return `Create an engaging blog post targeting the keyword "${targetKeyword}".
 
@@ -218,7 +253,9 @@ ${category ? `- Category: ${category}` : ''}
 
 ## Structure Requirements
 
-${blogType === 'listicle' ? `
+${
+  blogType === 'listicle'
+    ? `
 ### Listicle Structure
 1. **Introduction** (100-150 words)
    - Hook with a compelling question or statement
@@ -235,7 +272,9 @@ ${blogType === 'listicle' ? `
    - Summarize key takeaways
    - Encourage action
    - CTA to explore experiences
-` : blogType === 'guide' ? `
+`
+    : blogType === 'guide'
+      ? `
 ### Guide Structure
 1. **Introduction** (100-150 words)
    - Set context and reader expectations
@@ -254,7 +293,8 @@ ${blogType === 'listicle' ? `
 4. **Conclusion** (75-100 words)
    - Action-oriented summary
    - Booking CTA
-` : `
+`
+      : `
 ### Comparison Structure
 1. **Introduction** (100-150 words)
    - Frame the comparison
@@ -272,10 +312,15 @@ ${blogType === 'listicle' ? `
 4. **Verdict** (100-150 words)
    - Clear recommendations by use case
    - CTA to explore options
-`}
+`
+}
 
-${sourceData ? `## Source Data
-${JSON.stringify(sourceData, null, 2)}` : ''}
+${
+  sourceData
+    ? `## Source Data
+${JSON.stringify(sourceData, null, 2)}`
+    : ''
+}
 
 ## Output Format
 Return HTML with:
@@ -359,8 +404,12 @@ ${content}
 - Target length: ${brief.targetLength.min}-${brief.targetLength.max} words
 - Tone: ${brief.tone}
 
-${sourceData ? `## Source Data (for fact-checking)
-${JSON.stringify(sourceData, null, 2)}` : ''}
+${
+  sourceData
+    ? `## Source Data (for fact-checking)
+${JSON.stringify(sourceData, null, 2)}`
+    : ''
+}
 
 ## Assessment Criteria
 Score each from 0-100:
@@ -407,7 +456,10 @@ export function buildRewritePrompt(
   brief: ContentBrief
 ): string {
   const issuesList = issues
-    .map((issue, i) => `${i + 1}. [${issue.severity.toUpperCase()}] ${issue.type}: ${issue.description}${issue.suggestion ? ` → ${issue.suggestion}` : ''}`)
+    .map(
+      (issue, i) =>
+        `${i + 1}. [${issue.severity.toUpperCase()}] ${issue.type}: ${issue.description}${issue.suggestion ? ` → ${issue.suggestion}` : ''}`
+    )
     .join('\n');
 
   return `Rewrite this content to address the identified issues while preserving its strengths.

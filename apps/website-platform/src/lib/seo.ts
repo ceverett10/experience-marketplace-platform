@@ -17,9 +17,7 @@ export function generateOrganizationJsonLd(site: SiteConfig, baseUrl: string) {
     description: site.description,
     url: baseUrl,
     logo: site.brand?.logoUrl,
-    sameAs: site.brand?.socialLinks
-      ? Object.values(site.brand.socialLinks).filter(Boolean)
-      : [],
+    sameAs: site.brand?.socialLinks ? Object.values(site.brand.socialLinks).filter(Boolean) : [],
   };
 }
 
@@ -46,10 +44,7 @@ export function generateWebsiteJsonLd(site: SiteConfig, baseUrl: string) {
 /**
  * Generate TouristAttraction JSON-LD for an experience
  */
-export function generateExperienceJsonLd(
-  experience: Experience,
-  baseUrl: string
-) {
+export function generateExperienceJsonLd(experience: Experience, baseUrl: string) {
   return {
     '@context': 'https://schema.org',
     '@type': 'TouristAttraction',
@@ -62,13 +57,14 @@ export function generateExperienceJsonLd(
       streetAddress: experience.location.address,
       addressLocality: experience.location.name,
     },
-    geo: experience.location.lat && experience.location.lng
-      ? {
-          '@type': 'GeoCoordinates',
-          latitude: experience.location.lat,
-          longitude: experience.location.lng,
-        }
-      : undefined,
+    geo:
+      experience.location.lat && experience.location.lng
+        ? {
+            '@type': 'GeoCoordinates',
+            latitude: experience.location.lat,
+            longitude: experience.location.lng,
+          }
+        : undefined,
     aggregateRating: experience.rating
       ? {
           '@type': 'AggregateRating',
@@ -91,10 +87,7 @@ export function generateExperienceJsonLd(
 /**
  * Generate Product JSON-LD (alternative schema for experiences)
  */
-export function generateProductJsonLd(
-  experience: Experience,
-  baseUrl: string
-) {
+export function generateProductJsonLd(experience: Experience, baseUrl: string) {
   return {
     '@context': 'https://schema.org',
     '@type': 'Product',
@@ -129,10 +122,7 @@ export function generateProductJsonLd(
 /**
  * Generate BreadcrumbList JSON-LD
  */
-export function generateBreadcrumbJsonLd(
-  items: { name: string; url: string }[],
-  baseUrl: string
-) {
+export function generateBreadcrumbJsonLd(items: { name: string; url: string }[], baseUrl: string) {
   return {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
@@ -171,9 +161,7 @@ export function generateExperienceListJsonLd(
 /**
  * Generate FAQPage JSON-LD
  */
-export function generateFaqJsonLd(
-  faqs: { question: string; answer: string }[]
-) {
+export function generateFaqJsonLd(faqs: { question: string; answer: string }[]) {
   return {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',
@@ -226,9 +214,7 @@ export function generateLocalBusinessJsonLd(
           longitude: location.lng,
         }
       : undefined,
-    sameAs: site.brand?.socialLinks
-      ? Object.values(site.brand.socialLinks).filter(Boolean)
-      : [],
+    sameAs: site.brand?.socialLinks ? Object.values(site.brand.socialLinks).filter(Boolean) : [],
   };
 }
 

@@ -107,7 +107,9 @@ describe('withRetry', () => {
   it('should throw after max attempts', async () => {
     const fn = vi.fn().mockRejectedValue(new Error('always fail'));
 
-    await expect(withRetry(fn, { maxAttempts: 2, initialDelay: 10 })).rejects.toThrow('always fail');
+    await expect(withRetry(fn, { maxAttempts: 2, initialDelay: 10 })).rejects.toThrow(
+      'always fail'
+    );
     expect(fn).toHaveBeenCalledTimes(2);
   });
 });

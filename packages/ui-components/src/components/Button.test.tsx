@@ -99,7 +99,11 @@ describe('Button', () => {
 
     it('should not trigger click when disabled', () => {
       const handleClick = vi.fn();
-      render(<Button onClick={handleClick} disabled>Disabled</Button>);
+      render(
+        <Button onClick={handleClick} disabled>
+          Disabled
+        </Button>
+      );
 
       fireEvent.click(screen.getByRole('button'));
 

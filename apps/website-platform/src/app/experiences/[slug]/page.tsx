@@ -82,7 +82,8 @@ The London Eye has become one of the most popular paid tourist attractions in th
         'Food and drinks',
         'Champagne Experience (available as upgrade)',
       ],
-      cancellationPolicy: 'Free cancellation up to 24 hours before the experience starts. Full refund if cancelled within this period.',
+      cancellationPolicy:
+        'Free cancellation up to 24 hours before the experience starts. Full refund if cancelled within this period.',
     },
     'tower-of-london-tour': {
       id: '2',
@@ -130,11 +131,7 @@ Don't miss the ravens – legend has it that if the ravens ever leave the Tower,
         'Access to Crown Jewels exhibition',
         'Audio guide in 11 languages',
       ],
-      exclusions: [
-        'Hotel pickup and drop-off',
-        'Food and drinks',
-        'Personal expenses',
-      ],
+      exclusions: ['Hotel pickup and drop-off', 'Food and drinks', 'Personal expenses'],
       cancellationPolicy: 'Free cancellation up to 24 hours before the experience starts.',
     },
   };
@@ -272,8 +269,18 @@ export default async function ExperienceDetailPage({ params }: Props) {
                 <span className="text-gray-500">•</span>
 
                 <div className="flex items-center gap-1 text-gray-600">
-                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <svg
+                    className="h-5 w-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth="1.5"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
                   </svg>
                   <span>{experience.duration.formatted}</span>
                 </div>
@@ -281,9 +288,23 @@ export default async function ExperienceDetailPage({ params }: Props) {
                 <span className="text-gray-500">•</span>
 
                 <div className="flex items-center gap-1 text-gray-600">
-                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+                  <svg
+                    className="h-5 w-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth="1.5"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"
+                    />
                   </svg>
                   <span>{experience.location.name}</span>
                 </div>
@@ -332,8 +353,16 @@ export default async function ExperienceDetailPage({ params }: Props) {
                     <ul className="mt-3 space-y-2">
                       {experience.inclusions.map((item, idx) => (
                         <li key={idx} className="flex items-start gap-2 text-sm text-gray-600">
-                          <svg className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          <svg
+                            className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-500"
+                            fill="currentColor"
+                            viewBox="0 0 20 20"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                              clipRule="evenodd"
+                            />
                           </svg>
                           {item}
                         </li>
@@ -344,12 +373,22 @@ export default async function ExperienceDetailPage({ params }: Props) {
 
                 {experience.exclusions.length > 0 && (
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900">What&apos;s not included</h3>
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      What&apos;s not included
+                    </h3>
                     <ul className="mt-3 space-y-2">
                       {experience.exclusions.map((item, idx) => (
                         <li key={idx} className="flex items-start gap-2 text-sm text-gray-600">
-                          <svg className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-400" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                          <svg
+                            className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-400"
+                            fill="currentColor"
+                            viewBox="0 0 20 20"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                              clipRule="evenodd"
+                            />
                           </svg>
                           {item}
                         </li>

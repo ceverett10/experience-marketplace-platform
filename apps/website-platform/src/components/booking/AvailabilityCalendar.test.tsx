@@ -128,7 +128,9 @@ describe('AvailabilityCalendar', () => {
     );
 
     // Should show loading spinner
-    expect(screen.getByRole('img', { hidden: true }) || document.querySelector('.animate-spin')).toBeTruthy();
+    expect(
+      screen.getByRole('img', { hidden: true }) || document.querySelector('.animate-spin')
+    ).toBeTruthy();
   });
 
   it('shows error message on fetch failure', async () => {

@@ -22,9 +22,7 @@ describe('Hero', () => {
 
   it('should render custom title when provided', () => {
     renderWithProviders(<Hero title="Welcome to London" />);
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
-      'Welcome to London'
-    );
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Welcome to London');
   });
 
   it('should render custom subtitle when provided', () => {

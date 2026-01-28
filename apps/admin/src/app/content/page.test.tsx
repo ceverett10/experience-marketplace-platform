@@ -50,7 +50,9 @@ describe('AdminContentPage', () => {
       // Click on Pending stats card - find by the data-testid="card" with "Pending" text
       const pendingTexts = screen.getAllByText('Pending');
       // Find the one in the stats card (not in dropdown or badge)
-      const statsCard = pendingTexts.find(el => el.closest('[data-testid="card"]'))?.closest('[data-testid="card"]');
+      const statsCard = pendingTexts
+        .find((el) => el.closest('[data-testid="card"]'))
+        ?.closest('[data-testid="card"]');
       if (statsCard) {
         fireEvent.click(statsCard);
       }

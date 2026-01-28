@@ -270,10 +270,7 @@ describe('holibob utilities', () => {
     it('should handle images array', () => {
       const product = {
         ...baseProduct,
-        images: [
-          { url: 'https://example.com/1.jpg' },
-          { url: 'https://example.com/2.jpg' },
-        ],
+        images: [{ url: 'https://example.com/1.jpg' }, { url: 'https://example.com/2.jpg' }],
       };
       const result = mapProductToExperience(product);
       expect(result.images).toHaveLength(2);

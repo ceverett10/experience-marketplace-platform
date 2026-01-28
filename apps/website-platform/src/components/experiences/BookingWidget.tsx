@@ -54,9 +54,7 @@ export function BookingWidget({ experience }: BookingWidgetProps) {
     <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-lg">
       {/* Price */}
       <div className="flex items-baseline gap-2">
-        <span className="text-2xl font-bold text-gray-900">
-          {experience.price.formatted}
-        </span>
+        <span className="text-2xl font-bold text-gray-900">{experience.price.formatted}</span>
         <span className="text-gray-500">per person</span>
       </div>
 
@@ -101,7 +99,13 @@ export function BookingWidget({ experience }: BookingWidgetProps) {
               className="flex h-12 w-12 items-center justify-center text-gray-600 hover:bg-gray-50"
               disabled={guests <= 1}
             >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth="2"
+                stroke="currentColor"
+              >
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12h-15" />
               </svg>
             </button>
@@ -114,7 +118,13 @@ export function BookingWidget({ experience }: BookingWidgetProps) {
               className="flex h-12 w-12 items-center justify-center text-gray-600 hover:bg-gray-50"
               disabled={guests >= 20}
             >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth="2"
+                stroke="currentColor"
+              >
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
               </svg>
             </button>
@@ -140,15 +150,24 @@ export function BookingWidget({ experience }: BookingWidgetProps) {
           onClick={handleBooking}
           disabled={isLoading}
           className="w-full rounded-lg py-4 text-base font-semibold text-white transition-colors hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50"
-          style={{
-            backgroundColor: brand?.primaryColor ?? '#6366f1',
-            '--tw-ring-color': brand?.primaryColor ?? '#6366f1',
-          } as React.CSSProperties}
+          style={
+            {
+              backgroundColor: brand?.primaryColor ?? '#6366f1',
+              '--tw-ring-color': brand?.primaryColor ?? '#6366f1',
+            } as React.CSSProperties
+          }
         >
           {isLoading ? (
             <span className="flex items-center justify-center gap-2">
               <svg className="h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
                 <path
                   className="opacity-75"
                   fill="currentColor"
@@ -171,14 +190,34 @@ export function BookingWidget({ experience }: BookingWidgetProps) {
       {/* Trust Badges */}
       <div className="mt-6 flex items-center justify-center gap-4 border-t border-gray-100 pt-6">
         <div className="flex items-center gap-1 text-xs text-gray-500">
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+          <svg
+            className="h-4 w-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth="1.5"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"
+            />
           </svg>
           Secure booking
         </div>
         <div className="flex items-center gap-1 text-xs text-gray-500">
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          <svg
+            className="h-4 w-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth="1.5"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
           </svg>
           Instant confirmation
         </div>

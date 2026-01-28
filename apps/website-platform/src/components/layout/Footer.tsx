@@ -45,7 +45,9 @@ export function Footer() {
               <span className="text-2xl font-bold text-white">{site.name}</span>
             )}
             <p className="text-sm leading-6 text-gray-300">
-              {brand?.tagline ?? site.description ?? 'Discover unique experiences in your destination.'}
+              {brand?.tagline ??
+                site.description ??
+                'Discover unique experiences in your destination.'}
             </p>
             {/* Social links */}
             <div className="flex space-x-6">
@@ -103,9 +105,7 @@ export function Footer() {
           <div className="mt-16 grid grid-cols-2 gap-8 xl:col-span-2 xl:mt-0">
             <div className="md:grid md:grid-cols-2 md:gap-8">
               <div>
-                <h3 className="text-sm font-semibold leading-6 text-white">
-                  Experiences
-                </h3>
+                <h3 className="text-sm font-semibold leading-6 text-white">Experiences</h3>
                 <ul role="list" className="mt-6 space-y-4">
                   {footerNavigation.experiences.map((item) => (
                     <li key={item.name}>
@@ -120,9 +120,7 @@ export function Footer() {
                 </ul>
               </div>
               <div className="mt-10 md:mt-0">
-                <h3 className="text-sm font-semibold leading-6 text-white">
-                  Company
-                </h3>
+                <h3 className="text-sm font-semibold leading-6 text-white">Company</h3>
                 <ul role="list" className="mt-6 space-y-4">
                   {footerNavigation.company.map((item) => (
                     <li key={item.name}>
@@ -138,9 +136,7 @@ export function Footer() {
               </div>
             </div>
             <div>
-              <h3 className="text-sm font-semibold leading-6 text-white">
-                Legal
-              </h3>
+              <h3 className="text-sm font-semibold leading-6 text-white">Legal</h3>
               <ul role="list" className="mt-6 space-y-4">
                 {footerNavigation.legal.map((item) => (
                   <li key={item.name}>
@@ -160,8 +156,7 @@ export function Footer() {
         {/* Bottom section */}
         <div className="mt-16 border-t border-white/10 pt-8 sm:mt-20 lg:mt-24">
           <p className="text-xs leading-5 text-gray-400">
-            &copy; {new Date().getFullYear()} {site.name}. All rights reserved.
-            Powered by{' '}
+            &copy; {new Date().getFullYear()} {site.name}. All rights reserved. Powered by{' '}
             <a
               href="https://holibob.tech"
               className="text-gray-300 hover:text-white"

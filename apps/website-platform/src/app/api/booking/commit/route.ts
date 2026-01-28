@@ -59,10 +59,7 @@ export async function POST(request: NextRequest) {
     // First verify the booking exists and canCommit
     const existingBooking = await client.getBooking(bookingId ?? bookingCode!);
     if (!existingBooking) {
-      return NextResponse.json(
-        { error: 'Booking not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
     }
 
     // Check if booking can be committed
@@ -130,22 +127,13 @@ export async function POST(request: NextRequest) {
         );
       }
       if (error.message.includes('REJECTED')) {
-        return NextResponse.json(
-          { error: 'Booking was rejected by supplier' },
-          { status: 409 }
-        );
+        return NextResponse.json({ error: 'Booking was rejected by supplier' }, { status: 409 });
       }
       if (error.message.includes('CANCELLED')) {
-        return NextResponse.json(
-          { error: 'Booking was cancelled' },
-          { status: 409 }
-        );
+        return NextResponse.json({ error: 'Booking was cancelled' }, { status: 409 });
       }
     }
 
-    return NextResponse.json(
-      { error: 'Failed to commit booking' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to commit booking' }, { status: 500 });
   }
 }

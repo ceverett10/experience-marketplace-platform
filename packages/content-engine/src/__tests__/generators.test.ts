@@ -184,11 +184,9 @@ describe('ContentGenerator Class', () => {
 
   describe('destination', () => {
     it('should generate destination content', async () => {
-      const result = await generator.destination(
-        'Barcelona',
-        'things to do in Barcelona',
-        { secondaryKeywords: ['Barcelona activities'] }
-      );
+      const result = await generator.destination('Barcelona', 'things to do in Barcelona', {
+        secondaryKeywords: ['Barcelona activities'],
+      });
 
       expect(result.success).toBe(true);
     });
@@ -196,11 +194,9 @@ describe('ContentGenerator Class', () => {
 
   describe('category', () => {
     it('should generate category content', async () => {
-      const result = await generator.category(
-        'Food Tours',
-        'food tours in Barcelona',
-        { destination: 'Barcelona' }
-      );
+      const result = await generator.category('Food Tours', 'food tours in Barcelona', {
+        destination: 'Barcelona',
+      });
 
       expect(result.success).toBe(true);
     });
@@ -224,11 +220,9 @@ describe('ContentGenerator Class', () => {
 
   describe('blog', () => {
     it('should generate blog content', async () => {
-      const result = await generator.blog(
-        'things to do in Barcelona',
-        'listicle',
-        { destination: 'Barcelona' }
-      );
+      const result = await generator.blog('things to do in Barcelona', 'listicle', {
+        destination: 'Barcelona',
+      });
 
       expect(result.success).toBe(true);
     });

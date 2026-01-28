@@ -3,9 +3,11 @@ import { NextRequest } from 'next/server';
 
 // Mock the modules
 vi.mock('next/headers', () => ({
-  headers: vi.fn(() => Promise.resolve({
-    get: vi.fn().mockReturnValue('localhost:3000'),
-  })),
+  headers: vi.fn(() =>
+    Promise.resolve({
+      get: vi.fn().mockReturnValue('localhost:3000'),
+    })
+  ),
 }));
 
 vi.mock('@/lib/tenant', () => ({
@@ -54,9 +56,7 @@ describe('Availability Detail API Route - GET', () => {
       startTime: '10:00',
       optionList: {
         isComplete: true,
-        nodes: [
-          { id: 'opt-1', label: 'Time slot', value: '10:00' },
-        ],
+        nodes: [{ id: 'opt-1', label: 'Time slot', value: '10:00' }],
       },
     };
     mockGetAvailability.mockResolvedValue(mockAvailability);
@@ -102,7 +102,9 @@ describe('Availability Detail API Route - GET', () => {
     };
     mockGetAvailabilityPricing.mockResolvedValue(mockAvailability);
 
-    const request = new NextRequest('http://localhost:3000/api/availability/avail-123?includePricing=true');
+    const request = new NextRequest(
+      'http://localhost:3000/api/availability/avail-123?includePricing=true'
+    );
 
     const response = await GET(request, { params: Promise.resolve({ id: 'avail-123' }) });
     const data = await response.json();
@@ -126,9 +128,7 @@ describe('Availability Detail API Route - POST', () => {
       startTime: '14:00',
       optionList: {
         isComplete: true,
-        nodes: [
-          { id: 'opt-1', label: 'Time slot', value: '14:00' },
-        ],
+        nodes: [{ id: 'opt-1', label: 'Time slot', value: '14:00' }],
       },
     };
     mockSetAvailabilityOptions.mockResolvedValue(mockUpdatedAvailability);
@@ -136,9 +136,7 @@ describe('Availability Detail API Route - POST', () => {
     const request = new NextRequest('http://localhost:3000/api/availability/avail-123', {
       method: 'POST',
       body: JSON.stringify({
-        optionList: [
-          { id: 'opt-1', value: '14:00' },
-        ],
+        optionList: [{ id: 'opt-1', value: '14:00' }],
       }),
     });
 
@@ -156,9 +154,7 @@ describe('Availability Detail API Route - POST', () => {
       date: '2025-02-01',
       totalPrice: { gross: 7000, currency: 'GBP' },
       pricingCategoryList: {
-        nodes: [
-          { id: 'adult', label: 'Adult', units: 2 },
-        ],
+        nodes: [{ id: 'adult', label: 'Adult', units: 2 }],
       },
     };
     mockSetAvailabilityPricing.mockResolvedValue(mockUpdatedAvailability);
@@ -166,9 +162,7 @@ describe('Availability Detail API Route - POST', () => {
     const request = new NextRequest('http://localhost:3000/api/availability/avail-123', {
       method: 'POST',
       body: JSON.stringify({
-        pricingCategoryList: [
-          { id: 'adult', units: 2 },
-        ],
+        pricingCategoryList: [{ id: 'adult', units: 2 }],
       }),
     });
 

@@ -31,10 +31,7 @@ export async function GET(request: NextRequest) {
 
     // Validate required parameters
     if (!productId) {
-      return NextResponse.json(
-        { error: 'productId is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'productId is required' }, { status: 400 });
     }
 
     // Parse option list if provided
@@ -43,10 +40,7 @@ export async function GET(request: NextRequest) {
       try {
         optionList = JSON.parse(optionListJson);
       } catch {
-        return NextResponse.json(
-          { error: 'Invalid optionList JSON format' },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: 'Invalid optionList JSON format' }, { status: 400 });
       }
     }
 
@@ -63,10 +57,7 @@ export async function GET(request: NextRequest) {
       // Validate date format (YYYY-MM-DD)
       const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
       if (!dateRegex.test(dateFrom) || !dateRegex.test(dateTo)) {
-        return NextResponse.json(
-          { error: 'Dates must be in YYYY-MM-DD format' },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: 'Dates must be in YYYY-MM-DD format' }, { status: 400 });
       }
 
       // Validate date range
@@ -76,17 +67,11 @@ export async function GET(request: NextRequest) {
       today.setHours(0, 0, 0, 0);
 
       if (fromDate < today) {
-        return NextResponse.json(
-          { error: 'dateFrom cannot be in the past' },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: 'dateFrom cannot be in the past' }, { status: 400 });
       }
 
       if (toDate < fromDate) {
-        return NextResponse.json(
-          { error: 'dateTo must be after dateFrom' },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: 'dateTo must be after dateFrom' }, { status: 400 });
       }
 
       // Use discoverAvailability helper
@@ -111,16 +96,10 @@ export async function GET(request: NextRequest) {
     // Handle specific error types
     if (error instanceof Error) {
       if (error.message.includes('not found')) {
-        return NextResponse.json(
-          { error: 'Product not found' },
-          { status: 404 }
-        );
+        return NextResponse.json({ error: 'Product not found' }, { status: 404 });
       }
     }
 
-    return NextResponse.json(
-      { error: 'Failed to fetch availability' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch availability' }, { status: 500 });
   }
 }

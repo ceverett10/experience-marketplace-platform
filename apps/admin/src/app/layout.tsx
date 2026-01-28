@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import React, { useState } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import React, { useState } from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import './globals.css';
 
 interface NavItem {
@@ -13,18 +13,14 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { href: "/", label: "Dashboard", icon: "📊" },
-  { href: "/sites", label: "Sites", icon: "🌐" },
-  { href: "/content", label: "Content", icon: "📝" },
-  { href: "/seo", label: "SEO", icon: "🔍" },
-  { href: "/settings", label: "Settings", icon: "⚙️" },
+  { href: '/', label: 'Dashboard', icon: '📊' },
+  { href: '/sites', label: 'Sites', icon: '🌐' },
+  { href: '/content', label: 'Content', icon: '📝' },
+  { href: '/seo', label: 'SEO', icon: '🔍' },
+  { href: '/settings', label: 'Settings', icon: '⚙️' },
 ];
 
-export default function AdminLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -43,7 +39,7 @@ export default function AdminLayout({
           {/* Sidebar */}
           <aside
             className={`fixed top-0 left-0 z-50 h-full w-64 bg-slate-900 transform transition-transform duration-200 lg:translate-x-0 ${
-              sidebarOpen ? "translate-x-0" : "-translate-x-full"
+              sidebarOpen ? 'translate-x-0' : '-translate-x-full'
             }`}
           >
             <div className="flex flex-col h-full">
@@ -51,9 +47,7 @@ export default function AdminLayout({
               <div className="flex items-center justify-between px-6 py-5 border-b border-white/10">
                 <div className="flex items-center gap-3">
                   <span className="text-2xl font-bold text-sky-400">holibob</span>
-                  <span className="bg-white/20 text-white text-xs px-2 py-0.5 rounded">
-                    Admin
-                  </span>
+                  <span className="bg-white/20 text-white text-xs px-2 py-0.5 rounded">Admin</span>
                 </div>
                 <button
                   onClick={() => setSidebarOpen(false)}
@@ -66,8 +60,9 @@ export default function AdminLayout({
               {/* Navigation */}
               <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
                 {navItems.map((item) => {
-                  const isActive = pathname === item.href ||
-                    (item.href !== "/" && pathname?.startsWith(item.href));
+                  const isActive =
+                    pathname === item.href ||
+                    (item.href !== '/' && pathname?.startsWith(item.href));
 
                   return (
                     <Link
@@ -75,8 +70,8 @@ export default function AdminLayout({
                       href={item.href}
                       className={`flex items-center justify-between px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
                         isActive
-                          ? "bg-sky-600 text-white"
-                          : "text-slate-300 hover:bg-white/10 hover:text-white"
+                          ? 'bg-sky-600 text-white'
+                          : 'text-slate-300 hover:bg-white/10 hover:text-white'
                       }`}
                     >
                       <div className="flex items-center gap-3">
@@ -123,7 +118,10 @@ export default function AdminLayout({
                     </Link>
                     <span className="text-slate-400">›</span>
                     <span className="text-slate-900 font-medium">
-                      {navItems.find((item) => pathname?.startsWith(item.href) || (item.href === "/" && pathname === "/"))?.label || "Dashboard"}
+                      {navItems.find(
+                        (item) =>
+                          pathname?.startsWith(item.href) || (item.href === '/' && pathname === '/')
+                      )?.label || 'Dashboard'}
                     </span>
                   </nav>
                 </div>

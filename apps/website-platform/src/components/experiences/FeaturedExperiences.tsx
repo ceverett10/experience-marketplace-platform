@@ -27,12 +27,8 @@ export function FeaturedExperiences({
         {/* Header */}
         <div className="flex items-end justify-between">
           <div>
-            <h2 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
-              {title}
-            </h2>
-            {subtitle && (
-              <p className="mt-2 text-base text-gray-600">{subtitle}</p>
-            )}
+            <h2 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">{title}</h2>
+            {subtitle && <p className="mt-2 text-base text-gray-600">{subtitle}</p>}
           </div>
           <Link
             href={viewAllHref}
@@ -46,21 +42,13 @@ export function FeaturedExperiences({
         {variant === 'featured' ? (
           <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {experiences.slice(0, 6).map((experience) => (
-              <ExperienceCard
-                key={experience.id}
-                experience={experience}
-                variant="featured"
-              />
+              <ExperienceCard key={experience.id} experience={experience} variant="featured" />
             ))}
           </div>
         ) : (
           <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {experiences.slice(0, 8).map((experience) => (
-              <ExperienceCard
-                key={experience.id}
-                experience={experience}
-                variant="default"
-              />
+              <ExperienceCard key={experience.id} experience={experience} variant="default" />
             ))}
           </div>
         )}

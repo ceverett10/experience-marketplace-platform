@@ -84,7 +84,10 @@ export function GuestSelector({
     if (currentCount > 0) {
       // Check if this would bring total below minimum
       const newTotal = totalGuests - 1;
-      if (newTotal >= minGuests || (typeId !== 'adult' && guestCounts.some((gc) => gc.typeId === 'adult' && gc.count > 0))) {
+      if (
+        newTotal >= minGuests ||
+        (typeId !== 'adult' && guestCounts.some((gc) => gc.typeId === 'adult' && gc.count > 0))
+      ) {
         onGuestCountChange(typeId, currentCount - 1);
       }
     }
@@ -135,21 +138,26 @@ export function GuestSelector({
                   className={`
                     flex h-8 w-8 items-center justify-center rounded-full border
                     transition-colors
-                    ${canDecrement
-                      ? 'border-gray-300 text-gray-600 hover:border-gray-400 hover:bg-gray-50'
-                      : 'cursor-not-allowed border-gray-200 text-gray-300'
+                    ${
+                      canDecrement
+                        ? 'border-gray-300 text-gray-600 hover:border-gray-400 hover:bg-gray-50'
+                        : 'cursor-not-allowed border-gray-200 text-gray-300'
                     }
                   `}
                   aria-label={`Decrease ${guestType.name} count`}
                 >
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth="2"
+                    stroke="currentColor"
+                  >
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12h-15" />
                   </svg>
                 </button>
 
-                <span className="w-8 text-center text-base font-medium text-gray-900">
-                  {count}
-                </span>
+                <span className="w-8 text-center text-base font-medium text-gray-900">{count}</span>
 
                 <button
                   type="button"
@@ -158,14 +166,21 @@ export function GuestSelector({
                   className={`
                     flex h-8 w-8 items-center justify-center rounded-full border
                     transition-colors
-                    ${canIncrement
-                      ? 'border-gray-300 text-gray-600 hover:border-gray-400 hover:bg-gray-50'
-                      : 'cursor-not-allowed border-gray-200 text-gray-300'
+                    ${
+                      canIncrement
+                        ? 'border-gray-300 text-gray-600 hover:border-gray-400 hover:bg-gray-50'
+                        : 'cursor-not-allowed border-gray-200 text-gray-300'
                     }
                   `}
                   aria-label={`Increase ${guestType.name} count`}
                 >
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth="2"
+                    stroke="currentColor"
+                  >
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                   </svg>
                 </button>
@@ -182,17 +197,25 @@ export function GuestSelector({
           className={`font-medium ${totalGuests >= maxGuests ? 'text-orange-600' : 'text-gray-900'}`}
         >
           {totalGuests} {totalGuests === 1 ? 'guest' : 'guests'}
-          {totalGuests >= maxGuests && (
-            <span className="ml-1 text-xs text-orange-600">(max)</span>
-          )}
+          {totalGuests >= maxGuests && <span className="ml-1 text-xs text-orange-600">(max)</span>}
         </span>
       </div>
 
       {/* Warning if no adults */}
       {!guestCounts.some((gc) => gc.typeId === 'adult' && gc.count > 0) && totalGuests > 0 && (
         <div className="rounded-lg bg-yellow-50 p-3 text-sm text-yellow-800">
-          <svg className="mr-2 inline h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+          <svg
+            className="mr-2 inline h-4 w-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth="2"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
+            />
           </svg>
           At least one adult is required for this booking
         </div>
@@ -262,11 +285,13 @@ export function GuestDetailsForm({
 
   // Get detail for a specific guest
   const getDetail = (entryIndex: number): GuestDetails => {
-    return guestDetails[entryIndex] ?? {
-      guestTypeId: guestEntries[entryIndex]?.typeId ?? 'adult',
-      firstName: '',
-      lastName: '',
-    };
+    return (
+      guestDetails[entryIndex] ?? {
+        guestTypeId: guestEntries[entryIndex]?.typeId ?? 'adult',
+        firstName: '',
+        lastName: '',
+      }
+    );
   };
 
   if (guestEntries.length === 0) {
@@ -290,9 +315,7 @@ export function GuestDetailsForm({
               <h5 className="font-medium text-gray-900">
                 {entry.typeName} {entry.index + 1}
               </h5>
-              {isFirstAdult && (
-                <span className="text-xs text-gray-500">Lead guest</span>
-              )}
+              {isFirstAdult && <span className="text-xs text-gray-500">Lead guest</span>}
             </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -310,7 +333,9 @@ export function GuestDetailsForm({
                   onChange={(e) => updateGuestDetail(index, 'firstName', e.target.value)}
                   required
                   className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2"
-                  style={{ '--tw-ring-color': brand?.primaryColor ?? '#6366f1' } as React.CSSProperties}
+                  style={
+                    { '--tw-ring-color': brand?.primaryColor ?? '#6366f1' } as React.CSSProperties
+                  }
                 />
               </div>
 
@@ -328,7 +353,9 @@ export function GuestDetailsForm({
                   onChange={(e) => updateGuestDetail(index, 'lastName', e.target.value)}
                   required
                   className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2"
-                  style={{ '--tw-ring-color': brand?.primaryColor ?? '#6366f1' } as React.CSSProperties}
+                  style={
+                    { '--tw-ring-color': brand?.primaryColor ?? '#6366f1' } as React.CSSProperties
+                  }
                 />
               </div>
 
@@ -347,7 +374,9 @@ export function GuestDetailsForm({
                     onChange={(e) => updateGuestDetail(index, 'email', e.target.value)}
                     required={isFirstAdult}
                     className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2"
-                    style={{ '--tw-ring-color': brand?.primaryColor ?? '#6366f1' } as React.CSSProperties}
+                    style={
+                      { '--tw-ring-color': brand?.primaryColor ?? '#6366f1' } as React.CSSProperties
+                    }
                   />
                 </div>
               )}
@@ -366,7 +395,9 @@ export function GuestDetailsForm({
                     value={detail.phone ?? ''}
                     onChange={(e) => updateGuestDetail(index, 'phone', e.target.value)}
                     className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2"
-                    style={{ '--tw-ring-color': brand?.primaryColor ?? '#6366f1' } as React.CSSProperties}
+                    style={
+                      { '--tw-ring-color': brand?.primaryColor ?? '#6366f1' } as React.CSSProperties
+                    }
                   />
                 </div>
               )}

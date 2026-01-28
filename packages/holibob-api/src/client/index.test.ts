@@ -137,10 +137,7 @@ describe('HolibobClient', () => {
       const result = await client.getProduct('prod-123');
 
       expect(result).toEqual(mockProduct);
-      expect(mockRequest).toHaveBeenCalledWith(
-        expect.any(String),
-        { id: 'prod-123' }
-      );
+      expect(mockRequest).toHaveBeenCalledWith(expect.any(String), { id: 'prod-123' });
     });
 
     it('should return null for non-existent product', async () => {
@@ -166,12 +163,10 @@ describe('HolibobClient', () => {
 
       mockRequest.mockResolvedValueOnce({ availability: mockAvailability });
 
-      const result = await client.getAvailability(
-        'prod-123',
-        '2024-06-01',
-        '2024-06-30',
-        { adults: 2, children: 1 }
-      );
+      const result = await client.getAvailability('prod-123', '2024-06-01', '2024-06-30', {
+        adults: 2,
+        children: 1,
+      });
 
       expect(result).toEqual(mockAvailability);
     });

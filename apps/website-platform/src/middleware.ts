@@ -39,24 +39,15 @@ export function middleware(request: NextRequest) {
  */
 function getSiteIdFromHostname(hostname: string): string {
   // Remove port and www prefix
-  const cleanHostname = hostname
-    .split(':')[0]
-    ?.replace(/^www\./, '')
-    ?? hostname;
+  const cleanHostname = hostname.split(':')[0]?.replace(/^www\./, '') ?? hostname;
 
   // Development environments
-  if (
-    cleanHostname === 'localhost' ||
-    cleanHostname.includes('127.0.0.1')
-  ) {
+  if (cleanHostname === 'localhost' || cleanHostname.includes('127.0.0.1')) {
     return 'default';
   }
 
   // Preview deployments
-  if (
-    cleanHostname.includes('.vercel.app') ||
-    cleanHostname.includes('.herokuapp.com')
-  ) {
+  if (cleanHostname.includes('.vercel.app') || cleanHostname.includes('.herokuapp.com')) {
     // Check for subdomain in preview URLs (e.g., london-tours--preview.vercel.app)
     const parts = cleanHostname.split('--');
     if (parts.length > 1 && parts[0]) {

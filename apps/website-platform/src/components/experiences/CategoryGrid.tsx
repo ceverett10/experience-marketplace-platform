@@ -42,13 +42,38 @@ export function CategoryGrid({
     categories.length > 0
       ? categories
       : [
-          { id: '1', name: 'Tours & Sightseeing', slug: 'tours', imageUrl: '/categories/tours.jpg' },
+          {
+            id: '1',
+            name: 'Tours & Sightseeing',
+            slug: 'tours',
+            imageUrl: '/categories/tours.jpg',
+          },
           { id: '2', name: 'Day Trips', slug: 'day-trips', imageUrl: '/categories/day-trips.jpg' },
-          { id: '3', name: 'Attractions', slug: 'attractions', imageUrl: '/categories/attractions.jpg' },
-          { id: '4', name: 'Food & Drink', slug: 'food-drink', imageUrl: '/categories/food-drink.jpg' },
+          {
+            id: '3',
+            name: 'Attractions',
+            slug: 'attractions',
+            imageUrl: '/categories/attractions.jpg',
+          },
+          {
+            id: '4',
+            name: 'Food & Drink',
+            slug: 'food-drink',
+            imageUrl: '/categories/food-drink.jpg',
+          },
           { id: '5', name: 'Adventure', slug: 'adventure', imageUrl: '/categories/adventure.jpg' },
-          { id: '6', name: 'Culture & History', slug: 'culture', imageUrl: '/categories/culture.jpg' },
-          { id: '7', name: 'Nature & Wildlife', slug: 'nature', imageUrl: '/categories/nature.jpg' },
+          {
+            id: '6',
+            name: 'Culture & History',
+            slug: 'culture',
+            imageUrl: '/categories/culture.jpg',
+          },
+          {
+            id: '7',
+            name: 'Nature & Wildlife',
+            slug: 'nature',
+            imageUrl: '/categories/nature.jpg',
+          },
           { id: '8', name: 'Water Activities', slug: 'water', imageUrl: '/categories/water.jpg' },
         ];
 
@@ -57,14 +82,8 @@ export function CategoryGrid({
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center">
-          <h2 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
-            {title}
-          </h2>
-          {subtitle && (
-            <p className="mx-auto mt-2 max-w-2xl text-base text-gray-600">
-              {subtitle}
-            </p>
-          )}
+          <h2 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">{title}</h2>
+          {subtitle && <p className="mx-auto mt-2 max-w-2xl text-base text-gray-600">{subtitle}</p>}
         </div>
 
         {/* Categories Grid */}
@@ -83,9 +102,7 @@ export function CategoryGrid({
                     className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                   />
                   <div className="absolute inset-0 bg-black/40 transition-colors group-hover:bg-black/50" />
-                  <span className="relative text-lg font-semibold text-white">
-                    {category.name}
-                  </span>
+                  <span className="relative text-lg font-semibold text-white">{category.name}</span>
                   {category.count !== undefined && (
                     <span className="relative mt-1 text-sm text-white/80">
                       {category.count} experiences
@@ -101,9 +118,7 @@ export function CategoryGrid({
                     {category.name}
                   </span>
                   {category.count !== undefined && (
-                    <span className="mt-1 text-xs text-gray-500">
-                      {category.count} experiences
-                    </span>
+                    <span className="mt-1 text-xs text-gray-500">{category.count} experiences</span>
                   )}
                 </>
               )}

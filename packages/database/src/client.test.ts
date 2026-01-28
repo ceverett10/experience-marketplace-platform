@@ -204,7 +204,7 @@ describe('Database Operations', () => {
         holibobBookingId: 'hb-booking-123',
         siteId: 'site-123',
         customerEmail: 'customer@example.com',
-        totalAmount: 150.00,
+        totalAmount: 150.0,
         currency: 'GBP',
       };
 
@@ -218,7 +218,7 @@ describe('Database Operations', () => {
       const result = await prisma.booking.create({ data: bookingData });
 
       expect(result.holibobBookingId).toBe('hb-booking-123');
-      expect(result.totalAmount).toBe(150.00);
+      expect(result.totalAmount).toBe(150.0);
     });
 
     it('should find bookings by site', async () => {

@@ -149,9 +149,7 @@ describe('BookingForm', () => {
   it('calls onBookingCreated callback when provided', async () => {
     const mockCallback = vi.fn();
 
-    renderWithProvider(
-      <BookingForm experience={mockExperience} onBookingCreated={mockCallback} />
-    );
+    renderWithProvider(<BookingForm experience={mockExperience} onBookingCreated={mockCallback} />);
 
     // This would require completing the full booking flow
     // For integration tests, we'd simulate the entire flow

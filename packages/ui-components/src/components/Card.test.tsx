@@ -1,13 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import {
-  Card,
-  CardHeader,
-  CardFooter,
-  CardTitle,
-  CardDescription,
-  CardContent,
-} from './Card.js';
+import { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent } from './Card.js';
 
 describe('Card', () => {
   it('should render with children', () => {
@@ -24,7 +17,11 @@ describe('Card', () => {
   });
 
   it('should merge custom className', () => {
-    render(<Card className="custom-card" data-testid="card">Content</Card>);
+    render(
+      <Card className="custom-card" data-testid="card">
+        Content
+      </Card>
+    );
     const card = screen.getByTestId('card');
     expect(card.className).toContain('custom-card');
     expect(card.className).toContain('rounded-xl');

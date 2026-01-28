@@ -53,11 +53,7 @@ export type {
   DailyCostSummary,
 } from './types';
 
-export {
-  ContentBriefSchema,
-  PipelineConfigSchema,
-  DEFAULT_PIPELINE_CONFIG,
-} from './types';
+export { ContentBriefSchema, PipelineConfigSchema, DEFAULT_PIPELINE_CONFIG } from './types';
 
 // Client
 export {

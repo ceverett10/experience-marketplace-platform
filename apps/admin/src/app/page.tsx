@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import React, { useState } from "react";
-import Link from "next/link";
-import { Card, CardHeader, CardTitle, CardContent } from "@experience-marketplace/ui-components";
+import React, { useState } from 'react';
+import Link from 'next/link';
+import { Card, CardHeader, CardTitle, CardContent } from '@experience-marketplace/ui-components';
 
 interface DashboardStats {
   totalSites: number;
@@ -20,7 +20,7 @@ interface DashboardStats {
 
 interface RecentActivity {
   id: string;
-  type: "site_created" | "content_approved" | "booking" | "seo_update";
+  type: 'site_created' | 'content_approved' | 'booking' | 'seo_update';
   message: string;
   timestamp: string;
 }
@@ -42,28 +42,28 @@ const mockStats: DashboardStats = {
 
 const mockRecentActivity: RecentActivity[] = [
   {
-    id: "1",
-    type: "site_created",
+    id: '1',
+    type: 'site_created',
     message: "New site 'Barcelona Adventures' created",
-    timestamp: "2 hours ago",
+    timestamp: '2 hours ago',
   },
   {
-    id: "2",
-    type: "booking",
+    id: '2',
+    type: 'booking',
     message: "New booking on 'London Explorer'",
-    timestamp: "4 hours ago",
+    timestamp: '4 hours ago',
   },
   {
-    id: "3",
-    type: "content_approved",
+    id: '3',
+    type: 'content_approved',
     message: "Content approved for 'Paris Highlights'",
-    timestamp: "6 hours ago",
+    timestamp: '6 hours ago',
   },
   {
-    id: "4",
-    type: "seo_update",
+    id: '4',
+    type: 'seo_update',
     message: "SEO meta updated for 'Tokyo Food Tours'",
-    timestamp: "1 day ago",
+    timestamp: '1 day ago',
   },
 ];
 
@@ -78,16 +78,16 @@ export default function AdminDashboardPage() {
     setIsLoading(false);
   };
 
-  const getActivityIcon = (type: RecentActivity["type"]) => {
+  const getActivityIcon = (type: RecentActivity['type']) => {
     switch (type) {
-      case "site_created":
-        return "🌐";
-      case "content_approved":
-        return "✅";
-      case "booking":
-        return "📅";
-      case "seo_update":
-        return "🔍";
+      case 'site_created':
+        return '🌐';
+      case 'content_approved':
+        return '✅';
+      case 'booking':
+        return '📅';
+      case 'seo_update':
+        return '🔍';
     }
   };
 
@@ -97,16 +97,14 @@ export default function AdminDashboardPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
-          <p className="text-slate-500 mt-1">
-            Overview of your Experience Marketplace platform
-          </p>
+          <p className="text-slate-500 mt-1">Overview of your Experience Marketplace platform</p>
         </div>
         <button
           onClick={refreshData}
           disabled={isLoading}
           className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50"
         >
-          <span className={isLoading ? "animate-spin" : ""}>🔄</span>
+          <span className={isLoading ? 'animate-spin' : ''}>🔄</span>
           Refresh
         </button>
       </div>
@@ -153,11 +151,10 @@ export default function AdminDashboardPage() {
             </div>
             <div>
               <p className="font-medium text-amber-900">
-                {stats.contentPending} content item{stats.contentPending > 1 ? "s" : ""} pending review
+                {stats.contentPending} content item{stats.contentPending > 1 ? 's' : ''} pending
+                review
               </p>
-              <p className="text-sm text-amber-700">
-                Review and approve AI-generated content
-              </p>
+              <p className="text-sm text-amber-700">Review and approve AI-generated content</p>
             </div>
           </div>
           <Link
@@ -174,10 +171,7 @@ export default function AdminDashboardPage() {
         <Card className="lg:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Top Performing Sites</CardTitle>
-            <Link
-              href="/sites"
-              className="text-sm text-sky-600 hover:underline"
-            >
+            <Link href="/sites" className="text-sm text-sky-600 hover:underline">
               View all
             </Link>
           </CardHeader>
@@ -194,9 +188,24 @@ export default function AdminDashboardPage() {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {[
-                    { name: "London Explorer", domain: "london.example.com", bookings: 45, revenue: 8250 },
-                    { name: "Paris Highlights", domain: "paris.example.com", bookings: 32, revenue: 5840 },
-                    { name: "Barcelona Adventures", domain: "barcelona.example.com", bookings: 28, revenue: 4920 },
+                    {
+                      name: 'London Explorer',
+                      domain: 'london.example.com',
+                      bookings: 45,
+                      revenue: 8250,
+                    },
+                    {
+                      name: 'Paris Highlights',
+                      domain: 'paris.example.com',
+                      bookings: 32,
+                      revenue: 5840,
+                    },
+                    {
+                      name: 'Barcelona Adventures',
+                      domain: 'barcelona.example.com',
+                      bookings: 28,
+                      revenue: 4920,
+                    },
                   ].map((site, index) => (
                     <tr key={site.domain} className="hover:bg-slate-50">
                       <td className="py-3">
@@ -268,7 +277,9 @@ export default function AdminDashboardPage() {
             <p className="font-medium text-slate-900">Manage Sites</p>
             <p className="text-sm text-slate-500">Create & configure storefronts</p>
           </div>
-          <span className="text-slate-400 group-hover:text-sky-600 group-hover:translate-x-0.5 transition-all">→</span>
+          <span className="text-slate-400 group-hover:text-sky-600 group-hover:translate-x-0.5 transition-all">
+            →
+          </span>
         </Link>
 
         <Link
@@ -282,7 +293,9 @@ export default function AdminDashboardPage() {
             <p className="font-medium text-slate-900">Content Management</p>
             <p className="text-sm text-slate-500">Review AI-generated content</p>
           </div>
-          <span className="text-slate-400 group-hover:text-cyan-600 group-hover:translate-x-0.5 transition-all">→</span>
+          <span className="text-slate-400 group-hover:text-cyan-600 group-hover:translate-x-0.5 transition-all">
+            →
+          </span>
         </Link>
 
         <Link
@@ -296,7 +309,9 @@ export default function AdminDashboardPage() {
             <p className="font-medium text-slate-900">Platform Settings</p>
             <p className="text-sm text-slate-500">Configure global settings</p>
           </div>
-          <span className="text-slate-400 group-hover:text-purple-600 group-hover:translate-x-0.5 transition-all">→</span>
+          <span className="text-slate-400 group-hover:text-purple-600 group-hover:translate-x-0.5 transition-all">
+            →
+          </span>
         </Link>
       </div>
     </div>
@@ -315,7 +330,9 @@ interface StatCardProps {
 
 function StatCard({ title, value, subvalue, change, icon, href, neutral }: StatCardProps) {
   const content = (
-    <div className={`bg-white rounded-xl border border-slate-200 p-6 ${href ? "hover:border-sky-300 hover:shadow-sm transition-all cursor-pointer" : ""}`}>
+    <div
+      className={`bg-white rounded-xl border border-slate-200 p-6 ${href ? 'hover:border-sky-300 hover:shadow-sm transition-all cursor-pointer' : ''}`}
+    >
       <div className="flex items-center justify-between mb-4">
         <span className="text-sm font-medium text-slate-500">{title}</span>
         <div className="h-10 w-10 bg-sky-50 rounded-xl flex items-center justify-center text-xl">
@@ -329,10 +346,10 @@ function StatCard({ title, value, subvalue, change, icon, href, neutral }: StatC
           {change !== undefined && !neutral && (
             <span
               className={`flex items-center text-sm font-medium ${
-                change >= 0 ? "text-green-600" : "text-red-600"
+                change >= 0 ? 'text-green-600' : 'text-red-600'
               }`}
             >
-              {change >= 0 ? "↑" : "↓"} {Math.abs(change)}%
+              {change >= 0 ? '↑' : '↓'} {Math.abs(change)}%
             </span>
           )}
         </div>

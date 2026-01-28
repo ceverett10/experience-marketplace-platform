@@ -66,7 +66,9 @@ const seoWorker = new Worker<SEOAnalysisJob>(
 const contentWorker = new Worker<ContentGenerationJob>(
   'content-generation',
   async (job: Job<ContentGenerationJob>) => {
-    console.log(`[Content Generation] Processing job ${job.id} for opportunity ${job.data.opportunityId}`);
+    console.log(
+      `[Content Generation] Processing job ${job.id} for opportunity ${job.data.opportunityId}`
+    );
 
     // TODO: Implement content generation logic
     // 1. Fetch opportunity details
@@ -112,11 +114,7 @@ trendWorker.on('failed', (job, err) => {
 // Graceful shutdown
 async function shutdown() {
   console.log('Shutting down workers...');
-  await Promise.all([
-    seoWorker.close(),
-    contentWorker.close(),
-    trendWorker.close(),
-  ]);
+  await Promise.all([seoWorker.close(), contentWorker.close(), trendWorker.close()]);
   await connection.quit();
   process.exit(0);
 }

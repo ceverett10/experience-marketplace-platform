@@ -137,7 +137,10 @@ describe('SEO utilities', () => {
 
     it('should include images array when available', () => {
       const result = generateExperienceJsonLd(mockExperience, baseUrl);
-      expect(result.image).toEqual(['https://example.com/img1.jpg', 'https://example.com/img2.jpg']);
+      expect(result.image).toEqual([
+        'https://example.com/img1.jpg',
+        'https://example.com/img2.jpg',
+      ]);
     });
 
     it('should include rating when available', () => {
@@ -239,7 +242,11 @@ describe('SEO utilities', () => {
     });
 
     it('should include list name', () => {
-      const result = generateExperienceListJsonLd([mockExperienceListItem], baseUrl, 'Featured Experiences');
+      const result = generateExperienceListJsonLd(
+        [mockExperienceListItem],
+        baseUrl,
+        'Featured Experiences'
+      );
       expect(result.name).toBe('Featured Experiences');
     });
 

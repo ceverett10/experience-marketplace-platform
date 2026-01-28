@@ -3,9 +3,11 @@ import { NextRequest } from 'next/server';
 
 // Mock the modules first before any imports
 vi.mock('next/headers', () => ({
-  headers: vi.fn(() => Promise.resolve({
-    get: vi.fn().mockReturnValue('localhost:3000'),
-  })),
+  headers: vi.fn(() =>
+    Promise.resolve({
+      get: vi.fn().mockReturnValue('localhost:3000'),
+    })
+  ),
 }));
 
 vi.mock('@/lib/tenant', () => ({
@@ -71,8 +73,10 @@ describe('Availability API Route', () => {
   });
 
   it('returns availability data when dates are provided', async () => {
-    const futureDate1 = new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] ?? '';
-    const futureDate2 = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] ?? '';
+    const futureDate1 =
+      new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] ?? '';
+    const futureDate2 =
+      new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] ?? '';
 
     const request = new NextRequest(
       `http://localhost:3000/api/availability?productId=test-product&dateFrom=${futureDate1}&dateTo=${futureDate2}`
@@ -101,7 +105,8 @@ describe('Availability API Route', () => {
 
   it('returns 400 when dateFrom is in the past', async () => {
     const pastDate = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0] ?? '';
-    const futureDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] ?? '';
+    const futureDate =
+      new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] ?? '';
 
     const request = new NextRequest(
       `http://localhost:3000/api/availability?productId=test-product&dateFrom=${pastDate}&dateTo=${futureDate}`
@@ -115,8 +120,10 @@ describe('Availability API Route', () => {
   });
 
   it('returns 400 when dateTo is before dateFrom', async () => {
-    const futureDate1 = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] ?? '';
-    const futureDate2 = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] ?? '';
+    const futureDate1 =
+      new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] ?? '';
+    const futureDate2 =
+      new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] ?? '';
 
     const request = new NextRequest(
       `http://localhost:3000/api/availability?productId=test-product&dateFrom=${futureDate1}&dateTo=${futureDate2}`
@@ -172,8 +179,10 @@ describe('Availability API Route', () => {
   it('returns 500 on fetch error', async () => {
     mockDiscoverAvailability.mockRejectedValue(new Error('Network error'));
 
-    const futureDate1 = new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] ?? '';
-    const futureDate2 = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] ?? '';
+    const futureDate1 =
+      new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] ?? '';
+    const futureDate2 =
+      new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] ?? '';
 
     const request = new NextRequest(
       `http://localhost:3000/api/availability?productId=test-product&dateFrom=${futureDate1}&dateTo=${futureDate2}`
@@ -189,8 +198,10 @@ describe('Availability API Route', () => {
   it('returns 404 when product not found', async () => {
     mockDiscoverAvailability.mockRejectedValue(new Error('Product not found'));
 
-    const futureDate1 = new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] ?? '';
-    const futureDate2 = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] ?? '';
+    const futureDate1 =
+      new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] ?? '';
+    const futureDate2 =
+      new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] ?? '';
 
     const request = new NextRequest(
       `http://localhost:3000/api/availability?productId=nonexistent&dateFrom=${futureDate1}&dateTo=${futureDate2}`

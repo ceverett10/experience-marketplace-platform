@@ -52,9 +52,7 @@ export function ExperienceGallery({ images, title }: ExperienceGalleryProps) {
               {/* Show more overlay on last image */}
               {idx === 3 && remainingCount > 0 && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                  <span className="text-lg font-semibold text-white">
-                    +{remainingCount} more
-                  </span>
+                  <span className="text-lg font-semibold text-white">+{remainingCount} more</span>
                 </div>
               )}
             </div>
@@ -101,11 +99,7 @@ export function ExperienceGallery({ images, title }: ExperienceGalleryProps) {
               strokeWidth="2"
               stroke="currentColor"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M6 18L18 6M6 6l12 12"
-              />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
 

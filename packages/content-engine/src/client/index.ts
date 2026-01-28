@@ -1,15 +1,11 @@
 import Anthropic from '@anthropic-ai/sdk';
-import type {
-  ClaudeMessage,
-  CostRecord,
-  DailyCostSummary,
-} from '../types';
+import type { ClaudeMessage, CostRecord, DailyCostSummary } from '../types';
 
 // Model pricing per 1M tokens (as of Jan 2026)
 const MODEL_PRICING = {
-  'claude-3-5-haiku-20241022': { input: 1.00, output: 5.00 },
-  'claude-3-5-sonnet-20241022': { input: 3.00, output: 15.00 },
-  'claude-3-opus-20240229': { input: 15.00, output: 75.00 },
+  'claude-3-5-haiku-20241022': { input: 1.0, output: 5.0 },
+  'claude-3-5-sonnet-20241022': { input: 3.0, output: 15.0 },
+  'claude-3-opus-20240229': { input: 15.0, output: 75.0 },
 } as const;
 
 // Model aliases for easy reference
@@ -66,13 +62,13 @@ class RateLimiter {
 
     // Wait for concurrent slot
     while (this.activeRequests >= this.maxConcurrent) {
-      await new Promise<void>(resolve => this.waitQueue.push(resolve));
+      await new Promise<void>((resolve) => this.waitQueue.push(resolve));
     }
 
     // Wait for rate limit token
     while (this.tokens < 1) {
       const waitTime = Math.ceil((1 - this.tokens) / this.refillRate);
-      await new Promise(resolve => setTimeout(resolve, waitTime));
+      await new Promise((resolve) => setTimeout(resolve, waitTime));
       this.refillTokens();
     }
 
@@ -110,7 +106,9 @@ class CostTracker {
     operation: 'generate' | 'assess' | 'rewrite',
     contentId?: string
   ): CostRecord {
-    const pricing = MODEL_PRICING[model as keyof typeof MODEL_PRICING] || MODEL_PRICING['claude-3-5-haiku-20241022'];
+    const pricing =
+      MODEL_PRICING[model as keyof typeof MODEL_PRICING] ||
+      MODEL_PRICING['claude-3-5-haiku-20241022'];
     const cost = (inputTokens * pricing.input + outputTokens * pricing.output) / 1_000_000;
 
     const record: CostRecord = {
@@ -144,7 +142,7 @@ class CostTracker {
     const date = this.getDateKey();
     const totalCost = this.getDailyCost();
     const todayRecords = this.records.filter(
-      r => r.timestamp.toISOString().split('T')[0] === date
+      (r) => r.timestamp.toISOString().split('T')[0] === date
     );
 
     const byModel: Record<string, number> = {};
@@ -160,7 +158,7 @@ class CostTracker {
       totalCost,
       byModel,
       byOperation,
-      contentCount: new Set(todayRecords.filter(r => r.contentId).map(r => r.contentId)).size,
+      contentCount: new Set(todayRecords.filter((r) => r.contentId).map((r) => r.contentId)).size,
       limit,
       remaining: Math.max(0, limit - totalCost),
     };
@@ -173,7 +171,7 @@ class CostTracker {
   clearOldRecords(daysToKeep: number = 30): void {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - daysToKeep);
-    this.records = this.records.filter(r => r.timestamp >= cutoff);
+    this.records = this.records.filter((r) => r.timestamp >= cutoff);
 
     // Clean up daily costs map
     const cutoffDate = cutoff.toISOString().split('T')[0] ?? cutoff.toISOString().slice(0, 10);
@@ -249,7 +247,7 @@ export class ClaudeClient {
         max_tokens: maxTokens,
         temperature: options.temperature ?? 0.7,
         system: options.system,
-        messages: options.messages.map(m => ({
+        messages: options.messages.map((m) => ({
           role: m.role,
           content: m.content,
         })),
@@ -257,7 +255,7 @@ export class ClaudeClient {
 
       const content = response.content
         .filter((block): block is Anthropic.TextBlock => block.type === 'text')
-        .map(block => block.text)
+        .map((block) => block.text)
         .join('');
 
       const usage = {
@@ -375,14 +373,14 @@ export class ClaudeClient {
   /**
    * Calculate estimated cost for a request
    */
-  estimateCost(
-    model: string,
-    estimatedInputTokens: number,
-    estimatedOutputTokens: number
-  ): number {
+  estimateCost(model: string, estimatedInputTokens: number, estimatedOutputTokens: number): number {
     const modelId = MODELS[model as ModelAlias] || model;
-    const pricing = MODEL_PRICING[modelId as keyof typeof MODEL_PRICING] || MODEL_PRICING['claude-3-5-haiku-20241022'];
-    return (estimatedInputTokens * pricing.input + estimatedOutputTokens * pricing.output) / 1_000_000;
+    const pricing =
+      MODEL_PRICING[modelId as keyof typeof MODEL_PRICING] ||
+      MODEL_PRICING['claude-3-5-haiku-20241022'];
+    return (
+      (estimatedInputTokens * pricing.input + estimatedOutputTokens * pricing.output) / 1_000_000
+    );
   }
 
   /**

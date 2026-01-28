@@ -17,11 +17,7 @@ export interface SiteProviderProps {
 }
 
 export function SiteProvider({ site, children }: SiteProviderProps) {
-  return (
-    <SiteContext.Provider value={site}>
-      {children}
-    </SiteContext.Provider>
-  );
+  return <SiteContext.Provider value={site}>{children}</SiteContext.Provider>;
 }
 
 /**

@@ -17,14 +17,22 @@ import { getHolibobClient } from '@/lib/holibob';
 
 // Schema for setting options
 const SetOptionsSchema = z.object({
-  optionList: z.array(z.object({
-    id: z.string(),
-    value: z.string(),
-  })).optional(),
-  pricingCategoryList: z.array(z.object({
-    id: z.string(),
-    units: z.number().int().min(0),
-  })).optional(),
+  optionList: z
+    .array(
+      z.object({
+        id: z.string(),
+        value: z.string(),
+      })
+    )
+    .optional(),
+  pricingCategoryList: z
+    .array(
+      z.object({
+        id: z.string(),
+        units: z.number().int().min(0),
+      })
+    )
+    .optional(),
 });
 
 interface RouteParams {
@@ -67,17 +75,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     if (error instanceof Error) {
       if (error.message.includes('not found')) {
-        return NextResponse.json(
-          { error: 'Availability not found' },
-          { status: 404 }
-        );
+        return NextResponse.json({ error: 'Availability not found' }, { status: 404 });
       }
     }
 
-    return NextResponse.json(
-      { error: 'Failed to fetch availability details' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch availability details' }, { status: 500 });
   }
 }
 
@@ -144,22 +146,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     if (error instanceof Error) {
       if (error.message.includes('not found')) {
-        return NextResponse.json(
-          { error: 'Availability not found' },
-          { status: 404 }
-        );
+        return NextResponse.json({ error: 'Availability not found' }, { status: 404 });
       }
       if (error.message.includes('invalid')) {
-        return NextResponse.json(
-          { error: error.message },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: error.message }, { status: 400 });
       }
     }
 
-    return NextResponse.json(
-      { error: 'Failed to set availability options' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to set availability options' }, { status: 500 });
   }
 }

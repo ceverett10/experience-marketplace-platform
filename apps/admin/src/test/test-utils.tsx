@@ -12,10 +12,7 @@ interface CustomRenderOptions extends Omit<RenderOptions, 'wrapper'> {
 /**
  * Custom render function that wraps components with necessary providers
  */
-export function renderWithProviders(
-  ui: React.ReactElement,
-  options: CustomRenderOptions = {}
-) {
+export function renderWithProviders(ui: React.ReactElement, options: CustomRenderOptions = {}) {
   const { ...renderOptions } = options;
 
   function Wrapper({ children }: WrapperProps) {
@@ -33,7 +30,7 @@ export function createMockDashboardStats(overrides = {}) {
     totalSites: 12,
     activeSites: 8,
     totalBookings: 156,
-    totalRevenue: 28450.00,
+    totalRevenue: 28450.0,
     contentPending: 5,
     conversionRate: 4.2,
     changes: {

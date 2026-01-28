@@ -1,5 +1,9 @@
 // Booking components
-export { AvailabilityCalendar, type TimeSlot, type AvailabilityOption } from './AvailabilityCalendar';
+export {
+  AvailabilityCalendar,
+  type TimeSlot,
+  type AvailabilityOption,
+} from './AvailabilityCalendar';
 export {
   GuestSelector,
   GuestDetailsForm,

@@ -12,11 +12,7 @@
     "project": ["./tsconfig.json", "./apps/*/tsconfig.json", "./packages/*/tsconfig.json"]
   },
   "plugins": ["@typescript-eslint"],
-  "extends": [
-    "eslint:recommended",
-    "plugin:@typescript-eslint/recommended",
-    "prettier"
-  ],
+  "extends": ["eslint:recommended", "plugin:@typescript-eslint/recommended", "prettier"],
   "rules": {
     "@typescript-eslint/no-unused-vars": [
       "warn",
@@ -37,15 +33,7 @@
     "@typescript-eslint/no-misused-promises": "off",
     "no-console": ["warn", { "allow": ["warn", "error", "info"] }]
   },
-  "ignorePatterns": [
-    "node_modules",
-    "dist",
-    ".next",
-    "coverage",
-    "*.js",
-    "*.cjs",
-    "*.mjs"
-  ],
+  "ignorePatterns": ["node_modules", "dist", ".next", "coverage", "*.js", "*.cjs", "*.mjs"],
   "overrides": [
     {
       "files": ["**/*.test.ts", "**/*.test.tsx", "**/__tests__/**/*"],

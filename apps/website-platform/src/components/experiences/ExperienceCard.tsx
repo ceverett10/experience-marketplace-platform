@@ -30,7 +30,10 @@ export function ExperienceCard({ experience, variant = 'default' }: ExperienceCa
             {experience.title}
           </h3>
           <p className="mt-1 text-xs text-gray-500">{experience.duration.formatted}</p>
-          <p className="mt-1 text-sm font-semibold" style={{ color: brand?.primaryColor ?? '#6366f1' }}>
+          <p
+            className="mt-1 text-sm font-semibold"
+            style={{ color: brand?.primaryColor ?? '#6366f1' }}
+          >
             From {experience.price.formatted}
           </p>
         </div>
@@ -64,21 +67,15 @@ export function ExperienceCard({ experience, variant = 'default' }: ExperienceCa
               <span className="text-sm font-medium text-white">
                 {experience.rating.average.toFixed(1)}
               </span>
-              <span className="text-sm text-white/70">
-                ({experience.rating.count})
-              </span>
+              <span className="text-sm text-white/70">({experience.rating.count})</span>
             </div>
           )}
 
-          <h3 className="text-xl font-semibold text-white line-clamp-2">
-            {experience.title}
-          </h3>
+          <h3 className="text-xl font-semibold text-white line-clamp-2">{experience.title}</h3>
 
           <div className="mt-2 flex items-center justify-between">
             <span className="text-sm text-white/80">{experience.duration.formatted}</span>
-            <span className="text-lg font-bold text-white">
-              From {experience.price.formatted}
-            </span>
+            <span className="text-lg font-bold text-white">From {experience.price.formatted}</span>
           </div>
         </div>
       </Link>

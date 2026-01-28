@@ -34,10 +34,7 @@ export async function GET(request: NextRequest) {
     const includeQuestions = searchParams.get('includeQuestions') === 'true';
 
     if (!bookingId) {
-      return NextResponse.json(
-        { error: 'Booking ID is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Booking ID is required' }, { status: 400 });
     }
 
     // Get site configuration
@@ -57,10 +54,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (!booking) {
-      return NextResponse.json(
-        { error: 'Booking not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
     }
 
     return NextResponse.json({
@@ -69,10 +63,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Get booking error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch booking' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch booking' }, { status: 500 });
   }
 }
 
@@ -117,16 +108,16 @@ export async function POST(request: NextRequest) {
       consumerTripId: input.consumerTripId,
     });
 
-    return NextResponse.json({
-      success: true,
-      data: booking,
-    }, { status: 201 });
+    return NextResponse.json(
+      {
+        success: true,
+        data: booking,
+      },
+      { status: 201 }
+    );
   } catch (error) {
     console.error('Create booking error:', error);
 
-    return NextResponse.json(
-      { error: 'Failed to create booking' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to create booking' }, { status: 500 });
   }
 }

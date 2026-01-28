@@ -3,9 +3,11 @@ import { NextRequest } from 'next/server';
 
 // Mock the modules
 vi.mock('next/headers', () => ({
-  headers: vi.fn(() => Promise.resolve({
-    get: vi.fn().mockReturnValue('localhost:3000'),
-  })),
+  headers: vi.fn(() =>
+    Promise.resolve({
+      get: vi.fn().mockReturnValue('localhost:3000'),
+    })
+  ),
 }));
 
 vi.mock('@/lib/tenant', () => ({
@@ -92,7 +94,9 @@ describe('Booking API Route - GET', () => {
     };
     mockGetBookingQuestions.mockResolvedValue(mockBookingWithQuestions);
 
-    const request = new NextRequest('http://localhost:3000/api/booking?id=booking-123&includeQuestions=true');
+    const request = new NextRequest(
+      'http://localhost:3000/api/booking?id=booking-123&includeQuestions=true'
+    );
 
     const response = await GET(request);
     const data = await response.json();

@@ -3,9 +3,11 @@ import { NextRequest } from 'next/server';
 
 // Mock the modules
 vi.mock('next/headers', () => ({
-  headers: vi.fn(() => Promise.resolve({
-    get: vi.fn().mockReturnValue('localhost:3000'),
-  })),
+  headers: vi.fn(() =>
+    Promise.resolve({
+      get: vi.fn().mockReturnValue('localhost:3000'),
+    })
+  ),
 }));
 
 vi.mock('@/lib/tenant', () => ({
@@ -18,12 +20,13 @@ vi.mock('@/lib/tenant', () => ({
 }));
 
 // Use vi.hoisted to define mocks that can be used in vi.mock factory
-const { mockGetBooking, mockGetBookingQuestions, mockCommitBooking, mockWaitForConfirmation } = vi.hoisted(() => ({
-  mockGetBooking: vi.fn(),
-  mockGetBookingQuestions: vi.fn(),
-  mockCommitBooking: vi.fn(),
-  mockWaitForConfirmation: vi.fn(),
-}));
+const { mockGetBooking, mockGetBookingQuestions, mockCommitBooking, mockWaitForConfirmation } =
+  vi.hoisted(() => ({
+    mockGetBooking: vi.fn(),
+    mockGetBookingQuestions: vi.fn(),
+    mockCommitBooking: vi.fn(),
+    mockWaitForConfirmation: vi.fn(),
+  }));
 
 vi.mock('@/lib/holibob', () => ({
   getHolibobClient: vi.fn().mockReturnValue({

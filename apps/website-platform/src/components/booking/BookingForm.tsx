@@ -5,7 +5,12 @@ import { useRouter } from 'next/navigation';
 import { useBrand } from '@/lib/site-context';
 import type { Experience } from '@/lib/holibob';
 import { AvailabilityCalendar, type TimeSlot } from './AvailabilityCalendar';
-import { GuestSelector, GuestDetailsForm, type GuestCount, type GuestDetails } from './GuestSelector';
+import {
+  GuestSelector,
+  GuestDetailsForm,
+  type GuestCount,
+  type GuestDetails,
+} from './GuestSelector';
 
 interface BookingFormProps {
   experience: Experience;
@@ -53,9 +58,7 @@ export function BookingForm({ experience, onBookingCreated }: BookingFormProps) 
 
   // Update guest count
   const handleGuestCountChange = (typeId: string, count: number) => {
-    setGuestCounts((prev) =>
-      prev.map((gc) => (gc.typeId === typeId ? { ...gc, count } : gc))
-    );
+    setGuestCounts((prev) => prev.map((gc) => (gc.typeId === typeId ? { ...gc, count } : gc)));
   };
 
   // Step validation
@@ -196,9 +199,7 @@ export function BookingForm({ experience, onBookingCreated }: BookingFormProps) 
       {/* Header with price */}
       <div className="border-b border-gray-200 p-6">
         <div className="flex items-baseline gap-2">
-          <span className="text-2xl font-bold text-gray-900">
-            {experience.price.formatted}
-          </span>
+          <span className="text-2xl font-bold text-gray-900">{experience.price.formatted}</span>
           <span className="text-gray-500">per person</span>
         </div>
         {experience.rating && (
@@ -235,11 +236,23 @@ export function BookingForm({ experience, onBookingCreated }: BookingFormProps) 
                     flex h-6 w-6 items-center justify-center rounded-full text-xs
                     ${isActive ? 'text-white' : isCompleted ? 'bg-green-100 text-green-600' : 'bg-gray-200 text-gray-500'}
                   `}
-                  style={isActive ? { backgroundColor: brand?.primaryColor ?? '#6366f1' } : undefined}
+                  style={
+                    isActive ? { backgroundColor: brand?.primaryColor ?? '#6366f1' } : undefined
+                  }
                 >
                   {isCompleted ? (
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth="2"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M4.5 12.75l6 6 9-13.5"
+                      />
                     </svg>
                   ) : (
                     index + 1
@@ -255,11 +268,7 @@ export function BookingForm({ experience, onBookingCreated }: BookingFormProps) 
       {/* Form content */}
       <div className="p-6">
         {/* Error message */}
-        {error && (
-          <div className="mb-4 rounded-lg bg-red-50 p-4 text-sm text-red-600">
-            {error}
-          </div>
-        )}
+        {error && <div className="mb-4 rounded-lg bg-red-50 p-4 text-sm text-red-600">{error}</div>}
 
         {/* Date & Time step */}
         {currentStep === 'date' && (
@@ -303,22 +312,52 @@ export function BookingForm({ experience, onBookingCreated }: BookingFormProps) 
               <h5 className="font-medium text-gray-900">{experience.title}</h5>
               <div className="mt-2 space-y-1 text-sm text-gray-600">
                 <div className="flex items-center gap-2">
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth="1.5"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"
+                    />
                   </svg>
                   {formatSelectedDate()}
                 </div>
                 {selectedTimeSlot && (
                   <div className="flex items-center gap-2">
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth="1.5"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
                     </svg>
                     {selectedTimeSlot.time}
                   </div>
                 )}
                 <div className="flex items-center gap-2">
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth="1.5"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"
+                    />
                   </svg>
                   {totalGuests} {totalGuests === 1 ? 'guest' : 'guests'}
                   {adults > 0 && ` (${adults} adult${adults > 1 ? 's' : ''}`}
@@ -331,10 +370,7 @@ export function BookingForm({ experience, onBookingCreated }: BookingFormProps) 
             {/* Contact */}
             <div className="space-y-3">
               <div>
-                <label
-                  htmlFor="customerEmail"
-                  className="block text-sm font-medium text-gray-700"
-                >
+                <label htmlFor="customerEmail" className="block text-sm font-medium text-gray-700">
                   Contact email *
                 </label>
                 <input
@@ -344,7 +380,9 @@ export function BookingForm({ experience, onBookingCreated }: BookingFormProps) 
                   onChange={(e) => setCustomerEmail(e.target.value)}
                   required
                   className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2"
-                  style={{ '--tw-ring-color': brand?.primaryColor ?? '#6366f1' } as React.CSSProperties}
+                  style={
+                    { '--tw-ring-color': brand?.primaryColor ?? '#6366f1' } as React.CSSProperties
+                  }
                   placeholder="email@example.com"
                 />
                 <p className="mt-1 text-xs text-gray-500">
@@ -353,10 +391,7 @@ export function BookingForm({ experience, onBookingCreated }: BookingFormProps) 
               </div>
 
               <div>
-                <label
-                  htmlFor="customerPhone"
-                  className="block text-sm font-medium text-gray-700"
-                >
+                <label htmlFor="customerPhone" className="block text-sm font-medium text-gray-700">
                   Phone number
                 </label>
                 <input
@@ -365,7 +400,9 @@ export function BookingForm({ experience, onBookingCreated }: BookingFormProps) 
                   value={customerPhone}
                   onChange={(e) => setCustomerPhone(e.target.value)}
                   className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2"
-                  style={{ '--tw-ring-color': brand?.primaryColor ?? '#6366f1' } as React.CSSProperties}
+                  style={
+                    { '--tw-ring-color': brand?.primaryColor ?? '#6366f1' } as React.CSSProperties
+                  }
                   placeholder="+44 7000 000000"
                 />
               </div>
@@ -435,7 +472,14 @@ export function BookingForm({ experience, onBookingCreated }: BookingFormProps) 
               {isSubmitting ? (
                 <span className="flex items-center justify-center gap-2">
                   <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
                     <path
                       className="opacity-75"
                       fill="currentColor"

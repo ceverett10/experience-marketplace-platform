@@ -1,9 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  ContentBriefSchema,
-  PipelineConfigSchema,
-  DEFAULT_PIPELINE_CONFIG,
-} from '../types';
+import { ContentBriefSchema, PipelineConfigSchema, DEFAULT_PIPELINE_CONFIG } from '../types';
 
 describe('Type Schemas', () => {
   describe('ContentBriefSchema', () => {
@@ -65,7 +61,14 @@ describe('Type Schemas', () => {
     });
 
     it('should validate all content types', () => {
-      const contentTypes = ['destination', 'category', 'experience', 'blog', 'meta_description', 'seo_title'];
+      const contentTypes = [
+        'destination',
+        'category',
+        'experience',
+        'blog',
+        'meta_description',
+        'seo_title',
+      ];
 
       for (const type of contentTypes) {
         const brief = {
@@ -132,8 +135,8 @@ describe('Type Schemas', () => {
         autoPublishThreshold: 90,
         maxRewrites: 3,
         rewriteScoreImprovement: 5,
-        maxCostPerContent: 0.50,
-        dailyCostLimit: 50.00,
+        maxCostPerContent: 0.5,
+        dailyCostLimit: 50.0,
         requestsPerMinute: 50,
         maxConcurrentRequests: 5,
       };
@@ -151,8 +154,8 @@ describe('Type Schemas', () => {
         autoPublishThreshold: 90,
         maxRewrites: 3,
         rewriteScoreImprovement: 5,
-        maxCostPerContent: 0.50,
-        dailyCostLimit: 50.00,
+        maxCostPerContent: 0.5,
+        dailyCostLimit: 50.0,
         requestsPerMinute: 50,
         maxConcurrentRequests: 5,
       };
@@ -188,7 +191,7 @@ describe('Type Schemas', () => {
       expect(DEFAULT_PIPELINE_CONFIG.qualityModel).toBe('sonnet');
       expect(DEFAULT_PIPELINE_CONFIG.qualityThreshold).toBe(75);
       expect(DEFAULT_PIPELINE_CONFIG.maxRewrites).toBe(3);
-      expect(DEFAULT_PIPELINE_CONFIG.dailyCostLimit).toBe(50.00);
+      expect(DEFAULT_PIPELINE_CONFIG.dailyCostLimit).toBe(50.0);
     });
 
     it('should pass schema validation', () => {
