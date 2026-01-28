@@ -15,6 +15,7 @@ async function getFeaturedExperiences(siteConfig: Awaited<ReturnType<typeof getS
     // Get featured/popular experiences
     const response = await client.discoverProducts(
       {
+        currency: 'GBP',
         // In production, filter by partner's configured locations/categories
       },
       { first: 8 }

@@ -58,6 +58,7 @@ async function getExperiences(
 
     const response = await client.discoverProducts(
       {
+        currency: 'GBP',
         categoryIds: searchParams.category ? [searchParams.category] : undefined,
         priceMin: searchParams.minPrice ? parseInt(searchParams.minPrice, 10) * 100 : undefined,
         priceMax: searchParams.maxPrice ? parseInt(searchParams.maxPrice, 10) * 100 : undefined,
