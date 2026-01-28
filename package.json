@@ -16,6 +16,7 @@
   "scripts": {
     "build": "npm run build --workspaces --if-present",
     "dev": "npm run dev --workspaces --if-present",
+    "start": "npm run start --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "test:watch": "npm run test:watch --workspaces --if-present",
     "test:coverage": "npm run test:coverage --workspaces --if-present",
@@ -25,7 +26,14 @@
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "clean": "npm run clean --workspaces --if-present && rm -rf node_modules",
-    "prepare": "husky"
+    "prepare": "husky",
+    "db:generate": "npm run db:generate --workspace=@experience-marketplace/database",
+    "db:migrate": "npm run db:migrate --workspace=@experience-marketplace/database",
+    "db:migrate:deploy": "npm run db:migrate:deploy --workspace=@experience-marketplace/database",
+    "db:push": "npm run db:push --workspace=@experience-marketplace/database",
+    "db:seed": "npm run db:seed --workspace=@experience-marketplace/database",
+    "db:studio": "npm run db:studio --workspace=@experience-marketplace/database",
+    "postinstall": "npm run db:generate"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
