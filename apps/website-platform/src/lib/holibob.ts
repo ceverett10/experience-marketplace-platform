@@ -112,22 +112,30 @@ export function mapProductToExperience(product: {
   shortDescription?: string;
   description?: string;
   primaryImage?: { url?: string };
+  imageUrl?: string;
   images?: { url?: string }[];
   pricing?: {
     retailPrice?: { amount?: number; currency?: string };
   };
-  duration?: {
+  priceFrom?: number;
+  currency?: string;
+  duration?: number | {
     value?: number;
     unit?: string;
   };
+  durationText?: string;
   reviews?: {
     averageRating?: number;
     totalCount?: number;
   };
+  rating?: number;
+  reviewCount?: number;
   location?: {
     name?: string;
     address?: string;
     coordinates?: { lat?: number; lng?: number };
+    lat?: number;
+    lng?: number;
   };
   categories?: {
     id?: string;
@@ -137,12 +145,30 @@ export function mapProductToExperience(product: {
   highlights?: string[];
   inclusions?: string[];
   exclusions?: string[];
-  cancellationPolicy?: { description?: string };
+  cancellationPolicy?: { description?: string } | string;
 }): Experience {
-  const priceAmount = product.pricing?.retailPrice?.amount ?? 0;
-  const currency = product.pricing?.retailPrice?.currency ?? 'GBP';
-  const durationValue = product.duration?.value ?? 0;
-  const durationUnit = product.duration?.unit ?? 'hours';
+  const priceAmount = product.pricing?.retailPrice?.amount ?? product.priceFrom ?? 0;
+  const currency = product.pricing?.retailPrice?.currency ?? product.currency ?? 'GBP';
+
+  // Handle duration as either number (minutes) or object
+  let durationValue: number;
+  let durationUnit: string;
+  if (typeof product.duration === 'number') {
+    durationValue = product.duration;
+    durationUnit = 'minutes';
+  } else {
+    durationValue = product.duration?.value ?? 0;
+    durationUnit = product.duration?.unit ?? 'hours';
+  }
+
+  // Handle rating from different sources
+  const ratingValue = product.reviews?.averageRating ?? product.rating;
+  const reviewCount = product.reviews?.totalCount ?? product.reviewCount ?? 0;
+
+  // Handle cancellation policy as string or object
+  const cancellationPolicy = typeof product.cancellationPolicy === 'string'
+    ? product.cancellationPolicy
+    : product.cancellationPolicy?.description ?? '';
 
   return {
     id: product.id,
@@ -150,7 +176,7 @@ export function mapProductToExperience(product: {
     slug: product.slug ?? product.id,
     shortDescription: product.shortDescription ?? '',
     description: product.description ?? '',
-    imageUrl: product.primaryImage?.url ?? '/placeholder-experience.jpg',
+    imageUrl: product.primaryImage?.url ?? product.imageUrl ?? '/placeholder-experience.jpg',
     images: product.images?.map((img) => img.url ?? '') ?? [],
     price: {
       amount: priceAmount,
@@ -160,19 +186,19 @@ export function mapProductToExperience(product: {
     duration: {
       value: durationValue,
       unit: durationUnit,
-      formatted: formatDuration(durationValue, durationUnit),
+      formatted: product.durationText ?? formatDuration(durationValue, durationUnit),
     },
-    rating: product.reviews?.averageRating
+    rating: ratingValue
       ? {
-          average: product.reviews.averageRating,
-          count: product.reviews.totalCount ?? 0,
+          average: ratingValue,
+          count: reviewCount,
         }
       : null,
     location: {
       name: product.location?.name ?? '',
       address: product.location?.address ?? '',
-      lat: product.location?.coordinates?.lat ?? 0,
-      lng: product.location?.coordinates?.lng ?? 0,
+      lat: product.location?.coordinates?.lat ?? product.location?.lat ?? 0,
+      lng: product.location?.coordinates?.lng ?? product.location?.lng ?? 0,
     },
     categories:
       product.categories?.map((cat) => ({
@@ -183,7 +209,7 @@ export function mapProductToExperience(product: {
     highlights: product.highlights ?? [],
     inclusions: product.inclusions ?? [],
     exclusions: product.exclusions ?? [],
-    cancellationPolicy: product.cancellationPolicy?.description ?? '',
+    cancellationPolicy,
   };
 }
 
