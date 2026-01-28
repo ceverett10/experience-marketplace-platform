@@ -23,16 +23,16 @@ interface BookingItem {
 
 interface Booking {
   id: string;
-  status: string;
-  items: BookingItem[];
-  subtotal: number;
+  status?: string;
+  items?: BookingItem[];
+  subtotal?: number;
   fees?: number;
   taxes?: number;
-  total: number;
-  currency: string;
-  customerEmail: string;
+  total?: number;
+  currency?: string;
+  customerEmail?: string;
   customerPhone?: string;
-  createdAt: string;
+  createdAt?: string;
 }
 
 interface CheckoutClientProps {
@@ -112,8 +112,9 @@ export function CheckoutClient({ booking, site }: CheckoutClientProps) {
     }
   };
 
-  const item = booking.items[0];
+  const item = booking.items?.[0];
   const totalGuests = item?.guests.length ?? 0;
+  const bookingCurrency = booking.currency ?? 'GBP';
 
   return (
     <main className="min-h-screen bg-gray-50 py-8">
@@ -197,10 +198,12 @@ export function CheckoutClient({ booking, site }: CheckoutClientProps) {
                   <div>
                     <h3 className="mb-3 font-medium text-gray-900">Contact Information</h3>
                     <div className="rounded-lg border border-gray-200 p-3">
-                      <div className="text-sm">
-                        <div className="text-gray-600">Email</div>
-                        <div className="font-medium text-gray-900">{booking.customerEmail}</div>
-                      </div>
+                      {booking.customerEmail && (
+                        <div className="text-sm">
+                          <div className="text-gray-600">Email</div>
+                          <div className="font-medium text-gray-900">{booking.customerEmail}</div>
+                        </div>
+                      )}
                       {booking.customerPhone && (
                         <div className="mt-2 text-sm">
                           <div className="text-gray-600">Phone</div>
@@ -250,7 +253,7 @@ export function CheckoutClient({ booking, site }: CheckoutClientProps) {
                     <div className="flex items-center justify-between">
                       <span className="text-gray-600">Service fee</span>
                       <span className="font-medium text-gray-900">
-                        {formatPrice(booking.fees, booking.currency)}
+                        {formatPrice(booking.fees, bookingCurrency)}
                       </span>
                     </div>
                   )}
@@ -259,7 +262,7 @@ export function CheckoutClient({ booking, site }: CheckoutClientProps) {
                     <div className="flex items-center justify-between">
                       <span className="text-gray-600">Taxes</span>
                       <span className="font-medium text-gray-900">
-                        {formatPrice(booking.taxes, booking.currency)}
+                        {formatPrice(booking.taxes, bookingCurrency)}
                       </span>
                     </div>
                   )}
@@ -268,7 +271,7 @@ export function CheckoutClient({ booking, site }: CheckoutClientProps) {
                     <div className="flex items-center justify-between">
                       <span className="text-base font-semibold text-gray-900">Total</span>
                       <span className="text-lg font-bold text-gray-900">
-                        {formatPrice(booking.total, booking.currency)}
+                        {formatPrice(booking.total ?? 0, bookingCurrency)}
                       </span>
                     </div>
                   </div>
@@ -287,7 +290,7 @@ export function CheckoutClient({ booking, site }: CheckoutClientProps) {
                 onClick={handleProceedToPayment}
                 disabled={isProcessing}
                 className="mt-6 w-full rounded-lg py-3 text-base font-semibold text-white transition-colors hover:opacity-90 disabled:opacity-50"
-                style={{ backgroundColor: site.brand.primaryColor }}
+                style={{ backgroundColor: site.brand?.primaryColor ?? '#6366f1' }}
               >
                 {isProcessing ? (
                   <span className="flex items-center justify-center gap-2">

@@ -176,7 +176,7 @@ describe('AvailabilityCalendar', () => {
 
   it('calls onDateSelect when date is clicked', async () => {
     const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    const tomorrowStr = tomorrow.toISOString().split('T')[0];
+    const tomorrowStr = tomorrow.toISOString().split('T')[0] ?? '';
 
     renderWithProvider(
       <AvailabilityCalendar
@@ -207,7 +207,7 @@ describe('AvailabilityCalendar', () => {
 
   it('shows time slots when date is selected', async () => {
     const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    const tomorrowStr = tomorrow.toISOString().split('T')[0];
+    const tomorrowStr = tomorrow.toISOString().split('T')[0] ?? '';
 
     renderWithProvider(
       <AvailabilityCalendar
@@ -228,7 +228,7 @@ describe('AvailabilityCalendar', () => {
 
   it('calls onTimeSlotSelect when time slot is clicked', async () => {
     const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    const tomorrowStr = tomorrow.toISOString().split('T')[0];
+    const tomorrowStr = tomorrow.toISOString().split('T')[0] ?? '';
 
     renderWithProvider(
       <AvailabilityCalendar
@@ -261,7 +261,7 @@ describe('AvailabilityCalendar', () => {
 
   it('shows remaining capacity warning for limited slots', async () => {
     const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    const tomorrowStr = tomorrow.toISOString().split('T')[0];
+    const tomorrowStr = tomorrow.toISOString().split('T')[0] ?? '';
 
     renderWithProvider(
       <AvailabilityCalendar

@@ -1,7 +1,11 @@
 /**
  * Booking API Routes
- * POST /api/booking - Create a new booking
+ *
+ * POST /api/booking - Create a new booking (basket)
  * GET /api/booking?id=xxx - Get booking details
+ *
+ * This implements Holibob Look-to-Book Step 6:
+ * - Create booking with autoFillQuestions = true (recommended)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -10,42 +14,24 @@ import { z } from 'zod';
 import { getSiteFromHostname } from '@/lib/tenant';
 import { getHolibobClient } from '@/lib/holibob';
 
-// Guest schema for validation
-const GuestSchema = z.object({
-  guestTypeId: z.string(),
-  firstName: z.string().min(1, 'First name is required'),
-  lastName: z.string().min(1, 'Last name is required'),
-  email: z.string().email().optional(),
-  phone: z.string().optional(),
-  dateOfBirth: z.string().optional(),
-});
-
-// Booking item schema
-const BookingItemSchema = z.object({
-  availabilityId: z.string(),
-  guests: z.array(GuestSchema).min(1, 'At least one guest is required'),
-  extras: z.array(
-    z.object({
-      extraId: z.string(),
-      quantity: z.number().int().positive(),
-    })
-  ).optional(),
-});
-
 // Create booking request schema
 const CreateBookingSchema = z.object({
-  customerEmail: z.string().email('Valid email is required'),
-  customerPhone: z.string().optional(),
-  items: z.array(BookingItemSchema).min(1, 'At least one booking item is required'),
+  partnerExternalReference: z.string().optional(),
+  consumerTripId: z.string().optional(),
+  autoFillQuestions: z.boolean().optional().default(true),
 });
 
 /**
  * GET /api/booking - Get booking details
+ * Query params:
+ * - id: Booking ID (required)
+ * - includeQuestions: Set to 'true' to include all question data
  */
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const bookingId = searchParams.get('id');
+    const includeQuestions = searchParams.get('includeQuestions') === 'true';
 
     if (!bookingId) {
       return NextResponse.json(
@@ -57,13 +43,18 @@ export async function GET(request: NextRequest) {
     // Get site configuration
     const headersList = await headers();
     const host = headersList.get('host') ?? 'localhost:3000';
-    const site = getSiteFromHostname(host);
+    const site = await getSiteFromHostname(host);
 
     // Get Holibob client
     const client = getHolibobClient(site);
 
     // Fetch booking
-    const booking = await client.getBooking(bookingId);
+    let booking;
+    if (includeQuestions) {
+      booking = await client.getBookingQuestions(bookingId);
+    } else {
+      booking = await client.getBooking(bookingId);
+    }
 
     if (!booking) {
       return NextResponse.json(
@@ -86,7 +77,11 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * POST /api/booking - Create a new booking
+ * POST /api/booking - Create a new booking (basket)
+ * Body:
+ * - partnerExternalReference: Optional reference ID
+ * - consumerTripId: Optional trip ID to associate with
+ * - autoFillQuestions: Whether to auto-fill questions (default: true)
  */
 export async function POST(request: NextRequest) {
   try {
@@ -105,22 +100,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { customerEmail, customerPhone, items } = validationResult.data;
+    const input = validationResult.data;
 
     // Get site configuration
     const headersList = await headers();
     const host = headersList.get('host') ?? 'localhost:3000';
-    const site = getSiteFromHostname(host);
+    const site = await getSiteFromHostname(host);
 
     // Get Holibob client
     const client = getHolibobClient(site);
 
-    // Create booking
+    // Create booking with recommended settings
     const booking = await client.createBooking({
-      siteId: site.id,
-      customerEmail,
-      customerPhone,
-      items,
+      autoFillQuestions: input.autoFillQuestions ?? true,
+      partnerExternalReference: input.partnerExternalReference,
+      consumerTripId: input.consumerTripId,
     });
 
     return NextResponse.json({
@@ -129,22 +123,6 @@ export async function POST(request: NextRequest) {
     }, { status: 201 });
   } catch (error) {
     console.error('Create booking error:', error);
-
-    if (error instanceof Error) {
-      // Handle specific error cases
-      if (error.message.includes('availability')) {
-        return NextResponse.json(
-          { error: 'Selected time slot is no longer available' },
-          { status: 409 }
-        );
-      }
-      if (error.message.includes('capacity')) {
-        return NextResponse.json(
-          { error: 'Not enough capacity for the requested number of guests' },
-          { status: 409 }
-        );
-      }
-    }
 
     return NextResponse.json(
       { error: 'Failed to create booking' },

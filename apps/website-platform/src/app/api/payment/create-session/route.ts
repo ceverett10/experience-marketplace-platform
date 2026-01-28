@@ -12,7 +12,7 @@ import { getHolibobClient } from '@/lib/holibob';
 
 // Initialize Stripe
 const stripe = new Stripe(process.env['STRIPE_SECRET_KEY'] ?? '', {
-  apiVersion: '2024-11-20.acacia',
+  apiVersion: '2023-10-16',
 });
 
 const CreateSessionSchema = z.object({
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     // Get site configuration
     const headersList = await headers();
     const host = headersList.get('host') ?? 'localhost:3000';
-    const site = getSiteFromHostname(host);
+    const site = await getSiteFromHostname(host);
     const protocol = process.env['NODE_ENV'] === 'production' ? 'https' : 'http';
     const baseUrl = `${protocol}://${host}`;
 
@@ -66,7 +66,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Build line items for Stripe
-    const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = booking.items.map((item) => ({
+    // Note: For Holibob integration, payment is typically ON_ACCOUNT (billed to partner)
+    // This Stripe integration is for direct consumer payment scenarios
+    const items = (booking.items ?? []) as Array<{
+      currency: string;
+      productName: string;
+      date: string;
+      startTime?: string;
+      guests: unknown[];
+      unitPrice: number;
+    }>;
+    const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = items.map((item) => ({
       price_data: {
         currency: item.currency.toLowerCase(),
         product_data: {
@@ -79,7 +89,7 @@ export async function POST(request: NextRequest) {
     }));
 
     // Add service fee if present
-    if (booking.fees && booking.fees > 0) {
+    if (booking.fees && booking.fees > 0 && booking.currency) {
       lineItems.push({
         price_data: {
           currency: booking.currency.toLowerCase(),

@@ -14,7 +14,7 @@ export async function generateMetadata({ params }: ConfirmationPageProps): Promi
   const { bookingId } = await params;
   const headersList = await headers();
   const host = headersList.get('host') ?? 'localhost:3000';
-  const site = getSiteFromHostname(host);
+  const site = await getSiteFromHostname(host);
 
   return {
     title: `Booking Confirmed - ${site.name}`,
@@ -27,7 +27,7 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
   const { session_id } = await searchParams;
   const headersList = await headers();
   const host = headersList.get('host') ?? 'localhost:3000';
-  const site = getSiteFromHostname(host);
+  const site = await getSiteFromHostname(host);
 
   // Get Holibob client
   const client = getHolibobClient(site);
@@ -63,8 +63,9 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
     });
   };
 
-  const item = booking.items[0];
+  const item = booking.items?.[0];
   const totalGuests = item?.guests.length ?? 0;
+  const bookingCurrency = booking.currency ?? 'GBP';
 
   return (
     <main className="min-h-screen bg-gray-50 py-12">
@@ -73,14 +74,14 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
         <div className="rounded-xl bg-white p-8 text-center shadow-lg">
           <div
             className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full"
-            style={{ backgroundColor: `${site.brand.primaryColor}20` }}
+            style={{ backgroundColor: `${site.brand?.primaryColor ?? '#6366f1'}20` }}
           >
             <svg
               className="h-8 w-8"
               fill="none"
               viewBox="0 0 24 24"
               strokeWidth="2"
-              stroke={site.brand.primaryColor}
+              stroke={site.brand?.primaryColor ?? '#6366f1'}
             >
               <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
             </svg>
@@ -170,7 +171,7 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
                       <div className="flex items-center justify-between">
                         <span className="text-gray-600">Service fee</span>
                         <span className="font-medium text-gray-900">
-                          {formatPrice(booking.fees, booking.currency)}
+                          {formatPrice(booking.fees, bookingCurrency)}
                         </span>
                       </div>
                     )}
@@ -179,7 +180,7 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
                       <div className="flex items-center justify-between">
                         <span className="font-semibold text-gray-900">Total paid</span>
                         <span className="text-lg font-bold text-gray-900">
-                          {formatPrice(booking.total, booking.currency)}
+                          {formatPrice(booking.total ?? 0, bookingCurrency)}
                         </span>
                       </div>
                     </div>
@@ -197,7 +198,7 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
             <div className="flex items-start gap-3">
               <div
                 className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-xs font-medium text-white"
-                style={{ backgroundColor: site.brand.primaryColor }}
+                style={{ backgroundColor: site.brand?.primaryColor ?? '#6366f1' }}
               >
                 1
               </div>
@@ -209,7 +210,7 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
             <div className="flex items-start gap-3">
               <div
                 className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-xs font-medium text-white"
-                style={{ backgroundColor: site.brand.primaryColor }}
+                style={{ backgroundColor: site.brand?.primaryColor ?? '#6366f1' }}
               >
                 2
               </div>
@@ -221,7 +222,7 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
             <div className="flex items-start gap-3">
               <div
                 className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-xs font-medium text-white"
-                style={{ backgroundColor: site.brand.primaryColor }}
+                style={{ backgroundColor: site.brand?.primaryColor ?? '#6366f1' }}
               >
                 3
               </div>
@@ -254,7 +255,7 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
           <Link
             href="/experiences"
             className="inline-flex items-center justify-center rounded-lg px-6 py-3 text-sm font-semibold text-white transition-colors hover:opacity-90"
-            style={{ backgroundColor: site.brand.primaryColor }}
+            style={{ backgroundColor: site.brand?.primaryColor ?? '#6366f1' }}
           >
             Browse More Experiences
           </Link>
@@ -276,7 +277,7 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
             <a
               href={`mailto:support@${host}`}
               className="font-medium hover:underline"
-              style={{ color: site.brand.primaryColor }}
+              style={{ color: site.brand?.primaryColor ?? '#6366f1' }}
             >
               support@{host}
             </a>

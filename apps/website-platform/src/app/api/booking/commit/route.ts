@@ -1,6 +1,11 @@
 /**
  * Commit Booking API Route
- * POST /api/booking/commit - Finalize booking before payment
+ *
+ * POST /api/booking/commit - Finalize booking
+ *
+ * This implements Holibob Look-to-Book Step 9:
+ * - Commit booking after canCommit = true
+ * - Optionally wait for supplier confirmation
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -10,7 +15,10 @@ import { getSiteFromHostname } from '@/lib/tenant';
 import { getHolibobClient } from '@/lib/holibob';
 
 const CommitBookingSchema = z.object({
-  bookingId: z.string().min(1, 'Booking ID is required'),
+  bookingId: z.string().optional(),
+  bookingCode: z.string().optional(),
+  waitForConfirmation: z.boolean().optional().default(false),
+  maxWaitSeconds: z.number().optional().default(60),
 });
 
 export async function POST(request: NextRequest) {
@@ -30,18 +38,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { bookingId } = validationResult.data;
+    const { bookingId, bookingCode, waitForConfirmation, maxWaitSeconds } = validationResult.data;
+
+    // Ensure at least one identifier is provided
+    if (!bookingId && !bookingCode) {
+      return NextResponse.json(
+        { error: 'Either bookingId or bookingCode is required' },
+        { status: 400 }
+      );
+    }
 
     // Get site configuration
     const headersList = await headers();
     const host = headersList.get('host') ?? 'localhost:3000';
-    const site = getSiteFromHostname(host);
+    const site = await getSiteFromHostname(host);
 
     // Get Holibob client
     const client = getHolibobClient(site);
 
-    // First verify the booking exists and is in pending state
-    const existingBooking = await client.getBooking(bookingId);
+    // First verify the booking exists and canCommit
+    const existingBooking = await client.getBooking(bookingId ?? bookingCode!);
     if (!existingBooking) {
       return NextResponse.json(
         { error: 'Booking not found' },
@@ -49,19 +65,53 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (existingBooking.status !== 'PENDING') {
+    // Check if booking can be committed
+    if (existingBooking.state !== 'OPEN') {
       return NextResponse.json(
-        { error: `Cannot commit booking with status: ${existingBooking.status}` },
+        { error: `Cannot commit booking with state: ${existingBooking.state}` },
         { status: 409 }
       );
     }
 
-    // Commit the booking
-    const booking = await client.commitBooking(bookingId);
+    // Get full booking with questions to check canCommit
+    const bookingWithQuestions = await client.getBookingQuestions(bookingId ?? existingBooking.id);
+    if (!bookingWithQuestions.canCommit) {
+      return NextResponse.json(
+        { error: 'Cannot commit booking: not all required questions are answered' },
+        { status: 400 }
+      );
+    }
+
+    // Commit the booking using selector
+    const selector = bookingId ? { id: bookingId } : { code: bookingCode };
+    let booking = await client.commitBooking(selector);
+
+    // If requested, wait for confirmation
+    if (waitForConfirmation && booking.state === 'PENDING') {
+      try {
+        const maxAttempts = Math.ceil((maxWaitSeconds ?? 60) / 2);
+        booking = await client.waitForConfirmation(booking.id, {
+          maxAttempts,
+          intervalMs: 2000,
+        });
+      } catch (waitError) {
+        // If waiting times out, still return the booking (in PENDING state)
+        console.warn('Booking confirmation wait timed out:', waitError);
+        // Re-fetch to get latest state
+        const latestBooking = await client.getBooking(booking.id);
+        if (latestBooking) {
+          booking = latestBooking;
+        }
+      }
+    }
 
     return NextResponse.json({
       success: true,
-      data: booking,
+      data: {
+        booking,
+        voucherUrl: booking.voucherUrl,
+        isConfirmed: booking.state === 'CONFIRMED',
+      },
     });
   } catch (error) {
     console.error('Commit booking error:', error);
@@ -76,6 +126,18 @@ export async function POST(request: NextRequest) {
       if (error.message.includes('availability')) {
         return NextResponse.json(
           { error: 'One or more items are no longer available' },
+          { status: 409 }
+        );
+      }
+      if (error.message.includes('REJECTED')) {
+        return NextResponse.json(
+          { error: 'Booking was rejected by supplier' },
+          { status: 409 }
+        );
+      }
+      if (error.message.includes('CANCELLED')) {
+        return NextResponse.json(
+          { error: 'Booking was cancelled' },
           { status: 409 }
         );
       }

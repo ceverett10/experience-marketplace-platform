@@ -11,7 +11,7 @@ import { getHolibobClient } from '@/lib/holibob';
 
 // Initialize Stripe
 const stripe = new Stripe(process.env['STRIPE_SECRET_KEY'] ?? '', {
-  apiVersion: '2024-11-20.acacia',
+  apiVersion: '2023-10-16',
 });
 
 const webhookSecret = process.env['STRIPE_WEBHOOK_SECRET'] ?? '';
@@ -82,8 +82,8 @@ export async function POST(request: NextRequest) {
  * Handle successful checkout
  */
 async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
-  const bookingId = session.metadata?.bookingId;
-  const siteId = session.metadata?.siteId;
+  const bookingId = session.metadata?.['bookingId'];
+  const siteId = session.metadata?.['siteId'];
 
   if (!bookingId) {
     console.error('No booking ID in session metadata');
@@ -136,7 +136,7 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
  * Handle expired checkout session
  */
 async function handleCheckoutExpired(session: Stripe.Checkout.Session) {
-  const bookingId = session.metadata?.bookingId;
+  const bookingId = session.metadata?.['bookingId'];
 
   if (!bookingId) {
     return;
@@ -154,7 +154,7 @@ async function handleCheckoutExpired(session: Stripe.Checkout.Session) {
  * Handle failed payment
  */
 async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent) {
-  const bookingId = paymentIntent.metadata?.bookingId;
+  const bookingId = paymentIntent.metadata?.['bookingId'];
 
   if (!bookingId) {
     return;

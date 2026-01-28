@@ -59,7 +59,7 @@ export function AvailabilityCalendar({
 
   // Format date as YYYY-MM-DD
   const formatDate = (date: Date): string => {
-    return date.toISOString().split('T')[0];
+    return date.toISOString().split('T')[0] ?? '';
   };
 
   // Fetch availability for the current month

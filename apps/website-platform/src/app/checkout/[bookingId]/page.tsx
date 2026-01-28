@@ -13,7 +13,7 @@ export async function generateMetadata({ params }: CheckoutPageProps): Promise<M
   const { bookingId } = await params;
   const headersList = await headers();
   const host = headersList.get('host') ?? 'localhost:3000';
-  const site = getSiteFromHostname(host);
+  const site = await getSiteFromHostname(host);
 
   return {
     title: `Checkout - ${site.name}`,
@@ -25,7 +25,7 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
   const { bookingId } = await params;
   const headersList = await headers();
   const host = headersList.get('host') ?? 'localhost:3000';
-  const site = getSiteFromHostname(host);
+  const site = await getSiteFromHostname(host);
 
   // Get Holibob client
   const client = getHolibobClient(site);

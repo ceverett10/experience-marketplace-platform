@@ -208,22 +208,22 @@ describe('SEO utilities', () => {
 
       const result = generateBreadcrumbJsonLd(items, baseUrl);
 
-      expect(result.itemListElement[0].position).toBe(1);
-      expect(result.itemListElement[1].position).toBe(2);
+      expect(result.itemListElement[0]!.position).toBe(1);
+      expect(result.itemListElement[1]!.position).toBe(2);
     });
 
     it('should prepend baseUrl to relative URLs', () => {
       const items = [{ name: 'Experiences', url: '/experiences' }];
 
       const result = generateBreadcrumbJsonLd(items, baseUrl);
-      expect(result.itemListElement[0].item).toBe(`${baseUrl}/experiences`);
+      expect(result.itemListElement[0]!.item).toBe(`${baseUrl}/experiences`);
     });
 
     it('should keep absolute URLs as-is', () => {
       const items = [{ name: 'External', url: 'https://other.com/page' }];
 
       const result = generateBreadcrumbJsonLd(items, baseUrl);
-      expect(result.itemListElement[0].item).toBe('https://other.com/page');
+      expect(result.itemListElement[0]!.item).toBe('https://other.com/page');
     });
   });
 
@@ -268,9 +268,9 @@ describe('SEO utilities', () => {
 
       const result = generateFaqJsonLd(faqs);
 
-      expect(result.mainEntity[0]['@type']).toBe('Question');
-      expect(result.mainEntity[0].name).toBe('Test question?');
-      expect(result.mainEntity[0].acceptedAnswer.text).toBe('Test answer.');
+      expect(result.mainEntity[0]!['@type']).toBe('Question');
+      expect(result.mainEntity[0]!.name).toBe('Test question?');
+      expect(result.mainEntity[0]!.acceptedAnswer.text).toBe('Test answer.');
     });
   });
 
@@ -335,7 +335,7 @@ describe('SEO utilities', () => {
       const result = generateMetaDescription(longTemplate, {});
 
       expect(result.length).toBe(160);
-      expect(result).toEndWith('...');
+      expect(result.endsWith('...')).toBe(true);
     });
 
     it('should not truncate short descriptions', () => {
@@ -370,9 +370,9 @@ describe('SEO utilities', () => {
       );
 
       expect(result.images).toHaveLength(1);
-      expect(result.images[0].url).toBe('https://example.com/image.jpg');
-      expect(result.images[0].width).toBe(1200);
-      expect(result.images[0].height).toBe(630);
+      expect(result.images[0]!.url).toBe('https://example.com/image.jpg');
+      expect(result.images[0]!.width).toBe(1200);
+      expect(result.images[0]!.height).toBe(630);
     });
 
     it('should return empty images array when no image', () => {

@@ -290,7 +290,7 @@ describe('holibob utilities', () => {
       };
       const result = mapProductToExperience(product);
       expect(result.categories).toHaveLength(2);
-      expect(result.categories[0].name).toBe('Tours');
+      expect(result.categories[0]!.name).toBe('Tours');
     });
 
     it('should provide default values for missing fields', () => {

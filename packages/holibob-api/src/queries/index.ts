@@ -1,61 +1,59 @@
 import { gql } from 'graphql-request';
 
 // ============================================================================
-// PRODUCT DISCOVERY QUERIES
+// PRODUCT DISCOVERY QUERIES (Holibob Look-to-Book Step 1 & 2)
 // ============================================================================
 
-export const PRODUCT_DISCOVERY_QUERY = gql`
-  query ProductDiscovery(
-    $filter: ProductDiscoveryInput!
+/**
+ * Step 1: Discover Products
+ * Use productList query with filters and pagination
+ */
+export const PRODUCT_LIST_QUERY = gql`
+  query ProductList(
+    $filter: ProductFilterInput
     $first: Int
     $after: String
   ) {
-    productDiscovery(filter: $filter, first: $first, after: $after) {
-      products {
+    productList(
+      filter: $filter
+      first: $first
+      after: $after
+    ) {
+      nodes {
         id
         name
-        description
+        guidePriceFormattedText
+        guidePrice
+        guidePriceCurrency
         shortDescription
-        priceFrom
-        priceTo
-        currency
-        imageUrl
-        images {
-          url
-          alt
-          isPrimary
+        imageList {
+          nodes {
+            id
+            url
+          }
         }
-        duration
-        durationText
-        location {
-          name
-          address
-          lat
-          lng
+        categoryList {
+          nodes {
+            id
+            name
+          }
         }
-        categories {
-          id
-          name
-        }
-        tags
-        rating
-        reviewCount
-        hasInstantConfirmation
-        isBestSeller
-        supplierId
-        supplierName
       }
-      totalCount
       pageInfo {
         hasNextPage
         hasPreviousPage
         startCursor
         endCursor
       }
+      totalCount
     }
   }
 `;
 
+/**
+ * Step 2: Display Product Details
+ * Retrieve detailed product information
+ */
 export const PRODUCT_DETAIL_QUERY = gql`
   query Product($id: ID!) {
     product(id: $id) {
@@ -63,15 +61,27 @@ export const PRODUCT_DETAIL_QUERY = gql`
       name
       description
       shortDescription
-      priceFrom
-      priceTo
-      currency
-      imageUrl
-      images {
-        url
-        alt
-        isPrimary
+      guidePrice
+      guidePriceFormattedText
+      guidePriceCurrency
+      imageList {
+        nodes {
+          id
+          url
+          altText
+        }
       }
+      categoryList {
+        nodes {
+          id
+          name
+          slug
+        }
+      }
+      highlights
+      inclusions
+      exclusions
+      importantInfo
       duration
       durationText
       location {
@@ -80,23 +90,6 @@ export const PRODUCT_DETAIL_QUERY = gql`
         lat
         lng
       }
-      categories {
-        id
-        name
-      }
-      tags
-      rating
-      reviewCount
-      hasInstantConfirmation
-      isBestSeller
-      supplierId
-      supplierName
-
-      # Extended details
-      highlights
-      inclusions
-      exclusions
-      importantInfo
       cancellationPolicy {
         type
         description
@@ -113,256 +106,452 @@ export const PRODUCT_DETAIL_QUERY = gql`
   }
 `;
 
-export const PRODUCT_LIST_QUERY = gql`
-  query ProductList(
-    $categoryId: ID
-    $placeId: ID
-    $first: Int
-    $after: String
-    $sortBy: ProductSortBy
-  ) {
-    products(
-      categoryId: $categoryId
-      placeId: $placeId
-      first: $first
-      after: $after
-      sortBy: $sortBy
-    ) {
-      edges {
-        node {
-          id
-          name
-          shortDescription
-          priceFrom
-          currency
-          imageUrl
-          rating
-          reviewCount
-          hasInstantConfirmation
-          isBestSeller
-        }
-        cursor
-      }
-      pageInfo {
-        hasNextPage
-        endCursor
-      }
-      totalCount
-    }
-  }
-`;
-
 // ============================================================================
-// AVAILABILITY QUERIES
+// AVAILABILITY QUERIES (Holibob Look-to-Book Step 3 & 4)
 // ============================================================================
 
-export const AVAILABILITY_QUERY = gql`
-  query Availability(
+/**
+ * Step 3: Request Availability List (Recursive Method - RECOMMENDED)
+ * Initial call returns options that must be answered (START_DATE, END_DATE, etc.)
+ * Subsequent calls with sessionId and optionList answers
+ */
+export const AVAILABILITY_LIST_QUERY = gql`
+  query AvailabilityList(
     $productId: ID!
-    $dateFrom: Date!
-    $dateTo: Date!
-    $adults: Int!
-    $children: Int
+    $sessionId: String
+    $optionList: [AvailabilityOptionInput!]
   ) {
-    availability(
+    availabilityList(
       productId: $productId
-      dateFrom: $dateFrom
-      dateTo: $dateTo
-      adults: $adults
-      children: $children
+      sessionId: $sessionId
+      optionList: $optionList
     ) {
-      productId
-      options {
+      sessionId
+      nodes {
         id
-        name
-        description
-        price
-        originalPrice
-        currency
         date
-        startTime
-        endTime
-        maxCapacity
-        remainingCapacity
-        guestTypes {
+        guidePriceFormattedText
+        soldOut
+      }
+      optionList {
+        nodes {
           id
-          name
-          minAge
-          maxAge
-          price
+          label
+          value
+          required
+          type
+          dataType
+          dataFormat
+          errorList {
+            nodes
+          }
         }
-        extras {
-          id
-          name
-          price
-          isRequired
-        }
-        cutoffMinutes
-        instantConfirmation
       }
     }
   }
 `;
 
-export const AVAILABILITY_CALENDAR_QUERY = gql`
-  query AvailabilityCalendar(
-    $productId: ID!
-    $month: Int!
-    $year: Int!
+/**
+ * Step 4: Discover and Set Availability Options
+ * Use availability query to discover options (time slots, variants, etc.)
+ * and pricing categories. Must iterate until optionList.isComplete = true
+ */
+export const AVAILABILITY_QUERY = gql`
+  query Availability($id: ID!) {
+    availability(id: $id) {
+      id
+      date
+      optionList {
+        isComplete
+        nodes {
+          id
+          label
+          dataType
+          dataFormat
+          availableOptions {
+            label
+            value
+          }
+          answerValue
+          answerFormattedText
+        }
+      }
+    }
+  }
+`;
+
+/**
+ * Set option answers for an availability
+ */
+export const AVAILABILITY_SET_OPTIONS_QUERY = gql`
+  query AvailabilitySetOptions(
+    $id: ID!
+    $input: AvailabilityInput!
   ) {
-    availabilityCalendar(
-      productId: $productId
-      month: $month
-      year: $year
-    ) {
-      dates {
-        date
-        available
-        priceFrom
-        spotsRemaining
+    availability(id: $id, input: $input) {
+      id
+      optionList {
+        isComplete
+        nodes {
+          id
+          label
+          dataType
+          availableOptions {
+            label
+            value
+          }
+          answerValue
+          answerFormattedText
+        }
+      }
+    }
+  }
+`;
+
+/**
+ * Step 5: Discover and Set Pricing Categories
+ * Only available after optionList.isComplete = true
+ */
+export const AVAILABILITY_PRICING_QUERY = gql`
+  query AvailabilityPricing($id: ID!) {
+    availability(id: $id) {
+      id
+      maxParticipants
+      minParticipants
+      isValid
+      totalPrice {
+        grossFormattedText
+        netFormattedText
+        gross
+        net
+        currency
+      }
+      pricingCategoryList {
+        nodes {
+          id
+          label
+          minParticipants
+          maxParticipants
+          maxParticipantsDepends {
+            pricingCategoryId
+            multiplier
+            explanation
+          }
+          units
+          unitPrice {
+            netFormattedText
+            grossFormattedText
+            gross
+            net
+            currency
+          }
+          totalPrice {
+            grossFormattedText
+            gross
+            currency
+          }
+        }
+      }
+    }
+  }
+`;
+
+/**
+ * Set units for pricing categories
+ */
+export const AVAILABILITY_SET_PRICING_QUERY = gql`
+  query AvailabilitySetPricing(
+    $id: ID!
+    $input: AvailabilityInput!
+  ) {
+    availability(id: $id, input: $input) {
+      id
+      isValid
+      totalPrice {
+        grossFormattedText
+        gross
+        currency
+      }
+      pricingCategoryList {
+        nodes {
+          id
+          label
+          units
+          unitPrice {
+            grossFormattedText
+            gross
+          }
+          totalPrice {
+            grossFormattedText
+            gross
+          }
+        }
       }
     }
   }
 `;
 
 // ============================================================================
-// BOOKING MUTATIONS
+// BOOKING MUTATIONS (Holibob Look-to-Book Step 6-9)
 // ============================================================================
 
-export const CREATE_BOOKING_MUTATION = gql`
-  mutation CreateBooking($input: CreateBookingInput!) {
+/**
+ * Step 6: Create a Booking (basket/cart)
+ * Strongly recommend passing autoFillQuestions = true
+ */
+export const BOOKING_CREATE_MUTATION = gql`
+  mutation BookingCreate($input: BookingCreateInput!) {
     bookingCreate(input: $input) {
       id
-      status
-      items {
-        availabilityId
-        productId
-        productName
-        date
-        startTime
-        guests {
-          guestTypeId
-          firstName
-          lastName
-        }
-        unitPrice
-        totalPrice
-        currency
-      }
-      subtotal
-      fees
-      taxes
-      total
-      currency
-      customerEmail
-      createdAt
-      updatedAt
+      code
+      state
+      isComplete
+      paymentState
     }
   }
 `;
 
-export const ADD_BOOKING_ITEM_MUTATION = gql`
-  mutation AddBookingItem($bookingId: ID!, $item: BookingItemInput!) {
-    bookingAddItem(bookingId: $bookingId, item: $item) {
-      id
-      status
-      items {
-        availabilityId
-        productId
-        productName
-        totalPrice
-      }
-      total
-      currency
+/**
+ * Step 7: Add Availability to Booking
+ * Returns isComplete = false initially, requiring question answers
+ */
+export const BOOKING_ADD_AVAILABILITY_MUTATION = gql`
+  mutation BookingAddAvailability($input: BookingAddAvailabilityInput!) {
+    bookingAddAvailability(input: $input) {
+      isComplete
     }
   }
 `;
 
-export const UPDATE_BOOKING_GUESTS_MUTATION = gql`
-  mutation UpdateBookingGuests(
-    $bookingId: ID!
-    $itemId: ID!
-    $guests: [GuestInput!]!
-  ) {
-    bookingUpdateGuests(
-      bookingId: $bookingId
-      itemId: $itemId
-      guests: $guests
-    ) {
-      id
-      items {
-        availabilityId
-        guests {
-          guestTypeId
-          firstName
-          lastName
-          email
-        }
-      }
-    }
-  }
-`;
-
-export const COMMIT_BOOKING_MUTATION = gql`
-  mutation CommitBooking($id: ID!) {
-    bookingCommit(id: $id) {
-      id
-      status
-      total
-      currency
-      paymentIntentId
-      confirmedAt
-    }
-  }
-`;
-
-export const GET_BOOKING_QUERY = gql`
-  query GetBooking($id: ID!) {
+/**
+ * Step 8: Retrieve Booking Questions
+ * Questions exist at three levels: Booking, Availability, Person
+ */
+export const BOOKING_QUESTIONS_QUERY = gql`
+  query BookingQuestions($id: ID!) {
     booking(id: $id) {
       id
-      status
-      items {
-        availabilityId
-        productId
-        productName
-        date
-        startTime
-        guests {
-          guestTypeId
-          firstName
-          lastName
-          email
+      code
+      leadPassengerName
+      partnerExternalReference
+      state
+      isSandboxed
+      paymentState
+      canCommit
+      questionList {
+        nodes {
+          id
+          label
+          autoCompleteValue
+          type
+          dataType
+          dataFormat
+          answerValue
+          isRequired
         }
-        extras {
-          extraId
-          quantity
+      }
+      availabilityList {
+        nodes {
+          id
+          date
+          product {
+            id
+            name
+          }
+          questionList {
+            nodes {
+              id
+              label
+              type
+              dataType
+              dataFormat
+              answerValue
+              isRequired
+            }
+          }
+          personList {
+            nodes {
+              id
+              pricingCategoryLabel
+              isQuestionsComplete
+              questionList {
+                nodes {
+                  id
+                  label
+                  type
+                  dataType
+                  dataFormat
+                  answerValue
+                  isRequired
+                }
+              }
+            }
+          }
         }
-        unitPrice
-        totalPrice
+      }
+    }
+  }
+`;
+
+/**
+ * Answer booking questions
+ * Must iterate until canCommit = true
+ */
+export const BOOKING_ANSWER_QUESTIONS_QUERY = gql`
+  query BookingAnswerQuestions($id: ID!, $input: BookingInput!) {
+    booking(id: $id, input: $input) {
+      canCommit
+      questionList {
+        nodes {
+          id
+          answerValue
+        }
+      }
+    }
+  }
+`;
+
+/**
+ * Step 9: Commit Booking
+ * Finalizes the booking and starts supplier confirmation process
+ */
+export const BOOKING_COMMIT_MUTATION = gql`
+  mutation BookingCommit($bookingSelector: BookingSelectorInput!) {
+    bookingCommit(bookingSelector: $bookingSelector) {
+      code
+      state
+      voucherUrl
+    }
+  }
+`;
+
+/**
+ * Poll booking state until CONFIRMED
+ */
+export const BOOKING_STATE_QUERY = gql`
+  query BookingState($id: ID!) {
+    booking(id: $id) {
+      id
+      code
+      state
+      voucherUrl
+      totalPrice {
+        grossFormattedText
+        gross
         currency
       }
-      subtotal
-      fees
-      taxes
-      total
-      currency
-      customerEmail
-      customerPhone
-      paymentStatus
-      paymentIntentId
+    }
+  }
+`;
+
+/**
+ * Get full booking details including voucher
+ */
+export const BOOKING_FULL_QUERY = gql`
+  query BookingFull($id: ID!) {
+    booking(id: $id) {
+      id
+      code
+      state
+      leadPassengerName
+      partnerExternalReference
+      isSandboxed
+      paymentState
+      voucherUrl
+      totalPrice {
+        grossFormattedText
+        netFormattedText
+        gross
+        net
+        currency
+      }
+      availabilityList {
+        nodes {
+          id
+          date
+          startTime
+          product {
+            id
+            name
+            shortDescription
+            imageList {
+              nodes {
+                url
+              }
+            }
+          }
+          totalPrice {
+            grossFormattedText
+            gross
+            currency
+          }
+          personList {
+            nodes {
+              id
+              pricingCategoryLabel
+            }
+          }
+        }
+      }
+      questionList {
+        nodes {
+          id
+          label
+          answerValue
+        }
+      }
       createdAt
-      updatedAt
       confirmedAt
     }
   }
 `;
 
-export const CANCEL_BOOKING_MUTATION = gql`
-  mutation CancelBooking($id: ID!, $reason: String) {
-    bookingCancel(id: $id, reason: $reason) {
+/**
+ * List bookings for a consumer trip or consumer
+ */
+export const BOOKING_LIST_QUERY = gql`
+  query BookingList(
+    $filter: BookingListFilterInput
+    $first: Int
+    $after: String
+  ) {
+    bookingList(
+      filter: $filter
+      first: $first
+      after: $after
+    ) {
+      recordCount
+      nodes {
+        code
+        id
+        state
+        totalPrice {
+          grossFormattedText
+          currency
+        }
+        consumerTrip {
+          id
+          partnerExternalReference
+          consumer {
+            id
+            partnerExternalReference
+            familyName
+          }
+        }
+      }
+    }
+  }
+`;
+
+/**
+ * Cancel a booking
+ */
+export const BOOKING_CANCEL_MUTATION = gql`
+  mutation BookingCancel($bookingSelector: BookingSelectorInput!, $reason: String) {
+    bookingCancel(bookingSelector: $bookingSelector, reason: $reason) {
       id
-      status
-      updatedAt
+      code
+      state
     }
   }
 `;
@@ -373,17 +562,14 @@ export const CANCEL_BOOKING_MUTATION = gql`
 
 export const CATEGORIES_QUERY = gql`
   query Categories($placeId: ID) {
-    categories(placeId: $placeId) {
-      id
-      name
-      slug
-      description
-      imageUrl
-      productCount
-      children {
+    categoryList(placeId: $placeId) {
+      nodes {
         id
         name
         slug
+        description
+        imageUrl
+        productCount
       }
     }
   }
@@ -391,15 +577,30 @@ export const CATEGORIES_QUERY = gql`
 
 export const PLACES_QUERY = gql`
   query Places($parentId: ID, $type: PlaceType) {
-    places(parentId: $parentId, type: $type) {
-      id
-      name
-      slug
-      type
-      lat
-      lng
-      imageUrl
-      productCount
+    placeList(parentId: $parentId, type: $type) {
+      nodes {
+        id
+        name
+        slug
+        type
+        lat
+        lng
+        imageUrl
+        productCount
+      }
     }
   }
 `;
+
+// ============================================================================
+// LEGACY QUERY EXPORTS (for backwards compatibility)
+// ============================================================================
+
+export const PRODUCT_DISCOVERY_QUERY = PRODUCT_LIST_QUERY;
+export const CREATE_BOOKING_MUTATION = BOOKING_CREATE_MUTATION;
+export const GET_BOOKING_QUERY = BOOKING_FULL_QUERY;
+export const COMMIT_BOOKING_MUTATION = BOOKING_COMMIT_MUTATION;
+export const CANCEL_BOOKING_MUTATION = BOOKING_CANCEL_MUTATION;
+export const ADD_BOOKING_ITEM_MUTATION = BOOKING_ADD_AVAILABILITY_MUTATION;
+export const AVAILABILITY_CALENDAR_QUERY = AVAILABILITY_LIST_QUERY;
+export const UPDATE_BOOKING_GUESTS_MUTATION = BOOKING_ANSWER_QUESTIONS_QUERY;

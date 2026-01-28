@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { GuestSelector, GuestDetailsForm, type GuestCount } from './GuestSelector';
 import { SiteProvider } from '@/lib/site-context';
@@ -91,7 +91,7 @@ describe('GuestSelector', () => {
     );
 
     const increaseButtons = screen.getAllByLabelText(/Increase.*count/i);
-    fireEvent.click(increaseButtons[0]); // Increase adults
+    fireEvent.click(increaseButtons[0]!); // Increase adults
 
     expect(mockOnGuestCountChange).toHaveBeenCalledWith('adult', 3);
   });
@@ -105,7 +105,7 @@ describe('GuestSelector', () => {
     );
 
     const decreaseButtons = screen.getAllByLabelText(/Decrease.*count/i);
-    fireEvent.click(decreaseButtons[0]); // Decrease adults
+    fireEvent.click(decreaseButtons[0]!); // Decrease adults
 
     expect(mockOnGuestCountChange).toHaveBeenCalledWith('adult', 1);
   });
