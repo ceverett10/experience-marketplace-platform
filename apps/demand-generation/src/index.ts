@@ -12,8 +12,8 @@ import { Queue, Worker, Job } from 'bullmq';
 import IORedis from 'ioredis';
 
 // Environment configuration
-const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
-const PORT = process.env.PORT || 3002;
+const REDIS_URL = process.env['REDIS_URL'] || 'redis://localhost:6379';
+const PORT = process.env['PORT'] || 3002;
 
 // Redis connection for BullMQ
 const connection = new IORedis(REDIS_URL, {
