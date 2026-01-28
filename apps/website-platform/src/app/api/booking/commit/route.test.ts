@@ -17,11 +17,18 @@ vi.mock('@/lib/tenant', () => ({
   }),
 }));
 
-const mockCommitBooking = vi.fn();
-const mockWaitForConfirmation = vi.fn();
+// Use vi.hoisted to define mocks that can be used in vi.mock factory
+const { mockGetBooking, mockGetBookingQuestions, mockCommitBooking, mockWaitForConfirmation } = vi.hoisted(() => ({
+  mockGetBooking: vi.fn(),
+  mockGetBookingQuestions: vi.fn(),
+  mockCommitBooking: vi.fn(),
+  mockWaitForConfirmation: vi.fn(),
+}));
 
 vi.mock('@/lib/holibob', () => ({
   getHolibobClient: vi.fn().mockReturnValue({
+    getBooking: mockGetBooking,
+    getBookingQuestions: mockGetBookingQuestions,
     commitBooking: mockCommitBooking,
     waitForConfirmation: mockWaitForConfirmation,
   }),
@@ -45,10 +52,18 @@ describe('Booking Commit API Route - POST', () => {
     const data = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data.error).toBe('Validation failed');
+    expect(data.error).toBe('Either bookingId or bookingCode is required');
   });
 
   it('commits booking successfully and waits for confirmation', async () => {
+    const mockBooking = {
+      id: 'booking-123',
+      state: 'OPEN',
+    };
+    const mockBookingWithQuestions = {
+      id: 'booking-123',
+      canCommit: true,
+    };
     const mockPendingBooking = {
       id: 'booking-123',
       state: 'PENDING',
@@ -60,6 +75,8 @@ describe('Booking Commit API Route - POST', () => {
       voucherUrl: 'https://voucher.example.com/123',
     };
 
+    mockGetBooking.mockResolvedValue(mockBooking);
+    mockGetBookingQuestions.mockResolvedValue(mockBookingWithQuestions);
     mockCommitBooking.mockResolvedValue(mockPendingBooking);
     mockWaitForConfirmation.mockResolvedValue(mockConfirmedBooking);
 
@@ -67,6 +84,7 @@ describe('Booking Commit API Route - POST', () => {
       method: 'POST',
       body: JSON.stringify({
         bookingId: 'booking-123',
+        waitForConfirmation: true,
       }),
     });
 
@@ -75,18 +93,28 @@ describe('Booking Commit API Route - POST', () => {
 
     expect(response.status).toBe(200);
     expect(data.success).toBe(true);
-    expect(data.data.state).toBe('CONFIRMED');
-    expect(data.data.code).toBe('BOOK-ABC123');
+    expect(data.data.booking.state).toBe('CONFIRMED');
+    expect(data.data.isConfirmed).toBe(true);
     expect(mockCommitBooking).toHaveBeenCalledWith({ id: 'booking-123' });
   });
 
   it('returns immediately if booking is already confirmed', async () => {
+    const mockBooking = {
+      id: 'booking-123',
+      state: 'OPEN',
+    };
+    const mockBookingWithQuestions = {
+      id: 'booking-123',
+      canCommit: true,
+    };
     const mockConfirmedBooking = {
       id: 'booking-123',
       state: 'CONFIRMED',
       code: 'BOOK-ABC123',
     };
 
+    mockGetBooking.mockResolvedValue(mockBooking);
+    mockGetBookingQuestions.mockResolvedValue(mockBookingWithQuestions);
     mockCommitBooking.mockResolvedValue(mockConfirmedBooking);
 
     const request = new NextRequest('http://localhost:3000/api/booking/commit', {
@@ -101,19 +129,24 @@ describe('Booking Commit API Route - POST', () => {
 
     expect(response.status).toBe(200);
     expect(data.success).toBe(true);
-    expect(data.data.state).toBe('CONFIRMED');
-    // Should not call waitForConfirmation if already confirmed
+    expect(data.data.booking.state).toBe('CONFIRMED');
+    // Should not call waitForConfirmation if not requested
     expect(mockWaitForConfirmation).not.toHaveBeenCalled();
   });
 
   it('returns 409 when booking is rejected', async () => {
-    const mockPendingBooking = {
+    const mockBooking = {
       id: 'booking-123',
-      state: 'PENDING',
+      state: 'OPEN',
+    };
+    const mockBookingWithQuestions = {
+      id: 'booking-123',
+      canCommit: true,
     };
 
-    mockCommitBooking.mockResolvedValue(mockPendingBooking);
-    mockWaitForConfirmation.mockRejectedValue(new Error('Booking REJECTED'));
+    mockGetBooking.mockResolvedValue(mockBooking);
+    mockGetBookingQuestions.mockResolvedValue(mockBookingWithQuestions);
+    mockCommitBooking.mockRejectedValue(new Error('Booking REJECTED by supplier'));
 
     const request = new NextRequest('http://localhost:3000/api/booking/commit', {
       method: 'POST',
@@ -126,11 +159,22 @@ describe('Booking Commit API Route - POST', () => {
     const data = await response.json();
 
     expect(response.status).toBe(409);
-    expect(data.error).toBe('Booking REJECTED');
+    expect(data.error).toBe('Booking was rejected by supplier');
   });
 
   it('returns 500 on commit failure', async () => {
-    mockCommitBooking.mockRejectedValue(new Error('Commit failed'));
+    const mockBooking = {
+      id: 'booking-123',
+      state: 'OPEN',
+    };
+    const mockBookingWithQuestions = {
+      id: 'booking-123',
+      canCommit: true,
+    };
+
+    mockGetBooking.mockResolvedValue(mockBooking);
+    mockGetBookingQuestions.mockResolvedValue(mockBookingWithQuestions);
+    mockCommitBooking.mockRejectedValue(new Error('Network error'));
 
     const request = new NextRequest('http://localhost:3000/api/booking/commit', {
       method: 'POST',

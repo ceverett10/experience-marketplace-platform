@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { NextRequest } from 'next/server';
 
 // Mock the modules
 vi.mock('next/headers', () => ({
@@ -16,19 +17,23 @@ vi.mock('@/lib/tenant', () => ({
   }),
 }));
 
-const mockCreateBooking = vi.fn();
-const mockGetBooking = vi.fn();
+// Use vi.hoisted to define mocks that can be used in vi.mock factory
+const { mockCreateBooking, mockGetBooking, mockGetBookingQuestions } = vi.hoisted(() => ({
+  mockCreateBooking: vi.fn(),
+  mockGetBooking: vi.fn(),
+  mockGetBookingQuestions: vi.fn(),
+}));
 
 vi.mock('@/lib/holibob', () => ({
   getHolibobClient: vi.fn().mockReturnValue({
     createBooking: mockCreateBooking,
     getBooking: mockGetBooking,
+    getBookingQuestions: mockGetBookingQuestions,
   }),
 }));
 
 // Import after mocks
 import { GET, POST } from './route';
-import { NextRequest } from 'next/server';
 
 describe('Booking API Route - GET', () => {
   beforeEach(() => {
@@ -60,13 +65,9 @@ describe('Booking API Route - GET', () => {
   it('returns booking data when found', async () => {
     const mockBooking = {
       id: 'booking-123',
-      status: 'PENDING',
-      items: [],
-      total: 7000,
-      currency: 'GBP',
-      customerEmail: 'test@example.com',
-      createdAt: '2025-01-28T12:00:00Z',
-      updatedAt: '2025-01-28T12:00:00Z',
+      state: 'OPEN',
+      availabilityList: { nodes: [] },
+      canCommit: false,
     };
     mockGetBooking.mockResolvedValue(mockBooking);
 
@@ -78,15 +79,46 @@ describe('Booking API Route - GET', () => {
     expect(response.status).toBe(200);
     expect(data.success).toBe(true);
     expect(data.data.id).toBe('booking-123');
+    expect(mockGetBooking).toHaveBeenCalledWith('booking-123');
+  });
+
+  it('returns booking with questions when includeQuestions=true', async () => {
+    const mockBookingWithQuestions = {
+      id: 'booking-123',
+      state: 'OPEN',
+      canCommit: false,
+      questionList: { nodes: [] },
+      availabilityList: { nodes: [] },
+    };
+    mockGetBookingQuestions.mockResolvedValue(mockBookingWithQuestions);
+
+    const request = new NextRequest('http://localhost:3000/api/booking?id=booking-123&includeQuestions=true');
+
+    const response = await GET(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.success).toBe(true);
+    expect(data.data.questionList).toBeDefined();
+    expect(mockGetBookingQuestions).toHaveBeenCalledWith('booking-123');
+    expect(mockGetBooking).not.toHaveBeenCalled();
   });
 });
 
-describe('Booking API Route - POST', () => {
+describe('Booking API Route - POST (L2B Step 6: Create Booking)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('returns 400 when request body is invalid', async () => {
+  it('creates empty booking with default autoFillQuestions=true', async () => {
+    const mockBooking = {
+      id: 'booking-123',
+      state: 'OPEN',
+      availabilityList: { nodes: [] },
+      canCommit: false,
+    };
+    mockCreateBooking.mockResolvedValue(mockBooking);
+
     const request = new NextRequest('http://localhost:3000/api/booking', {
       method: 'POST',
       body: JSON.stringify({}),
@@ -95,112 +127,29 @@ describe('Booking API Route - POST', () => {
     const response = await POST(request);
     const data = await response.json();
 
-    expect(response.status).toBe(400);
-    expect(data.error).toBe('Validation failed');
-  });
-
-  it('returns 400 when email is invalid', async () => {
-    const request = new NextRequest('http://localhost:3000/api/booking', {
-      method: 'POST',
-      body: JSON.stringify({
-        customerEmail: 'invalid-email',
-        items: [
-          {
-            availabilityId: 'avail-1',
-            guests: [
-              { guestTypeId: 'adult', firstName: 'John', lastName: 'Doe' },
-            ],
-          },
-        ],
-      }),
+    expect(response.status).toBe(201);
+    expect(data.success).toBe(true);
+    expect(data.data.id).toBe('booking-123');
+    expect(mockCreateBooking).toHaveBeenCalledWith({
+      autoFillQuestions: true,
+      partnerExternalReference: undefined,
+      consumerTripId: undefined,
     });
-
-    const response = await POST(request);
-    const data = await response.json();
-
-    expect(response.status).toBe(400);
-    expect(data.error).toBe('Validation failed');
   });
 
-  it('returns 400 when no items provided', async () => {
-    const request = new NextRequest('http://localhost:3000/api/booking', {
-      method: 'POST',
-      body: JSON.stringify({
-        customerEmail: 'test@example.com',
-        items: [],
-      }),
-    });
-
-    const response = await POST(request);
-    const data = await response.json();
-
-    expect(response.status).toBe(400);
-    expect(data.error).toBe('Validation failed');
-  });
-
-  it('returns 400 when guest names are missing', async () => {
-    const request = new NextRequest('http://localhost:3000/api/booking', {
-      method: 'POST',
-      body: JSON.stringify({
-        customerEmail: 'test@example.com',
-        items: [
-          {
-            availabilityId: 'avail-1',
-            guests: [
-              { guestTypeId: 'adult', firstName: '', lastName: '' },
-            ],
-          },
-        ],
-      }),
-    });
-
-    const response = await POST(request);
-    const data = await response.json();
-
-    expect(response.status).toBe(400);
-    expect(data.error).toBe('Validation failed');
-  });
-
-  it('creates booking with valid data', async () => {
+  it('creates booking with autoFillQuestions=false when specified', async () => {
     const mockBooking = {
       id: 'booking-123',
-      status: 'PENDING',
-      items: [
-        {
-          availabilityId: 'avail-1',
-          productId: 'product-1',
-          productName: 'London Eye',
-          date: '2025-02-01',
-          startTime: '10:00',
-          guests: [
-            { guestTypeId: 'adult', firstName: 'John', lastName: 'Doe' },
-          ],
-          unitPrice: 3500,
-          totalPrice: 3500,
-          currency: 'GBP',
-        },
-      ],
-      total: 3500,
-      currency: 'GBP',
-      customerEmail: 'test@example.com',
-      createdAt: '2025-01-28T12:00:00Z',
-      updatedAt: '2025-01-28T12:00:00Z',
+      state: 'OPEN',
+      availabilityList: { nodes: [] },
+      canCommit: false,
     };
     mockCreateBooking.mockResolvedValue(mockBooking);
 
     const request = new NextRequest('http://localhost:3000/api/booking', {
       method: 'POST',
       body: JSON.stringify({
-        customerEmail: 'test@example.com',
-        customerPhone: '+44123456789',
-        items: [
-          {
-            availabilityId: 'avail-1',
-            guests: [
-              { guestTypeId: 'adult', firstName: 'John', lastName: 'Doe' },
-            ],
-          },
-        ],
+        autoFillQuestions: false,
       }),
     });
 
@@ -209,42 +158,48 @@ describe('Booking API Route - POST', () => {
 
     expect(response.status).toBe(201);
     expect(data.success).toBe(true);
-    expect(data.data.id).toBe('booking-123');
-    expect(mockCreateBooking).toHaveBeenCalledWith(
-      expect.objectContaining({
-        customerEmail: 'test@example.com',
-        customerPhone: '+44123456789',
-        items: expect.arrayContaining([
-          expect.objectContaining({
-            availabilityId: 'avail-1',
-            guests: expect.arrayContaining([
-              expect.objectContaining({
-                firstName: 'John',
-                lastName: 'Doe',
-              }),
-            ]),
-          }),
-        ]),
-      })
-    );
+    expect(mockCreateBooking).toHaveBeenCalledWith({
+      autoFillQuestions: false,
+      partnerExternalReference: undefined,
+      consumerTripId: undefined,
+    });
   });
 
-  it('returns 409 when availability error occurs', async () => {
-    mockCreateBooking.mockRejectedValue(new Error('No availability'));
+  it('creates booking with optional reference IDs', async () => {
+    const mockBooking = {
+      id: 'booking-123',
+      state: 'OPEN',
+      availabilityList: { nodes: [] },
+      canCommit: false,
+    };
+    mockCreateBooking.mockResolvedValue(mockBooking);
 
     const request = new NextRequest('http://localhost:3000/api/booking', {
       method: 'POST',
       body: JSON.stringify({
-        customerEmail: 'test@example.com',
-        items: [
-          {
-            availabilityId: 'avail-1',
-            guests: [
-              { guestTypeId: 'adult', firstName: 'John', lastName: 'Doe' },
-            ],
-          },
-        ],
+        partnerExternalReference: 'partner-ref-123',
+        consumerTripId: 'trip-456',
       }),
+    });
+
+    const response = await POST(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(201);
+    expect(data.success).toBe(true);
+    expect(mockCreateBooking).toHaveBeenCalledWith({
+      autoFillQuestions: true,
+      partnerExternalReference: 'partner-ref-123',
+      consumerTripId: 'trip-456',
+    });
+  });
+
+  it('returns 500 on creation error', async () => {
+    mockCreateBooking.mockRejectedValue(new Error('Network error'));
+
+    const request = new NextRequest('http://localhost:3000/api/booking', {
+      method: 'POST',
+      body: JSON.stringify({}),
     });
 
     const response = await POST(request);

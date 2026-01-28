@@ -17,10 +17,18 @@ vi.mock('@/lib/tenant', () => ({
   }),
 }));
 
-const mockGetAvailability = vi.fn();
-const mockSetAvailabilityOptions = vi.fn();
-const mockGetAvailabilityPricing = vi.fn();
-const mockSetAvailabilityPricing = vi.fn();
+// Use vi.hoisted to define mocks that can be used in vi.mock factory
+const {
+  mockGetAvailability,
+  mockSetAvailabilityOptions,
+  mockGetAvailabilityPricing,
+  mockSetAvailabilityPricing,
+} = vi.hoisted(() => ({
+  mockGetAvailability: vi.fn(),
+  mockSetAvailabilityOptions: vi.fn(),
+  mockGetAvailabilityPricing: vi.fn(),
+  mockSetAvailabilityPricing: vi.fn(),
+}));
 
 vi.mock('@/lib/holibob', () => ({
   getHolibobClient: vi.fn().mockReturnValue({
@@ -64,8 +72,8 @@ describe('Availability Detail API Route - GET', () => {
     expect(data.data.optionList.isComplete).toBe(true);
   });
 
-  it('returns 404 when availability not found', async () => {
-    mockGetAvailability.mockResolvedValue(null);
+  it('returns 404 when availability not found (via error)', async () => {
+    mockGetAvailability.mockRejectedValue(new Error('Availability not found'));
 
     const request = new NextRequest('http://localhost:3000/api/availability/nonexistent');
 
@@ -76,7 +84,7 @@ describe('Availability Detail API Route - GET', () => {
     expect(data.error).toBe('Availability not found');
   });
 
-  it('returns pricing when include=pricing query param is set', async () => {
+  it('returns pricing when includePricing=true query param is set', async () => {
     const mockAvailability = {
       id: 'avail-123',
       date: '2025-02-01',
@@ -94,7 +102,7 @@ describe('Availability Detail API Route - GET', () => {
     };
     mockGetAvailabilityPricing.mockResolvedValue(mockAvailability);
 
-    const request = new NextRequest('http://localhost:3000/api/availability/avail-123?include=pricing');
+    const request = new NextRequest('http://localhost:3000/api/availability/avail-123?includePricing=true');
 
     const response = await GET(request, { params: Promise.resolve({ id: 'avail-123' }) });
     const data = await response.json();
@@ -182,6 +190,6 @@ describe('Availability Detail API Route - POST', () => {
     const data = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data.error).toBe('No options or pricing provided');
+    expect(data.error).toBe('Either optionList or pricingCategoryList must be provided');
   });
 });

@@ -17,8 +17,11 @@ vi.mock('@/lib/tenant', () => ({
   }),
 }));
 
-const mockGetBookingQuestions = vi.fn();
-const mockAnswerBookingQuestions = vi.fn();
+// Use vi.hoisted to define mocks that can be used in vi.mock factory
+const { mockGetBookingQuestions, mockAnswerBookingQuestions } = vi.hoisted(() => ({
+  mockGetBookingQuestions: vi.fn(),
+  mockAnswerBookingQuestions: vi.fn(),
+}));
 
 vi.mock('@/lib/holibob', () => ({
   getHolibobClient: vi.fn().mockReturnValue({
@@ -90,9 +93,9 @@ describe('Booking Questions API Route - GET', () => {
 
     expect(response.status).toBe(200);
     expect(data.success).toBe(true);
-    expect(data.data.questionsSummary.bookingQuestions).toHaveLength(1);
-    expect(data.data.questionsSummary.availabilityQuestions).toHaveLength(1);
-    expect(data.data.questionsSummary.canCommit).toBe(false);
+    expect(data.data.summary.bookingQuestions).toHaveLength(1);
+    expect(data.data.summary.availabilityQuestions).toHaveLength(1);
+    expect(data.data.summary.canCommit).toBe(false);
   });
 });
 
@@ -111,7 +114,7 @@ describe('Booking Questions API Route - POST', () => {
     const data = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data.error).toBe('Validation failed');
+    expect(data.error).toBe('At least one question answer must be provided');
   });
 
   it('answers booking questions successfully', async () => {
