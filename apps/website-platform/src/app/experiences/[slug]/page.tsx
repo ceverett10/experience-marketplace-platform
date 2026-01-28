@@ -4,7 +4,7 @@ import type { Metadata } from 'next';
 import { getSiteFromHostname } from '@/lib/tenant';
 import { getHolibobClient, mapProductToExperience, type Experience } from '@/lib/holibob';
 import { ExperienceGallery } from '@/components/experiences/ExperienceGallery';
-import { BookingWidget } from '@/components/experiences/BookingWidget';
+import { BookingForm } from '@/components/booking';
 import { ExperienceCard } from '@/components/experiences/ExperienceCard';
 
 interface Props {
@@ -378,10 +378,10 @@ export default async function ExperienceDetailPage({ params }: Props) {
               </div>
             </div>
 
-            {/* Booking Widget Sidebar */}
+            {/* Booking Form Sidebar */}
             <div className="mt-8 lg:mt-0">
               <div className="sticky top-24">
-                <BookingWidget experience={experience} />
+                <BookingForm experience={experience} />
               </div>
             </div>
           </div>
