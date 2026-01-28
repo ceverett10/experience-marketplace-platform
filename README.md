@@ -1,5 +1,8 @@
 # Experience Marketplace Platform
 
+[![CI](https://github.com/ceverett10/experience-marketplace-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/ceverett10/experience-marketplace-platform/actions/workflows/ci.yml)
+[![Deploy](https://github.com/ceverett10/experience-marketplace-platform/actions/workflows/deploy.yml/badge.svg)](https://github.com/ceverett10/experience-marketplace-platform/actions/workflows/deploy.yml)
+
 Autonomous SEO/LLM-optimised experience marketplace platform powered by the Holibob API.
 
 ## Overview
