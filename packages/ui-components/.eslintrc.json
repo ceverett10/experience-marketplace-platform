@@ -3,12 +3,9 @@
   "parserOptions": {
     "project": "./tsconfig.eslint.json"
   },
-  "rules": {
-    "@typescript-eslint/no-explicit-any": "off"
-  },
   "overrides": [
     {
-      "files": ["src/__tests__/**/*.ts"],
+      "files": ["**/*.test.ts", "**/*.test.tsx"],
       "rules": {
         "@typescript-eslint/no-explicit-any": "off",
         "@typescript-eslint/no-unused-vars": "off"
