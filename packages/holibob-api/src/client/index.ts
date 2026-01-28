@@ -35,7 +35,6 @@ export class HolibobClient {
         'X-Partner-Id': this.config.partnerId,
         'Content-Type': 'application/json',
       },
-      timeout: this.config.timeout,
     });
   }
 
