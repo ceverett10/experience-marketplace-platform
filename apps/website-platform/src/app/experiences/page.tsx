@@ -9,6 +9,7 @@ import { Pagination } from '@/components/ui/Pagination';
 import { SearchBar } from '@/components/search/SearchBar';
 
 interface SearchParams {
+  [key: string]: string | undefined;
   category?: string;
   location?: string;
   date?: string;
