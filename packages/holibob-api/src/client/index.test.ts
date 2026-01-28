@@ -8,6 +8,9 @@ vi.mock('graphql-request', () => ({
   GraphQLClient: vi.fn().mockImplementation(() => ({
     request: vi.fn(),
   })),
+  // gql is a template tag that just returns the string
+  gql: (strings: TemplateStringsArray, ...values: unknown[]) =>
+    strings.reduce((acc, str, i) => acc + str + (values[i] || ''), ''),
 }));
 
 describe('HolibobClient', () => {
@@ -56,14 +59,12 @@ describe('HolibobClient', () => {
   describe('discoverProducts', () => {
     it('should fetch products with location filter', async () => {
       const mockResponse = {
-        productDiscovery: {
-          edges: [
+        productList: {
+          nodes: [
             {
-              node: {
-                id: 'prod-1',
-                name: 'Test Experience',
-                description: 'A test experience',
-              },
+              id: 'prod-1',
+              name: 'Test Experience',
+              description: 'A test experience',
             },
           ],
           pageInfo: {
@@ -81,14 +82,15 @@ describe('HolibobClient', () => {
         adults: 2,
       });
 
-      expect(result).toEqual(mockResponse.productDiscovery);
+      expect(result.products).toEqual(mockResponse.productList.nodes);
+      expect(result.totalCount).toBe(1);
       expect(mockRequest).toHaveBeenCalledTimes(1);
     });
 
     it('should handle geo point filter', async () => {
       const mockResponse = {
-        productDiscovery: {
-          edges: [],
+        productList: {
+          nodes: [],
           pageInfo: { hasNextPage: false, endCursor: null },
           totalCount: 0,
         },
@@ -100,13 +102,14 @@ describe('HolibobClient', () => {
         geoPoint: { lat: 51.5074, lng: -0.1278, radiusKm: 25 },
       });
 
-      expect(result).toEqual(mockResponse.productDiscovery);
+      expect(result.products).toEqual([]);
+      expect(result.totalCount).toBe(0);
     });
 
     it('should support pagination', async () => {
       const mockResponse = {
-        productDiscovery: {
-          edges: [],
+        productList: {
+          nodes: [],
           pageInfo: { hasNextPage: true, endCursor: 'cursor-abc' },
           totalCount: 100,
         },
@@ -150,39 +153,39 @@ describe('HolibobClient', () => {
   });
 
   describe('getAvailability', () => {
-    it('should fetch availability for a product', async () => {
+    it('should fetch availability by ID', async () => {
       const mockAvailability = {
-        slots: [
-          {
-            date: '2024-06-15',
-            available: true,
-            price: { amount: 50, currency: 'GBP' },
-          },
-        ],
+        id: 'avail-123',
+        date: '2024-06-15',
+        optionList: {
+          isComplete: true,
+          nodes: [],
+        },
       };
 
       mockRequest.mockResolvedValueOnce({ availability: mockAvailability });
 
-      const result = await client.getAvailability('prod-123', '2024-06-01', '2024-06-30', {
-        adults: 2,
-        children: 1,
-      });
+      const result = await client.getAvailability('avail-123');
 
       expect(result).toEqual(mockAvailability);
+      expect(mockRequest).toHaveBeenCalledWith(expect.any(String), { id: 'avail-123' });
     });
 
-    it('should use default guest counts', async () => {
-      mockRequest.mockResolvedValueOnce({ availability: { slots: [] } });
+    it('should return availability with options', async () => {
+      const mockAvailability = {
+        id: 'avail-456',
+        optionList: {
+          isComplete: false,
+          nodes: [{ id: 'opt-1', label: 'Time Slot' }],
+        },
+      };
 
-      await client.getAvailability('prod-123', '2024-06-01', '2024-06-30');
+      mockRequest.mockResolvedValueOnce({ availability: mockAvailability });
 
-      expect(mockRequest).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({
-          adults: 2,
-          children: 0,
-        })
-      );
+      const result = await client.getAvailability('avail-456');
+
+      expect(result.optionList.isComplete).toBe(false);
+      expect(result.optionList.nodes).toHaveLength(1);
     });
   });
 

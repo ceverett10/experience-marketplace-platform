@@ -54,7 +54,35 @@ describe('Database Client', () => {
 
   describe('PrismaClient configuration', () => {
     it('should be configured with logging options', async () => {
+      // Reset modules to force fresh import and PrismaClient instantiation
+      vi.resetModules();
+
+      // Re-setup the mock after module reset
+      vi.doMock('@prisma/client', () => ({
+        PrismaClient: vi.fn().mockImplementation(() => ({
+          $connect: vi.fn().mockResolvedValue(undefined),
+          $disconnect: vi.fn().mockResolvedValue(undefined),
+          site: {
+            findUnique: vi.fn(),
+            findMany: vi.fn(),
+            create: vi.fn(),
+            update: vi.fn(),
+            delete: vi.fn(),
+          },
+          page: {
+            findUnique: vi.fn(),
+            findMany: vi.fn(),
+            create: vi.fn(),
+            update: vi.fn(),
+            delete: vi.fn(),
+          },
+          booking: { findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn() },
+        })),
+      }));
+
       const { PrismaClient } = await import('@prisma/client');
+      // Clear globalThis to force new instance
+      (globalThis as any).prisma = undefined;
       const { prisma } = await import('./client.js');
 
       expect(PrismaClient).toHaveBeenCalled();
