@@ -70,8 +70,19 @@ jobs:
 
       - name: Deploy to Heroku
         run: |
-          # Add Heroku git remote with API key authentication
-          git remote add heroku https://heroku:${{ secrets.HEROKU_API_KEY }}@git.heroku.com/${{ env.HEROKU_APP_NAME }}.git
+          # Set up Heroku authentication via netrc
+          cat > ~/.netrc << EOF
+          machine api.heroku.com
+            login ${{ secrets.HEROKU_EMAIL }}
+            password ${{ secrets.HEROKU_API_KEY }}
+          machine git.heroku.com
+            login ${{ secrets.HEROKU_EMAIL }}
+            password ${{ secrets.HEROKU_API_KEY }}
+          EOF
+          chmod 600 ~/.netrc
+
+          # Add Heroku git remote
+          git remote add heroku https://git.heroku.com/${{ env.HEROKU_APP_NAME }}.git
 
           # Push to Heroku
           git push heroku HEAD:main --force
