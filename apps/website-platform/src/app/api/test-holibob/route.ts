@@ -5,16 +5,24 @@
 
 import { NextResponse } from 'next/server';
 import { getHolibobClient } from '@/lib/holibob';
+import type { SiteConfig } from '@/lib/tenant';
 
 export async function GET() {
   try {
-    // Create client with default config (uses env vars)
-    const client = getHolibobClient({
+    // Create a mock site config for testing
+    const mockSite: SiteConfig = {
       id: 'test',
       slug: 'test',
       name: 'Test Site',
+      description: null,
+      primaryDomain: null,
       holibobPartnerId: process.env.HOLIBOB_PARTNER_ID || 'holibob',
-    });
+      brand: null,
+      seoConfig: null,
+    };
+
+    // Create client with default config (uses env vars)
+    const client = getHolibobClient(mockSite);
 
     // Try to fetch products from Holibob
     const products = await client.getProducts({
