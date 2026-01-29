@@ -4,25 +4,19 @@
  */
 
 import { NextResponse } from 'next/server';
-import { getHolibobClient } from '@/lib/holibob';
-import type { SiteConfig } from '@/lib/tenant';
+import { createHolibobClient } from '@experience-marketplace/holibob-api';
 
 export async function GET() {
   try {
-    // Create a mock site config for testing
-    const mockSite: SiteConfig = {
-      id: 'test',
-      slug: 'test',
-      name: 'Test Site',
-      description: null,
-      primaryDomain: null,
-      holibobPartnerId: process.env.HOLIBOB_PARTNER_ID || 'holibob',
-      brand: null,
-      seoConfig: null,
-    };
-
-    // Create client with default config (uses env vars)
-    const client = getHolibobClient(mockSite);
+    // Create client directly with env vars
+    const client = createHolibobClient({
+      apiUrl: process.env.HOLIBOB_API_URL || 'https://api.sandbox.holibob.tech/graphql',
+      apiKey: process.env.HOLIBOB_API_KEY || '',
+      apiSecret: process.env.HOLIBOB_API_SECRET,
+      partnerId: process.env.HOLIBOB_PARTNER_ID || 'holibob',
+      timeout: 30000,
+      retries: 3,
+    });
 
     // Try to fetch products from Holibob
     const products = await client.getProducts({
@@ -35,7 +29,7 @@ export async function GET() {
       apiUrl: process.env.HOLIBOB_API_URL,
       partnerId: process.env.HOLIBOB_PARTNER_ID,
       productsFound: products.totalCount,
-      sampleProducts: products.items.map(p => ({
+      sampleProducts: products.items.map((p) => ({
         id: p.id,
         name: p.name,
         slug: p.slug,
@@ -44,13 +38,16 @@ export async function GET() {
   } catch (error) {
     console.error('Holibob API test error:', error);
 
-    return NextResponse.json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-      apiUrl: process.env.HOLIBOB_API_URL,
-      partnerId: process.env.HOLIBOB_PARTNER_ID,
-      hasApiKey: !!process.env.HOLIBOB_API_KEY,
-      hasApiSecret: !!process.env.HOLIBOB_API_SECRET,
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        apiUrl: process.env.HOLIBOB_API_URL,
+        partnerId: process.env.HOLIBOB_PARTNER_ID,
+        hasApiKey: !!process.env.HOLIBOB_API_KEY,
+        hasApiSecret: !!process.env.HOLIBOB_API_SECRET,
+      },
+      { status: 500 }
+    );
   }
 }
