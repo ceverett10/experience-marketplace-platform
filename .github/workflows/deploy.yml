@@ -37,7 +37,10 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --include=optional
+
+      - name: Install Rollup native binary (workaround for npm bug)
+        run: npm install @rollup/rollup-linux-x64-gnu
 
       - name: Run tests
         run: npm run test
