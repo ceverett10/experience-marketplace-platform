@@ -126,7 +126,7 @@ export function BookingForm({ experience, onBookingCreated }: BookingFormProps) 
     }
   };
 
-  // Submit booking
+  // Submit booking - orchestrates the multi-step Holibob booking flow
   const handleSubmit = async () => {
     if (!selectedTimeSlot || !customerEmail) return;
 
@@ -134,30 +134,53 @@ export function BookingForm({ experience, onBookingCreated }: BookingFormProps) 
     setError(null);
 
     try {
-      const response = await fetch('/api/booking', {
+      // Step 1: Create booking (empty basket)
+      const createResponse = await fetch('/api/booking', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          customerEmail,
-          customerPhone: customerPhone || undefined,
-          items: [
-            {
-              availabilityId: selectedTimeSlot.id,
-              guests: guestDetails.slice(0, totalGuests),
-            },
-          ],
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ autoFillQuestions: true }),
       });
 
-      if (!response.ok) {
-        const data = await response.json();
+      if (!createResponse.ok) {
+        const data = await createResponse.json();
         throw new Error(data.error ?? 'Failed to create booking');
       }
 
-      const data = await response.json();
-      const bookingId = data.data.id;
+      const createData = await createResponse.json();
+      const bookingId = createData.data.id;
+
+      // Step 2: Add availability to booking
+      const addAvailabilityResponse = await fetch(`/api/booking/${bookingId}/availability`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ availabilityId: selectedTimeSlot.id }),
+      });
+
+      if (!addAvailabilityResponse.ok) {
+        const data = await addAvailabilityResponse.json();
+        throw new Error(data.error ?? 'Failed to add experience to booking');
+      }
+
+      // Step 3: Answer booking questions (guest details)
+      const questionsResponse = await fetch(`/api/booking/${bookingId}/questions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerEmail,
+          customerPhone: customerPhone || undefined,
+          guests: guestDetails.slice(0, totalGuests).map((guest, index) => ({
+            ...guest,
+            isLeadGuest: index === 0,
+            email: index === 0 ? customerEmail : guest.email,
+            phone: index === 0 ? customerPhone : guest.phone,
+          })),
+        }),
+      });
+
+      if (!questionsResponse.ok) {
+        const data = await questionsResponse.json();
+        throw new Error(data.error ?? 'Failed to save guest details');
+      }
 
       if (onBookingCreated) {
         onBookingCreated(bookingId);
