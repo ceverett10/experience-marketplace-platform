@@ -69,11 +69,17 @@ jobs:
         run: curl https://cli-assets.heroku.com/install.sh | sh
 
       - name: Deploy to Heroku
-        uses: akhileshns/heroku-deploy@v3.13.15
-        with:
-          heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
-          heroku_app_name: ${{ env.HEROKU_APP_NAME }}
-          heroku_email: ${{ secrets.HEROKU_EMAIL }}
+        run: |
+          # Login to Heroku Container Registry
+          heroku container:login
+
+          # Add Heroku git remote
+          heroku git:remote -a ${{ env.HEROKU_APP_NAME }}
+
+          # Push to Heroku
+          git push heroku HEAD:main --force
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
 
       - name: Run database migrations
         run: |
