@@ -4,8 +4,10 @@ import {
   generateId,
   truncate,
   formatCurrency,
+  formatDate,
   delay,
   withRetry,
+  debounce,
   isDefined,
   safeJsonParse,
   groupBy,
@@ -72,6 +74,55 @@ describe('formatCurrency', () => {
 
   it('should handle decimal amounts', () => {
     expect(formatCurrency(99.99)).toBe('£99.99');
+  });
+});
+
+describe('formatDate', () => {
+  it('should format a Date object', () => {
+    const date = new Date('2024-01-15T12:00:00Z');
+    const formatted = formatDate(date);
+    expect(formatted).toContain('2024');
+    expect(formatted).toContain('Jan');
+  });
+
+  it('should format a date string', () => {
+    const formatted = formatDate('2024-06-20T00:00:00Z');
+    expect(formatted).toContain('2024');
+    expect(formatted).toContain('Jun');
+  });
+
+  it('should accept custom format options', () => {
+    const date = new Date('2024-01-15T12:00:00Z');
+    const formatted = formatDate(date, { dateStyle: 'full' });
+    expect(formatted).toContain('2024');
+  });
+});
+
+describe('debounce', () => {
+  it('should debounce function calls', async () => {
+    const fn = vi.fn();
+    const debouncedFn = debounce(fn, 50);
+
+    debouncedFn();
+    debouncedFn();
+    debouncedFn();
+
+    expect(fn).not.toHaveBeenCalled();
+
+    await delay(100);
+
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+
+  it('should pass arguments to the debounced function', async () => {
+    const fn = vi.fn();
+    const debouncedFn = debounce(fn, 50);
+
+    debouncedFn('test', 123);
+
+    await delay(100);
+
+    expect(fn).toHaveBeenCalledWith('test', 123);
   });
 });
 
