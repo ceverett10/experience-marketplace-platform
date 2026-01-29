@@ -70,11 +70,8 @@ jobs:
 
       - name: Deploy to Heroku
         run: |
-          # Login to Heroku Container Registry
-          heroku container:login
-
-          # Add Heroku git remote
-          heroku git:remote -a ${{ env.HEROKU_APP_NAME }}
+          # Add Heroku git remote with API key authentication
+          git remote add heroku https://heroku:${{ secrets.HEROKU_API_KEY }}@git.heroku.com/${{ env.HEROKU_APP_NAME }}.git
 
           # Push to Heroku
           git push heroku HEAD:main --force
