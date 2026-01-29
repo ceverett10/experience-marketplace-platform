@@ -233,7 +233,7 @@ describe('HolibobClient', () => {
 
       mockRequest.mockResolvedValueOnce({ bookingCommit: mockBooking });
 
-      const result = await client.commitBooking('booking-123');
+      const result = await client.commitBooking({ id: 'booking-123' });
 
       expect(result).toEqual(mockBooking);
     });
@@ -284,5 +284,563 @@ describe('createHolibobClient', () => {
     });
 
     expect(client).toBeInstanceOf(HolibobClient);
+  });
+});
+
+describe('HolibobClient - Availability Methods', () => {
+  let client: HolibobClient;
+  let mockRequest: ReturnType<typeof vi.fn>;
+  const mockConfig: HolibobClientConfig = {
+    apiUrl: 'https://api.holibob.test/graphql',
+    apiKey: 'test-api-key',
+    partnerId: 'test-partner-id',
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockRequest = vi.fn();
+    (GraphQLClient as unknown as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+      request: mockRequest,
+    }));
+    client = new HolibobClient(mockConfig);
+  });
+
+  describe('getAvailabilityList', () => {
+    it('should fetch availability list for a product', async () => {
+      const mockResponse = {
+        availabilityList: {
+          sessionId: 'session-123',
+          nodes: [{ id: 'avail-1', date: '2024-06-15' }],
+          optionList: { isComplete: false, nodes: [] },
+        },
+      };
+
+      mockRequest.mockResolvedValueOnce(mockResponse);
+
+      const result = await client.getAvailabilityList('prod-123');
+
+      expect(result.sessionId).toBe('session-123');
+      expect(result.nodes).toHaveLength(1);
+    });
+
+    it('should pass sessionId and optionList for subsequent calls', async () => {
+      const mockResponse = {
+        availabilityList: {
+          sessionId: 'session-456',
+          nodes: [{ id: 'avail-2', date: '2024-06-16' }],
+          optionList: { isComplete: true, nodes: [] },
+        },
+      };
+
+      mockRequest.mockResolvedValueOnce(mockResponse);
+
+      const result = await client.getAvailabilityList('prod-123', 'session-123', [
+        { id: 'START_DATE', value: '2024-06-01' },
+      ]);
+
+      expect(mockRequest).toHaveBeenCalledWith(expect.any(String), {
+        productId: 'prod-123',
+        sessionId: 'session-123',
+        optionList: [{ id: 'START_DATE', value: '2024-06-01' }],
+      });
+    });
+  });
+
+  describe('discoverAvailability', () => {
+    it('should complete availability discovery with date options', async () => {
+      // First call returns options
+      mockRequest.mockResolvedValueOnce({
+        availabilityList: {
+          sessionId: 'session-abc',
+          nodes: [],
+          optionList: {
+            isComplete: false,
+            nodes: [
+              { id: 'START_DATE', label: 'Start Date' },
+              { id: 'END_DATE', label: 'End Date' },
+            ],
+          },
+        },
+      });
+
+      // Second call returns availability slots
+      mockRequest.mockResolvedValueOnce({
+        availabilityList: {
+          sessionId: 'session-abc',
+          nodes: [{ id: 'slot-1', date: '2024-06-15', soldOut: false }],
+          optionList: { isComplete: true, nodes: [] },
+        },
+      });
+
+      const result = await client.discoverAvailability('prod-123', '2024-06-01', '2024-06-30');
+
+      expect(mockRequest).toHaveBeenCalledTimes(2);
+      expect(result.nodes).toHaveLength(1);
+    });
+  });
+
+  describe('setAvailabilityOptions', () => {
+    it('should set availability options', async () => {
+      const mockResponse = {
+        availability: {
+          id: 'avail-123',
+          optionList: { isComplete: true, nodes: [] },
+        },
+      };
+
+      mockRequest.mockResolvedValueOnce(mockResponse);
+
+      const result = await client.setAvailabilityOptions('avail-123', {
+        optionList: [{ id: 'TIME_SLOT', value: '10:00' }],
+      });
+
+      expect(result.optionList.isComplete).toBe(true);
+    });
+  });
+
+  describe('completeAvailabilityOptions', () => {
+    it('should return immediately if options are already complete', async () => {
+      mockRequest.mockResolvedValueOnce({
+        availability: {
+          id: 'avail-123',
+          optionList: { isComplete: true, nodes: [] },
+        },
+      });
+
+      const result = await client.completeAvailabilityOptions('avail-123', []);
+
+      expect(mockRequest).toHaveBeenCalledTimes(1);
+      expect(result.optionList?.isComplete).toBe(true);
+    });
+
+    it('should set options when provided and not complete', async () => {
+      mockRequest
+        .mockResolvedValueOnce({
+          availability: {
+            id: 'avail-123',
+            optionList: { isComplete: false, nodes: [{ id: 'opt-1' }] },
+          },
+        })
+        .mockResolvedValueOnce({
+          availability: {
+            id: 'avail-123',
+            optionList: { isComplete: true, nodes: [] },
+          },
+        });
+
+      const result = await client.completeAvailabilityOptions('avail-123', [
+        { id: 'opt-1', value: 'selected' },
+      ]);
+
+      expect(mockRequest).toHaveBeenCalledTimes(2);
+      expect(result.optionList?.isComplete).toBe(true);
+    });
+  });
+
+  describe('getAvailabilityPricing', () => {
+    it('should fetch pricing for availability', async () => {
+      mockRequest.mockResolvedValueOnce({
+        availability: {
+          id: 'avail-123',
+          pricingCategoryList: [{ id: 'adult', price: 50, currency: 'GBP' }],
+        },
+      });
+
+      const result = await client.getAvailabilityPricing('avail-123');
+
+      expect(result.pricingCategoryList).toBeDefined();
+    });
+  });
+
+  describe('setAvailabilityPricing', () => {
+    it('should set units for pricing categories', async () => {
+      mockRequest.mockResolvedValueOnce({
+        availability: {
+          id: 'avail-123',
+          totalPrice: { amount: 100, currency: 'GBP' },
+        },
+      });
+
+      const result = await client.setAvailabilityPricing('avail-123', [{ id: 'adult', units: 2 }]);
+
+      expect(result.totalPrice).toBeDefined();
+    });
+  });
+});
+
+describe('HolibobClient - Booking Methods', () => {
+  let client: HolibobClient;
+  let mockRequest: ReturnType<typeof vi.fn>;
+  const mockConfig: HolibobClientConfig = {
+    apiUrl: 'https://api.holibob.test/graphql',
+    apiKey: 'test-api-key',
+    partnerId: 'test-partner-id',
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockRequest = vi.fn();
+    (GraphQLClient as unknown as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+      request: mockRequest,
+    }));
+    client = new HolibobClient(mockConfig);
+  });
+
+  describe('addAvailabilityToBooking', () => {
+    it('should add availability to booking', async () => {
+      mockRequest.mockResolvedValueOnce({
+        bookingAddAvailability: { isComplete: false },
+      });
+
+      const result = await client.addAvailabilityToBooking({
+        bookingId: 'booking-123',
+        availabilityId: 'avail-456',
+      });
+
+      expect(result.isComplete).toBe(false);
+    });
+  });
+
+  describe('getBookingQuestions', () => {
+    it('should fetch booking questions', async () => {
+      mockRequest.mockResolvedValueOnce({
+        booking: {
+          id: 'booking-123',
+          questionList: [{ id: 'q1', text: 'Name?' }],
+        },
+      });
+
+      const result = await client.getBookingQuestions('booking-123');
+
+      expect(result.questionList).toBeDefined();
+    });
+  });
+
+  describe('answerBookingQuestions', () => {
+    it('should answer booking questions', async () => {
+      mockRequest.mockResolvedValueOnce({
+        booking: {
+          id: 'booking-123',
+          canCommit: true,
+        },
+      });
+
+      const result = await client.answerBookingQuestions('booking-123', {
+        questionList: [{ id: 'q1', answer: 'John Doe' }],
+      });
+
+      expect(result.canCommit).toBe(true);
+    });
+  });
+
+  describe('commitBooking', () => {
+    it('should commit booking with selector', async () => {
+      mockRequest.mockResolvedValueOnce({
+        bookingCommit: { id: 'booking-123', state: 'PENDING' },
+      });
+
+      const result = await client.commitBooking({ id: 'booking-123' });
+
+      expect(result.state).toBe('PENDING');
+    });
+  });
+
+  describe('waitForConfirmation', () => {
+    it('should return when booking is confirmed', async () => {
+      mockRequest.mockResolvedValueOnce({
+        booking: { id: 'booking-123', state: 'CONFIRMED' },
+      });
+
+      const result = await client.waitForConfirmation('booking-123');
+
+      expect(result.state).toBe('CONFIRMED');
+    });
+
+    it('should throw when booking is rejected', async () => {
+      mockRequest.mockResolvedValueOnce({
+        booking: { id: 'booking-123', state: 'REJECTED' },
+      });
+
+      await expect(client.waitForConfirmation('booking-123')).rejects.toThrow('Booking REJECTED');
+    });
+
+    it('should throw when booking is cancelled', async () => {
+      mockRequest.mockResolvedValueOnce({
+        booking: { id: 'booking-123', state: 'CANCELLED' },
+      });
+
+      await expect(client.waitForConfirmation('booking-123')).rejects.toThrow('Booking CANCELLED');
+    });
+
+    it('should throw on timeout', async () => {
+      mockRequest.mockResolvedValue({
+        booking: { id: 'booking-123', state: 'PENDING' },
+      });
+
+      await expect(
+        client.waitForConfirmation('booking-123', { maxAttempts: 2, intervalMs: 10 })
+      ).rejects.toThrow('Booking confirmation timeout');
+    });
+  });
+
+  describe('listBookings', () => {
+    it('should list bookings with filter', async () => {
+      mockRequest.mockResolvedValueOnce({
+        bookingList: {
+          nodes: [{ id: 'b1' }, { id: 'b2' }],
+          recordCount: 2,
+        },
+      });
+
+      const result = await client.listBookings({ consumerId: 'user-123' });
+
+      expect(result.nodes).toHaveLength(2);
+      expect(result.recordCount).toBe(2);
+    });
+
+    it('should support pagination', async () => {
+      mockRequest.mockResolvedValueOnce({
+        bookingList: { nodes: [], recordCount: 0 },
+      });
+
+      await client.listBookings({}, { first: 10, after: 'cursor' });
+
+      expect(mockRequest).toHaveBeenCalledWith(expect.any(String), {
+        filter: {},
+        first: 10,
+        after: 'cursor',
+      });
+    });
+  });
+
+  describe('cancelBooking', () => {
+    it('should cancel booking with reason', async () => {
+      mockRequest.mockResolvedValueOnce({
+        bookingCancel: { id: 'booking-123', state: 'CANCELLED' },
+      });
+
+      const result = await client.cancelBooking({ id: 'booking-123' }, 'Customer request');
+
+      expect(result.state).toBe('CANCELLED');
+    });
+  });
+});
+
+describe('HolibobClient - Category & Place Methods', () => {
+  let client: HolibobClient;
+  let mockRequest: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockRequest = vi.fn();
+    (GraphQLClient as unknown as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+      request: mockRequest,
+    }));
+    client = new HolibobClient({
+      apiUrl: 'https://api.holibob.test/graphql',
+      apiKey: 'test-api-key',
+      partnerId: 'test-partner-id',
+    });
+  });
+
+  describe('getCategories', () => {
+    it('should fetch categories', async () => {
+      mockRequest.mockResolvedValueOnce({
+        categoryList: {
+          nodes: [{ id: 'cat-1', name: 'Tours' }],
+        },
+      });
+
+      const result = await client.getCategories();
+
+      expect(result).toHaveLength(1);
+      expect(result[0].name).toBe('Tours');
+    });
+
+    it('should filter by placeId', async () => {
+      mockRequest.mockResolvedValueOnce({
+        categoryList: { nodes: [] },
+      });
+
+      await client.getCategories('place-123');
+
+      expect(mockRequest).toHaveBeenCalledWith(expect.any(String), { placeId: 'place-123' });
+    });
+  });
+
+  describe('getPlaces', () => {
+    it('should fetch places', async () => {
+      mockRequest.mockResolvedValueOnce({
+        placeList: {
+          nodes: [{ id: 'place-1', name: 'London' }],
+        },
+      });
+
+      const result = await client.getPlaces();
+
+      expect(result).toHaveLength(1);
+    });
+
+    it('should filter by parent and type', async () => {
+      mockRequest.mockResolvedValueOnce({
+        placeList: { nodes: [] },
+      });
+
+      await client.getPlaces({ parentId: 'uk', type: 'CITY' });
+
+      expect(mockRequest).toHaveBeenCalledWith(expect.any(String), {
+        parentId: 'uk',
+        type: 'CITY',
+      });
+    });
+  });
+});
+
+describe('HolibobClient - High-Level Helpers', () => {
+  let client: HolibobClient;
+  let mockRequest: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockRequest = vi.fn();
+    (GraphQLClient as unknown as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+      request: mockRequest,
+    }));
+    client = new HolibobClient({
+      apiUrl: 'https://api.holibob.test/graphql',
+      apiKey: 'test-api-key',
+      partnerId: 'test-partner-id',
+    });
+  });
+
+  describe('startBookingFlow', () => {
+    it('should create booking and add availability', async () => {
+      mockRequest
+        .mockResolvedValueOnce({ bookingCreate: { id: 'booking-123' } })
+        .mockResolvedValueOnce({ bookingAddAvailability: { isComplete: false } })
+        .mockResolvedValueOnce({ booking: { id: 'booking-123', questionList: [] } });
+
+      const result = await client.startBookingFlow('avail-123');
+
+      expect(mockRequest).toHaveBeenCalledTimes(3);
+      expect(result.id).toBe('booking-123');
+    });
+  });
+
+  describe('completeBookingFlow', () => {
+    it('should answer questions and commit booking', async () => {
+      mockRequest
+        .mockResolvedValueOnce({ booking: { id: 'booking-123', canCommit: true } })
+        .mockResolvedValueOnce({ bookingCommit: { id: 'booking-123', state: 'PENDING' } })
+        .mockResolvedValueOnce({ booking: { id: 'booking-123', state: 'CONFIRMED' } });
+
+      const result = await client.completeBookingFlow('booking-123', {});
+
+      expect(result.state).toBe('CONFIRMED');
+    });
+
+    it('should throw if cannot commit', async () => {
+      mockRequest.mockResolvedValueOnce({ booking: { id: 'booking-123', canCommit: false } });
+
+      await expect(client.completeBookingFlow('booking-123', {})).rejects.toThrow(
+        'Cannot commit booking'
+      );
+    });
+  });
+
+  describe('getAvailabilityLegacy', () => {
+    it('should convert to legacy format', async () => {
+      mockRequest
+        .mockResolvedValueOnce({
+          availabilityList: {
+            sessionId: 'session-1',
+            nodes: [],
+            optionList: { isComplete: false, nodes: [{ id: 'START_DATE' }, { id: 'END_DATE' }] },
+          },
+        })
+        .mockResolvedValueOnce({
+          availabilityList: {
+            sessionId: 'session-1',
+            nodes: [{ id: 'slot-1', date: '2024-06-15', soldOut: false }],
+            optionList: { isComplete: true, nodes: [] },
+          },
+        });
+
+      const result = await client.getAvailabilityLegacy('prod-123', '2024-06-01', '2024-06-30');
+
+      expect(result.productId).toBe('prod-123');
+      expect(result.options).toBeDefined();
+    });
+  });
+});
+
+describe('HolibobClient - Product Filter Mapping', () => {
+  let client: HolibobClient;
+  let mockRequest: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockRequest = vi.fn();
+    (GraphQLClient as unknown as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+      request: mockRequest,
+    }));
+    client = new HolibobClient({
+      apiUrl: 'https://api.holibob.test/graphql',
+      apiKey: 'test-api-key',
+      partnerId: 'test-partner-id',
+    });
+  });
+
+  it('should map price filter correctly', async () => {
+    mockRequest.mockResolvedValueOnce({
+      productList: { nodes: [], pageInfo: {}, totalCount: 0 },
+    });
+
+    await client.discoverProducts({
+      priceMin: 50,
+      priceMax: 200,
+      currency: 'GBP',
+    });
+
+    expect(mockRequest).toHaveBeenCalled();
+  });
+
+  it('should map category filter correctly', async () => {
+    mockRequest.mockResolvedValueOnce({
+      productList: { nodes: [], pageInfo: {}, totalCount: 0 },
+    });
+
+    await client.discoverProducts({
+      categoryIds: ['cat-1', 'cat-2'],
+    });
+
+    expect(mockRequest).toHaveBeenCalled();
+  });
+
+  it('should map date filter correctly', async () => {
+    mockRequest.mockResolvedValueOnce({
+      productList: { nodes: [], pageInfo: {}, totalCount: 0 },
+    });
+
+    await client.discoverProducts({
+      dateFrom: '2024-06-01',
+      dateTo: '2024-06-30',
+    });
+
+    expect(mockRequest).toHaveBeenCalled();
+  });
+
+  it('should handle all guest types', async () => {
+    mockRequest.mockResolvedValueOnce({
+      productList: { nodes: [], pageInfo: {}, totalCount: 0 },
+    });
+
+    await client.discoverProducts({
+      adults: 2,
+      children: 1,
+      infants: 1,
+    });
+
+    expect(mockRequest).toHaveBeenCalled();
   });
 });

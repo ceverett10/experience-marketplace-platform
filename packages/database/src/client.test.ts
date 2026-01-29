@@ -279,4 +279,100 @@ describe('Environment-based configuration', () => {
 
     process.env['NODE_ENV'] = originalEnv;
   });
+
+  it('should use different log levels in development mode', async () => {
+    vi.resetModules();
+    const originalEnv = process.env['NODE_ENV'];
+    process.env['NODE_ENV'] = 'development';
+
+    vi.doMock('@prisma/client', () => ({
+      PrismaClient: vi.fn().mockImplementation((config) => {
+        // Verify development logging is requested
+        expect(config?.log).toEqual(['query', 'error', 'warn']);
+        return {
+          $connect: vi.fn().mockResolvedValue(undefined),
+          $disconnect: vi.fn().mockResolvedValue(undefined),
+          site: { findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() },
+          page: { findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() },
+          booking: { findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn() },
+        };
+      }),
+    }));
+
+    (globalThis as any).prisma = undefined;
+    await import('./client.js');
+
+    process.env['NODE_ENV'] = originalEnv;
+  });
+
+  it('should use minimal logging in production mode', async () => {
+    vi.resetModules();
+    const originalEnv = process.env['NODE_ENV'];
+    process.env['NODE_ENV'] = 'production';
+
+    vi.doMock('@prisma/client', () => ({
+      PrismaClient: vi.fn().mockImplementation((config) => {
+        // Verify production logging is error only
+        expect(config?.log).toEqual(['error']);
+        return {
+          $connect: vi.fn().mockResolvedValue(undefined),
+          $disconnect: vi.fn().mockResolvedValue(undefined),
+          site: { findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() },
+          page: { findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() },
+          booking: { findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn() },
+        };
+      }),
+    }));
+
+    (globalThis as any).prisma = undefined;
+    await import('./client.js');
+
+    process.env['NODE_ENV'] = originalEnv;
+  });
+
+  it('should reuse existing globalThis.prisma in non-production', async () => {
+    vi.resetModules();
+    const originalEnv = process.env['NODE_ENV'];
+    process.env['NODE_ENV'] = 'development';
+
+    const mockPrisma = {
+      $connect: vi.fn(),
+      site: { findUnique: vi.fn() },
+    };
+
+    (globalThis as any).prisma = mockPrisma;
+
+    vi.doMock('@prisma/client', () => ({
+      PrismaClient: vi.fn(),
+    }));
+
+    const { prisma } = await import('./client.js');
+    expect(prisma).toBe(mockPrisma);
+
+    process.env['NODE_ENV'] = originalEnv;
+    (globalThis as any).prisma = undefined;
+  });
+
+  it('should not cache in production mode', async () => {
+    vi.resetModules();
+    const originalEnv = process.env['NODE_ENV'];
+    process.env['NODE_ENV'] = 'production';
+
+    (globalThis as any).prisma = undefined;
+
+    vi.doMock('@prisma/client', () => ({
+      PrismaClient: vi.fn().mockImplementation(() => ({
+        $connect: vi.fn().mockResolvedValue(undefined),
+        site: { findUnique: vi.fn() },
+      })),
+    }));
+
+    await import('./client.js');
+
+    // In production, globalThis.prisma should not be set
+    // The code sets it only when NODE_ENV !== 'production'
+    expect((globalThis as any).prisma).toBeUndefined();
+
+    process.env['NODE_ENV'] = originalEnv;
+  });
 });
