@@ -691,6 +691,7 @@ export interface HolibobClientConfig {
   apiUrl: string;
   partnerId: string;
   apiKey: string;
+  apiSecret?: string; // For HMAC signature authentication
   timeout?: number;
   retries?: number;
   sandbox?: boolean;

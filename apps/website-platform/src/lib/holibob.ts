@@ -23,8 +23,9 @@ export function getHolibobClient(site: SiteConfig): HolibobClient {
 
   // Create new client
   const client = createHolibobClient({
-    apiUrl: process.env['HOLIBOB_API_URL'] ?? 'https://api.holibob.tech/graphql',
+    apiUrl: process.env['HOLIBOB_API_URL'] ?? 'https://api.sandbox.holibob.tech/graphql',
     apiKey: process.env['HOLIBOB_API_KEY'] ?? '',
+    apiSecret: process.env['HOLIBOB_API_SECRET'], // For HMAC signature auth
     partnerId,
     timeout: 30000,
     retries: 3,

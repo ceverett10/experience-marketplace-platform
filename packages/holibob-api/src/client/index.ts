@@ -1,4 +1,5 @@
-import { GraphQLClient } from 'graphql-request';
+import { GraphQLClient, type RequestMiddleware } from 'graphql-request';
+import { createHmac } from 'crypto';
 import {
   type HolibobClientConfig,
   type Product,
@@ -50,13 +51,59 @@ export class HolibobClient {
       ...config,
     };
 
-    this.client = new GraphQLClient(this.config.apiUrl, {
-      headers: {
-        'X-API-Key': this.config.apiKey,
-        'X-Partner-Id': this.config.partnerId,
-        'Content-Type': 'application/json',
-      },
-    });
+    // Build headers - always include API key and partner ID
+    const baseHeaders: Record<string, string> = {
+      'X-API-Key': this.config.apiKey,
+      'X-Partner-Id': this.config.partnerId,
+      'Content-Type': 'application/json',
+    };
+
+    // If API secret is provided, use HMAC signature authentication
+    if (this.config.apiSecret) {
+      // Use request middleware to add signature headers dynamically
+      const requestMiddleware: RequestMiddleware = async (request) => {
+        const timestamp = new Date().toISOString();
+        const body = typeof request.body === 'string' ? request.body : JSON.stringify(request.body);
+        const signature = this.generateSignature(timestamp, body);
+
+        return {
+          ...request,
+          headers: {
+            ...request.headers,
+            'X-Holibob-Date': timestamp,
+            'X-Holibob-Signature': signature,
+          },
+        };
+      };
+
+      this.client = new GraphQLClient(this.config.apiUrl, {
+        headers: baseHeaders,
+        requestMiddleware,
+      });
+    } else {
+      // Simple API key authentication (for development/testing)
+      this.client = new GraphQLClient(this.config.apiUrl, {
+        headers: baseHeaders,
+      });
+    }
+  }
+
+  /**
+   * Generate HMAC-SHA256 signature for request authentication
+   */
+  private generateSignature(timestamp: string, body: string): string {
+    if (!this.config.apiSecret) {
+      throw new Error('API secret is required for signature generation');
+    }
+
+    // Create signature payload: timestamp + body
+    const payload = `${timestamp}${body}`;
+
+    // Generate HMAC-SHA256 signature
+    const hmac = createHmac('sha256', this.config.apiSecret);
+    hmac.update(payload);
+
+    return hmac.digest('hex');
   }
 
   // ==========================================================================
