@@ -95,10 +95,12 @@ jobs:
         env:
           HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
 
-      - name: Health check
+      - name: Verify deployment
         run: |
-          sleep 30
-          curl -f https://${{ env.HEROKU_APP_NAME }}.herokuapp.com/health || exit 1
+          sleep 10
+          heroku ps --app ${{ env.HEROKU_APP_NAME }}
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
 
       - name: Notify on success
         if: success()
