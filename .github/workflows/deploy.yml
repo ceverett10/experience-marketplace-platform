@@ -53,7 +53,12 @@ jobs:
           DATABASE_URL: 'postgresql://dummy:dummy@localhost:5432/dummy'
 
       - name: Run tests
-        run: npm run test
+        run: |
+          npm run test --workspace=@experience-marketplace/shared
+          npm run test --workspace=@experience-marketplace/database
+          npm run test --workspace=@experience-marketplace/holibob-api
+          npm run test --workspace=@experience-marketplace/ui-components
+          npm run test --workspace=@experience-marketplace/demand-generation
 
       - name: Build
         run: npm run build
