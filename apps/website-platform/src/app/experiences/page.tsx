@@ -1,10 +1,8 @@
 import { headers } from 'next/headers';
 import type { Metadata } from 'next';
-import { Suspense } from 'react';
 import { getSiteFromHostname } from '@/lib/tenant';
 import { getHolibobClient, type ExperienceListItem } from '@/lib/holibob';
 import { PremiumExperienceCard } from '@/components/experiences/PremiumExperienceCard';
-import { ExperienceFilters } from '@/components/experiences/ExperienceFilters';
 import { Pagination } from '@/components/ui/Pagination';
 import { ProductDiscoverySearch } from '@/components/search/ProductDiscoverySearch';
 import { TrustBadges } from '@/components/ui/TrustSignals';
@@ -12,7 +10,6 @@ import { ExperienceListSchema, BreadcrumbSchema } from '@/components/seo/Structu
 
 interface SearchParams {
   [key: string]: string | undefined;
-  category?: string;
   location?: string;
   destination?: string;
   startDate?: string;
@@ -20,9 +17,6 @@ interface SearchParams {
   adults?: string;
   children?: string;
   q?: string;
-  minPrice?: string;
-  maxPrice?: string;
-  sort?: string;
   page?: string;
 }
 
@@ -118,14 +112,13 @@ async function getExperiences(
   try {
     const client = getHolibobClient(site);
 
+    // Product Discovery API filters: where (freeText), when (dates), who (travelers), what (searchTerm)
+    // Note: Category/price filters are not supported by Product Discovery
     const response = await client.discoverProducts(
       {
         currency: 'GBP',
         freeText: searchParams.destination || searchParams.location,
         searchTerm: searchParams.q,
-        categoryIds: searchParams.category ? [searchParams.category] : undefined,
-        priceMin: searchParams.minPrice ? parseInt(searchParams.minPrice, 10) * 100 : undefined,
-        priceMax: searchParams.maxPrice ? parseInt(searchParams.maxPrice, 10) * 100 : undefined,
         adults: searchParams.adults ? parseInt(searchParams.adults, 10) : 2,
         children: searchParams.children ? parseInt(searchParams.children, 10) : undefined,
         dateFrom: searchParams.startDate,
@@ -134,37 +127,52 @@ async function getExperiences(
       { pageSize: ITEMS_PER_PAGE }
     );
 
-    const experiences = response.products.map((product) => ({
-      id: product.id,
-      title: product.name ?? 'Experience',
-      slug: product.id,
-      shortDescription: product.shortDescription ?? '',
-      // Use primaryImageUrl from Product Discovery API, fallback to imageUrl
-      imageUrl: product.primaryImageUrl ?? product.imageUrl ?? '/placeholder-experience.jpg',
-      price: {
-        amount: product.priceFrom ?? 0,
-        currency: product.priceCurrency ?? product.currency ?? 'GBP',
-        // Use priceFromFormatted if available, otherwise format manually
-        formatted:
-          product.priceFromFormatted ??
-          formatPrice(product.priceFrom ?? 0, product.priceCurrency ?? product.currency ?? 'GBP'),
-      },
-      duration: {
-        // Use maxDuration from Product Discovery API, fallback to duration
-        formatted: formatDuration(product.maxDuration ?? product.duration ?? 0, 'minutes'),
-      },
-      // Use reviewRating from Product Discovery API, fallback to rating
-      rating:
-        (product.reviewRating ?? product.rating)
-          ? {
-              average: product.reviewRating ?? product.rating ?? 0,
-              count: product.reviewCount ?? 0,
-            }
-          : null,
-      location: {
-        name: product.location?.name ?? '',
-      },
-    }));
+    const experiences = response.products.map((product) => {
+      // Get primary image from imageList (Product Detail API format)
+      const primaryImage =
+        product.imageList?.nodes?.[0]?.url ?? product.imageUrl ?? '/placeholder-experience.jpg';
+
+      // Get price - Product Detail API uses guidePrice, Product Discovery uses priceFrom
+      const priceAmount = product.guidePrice ?? product.priceFrom ?? 0;
+      const priceCurrency =
+        product.guidePriceCurrency ?? product.priceCurrency ?? product.currency ?? 'GBP';
+      const priceFormatted =
+        product.guidePriceFormattedText ??
+        product.priceFromFormatted ??
+        formatPrice(priceAmount, priceCurrency);
+
+      // Get duration - Product Detail API returns durationText as a string
+      const durationFormatted =
+        product.durationText ??
+        (product.duration ? formatDuration(product.duration, 'minutes') : 'Duration varies');
+
+      return {
+        id: product.id,
+        title: product.name ?? 'Experience',
+        slug: product.id,
+        shortDescription: product.shortDescription ?? '',
+        imageUrl: primaryImage,
+        price: {
+          amount: priceAmount,
+          currency: priceCurrency,
+          formatted: priceFormatted,
+        },
+        duration: {
+          formatted: durationFormatted,
+        },
+        // Use reviewRating from Product Discovery API, fallback to rating
+        rating:
+          (product.reviewRating ?? product.rating)
+            ? {
+                average: product.reviewRating ?? product.rating ?? 0,
+                count: product.reviewCount ?? 0,
+              }
+            : null,
+        location: {
+          name: product.location?.name ?? '',
+        },
+      };
+    });
 
     return {
       experiences,
@@ -508,59 +516,9 @@ export default async function ExperiencesPage({ searchParams }: Props) {
 
         {/* Main Content */}
         <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-          <div className="lg:grid lg:grid-cols-4 lg:gap-8">
-            {/* Filters Sidebar */}
-            <aside className="hidden lg:block">
-              <div className="sticky top-24">
-                <Suspense fallback={<div className="h-96 animate-pulse rounded-xl bg-gray-200" />}>
-                  <ExperienceFilters
-                    currentFilters={{
-                      category: resolvedSearchParams.category,
-                      minPrice: resolvedSearchParams.minPrice,
-                      maxPrice: resolvedSearchParams.maxPrice,
-                      sort: resolvedSearchParams.sort,
-                    }}
-                  />
-                </Suspense>
-              </div>
-            </aside>
-
+          <div>
             {/* Experiences Grid */}
-            <div className="lg:col-span-3">
-              {/* Mobile Filters Toggle */}
-              <div className="mb-6 flex items-center justify-between lg:hidden">
-                <button
-                  type="button"
-                  className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
-                >
-                  <svg
-                    className="h-5 w-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    strokeWidth="1.5"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75"
-                    />
-                  </svg>
-                  Filters
-                </button>
-
-                <select
-                  className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium shadow-sm"
-                  defaultValue={resolvedSearchParams.sort ?? 'recommended'}
-                >
-                  <option value="recommended">Recommended</option>
-                  <option value="price-low">Price: Low to High</option>
-                  <option value="price-high">Price: High to Low</option>
-                  <option value="rating">Highest Rated</option>
-                  <option value="popular">Most Popular</option>
-                </select>
-              </div>
-
+            <div>
               {/* Results */}
               {experiences.length > 0 ? (
                 <>
@@ -577,7 +535,7 @@ export default async function ExperiencesPage({ searchParams }: Props) {
                   )}
 
                   {/* Grid of remaining experiences */}
-                  <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+                  <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     {experiences.slice(currentPage === 1 ? 1 : 0).map((experience, index) => (
                       <PremiumExperienceCard
                         key={experience.id}
