@@ -144,6 +144,8 @@ export class HolibobClient {
 
     const recommendedProducts = response.productDiscovery.recommendedProductList.nodes;
 
+    console.log('[HolibobClient] discoverProducts found', recommendedProducts.length, 'products');
+
     // Step 2: Fetch full details for each product in parallel
     const productDetailsPromises = recommendedProducts.map(async (rec) => {
       try {
@@ -152,9 +154,11 @@ export class HolibobClient {
           return fullProduct;
         }
         // If full details fetch fails, return basic info
+        console.log('[HolibobClient] getProduct returned null, using basic info for:', rec.id);
         return { id: rec.id, name: rec.name } as Product;
-      } catch {
+      } catch (err) {
         // If product detail fetch fails, return basic info from discovery
+        console.error('[HolibobClient] getProduct failed for', rec.id, ':', err instanceof Error ? err.message : String(err));
         return { id: rec.id, name: rec.name } as Product;
       }
     });
@@ -181,11 +185,31 @@ export class HolibobClient {
    * Get a single product by ID with full details
    */
   async getProduct(productId: string): Promise<Product | null> {
-    const response = await this.executeQuery<{ product: Product | null }>(PRODUCT_DETAIL_QUERY, {
-      id: productId,
-    });
+    console.log('[HolibobClient] getProduct called with ID:', productId);
+    try {
+      const response = await this.executeQuery<{ product: Product | null }>(PRODUCT_DETAIL_QUERY, {
+        id: productId,
+      });
 
-    return response.product;
+      if (response.product) {
+        console.log('[HolibobClient] getProduct success:', {
+          id: response.product.id,
+          name: response.product.name,
+          hasImages: !!response.product.imageList,
+          hasGuidePrice: !!response.product.guidePrice,
+        });
+      } else {
+        console.log('[HolibobClient] getProduct returned null for ID:', productId);
+      }
+
+      return response.product;
+    } catch (error) {
+      console.error('[HolibobClient] getProduct error:', {
+        productId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
   }
 
   // ==========================================================================
@@ -626,6 +650,15 @@ export class HolibobClient {
         return response;
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
+
+        // Log detailed GraphQL error info
+        console.error('[HolibobClient] GraphQL query error:', {
+          attempt,
+          variables,
+          errorMessage: lastError.message,
+          // GraphQL errors often have additional details
+          graphqlErrors: (error as { response?: { errors?: unknown[] } })?.response?.errors,
+        });
 
         // Don't retry on client errors (4xx)
         if (this.isClientError(error)) {

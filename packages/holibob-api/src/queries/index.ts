@@ -48,8 +48,8 @@ export const PRODUCT_LIST_QUERY = gql`
  * Step 2: Display Product Details
  * Retrieve detailed product information
  *
- * NOTE: Only request fields that exist in the Holibob API schema.
- * Unknown fields will cause the entire query to fail.
+ * NOTE: Start with minimal fields and add more as we confirm they exist.
+ * guidePrice/guidePriceFormattedText may only be available via availabilityList.
  */
 export const PRODUCT_DETAIL_QUERY = gql`
   query Product($id: ID!) {
@@ -58,14 +58,10 @@ export const PRODUCT_DETAIL_QUERY = gql`
       name
       description
       shortDescription
-      guidePrice
-      guidePriceFormattedText
-      guidePriceCurrency
       imageList {
         nodes {
           id
           url
-          altText
         }
       }
       categoryList {
