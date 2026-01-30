@@ -50,9 +50,9 @@ export const PRODUCT_LIST_QUERY = gql`
  *
  * NOTE: Holibob API uses String! for product ID (not ID!)
  * Fields confirmed NOT to exist: shortDescription, location, duration, durationText,
- * highlights, inclusions, exclusions, importantInfo, imageList.nodes
+ * highlights, inclusions, exclusions, importantInfo, imageUrl
  *
- * Testing additional fields: guidePrice, imageUrl
+ * Trying: images (direct array, not imageList.nodes)
  */
 export const PRODUCT_DETAIL_QUERY = gql`
   query Product($id: String!) {
@@ -63,7 +63,9 @@ export const PRODUCT_DETAIL_QUERY = gql`
       guidePrice
       guidePriceFormattedText
       guidePriceCurrency
-      imageUrl
+      images {
+        url
+      }
       maxDuration
       reviewRating
       reviewCount
