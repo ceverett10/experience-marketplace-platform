@@ -77,7 +77,10 @@ export const revalidate = 300;
 const ITEMS_PER_PAGE = 12;
 
 // Badge assignment logic based on experience data
-function assignBadges(experience: ExperienceListItem, index: number): ('bestseller' | 'recommended' | 'new' | 'mostViewed' | 'likelyToSellOut')[] {
+function assignBadges(
+  experience: ExperienceListItem,
+  index: number
+): ('bestseller' | 'recommended' | 'new' | 'mostViewed' | 'likelyToSellOut')[] {
   const badges: ('bestseller' | 'recommended' | 'new' | 'mostViewed' | 'likelyToSellOut')[] = [];
 
   // Top 3 by rating get "Recommended"
@@ -166,7 +169,15 @@ async function getExperiences(
       recommendedSearchTerms: undefined,
     };
   } catch (error) {
-    console.error('Error fetching experiences:', error);
+    // Log detailed error info for debugging
+    console.error('Error fetching experiences:', {
+      error: error instanceof Error ? error.message : error,
+      stack: error instanceof Error ? error.stack : undefined,
+      partnerId: site.holibobPartnerId,
+      apiUrl: process.env['HOLIBOB_API_URL'] ?? 'not set',
+      hasApiKey: !!process.env['HOLIBOB_API_KEY'],
+      hasApiSecret: !!process.env['HOLIBOB_API_SECRET'],
+    });
     const mockData = getMockExperiences();
     return {
       experiences: mockData.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE),
@@ -350,6 +361,7 @@ export default async function ExperiencesPage({ searchParams }: Props) {
     experiences,
     totalCount,
     isUsingMockData,
+    apiError,
     recommendedTags,
     recommendedSearchTerms,
   } = await getExperiences(site, resolvedSearchParams);
@@ -379,7 +391,10 @@ export default async function ExperiencesPage({ searchParams }: Props) {
   ];
 
   if (destination) {
-    breadcrumbs.push({ name: destination, url: `https://${hostname}/experiences?destination=${encodeURIComponent(destination)}` });
+    breadcrumbs.push({
+      name: destination,
+      url: `https://${hostname}/experiences?destination=${encodeURIComponent(destination)}`,
+    });
   }
 
   return (
@@ -410,6 +425,9 @@ export default async function ExperiencesPage({ searchParams }: Props) {
                 <span>
                   <strong>Demo Mode:</strong> Showing sample experiences. Connect to Holibob API for
                   live inventory.
+                  {apiError && process.env.NODE_ENV !== 'production' && (
+                    <span className="ml-2 text-amber-600">Error: {apiError}</span>
+                  )}
                 </span>
               </div>
             </div>
@@ -423,11 +441,17 @@ export default async function ExperiencesPage({ searchParams }: Props) {
             <nav className="mb-4" aria-label="Breadcrumb">
               <ol className="flex items-center gap-2 text-sm text-gray-500">
                 <li>
-                  <a href="/" className="hover:text-gray-700">Home</a>
+                  <a href="/" className="hover:text-gray-700">
+                    Home
+                  </a>
                 </li>
                 <li>
                   <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
+                    <path
+                      fillRule="evenodd"
+                      d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z"
+                      clipRule="evenodd"
+                    />
                   </svg>
                 </li>
                 <li className="font-medium text-gray-900">Experiences</li>
@@ -435,7 +459,11 @@ export default async function ExperiencesPage({ searchParams }: Props) {
                   <>
                     <li>
                       <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
+                        <path
+                          fillRule="evenodd"
+                          d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z"
+                          clipRule="evenodd"
+                        />
                       </svg>
                     </li>
                     <li className="font-medium text-gray-900">{destination}</li>
@@ -498,8 +526,18 @@ export default async function ExperiencesPage({ searchParams }: Props) {
                   type="button"
                   className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
                 >
-                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
+                  <svg
+                    className="h-5 w-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth="1.5"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75"
+                    />
                   </svg>
                   Filters
                 </button>
@@ -573,10 +611,12 @@ export default async function ExperiencesPage({ searchParams }: Props) {
                     </svg>
                   </div>
                   <h3 className="mt-6 text-xl font-semibold text-gray-900">No experiences found</h3>
-                  <p className="mt-2 text-gray-600">Try adjusting your filters or search for a different destination</p>
+                  <p className="mt-2 text-gray-600">
+                    Try adjusting your filters or search for a different destination
+                  </p>
                   <button
                     type="button"
-                    onClick={() => window.location.href = '/experiences'}
+                    onClick={() => (window.location.href = '/experiences')}
                     className="mt-6 rounded-xl bg-teal-600 px-6 py-3 text-sm font-semibold text-white hover:bg-teal-700"
                   >
                     Clear all filters

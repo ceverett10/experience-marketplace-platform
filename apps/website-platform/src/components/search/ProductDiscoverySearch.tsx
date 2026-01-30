@@ -37,12 +37,36 @@ interface SearchParams {
 
 // Popular destinations for autocomplete
 const POPULAR_DESTINATIONS = [
-  { id: 'london', name: 'London, England', imageUrl: 'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?w=100' },
-  { id: 'edinburgh', name: 'Edinburgh, Scotland', imageUrl: 'https://images.unsplash.com/photo-1506377585622-bedcbb027afc?w=100' },
-  { id: 'paris', name: 'Paris, France', imageUrl: 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=100' },
-  { id: 'barcelona', name: 'Barcelona, Spain', imageUrl: 'https://images.unsplash.com/photo-1583422409516-2895a77efded?w=100' },
-  { id: 'rome', name: 'Rome, Italy', imageUrl: 'https://images.unsplash.com/photo-1552832230-c0197dd311b5?w=100' },
-  { id: 'amsterdam', name: 'Amsterdam, Netherlands', imageUrl: 'https://images.unsplash.com/photo-1534351590666-13e3e96b5017?w=100' },
+  {
+    id: 'london',
+    name: 'London, England',
+    imageUrl: 'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?w=100',
+  },
+  {
+    id: 'edinburgh',
+    name: 'Edinburgh, Scotland',
+    imageUrl: 'https://images.unsplash.com/photo-1506377585622-bedcbb027afc?w=100',
+  },
+  {
+    id: 'paris',
+    name: 'Paris, France',
+    imageUrl: 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=100',
+  },
+  {
+    id: 'barcelona',
+    name: 'Barcelona, Spain',
+    imageUrl: 'https://images.unsplash.com/photo-1583422409516-2895a77efded?w=100',
+  },
+  {
+    id: 'rome',
+    name: 'Rome, Italy',
+    imageUrl: 'https://images.unsplash.com/photo-1552832230-c0197dd311b5?w=100',
+  },
+  {
+    id: 'amsterdam',
+    name: 'Amsterdam, Netherlands',
+    imageUrl: 'https://images.unsplash.com/photo-1534351590666-13e3e96b5017?w=100',
+  },
 ];
 
 // Popular search suggestions
@@ -73,10 +97,16 @@ export function ProductDiscoverySearch({
   const brand = useBrand();
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const [destination, setDestination] = useState(defaultDestination || searchParams.get('destination') || '');
-  const [startDate, setStartDate] = useState(defaultDates.startDate || searchParams.get('startDate') || '');
+  const [destination, setDestination] = useState(
+    defaultDestination || searchParams.get('destination') || ''
+  );
+  const [startDate, setStartDate] = useState(
+    defaultDates.startDate || searchParams.get('startDate') || ''
+  );
   const [endDate, setEndDate] = useState(defaultDates.endDate || searchParams.get('endDate') || '');
-  const [travelers, setTravelers] = useState(defaultTravelers || searchParams.get('travelers') || '2 adults');
+  const [travelers, setTravelers] = useState(
+    defaultTravelers || searchParams.get('travelers') || '2 adults'
+  );
   const [searchTerm, setSearchTerm] = useState(searchParams.get('q') || '');
 
   const [showDestinationDropdown, setShowDestinationDropdown] = useState(false);
@@ -88,44 +118,44 @@ export function ProductDiscoverySearch({
   const [children, setChildren] = useState(0);
   const [infants, setInfants] = useState(0);
 
-  const allDestinations = recommendedDestinations.length > 0
-    ? recommendedDestinations
-    : POPULAR_DESTINATIONS;
+  const allDestinations =
+    recommendedDestinations.length > 0 ? recommendedDestinations : POPULAR_DESTINATIONS;
 
   const filteredDestinations = destination
-    ? allDestinations.filter(d =>
-        d.name.toLowerCase().includes(destination.toLowerCase())
-      )
+    ? allDestinations.filter((d) => d.name.toLowerCase().includes(destination.toLowerCase()))
     : allDestinations;
 
-  const handleSubmit = useCallback((e?: FormEvent) => {
-    e?.preventDefault();
+  const handleSubmit = useCallback(
+    (e?: FormEvent) => {
+      e?.preventDefault();
 
-    const params: SearchParams = {
-      destination,
-      startDate: startDate || undefined,
-      endDate: endDate || undefined,
-      travelers: `${adults} adults${children > 0 ? `, ${children} children` : ''}${infants > 0 ? `, ${infants} infants` : ''}`,
-      searchTerm: searchTerm || undefined,
-    };
+      const params: SearchParams = {
+        destination,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+        travelers: `${adults} adults${children > 0 ? `, ${children} children` : ''}${infants > 0 ? `, ${infants} infants` : ''}`,
+        searchTerm: searchTerm || undefined,
+      };
 
-    if (onSearch) {
-      onSearch(params);
-    } else {
-      const urlParams = new URLSearchParams();
-      if (destination) urlParams.set('destination', destination);
-      if (startDate) urlParams.set('startDate', startDate);
-      if (endDate) urlParams.set('endDate', endDate);
-      if (adults !== 2 || children > 0 || infants > 0) {
-        urlParams.set('adults', adults.toString());
-        if (children > 0) urlParams.set('children', children.toString());
-        if (infants > 0) urlParams.set('infants', infants.toString());
+      if (onSearch) {
+        onSearch(params);
+      } else {
+        const urlParams = new URLSearchParams();
+        if (destination) urlParams.set('destination', destination);
+        if (startDate) urlParams.set('startDate', startDate);
+        if (endDate) urlParams.set('endDate', endDate);
+        if (adults !== 2 || children > 0 || infants > 0) {
+          urlParams.set('adults', adults.toString());
+          if (children > 0) urlParams.set('children', children.toString());
+          if (infants > 0) urlParams.set('infants', infants.toString());
+        }
+        if (searchTerm) urlParams.set('q', searchTerm);
+
+        router.push(`/experiences?${urlParams.toString()}`);
       }
-      if (searchTerm) urlParams.set('q', searchTerm);
-
-      router.push(`/experiences?${urlParams.toString()}`);
-    }
-  }, [destination, startDate, endDate, adults, children, infants, searchTerm, onSearch, router]);
+    },
+    [destination, startDate, endDate, adults, children, infants, searchTerm, onSearch, router]
+  );
 
   const selectDestination = (dest: RecommendedDestination) => {
     setDestination(dest.name);
@@ -133,7 +163,9 @@ export function ProductDiscoverySearch({
   };
 
   const updateTravelers = () => {
-    setTravelers(`${adults} adult${adults !== 1 ? 's' : ''}${children > 0 ? `, ${children} child${children !== 1 ? 'ren' : ''}` : ''}${infants > 0 ? `, ${infants} infant${infants !== 1 ? 's' : ''}` : ''}`);
+    setTravelers(
+      `${adults} adult${adults !== 1 ? 's' : ''}${children > 0 ? `, ${children} child${children !== 1 ? 'ren' : ''}` : ''}${infants > 0 ? `, ${infants} infant${infants !== 1 ? 's' : ''}` : ''}`
+    );
     setShowTravelersDropdown(false);
   };
 
@@ -167,19 +199,34 @@ export function ProductDiscoverySearch({
             className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 pl-10 text-sm focus:border-transparent focus:outline-none focus:ring-2"
             style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
           />
-          <svg className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          <svg
+            className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            />
           </svg>
 
           {isSearchFocused && !searchTerm && (
             <div className="absolute left-0 right-0 top-full z-50 mt-2 rounded-xl border border-gray-100 bg-white p-3 shadow-lg">
-              <p className="mb-2 text-xs font-medium text-gray-500 uppercase tracking-wide">Popular searches</p>
+              <p className="mb-2 text-xs font-medium text-gray-500 uppercase tracking-wide">
+                Popular searches
+              </p>
               <div className="flex flex-wrap gap-2">
                 {popularSearchTerms.slice(0, 6).map((term) => (
                   <button
                     key={term}
                     type="button"
-                    onClick={() => { setSearchTerm(term); setIsSearchFocused(false); }}
+                    onClick={() => {
+                      setSearchTerm(term);
+                      setIsSearchFocused(false);
+                    }}
                     className="rounded-full px-3 py-1.5 text-sm transition-colors hover:opacity-80"
                     style={{ backgroundColor: primaryColorLight, color: primaryColor }}
                   >
@@ -262,18 +309,25 @@ export function ProductDiscoverySearch({
         {/* Quick Tags */}
         {(recommendedTags.length > 0 || popularSearchTerms.length > 0) && (
           <div>
-            <p className="mb-2 text-xs font-medium text-gray-500 uppercase tracking-wide">Quick filters</p>
+            <p className="mb-2 text-xs font-medium text-gray-500 uppercase tracking-wide">
+              Quick filters
+            </p>
             <div className="flex flex-wrap gap-2">
-              {(recommendedTags.length > 0 ? recommendedTags : popularSearchTerms.map((t, i) => ({ id: i.toString(), name: t }))).slice(0, 4).map((tag) => (
-                <button
-                  key={tag.id}
-                  type="button"
-                  onClick={() => setSearchTerm(tag.name)}
-                  className="rounded-full border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:border-gray-300 hover:bg-gray-50"
-                >
-                  {tag.name}
-                </button>
-              ))}
+              {(recommendedTags.length > 0
+                ? recommendedTags
+                : popularSearchTerms.map((t, i) => ({ id: i.toString(), name: t }))
+              )
+                .slice(0, 4)
+                .map((tag) => (
+                  <button
+                    key={tag.id}
+                    type="button"
+                    onClick={() => setSearchTerm(tag.name)}
+                    className="rounded-full border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:border-gray-300 hover:bg-gray-50"
+                  >
+                    {tag.name}
+                  </button>
+                ))}
             </div>
           </div>
         )}
@@ -304,7 +358,9 @@ export function ProductDiscoverySearch({
             {showDestinationDropdown && (
               <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-80 overflow-y-auto rounded-xl border border-gray-100 bg-white shadow-xl">
                 <div className="p-2">
-                  <p className="px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide">Popular destinations</p>
+                  <p className="px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide">
+                    Popular destinations
+                  </p>
                   {filteredDestinations.map((dest) => (
                     <button
                       key={dest.id}
@@ -313,7 +369,11 @@ export function ProductDiscoverySearch({
                       className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-gray-50"
                     >
                       {dest.imageUrl && (
-                        <img src={dest.imageUrl} alt="" className="h-12 w-12 rounded-lg object-cover" />
+                        <img
+                          src={dest.imageUrl}
+                          alt=""
+                          className="h-12 w-12 rounded-lg object-cover"
+                        />
                       )}
                       <div>
                         <span className="block text-sm font-medium text-gray-900">{dest.name}</span>
@@ -327,7 +387,9 @@ export function ProductDiscoverySearch({
 
           {/* Check In */}
           <div className="relative md:col-span-2">
-            <label className="absolute left-4 top-2 text-xs font-medium text-gray-500">Check in</label>
+            <label className="absolute left-4 top-2 text-xs font-medium text-gray-500">
+              Check in
+            </label>
             <input
               type="date"
               value={startDate}
@@ -340,7 +402,9 @@ export function ProductDiscoverySearch({
 
           {/* Check Out */}
           <div className="relative md:col-span-2">
-            <label className="absolute left-4 top-2 text-xs font-medium text-gray-500">Check out</label>
+            <label className="absolute left-4 top-2 text-xs font-medium text-gray-500">
+              Check out
+            </label>
             <input
               type="date"
               value={endDate}
@@ -373,9 +437,21 @@ export function ProductDiscoverySearch({
                       <p className="text-xs text-gray-500">Ages 13+</p>
                     </div>
                     <div className="flex items-center gap-3">
-                      <button type="button" onClick={() => setAdults(Math.max(1, adults - 1))} className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-300 text-gray-600 hover:border-gray-400">−</button>
+                      <button
+                        type="button"
+                        onClick={() => setAdults(Math.max(1, adults - 1))}
+                        className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-300 text-gray-600 hover:border-gray-400"
+                      >
+                        −
+                      </button>
                       <span className="w-6 text-center text-sm font-medium">{adults}</span>
-                      <button type="button" onClick={() => setAdults(adults + 1)} className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-300 text-gray-600 hover:border-gray-400">+</button>
+                      <button
+                        type="button"
+                        onClick={() => setAdults(adults + 1)}
+                        className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-300 text-gray-600 hover:border-gray-400"
+                      >
+                        +
+                      </button>
                     </div>
                   </div>
 
@@ -386,9 +462,21 @@ export function ProductDiscoverySearch({
                       <p className="text-xs text-gray-500">Ages 2-12</p>
                     </div>
                     <div className="flex items-center gap-3">
-                      <button type="button" onClick={() => setChildren(Math.max(0, children - 1))} className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-300 text-gray-600 hover:border-gray-400">−</button>
+                      <button
+                        type="button"
+                        onClick={() => setChildren(Math.max(0, children - 1))}
+                        className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-300 text-gray-600 hover:border-gray-400"
+                      >
+                        −
+                      </button>
                       <span className="w-6 text-center text-sm font-medium">{children}</span>
-                      <button type="button" onClick={() => setChildren(children + 1)} className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-300 text-gray-600 hover:border-gray-400">+</button>
+                      <button
+                        type="button"
+                        onClick={() => setChildren(children + 1)}
+                        className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-300 text-gray-600 hover:border-gray-400"
+                      >
+                        +
+                      </button>
                     </div>
                   </div>
 
@@ -399,9 +487,21 @@ export function ProductDiscoverySearch({
                       <p className="text-xs text-gray-500">Under 2</p>
                     </div>
                     <div className="flex items-center gap-3">
-                      <button type="button" onClick={() => setInfants(Math.max(0, infants - 1))} className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-300 text-gray-600 hover:border-gray-400">−</button>
+                      <button
+                        type="button"
+                        onClick={() => setInfants(Math.max(0, infants - 1))}
+                        className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-300 text-gray-600 hover:border-gray-400"
+                      >
+                        −
+                      </button>
                       <span className="w-6 text-center text-sm font-medium">{infants}</span>
-                      <button type="button" onClick={() => setInfants(infants + 1)} className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-300 text-gray-600 hover:border-gray-400">+</button>
+                      <button
+                        type="button"
+                        onClick={() => setInfants(infants + 1)}
+                        className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-300 text-gray-600 hover:border-gray-400"
+                      >
+                        +
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -423,10 +523,25 @@ export function ProductDiscoverySearch({
             <button
               type="submit"
               className="flex h-full w-full items-center justify-center gap-2 rounded-xl px-6 py-4 text-base font-semibold text-white transition-all hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2"
-              style={{ backgroundColor: primaryColor, '--tw-ring-color': primaryColor } as React.CSSProperties}
+              style={
+                {
+                  backgroundColor: primaryColor,
+                  '--tw-ring-color': primaryColor,
+                } as React.CSSProperties
+              }
             >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth="2"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+                />
               </svg>
               <span className="hidden lg:inline">Search</span>
             </button>
