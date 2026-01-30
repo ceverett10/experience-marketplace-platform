@@ -56,9 +56,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const client = getHolibobClient(site);
 
     // Add availability to booking
+    // Holibob API expects: bookingSelector (to identify booking) + id (availability ID)
     const result = await client.addAvailabilityToBooking({
-      bookingId,
-      availabilityId,
+      bookingSelector: { id: bookingId },
+      id: availabilityId,
     });
 
     // Get updated booking with questions

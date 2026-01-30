@@ -102,10 +102,9 @@ export async function POST(request: NextRequest) {
     const client = getHolibobClient(site);
 
     // Create booking with recommended settings
+    // Note: BookingCreateInput only accepts autoFillQuestions
     const booking = await client.createBooking({
       autoFillQuestions: input.autoFillQuestions ?? true,
-      partnerExternalReference: input.partnerExternalReference,
-      consumerTripId: input.consumerTripId,
     });
 
     return NextResponse.json(

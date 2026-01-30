@@ -75,7 +75,9 @@ export async function GET(request: NextRequest) {
       }
 
       // Use discoverAvailability helper
+      console.log('[Availability API] Calling discoverAvailability:', { productId, dateFrom, dateTo });
       const availability = await client.discoverAvailability(productId, dateFrom, dateTo);
+      console.log('[Availability API] Got response:', JSON.stringify(availability).substring(0, 200));
 
       return NextResponse.json({
         success: true,
@@ -83,21 +85,23 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Otherwise use the raw recursive method
-    const availability = await client.getAvailabilityList(productId, sessionId, optionList);
+    // Otherwise use the raw recursive method (filter is undefined for recursive calls)
+    const availability = await client.getAvailabilityList(productId, undefined, sessionId, optionList);
 
     return NextResponse.json({
       success: true,
       data: availability,
     });
   } catch (error) {
-    console.error('Availability API error:', error);
+    console.error('[Availability API] Error:', error);
+    console.error('[Availability API] Error details:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
 
     // Handle specific error types
     if (error instanceof Error) {
       if (error.message.includes('not found')) {
         return NextResponse.json({ error: 'Product not found' }, { status: 404 });
       }
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
     return NextResponse.json({ error: 'Failed to fetch availability' }, { status: 500 });

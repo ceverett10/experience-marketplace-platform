@@ -61,7 +61,8 @@ export const PRODUCT_DETAIL_QUERY = gql`
       guidePrice
       guidePriceFormattedText
       guidePriceCurrency
-      images {
+      imageList {
+        id
         url
       }
       maxDuration
@@ -87,12 +88,29 @@ export const PRODUCT_DETAIL_QUERY = gql`
           }
         }
       }
-      meetingPointList {
+      startPlace {
+        timeZone
+        geoCoordinate {
+          latitude
+          longitude
+        }
+        googlePlaceId
+        formattedAddress
+        mapImageUrl
+      }
+      reviewList {
+        recordCount
         nodes {
-          address
-          geoCoordinate {
-            latitude
-            longitude
+          id
+          title
+          content
+          rating
+          authorName
+          publishedDate
+          imageList {
+            nodes {
+              url
+            }
           }
         }
       }
@@ -105,18 +123,21 @@ export const PRODUCT_DETAIL_QUERY = gql`
 // ============================================================================
 
 /**
- * Step 3: Request Availability List (Recursive Method - RECOMMENDED)
- * Initial call returns options that must be answered (START_DATE, END_DATE, etc.)
- * Subsequent calls with sessionId and optionList answers
+ * Step 3: Request Availability List
+ * Can use either:
+ * - filter: { startDate, endDate } for direct date-based lookup (simple)
+ * - sessionId + optionList for recursive method
  */
 export const AVAILABILITY_LIST_QUERY = gql`
   query AvailabilityList(
-    $productId: ID!
-    $sessionId: String
-    $optionList: [AvailabilityOptionInput!]
+    $productId: String!
+    $filter: AvailabilityListFilter
+    $sessionId: ID
+    $optionList: [AvailabilityListOptionListItemInput]
   ) {
-    availabilityList(productId: $productId, sessionId: $sessionId, optionList: $optionList) {
+    availabilityList(productId: $productId, filter: $filter, sessionId: $sessionId, optionList: $optionList) {
       sessionId
+      recordCount
       nodes {
         id
         date
@@ -131,7 +152,6 @@ export const AVAILABILITY_LIST_QUERY = gql`
           required
           type
           dataType
-          dataFormat
           errorList {
             nodes
           }
@@ -147,7 +167,7 @@ export const AVAILABILITY_LIST_QUERY = gql`
  * and pricing categories. Must iterate until optionList.isComplete = true
  */
 export const AVAILABILITY_QUERY = gql`
-  query Availability($id: ID!) {
+  query Availability($id: String!) {
     availability(id: $id) {
       id
       date
@@ -157,7 +177,6 @@ export const AVAILABILITY_QUERY = gql`
           id
           label
           dataType
-          dataFormat
           availableOptions {
             label
             value
@@ -174,7 +193,7 @@ export const AVAILABILITY_QUERY = gql`
  * Set option answers for an availability
  */
 export const AVAILABILITY_SET_OPTIONS_QUERY = gql`
-  query AvailabilitySetOptions($id: ID!, $input: AvailabilityInput!) {
+  query AvailabilitySetOptions($id: String!, $input: AvailabilityInput!) {
     availability(id: $id, input: $input) {
       id
       optionList {
@@ -200,7 +219,7 @@ export const AVAILABILITY_SET_OPTIONS_QUERY = gql`
  * Only available after optionList.isComplete = true
  */
 export const AVAILABILITY_PRICING_QUERY = gql`
-  query AvailabilityPricing($id: ID!) {
+  query AvailabilityPricing($id: String!) {
     availability(id: $id) {
       id
       maxParticipants
@@ -247,7 +266,7 @@ export const AVAILABILITY_PRICING_QUERY = gql`
  * Set units for pricing categories
  */
 export const AVAILABILITY_SET_PRICING_QUERY = gql`
-  query AvailabilitySetPricing($id: ID!, $input: AvailabilityInput!) {
+  query AvailabilitySetPricing($id: String!, $input: AvailabilityInput!) {
     availability(id: $id, input: $input) {
       id
       isValid
@@ -300,7 +319,7 @@ export const BOOKING_CREATE_MUTATION = gql`
  * Returns isComplete = false initially, requiring question answers
  */
 export const BOOKING_ADD_AVAILABILITY_MUTATION = gql`
-  mutation BookingAddAvailability($input: BookingAddAvailabilityInput!) {
+  mutation BookingAddAvailability($input: BookingAddAvailabilityInputType!) {
     bookingAddAvailability(input: $input) {
       isComplete
     }
@@ -312,7 +331,7 @@ export const BOOKING_ADD_AVAILABILITY_MUTATION = gql`
  * Questions exist at three levels: Booking, Availability, Person
  */
 export const BOOKING_QUESTIONS_QUERY = gql`
-  query BookingQuestions($id: ID!) {
+  query BookingQuestions($id: String!) {
     booking(id: $id) {
       id
       code
@@ -322,6 +341,11 @@ export const BOOKING_QUESTIONS_QUERY = gql`
       isSandboxed
       paymentState
       canCommit
+      totalPrice {
+        grossFormattedText
+        gross
+        currency
+      }
       questionList {
         nodes {
           id
@@ -338,6 +362,11 @@ export const BOOKING_QUESTIONS_QUERY = gql`
         nodes {
           id
           date
+          totalPrice {
+            grossFormattedText
+            gross
+            currency
+          }
           product {
             id
             name
@@ -382,7 +411,7 @@ export const BOOKING_QUESTIONS_QUERY = gql`
  * Must iterate until canCommit = true
  */
 export const BOOKING_ANSWER_QUESTIONS_QUERY = gql`
-  query BookingAnswerQuestions($id: ID!, $input: BookingInput!) {
+  query BookingAnswerQuestions($id: String!, $input: BookingInput!) {
     booking(id: $id, input: $input) {
       canCommit
       questionList {
@@ -413,7 +442,7 @@ export const BOOKING_COMMIT_MUTATION = gql`
  * Poll booking state until CONFIRMED
  */
 export const BOOKING_STATE_QUERY = gql`
-  query BookingState($id: ID!) {
+  query BookingState($id: String!) {
     booking(id: $id) {
       id
       code
@@ -432,7 +461,7 @@ export const BOOKING_STATE_QUERY = gql`
  * Get full booking details including voucher
  */
 export const BOOKING_FULL_QUERY = gql`
-  query BookingFull($id: ID!) {
+  query BookingFull($id: String!) {
     booking(id: $id) {
       id
       code
@@ -453,15 +482,14 @@ export const BOOKING_FULL_QUERY = gql`
         nodes {
           id
           date
-          startTime
+          startAt
           product {
             id
             name
-            shortDescription
+            description
             imageList {
-              nodes {
-                url
-              }
+              id
+              url
             }
           }
           totalPrice {

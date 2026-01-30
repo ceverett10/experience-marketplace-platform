@@ -4,6 +4,7 @@ import { notFound, redirect } from 'next/navigation';
 import { getSiteFromHostname } from '@/lib/tenant';
 import { getHolibobClient } from '@/lib/holibob';
 import { CheckoutClient } from './CheckoutClient';
+import type { Booking } from '@/lib/booking-flow';
 
 interface CheckoutPageProps {
   params: Promise<{ bookingId: string }>;
@@ -81,5 +82,5 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
     );
   }
 
-  return <CheckoutClient booking={booking} site={site} />;
+  return <CheckoutClient booking={booking as Booking} site={site} />;
 }

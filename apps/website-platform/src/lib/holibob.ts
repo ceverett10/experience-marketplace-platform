@@ -67,7 +67,17 @@ export interface Experience {
     address: string;
     lat: number;
     lng: number;
+    mapImageUrl?: string;
   };
+  reviews: {
+    id: string;
+    title: string;
+    content: string;
+    rating: number;
+    authorName: string;
+    publishedDate: string;
+    images: string[];
+  }[];
   categories: {
     id: string;
     name: string;
@@ -128,7 +138,7 @@ export function mapProductToExperience(product: {
   primaryImageUrl?: string; // Product Discovery API
   imageUrl?: string;
   images?: { url?: string }[];
-  imageList?: { nodes: { id?: string; url?: string; altText?: string }[] }; // Product Detail API
+  imageList?: { id?: string; url?: string; altText?: string }[]; // Product Detail API - direct array
   // Price fields
   pricing?: {
     retailPrice?: { amount?: number; currency?: string };
@@ -216,13 +226,31 @@ export function mapProductToExperience(product: {
         penaltyList?: { nodes?: { formattedText?: string }[] };
       }
     | string;
-  // Meeting point list with address and geo-coordinates
-  meetingPointList?: {
+  // Start place with geo-coordinates and address
+  startPlace?: {
+    timeZone?: string;
+    geoCoordinate?: {
+      latitude?: number;
+      longitude?: number;
+    };
+    googlePlaceId?: string;
+    formattedAddress?: string;
+    mapImageUrl?: string;
+  };
+  // Review list from Product Detail API
+  reviewList?: {
+    recordCount?: number;
     nodes?: {
-      address?: string;
-      geoCoordinate?: {
-        latitude?: number;
-        longitude?: number;
+      id?: string;
+      title?: string;
+      content?: string;
+      rating?: number;
+      authorName?: string;
+      publishedDate?: string;
+      imageList?: {
+        nodes?: {
+          url?: string;
+        }[];
       };
     }[];
   };
@@ -289,7 +317,7 @@ export function mapProductToExperience(product: {
   // Handle images from different API formats
   // Product Detail API: imageList.nodes[].url
   // Other formats: images[].url or primaryImage.url
-  const imageListUrls = product.imageList?.nodes?.map((img) => img.url ?? '').filter(Boolean) ?? [];
+  const imageListUrls = product.imageList?.map((img) => img.url ?? '').filter(Boolean) ?? [];
   const legacyImageUrls = product.images?.map((img) => img.url ?? '').filter(Boolean) ?? [];
   const allImages = imageListUrls.length > 0 ? imageListUrls : legacyImageUrls;
 
@@ -416,27 +444,37 @@ export function mapProductToExperience(product: {
       : null,
     location: {
       name: product.place?.name ?? product.place?.city ?? product.location?.name ?? '',
-      // Try meetingPointList first (from Product Detail API), then fall back to other sources
+      // Try startPlace first (from Product Detail API), then fall back to other sources
       address:
-        product.meetingPointList?.nodes?.[0]?.address ??
+        product.startPlace?.formattedAddress ??
         product.place?.address ??
         product.location?.address ??
         '',
       lat:
-        product.meetingPointList?.nodes?.[0]?.geoCoordinate?.latitude ??
+        product.startPlace?.geoCoordinate?.latitude ??
         product.place?.latitude ??
         product.place?.lat ??
         product.location?.coordinates?.lat ??
         product.location?.lat ??
         0,
       lng:
-        product.meetingPointList?.nodes?.[0]?.geoCoordinate?.longitude ??
+        product.startPlace?.geoCoordinate?.longitude ??
         product.place?.longitude ??
         product.place?.lng ??
         product.location?.coordinates?.lng ??
         product.location?.lng ??
         0,
+      mapImageUrl: product.startPlace?.mapImageUrl,
     },
+    reviews: (product.reviewList?.nodes ?? []).map((review) => ({
+      id: review.id ?? '',
+      title: review.title ?? '',
+      content: review.content ?? '',
+      rating: review.rating ?? 0,
+      authorName: review.authorName ?? 'Anonymous',
+      publishedDate: review.publishedDate ?? '',
+      images: review.imageList?.nodes?.map((img) => img.url ?? '').filter(Boolean) ?? [],
+    })),
     categories: allCategories.map((cat) => ({
       id: cat.id ?? '',
       name: cat.name ?? '',

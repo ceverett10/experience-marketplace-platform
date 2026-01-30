@@ -192,12 +192,22 @@ export class HolibobClient {
       });
 
       if (response.product) {
+        const product = response.product as Record<string, unknown>;
         console.log('[HolibobClient] getProduct success:', {
           id: response.product.id,
           name: response.product.name,
           hasImages: !!response.product.imageList,
           hasGuidePrice: !!response.product.guidePrice,
+          reviewRating: response.product.reviewRating,
+          reviewCount: response.product.reviewCount,
+          hasReviewList: !!product['reviewList'],
+          reviewListRecordCount: (product['reviewList'] as { recordCount?: number })?.recordCount,
+          reviewListNodes: (product['reviewList'] as { nodes?: unknown[] })?.nodes?.length ?? 0,
         });
+        // Log full reviewList if present for debugging
+        if (product['reviewList']) {
+          console.log('[HolibobClient] reviewList data:', JSON.stringify(product['reviewList'], null, 2));
+        }
       } else {
         console.log('[HolibobClient] getProduct returned null for ID:', productId);
       }
@@ -217,19 +227,20 @@ export class HolibobClient {
   // ==========================================================================
 
   /**
-   * Get availability list for a product using the recursive method.
+   * Get availability list for a product.
    *
-   * Flow:
-   * 1. First call returns options that must be answered (START_DATE, END_DATE, etc.)
-   * 2. Subsequent calls with sessionId and optionList answers
-   * 3. Continue until nodes array has availability slots
+   * Supports two methods:
+   * 1. Direct filter method: Pass filter with startDate/endDate (recommended)
+   * 2. Recursive method: Use sessionId and optionList for iterative calls
    *
    * @param productId - The product ID
-   * @param sessionId - Session ID from previous call (optional for first call)
-   * @param optionList - Answers to options from previous call
+   * @param filter - Date filter { startDate, endDate }
+   * @param sessionId - Session ID from previous call (for recursive method)
+   * @param optionList - Answers to options from previous call (for recursive method)
    */
   async getAvailabilityList(
     productId: string,
+    filter?: { startDate: string; endDate: string },
     sessionId?: string,
     optionList?: AvailabilityOptionInput[]
   ): Promise<AvailabilityListResponse> {
@@ -237,6 +248,7 @@ export class HolibobClient {
       availabilityList: AvailabilityListResponse;
     }>(AVAILABILITY_LIST_QUERY, {
       productId,
+      filter,
       sessionId,
       optionList,
     });
@@ -245,31 +257,19 @@ export class HolibobClient {
   }
 
   /**
-   * Helper: Complete availability discovery by answering all required options
-   * Returns available slots once all options are answered
+   * Get availability for a product within a date range
+   * Uses the direct filter method for simplicity
    */
   async discoverAvailability(
     productId: string,
     dateFrom: string,
     dateTo: string
   ): Promise<AvailabilityListResponse> {
-    // First call - get initial options
-    let result = await this.getAvailabilityList(productId);
-
-    // Find and answer date options
-    const optionAnswers: AvailabilityOptionInput[] = [];
-    for (const option of result.optionList.nodes) {
-      if (option.id.includes('START_DATE') || option.label?.toLowerCase().includes('start')) {
-        optionAnswers.push({ id: option.id, value: dateFrom });
-      } else if (option.id.includes('END_DATE') || option.label?.toLowerCase().includes('end')) {
-        optionAnswers.push({ id: option.id, value: dateTo });
-      }
-    }
-
-    // If we have date answers, make another call
-    if (optionAnswers.length > 0) {
-      result = await this.getAvailabilityList(productId, result.sessionId, optionAnswers);
-    }
+    // Use direct filter method - much simpler than recursive
+    const result = await this.getAvailabilityList(productId, {
+      startDate: dateFrom,
+      endDate: dateTo,
+    });
 
     return result;
   }
@@ -381,7 +381,6 @@ export class HolibobClient {
     }>(BOOKING_CREATE_MUTATION, {
       input: {
         autoFillQuestions: true, // Strongly recommended
-        paymentType: 'ON_ACCOUNT', // Holibob typically uses ON_ACCOUNT
         ...input,
       },
     });
@@ -579,9 +578,10 @@ export class HolibobClient {
     const booking = await this.createBooking(bookingInput);
 
     // Add availability to booking
+    // Holibob API expects: bookingSelector (to identify booking) + id (availability ID)
     await this.addAvailabilityToBooking({
-      bookingId: booking.id,
-      availabilityId,
+      bookingSelector: { id: booking.id },
+      id: availabilityId,
     });
 
     // Return booking with questions

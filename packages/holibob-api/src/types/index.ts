@@ -114,11 +114,7 @@ export const ProductSchema = z.object({
   // Media
   imageUrl: z.string().optional(),
   primaryImageUrl: z.string().optional(), // Product Discovery API
-  imageList: z
-    .object({
-      nodes: z.array(ProductImageSchema),
-    })
-    .optional(),
+  imageList: z.array(ProductImageSchema).optional(), // Direct array in Product Detail API
   images: z.array(ProductImageSchema).optional(),
 
   // Details
@@ -211,16 +207,41 @@ export const ProductSchema = z.object({
     })
     .optional(),
 
-  // Meeting point list with address and geo-coordinates
-  meetingPointList: z
+  // Start place with geo-coordinates and address
+  startPlace: z
     .object({
+      timeZone: z.string().optional(),
+      geoCoordinate: z
+        .object({
+          latitude: z.number().optional(),
+          longitude: z.number().optional(),
+        })
+        .optional(),
+      googlePlaceId: z.string().optional(),
+      formattedAddress: z.string().optional(),
+      mapImageUrl: z.string().optional(),
+    })
+    .optional(),
+
+  // Review list with individual reviews
+  reviewList: z
+    .object({
+      recordCount: z.number().optional(),
       nodes: z.array(
         z.object({
-          address: z.string().optional(),
-          geoCoordinate: z
+          id: z.string().optional(),
+          title: z.string().optional(),
+          content: z.string().optional(),
+          rating: z.number().optional(),
+          authorName: z.string().optional(),
+          publishedDate: z.string().optional(),
+          imageList: z
             .object({
-              latitude: z.number().optional(),
-              longitude: z.number().optional(),
+              nodes: z.array(
+                z.object({
+                  url: z.string().optional(),
+                })
+              ),
             })
             .optional(),
         })
@@ -658,10 +679,16 @@ export type BookingCreateInput = z.infer<typeof BookingCreateInputSchema>;
 
 /**
  * Input for adding availability to booking
+ * Holibob API uses BookingAddAvailabilityInputType with:
+ * - bookingSelector: BookingSelector! (identifies the booking)
+ * - id: String! (the availability ID)
  */
 export const BookingAddAvailabilityInputSchema = z.object({
-  bookingId: z.string(),
-  availabilityId: z.string(),
+  bookingSelector: z.object({
+    id: z.string().optional(),
+    code: z.string().optional(),
+  }),
+  id: z.string(), // availability ID
 });
 
 export type BookingAddAvailabilityInput = z.infer<typeof BookingAddAvailabilityInputSchema>;
@@ -676,24 +703,13 @@ export const BookingQuestionAnswerSchema = z.object({
 
 export type BookingQuestionAnswer = z.infer<typeof BookingQuestionAnswerSchema>;
 
+/**
+ * Input for answering booking questions
+ * Note: Holibob API only accepts questionList at the booking level.
+ * With autoFillQuestions: true, most questions are auto-filled.
+ */
 export const BookingInputSchema = z.object({
   questionList: z.array(BookingQuestionAnswerSchema).optional(),
-  availabilityList: z
-    .array(
-      z.object({
-        id: z.string(),
-        questionList: z.array(BookingQuestionAnswerSchema).optional(),
-        personList: z
-          .array(
-            z.object({
-              id: z.string(),
-              questionList: z.array(BookingQuestionAnswerSchema).optional(),
-            })
-          )
-          .optional(),
-      })
-    )
-    .optional(),
 });
 
 export type BookingInput = z.infer<typeof BookingInputSchema>;
