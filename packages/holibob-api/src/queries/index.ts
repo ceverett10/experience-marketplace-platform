@@ -29,21 +29,14 @@ export const PRODUCT_LIST_QUERY = gql`
         nodes {
           id
           name
-          guidePriceFormattedText
-          guidePrice
-          guidePriceCurrency
-          description
-          imageList {
-            url
-          }
-          categoryList {
-            id
-            name
-          }
-          reviewRatingAvg
+          shortDescription
+          priceFromFormatted
+          priceFrom
+          priceCurrency
+          primaryImageUrl
+          reviewRating
           reviewCount
-          duration
-          durationText
+          maxDuration
         }
       }
     }

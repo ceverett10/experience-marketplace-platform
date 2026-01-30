@@ -113,12 +113,15 @@ export function mapProductToExperience(product: {
   shortDescription?: string;
   description?: string;
   primaryImage?: { url?: string };
+  primaryImageUrl?: string; // Product Discovery API
   imageUrl?: string;
   images?: { url?: string }[];
   pricing?: {
     retailPrice?: { amount?: number; currency?: string };
   };
   priceFrom?: number;
+  priceFromFormatted?: string; // Product Discovery API
+  priceCurrency?: string; // Product Discovery API
   currency?: string;
   duration?:
     | number
@@ -126,12 +129,14 @@ export function mapProductToExperience(product: {
         value?: number;
         unit?: string;
       };
+  maxDuration?: number; // Product Discovery API
   durationText?: string;
   reviews?: {
     averageRating?: number;
     totalCount?: number;
   };
   rating?: number;
+  reviewRating?: number; // Product Discovery API
   reviewCount?: number;
   location?: {
     name?: string;
@@ -151,12 +156,17 @@ export function mapProductToExperience(product: {
   cancellationPolicy?: { description?: string } | string;
 }): Experience {
   const priceAmount = product.pricing?.retailPrice?.amount ?? product.priceFrom ?? 0;
-  const currency = product.pricing?.retailPrice?.currency ?? product.currency ?? 'GBP';
+  const currency =
+    product.pricing?.retailPrice?.currency ?? product.priceCurrency ?? product.currency ?? 'GBP';
 
   // Handle duration as either number (minutes) or object
+  // Product Discovery API uses maxDuration
   let durationValue: number;
   let durationUnit: string;
-  if (typeof product.duration === 'number') {
+  if (product.maxDuration != null) {
+    durationValue = product.maxDuration;
+    durationUnit = 'minutes';
+  } else if (typeof product.duration === 'number') {
     durationValue = product.duration;
     durationUnit = 'minutes';
   } else {
@@ -165,7 +175,8 @@ export function mapProductToExperience(product: {
   }
 
   // Handle rating from different sources
-  const ratingValue = product.reviews?.averageRating ?? product.rating;
+  // Product Discovery API uses reviewRating
+  const ratingValue = product.reviews?.averageRating ?? product.reviewRating ?? product.rating;
   const reviewCount = product.reviews?.totalCount ?? product.reviewCount ?? 0;
 
   // Handle cancellation policy as string or object
@@ -180,7 +191,11 @@ export function mapProductToExperience(product: {
     slug: product.slug ?? product.id,
     shortDescription: product.shortDescription ?? '',
     description: product.description ?? '',
-    imageUrl: product.primaryImage?.url ?? product.imageUrl ?? '/placeholder-experience.jpg',
+    imageUrl:
+      product.primaryImage?.url ??
+      product.primaryImageUrl ??
+      product.imageUrl ??
+      '/placeholder-experience.jpg',
     images: product.images?.map((img) => img.url ?? '') ?? [],
     price: {
       amount: priceAmount,

@@ -139,21 +139,28 @@ async function getExperiences(
       title: product.name ?? 'Experience',
       slug: product.id,
       shortDescription: product.shortDescription ?? '',
-      imageUrl: product.imageUrl ?? '/placeholder-experience.jpg',
+      // Use primaryImageUrl from Product Discovery API, fallback to imageUrl
+      imageUrl: product.primaryImageUrl ?? product.imageUrl ?? '/placeholder-experience.jpg',
       price: {
         amount: product.priceFrom ?? 0,
-        currency: product.currency ?? 'GBP',
-        formatted: formatPrice(product.priceFrom ?? 0, product.currency ?? 'GBP'),
+        currency: product.priceCurrency ?? product.currency ?? 'GBP',
+        // Use priceFromFormatted if available, otherwise format manually
+        formatted:
+          product.priceFromFormatted ??
+          formatPrice(product.priceFrom ?? 0, product.priceCurrency ?? product.currency ?? 'GBP'),
       },
       duration: {
-        formatted: formatDuration(product.duration ?? 0, 'minutes'),
+        // Use maxDuration from Product Discovery API, fallback to duration
+        formatted: formatDuration(product.maxDuration ?? product.duration ?? 0, 'minutes'),
       },
-      rating: product.rating
-        ? {
-            average: product.rating,
-            count: product.reviewCount ?? 0,
-          }
-        : null,
+      // Use reviewRating from Product Discovery API, fallback to rating
+      rating:
+        (product.reviewRating ?? product.rating)
+          ? {
+              average: product.reviewRating ?? product.rating ?? 0,
+              count: product.reviewCount ?? 0,
+            }
+          : null,
       location: {
         name: product.location?.name ?? '',
       },

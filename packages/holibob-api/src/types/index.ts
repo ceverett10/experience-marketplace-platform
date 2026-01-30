@@ -99,18 +99,21 @@ export const ProductSchema = z.object({
   description: z.string().optional(),
   shortDescription: z.string().optional(),
 
-  // Pricing (guide price for display)
+  // Pricing (guide price for display - Product Detail)
   guidePrice: z.number().optional(),
   guidePriceFormattedText: z.string().optional(),
   guidePriceCurrency: z.string().optional(),
 
-  // Legacy pricing fields
+  // Pricing (Product Discovery API)
   priceFrom: z.number().optional(),
+  priceFromFormatted: z.string().optional(),
+  priceCurrency: z.string().optional(),
   priceTo: z.number().optional(),
   currency: z.string().optional(),
 
   // Media
   imageUrl: z.string().optional(),
+  primaryImageUrl: z.string().optional(), // Product Discovery API
   imageList: z
     .object({
       nodes: z.array(ProductImageSchema),
@@ -120,6 +123,7 @@ export const ProductSchema = z.object({
 
   // Details
   duration: z.number().optional(), // minutes
+  maxDuration: z.number().optional(), // Product Discovery API
   durationText: z.string().optional(),
   highlights: z.array(z.string()).optional(),
   inclusions: z.array(z.string()).optional(),
@@ -144,6 +148,7 @@ export const ProductSchema = z.object({
 
   // Ratings
   rating: z.number().optional(),
+  reviewRating: z.number().optional(), // Product Discovery API
   reviewCount: z.number().optional(),
 
   // Availability
