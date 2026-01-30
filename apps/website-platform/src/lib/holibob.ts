@@ -100,13 +100,10 @@ export interface ExperienceListItem {
   location: {
     name: string;
   };
-  // Badge-related fields from Holibob API
+  // Cancellation policy from Holibob API
   cancellationPolicy?: {
     type?: string;
-    cutoffHours?: number;
   };
-  isBestSeller?: boolean;
-  hasInstantConfirmation?: boolean;
 }
 
 /**
@@ -174,10 +171,7 @@ export function mapProductToExperience(product: {
   exclusions?: string[];
   importantInfo?: string[];
   // Cancellation policy - can be string or object
-  cancellationPolicy?: { type?: string; description?: string; cutoffHours?: number } | string;
-  // Flags
-  isBestSeller?: boolean;
-  hasInstantConfirmation?: boolean;
+  cancellationPolicy?: { type?: string; description?: string } | string;
 }): Experience {
   // Handle price from different API endpoints
   const priceAmount =
@@ -211,10 +205,10 @@ export function mapProductToExperience(product: {
     durationUnit = product.duration?.unit ?? 'hours';
   }
 
-  // Handle rating from different sources
-  // Product Discovery API uses reviewRating
-  const ratingValue = product.reviews?.averageRating ?? product.reviewRating ?? product.rating;
-  const reviewCount = product.reviews?.totalCount ?? product.reviewCount ?? 0;
+  // Handle rating - may not be available from all API responses
+  // Note: reviewRating/reviewCount fields removed from query as they may not exist in schema
+  const ratingValue = product.reviews?.averageRating ?? product.rating;
+  const reviewCount = product.reviews?.totalCount ?? 0;
 
   // Handle cancellation policy as string or object
   const cancellationPolicy =

@@ -71,9 +71,9 @@ export const revalidate = 300;
 const ITEMS_PER_PAGE = 12;
 
 // Badge types that can come from real API data
-type ApiBadgeType = 'bestseller' | 'recommended' | 'freeCancellation' | 'topPick' | 'skipTheLine';
+type ApiBadgeType = 'freeCancellation';
 
-// Badge assignment logic based on REAL API data only - no fake/arbitrary logic
+// Badge assignment logic based on REAL API data only
 function assignBadges(experience: ExperienceListItem): ApiBadgeType[] {
   const badges: ApiBadgeType[] = [];
 
@@ -85,15 +85,7 @@ function assignBadges(experience: ExperienceListItem): ApiBadgeType[] {
     badges.push('freeCancellation');
   }
 
-  // Best Seller - from isBestSeller field in Product API (if available)
-  if (experience.isBestSeller) {
-    badges.push('bestseller');
-  }
-
-  // Note: Additional badges would require corresponding fields from Holibob API
-  // We only show badges when we have real data to support them
-
-  return badges.slice(0, 2); // Max 2 badges per card
+  return badges;
 }
 
 async function getExperiences(
@@ -161,26 +153,22 @@ async function getExperiences(
         duration: {
           formatted: durationFormatted,
         },
-        // Use reviewRating from Product Discovery API, fallback to rating
-        rating:
-          (product.reviewRating ?? product.rating)
-            ? {
-                average: product.reviewRating ?? product.rating ?? 0,
-                count: product.reviewCount ?? 0,
-              }
-            : null,
+        // Rating - may not be available from API
+        rating: product.rating
+          ? {
+              average: product.rating,
+              count: 0,
+            }
+          : null,
         location: {
           name: product.location?.name ?? '',
         },
-        // Badge-related fields from Holibob API
+        // Cancellation policy from Holibob API
         cancellationPolicy: product.cancellationPolicy
           ? {
               type: product.cancellationPolicy.type,
-              cutoffHours: product.cancellationPolicy.cutoffHours,
             }
           : undefined,
-        isBestSeller: product.isBestSeller,
-        hasInstantConfirmation: product.hasInstantConfirmation,
       };
     });
 

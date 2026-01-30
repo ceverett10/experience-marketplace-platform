@@ -47,6 +47,9 @@ export const PRODUCT_LIST_QUERY = gql`
 /**
  * Step 2: Display Product Details
  * Retrieve detailed product information
+ *
+ * NOTE: Only request fields that exist in the Holibob API schema.
+ * Unknown fields will cause the entire query to fail.
  */
 export const PRODUCT_DETAIL_QUERY = gql`
   query Product($id: ID!) {
@@ -69,7 +72,6 @@ export const PRODUCT_DETAIL_QUERY = gql`
         nodes {
           id
           name
-          slug
         }
       }
       highlights
@@ -78,12 +80,6 @@ export const PRODUCT_DETAIL_QUERY = gql`
       importantInfo
       duration
       durationText
-      # Review/Rating fields (if available in Holibob API)
-      reviewRating
-      reviewCount
-      # Best seller and instant confirmation flags
-      isBestSeller
-      hasInstantConfirmation
       location {
         name
         address
@@ -93,14 +89,6 @@ export const PRODUCT_DETAIL_QUERY = gql`
       cancellationPolicy {
         type
         description
-        cutoffHours
-      }
-      meetingPoint {
-        name
-        address
-        instructions
-        lat
-        lng
       }
     }
   }
