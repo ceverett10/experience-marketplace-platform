@@ -237,7 +237,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
               value = guest?.lastName;
             } else if (questionLabel.includes('email')) {
               value = guest?.email ?? (guest?.isLeadGuest ? input.customerEmail : undefined);
-            } else if (questionLabel.includes('phone') || questionLabel.includes('mobile') || questionLabel.includes('telephone')) {
+            } else if (
+              questionLabel.includes('phone') ||
+              questionLabel.includes('mobile') ||
+              questionLabel.includes('telephone')
+            ) {
               value = guest?.phone ?? (guest?.isLeadGuest ? input.customerPhone : undefined);
             }
 

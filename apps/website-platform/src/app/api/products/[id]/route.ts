@@ -5,10 +5,7 @@ import { createHolibobClient } from '@experience-marketplace/holibob-api';
  * GET /api/products/[id]
  * Fetches a single product from Holibob API by ID
  */
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
 
@@ -33,10 +30,7 @@ export async function GET(
     const product = await client.getProduct(id);
 
     if (!product) {
-      return NextResponse.json(
-        { success: false, error: 'Product not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ success: false, error: 'Product not found' }, { status: 404 });
     }
 
     // Map to our format
@@ -71,13 +65,11 @@ export async function GET(
         lng: product.location?.lng ?? 0,
       },
       categories:
-        product.categories?.map(
-          (cat: { id?: string; name?: string; slug?: string }) => ({
-            id: cat.id ?? '',
-            name: cat.name ?? '',
-            slug: cat.slug ?? cat.id ?? '',
-          })
-        ) ?? [],
+        product.categories?.map((cat: { id?: string; name?: string; slug?: string }) => ({
+          id: cat.id ?? '',
+          name: cat.name ?? '',
+          slug: cat.slug ?? cat.id ?? '',
+        })) ?? [],
       highlights: product.highlights ?? [],
       inclusions: product.inclusions ?? [],
       exclusions: product.exclusions ?? [],
