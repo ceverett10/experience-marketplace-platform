@@ -5,7 +5,8 @@ import { z } from 'zod';
 // ============================================================================
 
 export const ProductFilterSchema = z.object({
-  // Location (Where)
+  // Location (Where) - Product Discovery uses freeText
+  freeText: z.string().optional(), // Free text search for location (e.g., "London, England")
   placeIds: z.array(z.string()).optional(),
   geoPoint: z
     .object({
@@ -26,7 +27,8 @@ export const ProductFilterSchema = z.object({
   children: z.number().int().min(0).optional(),
   infants: z.number().int().min(0).optional(),
 
-  // Categories (What)
+  // Search & Categories (What)
+  searchTerm: z.string().optional(), // Free text search for activities
   categoryIds: z.array(z.string()).optional(),
   tagIds: z.array(z.string()).optional(),
 

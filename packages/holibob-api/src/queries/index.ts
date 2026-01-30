@@ -5,39 +5,47 @@ import { gql } from 'graphql-request';
 // ============================================================================
 
 /**
- * Step 1: Discover Products
- * Use productList query with filters and pagination
+ * Step 1: Discover Products using Product Discovery API
+ * Input: where (freeText location), when (dates), who (travelers), what (search/filters)
+ * Output: destination, recommendedTagList, recommendedSearchTermList, recommendedProductList
  */
 export const PRODUCT_LIST_QUERY = gql`
-  query ProductList($filter: ProductFilterInput, $first: Int, $after: String) {
-    productList(filter: $filter, first: $first, after: $after) {
-      nodes {
+  query ProductDiscovery($input: ProductDiscoveryInput!) {
+    productDiscovery(input: $input) {
+      destination {
         id
         name
-        guidePriceFormattedText
-        guidePrice
-        guidePriceCurrency
-        shortDescription
-        imageList {
-          nodes {
-            id
+      }
+      recommendedTagList {
+        id
+        name
+      }
+      recommendedSearchTermList
+      recommendedProductList(pageSize: 20) {
+        totalRecords
+        pages
+        nextPage
+        previousPage
+        nodes {
+          id
+          name
+          guidePriceFormattedText
+          guidePrice
+          guidePriceCurrency
+          description
+          imageList {
             url
           }
-        }
-        categoryList {
-          nodes {
+          categoryList {
             id
             name
           }
+          reviewRatingAvg
+          reviewCount
+          duration
+          durationText
         }
       }
-      pageInfo {
-        hasNextPage
-        hasPreviousPage
-        startCursor
-        endCursor
-      }
-      totalCount
     }
   }
 `;

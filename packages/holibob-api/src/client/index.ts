@@ -117,30 +117,43 @@ export class HolibobClient {
   // ==========================================================================
 
   /**
-   * Search and discover products based on filters
+   * Search and discover products using the Product Discovery API
+   * This is the correct API for searching and displaying product lists
    */
   async discoverProducts(
     filter: ProductFilter,
-    pagination?: { first?: number; after?: string }
+    pagination?: { page?: number; pageSize?: number }
   ): Promise<ProductListResponse> {
     const variables = {
-      filter: this.mapProductFilter(filter),
-      first: pagination?.first ?? 20,
-      after: pagination?.after,
+      input: this.mapProductDiscoveryInput(filter),
     };
 
     const response = await this.executeQuery<{
-      productList: {
-        nodes: Product[];
-        pageInfo: ProductListResponse['pageInfo'];
-        totalCount: number;
+      productDiscovery: {
+        destination?: { id: string; name: string };
+        recommendedTagList?: Array<{ id: string; name: string }>;
+        recommendedSearchTermList?: string[];
+        recommendedProductList: {
+          nodes: Product[];
+          totalRecords: number;
+          pages: number;
+          nextPage?: number;
+          previousPage?: number;
+        };
       };
     }>(PRODUCT_LIST_QUERY, variables);
 
+    const productList = response.productDiscovery.recommendedProductList;
+
     return {
-      products: response.productList.nodes,
-      pageInfo: response.productList.pageInfo,
-      totalCount: response.productList.totalCount,
+      products: productList.nodes,
+      pageInfo: {
+        hasNextPage: productList.nextPage != null,
+        hasPreviousPage: productList.previousPage != null,
+        startCursor: undefined,
+        endCursor: undefined,
+      },
+      totalCount: productList.totalRecords,
     };
   }
 
@@ -613,40 +626,67 @@ export class HolibobClient {
     throw lastError ?? new Error('Request failed after retries');
   }
 
+  /**
+   * Map ProductFilter to Product Discovery API input format
+   * Product Discovery uses: where.freeText, when.data, who.freeText, what.data
+   */
+  private mapProductDiscoveryInput(filter: ProductFilter): Record<string, unknown> {
+    const input: Record<string, unknown> = {};
+
+    // Where - location/destination as free text
+    if (filter.freeText || filter.placeIds?.length) {
+      input['where'] = {
+        freeText: filter.freeText || filter.placeIds?.[0] || 'London',
+      };
+    } else {
+      // Default to a location if none specified
+      input['where'] = { freeText: 'London' };
+    }
+
+    // When - dates in ISO format
+    if (filter.dateFrom) {
+      input['when'] = {
+        data: {
+          startDate: filter.dateFrom,
+          endDate: filter.dateTo || filter.dateFrom,
+        },
+      };
+    }
+
+    // Who - traveler description as free text
+    const adults = filter.adults ?? 2;
+    const children = filter.children ?? 0;
+    const parts: string[] = [];
+    if (adults > 0) parts.push(`${adults} Adult${adults > 1 ? 's' : ''}`);
+    if (children > 0) parts.push(`${children} Child${children > 1 ? 'ren' : ''}`);
+    if (parts.length > 0) {
+      input['who'] = { freeText: parts.join(' and ') };
+    }
+
+    // What - search term, tags, price, rating
+    const whatData: Record<string, unknown> = {};
+    if (filter.searchTerm) {
+      whatData['searchTerm'] = filter.searchTerm;
+    }
+    if (filter.categoryIds?.length) {
+      whatData['tagIdList'] = filter.categoryIds;
+    }
+    if (filter.priceMin != null || filter.priceMax != null) {
+      whatData['price'] = {
+        min: filter.priceMin ?? 0,
+        max: filter.priceMax ?? 10000,
+      };
+    }
+    if (Object.keys(whatData).length > 0) {
+      input['what'] = { data: whatData };
+    }
+
+    return input;
+  }
+
+  // Legacy method - kept for compatibility
   private mapProductFilter(filter: ProductFilter): Record<string, unknown> {
-    return {
-      where: filter.placeIds
-        ? { placeIds: filter.placeIds }
-        : filter.geoPoint
-          ? {
-              geoPoint: {
-                lat: filter.geoPoint.lat,
-                lng: filter.geoPoint.lng,
-                radiusKm: filter.geoPoint.radiusKm ?? 50,
-              },
-            }
-          : undefined,
-      when: filter.dateFrom
-        ? {
-            dateFrom: filter.dateFrom,
-            dateTo: filter.dateTo,
-          }
-        : undefined,
-      who: {
-        adults: filter.adults ?? 2,
-        children: filter.children ?? 0,
-        infants: filter.infants ?? 0,
-      },
-      what: filter.categoryIds ? { categoryIds: filter.categoryIds } : undefined,
-      price:
-        filter.priceMin || filter.priceMax
-          ? {
-              min: filter.priceMin,
-              max: filter.priceMax,
-              currency: filter.currency,
-            }
-          : undefined,
-    };
+    return this.mapProductDiscoveryInput(filter);
   }
 
   private isClientError(error: unknown): boolean {
