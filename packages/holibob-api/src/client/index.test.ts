@@ -58,20 +58,22 @@ describe('HolibobClient', () => {
 
   describe('discoverProducts', () => {
     it('should fetch products with location filter', async () => {
+      const mockNodes = [
+        {
+          id: 'prod-1',
+          name: 'Test Experience',
+          shortDescription: 'A test experience',
+        },
+      ];
       const mockResponse = {
-        productList: {
-          nodes: [
-            {
-              id: 'prod-1',
-              name: 'Test Experience',
-              description: 'A test experience',
-            },
-          ],
-          pageInfo: {
-            hasNextPage: false,
-            endCursor: null,
+        productDiscovery: {
+          recommendedProductList: {
+            nodes: mockNodes,
+            totalRecords: 1,
+            pages: 1,
+            nextPage: null,
+            previousPage: null,
           },
-          totalCount: 1,
         },
       };
 
@@ -82,17 +84,21 @@ describe('HolibobClient', () => {
         adults: 2,
       });
 
-      expect(result.products).toEqual(mockResponse.productList.nodes);
+      expect(result.products).toEqual(mockNodes);
       expect(result.totalCount).toBe(1);
       expect(mockRequest).toHaveBeenCalledTimes(1);
     });
 
     it('should handle geo point filter', async () => {
       const mockResponse = {
-        productList: {
-          nodes: [],
-          pageInfo: { hasNextPage: false, endCursor: null },
-          totalCount: 0,
+        productDiscovery: {
+          recommendedProductList: {
+            nodes: [],
+            totalRecords: 0,
+            pages: 0,
+            nextPage: null,
+            previousPage: null,
+          },
         },
       };
 
@@ -108,10 +114,14 @@ describe('HolibobClient', () => {
 
     it('should support pagination', async () => {
       const mockResponse = {
-        productList: {
-          nodes: [],
-          pageInfo: { hasNextPage: true, endCursor: 'cursor-abc' },
-          totalCount: 100,
+        productDiscovery: {
+          recommendedProductList: {
+            nodes: [],
+            totalRecords: 100,
+            pages: 10,
+            nextPage: 3,
+            previousPage: 1,
+          },
         },
       };
 
@@ -122,7 +132,7 @@ describe('HolibobClient', () => {
         { page: 2, pageSize: 10 }
       );
 
-      expect(result.pageInfo.endCursor).toBe('cursor-abc');
+      expect(result.pageInfo.hasNextPage).toBe(true);
     });
   });
 
@@ -793,7 +803,15 @@ describe('HolibobClient - Product Filter Mapping', () => {
 
   it('should map price filter correctly', async () => {
     mockRequest.mockResolvedValueOnce({
-      productList: { nodes: [], pageInfo: {}, totalCount: 0 },
+      productDiscovery: {
+        recommendedProductList: {
+          nodes: [],
+          totalRecords: 0,
+          pages: 0,
+          nextPage: null,
+          previousPage: null,
+        },
+      },
     });
 
     await client.discoverProducts({
@@ -807,7 +825,15 @@ describe('HolibobClient - Product Filter Mapping', () => {
 
   it('should map category filter correctly', async () => {
     mockRequest.mockResolvedValueOnce({
-      productList: { nodes: [], pageInfo: {}, totalCount: 0 },
+      productDiscovery: {
+        recommendedProductList: {
+          nodes: [],
+          totalRecords: 0,
+          pages: 0,
+          nextPage: null,
+          previousPage: null,
+        },
+      },
     });
 
     await client.discoverProducts({
@@ -819,7 +845,15 @@ describe('HolibobClient - Product Filter Mapping', () => {
 
   it('should map date filter correctly', async () => {
     mockRequest.mockResolvedValueOnce({
-      productList: { nodes: [], pageInfo: {}, totalCount: 0 },
+      productDiscovery: {
+        recommendedProductList: {
+          nodes: [],
+          totalRecords: 0,
+          pages: 0,
+          nextPage: null,
+          previousPage: null,
+        },
+      },
     });
 
     await client.discoverProducts({
@@ -832,7 +866,15 @@ describe('HolibobClient - Product Filter Mapping', () => {
 
   it('should handle all guest types', async () => {
     mockRequest.mockResolvedValueOnce({
-      productList: { nodes: [], pageInfo: {}, totalCount: 0 },
+      productDiscovery: {
+        recommendedProductList: {
+          nodes: [],
+          totalRecords: 0,
+          pages: 0,
+          nextPage: null,
+          previousPage: null,
+        },
+      },
     });
 
     await client.discoverProducts({
