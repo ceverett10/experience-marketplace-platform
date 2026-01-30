@@ -795,7 +795,7 @@ describe('HolibobClient - Product Filter Mapping', () => {
       productDiscovery: {
         recommendedProductList: {
           nodes: [],
-                  },
+        },
       },
     });
 
@@ -813,7 +813,7 @@ describe('HolibobClient - Product Filter Mapping', () => {
       productDiscovery: {
         recommendedProductList: {
           nodes: [],
-                  },
+        },
       },
     });
 
@@ -829,7 +829,7 @@ describe('HolibobClient - Product Filter Mapping', () => {
       productDiscovery: {
         recommendedProductList: {
           nodes: [],
-                  },
+        },
       },
     });
 
@@ -846,7 +846,7 @@ describe('HolibobClient - Product Filter Mapping', () => {
       productDiscovery: {
         recommendedProductList: {
           nodes: [],
-                  },
+        },
       },
     });
 
