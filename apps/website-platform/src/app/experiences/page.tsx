@@ -70,27 +70,28 @@ export const revalidate = 300;
 
 const ITEMS_PER_PAGE = 12;
 
-// Badge assignment logic based on experience data
-function assignBadges(
-  experience: ExperienceListItem,
-  index: number
-): ('bestseller' | 'recommended' | 'new' | 'mostViewed' | 'likelyToSellOut')[] {
-  const badges: ('bestseller' | 'recommended' | 'new' | 'mostViewed' | 'likelyToSellOut')[] = [];
+// Badge types that can come from real API data
+type ApiBadgeType = 'bestseller' | 'recommended' | 'freeCancellation' | 'topPick' | 'skipTheLine';
 
-  // Top 3 by rating get "Recommended"
-  if (experience.rating && experience.rating.average >= 4.8 && experience.rating.count > 500) {
-    badges.push('recommended');
+// Badge assignment logic based on REAL API data only - no fake/arbitrary logic
+function assignBadges(experience: ExperienceListItem): ApiBadgeType[] {
+  const badges: ApiBadgeType[] = [];
+
+  // Free Cancellation - from cancellationPolicy.type in Product Detail API
+  if (
+    experience.cancellationPolicy?.type === 'FREE' ||
+    experience.cancellationPolicy?.type?.toLowerCase().includes('free')
+  ) {
+    badges.push('freeCancellation');
   }
 
-  // High review count = "Best Seller"
-  if (experience.rating && experience.rating.count > 1000) {
+  // Best Seller - from isBestSeller field in Product API (if available)
+  if (experience.isBestSeller) {
     badges.push('bestseller');
   }
 
-  // First item on first page = "Most Viewed"
-  if (index === 0) {
-    badges.push('mostViewed');
-  }
+  // Note: Additional badges would require corresponding fields from Holibob API
+  // We only show badges when we have real data to support them
 
   return badges.slice(0, 2); // Max 2 badges per card
 }
@@ -171,6 +172,15 @@ async function getExperiences(
         location: {
           name: product.location?.name ?? '',
         },
+        // Badge-related fields from Holibob API
+        cancellationPolicy: product.cancellationPolicy
+          ? {
+              type: product.cancellationPolicy.type,
+              cutoffHours: product.cancellationPolicy.cutoffHours,
+            }
+          : undefined,
+        isBestSeller: product.isBestSeller,
+        hasInstantConfirmation: product.hasInstantConfirmation,
       };
     });
 
@@ -528,20 +538,18 @@ export default async function ExperiencesPage({ searchParams }: Props) {
                       <PremiumExperienceCard
                         experience={experiences[0]}
                         variant="featured"
-                        badges={assignBadges(experiences[0], 0)}
-                        rank={1}
+                        badges={assignBadges(experiences[0])}
                       />
                     </div>
                   )}
 
                   {/* Grid of remaining experiences */}
                   <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                    {experiences.slice(currentPage === 1 ? 1 : 0).map((experience, index) => (
+                    {experiences.slice(currentPage === 1 ? 1 : 0).map((experience) => (
                       <PremiumExperienceCard
                         key={experience.id}
                         experience={experience}
-                        badges={assignBadges(experience, currentPage === 1 ? index + 1 : index)}
-                        rank={currentPage === 1 ? index + 2 : index + 1}
+                        badges={assignBadges(experience)}
                       />
                     ))}
                   </div>

@@ -100,6 +100,13 @@ export interface ExperienceListItem {
   location: {
     name: string;
   };
+  // Badge-related fields from Holibob API
+  cancellationPolicy?: {
+    type?: string;
+    cutoffHours?: number;
+  };
+  isBestSeller?: boolean;
+  hasInstantConfirmation?: boolean;
 }
 
 /**

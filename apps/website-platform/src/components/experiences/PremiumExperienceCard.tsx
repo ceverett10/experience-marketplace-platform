@@ -4,13 +4,22 @@ import Link from 'next/link';
 import { useBrand } from '@/lib/site-context';
 import type { ExperienceListItem } from '@/lib/holibob';
 
-type BadgeType = 'bestseller' | 'recommended' | 'new' | 'mostViewed' | 'likelyToSellOut';
+type BadgeType =
+  | 'bestseller'
+  | 'recommended'
+  | 'new'
+  | 'mostViewed'
+  | 'likelyToSellOut'
+  | 'freeCancellation'
+  | 'topPick'
+  | 'skipTheLine';
 
 interface PremiumExperienceCardProps {
   experience: ExperienceListItem;
   variant?: 'default' | 'large' | 'horizontal' | 'featured';
   badges?: BadgeType[];
   showQuickActions?: boolean;
+  showHeartAlways?: boolean;
   rank?: number;
   className?: string;
 }
@@ -22,6 +31,9 @@ const BADGE_STYLES: Record<BadgeType, { bg: string; text: string; icon?: string;
     new: { bg: 'bg-purple-600', text: 'text-white', label: 'New' },
     mostViewed: { bg: 'bg-blue-600', text: 'text-white', label: 'Most Viewed' },
     likelyToSellOut: { bg: 'bg-rose-600', text: 'text-white', label: 'Likely to Sell Out' },
+    freeCancellation: { bg: 'bg-emerald-600', text: 'text-white', label: 'Free Cancellation' },
+    topPick: { bg: 'bg-indigo-700', text: 'text-white', label: 'Top Pick' },
+    skipTheLine: { bg: 'bg-orange-500', text: 'text-white', label: 'Skip the Line' },
   };
 
 // StarRating component - can be used for detailed rating display
@@ -80,11 +92,44 @@ function QuickActionButtons() {
   );
 }
 
+// Heart/Wishlist button component - always visible for better UX
+function WishlistButton({ size = 'default' }: { size?: 'default' | 'small' }) {
+  const sizeClasses = size === 'small' ? 'h-8 w-8' : 'h-9 w-9';
+  const iconSize = size === 'small' ? 'h-4 w-4' : 'h-5 w-5';
+
+  return (
+    <button
+      type="button"
+      className={`flex ${sizeClasses} items-center justify-center rounded-full bg-white/95 text-gray-600 shadow-sm backdrop-blur-sm transition-all hover:bg-white hover:text-rose-500 hover:scale-110`}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+      aria-label="Add to wishlist"
+    >
+      <svg
+        className={iconSize}
+        fill="none"
+        viewBox="0 0 24 24"
+        strokeWidth="2"
+        stroke="currentColor"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z"
+        />
+      </svg>
+    </button>
+  );
+}
+
 export function PremiumExperienceCard({
   experience,
   variant = 'default',
   badges = [],
   showQuickActions = true,
+  showHeartAlways = true,
   rank,
   className = '',
 }: PremiumExperienceCardProps) {
@@ -322,51 +367,47 @@ export function PremiumExperienceCard({
     );
   }
 
-  // Default card variant
+  // Default card variant - optimized based on GetYourGuide/Viator patterns
   return (
     <Link
       href={`/experiences/${experience.slug}`}
-      className={`group flex flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white transition-all hover:border-gray-200 hover:shadow-xl ${className}`}
+      className={`group flex flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white transition-all duration-300 hover:border-gray-200 hover:shadow-xl hover:-translate-y-1 ${className}`}
     >
-      {/* Image Container */}
-      <div className="relative aspect-[4/3] overflow-hidden">
+      {/* Image Container - 4:3 aspect ratio like competitors */}
+      <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">
         <img
           src={experience.imageUrl || '/placeholder-experience.jpg'}
           alt={experience.title}
           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+          loading="lazy"
         />
 
-        {/* Badges */}
-        <div className="absolute left-3 top-3 flex flex-wrap gap-2">
-          {rank && rank <= 10 && (
-            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-xs font-bold text-gray-900 shadow-sm backdrop-blur-sm">
+        {/* Badges - Top Left */}
+        <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
+          {rank && rank <= 3 && (
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-yellow-400 text-xs font-bold text-gray-900 shadow-sm">
               #{rank}
             </span>
           )}
-          {badges.map((badge) => (
+          {badges.slice(0, 2).map((badge) => (
             <span
               key={badge}
-              className={`${BADGE_STYLES[badge].bg} ${BADGE_STYLES[badge].text} rounded-full px-2.5 py-1 text-xs font-semibold shadow-sm`}
+              className={`${BADGE_STYLES[badge].bg} ${BADGE_STYLES[badge].text} rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide shadow-sm`}
             >
               {BADGE_STYLES[badge].label}
             </span>
           ))}
         </div>
 
-        {/* Rating Badge */}
-        {experience.rating && (
-          <div className="absolute right-3 top-3 flex items-center gap-1 rounded-lg bg-white/90 px-2 py-1 shadow-sm backdrop-blur-sm">
-            <svg className="h-4 w-4 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-            </svg>
-            <span className="text-sm font-semibold text-gray-900">
-              {experience.rating.average.toFixed(1)}
-            </span>
+        {/* Wishlist Heart - Top Right, Always Visible */}
+        {showHeartAlways && (
+          <div className="absolute right-3 top-3">
+            <WishlistButton size="small" />
           </div>
         )}
 
-        {/* Quick Actions (hover) */}
-        {showQuickActions && (
+        {/* Quick Actions (hover) - Bottom Right */}
+        {showQuickActions && !showHeartAlways && (
           <div className="absolute bottom-3 right-3 opacity-0 transition-all duration-200 group-hover:opacity-100">
             <QuickActionButtons />
           </div>
@@ -375,44 +416,16 @@ export function PremiumExperienceCard({
 
       {/* Content */}
       <div className="flex flex-1 flex-col p-4">
-        {/* Location */}
-        <p className="flex items-center gap-1 text-xs text-gray-500">
-          <svg
-            className="h-3.5 w-3.5"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth="2"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"
-            />
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"
-            />
-          </svg>
-          {experience.location.name}
-        </p>
-
-        {/* Title */}
-        <h3 className="mt-2 text-base font-semibold text-gray-900 line-clamp-2 group-hover:text-gray-700">
+        {/* Title - Most prominent */}
+        <h3 className="text-[15px] font-semibold leading-snug text-gray-900 line-clamp-2 group-hover:text-teal-700">
           {experience.title}
         </h3>
 
-        {/* Description */}
-        <p className="mt-2 flex-1 text-sm text-gray-600 line-clamp-2">
-          {experience.shortDescription}
-        </p>
-
-        {/* Footer */}
-        <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-4">
-          <div className="flex items-center gap-2 text-sm text-gray-500">
+        {/* Key Details Line - Duration & Features */}
+        <div className="mt-2 flex items-center gap-1.5 text-xs text-gray-500">
+          <span className="flex items-center gap-1">
             <svg
-              className="h-4 w-4"
+              className="h-3.5 w-3.5"
               fill="none"
               viewBox="0 0 24 24"
               strokeWidth="2"
@@ -425,14 +438,41 @@ export function PremiumExperienceCard({
               />
             </svg>
             {experience.duration.formatted}
-          </div>
+          </span>
+          {experience.location.name && (
+            <>
+              <span className="text-gray-300">•</span>
+              <span className="truncate">{experience.location.name}</span>
+            </>
+          )}
+        </div>
 
-          <div className="text-right">
-            <p className="text-xs text-gray-500">From</p>
-            <p className="text-lg font-bold" style={{ color: primaryColor }}>
-              {experience.price.formatted}
-            </p>
+        {/* Rating with Review Count - Social Proof */}
+        {experience.rating && experience.rating.count > 0 && (
+          <div className="mt-2 flex items-center gap-1.5">
+            <div className="flex items-center gap-0.5">
+              <svg className="h-4 w-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+              </svg>
+              <span className="text-sm font-semibold text-gray-900">
+                {experience.rating.average.toFixed(1)}
+              </span>
+            </div>
+            <span className="text-xs text-gray-500">
+              ({experience.rating.count.toLocaleString()})
+            </span>
           </div>
+        )}
+
+        {/* Spacer to push price to bottom */}
+        <div className="flex-1" />
+
+        {/* Price - Primary CTA anchor */}
+        <div className="mt-3 flex items-baseline justify-between border-t border-gray-100 pt-3">
+          <span className="text-xs text-gray-500">From</span>
+          <span className="text-lg font-bold" style={{ color: primaryColor }}>
+            {experience.price.formatted}
+          </span>
         </div>
       </div>
     </Link>
