@@ -77,6 +77,13 @@ export interface Experience {
   inclusions: string[];
   exclusions: string[];
   cancellationPolicy: string;
+  // New fields for complete product content
+  itinerary: {
+    name: string;
+    description: string;
+  }[];
+  additionalInfo: string[];
+  languages: string[];
 }
 
 export interface ExperienceListItem {
@@ -133,14 +140,15 @@ export function mapProductToExperience(product: {
   guidePriceFormattedText?: string; // Product Detail API
   guidePriceCurrency?: string; // Product Detail API
   currency?: string;
-  // Duration fields
+  // Duration fields - can be number, ISO 8601 string, or object
   duration?:
     | number
+    | string
     | {
         value?: number;
         unit?: string;
       };
-  maxDuration?: number; // Product Discovery API
+  maxDuration?: number | string; // Product Discovery API - can be ISO 8601 duration string
   durationText?: string;
   // Review/rating fields
   reviews?: {
@@ -150,7 +158,7 @@ export function mapProductToExperience(product: {
   rating?: number;
   reviewRating?: number; // Product Discovery/Detail API
   reviewCount?: number; // Product Discovery/Detail API
-  // Location
+  // Location - different formats
   location?: {
     name?: string;
     address?: string;
@@ -158,20 +166,66 @@ export function mapProductToExperience(product: {
     lat?: number;
     lng?: number;
   };
-  // Categories - different formats
+  place?: {
+    id?: string;
+    name?: string;
+    address?: string;
+    city?: string;
+    country?: string;
+    lat?: number;
+    lng?: number;
+    latitude?: number;
+    longitude?: number;
+  };
+  // Categories/Tags - different formats
   categories?: {
     id?: string;
     name?: string;
     slug?: string;
   }[];
-  categoryList?: { nodes: { id?: string; name?: string; slug?: string }[] }; // Product Detail API
-  // Content
+  categoryList?: { nodes: { id?: string; name?: string; slug?: string }[] };
+  // Content - different formats
   highlights?: string[];
-  inclusions?: string[];
-  exclusions?: string[];
+  // inclusions/exclusions can be string[] or {text: string}[]
+  inclusions?: string[] | { text?: string }[];
+  exclusions?: string[] | { text?: string }[];
   importantInfo?: string[];
-  // Cancellation policy - can be string or object
-  cancellationPolicy?: { type?: string; description?: string } | string;
+  // additionList has nested structure with nodes
+  additionList?: { nodes?: { text?: string }[] } | string[];
+  // contentList from Product Detail API - contains typed content items
+  // Types: INCLUSION, EXCLUSION, HIGHLIGHT, NOTE, ITINERARY, etc.
+  contentList?: {
+    nodes?: {
+      type?: string;
+      name?: string;
+      description?: string;
+    }[];
+  };
+  // Guide languages from Product Detail API
+  guideLanguageList?: {
+    nodes?: {
+      id?: string;
+      name?: string;
+    }[];
+  };
+  // Cancellation policy - can be string or object with description and/or penaltyList
+  cancellationPolicy?:
+    | {
+        type?: string;
+        description?: string;
+        penaltyList?: { nodes?: { formattedText?: string }[] };
+      }
+    | string;
+  // Meeting point list with address and geo-coordinates
+  meetingPointList?: {
+    nodes?: {
+      address?: string;
+      geoCoordinate?: {
+        latitude?: number;
+        longitude?: number;
+      };
+    }[];
+  };
 }): Experience {
   // Handle price from different API endpoints
   const priceAmount =
@@ -190,15 +244,20 @@ export function mapProductToExperience(product: {
     product.priceFromFormatted ??
     formatPrice(priceAmount, currency);
 
-  // Handle duration as either number (minutes) or object
-  // Product Discovery API uses maxDuration
+  // Handle duration as either number, ISO 8601 string, or object
+  // Product Discovery API uses maxDuration which can be ISO 8601 format (e.g., "PT210M")
   let durationValue: number;
   let durationUnit: string;
   if (product.maxDuration != null) {
-    durationValue = product.maxDuration;
+    // maxDuration can be a number or ISO 8601 duration string
+    durationValue = parseIsoDuration(product.maxDuration);
     durationUnit = 'minutes';
   } else if (typeof product.duration === 'number') {
     durationValue = product.duration;
+    durationUnit = 'minutes';
+  } else if (typeof product.duration === 'string') {
+    // Duration might be ISO 8601 string
+    durationValue = parseIsoDuration(product.duration);
     durationUnit = 'minutes';
   } else {
     durationValue = product.duration?.value ?? 0;
@@ -206,15 +265,26 @@ export function mapProductToExperience(product: {
   }
 
   // Handle rating - may not be available from all API responses
-  // Note: reviewRating/reviewCount fields removed from query as they may not exist in schema
-  const ratingValue = product.reviews?.averageRating ?? product.rating;
-  const reviewCount = product.reviews?.totalCount ?? 0;
+  // Product Discovery/Detail API uses reviewRating and reviewCount
+  const ratingValue = product.reviewRating ?? product.reviews?.averageRating ?? product.rating;
+  const reviewCount = product.reviewCount ?? product.reviews?.totalCount ?? 0;
 
-  // Handle cancellation policy as string or object
-  const cancellationPolicy =
-    typeof product.cancellationPolicy === 'string'
-      ? product.cancellationPolicy
-      : (product.cancellationPolicy?.description ?? '');
+  // Handle cancellation policy - can be string or object with description and/or penaltyList
+  let cancellationPolicy = '';
+  if (typeof product.cancellationPolicy === 'string') {
+    cancellationPolicy = product.cancellationPolicy;
+  } else if (product.cancellationPolicy) {
+    // Try penaltyList first (newer API format with formatted text)
+    if (product.cancellationPolicy.penaltyList?.nodes && product.cancellationPolicy.penaltyList.nodes.length > 0) {
+      const policyTexts = product.cancellationPolicy.penaltyList.nodes
+        .map((n) => n.formattedText || '')
+        .filter(Boolean);
+      cancellationPolicy = policyTexts.join('\n');
+    } else if (product.cancellationPolicy.description) {
+      // Fall back to description if no penalty list
+      cancellationPolicy = product.cancellationPolicy.description;
+    }
+  }
 
   // Handle images from different API formats
   // Product Detail API: imageList.nodes[].url
@@ -232,11 +302,93 @@ export function mapProductToExperience(product: {
     '/placeholder-experience.jpg';
 
   // Handle categories from different API formats
-  // Product Detail API: categoryList.nodes[]
-  // Other formats: categories[]
+  // categoryList.nodes[] or categories[]
   const categoryListNodes = product.categoryList?.nodes ?? [];
   const legacyCategories = product.categories ?? [];
-  const allCategories = categoryListNodes.length > 0 ? categoryListNodes : legacyCategories;
+  const allCategories = categoryListNodes.length > 0
+    ? categoryListNodes
+    : legacyCategories;
+
+  // Handle content lists from Product Detail API
+  // contentList contains typed content items with type, name, description
+  // Types: INCLUSION, EXCLUSION, HIGHLIGHT, MEETING_POINT, ITINERARY, etc.
+  const contentNodes = product.contentList?.nodes ?? [];
+
+  // Extract highlights from contentList (HIGHLIGHT type) or fall back to other sources
+  let highlights: string[] = [];
+  const highlightNodes = contentNodes.filter((n) => n.type === 'HIGHLIGHT');
+  if (highlightNodes.length > 0) {
+    highlights = highlightNodes
+      .map((n) => n.name || n.description || '')
+      .filter(Boolean);
+  } else if (product.additionList) {
+    if (Array.isArray(product.additionList)) {
+      highlights = product.additionList as string[];
+    } else if (product.additionList.nodes) {
+      highlights = product.additionList.nodes.map((n) => n.text ?? '').filter(Boolean);
+    }
+  } else if (product.highlights) {
+    highlights = product.highlights;
+  }
+
+  // Extract inclusions from contentList (INCLUSION type) or fall back to other sources
+  let inclusions: string[] = [];
+  const inclusionNodes = contentNodes.filter((n) => n.type === 'INCLUSION');
+  if (inclusionNodes.length > 0) {
+    inclusions = inclusionNodes
+      .map((n) => n.name || n.description || '')
+      .filter(Boolean);
+  } else if (product.inclusions) {
+    if (typeof product.inclusions[0] === 'string') {
+      inclusions = product.inclusions as string[];
+    } else {
+      inclusions = (product.inclusions as { text?: string }[]).map((i) => i.text ?? '').filter(Boolean);
+    }
+  }
+
+  // Extract exclusions from contentList (EXCLUSION type) or fall back to other sources
+  let exclusions: string[] = [];
+  const exclusionNodes = contentNodes.filter((n) => n.type === 'EXCLUSION');
+  if (exclusionNodes.length > 0) {
+    exclusions = exclusionNodes
+      .map((n) => n.name || n.description || '')
+      .filter(Boolean);
+  } else if (product.exclusions) {
+    if (typeof product.exclusions[0] === 'string') {
+      exclusions = product.exclusions as string[];
+    } else {
+      exclusions = (product.exclusions as { text?: string }[]).map((e) => e.text ?? '').filter(Boolean);
+    }
+  }
+
+  // Extract cancellation policy from contentList if available
+  const cancellationNodes = contentNodes.filter((n) => n.type === 'CANCELLATION_POLICY');
+  if (cancellationNodes.length > 0 && !cancellationPolicy) {
+    cancellationPolicy = cancellationNodes
+      .map((n) => n.description || n.name || '')
+      .filter(Boolean)
+      .join(' ');
+  }
+
+  // Extract itinerary from contentList (ITINERARY type)
+  const itineraryNodes = contentNodes.filter((n) => n.type === 'ITINERARY');
+  const itinerary = itineraryNodes
+    .map((n) => ({
+      name: n.name || '',
+      description: n.description || '',
+    }))
+    .filter((item) => item.name || item.description);
+
+  // Extract additional information from contentList (NOTE type)
+  const noteNodes = contentNodes.filter((n) => n.type === 'NOTE');
+  const additionalInfo = noteNodes
+    .map((n) => n.description || n.name || '')
+    .filter(Boolean);
+
+  // Extract guide languages from guideLanguageList
+  const languages = product.guideLanguageList?.nodes
+    ?.map((lang) => lang.name || '')
+    .filter(Boolean) ?? [];
 
   return {
     id: product.id,
@@ -263,20 +415,40 @@ export function mapProductToExperience(product: {
         }
       : null,
     location: {
-      name: product.location?.name ?? '',
-      address: product.location?.address ?? '',
-      lat: product.location?.coordinates?.lat ?? product.location?.lat ?? 0,
-      lng: product.location?.coordinates?.lng ?? product.location?.lng ?? 0,
+      name: product.place?.name ?? product.place?.city ?? product.location?.name ?? '',
+      // Try meetingPointList first (from Product Detail API), then fall back to other sources
+      address:
+        product.meetingPointList?.nodes?.[0]?.address ??
+        product.place?.address ??
+        product.location?.address ??
+        '',
+      lat:
+        product.meetingPointList?.nodes?.[0]?.geoCoordinate?.latitude ??
+        product.place?.latitude ??
+        product.place?.lat ??
+        product.location?.coordinates?.lat ??
+        product.location?.lat ??
+        0,
+      lng:
+        product.meetingPointList?.nodes?.[0]?.geoCoordinate?.longitude ??
+        product.place?.longitude ??
+        product.place?.lng ??
+        product.location?.coordinates?.lng ??
+        product.location?.lng ??
+        0,
     },
     categories: allCategories.map((cat) => ({
       id: cat.id ?? '',
       name: cat.name ?? '',
-      slug: cat.slug ?? cat.id ?? '',
+      slug: (cat as { slug?: string }).slug ?? cat.id ?? '',
     })),
-    highlights: product.highlights ?? [],
-    inclusions: product.inclusions ?? [],
-    exclusions: product.exclusions ?? [],
+    highlights,
+    inclusions,
+    exclusions,
     cancellationPolicy,
+    itinerary,
+    additionalInfo,
+    languages,
   };
 }
 
@@ -288,6 +460,32 @@ export function formatPrice(amount: number, currency: string): string {
     style: 'currency',
     currency,
   }).format(amount / 100); // Assuming amount is in cents/pence
+}
+
+/**
+ * Parse ISO 8601 duration string (e.g., "PT210M", "PT3H30M", "P1D")
+ * Returns total minutes
+ */
+export function parseIsoDuration(duration: string | number | null | undefined): number {
+  if (duration == null) return 0;
+  if (typeof duration === 'number') return duration;
+
+  const str = String(duration).toUpperCase();
+
+  // Match ISO 8601 duration format
+  const match = str.match(/^P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/);
+  if (!match) {
+    // Not ISO 8601 format, try parsing as number
+    const num = parseInt(str, 10);
+    return isNaN(num) ? 0 : num;
+  }
+
+  const days = parseInt(match[1] || '0', 10);
+  const hours = parseInt(match[2] || '0', 10);
+  const minutes = parseInt(match[3] || '0', 10);
+  // Ignore seconds for display purposes
+
+  return (days * 24 * 60) + (hours * 60) + minutes;
 }
 
 /**

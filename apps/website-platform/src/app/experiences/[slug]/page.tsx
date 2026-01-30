@@ -390,6 +390,78 @@ export default async function ExperienceDetailPage({ params }: Props) {
                 </section>
               )}
 
+              {/* Itinerary */}
+              {experience.itinerary && experience.itinerary.length > 0 && (
+                <section className="mb-8 rounded-xl border border-gray-200 bg-white p-6">
+                  <h2 className="mb-4 text-xl font-semibold text-gray-900">Itinerary</h2>
+                  <div className="space-y-4">
+                    {experience.itinerary.map((stop, idx) => (
+                      <div key={idx} className="flex gap-4">
+                        <div className="flex flex-col items-center">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-teal-100 text-sm font-semibold text-teal-700">
+                            {idx + 1}
+                          </div>
+                          {idx < experience.itinerary.length - 1 && (
+                            <div className="mt-2 h-full w-0.5 bg-gray-200" />
+                          )}
+                        </div>
+                        <div className="flex-1 pb-4">
+                          {stop.name && (
+                            <h3 className="font-medium text-gray-900">{stop.name}</h3>
+                          )}
+                          {stop.description && (
+                            <p className="mt-1 text-sm text-gray-600">{stop.description}</p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {/* Guide Languages */}
+              {experience.languages && experience.languages.length > 0 && (
+                <section className="mb-8 rounded-xl border border-gray-200 bg-white p-6">
+                  <h2 className="mb-4 text-xl font-semibold text-gray-900">Guide languages</h2>
+                  <div className="flex flex-wrap gap-2">
+                    {experience.languages.map((lang, idx) => (
+                      <span
+                        key={idx}
+                        className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-700"
+                      >
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 21l5.25-11.25L21 21m-9-3h7.5M3 5.621a48.474 48.474 0 016-.371m0 0c1.12 0 2.233.038 3.334.114M9 5.25V3m3.334 2.364C11.176 10.658 7.69 15.08 3 17.502m9.334-12.138c.896.061 1.785.147 2.666.257m-4.589 8.495a18.023 18.023 0 01-3.827-5.802" />
+                        </svg>
+                        {lang}
+                      </span>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {/* Additional Information */}
+              {experience.additionalInfo && experience.additionalInfo.length > 0 && (
+                <section className="mb-8 rounded-xl border border-gray-200 bg-white p-6">
+                  <h2 className="mb-4 text-xl font-semibold text-gray-900">Additional information</h2>
+                  <ul className="space-y-3">
+                    {experience.additionalInfo.map((info, idx) => (
+                      <li key={idx} className="flex items-start gap-3">
+                        <svg
+                          className="mt-0.5 h-5 w-5 flex-shrink-0 text-blue-500"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth="1.5"
+                          stroke="currentColor"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+                        </svg>
+                        <span className="text-sm text-gray-600">{info}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
+
               {/* Meeting Point */}
               <section className="mb-8 rounded-xl border border-gray-200 bg-white p-6">
                 <h2 className="mb-4 text-xl font-semibold text-gray-900">Meeting point</h2>

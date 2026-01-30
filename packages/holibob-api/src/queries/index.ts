@@ -49,10 +49,8 @@ export const PRODUCT_LIST_QUERY = gql`
  * Retrieve detailed product information
  *
  * NOTE: Holibob API uses String! for product ID (not ID!)
- * Fields confirmed NOT to exist: shortDescription, location, duration, durationText,
- * highlights, inclusions, exclusions, importantInfo, imageUrl
- *
- * Trying: images (direct array, not imageList.nodes)
+ * Content is retrieved via contentList which returns nodes with type/name/description.
+ * Types include: INCLUSION, EXCLUSION, HIGHLIGHT, NOTE (additional info), ITINERARY, etc.
  */
 export const PRODUCT_DETAIL_QUERY = gql`
   query Product($id: String!) {
@@ -69,6 +67,35 @@ export const PRODUCT_DETAIL_QUERY = gql`
       maxDuration
       reviewRating
       reviewCount
+      contentList {
+        nodes {
+          type
+          name
+          description
+        }
+      }
+      guideLanguageList {
+        nodes {
+          id
+          name
+        }
+      }
+      cancellationPolicy {
+        penaltyList {
+          nodes {
+            formattedText
+          }
+        }
+      }
+      meetingPointList {
+        nodes {
+          address
+          geoCoordinate {
+            latitude
+            longitude
+          }
+        }
+      }
     }
   }
 `;

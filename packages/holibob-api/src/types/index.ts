@@ -142,8 +142,7 @@ export const ProductSchema = z.object({
   categories: z.array(ProductCategorySchema).optional(),
   tags: z.array(z.string()).optional(),
 
-  // Additional info
-  cancellationPolicy: CancellationPolicySchema.optional(),
+  // Additional info - legacy cancellation policy is handled in the new format below
   meetingPoint: MeetingPointSchema.optional(),
 
   // Ratings
@@ -158,6 +157,76 @@ export const ProductSchema = z.object({
   // Holibob-specific
   supplierId: z.string().optional(),
   supplierName: z.string().optional(),
+
+  // Content list from Product Detail API - contains typed content items
+  // Types: INCLUSION, EXCLUSION, HIGHLIGHT, NOTE (additional info), ITINERARY, etc.
+  contentList: z
+    .object({
+      nodes: z.array(
+        z.object({
+          type: z.string().optional(),
+          name: z.string().optional(),
+          description: z.string().optional(),
+        })
+      ),
+    })
+    .optional(),
+
+  // Guide languages from Product Detail API
+  guideLanguageList: z
+    .object({
+      nodes: z.array(
+        z.object({
+          id: z.string().optional(),
+          name: z.string().optional(),
+        })
+      ),
+    })
+    .optional(),
+
+  // Place information from Product Detail API
+  place: z
+    .object({
+      cityId: z.string().optional(),
+      name: z.string().optional(),
+      address: z.string().optional(),
+    })
+    .optional(),
+
+  // Cancellation policy - can have legacy format (type, description) or new format (penaltyList)
+  cancellationPolicy: z
+    .object({
+      type: z.string().optional(),
+      description: z.string().optional(),
+      cutoffHours: z.number().optional(),
+      penaltyList: z
+        .object({
+          nodes: z.array(
+            z.object({
+              formattedText: z.string().optional(),
+            })
+          ),
+        })
+        .optional(),
+    })
+    .optional(),
+
+  // Meeting point list with address and geo-coordinates
+  meetingPointList: z
+    .object({
+      nodes: z.array(
+        z.object({
+          address: z.string().optional(),
+          geoCoordinate: z
+            .object({
+              latitude: z.number().optional(),
+              longitude: z.number().optional(),
+            })
+            .optional(),
+        })
+      ),
+    })
+    .optional(),
 });
 
 export type Product = z.infer<typeof ProductSchema>;
