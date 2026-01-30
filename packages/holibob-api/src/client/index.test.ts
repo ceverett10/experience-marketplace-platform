@@ -57,31 +57,41 @@ describe('HolibobClient', () => {
   });
 
   describe('discoverProducts', () => {
-    it('should fetch products with location filter', async () => {
-      const mockNodes = [
-        {
-          id: 'prod-1',
-          name: 'Test Experience',
-        },
-      ];
-      const mockResponse = {
+    it('should fetch products with location filter (discovery + details)', async () => {
+      // Mock Product Discovery returns just id and name
+      const discoveryResponse = {
         productDiscovery: {
           recommendedProductList: {
-            nodes: mockNodes,
+            nodes: [{ id: 'prod-1', name: 'Test Experience' }],
           },
         },
       };
 
-      mockRequest.mockResolvedValueOnce(mockResponse);
+      // Mock Product Detail returns full product info
+      const productDetailResponse = {
+        product: {
+          id: 'prod-1',
+          name: 'Test Experience',
+          shortDescription: 'A great experience',
+          guidePrice: 5000,
+          guidePriceFormattedText: '£50.00',
+        },
+      };
+
+      mockRequest
+        .mockResolvedValueOnce(discoveryResponse)
+        .mockResolvedValueOnce(productDetailResponse);
 
       const result = await client.discoverProducts({
         placeIds: ['place-123'],
         adults: 2,
       });
 
-      expect(result.products).toEqual(mockNodes);
+      expect(result.products).toHaveLength(1);
+      expect(result.products[0].id).toBe('prod-1');
+      expect(result.products[0].shortDescription).toBe('A great experience');
       expect(result.totalCount).toBe(1);
-      expect(mockRequest).toHaveBeenCalledTimes(1);
+      expect(mockRequest).toHaveBeenCalledTimes(2); // Discovery + 1 product detail
     });
 
     it('should handle geo point filter', async () => {
@@ -103,8 +113,34 @@ describe('HolibobClient', () => {
       expect(result.totalCount).toBe(0);
     });
 
+    it('should handle product detail fetch failure gracefully', async () => {
+      // Product Discovery returns IDs
+      const discoveryResponse = {
+        productDiscovery: {
+          recommendedProductList: {
+            nodes: [{ id: 'prod-1', name: 'Test Experience' }],
+          },
+        },
+      };
+
+      mockRequest
+        .mockResolvedValueOnce(discoveryResponse)
+        .mockRejectedValueOnce(new Error('Product not found'));
+
+      const result = await client.discoverProducts({
+        placeIds: ['place-123'],
+      });
+
+      // Should fallback to basic info from discovery
+      expect(result.products).toHaveLength(1);
+      expect(result.products[0].id).toBe('prod-1');
+      expect(result.products[0].name).toBe('Test Experience');
+    });
+
     it('should support pagination', async () => {
-      const mockNodes = Array(10).fill({ id: 'prod', name: 'Test' });
+      const mockNodes = Array(10)
+        .fill(null)
+        .map((_, i) => ({ id: `prod-${i}`, name: `Test ${i}` }));
       const mockResponse = {
         productDiscovery: {
           recommendedProductList: {
@@ -113,7 +149,15 @@ describe('HolibobClient', () => {
         },
       };
 
+      // Mock discovery response
       mockRequest.mockResolvedValueOnce(mockResponse);
+
+      // Mock product detail responses for all 10 products
+      for (let i = 0; i < 10; i++) {
+        mockRequest.mockResolvedValueOnce({
+          product: { id: `prod-${i}`, name: `Test ${i}` },
+        });
+      }
 
       const result = await client.discoverProducts(
         { placeIds: ['place-1'] },
@@ -790,7 +834,8 @@ describe('HolibobClient - Product Filter Mapping', () => {
     });
   });
 
-  it('should map price filter correctly', async () => {
+  // Helper to mock empty product discovery response
+  const mockEmptyDiscovery = () => {
     mockRequest.mockResolvedValueOnce({
       productDiscovery: {
         recommendedProductList: {
@@ -798,6 +843,10 @@ describe('HolibobClient - Product Filter Mapping', () => {
         },
       },
     });
+  };
+
+  it('should map price filter correctly', async () => {
+    mockEmptyDiscovery();
 
     await client.discoverProducts({
       priceMin: 50,
@@ -809,13 +858,7 @@ describe('HolibobClient - Product Filter Mapping', () => {
   });
 
   it('should map category filter correctly', async () => {
-    mockRequest.mockResolvedValueOnce({
-      productDiscovery: {
-        recommendedProductList: {
-          nodes: [],
-        },
-      },
-    });
+    mockEmptyDiscovery();
 
     await client.discoverProducts({
       categoryIds: ['cat-1', 'cat-2'],
@@ -825,13 +868,7 @@ describe('HolibobClient - Product Filter Mapping', () => {
   });
 
   it('should map date filter correctly', async () => {
-    mockRequest.mockResolvedValueOnce({
-      productDiscovery: {
-        recommendedProductList: {
-          nodes: [],
-        },
-      },
-    });
+    mockEmptyDiscovery();
 
     await client.discoverProducts({
       dateFrom: '2024-06-01',
@@ -842,13 +879,7 @@ describe('HolibobClient - Product Filter Mapping', () => {
   });
 
   it('should handle all guest types', async () => {
-    mockRequest.mockResolvedValueOnce({
-      productDiscovery: {
-        recommendedProductList: {
-          nodes: [],
-        },
-      },
-    });
+    mockEmptyDiscovery();
 
     await client.discoverProducts({
       adults: 2,

@@ -119,6 +119,9 @@ export class HolibobClient {
   /**
    * Search and discover products using the Product Discovery API
    * This is the correct API for searching and displaying product lists
+   *
+   * Note: Product Discovery only returns id and name for recommended products.
+   * We fetch full product details for each recommended product.
    */
   async discoverProducts(
     filter: ProductFilter,
@@ -128,28 +131,46 @@ export class HolibobClient {
       input: this.mapProductDiscoveryInput(filter),
     };
 
+    // Step 1: Get recommended product IDs from Product Discovery
     const response = await this.executeQuery<{
       productDiscovery: {
         selectedDestination?: { id: string; name: string };
         recommendedTagList?: { nodes: Array<{ id: string; name: string }> };
         recommendedSearchTermList?: { nodes: Array<{ searchTerm: string }> };
         recommendedProductList: {
-          nodes: Product[];
+          nodes: Array<{ id: string; name: string }>;
         };
       };
     }>(PRODUCT_LIST_QUERY, variables);
 
-    const productList = response.productDiscovery.recommendedProductList;
+    const recommendedProducts = response.productDiscovery.recommendedProductList.nodes;
+
+    // Step 2: Fetch full details for each product in parallel
+    const productDetailsPromises = recommendedProducts.map(async (rec) => {
+      try {
+        const fullProduct = await this.getProduct(rec.id);
+        if (fullProduct) {
+          return fullProduct;
+        }
+        // If full details fetch fails, return basic info
+        return { id: rec.id, name: rec.name } as Product;
+      } catch {
+        // If product detail fetch fails, return basic info from discovery
+        return { id: rec.id, name: rec.name } as Product;
+      }
+    });
+
+    const products = await Promise.all(productDetailsPromises);
 
     return {
-      products: productList.nodes,
+      products,
       pageInfo: {
         hasNextPage: false, // Simplified - pagination handled client-side
         hasPreviousPage: false,
         startCursor: undefined,
         endCursor: undefined,
       },
-      totalCount: productList.nodes.length,
+      totalCount: products.length,
     };
   }
 
