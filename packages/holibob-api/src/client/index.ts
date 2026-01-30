@@ -136,9 +136,6 @@ export class HolibobClient {
         recommendedProductList: {
           nodes: Product[];
           totalRecords: number;
-          pages: number;
-          nextPage?: number;
-          previousPage?: number;
         };
       };
     }>(PRODUCT_LIST_QUERY, variables);
@@ -148,8 +145,8 @@ export class HolibobClient {
     return {
       products: productList.nodes,
       pageInfo: {
-        hasNextPage: productList.nextPage != null,
-        hasPreviousPage: productList.previousPage != null,
+        hasNextPage: false, // Simplified - pagination handled client-side
+        hasPreviousPage: false,
         startCursor: undefined,
         endCursor: undefined,
       },

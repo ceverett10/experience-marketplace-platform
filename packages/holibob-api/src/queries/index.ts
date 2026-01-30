@@ -23,20 +23,10 @@ export const PRODUCT_LIST_QUERY = gql`
       recommendedSearchTermList
       recommendedProductList(pageSize: 20) {
         totalRecords
-        pages
-        nextPage
-        previousPage
         nodes {
           id
           name
-          shortDescription
-          priceFromFormatted
-          priceFrom
-          priceCurrency
-          primaryImageUrl
-          reviewRating
-          reviewCount
-          maxDuration
+          description
         }
       }
     }
