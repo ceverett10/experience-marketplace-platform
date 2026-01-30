@@ -48,17 +48,16 @@ export const PRODUCT_LIST_QUERY = gql`
  * Step 2: Display Product Details
  * Retrieve detailed product information
  *
- * NOTE: Using absolute minimum fields to diagnose API schema.
- * Fields that DON'T work: location, imageList.nodes, duration, durationText,
- * highlights, inclusions, exclusions, importantInfo, cancellationPolicy
+ * NOTE: Holibob API uses String! for product ID (not ID!)
+ * Fields confirmed NOT to exist: shortDescription, location, duration, durationText,
+ * highlights, inclusions, exclusions, importantInfo
  */
 export const PRODUCT_DETAIL_QUERY = gql`
-  query Product($id: ID!) {
+  query Product($id: String!) {
     product(id: $id) {
       id
       name
       description
-      shortDescription
     }
   }
 `;
