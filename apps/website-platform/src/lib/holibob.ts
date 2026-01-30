@@ -119,17 +119,24 @@ export function mapProductToExperience(product: {
   slug?: string;
   shortDescription?: string;
   description?: string;
+  // Image fields - different formats from different API endpoints
   primaryImage?: { url?: string };
   primaryImageUrl?: string; // Product Discovery API
   imageUrl?: string;
   images?: { url?: string }[];
+  imageList?: { nodes: { id?: string; url?: string; altText?: string }[] }; // Product Detail API
+  // Price fields
   pricing?: {
     retailPrice?: { amount?: number; currency?: string };
   };
   priceFrom?: number;
   priceFromFormatted?: string; // Product Discovery API
   priceCurrency?: string; // Product Discovery API
+  guidePrice?: number; // Product Detail API
+  guidePriceFormattedText?: string; // Product Detail API
+  guidePriceCurrency?: string; // Product Detail API
   currency?: string;
+  // Duration fields
   duration?:
     | number
     | {
@@ -138,13 +145,15 @@ export function mapProductToExperience(product: {
       };
   maxDuration?: number; // Product Discovery API
   durationText?: string;
+  // Review/rating fields
   reviews?: {
     averageRating?: number;
     totalCount?: number;
   };
   rating?: number;
-  reviewRating?: number; // Product Discovery API
-  reviewCount?: number;
+  reviewRating?: number; // Product Discovery/Detail API
+  reviewCount?: number; // Product Discovery/Detail API
+  // Location
   location?: {
     name?: string;
     address?: string;
@@ -152,19 +161,40 @@ export function mapProductToExperience(product: {
     lat?: number;
     lng?: number;
   };
+  // Categories - different formats
   categories?: {
     id?: string;
     name?: string;
     slug?: string;
   }[];
+  categoryList?: { nodes: { id?: string; name?: string; slug?: string }[] }; // Product Detail API
+  // Content
   highlights?: string[];
   inclusions?: string[];
   exclusions?: string[];
-  cancellationPolicy?: { description?: string } | string;
+  importantInfo?: string[];
+  // Cancellation policy - can be string or object
+  cancellationPolicy?: { type?: string; description?: string; cutoffHours?: number } | string;
+  // Flags
+  isBestSeller?: boolean;
+  hasInstantConfirmation?: boolean;
 }): Experience {
-  const priceAmount = product.pricing?.retailPrice?.amount ?? product.priceFrom ?? 0;
+  // Handle price from different API endpoints
+  const priceAmount =
+    product.guidePrice ?? // Product Detail API
+    product.pricing?.retailPrice?.amount ??
+    product.priceFrom ?? // Product Discovery API
+    0;
   const currency =
-    product.pricing?.retailPrice?.currency ?? product.priceCurrency ?? product.currency ?? 'GBP';
+    product.guidePriceCurrency ?? // Product Detail API
+    product.pricing?.retailPrice?.currency ??
+    product.priceCurrency ?? // Product Discovery API
+    product.currency ??
+    'GBP';
+  const priceFormatted =
+    product.guidePriceFormattedText ??
+    product.priceFromFormatted ??
+    formatPrice(priceAmount, currency);
 
   // Handle duration as either number (minutes) or object
   // Product Discovery API uses maxDuration
@@ -192,22 +222,40 @@ export function mapProductToExperience(product: {
       ? product.cancellationPolicy
       : (product.cancellationPolicy?.description ?? '');
 
+  // Handle images from different API formats
+  // Product Detail API: imageList.nodes[].url
+  // Other formats: images[].url or primaryImage.url
+  const imageListUrls = product.imageList?.nodes?.map((img) => img.url ?? '').filter(Boolean) ?? [];
+  const legacyImageUrls = product.images?.map((img) => img.url ?? '').filter(Boolean) ?? [];
+  const allImages = imageListUrls.length > 0 ? imageListUrls : legacyImageUrls;
+
+  // Primary image URL
+  const primaryImageUrl =
+    allImages[0] ??
+    product.primaryImage?.url ??
+    product.primaryImageUrl ??
+    product.imageUrl ??
+    '/placeholder-experience.jpg';
+
+  // Handle categories from different API formats
+  // Product Detail API: categoryList.nodes[]
+  // Other formats: categories[]
+  const categoryListNodes = product.categoryList?.nodes ?? [];
+  const legacyCategories = product.categories ?? [];
+  const allCategories = categoryListNodes.length > 0 ? categoryListNodes : legacyCategories;
+
   return {
     id: product.id,
     title: product.title ?? product.name ?? 'Untitled Experience',
     slug: product.slug ?? product.id,
     shortDescription: product.shortDescription ?? '',
     description: product.description ?? '',
-    imageUrl:
-      product.primaryImage?.url ??
-      product.primaryImageUrl ??
-      product.imageUrl ??
-      '/placeholder-experience.jpg',
-    images: product.images?.map((img) => img.url ?? '') ?? [],
+    imageUrl: primaryImageUrl,
+    images: allImages.length > 0 ? allImages : [primaryImageUrl],
     price: {
       amount: priceAmount,
       currency,
-      formatted: formatPrice(priceAmount, currency),
+      formatted: priceFormatted,
     },
     duration: {
       value: durationValue,
@@ -226,12 +274,11 @@ export function mapProductToExperience(product: {
       lat: product.location?.coordinates?.lat ?? product.location?.lat ?? 0,
       lng: product.location?.coordinates?.lng ?? product.location?.lng ?? 0,
     },
-    categories:
-      product.categories?.map((cat) => ({
-        id: cat.id ?? '',
-        name: cat.name ?? '',
-        slug: cat.slug ?? cat.id ?? '',
-      })) ?? [],
+    categories: allCategories.map((cat) => ({
+      id: cat.id ?? '',
+      name: cat.name ?? '',
+      slug: cat.slug ?? cat.id ?? '',
+    })),
     highlights: product.highlights ?? [],
     inclusions: product.inclusions ?? [],
     exclusions: product.exclusions ?? [],

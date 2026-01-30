@@ -194,7 +194,7 @@ async function getExperiences(
       recommendedSearchTerms: undefined,
     };
   } catch (error) {
-    // Log detailed error info for debugging
+    // Log detailed error info for debugging (no mock data fallback)
     console.error('Error fetching experiences:', {
       error: error instanceof Error ? error.message : error,
       stack: error instanceof Error ? error.stack : undefined,
@@ -203,12 +203,12 @@ async function getExperiences(
       hasApiKey: !!process.env['HOLIBOB_API_KEY'],
       hasApiSecret: !!process.env['HOLIBOB_API_SECRET'],
     });
-    const mockData = getMockExperiences();
+    // Return empty results with error - no mock data
     return {
-      experiences: mockData.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE),
-      totalCount: mockData.length,
-      hasMore: page * ITEMS_PER_PAGE < mockData.length,
-      isUsingMockData: true,
+      experiences: [],
+      totalCount: 0,
+      hasMore: false,
+      isUsingMockData: false,
       apiError: error instanceof Error ? error.message : 'Unknown error',
     };
   }
@@ -239,142 +239,7 @@ function formatDuration(value: number, unit: string): string {
   return `${value} ${unit}`;
 }
 
-function getMockExperiences(): ExperienceListItem[] {
-  return [
-    {
-      id: '1',
-      title: 'London Eye Experience',
-      slug: 'london-eye-experience',
-      shortDescription: 'Take in breathtaking views of London from the iconic London Eye.',
-      imageUrl: 'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?w=800',
-      price: { amount: 3500, currency: 'GBP', formatted: '£35.00' },
-      duration: { formatted: '30 minutes' },
-      rating: { average: 4.7, count: 2453 },
-      location: { name: 'London, UK' },
-    },
-    {
-      id: '2',
-      title: 'Tower of London Tour',
-      slug: 'tower-of-london-tour',
-      shortDescription: 'Explore centuries of royal history at the Tower of London.',
-      imageUrl: 'https://images.unsplash.com/photo-1529655683826-aba9b3e77383?w=800',
-      price: { amount: 2900, currency: 'GBP', formatted: '£29.00' },
-      duration: { formatted: '3 hours' },
-      rating: { average: 4.8, count: 1876 },
-      location: { name: 'London, UK' },
-    },
-    {
-      id: '3',
-      title: 'Thames River Cruise',
-      slug: 'thames-river-cruise',
-      shortDescription: 'Glide along the Thames and see London landmarks from the water.',
-      imageUrl: 'https://images.unsplash.com/photo-1533929736458-ca588d08c8be?w=800',
-      price: { amount: 1800, currency: 'GBP', formatted: '£18.00' },
-      duration: { formatted: '1 hour' },
-      rating: { average: 4.5, count: 984 },
-      location: { name: 'London, UK' },
-    },
-    {
-      id: '4',
-      title: 'Stonehenge Day Trip',
-      slug: 'stonehenge-day-trip',
-      shortDescription: 'Visit the mysterious prehistoric monument of Stonehenge.',
-      imageUrl: 'https://images.unsplash.com/photo-1599833975787-5c143f373c30?w=800',
-      price: { amount: 6500, currency: 'GBP', formatted: '£65.00' },
-      duration: { formatted: '10 hours' },
-      rating: { average: 4.6, count: 756 },
-      location: { name: 'Wiltshire, UK' },
-    },
-    {
-      id: '5',
-      title: 'Harry Potter Studio Tour',
-      slug: 'harry-potter-studio-tour',
-      shortDescription: 'Step into the magical world of Harry Potter at Warner Bros. Studios.',
-      imageUrl: 'https://images.unsplash.com/photo-1551269901-5c5e14c25df7?w=800',
-      price: { amount: 5200, currency: 'GBP', formatted: '£52.00' },
-      duration: { formatted: '4 hours' },
-      rating: { average: 4.9, count: 3241 },
-      location: { name: 'Watford, UK' },
-    },
-    {
-      id: '6',
-      title: 'Westminster Walking Tour',
-      slug: 'westminster-walking-tour',
-      shortDescription: 'Discover the political heart of Britain on this guided walking tour.',
-      imageUrl: 'https://images.unsplash.com/photo-1486299267070-83823f5448dd?w=800',
-      price: { amount: 2200, currency: 'GBP', formatted: '£22.00' },
-      duration: { formatted: '2.5 hours' },
-      rating: { average: 4.7, count: 654 },
-      location: { name: 'London, UK' },
-    },
-    {
-      id: '7',
-      title: 'British Museum Guided Tour',
-      slug: 'british-museum-guided-tour',
-      shortDescription: 'Explore world history with an expert guide at the British Museum.',
-      imageUrl: 'https://images.unsplash.com/photo-1590937286984-0eb6c40c6a7c?w=800',
-      price: { amount: 2800, currency: 'GBP', formatted: '£28.00' },
-      duration: { formatted: '2 hours' },
-      rating: { average: 4.8, count: 1123 },
-      location: { name: 'London, UK' },
-    },
-    {
-      id: '8',
-      title: 'Cotswolds Village Tour',
-      slug: 'cotswolds-village-tour',
-      shortDescription: 'Experience the charm of English countryside villages.',
-      imageUrl: 'https://images.unsplash.com/photo-1590523277543-a94d2e4eb00b?w=800',
-      price: { amount: 7500, currency: 'GBP', formatted: '£75.00' },
-      duration: { formatted: '9 hours' },
-      rating: { average: 4.7, count: 542 },
-      location: { name: 'Cotswolds, UK' },
-    },
-    {
-      id: '9',
-      title: 'Camden Market Food Tour',
-      slug: 'camden-market-food-tour',
-      shortDescription: "Taste your way through London's most eclectic market.",
-      imageUrl: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800',
-      price: { amount: 4500, currency: 'GBP', formatted: '£45.00' },
-      duration: { formatted: '3 hours' },
-      rating: { average: 4.8, count: 892 },
-      location: { name: 'London, UK' },
-    },
-    {
-      id: '10',
-      title: 'Windsor Castle Day Trip',
-      slug: 'windsor-castle-day-trip',
-      shortDescription: 'Visit the oldest and largest occupied castle in the world.',
-      imageUrl: 'https://images.unsplash.com/photo-1577043956968-61c2f3d6a3ea?w=800',
-      price: { amount: 5500, currency: 'GBP', formatted: '£55.00' },
-      duration: { formatted: '6 hours' },
-      rating: { average: 4.6, count: 1243 },
-      location: { name: 'Windsor, UK' },
-    },
-    {
-      id: '11',
-      title: 'Jack the Ripper Walking Tour',
-      slug: 'jack-the-ripper-walking-tour',
-      shortDescription: "Explore the dark history of Victorian London's most infamous murders.",
-      imageUrl: 'https://images.unsplash.com/photo-1491897554428-130a60dd4757?w=800',
-      price: { amount: 1500, currency: 'GBP', formatted: '£15.00' },
-      duration: { formatted: '2 hours' },
-      rating: { average: 4.5, count: 2156 },
-      location: { name: 'London, UK' },
-    },
-    {
-      id: '12',
-      title: 'Bath & Stonehenge Day Trip',
-      slug: 'bath-stonehenge-day-trip',
-      shortDescription: 'Visit two UNESCO World Heritage Sites in one unforgettable day.',
-      imageUrl: 'https://images.unsplash.com/photo-1580902394724-b08ff9ba7e8a?w=800',
-      price: { amount: 8900, currency: 'GBP', formatted: '£89.00' },
-      duration: { formatted: '11 hours' },
-      rating: { average: 4.7, count: 1567 },
-      location: { name: 'Bath, UK' },
-    },
-  ];
-}
+// No mock data - all data comes from Holibob API
 
 export default async function ExperiencesPage({ searchParams }: Props) {
   const headersList = await headers();
@@ -382,14 +247,8 @@ export default async function ExperiencesPage({ searchParams }: Props) {
   const site = await getSiteFromHostname(hostname);
   const resolvedSearchParams = await searchParams;
 
-  const {
-    experiences,
-    totalCount,
-    isUsingMockData,
-    apiError,
-    recommendedTags,
-    recommendedSearchTerms,
-  } = await getExperiences(site, resolvedSearchParams);
+  const { experiences, totalCount, apiError, recommendedTags, recommendedSearchTerms } =
+    await getExperiences(site, resolvedSearchParams);
 
   const currentPage = parseInt(resolvedSearchParams.page ?? '1', 10);
   const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
@@ -435,24 +294,20 @@ export default async function ExperiencesPage({ searchParams }: Props) {
       <BreadcrumbSchema items={breadcrumbs} />
 
       <div className="min-h-screen bg-gray-50">
-        {/* Demo Mode Warning Banner */}
-        {isUsingMockData && (
-          <div className="border-b border-amber-200 bg-amber-50">
+        {/* API Error Banner - only shown in development */}
+        {apiError && process.env.NODE_ENV !== 'production' && (
+          <div className="border-b border-red-200 bg-red-50">
             <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6 lg:px-8">
-              <div className="flex items-center gap-2 text-sm text-amber-800">
+              <div className="flex items-center gap-2 text-sm text-red-800">
                 <svg className="h-5 w-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                   <path
                     fillRule="evenodd"
-                    d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z"
                     clipRule="evenodd"
                   />
                 </svg>
                 <span>
-                  <strong>Demo Mode:</strong> Showing sample experiences. Connect to Holibob API for
-                  live inventory.
-                  {apiError && process.env.NODE_ENV !== 'production' && (
-                    <span className="ml-2 text-amber-600">Error: {apiError}</span>
-                  )}
+                  <strong>API Error:</strong> {apiError}
                 </span>
               </div>
             </div>

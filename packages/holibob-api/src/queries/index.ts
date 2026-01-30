@@ -78,6 +78,12 @@ export const PRODUCT_DETAIL_QUERY = gql`
       importantInfo
       duration
       durationText
+      # Review/Rating fields (if available in Holibob API)
+      reviewRating
+      reviewCount
+      # Best seller and instant confirmation flags
+      isBestSeller
+      hasInstantConfirmation
       location {
         name
         address
