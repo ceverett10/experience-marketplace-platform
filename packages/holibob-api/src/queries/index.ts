@@ -12,21 +12,25 @@ import { gql } from 'graphql-request';
 export const PRODUCT_LIST_QUERY = gql`
   query ProductDiscovery($input: ProductDiscoveryInput!) {
     productDiscovery(input: $input) {
-      destination {
+      selectedDestination {
         id
         name
       }
       recommendedTagList {
-        id
-        name
-      }
-      recommendedSearchTermList
-      recommendedProductList(pageSize: 20) {
-        totalRecords
         nodes {
           id
           name
-          description
+        }
+      }
+      recommendedSearchTermList {
+        nodes {
+          searchTerm
+        }
+      }
+      recommendedProductList(count: 20) {
+        nodes {
+          id
+          name
         }
       }
     }

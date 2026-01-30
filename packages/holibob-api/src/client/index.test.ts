@@ -62,14 +62,12 @@ describe('HolibobClient', () => {
         {
           id: 'prod-1',
           name: 'Test Experience',
-          description: 'A test experience',
         },
       ];
       const mockResponse = {
         productDiscovery: {
           recommendedProductList: {
             nodes: mockNodes,
-            totalRecords: 1,
           },
         },
       };
@@ -91,7 +89,6 @@ describe('HolibobClient', () => {
         productDiscovery: {
           recommendedProductList: {
             nodes: [],
-            totalRecords: 0,
           },
         },
       };
@@ -107,11 +104,11 @@ describe('HolibobClient', () => {
     });
 
     it('should support pagination', async () => {
+      const mockNodes = Array(10).fill({ id: 'prod', name: 'Test' });
       const mockResponse = {
         productDiscovery: {
           recommendedProductList: {
-            nodes: [],
-            totalRecords: 100,
+            nodes: mockNodes,
           },
         },
       };
@@ -124,7 +121,7 @@ describe('HolibobClient', () => {
       );
 
       // Pagination is simplified - handled client-side
-      expect(result.totalCount).toBe(100);
+      expect(result.totalCount).toBe(10);
     });
   });
 
@@ -798,10 +795,7 @@ describe('HolibobClient - Product Filter Mapping', () => {
       productDiscovery: {
         recommendedProductList: {
           nodes: [],
-          totalRecords: 0,
-
-          nextPage: null,
-        },
+                  },
       },
     });
 
@@ -819,10 +813,7 @@ describe('HolibobClient - Product Filter Mapping', () => {
       productDiscovery: {
         recommendedProductList: {
           nodes: [],
-          totalRecords: 0,
-
-          nextPage: null,
-        },
+                  },
       },
     });
 
@@ -838,10 +829,7 @@ describe('HolibobClient - Product Filter Mapping', () => {
       productDiscovery: {
         recommendedProductList: {
           nodes: [],
-          totalRecords: 0,
-
-          nextPage: null,
-        },
+                  },
       },
     });
 
@@ -858,10 +846,7 @@ describe('HolibobClient - Product Filter Mapping', () => {
       productDiscovery: {
         recommendedProductList: {
           nodes: [],
-          totalRecords: 0,
-
-          nextPage: null,
-        },
+                  },
       },
     });
 

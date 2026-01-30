@@ -130,12 +130,11 @@ export class HolibobClient {
 
     const response = await this.executeQuery<{
       productDiscovery: {
-        destination?: { id: string; name: string };
-        recommendedTagList?: Array<{ id: string; name: string }>;
-        recommendedSearchTermList?: string[];
+        selectedDestination?: { id: string; name: string };
+        recommendedTagList?: { nodes: Array<{ id: string; name: string }> };
+        recommendedSearchTermList?: { nodes: Array<{ searchTerm: string }> };
         recommendedProductList: {
           nodes: Product[];
-          totalRecords: number;
         };
       };
     }>(PRODUCT_LIST_QUERY, variables);
@@ -150,7 +149,7 @@ export class HolibobClient {
         startCursor: undefined,
         endCursor: undefined,
       },
-      totalCount: productList.totalRecords,
+      totalCount: productList.nodes.length,
     };
   }
 
