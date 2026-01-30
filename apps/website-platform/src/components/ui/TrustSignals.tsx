@@ -23,8 +23,8 @@ function Stat({ value, label, icon }: StatProps) {
 }
 
 export function TrustSignals({ className = '' }: TrustSignalProps) {
-  const brand = useBrand();
-  const primaryColor = brand?.primaryColor ?? '#0F766E';
+  // Brand context available for future customization
+  const _brand = useBrand();
 
   return (
     <section className={`py-12 ${className}`}>

@@ -1,5 +1,5 @@
 import { GraphQLClient, type RequestMiddleware } from 'graphql-request';
-import { createHmac, createHash } from 'crypto';
+import { createHmac } from 'crypto';
 import {
   type HolibobClientConfig,
   type Product,
@@ -122,7 +122,7 @@ export class HolibobClient {
    */
   async discoverProducts(
     filter: ProductFilter,
-    pagination?: { page?: number; pageSize?: number }
+    _pagination?: { page?: number; pageSize?: number }
   ): Promise<ProductListResponse> {
     const variables = {
       input: this.mapProductDiscoveryInput(filter),
@@ -579,7 +579,7 @@ export class HolibobClient {
     productId: string,
     dateFrom: string,
     dateTo: string,
-    guests?: { adults?: number; children?: number }
+    _guests?: { adults?: number; children?: number }
   ) {
     // Map to new availability flow
     const result = await this.discoverAvailability(productId, dateFrom, dateTo);
