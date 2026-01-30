@@ -6,12 +6,19 @@ import { gql } from 'graphql-request';
 
 /**
  * Step 1: Discover Products using Product Discovery API
- * Input: where (freeText location), when (dates), who (travelers), what (search/filters)
+ * Arguments: where (freeText location), when (dates), who (travelers), what (search/filters)
  * Output: destination, recommendedTagList, recommendedSearchTermList, recommendedProductList
+ *
+ * Note: The API uses separate arguments, NOT a single input object
  */
 export const PRODUCT_LIST_QUERY = gql`
-  query ProductDiscovery($input: ProductDiscoveryInput!) {
-    productDiscovery(input: $input) {
+  query ProductDiscovery(
+    $where: ProductDiscoveryWhere
+    $when: ProductDiscoveryWhen
+    $who: ProductDiscoveryWho
+    $what: ProductDiscoveryWhat
+  ) {
+    productDiscovery(where: $where, when: $when, who: $who, what: $what) {
       selectedDestination {
         id
         name

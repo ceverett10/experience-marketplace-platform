@@ -127,9 +127,8 @@ export class HolibobClient {
     filter: ProductFilter,
     _pagination?: { page?: number; pageSize?: number }
   ): Promise<ProductListResponse> {
-    const variables = {
-      input: this.mapProductDiscoveryInput(filter),
-    };
+    // API uses separate arguments (where, when, who, what), not a single input object
+    const variables = this.mapProductDiscoveryInput(filter);
 
     // Step 1: Get recommended product IDs from Product Discovery
     const response = await this.executeQuery<{
