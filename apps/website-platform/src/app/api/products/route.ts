@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch products from Holibob
-    const response = await client.discoverProducts(filter, { first });
+    const response = await client.discoverProducts(filter, { pageSize: first });
 
     // Map to our format
     const products = response.products.map((product) => ({

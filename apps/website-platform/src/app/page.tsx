@@ -20,7 +20,7 @@ async function getFeaturedExperiences(
         currency: 'GBP',
         // In production, filter by partner's configured locations/categories
       },
-      { first: 8 }
+      { pageSize: 8 }
     );
 
     // Map to our experience format

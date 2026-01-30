@@ -119,7 +119,7 @@ describe('HolibobClient', () => {
 
       const result = await client.discoverProducts(
         { placeIds: ['place-1'] },
-        { first: 10, after: 'cursor-xyz' }
+        { page: 2, pageSize: 10 }
       );
 
       expect(result.pageInfo.endCursor).toBe('cursor-abc');

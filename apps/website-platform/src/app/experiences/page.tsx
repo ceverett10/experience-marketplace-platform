@@ -68,7 +68,7 @@ async function getExperiences(
         adults: searchParams.guests ? parseInt(searchParams.guests, 10) : 2,
         dateFrom: searchParams.date,
       },
-      { first: ITEMS_PER_PAGE }
+      { pageSize: ITEMS_PER_PAGE }
     );
 
     const experiences = response.products.map((product) => {
