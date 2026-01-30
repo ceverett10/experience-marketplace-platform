@@ -48,8 +48,9 @@ export const PRODUCT_LIST_QUERY = gql`
  * Step 2: Display Product Details
  * Retrieve detailed product information
  *
- * NOTE: Start with minimal fields and add more as we confirm they exist.
- * guidePrice/guidePriceFormattedText may only be available via availabilityList.
+ * NOTE: Using absolute minimum fields to diagnose API schema.
+ * Fields that DON'T work: location, imageList.nodes, duration, durationText,
+ * highlights, inclusions, exclusions, importantInfo, cancellationPolicy
  */
 export const PRODUCT_DETAIL_QUERY = gql`
   query Product($id: ID!) {
@@ -58,34 +59,6 @@ export const PRODUCT_DETAIL_QUERY = gql`
       name
       description
       shortDescription
-      imageList {
-        nodes {
-          id
-          url
-        }
-      }
-      categoryList {
-        nodes {
-          id
-          name
-        }
-      }
-      highlights
-      inclusions
-      exclusions
-      importantInfo
-      duration
-      durationText
-      location {
-        name
-        address
-        lat
-        lng
-      }
-      cancellationPolicy {
-        type
-        description
-      }
     }
   }
 `;
