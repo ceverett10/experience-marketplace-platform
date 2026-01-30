@@ -14,7 +14,7 @@ async function getFeaturedExperiences(
   try {
     const client = getHolibobClient(siteConfig);
 
-    // Get featured/popular experiences
+    // Get featured/popular experiences from Holibob Product Discovery API
     const response = await client.discoverProducts(
       {
         currency: 'GBP',
@@ -25,24 +25,42 @@ async function getFeaturedExperiences(
 
     // Map to our experience format
     return response.products.map((product) => {
+      // Get primary image from imageList (Product Detail API format)
+      const primaryImage =
+        product.imageList?.nodes?.[0]?.url ?? product.imageUrl ?? '/placeholder-experience.jpg';
+
+      // Get price - Product Detail API uses guidePrice, Product Discovery uses priceFrom
+      const priceAmount = product.guidePrice ?? product.priceFrom ?? 0;
+      const priceCurrency =
+        product.guidePriceCurrency ?? product.priceCurrency ?? product.currency ?? 'GBP';
+      const priceFormatted =
+        product.guidePriceFormattedText ??
+        product.priceFromFormatted ??
+        formatPrice(priceAmount, priceCurrency);
+
+      // Get duration - Product Detail API returns durationText as a string
+      const durationFormatted =
+        product.durationText ??
+        (product.duration ? formatDuration(product.duration, 'minutes') : 'Duration varies');
+
       return {
         id: product.id,
         title: product.name ?? 'Experience',
-        slug: product.id, // Using ID as slug since Product type doesn't have slug
+        slug: product.id,
         shortDescription: product.shortDescription ?? '',
-        imageUrl: product.imageUrl ?? '/placeholder-experience.jpg',
+        imageUrl: primaryImage,
         price: {
-          amount: product.priceFrom ?? 0,
-          currency: product.currency ?? 'GBP',
-          formatted: formatPrice(product.priceFrom ?? 0, product.currency ?? 'GBP'),
+          amount: priceAmount,
+          currency: priceCurrency,
+          formatted: priceFormatted,
         },
         duration: {
-          formatted: formatDuration(product.duration ?? 0, 'minutes'),
+          formatted: durationFormatted,
         },
         rating: product.rating
           ? {
               average: product.rating,
-              count: product.reviewCount ?? 0,
+              count: 0,
             }
           : null,
         location: {
@@ -52,8 +70,8 @@ async function getFeaturedExperiences(
     });
   } catch (error) {
     console.error('Error fetching featured experiences:', error);
-    // Return mock data in development or on error
-    return getMockExperiences();
+    // Return empty array - no mock data
+    return [];
   }
 }
 
@@ -80,99 +98,6 @@ function formatDuration(value: number, unit: string): string {
     return value === 1 ? '1 day' : `${value} days`;
   }
   return `${value} ${unit}`;
-}
-
-function getMockExperiences(): ExperienceListItem[] {
-  return [
-    {
-      id: '1',
-      title: 'London Eye Experience',
-      slug: 'london-eye-experience',
-      shortDescription: 'Take in breathtaking views of London from the iconic London Eye.',
-      imageUrl: 'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?w=800',
-      price: { amount: 3500, currency: 'GBP', formatted: '£35.00' },
-      duration: { formatted: '30 minutes' },
-      rating: { average: 4.7, count: 2453 },
-      location: { name: 'London, UK' },
-    },
-    {
-      id: '2',
-      title: 'Tower of London Tour',
-      slug: 'tower-of-london-tour',
-      shortDescription: 'Explore centuries of royal history at the Tower of London.',
-      imageUrl: 'https://images.unsplash.com/photo-1529655683826-aba9b3e77383?w=800',
-      price: { amount: 2900, currency: 'GBP', formatted: '£29.00' },
-      duration: { formatted: '3 hours' },
-      rating: { average: 4.8, count: 1876 },
-      location: { name: 'London, UK' },
-    },
-    {
-      id: '3',
-      title: 'Thames River Cruise',
-      slug: 'thames-river-cruise',
-      shortDescription: 'Glide along the Thames and see London landmarks from the water.',
-      imageUrl: 'https://images.unsplash.com/photo-1533929736458-ca588d08c8be?w=800',
-      price: { amount: 1800, currency: 'GBP', formatted: '£18.00' },
-      duration: { formatted: '1 hour' },
-      rating: { average: 4.5, count: 984 },
-      location: { name: 'London, UK' },
-    },
-    {
-      id: '4',
-      title: 'Stonehenge Day Trip',
-      slug: 'stonehenge-day-trip',
-      shortDescription: 'Visit the mysterious prehistoric monument of Stonehenge.',
-      imageUrl: 'https://images.unsplash.com/photo-1599833975787-5c143f373c30?w=800',
-      price: { amount: 6500, currency: 'GBP', formatted: '£65.00' },
-      duration: { formatted: '10 hours' },
-      rating: { average: 4.6, count: 756 },
-      location: { name: 'Wiltshire, UK' },
-    },
-    {
-      id: '5',
-      title: 'Harry Potter Studio Tour',
-      slug: 'harry-potter-studio-tour',
-      shortDescription: 'Step into the magical world of Harry Potter at Warner Bros. Studios.',
-      imageUrl: 'https://images.unsplash.com/photo-1551269901-5c5e14c25df7?w=800',
-      price: { amount: 5200, currency: 'GBP', formatted: '£52.00' },
-      duration: { formatted: '4 hours' },
-      rating: { average: 4.9, count: 3241 },
-      location: { name: 'Watford, UK' },
-    },
-    {
-      id: '6',
-      title: 'Westminster Walking Tour',
-      slug: 'westminster-walking-tour',
-      shortDescription: 'Discover the political heart of Britain on this guided walking tour.',
-      imageUrl: 'https://images.unsplash.com/photo-1486299267070-83823f5448dd?w=800',
-      price: { amount: 2200, currency: 'GBP', formatted: '£22.00' },
-      duration: { formatted: '2.5 hours' },
-      rating: { average: 4.7, count: 654 },
-      location: { name: 'London, UK' },
-    },
-    {
-      id: '7',
-      title: 'British Museum Guided Tour',
-      slug: 'british-museum-guided-tour',
-      shortDescription: 'Explore world history with an expert guide at the British Museum.',
-      imageUrl: 'https://images.unsplash.com/photo-1590937286984-0eb6c40c6a7c?w=800',
-      price: { amount: 2800, currency: 'GBP', formatted: '£28.00' },
-      duration: { formatted: '2 hours' },
-      rating: { average: 4.8, count: 1123 },
-      location: { name: 'London, UK' },
-    },
-    {
-      id: '8',
-      title: 'Cotswolds Village Tour',
-      slug: 'cotswolds-village-tour',
-      shortDescription: 'Experience the charm of English countryside villages.',
-      imageUrl: 'https://images.unsplash.com/photo-1590523277543-a94d2e4eb00b?w=800',
-      price: { amount: 7500, currency: 'GBP', formatted: '£75.00' },
-      duration: { formatted: '9 hours' },
-      rating: { average: 4.7, count: 542 },
-      location: { name: 'Cotswolds, UK' },
-    },
-  ];
 }
 
 export default async function HomePage() {
