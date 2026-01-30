@@ -1,5 +1,5 @@
 import { GraphQLClient, type RequestMiddleware } from 'graphql-request';
-import { createHmac } from 'crypto';
+import { createHmac, createHash } from 'crypto';
 import {
   type HolibobClientConfig,
   type Product,
@@ -89,21 +89,27 @@ export class HolibobClient {
   }
 
   /**
-   * Generate HMAC-SHA256 signature for request authentication
+   * Generate signature for Holibob API request authentication
+   *
+   * Holibob signature format:
+   * 1. Concatenate: Date + API-Key + Method + Path + Body
+   * 2. Hash with SHA1 algorithm
+   * 3. Base64 encode the result
    */
   private generateSignature(timestamp: string, body: string): string {
     if (!this.config.apiSecret) {
       throw new Error('API secret is required for signature generation');
     }
 
-    // Create signature payload: timestamp + body
-    const payload = `${timestamp}${body}`;
+    // Build payload: date + apiKey + method + path + body
+    // Method is always POST, path is always /graphql for GraphQL API
+    const payload = `${timestamp}${this.config.apiKey}POST/graphql${body}`;
 
-    // Generate HMAC-SHA256 signature
-    const hmac = createHmac('sha256', this.config.apiSecret);
+    // Generate HMAC-SHA1 signature with base64 encoding
+    const hmac = createHmac('sha1', this.config.apiSecret);
     hmac.update(payload);
 
-    return hmac.digest('hex');
+    return hmac.digest('base64');
   }
 
   // ==========================================================================
