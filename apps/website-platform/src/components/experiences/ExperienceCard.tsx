@@ -103,8 +103,21 @@ export function ExperienceCard({ experience, variant = 'default' }: ExperienceCa
             <span className="text-sm font-medium text-gray-900">
               {experience.rating.average.toFixed(1)}
             </span>
+            {experience.rating.count > 0 && (
+              <span className="text-xs text-gray-500">({experience.rating.count.toLocaleString()})</span>
+            )}
           </div>
         )}
+        {/* Wishlist Heart */}
+        <button
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-gray-500 backdrop-blur-sm transition-all hover:bg-white hover:text-rose-500 hover:scale-110"
+          aria-label="Add to wishlist"
+        >
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
+          </svg>
+        </button>
       </div>
 
       {/* Content */}
@@ -116,6 +129,27 @@ export function ExperienceCard({ experience, variant = 'default' }: ExperienceCa
         <p className="mt-2 flex-1 text-sm text-gray-600 line-clamp-2">
           {experience.shortDescription}
         </p>
+        {/* Star Rating with Review Count */}
+        {experience.rating && (
+          <div className="mt-2 flex items-center gap-1">
+            <div className="flex items-center gap-0.5">
+              {[...Array(5)].map((_, i) => (
+                <svg
+                  key={i}
+                  className={`h-3.5 w-3.5 ${i < Math.round(experience.rating!.average) ? 'text-yellow-400' : 'text-gray-200'}`}
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                </svg>
+              ))}
+            </div>
+            <span className="text-xs font-medium text-gray-700">{experience.rating.average.toFixed(1)}</span>
+            {experience.rating.count > 0 && (
+              <span className="text-xs text-gray-500">({experience.rating.count.toLocaleString()} reviews)</span>
+            )}
+          </div>
+        )}
         <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-4">
           <span className="text-sm text-gray-500">{experience.duration.formatted}</span>
           <span className="font-semibold" style={{ color: brand?.primaryColor ?? '#6366f1' }}>

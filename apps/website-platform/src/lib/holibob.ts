@@ -531,13 +531,16 @@ export function parseIsoDuration(duration: string | number | null | undefined): 
  * Format duration for display
  */
 export function formatDuration(value: number, unit: string): string {
+  if (value <= 0) {
+    return 'Flexible duration';
+  }
   if (unit === 'minutes') {
     if (value >= 60) {
       const hours = Math.floor(value / 60);
       const mins = value % 60;
-      return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+      return mins > 0 ? `${hours}h ${mins}m` : `${hours} ${hours === 1 ? 'hour' : 'hours'}`;
     }
-    return `${value}m`;
+    return `${value} min`;
   }
   if (unit === 'hours') {
     return value === 1 ? '1 hour' : `${value} hours`;

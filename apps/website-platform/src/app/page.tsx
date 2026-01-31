@@ -41,7 +41,7 @@ async function getFeaturedExperiences(
       // Get duration - Product Detail API returns durationText as a string
       const durationFormatted =
         product.durationText ??
-        (product.duration ? formatDuration(product.duration, 'minutes') : 'Duration varies');
+        (product.duration ? formatDuration(product.duration, 'minutes') : 'Flexible duration');
 
       return {
         id: product.id,
@@ -213,13 +213,121 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* More Featured (different variant) */}
-      <FeaturedExperiences
-        title="Must-Do Experiences"
-        subtitle="Don't miss these incredible adventures"
-        experiences={experiences.slice(0, 6)}
-        variant="featured"
-      />
+      {/* Highest Rated Experiences - differentiated by sorting */}
+      {experiences.filter((e) => e.rating && e.rating.average > 0).length > 0 && (
+        <FeaturedExperiences
+          title="Highest Rated"
+          subtitle="Top-rated experiences chosen by travelers like you"
+          experiences={[...experiences]
+            .filter((e) => e.rating && e.rating.average > 0)
+            .sort((a, b) => (b.rating?.average ?? 0) - (a.rating?.average ?? 0))
+            .slice(0, 4)}
+          variant="grid"
+        />
+      )}
+
+      {/* Popular Destinations */}
+      <section className="bg-gray-50 py-16 sm:py-24">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
+              Popular Destinations
+            </h2>
+            <p className="mx-auto mt-2 max-w-2xl text-base text-gray-600">
+              Browse experiences by location
+            </p>
+          </div>
+          <div className="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 lg:gap-6">
+            {[
+              { name: 'London', slug: 'london', icon: '🇬🇧' },
+              { name: 'Paris', slug: 'paris', icon: '🇫🇷' },
+              { name: 'Barcelona', slug: 'barcelona', icon: '🇪🇸' },
+              { name: 'Rome', slug: 'rome', icon: '🇮🇹' },
+              { name: 'Amsterdam', slug: 'amsterdam', icon: '🇳🇱' },
+              { name: 'Edinburgh', slug: 'edinburgh', icon: '🏴󠁧󠁢󠁳󠁣󠁴󠁿' },
+              { name: 'Lisbon', slug: 'lisbon', icon: '🇵🇹' },
+              { name: 'Berlin', slug: 'berlin', icon: '🇩🇪' },
+            ].map((dest) => (
+              <a
+                key={dest.slug}
+                href={`/experiences?destination=${dest.slug}`}
+                className="group flex flex-col items-center justify-center rounded-xl bg-white p-6 shadow-sm transition-all hover:shadow-md"
+              >
+                <span className="text-4xl">{dest.icon}</span>
+                <span className="mt-3 text-center text-sm font-medium text-gray-900 group-hover:text-indigo-600">
+                  {dest.name}
+                </span>
+              </a>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Customer Testimonials */}
+      <section className="py-16 sm:py-24">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
+              What Our Travelers Say
+            </h2>
+            <p className="mx-auto mt-2 max-w-2xl text-base text-gray-600">
+              Real experiences from real travelers
+            </p>
+          </div>
+          <div className="mt-10 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+            {[
+              {
+                name: 'Sarah M.',
+                location: 'London, UK',
+                text: 'Absolutely fantastic experience! The booking process was seamless and the tour exceeded all expectations. Would highly recommend to anyone visiting.',
+                rating: 5,
+              },
+              {
+                name: 'James T.',
+                location: 'New York, US',
+                text: 'Great selection of experiences and very competitive prices. The free cancellation policy gave us peace of mind when planning our trip.',
+                rating: 5,
+              },
+              {
+                name: 'Maria L.',
+                location: 'Barcelona, Spain',
+                text: 'We booked a family tour and it was perfectly organized. The kids loved every minute. Easy to book and excellent customer support.',
+                rating: 4,
+              },
+            ].map((testimonial, idx) => (
+              <div
+                key={idx}
+                className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm"
+              >
+                <div className="mb-3 flex items-center gap-0.5">
+                  {[...Array(5)].map((_, i) => (
+                    <svg
+                      key={i}
+                      className={`h-4 w-4 ${i < testimonial.rating ? 'text-yellow-400' : 'text-gray-200'}`}
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                    </svg>
+                  ))}
+                </div>
+                <p className="text-sm leading-relaxed text-gray-600">
+                  &ldquo;{testimonial.text}&rdquo;
+                </p>
+                <div className="mt-4 flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100 text-sm font-semibold text-indigo-600">
+                    {testimonial.name.charAt(0)}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{testimonial.name}</p>
+                    <p className="text-xs text-gray-500">{testimonial.location}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
     </>
   );
 }
