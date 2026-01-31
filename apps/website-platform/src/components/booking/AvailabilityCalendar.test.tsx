@@ -84,7 +84,11 @@ describe('AvailabilityCalendar', () => {
       />
     );
 
-    expect(screen.getByText('Sun')).toBeInTheDocument();
+    // Wait for loading to complete
+    await waitFor(() => {
+      expect(screen.getByText('Sun')).toBeInTheDocument();
+    });
+
     expect(screen.getByText('Mon')).toBeInTheDocument();
     expect(screen.getByText('Tue')).toBeInTheDocument();
     expect(screen.getByText('Wed')).toBeInTheDocument();
@@ -117,7 +121,7 @@ describe('AvailabilityCalendar', () => {
     // Make fetch hang
     mockFetch.mockImplementation(() => new Promise(() => {}));
 
-    renderWithProvider(
+    const { container } = renderWithProvider(
       <AvailabilityCalendar
         productId="test-product"
         selectedDate={null}
@@ -128,9 +132,10 @@ describe('AvailabilityCalendar', () => {
     );
 
     // Should show loading spinner
-    expect(
-      screen.getByRole('img', { hidden: true }) || document.querySelector('.animate-spin')
-    ).toBeTruthy();
+    await waitFor(() => {
+      const spinner = container.querySelector('.animate-spin');
+      expect(spinner).toBeInTheDocument();
+    });
   });
 
   it('shows error message on fetch failure', async () => {
@@ -162,12 +167,26 @@ describe('AvailabilityCalendar', () => {
       />
     );
 
+    // Wait for initial load to complete
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalled();
+      expect(screen.queryByText('Sun')).toBeInTheDocument();
+    });
+
+    // Get current month text
+    const currentMonthText = new Date().toLocaleDateString('en-GB', {
+      month: 'long',
+      year: 'numeric',
+    });
+    expect(screen.getByText(currentMonthText)).toBeInTheDocument();
+
     const nextButton = screen.getByLabelText('Next month');
     fireEvent.click(nextButton);
 
     await waitFor(() => {
-      const nextMonth = new Date();
-      nextMonth.setMonth(nextMonth.getMonth() + 1);
+      // Calculate next month correctly (avoid date overflow issues)
+      const today = new Date();
+      const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
       const expectedMonthText = nextMonth.toLocaleDateString('en-GB', {
         month: 'long',
         year: 'numeric',
@@ -177,8 +196,30 @@ describe('AvailabilityCalendar', () => {
   });
 
   it('calls onDateSelect when date is clicked', async () => {
-    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    const tomorrowStr = tomorrow.toISOString().split('T')[0] ?? '';
+    // Use a date that's in the future (7 days from now)
+    const futureDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const futureDateStr = futureDate.toISOString().split('T')[0] ?? '';
+
+    // Override mock for this test to include the future date
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          data: {
+            options: [
+              {
+                id: 'slot-1',
+                name: 'Morning Tour',
+                date: futureDateStr,
+                startTime: '09:00',
+                price: 3500,
+                currency: 'GBP',
+                remainingCapacity: 10,
+              },
+            ],
+          },
+        }),
+    });
 
     renderWithProvider(
       <AvailabilityCalendar
@@ -190,20 +231,38 @@ describe('AvailabilityCalendar', () => {
       />
     );
 
+    // Wait for loading to complete and calendar to render
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalled();
+      expect(screen.queryByText('Sun')).toBeInTheDocument();
     });
 
+    // If the future date is in a different month, navigate to it
+    const currentMonth = new Date().getMonth();
+    const futureMonth = futureDate.getMonth();
+    if (futureMonth !== currentMonth) {
+      const nextButton = screen.getByLabelText('Next month');
+      fireEvent.click(nextButton);
+      // Wait for calendar to update
+      await waitFor(() => {
+        const expectedMonthText = futureDate.toLocaleDateString('en-GB', {
+          month: 'long',
+          year: 'numeric',
+        });
+        expect(screen.getByText(expectedMonthText)).toBeInTheDocument();
+      });
+    }
+
     // Find and click the date button
-    const dateButton = screen.getByLabelText(
+    const dateButton = await screen.findByLabelText(
       new RegExp(
-        `${tomorrow.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}.*Available`,
+        `${futureDate.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}.*Available`,
         'i'
       )
     );
     fireEvent.click(dateButton);
 
-    expect(mockOnDateSelect).toHaveBeenCalledWith(tomorrowStr);
+    expect(mockOnDateSelect).toHaveBeenCalledWith(futureDateStr);
     expect(mockOnTimeSlotSelect).toHaveBeenCalledWith(null);
   });
 
