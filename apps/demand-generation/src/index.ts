@@ -1,133 +1,270 @@
 /**
- * Demand Generation Service
+ * Demand Generation Service - Background Worker
  *
- * Background worker service for:
+ * Autonomous background worker service for:
  * - SEO opportunity identification
- * - Content generation
- * - Search trend monitoring
+ * - Content generation and optimization
+ * - Google Search Console data sync
  * - Performance analytics
+ * - A/B test management
  */
 
-import { Queue, Worker, Job } from 'bullmq';
-import IORedis from 'ioredis';
+import { Worker, Job } from 'bullmq';
+import {
+  createRedisConnection,
+  QUEUE_NAMES,
+  initializeScheduledJobs,
+  getScheduledJobs,
+  handleContentGenerate,
+  handleContentOptimize,
+  handleContentReview,
+  handleGscSync,
+  handleOpportunityScan,
+} from '@experience-marketplace/jobs';
+import type { JobType } from '@experience-marketplace/database';
 
 // Environment configuration
-const REDIS_URL = process.env['REDIS_URL'] || 'redis://localhost:6379';
 const PORT = process.env['PORT'] || 3002;
+const NODE_ENV = process.env['NODE_ENV'] || 'development';
 
-// Redis connection for BullMQ
-const connection = new IORedis(REDIS_URL, {
-  maxRetriesPerRequest: null,
-});
+console.log(`
+╔═══════════════════════════════════════════════════════════╗
+║  🚀 Demand Generation Service                             ║
+║  Autonomous Background Worker for Content & SEO           ║
+╚═══════════════════════════════════════════════════════════╝
+`);
 
-// Queue definitions
-export const seoAnalysisQueue = new Queue('seo-analysis', { connection });
-export const contentGenerationQueue = new Queue('content-generation', { connection });
-export const trendMonitoringQueue = new Queue('trend-monitoring', { connection });
+console.log(`Environment: ${NODE_ENV}`);
+console.log(`Port: ${PORT}`);
 
-// Job types
-export interface SEOAnalysisJob {
-  siteId: string;
-  targetKeywords?: string[];
-  competitorUrls?: string[];
-}
+// Initialize Redis connection
+const connection = createRedisConnection();
 
-export interface ContentGenerationJob {
-  siteId: string;
-  opportunityId: string;
-  contentType: 'destination' | 'experience' | 'category' | 'blog';
-  targetKeyword: string;
-}
-
-export interface TrendMonitoringJob {
-  siteId: string;
-  region?: string;
-  categories?: string[];
-}
-
-// Worker: SEO Analysis
-const seoWorker = new Worker<SEOAnalysisJob>(
-  'seo-analysis',
-  async (job: Job<SEOAnalysisJob>) => {
-    console.log(`[SEO Analysis] Processing job ${job.id} for site ${job.data.siteId}`);
-
-    // TODO: Implement SEO analysis logic
-    // 1. Fetch current site rankings
-    // 2. Analyze competitor positions
-    // 3. Identify keyword opportunities
-    // 4. Generate SEO recommendations
-
-    return { status: 'completed', opportunities: [] };
+// Worker configuration
+const workerOptions = {
+  connection,
+  concurrency: 5,
+  limiter: {
+    max: 10,
+    duration: 1000,
   },
-  { connection }
+};
+
+/**
+ * Content Queue Worker
+ * Handles: CONTENT_GENERATE, CONTENT_OPTIMIZE, CONTENT_REVIEW
+ */
+const contentWorker = new Worker(
+  QUEUE_NAMES.CONTENT,
+  async (job: Job) => {
+    console.log(`[Content Worker] Processing ${job.name} job ${job.id}`);
+
+    switch (job.name as JobType) {
+      case 'CONTENT_GENERATE':
+        return await handleContentGenerate(job);
+      case 'CONTENT_OPTIMIZE':
+        return await handleContentOptimize(job);
+      case 'CONTENT_REVIEW':
+        return await handleContentReview(job);
+      default:
+        throw new Error(`Unknown job type: ${job.name}`);
+    }
+  },
+  workerOptions
 );
 
-// Worker: Content Generation
-const contentWorker = new Worker<ContentGenerationJob>(
-  'content-generation',
-  async (job: Job<ContentGenerationJob>) => {
-    console.log(
-      `[Content Generation] Processing job ${job.id} for opportunity ${job.data.opportunityId}`
-    );
+/**
+ * SEO Queue Worker
+ * Handles: SEO_ANALYZE, SEO_OPPORTUNITY_SCAN
+ */
+const seoWorker = new Worker(
+  QUEUE_NAMES.SEO,
+  async (job: Job) => {
+    console.log(`[SEO Worker] Processing ${job.name} job ${job.id}`);
 
-    // TODO: Implement content generation logic
-    // 1. Fetch opportunity details
-    // 2. Get relevant Holibob products
-    // 3. Generate optimized content via LLM
-    // 4. Store generated content
-
-    return { status: 'completed', contentId: null };
+    switch (job.name as JobType) {
+      case 'SEO_ANALYZE':
+        console.log('[SEO Worker] SEO analysis not yet implemented');
+        return { success: true, message: 'SEO analysis placeholder', timestamp: new Date() };
+      case 'SEO_OPPORTUNITY_SCAN':
+        return await handleOpportunityScan(job);
+      default:
+        throw new Error(`Unknown job type: ${job.name}`);
+    }
   },
-  { connection }
+  workerOptions
 );
 
-// Worker: Trend Monitoring
-const trendWorker = new Worker<TrendMonitoringJob>(
-  'trend-monitoring',
-  async (job: Job<TrendMonitoringJob>) => {
-    console.log(`[Trend Monitoring] Processing job ${job.id} for site ${job.data.siteId}`);
+/**
+ * GSC Queue Worker
+ * Handles: GSC_SYNC
+ */
+const gscWorker = new Worker(
+  QUEUE_NAMES.GSC,
+  async (job: Job) => {
+    console.log(`[GSC Worker] Processing ${job.name} job ${job.id}`);
 
-    // TODO: Implement trend monitoring logic
-    // 1. Fetch search trends from APIs
-    // 2. Analyze seasonal patterns
-    // 3. Identify emerging opportunities
-    // 4. Update opportunity scores
-
-    return { status: 'completed', trends: [] };
+    switch (job.name as JobType) {
+      case 'GSC_SYNC':
+        return await handleGscSync(job);
+      default:
+        throw new Error(`Unknown job type: ${job.name}`);
+    }
   },
-  { connection }
+  workerOptions
 );
 
-// Error handling
-seoWorker.on('failed', (job, err) => {
-  console.error(`[SEO Analysis] Job ${job?.id} failed:`, err);
+/**
+ * Site Management Queue Worker
+ * Handles: SITE_CREATE, SITE_DEPLOY
+ */
+const siteWorker = new Worker(
+  QUEUE_NAMES.SITE,
+  async (job: Job) => {
+    console.log(`[Site Worker] Processing ${job.name} job ${job.id}`);
+
+    switch (job.name as JobType) {
+      case 'SITE_CREATE':
+        console.log('[Site Worker] Site creation not yet implemented');
+        return { success: true, message: 'Site creation placeholder', timestamp: new Date() };
+      case 'SITE_DEPLOY':
+        console.log('[Site Worker] Site deployment not yet implemented');
+        return { success: true, message: 'Site deployment placeholder', timestamp: new Date() };
+      default:
+        throw new Error(`Unknown job type: ${job.name}`);
+    }
+  },
+  workerOptions
+);
+
+/**
+ * Domain Management Queue Worker
+ * Handles: DOMAIN_REGISTER, DOMAIN_VERIFY, SSL_PROVISION
+ */
+const domainWorker = new Worker(
+  QUEUE_NAMES.DOMAIN,
+  async (job: Job) => {
+    console.log(`[Domain Worker] Processing ${job.name} job ${job.id}`);
+
+    // Placeholder implementations
+    console.log(`[Domain Worker] ${job.name} not yet implemented`);
+    return { success: true, message: `${job.name} placeholder`, timestamp: new Date() };
+  },
+  workerOptions
+);
+
+/**
+ * Analytics Queue Worker
+ * Handles: METRICS_AGGREGATE, PERFORMANCE_REPORT
+ */
+const analyticsWorker = new Worker(
+  QUEUE_NAMES.ANALYTICS,
+  async (job: Job) => {
+    console.log(`[Analytics Worker] Processing ${job.name} job ${job.id}`);
+
+    // Placeholder implementations
+    console.log(`[Analytics Worker] ${job.name} not yet implemented`);
+    return { success: true, message: `${job.name} placeholder`, timestamp: new Date() };
+  },
+  workerOptions
+);
+
+/**
+ * A/B Testing Queue Worker
+ * Handles: ABTEST_ANALYZE, ABTEST_REBALANCE
+ */
+const abtestWorker = new Worker(
+  QUEUE_NAMES.ABTEST,
+  async (job: Job) => {
+    console.log(`[A/B Test Worker] Processing ${job.name} job ${job.id}`);
+
+    // Placeholder implementations
+    console.log(`[A/B Test Worker] ${job.name} not yet implemented`);
+    return { success: true, message: `${job.name} placeholder`, timestamp: new Date() };
+  },
+  workerOptions
+);
+
+// Worker event handlers
+const workers = [
+  contentWorker,
+  seoWorker,
+  gscWorker,
+  siteWorker,
+  domainWorker,
+  analyticsWorker,
+  abtestWorker,
+];
+
+workers.forEach((worker) => {
+  worker.on('completed', (job) => {
+    console.log(`✓ Job ${job.id} (${job.name}) completed successfully`);
+  });
+
+  worker.on('failed', (job, err) => {
+    console.error(`✗ Job ${job?.id} (${job?.name}) failed:`, err.message);
+  });
+
+  worker.on('error', (err) => {
+    console.error(`Worker error:`, err);
+  });
 });
 
-contentWorker.on('failed', (job, err) => {
-  console.error(`[Content Generation] Job ${job?.id} failed:`, err);
-});
+// Initialize scheduled jobs
+async function setupScheduledJobs() {
+  try {
+    await initializeScheduledJobs();
+    console.log('\n✓ Scheduled jobs initialized\n');
 
-trendWorker.on('failed', (job, err) => {
-  console.error(`[Trend Monitoring] Job ${job?.id} failed:`, err);
-});
+    // Log schedule
+    const schedule = getScheduledJobs();
+    console.log('📅 Job Schedule:');
+    schedule.forEach((job) => {
+      console.log(`   ${job.jobType.padEnd(25)} ${job.schedule.padEnd(15)} ${job.description}`);
+    });
+    console.log('');
+  } catch (error) {
+    console.error('Failed to initialize scheduled jobs:', error);
+  }
+}
 
 // Graceful shutdown
-async function shutdown() {
-  console.log('Shutting down workers...');
-  await Promise.all([seoWorker.close(), contentWorker.close(), trendWorker.close()]);
-  await connection.quit();
-  process.exit(0);
+async function shutdown(signal: string) {
+  console.log(`\n${signal} received, shutting down gracefully...`);
+
+  try {
+    await Promise.all(workers.map((w) => w.close()));
+    await connection.quit();
+    console.log('✓ All workers closed');
+    process.exit(0);
+  } catch (error) {
+    console.error('Error during shutdown:', error);
+    process.exit(1);
+  }
 }
 
-process.on('SIGTERM', shutdown);
-process.on('SIGINT', shutdown);
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
 
-// Service startup
-console.log('🚀 Demand Generation Service started');
-console.log(`📊 Connected to Redis: ${REDIS_URL}`);
+// Startup
 console.log('Workers initialized:');
-console.log('  - SEO Analysis');
-console.log('  - Content Generation');
-console.log('  - Trend Monitoring');
+console.log('  ✓ Content Worker (content generation, optimization, review)');
+console.log('  ✓ SEO Worker (opportunity scan, SEO analysis)');
+console.log('  ✓ GSC Worker (Google Search Console sync)');
+console.log('  ✓ Site Worker (site creation, deployment)');
+console.log('  ✓ Domain Worker (domain registration, verification, SSL)');
+console.log('  ✓ Analytics Worker (metrics aggregation, reports)');
+console.log('  ✓ A/B Test Worker (test analysis, rebalancing)');
+console.log('');
 
-export { seoWorker, contentWorker, trendWorker };
+// Set up scheduled jobs after a short delay to ensure workers are ready
+setTimeout(() => {
+  setupScheduledJobs().catch(console.error);
+}, 2000);
+
+console.log('🎯 Demand Generation Service is running and ready to process jobs\n');
+
+// Keep the process alive
+process.stdin.resume();
+
+export { contentWorker, seoWorker, gscWorker, siteWorker, domainWorker, analyticsWorker, abtestWorker };

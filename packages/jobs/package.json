@@ -1,42 +1,35 @@
 {
-  "name": "@experience-marketplace/demand-generation",
+  "name": "@experience-marketplace/jobs",
   "version": "0.1.0",
   "private": true,
-  "description": "Demand Generation Service - SEO opportunity identification and content generation",
+  "description": "Background job queue system for autonomous operations",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
-    "dev": "tsx watch src/index.ts",
-    "start": "node dist/index.js",
+    "dev": "tsc --watch",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
     "typecheck": "tsc --noEmit",
-    "clean": "rm -rf dist coverage"
+    "clean": "rm -rf dist"
   },
   "dependencies": {
     "@experience-marketplace/database": "*",
-    "@experience-marketplace/jobs": "*",
     "@experience-marketplace/shared": "*",
-    "@experience-marketplace/holibob-api": "*",
     "@experience-marketplace/content-engine": "*",
+    "@experience-marketplace/holibob-api": "*",
     "bullmq": "^5.1.0",
-    "date-fns": "^3.0.0",
     "ioredis": "^5.3.0",
-    "openai": "^4.20.0",
     "zod": "^3.22.0"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
     "@typescript-eslint/eslint-plugin": "^6.13.0",
     "@typescript-eslint/parser": "^6.13.0",
-    "@vitest/coverage-v8": "^1.0.0",
     "eslint": "^8.55.0",
     "eslint-config-prettier": "^9.1.0",
-    "tsx": "^4.6.0",
     "typescript": "^5.3.0",
     "vitest": "^1.0.0"
   }
