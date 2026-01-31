@@ -250,6 +250,17 @@ export function AvailabilityModal({
   // Calculate total guests
   const totalGuests = Object.values(categoryUnits).reduce((sum, units) => sum + units, 0);
 
+  // Format option/category labels to be user-friendly
+  const formatLabel = (label: string): string => {
+    // Transform "6 PAX" -> "Group of 6"
+    const paxMatch = label.match(/^(\d+)\s*PAX$/i);
+    if (paxMatch?.[1]) return `Group of ${paxMatch[1]}`;
+    // Transform "N pax" variations
+    const paxMatch2 = label.match(/^(\d+)\s*pax$/i);
+    if (paxMatch2?.[1]) return `Group of ${paxMatch2[1]}`;
+    return label;
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -410,17 +421,17 @@ export function AvailabilityModal({
                 .map((option) => (
                   <div key={option.id}>
                     <label className="block text-sm font-medium text-gray-700">
-                      {option.label}
+                      {formatLabel(option.label)}
                     </label>
                     <select
                       value={optionSelections[option.id] ?? ''}
                       onChange={(e) => handleOptionChange(option.id, e.target.value)}
                       className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
                     >
-                      <option value="">Select {option.label.toLowerCase()}</option>
+                      <option value="">Select {formatLabel(option.label).toLowerCase()}</option>
                       {option.availableOptions?.map((opt) => (
                         <option key={opt.value} value={opt.value}>
-                          {opt.label}
+                          {formatLabel(opt.label)}
                         </option>
                       ))}
                     </select>
@@ -444,7 +455,7 @@ export function AvailabilityModal({
                   className="flex items-center justify-between rounded-xl border border-gray-200 p-4"
                 >
                   <div>
-                    <p className="font-medium text-gray-900">{category.label}</p>
+                    <p className="font-medium text-gray-900">{formatLabel(category.label)}</p>
                     <p className="text-sm text-gray-500">
                       {category.unitPrice.grossFormattedText} per person
                     </p>
@@ -511,7 +522,7 @@ export function AvailabilityModal({
               {step === 'pricing' && totalPrice && (
                 <div>
                   <p className="text-sm text-gray-500">
-                    {totalGuests} guest{totalGuests !== 1 ? 's' : ''}
+                    {totalGuests} {totalGuests === 1 ? 'guest' : 'guests'}
                   </p>
                   <p className="text-lg font-bold" style={{ color: primaryColor }}>
                     {totalPrice.formatted}

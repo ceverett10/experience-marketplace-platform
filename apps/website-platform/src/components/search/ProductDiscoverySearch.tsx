@@ -847,7 +847,9 @@ export function ProductDiscoverySearch({
             }`}
           >
             <span className="block text-xs font-semibold text-gray-800">Where</span>
-            <span className="block truncate text-sm text-gray-500">{where || 'Anywhere'}</span>
+            <span className="block truncate text-sm text-gray-500">
+              {where || 'Search destinations...'}
+            </span>
           </button>
 
           <div className="h-8 w-px bg-gray-200" />
@@ -861,7 +863,7 @@ export function ProductDiscoverySearch({
             }`}
           >
             <span className="block text-xs font-semibold text-gray-800">When</span>
-            <span className="block truncate text-sm text-gray-500">{when || 'Anytime'}</span>
+            <span className="block truncate text-sm text-gray-500">{when || 'Pick a date'}</span>
           </button>
 
           <div className="h-8 w-px bg-gray-200" />
@@ -875,7 +877,7 @@ export function ProductDiscoverySearch({
             }`}
           >
             <span className="block text-xs font-semibold text-gray-800">Who</span>
-            <span className="block truncate text-sm text-gray-500">{who || 'Anyone'}</span>
+            <span className="block truncate text-sm text-gray-500">{who || 'Add guests'}</span>
           </button>
 
           <div className="h-8 w-px bg-gray-200" />
@@ -889,7 +891,9 @@ export function ProductDiscoverySearch({
             }`}
           >
             <span className="block text-xs font-semibold text-gray-800">What</span>
-            <span className="block truncate text-sm text-gray-500">{what || 'Anything'}</span>
+            <span className="block truncate text-sm text-gray-500">
+              {what || 'Tours, activities...'}
+            </span>
           </button>
 
           {/* Search Button */}

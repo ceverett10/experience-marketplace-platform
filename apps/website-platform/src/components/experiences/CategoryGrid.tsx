@@ -42,39 +42,14 @@ export function CategoryGrid({
     categories.length > 0
       ? categories
       : [
-          {
-            id: '1',
-            name: 'Tours & Sightseeing',
-            slug: 'tours',
-            imageUrl: '/categories/tours.jpg',
-          },
-          { id: '2', name: 'Day Trips', slug: 'day-trips', imageUrl: '/categories/day-trips.jpg' },
-          {
-            id: '3',
-            name: 'Attractions',
-            slug: 'attractions',
-            imageUrl: '/categories/attractions.jpg',
-          },
-          {
-            id: '4',
-            name: 'Food & Drink',
-            slug: 'food-drink',
-            imageUrl: '/categories/food-drink.jpg',
-          },
-          { id: '5', name: 'Adventure', slug: 'adventure', imageUrl: '/categories/adventure.jpg' },
-          {
-            id: '6',
-            name: 'Culture & History',
-            slug: 'culture',
-            imageUrl: '/categories/culture.jpg',
-          },
-          {
-            id: '7',
-            name: 'Nature & Wildlife',
-            slug: 'nature',
-            imageUrl: '/categories/nature.jpg',
-          },
-          { id: '8', name: 'Water Activities', slug: 'water', imageUrl: '/categories/water.jpg' },
+          { id: '1', name: 'Tours & Sightseeing', slug: 'tours' },
+          { id: '2', name: 'Day Trips', slug: 'day-trips' },
+          { id: '3', name: 'Attractions', slug: 'attractions' },
+          { id: '4', name: 'Food & Drink', slug: 'food-drink' },
+          { id: '5', name: 'Adventure', slug: 'adventure' },
+          { id: '6', name: 'Culture & History', slug: 'culture' },
+          { id: '7', name: 'Nature & Wildlife', slug: 'nature' },
+          { id: '8', name: 'Water Activities', slug: 'water' },
         ];
 
   return (

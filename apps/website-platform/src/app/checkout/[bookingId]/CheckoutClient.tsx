@@ -179,9 +179,70 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
           <h1 className="mt-4 text-3xl font-bold text-gray-900">Complete Your Booking</h1>
           <p className="mt-2 text-gray-600">
             {questionsAnswered
-              ? 'Review and confirm your booking'
+              ? showPayment
+                ? 'Complete your payment to confirm'
+                : 'Review and confirm your booking'
               : 'Fill in your details to complete your booking'}
           </p>
+
+          {/* Progress Steps */}
+          <div className="mt-6 flex items-center gap-0">
+            {[
+              { label: 'Guest Details', step: 1 },
+              { label: 'Review', step: 2 },
+              { label: 'Payment', step: 3 },
+            ].map((item, idx) => {
+              const currentStep = showPayment ? 3 : questionsAnswered ? 2 : 1;
+              const isActive = item.step === currentStep;
+              const isCompleted = item.step < currentStep;
+              return (
+                <div key={item.step} className="flex flex-1 items-center">
+                  <div className="flex flex-1 flex-col items-center">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold ${
+                          isCompleted
+                            ? 'bg-green-500 text-white'
+                            : isActive
+                              ? 'text-white'
+                              : 'bg-gray-200 text-gray-500'
+                        }`}
+                        style={isActive ? { backgroundColor: primaryColor } : {}}
+                      >
+                        {isCompleted ? (
+                          <svg
+                            className="h-4 w-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            strokeWidth="3"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M4.5 12.75l6 6 9-13.5"
+                            />
+                          </svg>
+                        ) : (
+                          item.step
+                        )}
+                      </div>
+                    </div>
+                    <span
+                      className={`mt-1 text-xs font-medium ${isActive ? 'text-gray-900' : 'text-gray-500'}`}
+                    >
+                      {item.label}
+                    </span>
+                  </div>
+                  {idx < 2 && (
+                    <div
+                      className={`mb-5 h-0.5 flex-1 ${item.step < currentStep ? 'bg-green-500' : 'bg-gray-200'}`}
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
@@ -268,7 +329,7 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
                                 d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"
                               />
                             </svg>
-                            {totalGuests} {totalGuests === 1 ? 'guest' : 'guests'}
+                            {totalGuests} {totalGuests === 1 ? 'guest' : 'guests'} booked
                           </div>
                         </div>
                       </div>
@@ -408,17 +469,32 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
 
               {/* Price Breakdown */}
               <div className="space-y-3 text-sm">
-                {availabilities.map((avail) => (
-                  <div key={avail.id} className="flex items-center justify-between">
-                    <span className="text-gray-600">
-                      {avail.personList?.nodes.length ?? 0} guests ×{' '}
-                      {formatDate(avail.date).split(',')[0]}
-                    </span>
-                    <span className="font-medium text-gray-900">
-                      {avail.totalPrice?.grossFormattedText ?? '-'}
-                    </span>
-                  </div>
-                ))}
+                {availabilities.map((avail) => {
+                  const guestCount = avail.personList?.nodes.length ?? 0;
+                  return (
+                    <div key={avail.id}>
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-600">
+                          {guestCount} {guestCount === 1 ? 'guest' : 'guests'} &times;{' '}
+                          {formatDate(avail.date).split(',')[0]}
+                        </span>
+                        <span className="font-medium text-gray-900">
+                          {avail.totalPrice?.grossFormattedText ?? '-'}
+                        </span>
+                      </div>
+                      {/* Per-person breakdown */}
+                      {avail.personList?.nodes && avail.personList.nodes.length > 0 && (
+                        <div className="mt-1 space-y-0.5 pl-2">
+                          {avail.personList.nodes.map((person, pIdx) => (
+                            <div key={person.id} className="text-xs text-gray-400">
+                              <span>{person.pricingCategoryLabel ?? `Guest ${pIdx + 1}`}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
 
                 <div className="border-t border-gray-200 pt-3">
                   <div className="flex items-center justify-between">
