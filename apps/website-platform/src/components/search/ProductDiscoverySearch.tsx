@@ -117,62 +117,70 @@ export function ProductDiscoverySearch({
   });
 
   // Parse "when" into date parameters for API
-  const parseWhenToDates = useCallback((whenValue: string): { startDate?: string; endDate?: string } => {
-    const today = new Date();
-    const formatDate = (date: Date) => date.toISOString().split('T')[0] ?? '';
-    const whenLower = whenValue.toLowerCase();
+  const parseWhenToDates = useCallback(
+    (whenValue: string): { startDate?: string; endDate?: string } => {
+      const today = new Date();
+      const formatDate = (date: Date) => date.toISOString().split('T')[0] ?? '';
+      const whenLower = whenValue.toLowerCase();
 
-    if (whenLower === 'today') {
-      return { startDate: formatDate(today) };
-    } else if (whenLower === 'tomorrow') {
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      return { startDate: formatDate(tomorrow) };
-    } else if (whenLower === 'this weekend' || whenLower.includes('weekend')) {
-      const daysUntilSaturday = (6 - today.getDay() + 7) % 7 || 7;
-      const saturday = new Date(today);
-      saturday.setDate(today.getDate() + daysUntilSaturday);
-      const sunday = new Date(saturday);
-      sunday.setDate(saturday.getDate() + 1);
-      return { startDate: formatDate(saturday), endDate: formatDate(sunday) };
-    } else if (whenLower === 'next week') {
-      const daysUntilMonday = (8 - today.getDay()) % 7 || 7;
-      const nextMonday = new Date(today);
-      nextMonday.setDate(today.getDate() + daysUntilMonday);
-      const nextSunday = new Date(nextMonday);
-      nextSunday.setDate(nextMonday.getDate() + 6);
-      return { startDate: formatDate(nextMonday), endDate: formatDate(nextSunday) };
-    } else if (whenLower === 'next month') {
-      const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
-      const lastDayNextMonth = new Date(today.getFullYear(), today.getMonth() + 2, 0);
-      return { startDate: formatDate(nextMonth), endDate: formatDate(lastDayNextMonth) };
-    }
-    return {};
-  }, []);
+      if (whenLower === 'today') {
+        return { startDate: formatDate(today) };
+      } else if (whenLower === 'tomorrow') {
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        return { startDate: formatDate(tomorrow) };
+      } else if (whenLower === 'this weekend' || whenLower.includes('weekend')) {
+        const daysUntilSaturday = (6 - today.getDay() + 7) % 7 || 7;
+        const saturday = new Date(today);
+        saturday.setDate(today.getDate() + daysUntilSaturday);
+        const sunday = new Date(saturday);
+        sunday.setDate(saturday.getDate() + 1);
+        return { startDate: formatDate(saturday), endDate: formatDate(sunday) };
+      } else if (whenLower === 'next week') {
+        const daysUntilMonday = (8 - today.getDay()) % 7 || 7;
+        const nextMonday = new Date(today);
+        nextMonday.setDate(today.getDate() + daysUntilMonday);
+        const nextSunday = new Date(nextMonday);
+        nextSunday.setDate(nextMonday.getDate() + 6);
+        return { startDate: formatDate(nextMonday), endDate: formatDate(nextSunday) };
+      } else if (whenLower === 'next month') {
+        const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+        const lastDayNextMonth = new Date(today.getFullYear(), today.getMonth() + 2, 0);
+        return { startDate: formatDate(nextMonth), endDate: formatDate(lastDayNextMonth) };
+      }
+      return {};
+    },
+    []
+  );
 
   // Parse "who" into adults/children for API
-  const parseWhoToTravelers = useCallback((whoValue: string): { adults?: number; children?: number } => {
-    const whoLower = whoValue.toLowerCase();
-    const adultsMatch = whoValue.match(/(\d+)\s*adult/i);
-    const childrenMatch = whoValue.match(/(\d+)\s*child/i);
+  const parseWhoToTravelers = useCallback(
+    (whoValue: string): { adults?: number; children?: number } => {
+      const whoLower = whoValue.toLowerCase();
+      const adultsMatch = whoValue.match(/(\d+)\s*adult/i);
+      const childrenMatch = whoValue.match(/(\d+)\s*child/i);
 
-    if (adultsMatch?.[1]) {
-      const result: { adults: number; children?: number } = { adults: parseInt(adultsMatch[1], 10) };
-      if (childrenMatch?.[1]) result.children = parseInt(childrenMatch[1], 10);
-      return result;
-    } else if (whoLower.includes('solo') || whoLower === 'solo traveller') {
-      return { adults: 1 };
-    } else if (whoLower === 'couple') {
-      return { adults: 2 };
-    } else if (whoLower.includes('family') || whoLower === 'family with kids') {
-      return { adults: 2, children: 2 };
-    } else if (whoLower.includes('friends') || whoLower === 'group of friends') {
-      return { adults: 4 };
-    } else if (whoLower.includes('business') || whoLower === 'business trip') {
-      return { adults: 1 };
-    }
-    return {};
-  }, []);
+      if (adultsMatch?.[1]) {
+        const result: { adults: number; children?: number } = {
+          adults: parseInt(adultsMatch[1], 10),
+        };
+        if (childrenMatch?.[1]) result.children = parseInt(childrenMatch[1], 10);
+        return result;
+      } else if (whoLower.includes('solo') || whoLower === 'solo traveller') {
+        return { adults: 1 };
+      } else if (whoLower === 'couple') {
+        return { adults: 2 };
+      } else if (whoLower.includes('family') || whoLower === 'family with kids') {
+        return { adults: 2, children: 2 };
+      } else if (whoLower.includes('friends') || whoLower === 'group of friends') {
+        return { adults: 4 };
+      } else if (whoLower.includes('business') || whoLower === 'business trip') {
+        return { adults: 1 };
+      }
+      return {};
+    },
+    []
+  );
 
   // Fetch suggestions from API - triggered by where and what inputs
   // Note: Date and traveler parameters are NOT passed to suggestions API

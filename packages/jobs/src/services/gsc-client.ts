@@ -82,8 +82,9 @@ export class GSCClient {
     try {
       const response = await this.searchConsole.sites.list();
       return (response.data.siteEntry || [])
-        .filter((site): site is { siteUrl: string; permissionLevel: string } =>
-          !!site.siteUrl && !!site.permissionLevel
+        .filter(
+          (site): site is { siteUrl: string; permissionLevel: string } =>
+            !!site.siteUrl && !!site.permissionLevel
         )
         .map((site) => ({
           siteUrl: site.siteUrl,
@@ -206,8 +207,5 @@ export function getGSCClient(): GSCClient {
  * Check if GSC is configured
  */
 export function isGSCConfigured(): boolean {
-  return !!(
-    process.env['GSC_CLIENT_EMAIL'] &&
-    process.env['GSC_PRIVATE_KEY']
-  );
+  return !!(process.env['GSC_CLIENT_EMAIL'] && process.env['GSC_PRIVATE_KEY']);
 }

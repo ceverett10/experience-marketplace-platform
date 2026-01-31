@@ -49,7 +49,9 @@ export async function GET(request: NextRequest) {
     // Holibob doesn't support traditional pagination - instead we pass IDs of products
     // we've already shown so the API returns new recommendations
     const seenProductIds = searchParams.get('seenProductIds');
-    const seenProductIdList = seenProductIds ? seenProductIds.split(',').filter(Boolean) : undefined;
+    const seenProductIdList = seenProductIds
+      ? seenProductIds.split(',').filter(Boolean)
+      : undefined;
 
     console.log('[API /experiences] Request params:', {
       destination,
@@ -123,7 +125,12 @@ export async function GET(request: NextRequest) {
     // hasMore is determined by whether we got a full page of results
     const hasMoreResults = response.pageInfo?.hasNextPage ?? experiences.length >= ITEMS_PER_PAGE;
 
-    console.log('[API /experiences] Returning', experiences.length, 'experiences, hasMore:', hasMoreResults);
+    console.log(
+      '[API /experiences] Returning',
+      experiences.length,
+      'experiences, hasMore:',
+      hasMoreResults
+    );
 
     return NextResponse.json({
       experiences,

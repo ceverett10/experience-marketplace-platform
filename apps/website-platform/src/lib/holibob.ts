@@ -421,7 +421,12 @@ export function mapProductToExperience(product: {
     shortDescription: product.shortDescription ?? '',
     description: product.description ?? '',
     imageUrl: primaryImageUrl,
-    images: allImages.length > 0 ? allImages : primaryImageUrl === '/placeholder-experience.jpg' ? [] : [primaryImageUrl],
+    images:
+      allImages.length > 0
+        ? allImages
+        : primaryImageUrl === '/placeholder-experience.jpg'
+          ? []
+          : [primaryImageUrl],
     price: {
       amount: priceAmount,
       currency,

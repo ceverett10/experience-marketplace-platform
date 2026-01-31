@@ -1,19 +1,14 @@
 import { Queue, QueueOptions } from 'bullmq';
 import IORedis from 'ioredis';
 import type { JobType } from '@experience-marketplace/database';
-import {
-  QUEUE_NAMES,
-  QueueName,
-  JobPayload,
-  JobOptions,
-  JOB_TYPE_TO_QUEUE,
-} from '../types';
+import { QUEUE_NAMES, QueueName, JobPayload, JobOptions, JOB_TYPE_TO_QUEUE } from '../types';
 
 /**
  * Redis connection configuration
  */
 export function createRedisConnection(): IORedis {
-  const redisUrl = process.env['REDIS_URL'] || process.env['REDIS_TLS_URL'] || 'redis://localhost:6379';
+  const redisUrl =
+    process.env['REDIS_URL'] || process.env['REDIS_TLS_URL'] || 'redis://localhost:6379';
 
   return new IORedis(redisUrl, {
     maxRetriesPerRequest: null,
@@ -62,11 +57,7 @@ class QueueRegistry {
   /**
    * Add a job to the appropriate queue based on job type
    */
-  async addJob(
-    jobType: JobType,
-    payload: JobPayload,
-    options?: JobOptions
-  ): Promise<string> {
+  async addJob(jobType: JobType, payload: JobPayload, options?: JobOptions): Promise<string> {
     const queueName = JOB_TYPE_TO_QUEUE[jobType];
     const queue = this.getQueue(queueName);
 
@@ -94,18 +85,14 @@ class QueueRegistry {
     const queueName = JOB_TYPE_TO_QUEUE[jobType];
     const queue = this.getQueue(queueName);
 
-    await queue.add(
-      jobType,
-      payload,
-      {
-        repeat: {
-          pattern: cronExpression,
-        },
-        priority: options?.priority,
-        attempts: options?.attempts,
-        backoff: options?.backoff,
-      }
-    );
+    await queue.add(jobType, payload, {
+      repeat: {
+        pattern: cronExpression,
+      },
+      priority: options?.priority,
+      attempts: options?.attempts,
+      backoff: options?.backoff,
+    });
   }
 
   /**
@@ -183,9 +170,7 @@ class QueueRegistry {
    * Close all queues and Redis connection
    */
   async close(): Promise<void> {
-    await Promise.all(
-      Array.from(this.queues.values()).map((queue) => queue.close())
-    );
+    await Promise.all(Array.from(this.queues.values()).map((queue) => queue.close()));
     await this.connection.quit();
   }
 }

@@ -7,6 +7,7 @@ This guide walks you through setting up Google Search Console API access for the
 ## Overview
 
 The platform uses Google Search Console (GSC) API to:
+
 - Fetch search performance data (impressions, clicks, CTR, position)
 - Monitor keyword rankings
 - Detect performance issues automatically
@@ -114,6 +115,7 @@ GSC_PROJECT_ID=your-project-id
 ```
 
 **Important Notes:**
+
 - The private key must include the `\n` characters (they represent newlines)
 - Wrap the entire private key in quotes
 - Do NOT commit this to version control
@@ -197,6 +199,7 @@ await addJob('GSC_SYNC', {
 **Cause:** Service account not added to GSC property
 
 **Solution:**
+
 1. Verify you added the service account email to GSC (Step 5)
 2. Make sure you selected "Full" permissions
 3. Wait 10-15 minutes for permissions to propagate
@@ -208,6 +211,7 @@ await addJob('GSC_SYNC', {
 **Cause:** Incorrect private key format
 
 **Solution:**
+
 1. Ensure the private key includes `\n` characters: `"-----BEGIN PRIVATE KEY-----\n..."`
 2. Wrap the entire key in quotes in your `.env` file
 3. Don't manually edit the key - copy it exactly from the JSON file
@@ -219,6 +223,7 @@ await addJob('GSC_SYNC', {
 **Cause:** Site not verified in GSC or incorrect URL format
 
 **Solution:**
+
 1. Verify the site exists in your GSC account
 2. Use the exact format shown in GSC:
    - Domain property: `sc-domain:example.com`
@@ -231,6 +236,7 @@ await addJob('GSC_SYNC', {
 **Cause:** Site is too new or not indexed yet
 
 **Solution:**
+
 1. Check if your site has data in GSC dashboard
 2. GSC data has a 2-3 day delay
 3. New sites may not have data for 7-14 days

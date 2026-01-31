@@ -8,15 +8,21 @@ import type {
   JobResult,
 } from '../types';
 
-
 /**
  * Content Generation Worker
  * Generates new content using AI based on opportunities or manual requests
  */
-export async function handleContentGenerate(
-  job: Job<ContentGeneratePayload>
-): Promise<JobResult> {
-  const { siteId, opportunityId, contentType, targetKeyword, secondaryKeywords, destination, category, targetLength } = job.data;
+export async function handleContentGenerate(job: Job<ContentGeneratePayload>): Promise<JobResult> {
+  const {
+    siteId,
+    opportunityId,
+    contentType,
+    targetKeyword,
+    secondaryKeywords,
+    destination,
+    category,
+    targetLength,
+  } = job.data;
 
   try {
     console.log(`[Content Generate] Starting for site ${siteId}, keyword: ${targetKeyword}`);
@@ -87,7 +93,10 @@ export async function handleContentGenerate(
         metaTitle: result.content.title,
         metaDescription: targetKeyword,
         contentId: content.id,
-        status: result.content.qualityAssessment && result.content.qualityAssessment.overallScore >= 85 ? 'PUBLISHED' : 'REVIEW',
+        status:
+          result.content.qualityAssessment && result.content.qualityAssessment.overallScore >= 85
+            ? 'PUBLISHED'
+            : 'REVIEW',
       },
     });
 
@@ -126,9 +135,7 @@ export async function handleContentGenerate(
  * Content Optimization Worker
  * Rewrites underperforming content based on GSC data
  */
-export async function handleContentOptimize(
-  job: Job<ContentOptimizePayload>
-): Promise<JobResult> {
+export async function handleContentOptimize(job: Job<ContentOptimizePayload>): Promise<JobResult> {
   const { siteId, pageId, contentId, reason, performanceData } = job.data;
 
   try {
@@ -171,7 +178,7 @@ export async function handleContentOptimize(
     });
 
     const brief = {
-      type: content.page?.type.toLowerCase() as any || 'blog',
+      type: (content.page?.type.toLowerCase() as any) || 'blog',
       siteId,
       targetKeyword: content.opportunity?.keyword || content.page?.title || 'unknown',
       secondaryKeywords: [],
@@ -238,9 +245,7 @@ export async function handleContentOptimize(
  * Content Review Worker
  * Handles content that failed quality gate multiple times
  */
-export async function handleContentReview(
-  job: Job<ContentReviewPayload>
-): Promise<JobResult> {
+export async function handleContentReview(job: Job<ContentReviewPayload>): Promise<JobResult> {
   const { siteId, contentId, qualityScore, issues } = job.data;
 
   try {
@@ -261,7 +266,9 @@ export async function handleContentReview(
     });
 
     // TODO: Send notification to admin (Slack, email, etc.)
-    console.log(`[Content Review] Flagged for review - Score: ${qualityScore}, Issues: ${issues.length}`);
+    console.log(
+      `[Content Review] Flagged for review - Score: ${qualityScore}, Issues: ${issues.length}`
+    );
 
     return {
       success: true,

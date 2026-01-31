@@ -3,7 +3,6 @@ import { prisma } from '@experience-marketplace/database';
 import { createHolibobClient } from '@experience-marketplace/holibob-api';
 import type { SeoOpportunityScanPayload, JobResult } from '../types';
 
-
 /**
  * SEO Opportunity Scanner Worker
  * Identifies content opportunities based on keyword research and Holibob inventory
@@ -244,7 +243,8 @@ function calculateOpportunityScore(opp: {
   // Seasonality score (10%) - TODO: implement actual seasonality analysis
   const seasonalityScore = 10; // Default to 10 for now
 
-  const totalScore = volumeScore + competitionScore + intentScore + inventoryScore + seasonalityScore;
+  const totalScore =
+    volumeScore + competitionScore + intentScore + inventoryScore + seasonalityScore;
 
   return Math.round(Math.min(totalScore, 100));
 }
@@ -272,7 +272,8 @@ async function autoActionOpportunities(): Promise<void> {
     // For MVP, just queue content generation for existing sites
 
     // Find or create a site for this destination
-    const destination = opp.location?.split(',')[0]?.toLowerCase().replace(/\s+/g, '-') || 'experiences';
+    const destination =
+      opp.location?.split(',')[0]?.toLowerCase().replace(/\s+/g, '-') || 'experiences';
     const niche = opp.niche.toLowerCase().replace(/\s+/g, '-');
 
     // For now, just mark as evaluated - actual site creation will be implemented later

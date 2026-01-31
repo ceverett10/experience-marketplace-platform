@@ -53,7 +53,7 @@ export interface SeoOpportunityScanPayload {
 export interface GscSyncPayload {
   siteId: string;
   startDate?: string; // YYYY-MM-DD
-  endDate?: string;   // YYYY-MM-DD
+  endDate?: string; // YYYY-MM-DD
   dimensions?: ('query' | 'page' | 'country' | 'device')[];
 }
 

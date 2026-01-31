@@ -11,7 +11,15 @@ export interface PipelineResult {
 export type PipelineEventHandler = (event: PipelineEvent) => void;
 
 export interface PipelineEvent {
-  type: 'draft_start' | 'draft_complete' | 'quality_start' | 'quality_complete' | 'rewrite_start' | 'rewrite_complete' | 'complete' | 'error';
+  type:
+    | 'draft_start'
+    | 'draft_complete'
+    | 'quality_start'
+    | 'quality_complete'
+    | 'rewrite_start'
+    | 'rewrite_complete'
+    | 'complete'
+    | 'error';
   data?: any;
 }
 
@@ -30,13 +38,13 @@ export class ContentPipeline {
   }
 
   private emit(event: PipelineEvent): void {
-    this.eventHandlers.forEach(h => h(event));
+    this.eventHandlers.forEach((h) => h(event));
   }
 
   async generate(brief: ContentBrief): Promise<PipelineResult> {
     try {
       this.emit({ type: 'draft_start', data: brief });
-      
+
       const draft = await this.generateDraft(brief);
       this.emit({ type: 'draft_complete', data: draft });
 
@@ -64,7 +72,10 @@ export class ContentPipeline {
         const newAssessment = await this.assessQuality(rewritten, brief);
 
         rewritten.qualityAssessment = newAssessment;
-        this.emit({ type: 'rewrite_complete', data: { attempt: i + 1, score: newAssessment.overallScore } });
+        this.emit({
+          type: 'rewrite_complete',
+          data: { attempt: i + 1, score: newAssessment.overallScore },
+        });
 
         if (newAssessment.overallScore >= this.config.qualityThreshold) {
           this.emit({ type: 'complete', data: rewritten });
@@ -96,8 +107,12 @@ export class ContentPipeline {
       temperature: 0.7,
     });
 
-    const content = response.content.find(b => b.type === 'text')?.text || '';
-    const cost = this.client.calculateCost(model, response.usage.input_tokens, response.usage.output_tokens);
+    const content = response.content.find((b) => b.type === 'text')?.text || '';
+    const cost = this.client.calculateCost(
+      model,
+      response.usage.input_tokens,
+      response.usage.output_tokens
+    );
 
     return {
       id: Math.random().toString(36).substr(2, 9),
@@ -121,7 +136,10 @@ export class ContentPipeline {
     };
   }
 
-  private async assessQuality(content: GeneratedContent, brief: ContentBrief): Promise<QualityAssessment> {
+  private async assessQuality(
+    content: GeneratedContent,
+    brief: ContentBrief
+  ): Promise<QualityAssessment> {
     const prompt = `Assess this content quality. Return JSON only.
 
 Content: ${content.content}
@@ -142,12 +160,18 @@ JSON format:
       maxTokens: 2000,
     });
 
-    const text = response.content.find(b => b.type === 'text')?.text || '{}';
+    const text = response.content.find((b) => b.type === 'text')?.text || '{}';
     const json = JSON.parse(text.match(/\{[\s\S]*\}/)?.[0] || '{}');
 
     return {
       overallScore: json.overallScore || 50,
-      breakdown: json.breakdown || { factualAccuracy: 50, seoCompliance: 50, readability: 50, uniqueness: 50, engagement: 50 },
+      breakdown: json.breakdown || {
+        factualAccuracy: 50,
+        seoCompliance: 50,
+        readability: 50,
+        uniqueness: 50,
+        engagement: 50,
+      },
       passed: (json.overallScore || 50) >= this.config.qualityThreshold,
       issues: json.issues || [],
       suggestions: json.suggestions || [],
@@ -156,7 +180,11 @@ JSON format:
     };
   }
 
-  private async rewriteContent(content: GeneratedContent, assessment: QualityAssessment, brief: ContentBrief): Promise<GeneratedContent> {
+  private async rewriteContent(
+    content: GeneratedContent,
+    assessment: QualityAssessment,
+    brief: ContentBrief
+  ): Promise<GeneratedContent> {
     const prompt = `Rewrite this content to address quality issues.
 
 Original: ${content.content}
@@ -175,8 +203,12 @@ Improve while maintaining keyword: ${brief.targetKeyword}`;
       maxTokens: 4096,
     });
 
-    const newContent = response.content.find(b => b.type === 'text')?.text || '';
-    const cost = this.client.calculateCost(model, response.usage.input_tokens, response.usage.output_tokens);
+    const newContent = response.content.find((b) => b.type === 'text')?.text || '';
+    const cost = this.client.calculateCost(
+      model,
+      response.usage.input_tokens,
+      response.usage.output_tokens
+    );
 
     return {
       ...content,
@@ -208,7 +240,10 @@ Return markdown content only.`;
   }
 
   private generateSlug(text: string): string {
-    return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    return text
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '');
   }
 
   getCostSummary() {

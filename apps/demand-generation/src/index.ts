@@ -267,4 +267,12 @@ console.log('🎯 Demand Generation Service is running and ready to process jobs
 // Keep the process alive
 process.stdin.resume();
 
-export { contentWorker, seoWorker, gscWorker, siteWorker, domainWorker, analyticsWorker, abtestWorker };
+export {
+  contentWorker,
+  seoWorker,
+  gscWorker,
+  siteWorker,
+  domainWorker,
+  analyticsWorker,
+  abtestWorker,
+};

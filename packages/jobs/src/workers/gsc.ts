@@ -3,7 +3,6 @@ import { prisma } from '@experience-marketplace/database';
 import { getGSCClient, isGSCConfigured } from '../services/gsc-client';
 import type { GscSyncPayload, JobResult } from '../types';
 
-
 /**
  * Google Search Console Sync Worker
  * Fetches performance data from GSC API and stores in database
@@ -25,7 +24,9 @@ export async function handleGscSync(job: Job<GscSyncPayload>): Promise<JobResult
     }
 
     // Get primary domain
-    const primaryDomain = site.domains.find((d: { domain: string }) => d.domain === site.primaryDomain);
+    const primaryDomain = site.domains.find(
+      (d: { domain: string }) => d.domain === site.primaryDomain
+    );
     if (!primaryDomain) {
       console.warn(`[GSC Sync] No primary domain found for site ${siteId}, skipping`);
       return {
@@ -133,11 +134,13 @@ async function fetchGscData(
 
   // Calculate date range (default: last 7 days)
   const end = endDate || new Date().toISOString().split('T')[0]!;
-  const start = startDate || (() => {
-    const date = new Date();
-    date.setDate(date.getDate() - 7);
-    return date.toISOString().split('T')[0]!;
-  })();
+  const start =
+    startDate ||
+    (() => {
+      const date = new Date();
+      date.setDate(date.getDate() - 7);
+      return date.toISOString().split('T')[0]!;
+    })();
 
   // Ensure domain has correct format for GSC (sc-domain: or https://)
   let siteUrl = domain;
@@ -232,8 +235,11 @@ async function detectPerformanceIssues(siteId: string): Promise<void> {
 
   // Check each page for issues
   for (const [pageUrl, pageData] of pageMetrics) {
-    const avgCtr = pageData.reduce((sum: number, m: { ctr: number }) => sum + m.ctr, 0) / pageData.length;
-    const avgPosition = pageData.reduce((sum: number, m: { position: number }) => sum + m.position, 0) / pageData.length;
+    const avgCtr =
+      pageData.reduce((sum: number, m: { ctr: number }) => sum + m.ctr, 0) / pageData.length;
+    const avgPosition =
+      pageData.reduce((sum: number, m: { position: number }) => sum + m.position, 0) /
+      pageData.length;
 
     // Low CTR for pages ranking 1-10
     if (avgPosition <= 10 && avgCtr < 2.0) {
@@ -242,12 +248,17 @@ async function detectPerformanceIssues(siteId: string): Promise<void> {
     }
 
     // Check for position drops
-    const recentPosition = pageData.slice(-3).reduce((sum: number, m: { position: number }) => sum + m.position, 0) / 3;
-    const olderPosition = pageData.slice(0, 3).reduce((sum: number, m: { position: number }) => sum + m.position, 0) / 3;
+    const recentPosition =
+      pageData.slice(-3).reduce((sum: number, m: { position: number }) => sum + m.position, 0) / 3;
+    const olderPosition =
+      pageData.slice(0, 3).reduce((sum: number, m: { position: number }) => sum + m.position, 0) /
+      3;
     const positionDrop = recentPosition - olderPosition;
 
     if (positionDrop > 5) {
-      console.log(`[GSC] Performance Issue: Position drop of ${positionDrop.toFixed(1)} for ${pageUrl}`);
+      console.log(
+        `[GSC] Performance Issue: Position drop of ${positionDrop.toFixed(1)} for ${pageUrl}`
+      );
       // TODO: Queue ContentOptimize job
     }
   }
