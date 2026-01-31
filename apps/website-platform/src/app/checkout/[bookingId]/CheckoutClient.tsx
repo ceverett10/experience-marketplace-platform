@@ -132,7 +132,14 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
         <div className="mx-auto max-w-4xl px-4">
           <div className="flex items-center justify-center py-20">
             <svg className="h-8 w-8 animate-spin text-gray-400" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              />
               <path
                 className="opacity-75"
                 fill="currentColor"
@@ -154,14 +161,26 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
             href="/experiences"
             className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
           >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth="2"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"
+              />
             </svg>
             Back to experiences
           </Link>
           <h1 className="mt-4 text-3xl font-bold text-gray-900">Complete Your Booking</h1>
           <p className="mt-2 text-gray-600">
-            {questionsAnswered ? 'Review and confirm your booking' : 'Fill in your details to complete your booking'}
+            {questionsAnswered
+              ? 'Review and confirm your booking'
+              : 'Fill in your details to complete your booking'}
           </p>
         </div>
 
@@ -202,7 +221,13 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
                         </h3>
                         <div className="mt-2 space-y-1 text-sm text-gray-600">
                           <div className="flex items-center gap-2">
-                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                            <svg
+                              className="h-4 w-4"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              strokeWidth="1.5"
+                              stroke="currentColor"
+                            >
                               <path
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
@@ -213,7 +238,13 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
                           </div>
                           {firstAvailability.startTime && (
                             <div className="flex items-center gap-2">
-                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                              <svg
+                                className="h-4 w-4"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                strokeWidth="1.5"
+                                stroke="currentColor"
+                              >
                                 <path
                                   strokeLinecap="round"
                                   strokeLinejoin="round"
@@ -224,7 +255,13 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
                             </div>
                           )}
                           <div className="flex items-center gap-2">
-                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                            <svg
+                              className="h-4 w-4"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              strokeWidth="1.5"
+                              stroke="currentColor"
+                            >
                               <path
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
@@ -240,25 +277,28 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
                       <div>
                         <h3 className="mb-3 font-medium text-gray-900">Guests</h3>
                         <div className="space-y-2">
-                          {availabilities.flatMap((avail) =>
-                            avail.personList?.nodes.map((person, index) => (
-                              <div
-                                key={person.id}
-                                className="flex items-center justify-between rounded-lg border border-gray-200 p-3"
-                              >
-                                <div>
-                                  <span className="font-medium text-gray-900">
-                                    Guest {index + 1}
-                                    {index === 0 && (
-                                      <span className="ml-2 text-xs text-gray-500">(Lead guest)</span>
-                                    )}
+                          {availabilities.flatMap(
+                            (avail) =>
+                              avail.personList?.nodes.map((person, index) => (
+                                <div
+                                  key={person.id}
+                                  className="flex items-center justify-between rounded-lg border border-gray-200 p-3"
+                                >
+                                  <div>
+                                    <span className="font-medium text-gray-900">
+                                      Guest {index + 1}
+                                      {index === 0 && (
+                                        <span className="ml-2 text-xs text-gray-500">
+                                          (Lead guest)
+                                        </span>
+                                      )}
+                                    </span>
+                                  </div>
+                                  <span className="text-sm text-gray-500">
+                                    {person.pricingCategoryLabel}
                                   </span>
                                 </div>
-                                <span className="text-sm text-gray-500">
-                                  {person.pricingCategoryLabel}
-                                </span>
-                              </div>
-                            )) ?? []
+                              )) ?? []
                           )}
                         </div>
                       </div>
@@ -284,8 +324,13 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
                       />
                     </svg>
                     <div>
-                      <p className="font-medium text-gray-900">Free cancellation up to 24 hours in advance</p>
-                      <p className="mt-1">Cancel for free before the experience starts. After that, no refunds will be given.</p>
+                      <p className="font-medium text-gray-900">
+                        Free cancellation up to 24 hours in advance
+                      </p>
+                      <p className="mt-1">
+                        Cancel for free before the experience starts. After that, no refunds will be
+                        given.
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -297,8 +342,18 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
                     {paymentComplete ? (
                       <div className="flex items-center justify-center py-8">
                         <div className="text-center">
-                          <svg className="mx-auto h-12 w-12 text-green-500" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          <svg
+                            className="mx-auto h-12 w-12 text-green-500"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            strokeWidth="2"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
                           </svg>
                           <p className="mt-2 font-medium text-gray-900">Payment successful!</p>
                           <p className="text-sm text-gray-500">Confirming your booking...</p>
@@ -356,7 +411,8 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
                 {availabilities.map((avail) => (
                   <div key={avail.id} className="flex items-center justify-between">
                     <span className="text-gray-600">
-                      {avail.personList?.nodes.length ?? 0} guests × {formatDate(avail.date).split(',')[0]}
+                      {avail.personList?.nodes.length ?? 0} guests ×{' '}
+                      {formatDate(avail.date).split(',')[0]}
                     </span>
                     <span className="font-medium text-gray-900">
                       {avail.totalPrice?.grossFormattedText ?? '-'}
@@ -395,7 +451,14 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
               {isCommitting && (
                 <div className="mt-6 flex items-center justify-center gap-2 text-gray-600">
                   <svg className="h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
                     <path
                       className="opacity-75"
                       fill="currentColor"
@@ -409,7 +472,13 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
               {/* Trust badges */}
               <div className="mt-6 flex items-center justify-center gap-4 text-xs text-gray-500">
                 <div className="flex items-center gap-1">
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth="1.5"
+                    stroke="currentColor"
+                  >
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -419,7 +488,13 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
                   Secure booking
                 </div>
                 <div className="flex items-center gap-1">
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth="1.5"
+                    stroke="currentColor"
+                  >
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"

@@ -58,7 +58,11 @@ export function AvailabilityModal({
   // Pricing state
   const [pricingCategories, setPricingCategoriesState] = useState<PricingCategory[]>([]);
   const [categoryUnits, setCategoryUnits] = useState<Record<string, number>>({});
-  const [totalPrice, setTotalPrice] = useState<{ formatted: string; amount: number; currency: string } | null>(null);
+  const [totalPrice, setTotalPrice] = useState<{
+    formatted: string;
+    amount: number;
+    currency: string;
+  } | null>(null);
   const [isValid, setIsValid] = useState(false);
 
   // Loading and error states
@@ -272,7 +276,12 @@ export function AvailabilityModal({
               className="rounded-full p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-500"
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
             </button>
           </div>
@@ -283,11 +292,13 @@ export function AvailabilityModal({
               <div
                 key={s}
                 className={`h-1 flex-1 rounded-full transition-colors ${
-                  i <= ['dates', 'options', 'pricing'].indexOf(step)
-                    ? 'bg-teal-500'
-                    : 'bg-gray-200'
+                  i <= ['dates', 'options', 'pricing'].indexOf(step) ? 'bg-teal-500' : 'bg-gray-200'
                 }`}
-                style={i <= ['dates', 'options', 'pricing'].indexOf(step) ? { backgroundColor: primaryColor } : {}}
+                style={
+                  i <= ['dates', 'options', 'pricing'].indexOf(step)
+                    ? { backgroundColor: primaryColor }
+                    : {}
+                }
               />
             ))}
           </div>
@@ -304,7 +315,14 @@ export function AvailabilityModal({
           {isLoading && (
             <div className="flex items-center justify-center py-12">
               <svg className="h-8 w-8 animate-spin text-gray-400" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
                 <path
                   className="opacity-75"
                   fill="currentColor"
@@ -349,7 +367,8 @@ export function AvailabilityModal({
               ) : (
                 <div className="space-y-2">
                   <p className="text-sm font-medium text-gray-700">
-                    {availabilitySlots.length} date{availabilitySlots.length !== 1 ? 's' : ''} available
+                    {availabilitySlots.length} date{availabilitySlots.length !== 1 ? 's' : ''}{' '}
+                    available
                   </p>
                   <div className="grid gap-2">
                     {availabilitySlots.map((slot) => (
@@ -361,7 +380,11 @@ export function AvailabilityModal({
                             ? 'border-teal-500 bg-teal-50'
                             : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                         }`}
-                        style={selectedSlot?.id === slot.id ? { borderColor: primaryColor, backgroundColor: `${primaryColor}10` } : {}}
+                        style={
+                          selectedSlot?.id === slot.id
+                            ? { borderColor: primaryColor, backgroundColor: `${primaryColor}10` }
+                            : {}
+                        }
                       >
                         <div>
                           <p className="font-medium text-gray-900">{formatDate(slot.date)}</p>
@@ -386,7 +409,9 @@ export function AvailabilityModal({
                 .filter((opt) => opt.availableOptions && opt.availableOptions.length > 0)
                 .map((option) => (
                   <div key={option.id}>
-                    <label className="block text-sm font-medium text-gray-700">{option.label}</label>
+                    <label className="block text-sm font-medium text-gray-700">
+                      {option.label}
+                    </label>
                     <select
                       value={optionSelections[option.id] ?? ''}
                       onChange={(e) => handleOptionChange(option.id, e.target.value)}
@@ -433,7 +458,13 @@ export function AvailabilityModal({
                       disabled={(categoryUnits[category.id] ?? 0) <= 0}
                       className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-50"
                     >
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+                      <svg
+                        className="h-4 w-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth="2"
+                        stroke="currentColor"
+                      >
                         <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12h-15" />
                       </svg>
                     </button>
@@ -442,11 +473,23 @@ export function AvailabilityModal({
                     </span>
                     <button
                       onClick={() => handleUnitChange(category.id, 1)}
-                      disabled={(categoryUnits[category.id] ?? 0) >= (category.maxParticipants || 99)}
+                      disabled={
+                        (categoryUnits[category.id] ?? 0) >= (category.maxParticipants || 99)
+                      }
                       className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-50"
                     >
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                      <svg
+                        className="h-4 w-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth="2"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M12 4.5v15m7.5-7.5h-15"
+                        />
                       </svg>
                     </button>
                   </div>
@@ -525,7 +568,14 @@ export function AvailabilityModal({
                   {isBooking ? (
                     <span className="flex items-center gap-2">
                       <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        />
                         <path
                           className="opacity-75"
                           fill="currentColor"

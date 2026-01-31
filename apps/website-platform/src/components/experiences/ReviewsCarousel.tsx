@@ -69,7 +69,13 @@ export function ReviewsCarousel({ reviews, rating }: ReviewsCarouselProps) {
             onClick={scrollLeft}
             className="absolute -left-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-gray-200 bg-white shadow-lg hover:bg-gray-50"
           >
-            <svg className="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+            <svg
+              className="h-5 w-5 text-gray-600"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth="2"
+              stroke="currentColor"
+            >
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
             </svg>
           </button>
@@ -116,7 +122,9 @@ export function ReviewsCarousel({ reviews, rating }: ReviewsCarouselProps) {
                 </div>
 
                 {/* Review Content */}
-                <p className="line-clamp-4 text-sm leading-relaxed text-gray-600">{review.content}</p>
+                <p className="line-clamp-4 text-sm leading-relaxed text-gray-600">
+                  {review.content}
+                </p>
               </div>
             ))}
           </div>
@@ -128,7 +136,13 @@ export function ReviewsCarousel({ reviews, rating }: ReviewsCarouselProps) {
             onClick={scrollRight}
             className="absolute -right-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-gray-200 bg-white shadow-lg hover:bg-gray-50"
           >
-            <svg className="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+            <svg
+              className="h-5 w-5 text-gray-600"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth="2"
+              stroke="currentColor"
+            >
               <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
             </svg>
           </button>

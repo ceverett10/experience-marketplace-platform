@@ -160,7 +160,12 @@ export class HolibobClient {
         return { id: rec.id, name: rec.name } as Product;
       } catch (err) {
         // If product detail fetch fails, return basic info from discovery
-        console.error('[HolibobClient] getProduct failed for', rec.id, ':', err instanceof Error ? err.message : String(err));
+        console.error(
+          '[HolibobClient] getProduct failed for',
+          rec.id,
+          ':',
+          err instanceof Error ? err.message : String(err)
+        );
         return { id: rec.id, name: rec.name } as Product;
       }
     });
@@ -208,7 +213,10 @@ export class HolibobClient {
         });
         // Log full reviewList if present for debugging
         if (product['reviewList']) {
-          console.log('[HolibobClient] reviewList data:', JSON.stringify(product['reviewList'], null, 2));
+          console.log(
+            '[HolibobClient] reviewList data:',
+            JSON.stringify(product['reviewList'], null, 2)
+          );
         }
       } else {
         console.log('[HolibobClient] getProduct returned null for ID:', productId);

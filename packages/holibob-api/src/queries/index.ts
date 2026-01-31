@@ -135,7 +135,12 @@ export const AVAILABILITY_LIST_QUERY = gql`
     $sessionId: ID
     $optionList: [AvailabilityListOptionListItemInput]
   ) {
-    availabilityList(productId: $productId, filter: $filter, sessionId: $sessionId, optionList: $optionList) {
+    availabilityList(
+      productId: $productId
+      filter: $filter
+      sessionId: $sessionId
+      optionList: $optionList
+    ) {
       sessionId
       recordCount
       nodes {

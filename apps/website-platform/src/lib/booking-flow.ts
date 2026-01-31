@@ -427,9 +427,7 @@ export async function configureAvailability(
  * Create booking and add availability in one flow
  * Returns booking ID ready for checkout
  */
-export async function startBookingFlow(
-  availabilityId: string
-): Promise<string> {
+export async function startBookingFlow(availabilityId: string): Promise<string> {
   // Step 1: Create booking
   const booking = await createBooking();
 

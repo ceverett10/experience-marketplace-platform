@@ -220,7 +220,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
       // Helper to add answers for a question list
       const guests = input.guests!; // We've already checked input.guests exists above
-      const processQuestions = (questions: Array<{ id: string; label?: string; answerValue?: string | null }>, guestIndex = 0) => {
+      const processQuestions = (
+        questions: Array<{ id: string; label?: string; answerValue?: string | null }>,
+        guestIndex = 0
+      ) => {
         const guestData = guests[guestIndex] ?? guests[0];
         if (!guestData) return; // Safety check
 
@@ -234,7 +237,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           // Map question labels to guest data
           if (label.includes('first') && label.includes('name')) {
             answerValue = guestData.firstName;
-          } else if ((label.includes('last') && label.includes('name')) || label.includes('surname') || label.includes('family')) {
+          } else if (
+            (label.includes('last') && label.includes('name')) ||
+            label.includes('surname') ||
+            label.includes('family')
+          ) {
             answerValue = guestData.lastName;
           } else if (label.includes('email')) {
             answerValue = input.customerEmail ?? guestData.email;
@@ -304,27 +311,42 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             console.log('[Questions API] === REMAINING UNANSWERED QUESTIONS ===');
 
             // Booking-level - show ALL unanswered
-            const unansweredBooking = (answeredBooking.questionList?.nodes ?? [])
-              .filter((q: { answerValue?: string | null }) => !q.answerValue);
+            const unansweredBooking = (answeredBooking.questionList?.nodes ?? []).filter(
+              (q: { answerValue?: string | null }) => !q.answerValue
+            );
             if (unansweredBooking.length > 0) {
-              console.log('[Questions API] Booking-level:', JSON.stringify(unansweredBooking, null, 2));
+              console.log(
+                '[Questions API] Booking-level:',
+                JSON.stringify(unansweredBooking, null, 2)
+              );
             }
 
             // Availability and Person-level
             for (const avail of answeredBooking.availabilityList?.nodes ?? []) {
-              const unansweredAvail = (avail.questionList?.nodes ?? [])
-                .filter((q: { answerValue?: string | null }) => !q.answerValue);
+              const unansweredAvail = (avail.questionList?.nodes ?? []).filter(
+                (q: { answerValue?: string | null }) => !q.answerValue
+              );
               if (unansweredAvail.length > 0) {
-                console.log(`[Questions API] Availability ${avail.id}:`, JSON.stringify(unansweredAvail, null, 2));
+                console.log(
+                  `[Questions API] Availability ${avail.id}:`,
+                  JSON.stringify(unansweredAvail, null, 2)
+                );
               }
 
               for (const person of avail.personList?.nodes ?? []) {
                 // Check isQuestionsComplete flag
-                console.log(`[Questions API] Person ${person.id} (${person.pricingCategoryLabel}) isQuestionsComplete:`, person.isQuestionsComplete);
-                const unansweredPerson = (person.questionList?.nodes ?? [])
-                  .filter((q: { answerValue?: string | null }) => !q.answerValue);
+                console.log(
+                  `[Questions API] Person ${person.id} (${person.pricingCategoryLabel}) isQuestionsComplete:`,
+                  person.isQuestionsComplete
+                );
+                const unansweredPerson = (person.questionList?.nodes ?? []).filter(
+                  (q: { answerValue?: string | null }) => !q.answerValue
+                );
                 if (unansweredPerson.length > 0) {
-                  console.log(`[Questions API] Person ${person.id} unanswered:`, JSON.stringify(unansweredPerson, null, 2));
+                  console.log(
+                    `[Questions API] Person ${person.id} unanswered:`,
+                    JSON.stringify(unansweredPerson, null, 2)
+                  );
                 }
               }
             }
@@ -346,12 +368,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         canCommit: booking.canCommit ?? false,
         booking,
         // Store lead person details for reference (display purposes)
-        leadPerson: input.guests?.[0] ? {
-          firstName: input.guests[0].firstName,
-          lastName: input.guests[0].lastName,
-          email: input.customerEmail,
-          phone: input.customerPhone,
-        } : null,
+        leadPerson: input.guests?.[0]
+          ? {
+              firstName: input.guests[0].firstName,
+              lastName: input.guests[0].lastName,
+              email: input.customerEmail,
+              phone: input.customerPhone,
+            }
+          : null,
       },
     });
   } catch (error) {

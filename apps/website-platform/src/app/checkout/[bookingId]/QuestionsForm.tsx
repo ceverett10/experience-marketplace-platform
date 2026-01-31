@@ -86,8 +86,8 @@ export function QuestionsForm({
   const [termsAccepted, setTermsAccepted] = useState(false);
 
   // Availability-level questions (e.g., risk acceptance waivers)
-  const availabilityQuestions = availabilities.flatMap(
-    (avail) => (avail.questionList?.nodes ?? []).filter(q => !q.answerValue)
+  const availabilityQuestions = availabilities.flatMap((avail) =>
+    (avail.questionList?.nodes ?? []).filter((q) => !q.answerValue)
   );
   const [availabilityAnswers, setAvailabilityAnswers] = useState<Record<string, boolean>>({});
 
@@ -218,9 +218,7 @@ export function QuestionsForm({
               }`}
               placeholder="Email Address *"
             />
-            {errors['email'] && (
-              <p className="mt-1 text-xs text-red-500">{errors['email']}</p>
-            )}
+            {errors['email'] && <p className="mt-1 text-xs text-red-500">{errors['email']}</p>}
           </div>
 
           {/* Phone with Country Code */}
@@ -261,9 +259,7 @@ export function QuestionsForm({
               placeholder="Phone Number *"
             />
           </div>
-          {errors['phone'] && (
-            <p className="-mt-2 text-xs text-red-500">{errors['phone']}</p>
-          )}
+          {errors['phone'] && <p className="-mt-2 text-xs text-red-500">{errors['phone']}</p>}
         </div>
       </div>
 
@@ -323,13 +319,9 @@ export function QuestionsForm({
             onChange={(e) => setTermsAccepted(e.target.checked)}
             className="mt-1 h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
           />
-          <span className="text-sm text-gray-700">
-            I accept the Terms and Conditions.
-          </span>
+          <span className="text-sm text-gray-700">I accept the Terms and Conditions.</span>
         </label>
-        {errors['terms'] && (
-          <p className="mt-2 text-xs text-red-500">{errors['terms']}</p>
-        )}
+        {errors['terms'] && <p className="mt-2 text-xs text-red-500">{errors['terms']}</p>}
 
         {/* Total Cost Display */}
         <div className="mt-6 flex items-center justify-between border-t border-gray-200 pt-4">
@@ -350,7 +342,14 @@ export function QuestionsForm({
         {isSubmitting ? (
           <span className="flex items-center justify-center gap-2">
             <svg className="h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              />
               <path
                 className="opacity-75"
                 fill="currentColor"

@@ -2,12 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { loadStripe, type Stripe } from '@stripe/stripe-js';
-import {
-  Elements,
-  PaymentElement,
-  useStripe,
-  useElements,
-} from '@stripe/react-stripe-js';
+import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 
 interface PaymentFormProps {
   onSuccess: () => void;
@@ -16,7 +11,12 @@ interface PaymentFormProps {
   totalPrice?: string;
 }
 
-function PaymentForm({ onSuccess, onError, primaryColor = '#0d9488', totalPrice }: PaymentFormProps) {
+function PaymentForm({
+  onSuccess,
+  onError,
+  primaryColor = '#0d9488',
+  totalPrice,
+}: PaymentFormProps) {
   const stripe = useStripe();
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
@@ -56,7 +56,9 @@ function PaymentForm({ onSuccess, onError, primaryColor = '#0d9488', totalPrice 
 
       console.log('[StripePayment] Confirmation result:', {
         error: error ? { type: error.type, code: error.code, message: error.message } : null,
-        paymentIntent: paymentIntent ? { id: paymentIntent.id, status: paymentIntent.status, amount: paymentIntent.amount } : null
+        paymentIntent: paymentIntent
+          ? { id: paymentIntent.id, status: paymentIntent.status, amount: paymentIntent.amount }
+          : null,
       });
 
       if (error) {
@@ -126,9 +128,7 @@ function PaymentForm({ onSuccess, onError, primaryColor = '#0d9488', totalPrice 
       />
 
       {errorMessage && (
-        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
-          {errorMessage}
-        </div>
+        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">{errorMessage}</div>
       )}
 
       <button
@@ -140,7 +140,14 @@ function PaymentForm({ onSuccess, onError, primaryColor = '#0d9488', totalPrice 
         {isProcessing ? (
           <span className="flex items-center justify-center gap-2">
             <svg className="h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              />
               <path
                 className="opacity-75"
                 fill="currentColor"
@@ -154,9 +161,7 @@ function PaymentForm({ onSuccess, onError, primaryColor = '#0d9488', totalPrice 
         )}
       </button>
 
-      <p className="text-center text-xs text-gray-500">
-        Your payment is secured by Stripe
-      </p>
+      <p className="text-center text-xs text-gray-500">Your payment is secured by Stripe</p>
     </form>
   );
 }
@@ -203,7 +208,10 @@ export function StripePaymentForm({
         const stripeKey = result.data.apiKey;
         const clientSecretValue = result.data.clientSecret;
 
-        console.log('[StripePayment] Initializing Stripe with key:', stripeKey?.substring(0, 20) + '...');
+        console.log(
+          '[StripePayment] Initializing Stripe with key:',
+          stripeKey?.substring(0, 20) + '...'
+        );
         console.log('[StripePayment] Client secret present:', !!clientSecretValue);
 
         if (!stripeKey || !clientSecretValue) {
@@ -229,7 +237,14 @@ export function StripePaymentForm({
     return (
       <div className="flex items-center justify-center py-12">
         <svg className="h-8 w-8 animate-spin text-gray-400" fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+          <circle
+            className="opacity-25"
+            cx="12"
+            cy="12"
+            r="10"
+            stroke="currentColor"
+            strokeWidth="4"
+          />
           <path
             className="opacity-75"
             fill="currentColor"
@@ -241,11 +256,7 @@ export function StripePaymentForm({
   }
 
   if (error) {
-    return (
-      <div className="rounded-xl bg-red-50 p-4 text-center text-sm text-red-600">
-        {error}
-      </div>
-    );
+    return <div className="rounded-xl bg-red-50 p-4 text-center text-sm text-red-600">{error}</div>;
   }
 
   if (!stripePromise || !clientSecret) {

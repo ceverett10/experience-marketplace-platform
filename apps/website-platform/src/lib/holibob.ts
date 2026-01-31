@@ -303,7 +303,10 @@ export function mapProductToExperience(product: {
     cancellationPolicy = product.cancellationPolicy;
   } else if (product.cancellationPolicy) {
     // Try penaltyList first (newer API format with formatted text)
-    if (product.cancellationPolicy.penaltyList?.nodes && product.cancellationPolicy.penaltyList.nodes.length > 0) {
+    if (
+      product.cancellationPolicy.penaltyList?.nodes &&
+      product.cancellationPolicy.penaltyList.nodes.length > 0
+    ) {
       const policyTexts = product.cancellationPolicy.penaltyList.nodes
         .map((n) => n.formattedText || '')
         .filter(Boolean);
@@ -333,9 +336,7 @@ export function mapProductToExperience(product: {
   // categoryList.nodes[] or categories[]
   const categoryListNodes = product.categoryList?.nodes ?? [];
   const legacyCategories = product.categories ?? [];
-  const allCategories = categoryListNodes.length > 0
-    ? categoryListNodes
-    : legacyCategories;
+  const allCategories = categoryListNodes.length > 0 ? categoryListNodes : legacyCategories;
 
   // Handle content lists from Product Detail API
   // contentList contains typed content items with type, name, description
@@ -346,9 +347,7 @@ export function mapProductToExperience(product: {
   let highlights: string[] = [];
   const highlightNodes = contentNodes.filter((n) => n.type === 'HIGHLIGHT');
   if (highlightNodes.length > 0) {
-    highlights = highlightNodes
-      .map((n) => n.name || n.description || '')
-      .filter(Boolean);
+    highlights = highlightNodes.map((n) => n.name || n.description || '').filter(Boolean);
   } else if (product.additionList) {
     if (Array.isArray(product.additionList)) {
       highlights = product.additionList as string[];
@@ -363,14 +362,14 @@ export function mapProductToExperience(product: {
   let inclusions: string[] = [];
   const inclusionNodes = contentNodes.filter((n) => n.type === 'INCLUSION');
   if (inclusionNodes.length > 0) {
-    inclusions = inclusionNodes
-      .map((n) => n.name || n.description || '')
-      .filter(Boolean);
+    inclusions = inclusionNodes.map((n) => n.name || n.description || '').filter(Boolean);
   } else if (product.inclusions) {
     if (typeof product.inclusions[0] === 'string') {
       inclusions = product.inclusions as string[];
     } else {
-      inclusions = (product.inclusions as { text?: string }[]).map((i) => i.text ?? '').filter(Boolean);
+      inclusions = (product.inclusions as { text?: string }[])
+        .map((i) => i.text ?? '')
+        .filter(Boolean);
     }
   }
 
@@ -378,14 +377,14 @@ export function mapProductToExperience(product: {
   let exclusions: string[] = [];
   const exclusionNodes = contentNodes.filter((n) => n.type === 'EXCLUSION');
   if (exclusionNodes.length > 0) {
-    exclusions = exclusionNodes
-      .map((n) => n.name || n.description || '')
-      .filter(Boolean);
+    exclusions = exclusionNodes.map((n) => n.name || n.description || '').filter(Boolean);
   } else if (product.exclusions) {
     if (typeof product.exclusions[0] === 'string') {
       exclusions = product.exclusions as string[];
     } else {
-      exclusions = (product.exclusions as { text?: string }[]).map((e) => e.text ?? '').filter(Boolean);
+      exclusions = (product.exclusions as { text?: string }[])
+        .map((e) => e.text ?? '')
+        .filter(Boolean);
     }
   }
 
@@ -409,14 +408,11 @@ export function mapProductToExperience(product: {
 
   // Extract additional information from contentList (NOTE type)
   const noteNodes = contentNodes.filter((n) => n.type === 'NOTE');
-  const additionalInfo = noteNodes
-    .map((n) => n.description || n.name || '')
-    .filter(Boolean);
+  const additionalInfo = noteNodes.map((n) => n.description || n.name || '').filter(Boolean);
 
   // Extract guide languages from guideLanguageList
-  const languages = product.guideLanguageList?.nodes
-    ?.map((lang) => lang.name || '')
-    .filter(Boolean) ?? [];
+  const languages =
+    product.guideLanguageList?.nodes?.map((lang) => lang.name || '').filter(Boolean) ?? [];
 
   return {
     id: product.id,
@@ -523,7 +519,7 @@ export function parseIsoDuration(duration: string | number | null | undefined): 
   const minutes = parseInt(match[3] || '0', 10);
   // Ignore seconds for display purposes
 
-  return (days * 24 * 60) + (hours * 60) + minutes;
+  return days * 24 * 60 + hours * 60 + minutes;
 }
 
 /**

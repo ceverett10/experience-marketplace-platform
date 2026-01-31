@@ -50,10 +50,12 @@ export function BookingWidget({ experience }: BookingWidgetProps) {
         <button
           onClick={() => setIsModalOpen(true)}
           className="w-full rounded-xl py-4 text-base font-semibold text-white transition-all hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2"
-          style={{
-            backgroundColor: primaryColor,
-            '--tw-ring-color': primaryColor,
-          } as React.CSSProperties}
+          style={
+            {
+              backgroundColor: primaryColor,
+              '--tw-ring-color': primaryColor,
+            } as React.CSSProperties
+          }
         >
           Check availability
         </button>
@@ -76,7 +78,9 @@ export function BookingWidget({ experience }: BookingWidgetProps) {
               </svg>
               <div>
                 <p className="text-sm font-semibold text-gray-900">Free cancellation</p>
-                <p className="text-xs text-gray-500">Cancel up to 24 hours in advance for a full refund</p>
+                <p className="text-xs text-gray-500">
+                  Cancel up to 24 hours in advance for a full refund
+                </p>
               </div>
             </div>
           )}
@@ -106,14 +110,30 @@ export function BookingWidget({ experience }: BookingWidgetProps) {
         {/* Duration & Language Quick Info */}
         <div className="mt-6 flex items-center justify-between border-t border-gray-100 pt-4 text-sm text-gray-500">
           <div className="flex items-center gap-1.5">
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth="1.5"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
             </svg>
             <span>{experience.duration.formatted}</span>
           </div>
           {experience.languages && experience.languages.length > 0 && (
             <div className="flex items-center gap-1.5">
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth="1.5"
+                stroke="currentColor"
+              >
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"

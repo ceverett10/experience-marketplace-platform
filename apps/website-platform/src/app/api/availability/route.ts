@@ -75,9 +75,16 @@ export async function GET(request: NextRequest) {
       }
 
       // Use discoverAvailability helper
-      console.log('[Availability API] Calling discoverAvailability:', { productId, dateFrom, dateTo });
+      console.log('[Availability API] Calling discoverAvailability:', {
+        productId,
+        dateFrom,
+        dateTo,
+      });
       const availability = await client.discoverAvailability(productId, dateFrom, dateTo);
-      console.log('[Availability API] Got response:', JSON.stringify(availability).substring(0, 200));
+      console.log(
+        '[Availability API] Got response:',
+        JSON.stringify(availability).substring(0, 200)
+      );
 
       return NextResponse.json({
         success: true,
@@ -86,7 +93,12 @@ export async function GET(request: NextRequest) {
     }
 
     // Otherwise use the raw recursive method (filter is undefined for recursive calls)
-    const availability = await client.getAvailabilityList(productId, undefined, sessionId, optionList);
+    const availability = await client.getAvailabilityList(
+      productId,
+      undefined,
+      sessionId,
+      optionList
+    );
 
     return NextResponse.json({
       success: true,
@@ -94,7 +106,10 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('[Availability API] Error:', error);
-    console.error('[Availability API] Error details:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
+    console.error(
+      '[Availability API] Error details:',
+      JSON.stringify(error, Object.getOwnPropertyNames(error))
+    );
 
     // Handle specific error types
     if (error instanceof Error) {
