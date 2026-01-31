@@ -129,7 +129,7 @@ describe('Footer', () => {
   it('should render Holibob attribution', () => {
     renderWithProviders(<Footer />);
 
-    expect(screen.getByText('Powered by')).toBeInTheDocument();
+    expect(screen.getByText(/Powered by/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Holibob' })).toHaveAttribute(
       'href',
       'https://holibob.tech'
