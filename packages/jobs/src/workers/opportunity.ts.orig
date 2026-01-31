@@ -28,12 +28,10 @@ export async function handleOpportunityScan(
 
     // Initialize Holibob client
     const holibobClient = createHolibobClient({
-      apiUrl: process.env['HOLIBOB_API_URL'] || 'https://api.sandbox.holibob.tech/graphql',
-      partnerId: process.env['HOLIBOB_PARTNER_ID'] || '',
       apiKey: process.env['HOLIBOB_API_KEY'] || '',
-      apiSecret: process.env['HOLIBOB_API_SECRET'],
-      sandbox: process.env['HOLIBOB_ENV'] !== 'production',
-      timeout: 30000,
+      "apiSecret": process.env["HOLIBOB_API_SECRET"] || "",
+      partnerId: process.env["HOLIBOB_PARTNER_ID"] || "",
+      sandbox: process.env["HOLIBOB_ENV"] === "sandbox",
     });
 
     // Scan for opportunities
@@ -72,7 +70,7 @@ export async function handleOpportunityScan(
             status: 'IDENTIFIED',
             source: 'opportunity_scan',
             sourceData: opp.sourceData,
-            siteId: targetSites.length === 1 ? targetSites[0]?.id : undefined,
+            siteId: targetSites.length === 1 ? targetSites[0].id : undefined,
           },
           update: {
             searchVolume: opp.searchVolume,
@@ -164,24 +162,19 @@ async function scanForOpportunities(
   // For each destination + category combination
   for (const destination of targetDestinations) {
     for (const category of targetCategories) {
-      const destinationCity = destination.split(',')[0] || destination;
-      const keyword = `${destinationCity.toLowerCase()} ${category}`;
+      const keyword = `${destination?.split(',')[0]?.toLowerCase()} ${category}`;
 
       // TODO: Integrate with actual keyword research API (SEMrush, Ahrefs)
       // For now, use mock data based on Holibob inventory check
 
       try {
         // Check Holibob inventory for this destination + category
-        const inventory = await holibobClient.discoverProducts(
-          {
-            freeText: destination,
-            searchTerm: category,
-            currency: 'GBP',
-          },
-          { pageSize: 10 }
-        );
+        const inventory = await holibobClient.productDiscovery({
+          where: { freeText: destination },
+          what: { data: { searchTerm: category } },
+        });
 
-        const inventoryCount = inventory.products.length;
+        const inventoryCount = inventory.recommendedProductList?.nodes?.length || 0;
 
         // Only create opportunity if we have inventory
         if (inventoryCount > 0) {
@@ -202,8 +195,7 @@ async function scanForOpportunities(
           });
         }
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        console.error(`[Opportunity Scan] Error checking inventory for ${keyword}:`, errorMessage);
+        console.error(`[Opportunity Scan] Error checking inventory for ${keyword}:`, error);
       }
     }
   }
