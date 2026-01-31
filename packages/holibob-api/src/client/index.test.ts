@@ -377,12 +377,17 @@ describe('HolibobClient - Availability Methods', () => {
 
       mockRequest.mockResolvedValueOnce(mockResponse);
 
-      const result = await client.getAvailabilityList('prod-123', 'session-123', [
-        { id: 'START_DATE', value: '2024-06-01' },
-      ]);
+      // New signature: getAvailabilityList(productId, filter?, sessionId?, optionList?)
+      const result = await client.getAvailabilityList(
+        'prod-123',
+        undefined, // filter - not used for recursive method
+        'session-123',
+        [{ id: 'START_DATE', value: '2024-06-01' }]
+      );
 
       expect(mockRequest).toHaveBeenCalledWith(expect.any(String), {
         productId: 'prod-123',
+        filter: undefined,
         sessionId: 'session-123',
         optionList: [{ id: 'START_DATE', value: '2024-06-01' }],
       });
@@ -391,22 +396,7 @@ describe('HolibobClient - Availability Methods', () => {
 
   describe('discoverAvailability', () => {
     it('should complete availability discovery with date options', async () => {
-      // First call returns options
-      mockRequest.mockResolvedValueOnce({
-        availabilityList: {
-          sessionId: 'session-abc',
-          nodes: [],
-          optionList: {
-            isComplete: false,
-            nodes: [
-              { id: 'START_DATE', label: 'Start Date' },
-              { id: 'END_DATE', label: 'End Date' },
-            ],
-          },
-        },
-      });
-
-      // Second call returns availability slots
+      // discoverAvailability now uses direct filter method (single call)
       mockRequest.mockResolvedValueOnce({
         availabilityList: {
           sessionId: 'session-abc',
@@ -417,7 +407,14 @@ describe('HolibobClient - Availability Methods', () => {
 
       const result = await client.discoverAvailability('prod-123', '2024-06-01', '2024-06-30');
 
-      expect(mockRequest).toHaveBeenCalledTimes(2);
+      // Direct filter method makes only 1 call
+      expect(mockRequest).toHaveBeenCalledTimes(1);
+      expect(mockRequest).toHaveBeenCalledWith(expect.any(String), {
+        productId: 'prod-123',
+        filter: { startDate: '2024-06-01', endDate: '2024-06-30' },
+        sessionId: undefined,
+        optionList: undefined,
+      });
       expect(result.nodes).toHaveLength(1);
     });
   });
@@ -794,21 +791,14 @@ describe('HolibobClient - High-Level Helpers', () => {
 
   describe('getAvailabilityLegacy', () => {
     it('should convert to legacy format', async () => {
-      mockRequest
-        .mockResolvedValueOnce({
-          availabilityList: {
-            sessionId: 'session-1',
-            nodes: [],
-            optionList: { isComplete: false, nodes: [{ id: 'START_DATE' }, { id: 'END_DATE' }] },
-          },
-        })
-        .mockResolvedValueOnce({
-          availabilityList: {
-            sessionId: 'session-1',
-            nodes: [{ id: 'slot-1', date: '2024-06-15', soldOut: false }],
-            optionList: { isComplete: true, nodes: [] },
-          },
-        });
+      // getAvailabilityLegacy uses discoverAvailability which now uses direct filter (single call)
+      mockRequest.mockResolvedValueOnce({
+        availabilityList: {
+          sessionId: 'session-1',
+          nodes: [{ id: 'slot-1', date: '2024-06-15', soldOut: false }],
+          optionList: { isComplete: true, nodes: [] },
+        },
+      });
 
       const result = await client.getAvailabilityLegacy('prod-123', '2024-06-01', '2024-06-30');
 
