@@ -137,9 +137,11 @@ describe('BookingForm', () => {
     // For now, we verify the step navigation structure exists
     renderWithProvider(<BookingForm experience={mockExperience} />);
 
-    // Verify step indicators show current step
-    const steps = screen.getAllByRole('button').filter((btn) => btn.textContent?.match(/^[1-4]$/));
-    expect(steps.length).toBeGreaterThan(0);
+    // Verify step indicators exist by checking for their labels
+    expect(screen.getByText('Date & Time')).toBeInTheDocument();
+    expect(screen.getByText('Guests')).toBeInTheDocument();
+    expect(screen.getByText('Details')).toBeInTheDocument();
+    expect(screen.getByText('Review')).toBeInTheDocument();
   });
 
   it('shows price breakdown based on guests', async () => {
@@ -190,12 +192,11 @@ describe('BookingForm - Step Navigation', () => {
   it('allows clicking on completed steps to go back', () => {
     renderWithProvider(<BookingForm experience={mockExperience} />);
 
-    // Step indicators should be present
-    const stepButtons = screen.getAllByRole('button');
-    const stepIndicators = stepButtons.filter(
-      (btn) => btn.textContent?.match(/^[1-4]$/) || btn.querySelector('svg')
-    );
-    expect(stepIndicators.length).toBeGreaterThan(0);
+    // Step indicators should be present - verify by checking for step labels
+    expect(screen.getByText('Date & Time')).toBeInTheDocument();
+    expect(screen.getByText('Guests')).toBeInTheDocument();
+    expect(screen.getByText('Details')).toBeInTheDocument();
+    expect(screen.getByText('Review')).toBeInTheDocument();
   });
 });
 

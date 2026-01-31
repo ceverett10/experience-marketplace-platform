@@ -146,7 +146,12 @@ describe('Availability API Route', () => {
 
     expect(response.status).toBe(200);
     expect(data.success).toBe(true);
-    expect(mockGetAvailabilityList).toHaveBeenCalledWith('test-product', 'session-123', undefined);
+    expect(mockGetAvailabilityList).toHaveBeenCalledWith(
+      'test-product',
+      undefined,
+      'session-123',
+      undefined
+    );
     expect(mockDiscoverAvailability).not.toHaveBeenCalled();
   });
 
@@ -161,7 +166,12 @@ describe('Availability API Route', () => {
 
     expect(response.status).toBe(200);
     expect(data.success).toBe(true);
-    expect(mockGetAvailabilityList).toHaveBeenCalledWith('test-product', undefined, optionList);
+    expect(mockGetAvailabilityList).toHaveBeenCalledWith(
+      'test-product',
+      undefined,
+      undefined,
+      optionList
+    );
   });
 
   it('returns 400 for invalid optionList JSON', async () => {
@@ -192,7 +202,7 @@ describe('Availability API Route', () => {
     const data = await response.json();
 
     expect(response.status).toBe(500);
-    expect(data.error).toBe('Failed to fetch availability');
+    expect(data.error).toBe('Network error');
   });
 
   it('returns 404 when product not found', async () => {

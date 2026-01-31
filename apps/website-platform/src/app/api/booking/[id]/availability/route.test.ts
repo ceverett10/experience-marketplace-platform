@@ -93,8 +93,8 @@ describe('Booking Add Availability API Route - POST', () => {
     expect(data.data.isComplete).toBe(true);
     expect(data.data.booking).toBeDefined();
     expect(mockAddAvailabilityToBooking).toHaveBeenCalledWith({
-      bookingId: 'booking-123',
-      availabilityId: 'avail-123',
+      bookingSelector: { id: 'booking-123' },
+      id: 'avail-123',
     });
     expect(mockGetBookingQuestions).toHaveBeenCalledWith('booking-123');
   });

@@ -191,10 +191,9 @@ describe('Booking API Route - POST (L2B Step 6: Create Booking)', () => {
 
     expect(response.status).toBe(201);
     expect(data.success).toBe(true);
+    // Note: createBooking only accepts autoFillQuestions, not reference IDs
     expect(mockCreateBooking).toHaveBeenCalledWith({
       autoFillQuestions: true,
-      partnerExternalReference: 'partner-ref-123',
-      consumerTripId: 'trip-456',
     });
   });
 

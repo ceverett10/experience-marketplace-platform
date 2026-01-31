@@ -102,7 +102,7 @@ describe('Booking Questions API Route - POST', () => {
     vi.clearAllMocks();
   });
 
-  it('returns 400 when request body is invalid', async () => {
+  it('returns 400 when termsAccepted is not provided', async () => {
     const request = new NextRequest('http://localhost:3000/api/booking/test-123/questions', {
       method: 'POST',
       body: JSON.stringify({}),
@@ -112,7 +112,7 @@ describe('Booking Questions API Route - POST', () => {
     const data = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data.error).toBe('At least one question answer must be provided');
+    expect(data.error).toBe('You must accept the terms and conditions');
   });
 
   it('answers booking questions successfully', async () => {
@@ -122,11 +122,13 @@ describe('Booking Questions API Route - POST', () => {
       questionList: { nodes: [] },
       availabilityList: { nodes: [] },
     };
+    mockGetBookingQuestions.mockResolvedValue(mockBooking);
     mockAnswerBookingQuestions.mockResolvedValue(mockBooking);
 
     const request = new NextRequest('http://localhost:3000/api/booking/booking-123/questions', {
       method: 'POST',
       body: JSON.stringify({
+        termsAccepted: true,
         questionList: [{ id: 'q1', value: 'Hotel lobby' }],
       }),
     });
@@ -142,24 +144,47 @@ describe('Booking Questions API Route - POST', () => {
   it('answers person-level questions', async () => {
     const mockBooking = {
       id: 'booking-123',
-      canCommit: true,
+      canCommit: false,
       questionList: { nodes: [] },
-      availabilityList: { nodes: [] },
+      availabilityList: {
+        nodes: [
+          {
+            id: 'avail-1',
+            questionList: { nodes: [] },
+            personList: {
+              nodes: [
+                {
+                  id: 'person-1',
+                  questionList: {
+                    nodes: [
+                      { id: 'pq1', label: 'First name', answerValue: null },
+                      { id: 'pq2', label: 'Last name', answerValue: null },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
     };
-    mockAnswerBookingQuestions.mockResolvedValue(mockBooking);
+    const mockAnsweredBooking = {
+      ...mockBooking,
+      canCommit: true,
+    };
+    mockGetBookingQuestions.mockResolvedValue(mockBooking);
+    mockAnswerBookingQuestions.mockResolvedValue(mockAnsweredBooking);
 
     const request = new NextRequest('http://localhost:3000/api/booking/booking-123/questions', {
       method: 'POST',
       body: JSON.stringify({
-        availabilityList: [
+        termsAccepted: true,
+        customerEmail: 'john@example.com',
+        guests: [
           {
-            id: 'avail-1',
-            personList: [
-              {
-                id: 'person-1',
-                questionList: [{ id: 'pq1', value: 'John Doe' }],
-              },
-            ],
+            firstName: 'John',
+            lastName: 'Doe',
+            isLeadGuest: true,
           },
         ],
       }),
@@ -173,16 +198,8 @@ describe('Booking Questions API Route - POST', () => {
     expect(mockAnswerBookingQuestions).toHaveBeenCalledWith(
       'booking-123',
       expect.objectContaining({
-        availabilityList: expect.arrayContaining([
-          expect.objectContaining({
-            id: 'avail-1',
-            personList: expect.arrayContaining([
-              expect.objectContaining({
-                id: 'person-1',
-              }),
-            ]),
-          }),
-        ]),
+        leadPassengerName: 'John Doe',
+        answerList: expect.any(Array),
       })
     );
   });
