@@ -333,6 +333,7 @@ ABTEST_REBALANCE       Every hour
 #### ✅ Analytics Worker
 
 **Metrics Aggregation** (`handleMetricsAggregate`)
+
 - Aggregates GSC metrics by time period (daily/weekly/monthly)
 - Calculates trends (impressions, clicks, CTR, position changes)
 - Identifies performance issues:
@@ -343,6 +344,7 @@ ABTEST_REBALANCE       Every hour
 - Full integration with Prisma for page and content lookups
 
 **Performance Reporting** (`handlePerformanceReport`)
+
 - Generates comprehensive weekly/monthly performance reports
 - Calculates KPIs for SEO, content, and opportunities
 - **AI-Powered Insights** using Claude API:
@@ -355,6 +357,7 @@ ABTEST_REBALANCE       Every hour
 #### ✅ Site Worker
 
 **Site Creation** (`handleSiteCreate`)
+
 - Creates autonomous micro-sites for opportunities
 - **AI Brand Generation** using Claude API:
   - Creative brand names (1-3 words)
@@ -368,6 +371,7 @@ ABTEST_REBALANCE       Every hour
 - Optional auto-deployment to staging
 
 **Site Deployment** (`handleSiteDeploy`)
+
 - Deploys sites to staging/production environments
 - Validates deployment readiness (pages, brand, domain)
 - Staging: Uses Heroku app URLs
@@ -399,6 +403,7 @@ ABTEST_REBALANCE       Every hour
 #### ✅ Domain Worker
 
 **Domain Registration** (`handleDomainRegister`)
+
 - Registers domains via registrar APIs
 - Supports Namecheap, Cloudflare, Google Domains
 - Checks domain availability
@@ -407,12 +412,14 @@ ABTEST_REBALANCE       Every hour
 - Mock implementations ready for production API integration
 
 **Domain Verification** (`handleDomainVerify`)
+
 - Verifies domain ownership (DNS or HTTP methods)
 - Updates domain verification status
 - Configures DNS records (Cloudflare integration ready)
 - Auto-queues SSL provisioning after verification
 
 **SSL Provisioning** (`handleSslProvision`)
+
 - Provisions SSL certificates automatically
 - Supports Let's Encrypt and Cloudflare SSL
 - Tracks certificate expiry dates
@@ -422,6 +429,7 @@ ABTEST_REBALANCE       Every hour
 #### ✅ A/B Test Worker
 
 **Test Analysis** (`handleABTestAnalyze`)
+
 - Statistical significance testing (Z-test for proportions)
 - Calculates confidence levels and p-values
 - Determines uplift percentages vs control
@@ -431,6 +439,7 @@ ABTEST_REBALANCE       Every hour
 - Normal CDF approximation for significance testing
 
 **Traffic Rebalancing** (`handleABTestRebalance`)
+
 - **Thompson Sampling Algorithm:**
   - Beta distribution for conversion probability modeling
   - Monte Carlo sampling (10,000 iterations)
