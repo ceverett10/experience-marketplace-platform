@@ -255,34 +255,77 @@ export function ProductDiscoverySearch({
     }
   };
 
+  // Helper to format date as YYYY-MM-DD
+  const formatDate = (date: Date): string => {
+    return date.toISOString().split('T')[0] ?? '';
+  };
+
   // Navigate to results page
   const navigateToResults = useCallback(() => {
     const urlParams = new URLSearchParams();
     if (where) urlParams.set('destination', where);
     if (what) urlParams.set('q', what);
 
-    // Parse when into dates
+    // Parse "when" into dates
     const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
-    if (when.toLowerCase() === 'today' && todayStr) {
-      urlParams.set('startDate', todayStr);
-    } else if (when.toLowerCase() === 'tomorrow') {
+    const whenLower = when.toLowerCase();
+
+    if (whenLower === 'today') {
+      urlParams.set('startDate', formatDate(today));
+    } else if (whenLower === 'tomorrow') {
       const tomorrow = new Date(today);
       tomorrow.setDate(tomorrow.getDate() + 1);
-      const tomorrowStr = tomorrow.toISOString().split('T')[0];
-      if (tomorrowStr) {
-        urlParams.set('startDate', tomorrowStr);
-      }
+      urlParams.set('startDate', formatDate(tomorrow));
+    } else if (whenLower === 'this weekend' || whenLower.includes('weekend')) {
+      // Find next Saturday
+      const daysUntilSaturday = (6 - today.getDay() + 7) % 7 || 7;
+      const saturday = new Date(today);
+      saturday.setDate(today.getDate() + daysUntilSaturday);
+      urlParams.set('startDate', formatDate(saturday));
+      const sunday = new Date(saturday);
+      sunday.setDate(saturday.getDate() + 1);
+      urlParams.set('endDate', formatDate(sunday));
+    } else if (whenLower === 'next week') {
+      // Start of next week (Monday)
+      const daysUntilMonday = (8 - today.getDay()) % 7 || 7;
+      const nextMonday = new Date(today);
+      nextMonday.setDate(today.getDate() + daysUntilMonday);
+      urlParams.set('startDate', formatDate(nextMonday));
+      const nextSunday = new Date(nextMonday);
+      nextSunday.setDate(nextMonday.getDate() + 6);
+      urlParams.set('endDate', formatDate(nextSunday));
+    } else if (whenLower === 'next month') {
+      // First day of next month
+      const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+      urlParams.set('startDate', formatDate(nextMonth));
+      const lastDayNextMonth = new Date(today.getFullYear(), today.getMonth() + 2, 0);
+      urlParams.set('endDate', formatDate(lastDayNextMonth));
     }
 
-    // Parse who into adults/children
-    const whoMatch = who.match(/(\d+)\s*adult/i);
-    if (whoMatch?.[1]) {
-      urlParams.set('adults', whoMatch[1]);
+    // Parse "who" into adults/children - handle natural language
+    const whoLower = who.toLowerCase();
+
+    // First try numeric patterns like "2 adults, 1 child"
+    const adultsMatch = who.match(/(\d+)\s*adult/i);
+    const childrenMatch = who.match(/(\d+)\s*child/i);
+
+    if (adultsMatch?.[1]) {
+      urlParams.set('adults', adultsMatch[1]);
+    } else if (whoLower.includes('solo') || whoLower === 'solo traveller') {
+      urlParams.set('adults', '1');
+    } else if (whoLower === 'couple') {
+      urlParams.set('adults', '2');
+    } else if (whoLower.includes('family') || whoLower === 'family with kids') {
+      urlParams.set('adults', '2');
+      urlParams.set('children', '2');
+    } else if (whoLower.includes('friends') || whoLower === 'group of friends') {
+      urlParams.set('adults', '4');
+    } else if (whoLower.includes('business') || whoLower === 'business trip') {
+      urlParams.set('adults', '1');
     }
-    const childMatch = who.match(/(\d+)\s*child/i);
-    if (childMatch?.[1]) {
-      urlParams.set('children', childMatch[1]);
+
+    if (childrenMatch?.[1]) {
+      urlParams.set('children', childrenMatch[1]);
     }
 
     router.push(`/experiences?${urlParams.toString()}`);
