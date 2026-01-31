@@ -210,20 +210,34 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
                         style={isActive ? { backgroundColor: primaryColor } : {}}
                       >
                         {isCompleted ? (
-                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth="3" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                          <svg
+                            className="h-4 w-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            strokeWidth="3"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M4.5 12.75l6 6 9-13.5"
+                            />
                           </svg>
                         ) : (
                           item.step
                         )}
                       </div>
                     </div>
-                    <span className={`mt-1 text-xs font-medium ${isActive ? 'text-gray-900' : 'text-gray-500'}`}>
+                    <span
+                      className={`mt-1 text-xs font-medium ${isActive ? 'text-gray-900' : 'text-gray-500'}`}
+                    >
                       {item.label}
                     </span>
                   </div>
                   {idx < 2 && (
-                    <div className={`mb-5 h-0.5 flex-1 ${item.step < currentStep ? 'bg-green-500' : 'bg-gray-200'}`} />
+                    <div
+                      className={`mb-5 h-0.5 flex-1 ${item.step < currentStep ? 'bg-green-500' : 'bg-gray-200'}`}
+                    />
                   )}
                 </div>
               );

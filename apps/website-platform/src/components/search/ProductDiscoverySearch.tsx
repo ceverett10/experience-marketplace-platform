@@ -847,7 +847,9 @@ export function ProductDiscoverySearch({
             }`}
           >
             <span className="block text-xs font-semibold text-gray-800">Where</span>
-            <span className="block truncate text-sm text-gray-500">{where || 'Search destinations...'}</span>
+            <span className="block truncate text-sm text-gray-500">
+              {where || 'Search destinations...'}
+            </span>
           </button>
 
           <div className="h-8 w-px bg-gray-200" />
@@ -889,7 +891,9 @@ export function ProductDiscoverySearch({
             }`}
           >
             <span className="block text-xs font-semibold text-gray-800">What</span>
-            <span className="block truncate text-sm text-gray-500">{what || 'Tours, activities...'}</span>
+            <span className="block truncate text-sm text-gray-500">
+              {what || 'Tours, activities...'}
+            </span>
           </button>
 
           {/* Search Button */}

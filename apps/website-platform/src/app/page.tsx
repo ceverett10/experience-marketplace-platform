@@ -295,10 +295,7 @@ export default async function HomePage() {
                 rating: 4,
               },
             ].map((testimonial, idx) => (
-              <div
-                key={idx}
-                className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm"
-              >
+              <div key={idx} className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
                 <div className="mb-3 flex items-center gap-0.5">
                   {[...Array(5)].map((_, i) => (
                     <svg
