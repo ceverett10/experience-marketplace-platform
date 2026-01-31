@@ -14,6 +14,7 @@ import {
   type BookingAddAvailabilityInput,
   type BookingInput,
   type BookingSelectorInput,
+  type StripePaymentIntent,
   type Category,
   type Place,
   type PlaceType,
@@ -30,6 +31,7 @@ import {
   BOOKING_ADD_AVAILABILITY_MUTATION,
   BOOKING_QUESTIONS_QUERY,
   BOOKING_ANSWER_QUESTIONS_QUERY,
+  STRIPE_PAYMENT_INTENT_QUERY,
   BOOKING_COMMIT_MUTATION,
   BOOKING_STATE_QUERY,
   BOOKING_FULL_QUERY,
@@ -443,9 +445,33 @@ export class HolibobClient {
   // STEP 9: COMMIT BOOKING
   // ==========================================================================
 
+  // ==========================================================================
+  // STEP 9a: STRIPE PAYMENT
+  // ==========================================================================
+
+  /**
+   * Get Stripe Payment Intent for a booking
+   * Required when partner channel has paymentType: REQUIRED
+   * Returns clientSecret needed to render Stripe payment form
+   */
+  async getStripePaymentIntent(selector: BookingSelectorInput): Promise<StripePaymentIntent> {
+    const response = await this.executeQuery<{
+      stripePaymentIntent: StripePaymentIntent;
+    }>(STRIPE_PAYMENT_INTENT_QUERY, {
+      bookingSelector: selector,
+    });
+
+    return response.stripePaymentIntent;
+  }
+
+  // ==========================================================================
+  // STEP 9b: COMMIT BOOKING
+  // ==========================================================================
+
   /**
    * Commit a booking (finalize)
    * Returns PENDING state initially, must poll until CONFIRMED
+   * Note: If paymentType: REQUIRED, payment must succeed before calling this
    */
   async commitBooking(selector: BookingSelectorInput): Promise<Booking> {
     const response = await this.executeQuery<{

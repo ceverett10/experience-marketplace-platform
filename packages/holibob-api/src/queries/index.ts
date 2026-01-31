@@ -409,15 +409,52 @@ export const BOOKING_QUESTIONS_QUERY = gql`
 /**
  * Answer booking questions
  * Must iterate until canCommit = true
+ *
+ * BookingInput accepts:
+ * - leadPassengerName: String (optional)
+ * - reference: String (optional partner reference)
+ * - answerList: Array of { questionId: String!, value: String! }
  */
 export const BOOKING_ANSWER_QUESTIONS_QUERY = gql`
   query BookingAnswerQuestions($id: String!, $input: BookingInput!) {
     booking(id: $id, input: $input) {
+      id
       canCommit
+      leadPassengerName
       questionList {
         nodes {
           id
+          label
           answerValue
+          isRequired
+        }
+      }
+      availabilityList {
+        nodes {
+          id
+          questionList {
+            nodes {
+              id
+              label
+              answerValue
+              isRequired
+            }
+          }
+          personList {
+            nodes {
+              id
+              pricingCategoryLabel
+              isQuestionsComplete
+              questionList {
+                nodes {
+                  id
+                  label
+                  answerValue
+                  isRequired
+                }
+              }
+            }
+          }
         }
       }
     }
@@ -425,11 +462,29 @@ export const BOOKING_ANSWER_QUESTIONS_QUERY = gql`
 `;
 
 /**
- * Step 9: Commit Booking
+ * Step 9a: Get Stripe Payment Intent
+ * Fetches the Stripe payment intent for processing payment before commit
+ * Required when partner channel has paymentType: REQUIRED
+ */
+export const STRIPE_PAYMENT_INTENT_QUERY = gql`
+  query StripePaymentIntent($bookingSelector: BookingSelector!) {
+    stripePaymentIntent(bookingSelector: $bookingSelector) {
+      id
+      amount
+      clientSecret
+      apiKey
+      createdAt
+    }
+  }
+`;
+
+/**
+ * Step 9b: Commit Booking
  * Finalizes the booking and starts supplier confirmation process
+ * Should only be called after payment is successful (if paymentType: REQUIRED)
  */
 export const BOOKING_COMMIT_MUTATION = gql`
-  mutation BookingCommit($bookingSelector: BookingSelectorInput!) {
+  mutation BookingCommit($bookingSelector: BookingSelector!) {
     bookingCommit(bookingSelector: $bookingSelector) {
       code
       state
@@ -551,7 +606,7 @@ export const BOOKING_LIST_QUERY = gql`
  * Cancel a booking
  */
 export const BOOKING_CANCEL_MUTATION = gql`
-  mutation BookingCancel($bookingSelector: BookingSelectorInput!, $reason: String) {
+  mutation BookingCancel($bookingSelector: BookingSelector!, $reason: String) {
     bookingCancel(bookingSelector: $bookingSelector, reason: $reason) {
       id
       code

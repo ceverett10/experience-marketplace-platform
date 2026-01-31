@@ -58,6 +58,12 @@ const SimplifiedGuestSchema = z.object({
   isLeadGuest: z.boolean().optional(),
 });
 
+// Availability answer schema
+const AvailabilityAnswerSchema = z.object({
+  questionId: z.string(),
+  value: z.string(),
+});
+
 // Answer questions request schema
 const AnswerQuestionsSchema = z.object({
   // Raw Holibob format - booking level questions only
@@ -67,6 +73,8 @@ const AnswerQuestionsSchema = z.object({
   customerPhone: z.string().optional(),
   guests: z.array(SimplifiedGuestSchema).optional(),
   termsAccepted: z.boolean().optional(),
+  // Availability-level answers (e.g., risk waivers)
+  availabilityAnswers: z.array(AvailabilityAnswerSchema).optional(),
 });
 
 interface RouteParams {
@@ -206,139 +214,124 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (!booking.canCommit && input.guests && input.guests.length > 0) {
       console.log('[Questions API] Attempting to answer person questions...');
 
-      // Get availabilities with person questions
-      const availabilities = booking.availabilityList?.nodes ?? [];
+      // Build answer list for all questions (booking, availability, and person levels)
+      // Per Holibob docs: answerList uses { questionId, value } format
+      const answerList: Array<{ questionId: string; value: string }> = [];
 
-      for (const availability of availabilities) {
-        const persons = availability.personList?.nodes ?? [];
+      // Helper to add answers for a question list
+      const processQuestions = (questions: Array<{ id: string; label?: string; answerValue?: string }>, guestIndex = 0) => {
+        const guestData = input.guests[guestIndex] || input.guests[0];
 
-        for (let i = 0; i < persons.length; i++) {
-          const person = persons[i];
-          const guestData = input.guests[i] || input.guests[0]; // Use first guest data as fallback
-          const questions = person.questionList?.nodes ?? [];
+        for (const question of questions) {
+          // Skip if already answered
+          if (question.answerValue) continue;
 
-          console.log(`[Questions API] Person ${i + 1} has ${questions.length} questions`);
-
-          // Find and answer common questions
-          for (const question of questions) {
-            const label = question.label?.toLowerCase() ?? '';
-            let answerValue: string | undefined;
-
-            // Map question labels to guest data
-            if (label.includes('first') && label.includes('name')) {
-              answerValue = guestData.firstName;
-            } else if (label.includes('last') && label.includes('name') || label.includes('surname')) {
-              answerValue = guestData.lastName;
-            } else if (label.includes('email')) {
-              answerValue = input.customerEmail || guestData.email;
-            } else if (label.includes('phone') || label.includes('mobile') || label.includes('telephone')) {
-              answerValue = input.customerPhone || guestData.phone;
-            } else if (label.includes('full name') || label === 'name') {
-              answerValue = `${guestData.firstName} ${guestData.lastName}`;
-            }
-
-            if (answerValue && !question.answerValue) {
-              console.log(`[Questions API] Answering question "${question.label}" with "${answerValue}"`);
-              // Note: Individual question answering might need a different API call
-              // For now, log what we would answer
-            }
-          }
-        }
-      }
-
-      // Try to answer booking-level questions using the booking query with input
-      // Note: This is the Holibob way to answer questions
-      try {
-        const bookingQuestions = booking.questionList?.nodes ?? [];
-        const questionAnswers: Array<{ id: string; value: string }> = [];
-
-        for (const question of bookingQuestions) {
           const label = question.label?.toLowerCase() ?? '';
+          let answerValue: string | undefined;
 
-          // Use existing answerValue if already filled, otherwise fill from guest data
-          // Note: autoCompleteValue is just a hint for browser autocomplete, NOT the actual answer
-          let answerValue: string | undefined = question.answerValue;
-
-          // Fill from guest data if not already answered
-          if (!answerValue) {
-            if (label.includes('first') && label.includes('name')) {
-              answerValue = input.guests[0].firstName;
-            } else if ((label.includes('last') && label.includes('name')) || label.includes('surname') || label.includes('family')) {
-              answerValue = input.guests[0].lastName;
-            } else if (label.includes('email')) {
-              answerValue = input.customerEmail;
-            } else if (label.includes('phone') || label.includes('tel') || label.includes('mobile')) {
-              answerValue = input.customerPhone;
-            } else if (label.includes('full name') || label === 'name') {
-              answerValue = `${input.guests[0].firstName} ${input.guests[0].lastName}`;
-            }
+          // Map question labels to guest data
+          if (label.includes('first') && label.includes('name')) {
+            answerValue = guestData.firstName;
+          } else if ((label.includes('last') && label.includes('name')) || label.includes('surname') || label.includes('family')) {
+            answerValue = guestData.lastName;
+          } else if (label.includes('email')) {
+            answerValue = input.customerEmail || guestData.email;
+          } else if (label.includes('phone') || label.includes('tel') || label.includes('mobile')) {
+            answerValue = input.customerPhone || guestData.phone;
+          } else if (label.includes('full name') || label === 'name') {
+            answerValue = `${guestData.firstName} ${guestData.lastName}`;
           }
 
           if (answerValue) {
-            questionAnswers.push({ id: question.id, value: answerValue });
+            answerList.push({ questionId: question.id, value: answerValue });
           }
         }
+      };
 
-        if (questionAnswers.length > 0) {
-          console.log('[Questions API] Sending question answers to Holibob:', JSON.stringify(questionAnswers, null, 2));
+      // Process booking-level questions
+      const bookingQuestions = booking.questionList?.nodes ?? [];
+      processQuestions(bookingQuestions);
 
-          // Introspect BookingInput to find correct field names
-          try {
-            const introspectionQuery = `
-              query IntrospectBookingInput {
-                __type(name: "BookingInput") {
-                  name
-                  inputFields {
-                    name
-                    type {
-                      name
-                      kind
-                      ofType {
-                        name
-                        kind
-                      }
-                    }
-                  }
+      // Process availability and person-level questions
+      const availabilities = booking.availabilityList?.nodes ?? [];
+      for (const availability of availabilities) {
+        // Availability-level questions
+        const availQuestions = availability.questionList?.nodes ?? [];
+        processQuestions(availQuestions);
+
+        // Person-level questions
+        const persons = availability.personList?.nodes ?? [];
+        for (let i = 0; i < persons.length; i++) {
+          const personQuestions = persons[i].questionList?.nodes ?? [];
+          processQuestions(personQuestions, i);
+        }
+      }
+
+      // Add availability-level answers (e.g., risk waivers)
+      if (input.availabilityAnswers && input.availabilityAnswers.length > 0) {
+        for (const answer of input.availabilityAnswers) {
+          answerList.push({
+            questionId: answer.questionId,
+            value: answer.value,
+          });
+        }
+      }
+
+      // Build the lead passenger name
+      const leadPassengerName = `${input.guests[0].firstName} ${input.guests[0].lastName}`;
+
+      console.log('[Questions API] Lead passenger:', leadPassengerName);
+      console.log('[Questions API] Answer list:', JSON.stringify(answerList, null, 2));
+
+      // Submit answers to Holibob
+      if (answerList.length > 0 || leadPassengerName) {
+        try {
+          const answeredBooking = await client.answerBookingQuestions(bookingId, {
+            leadPassengerName,
+            answerList,
+          });
+          console.log('[Questions API] Holibob response canCommit:', answeredBooking.canCommit);
+          booking = answeredBooking;
+
+          // Log remaining unanswered questions
+          if (!answeredBooking.canCommit) {
+            console.log('[Questions API] === REMAINING UNANSWERED QUESTIONS ===');
+
+            // Booking-level - show ALL unanswered
+            const unansweredBooking = (answeredBooking.questionList?.nodes ?? [])
+              .filter((q: { answerValue?: string }) => !q.answerValue);
+            if (unansweredBooking.length > 0) {
+              console.log('[Questions API] Booking-level:', JSON.stringify(unansweredBooking, null, 2));
+            }
+
+            // Availability and Person-level
+            for (const avail of answeredBooking.availabilityList?.nodes ?? []) {
+              const unansweredAvail = (avail.questionList?.nodes ?? [])
+                .filter((q: { answerValue?: string }) => !q.answerValue);
+              if (unansweredAvail.length > 0) {
+                console.log(`[Questions API] Availability ${avail.id}:`, JSON.stringify(unansweredAvail, null, 2));
+              }
+
+              for (const person of avail.personList?.nodes ?? []) {
+                // Check isQuestionsComplete flag
+                console.log(`[Questions API] Person ${person.id} (${person.pricingCategoryLabel}) isQuestionsComplete:`, person.isQuestionsComplete);
+                const unansweredPerson = (person.questionList?.nodes ?? [])
+                  .filter((q: { answerValue?: string }) => !q.answerValue);
+                if (unansweredPerson.length > 0) {
+                  console.log(`[Questions API] Person ${person.id} unanswered:`, JSON.stringify(unansweredPerson, null, 2));
                 }
               }
-            `;
-            const introspectionResult = await (client as any).client.request(introspectionQuery);
-            console.log('[Questions API] BookingInput schema:', JSON.stringify(introspectionResult, null, 2));
-          } catch (introspectError) {
-            console.error('[Questions API] Failed to introspect schema:', introspectError);
-          }
-
-          // Try different input formats based on what Holibob might accept
-          // Format 1: Try with answerList instead of questionList
-          try {
-            const answeredBooking = await client.answerBookingQuestions(bookingId, {
-              answerList: questionAnswers,
-            } as any);
-            console.log('[Questions API] Format 1 (answerList) worked! canCommit:', answeredBooking.canCommit);
-            booking = answeredBooking;
-          } catch (error1) {
-            console.log('[Questions API] Format 1 (answerList) failed');
-
-            // Format 2: Try with questions array
-            try {
-              const answeredBooking = await client.answerBookingQuestions(bookingId, {
-                questions: questionAnswers,
-              } as any);
-              console.log('[Questions API] Format 2 (questions) worked! canCommit:', answeredBooking.canCommit);
-              booking = answeredBooking;
-            } catch (error2) {
-              console.log('[Questions API] Format 2 (questions) failed');
-
-              // Re-fetch to get current state
-              booking = await client.getBookingQuestions(bookingId);
             }
+            console.log('[Questions API] === END UNANSWERED QUESTIONS ===');
           }
+        } catch (answerError) {
+          console.error('[Questions API] Error submitting answers:', answerError);
+          // Re-fetch to get current state
+          booking = await client.getBookingQuestions(bookingId);
         }
-
-        console.log('[Questions API] Final canCommit:', booking.canCommit);
-      } catch (answerError) {
-        console.error('[Questions API] Error answering questions:', answerError);
       }
+
+      console.log('[Questions API] Final canCommit:', booking.canCommit);
     }
 
     return NextResponse.json({

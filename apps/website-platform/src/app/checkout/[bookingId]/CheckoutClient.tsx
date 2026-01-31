@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { SiteConfig } from '@/lib/tenant';
 import { QuestionsForm, type GuestData } from './QuestionsForm';
+import { StripePaymentForm } from './StripePaymentForm';
 import {
   getBookingQuestions,
   answerBookingQuestions,
@@ -30,6 +31,8 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
   const [availabilities, setAvailabilities] = useState<BookingAvailability[]>([]);
   const [canCommit, setCanCommit] = useState(false);
   const [questionsAnswered, setQuestionsAnswered] = useState(false);
+  const [showPayment, setShowPayment] = useState(false);
+  const [paymentComplete, setPaymentComplete] = useState(false);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -80,10 +83,16 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
     }
   };
 
-  // Handle booking commit (finalize)
-  const handleCommit = async () => {
+  // Handle proceed to payment
+  const handleProceedToPayment = () => {
     if (!canCommit) return;
+    setShowPayment(true);
+    setError(null);
+  };
 
+  // Handle payment success - now commit the booking
+  const handlePaymentSuccess = async () => {
+    setPaymentComplete(true);
     setIsCommitting(true);
     setError(null);
 
@@ -100,6 +109,13 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
       setError(err instanceof Error ? err.message : 'Failed to complete booking');
       setIsCommitting(false);
     }
+  };
+
+  // Handle payment error
+  const handlePaymentError = (errorMessage: string) => {
+    console.error('[Checkout] Payment error:', errorMessage);
+    setError(errorMessage);
+    setShowPayment(false);
   };
 
   // Get first availability for display
@@ -274,14 +290,42 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
                   </div>
                 </div>
 
-                {/* Edit Button */}
-                <button
-                  onClick={() => setQuestionsAnswered(false)}
-                  className="text-sm font-medium hover:underline"
-                  style={{ color: primaryColor }}
-                >
-                  Edit guest information
-                </button>
+                {/* Payment Section */}
+                {showPayment ? (
+                  <div className="rounded-xl bg-white p-6 shadow-lg">
+                    <h2 className="mb-4 text-lg font-semibold text-gray-900">Payment</h2>
+                    {paymentComplete ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="text-center">
+                          <svg className="mx-auto h-12 w-12 text-green-500" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <p className="mt-2 font-medium text-gray-900">Payment successful!</p>
+                          <p className="text-sm text-gray-500">Confirming your booking...</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <StripePaymentForm
+                        bookingId={initialBooking.id}
+                        onSuccess={handlePaymentSuccess}
+                        onError={handlePaymentError}
+                        primaryColor={primaryColor}
+                        totalPrice={booking.totalPrice?.grossFormattedText}
+                      />
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    {/* Edit Button */}
+                    <button
+                      onClick={() => setQuestionsAnswered(false)}
+                      className="text-sm font-medium hover:underline"
+                      style={{ color: primaryColor }}
+                    >
+                      Edit guest information
+                    </button>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -330,36 +374,36 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
                 </div>
               </div>
 
-              {/* Commit Button (only show when questions answered) */}
-              {questionsAnswered && canCommit && (
+              {/* Proceed to Payment Button (only show when questions answered and not in payment mode) */}
+              {questionsAnswered && canCommit && !showPayment && (
                 <>
                   <button
-                    onClick={handleCommit}
-                    disabled={isCommitting}
-                    className="mt-6 w-full rounded-xl py-4 text-base font-semibold text-white transition-all hover:shadow-lg disabled:opacity-50"
+                    onClick={handleProceedToPayment}
+                    className="mt-6 w-full rounded-xl py-4 text-base font-semibold text-white transition-all hover:shadow-lg"
                     style={{ backgroundColor: primaryColor }}
                   >
-                    {isCommitting ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <svg className="h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                          />
-                        </svg>
-                        Confirming...
-                      </span>
-                    ) : (
-                      'Confirm Booking'
-                    )}
+                    Proceed to Payment
                   </button>
 
                   <p className="mt-3 text-center text-xs text-gray-500">
-                    By confirming, you agree to our terms and conditions.
+                    You&apos;ll complete your payment on the next step.
                   </p>
                 </>
+              )}
+
+              {/* Confirming indicator */}
+              {isCommitting && (
+                <div className="mt-6 flex items-center justify-center gap-2 text-gray-600">
+                  <svg className="h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    />
+                  </svg>
+                  <span>Confirming your booking...</span>
+                </div>
               )}
 
               {/* Trust badges */}

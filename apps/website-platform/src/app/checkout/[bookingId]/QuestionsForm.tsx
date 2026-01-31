@@ -28,6 +28,9 @@ interface BookingAvailability {
   product?: {
     name: string;
   };
+  questionList?: {
+    nodes: BookingQuestion[];
+  };
   personList?: {
     nodes: BookingPerson[];
   };
@@ -54,6 +57,10 @@ export interface GuestData {
     isLeadGuest: boolean;
   }>;
   termsAccepted: boolean;
+  availabilityAnswers?: Array<{
+    questionId: string;
+    value: string;
+  }>;
 }
 
 export function QuestionsForm({
@@ -78,6 +85,12 @@ export function QuestionsForm({
   const [phone, setPhone] = useState('');
   const [termsAccepted, setTermsAccepted] = useState(false);
 
+  // Availability-level questions (e.g., risk acceptance waivers)
+  const availabilityQuestions = availabilities.flatMap(
+    (avail) => (avail.questionList?.nodes ?? []).filter(q => !q.answerValue)
+  );
+  const [availabilityAnswers, setAvailabilityAnswers] = useState<Record<string, boolean>>({});
+
   // Form validation
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -98,6 +111,12 @@ export function QuestionsForm({
     if (!phone.trim()) {
       newErrors['phone'] = 'Phone number is required';
     }
+    // Check availability questions (e.g., risk waivers)
+    for (const question of availabilityQuestions) {
+      if (question.isRequired && !availabilityAnswers[question.id]) {
+        newErrors[`avail_${question.id}`] = 'This acknowledgment is required';
+      }
+    }
     if (!termsAccepted) {
       newErrors['terms'] = 'You must accept the terms and conditions';
     }
@@ -114,6 +133,14 @@ export function QuestionsForm({
     // Build guest data - use lead person details for all guests (API will auto-fill)
     const fullPhone = `${phoneCountryCode} ${phone}`.trim();
 
+    // Build availability answers for submission
+    const availAnswers = Object.entries(availabilityAnswers)
+      .filter(([_, accepted]) => accepted)
+      .map(([questionId]) => ({
+        questionId,
+        value: 'true', // Boolean questions expect string 'true'
+      }));
+
     const data: GuestData = {
       customerEmail: email,
       customerPhone: fullPhone,
@@ -127,6 +154,7 @@ export function QuestionsForm({
         }))
       ),
       termsAccepted,
+      availabilityAnswers: availAnswers,
     };
 
     await onSubmit(data);
@@ -244,6 +272,36 @@ export function QuestionsForm({
         <h2 className="mb-4 text-lg font-semibold" style={{ color: primaryColor }}>
           Completion
         </h2>
+
+        {/* Availability-level questions (risk waivers, etc.) */}
+        {availabilityQuestions.length > 0 && (
+          <div className="mb-4 space-y-3">
+            {availabilityQuestions.map((question) => (
+              <div key={question.id}>
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={availabilityAnswers[question.id] ?? false}
+                    onChange={(e) =>
+                      setAvailabilityAnswers((prev) => ({
+                        ...prev,
+                        [question.id]: e.target.checked,
+                      }))
+                    }
+                    className="mt-1 h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+                  />
+                  <span className="text-sm text-gray-700">
+                    {question.label}
+                    {question.isRequired && <span className="text-red-500"> *</span>}
+                  </span>
+                </label>
+                {errors[`avail_${question.id}`] && (
+                  <p className="mt-1 ml-7 text-xs text-red-500">{errors[`avail_${question.id}`]}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
 
         <p className="mb-4 text-sm text-gray-600">
           You just need to accept Holibob{' '}

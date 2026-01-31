@@ -694,22 +694,27 @@ export const BookingAddAvailabilityInputSchema = z.object({
 export type BookingAddAvailabilityInput = z.infer<typeof BookingAddAvailabilityInputSchema>;
 
 /**
- * Input for answering booking questions
+ * Input for answering a single booking question
+ * Note: Uses questionId (not id) per Holibob API documentation
  */
 export const BookingQuestionAnswerSchema = z.object({
-  id: z.string(),
+  questionId: z.string(),
   value: z.string(),
 });
 
 export type BookingQuestionAnswer = z.infer<typeof BookingQuestionAnswerSchema>;
 
 /**
- * Input for answering booking questions
- * Note: Holibob API only accepts questionList at the booking level.
- * With autoFillQuestions: true, most questions are auto-filled.
+ * Input for updating booking and answering questions
+ * Per Holibob API documentation:
+ * - leadPassengerName: Name of lead passenger
+ * - reference: Partner external reference
+ * - answerList: Array of question answers (questionId + value)
  */
 export const BookingInputSchema = z.object({
-  questionList: z.array(BookingQuestionAnswerSchema).optional(),
+  leadPassengerName: z.string().optional(),
+  reference: z.string().optional(),
+  answerList: z.array(BookingQuestionAnswerSchema).optional(),
 });
 
 export type BookingInput = z.infer<typeof BookingInputSchema>;
@@ -723,6 +728,24 @@ export const BookingSelectorInputSchema = z.object({
 });
 
 export type BookingSelectorInput = z.infer<typeof BookingSelectorInputSchema>;
+
+// ============================================================================
+// STRIPE PAYMENT INTENT TYPES
+// ============================================================================
+
+/**
+ * Stripe Payment Intent from Holibob
+ * Used when paymentType: REQUIRED to collect payment before commit
+ */
+export const StripePaymentIntentSchema = z.object({
+  id: z.string(),
+  amount: z.number(),
+  clientSecret: z.string(),
+  apiKey: z.string(),
+  createdAt: z.string().optional(),
+});
+
+export type StripePaymentIntent = z.infer<typeof StripePaymentIntentSchema>;
 
 // ============================================================================
 // BOOKING LIST TYPES

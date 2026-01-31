@@ -569,7 +569,8 @@ describe('HolibobClient - Booking Methods', () => {
       });
 
       const result = await client.answerBookingQuestions('booking-123', {
-        questionList: [{ id: 'q1', answer: 'John Doe' }],
+        leadPassengerName: 'John Doe',
+        answerList: [{ questionId: 'q1', value: 'John Doe' }],
       });
 
       expect(result.canCommit).toBe(true);
