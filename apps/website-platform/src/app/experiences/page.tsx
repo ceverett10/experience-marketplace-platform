@@ -121,9 +121,9 @@ async function getExperiences(
     );
 
     const experiences = response.products.map((product) => {
-      // Get primary image from imageList (Product Detail API format)
+      // Get primary image from imageList (Product Detail API format - direct array)
       const primaryImage =
-        product.imageList?.nodes?.[0]?.url ?? product.imageUrl ?? '/placeholder-experience.jpg';
+        product.imageList?.[0]?.url ?? product.imageUrl ?? '/placeholder-experience.jpg';
 
       // Get price - Product Detail API uses guidePrice, Product Discovery uses priceFrom
       const priceAmount = product.guidePrice ?? product.priceFrom ?? 0;

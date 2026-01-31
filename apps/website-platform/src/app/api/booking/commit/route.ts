@@ -77,10 +77,10 @@ export async function POST(request: NextRequest) {
     console.log('[Commit API] canCommit:', bookingWithQuestions.canCommit);
     console.log('[Commit API] Booking questions:', JSON.stringify(bookingWithQuestions.questionList?.nodes ?? [], null, 2));
     console.log('[Commit API] Availability questions:', JSON.stringify(
-      bookingWithQuestions.availabilityList?.nodes.map((a: { id: string; questionList?: { nodes: Array<{ id: string; label: string; answerValue?: string }> }; personList?: { nodes: Array<{ id: string; questionList?: { nodes: Array<{ id: string; label: string; answerValue?: string }> } }> } }) => ({
+      bookingWithQuestions.availabilityList?.nodes.map((a: { id: string; questionList?: { nodes: Array<{ id: string; label: string; answerValue?: string | null }> }; personList?: { nodes: Array<{ id: string; questionList?: { nodes: Array<{ id: string; label: string; answerValue?: string | null }> } }> } }) => ({
         id: a.id,
         questions: a.questionList?.nodes ?? [],
-        persons: a.personList?.nodes.map((p: { id: string; questionList?: { nodes: Array<{ id: string; label: string; answerValue?: string }> } }) => ({
+        persons: a.personList?.nodes.map((p: { id: string; questionList?: { nodes: Array<{ id: string; label: string; answerValue?: string | null }> } }) => ({
           id: p.id,
           questions: p.questionList?.nodes ?? []
         })) ?? []

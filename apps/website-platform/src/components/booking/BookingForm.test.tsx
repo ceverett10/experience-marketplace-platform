@@ -44,6 +44,10 @@ const mockExperience: Experience = {
   inclusions: ['Entry ticket'],
   exclusions: ['Food'],
   cancellationPolicy: 'Free cancellation up to 24 hours',
+  reviews: [],
+  itinerary: [],
+  additionalInfo: [],
+  languages: [],
 };
 
 describe('BookingForm', () => {

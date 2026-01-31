@@ -516,7 +516,7 @@ export default async function ExperienceDetailPage({ params }: Props) {
                     />
                   ) : experience.location.lat && experience.location.lng ? (
                     <img
-                      src={`https://maps.googleapis.com/maps/api/staticmap?center=${experience.location.lat},${experience.location.lng}&zoom=15&size=640x400&markers=color:red|${experience.location.lat},${experience.location.lng}&maptype=roadmap&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ''}`}
+                      src={`https://maps.googleapis.com/maps/api/staticmap?center=${experience.location.lat},${experience.location.lng}&zoom=15&size=640x400&markers=color:red|${experience.location.lat},${experience.location.lng}&maptype=roadmap&key=${process.env['NEXT_PUBLIC_GOOGLE_MAPS_API_KEY'] || ''}`}
                       alt={`Map showing ${experience.location.name}`}
                       className="h-full w-full object-cover"
                     />

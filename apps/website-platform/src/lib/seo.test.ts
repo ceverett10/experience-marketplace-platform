@@ -51,6 +51,10 @@ const mockExperience: Experience = {
   inclusions: ['Entry ticket', 'Audio guide'],
   exclusions: ['Food and drinks'],
   cancellationPolicy: 'Free cancellation up to 24 hours before',
+  reviews: [],
+  itinerary: [],
+  additionalInfo: [],
+  languages: [],
 };
 
 const mockExperienceListItem: ExperienceListItem = {

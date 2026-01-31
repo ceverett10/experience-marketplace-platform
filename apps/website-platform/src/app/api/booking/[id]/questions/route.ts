@@ -219,8 +219,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       const answerList: Array<{ questionId: string; value: string }> = [];
 
       // Helper to add answers for a question list
-      const processQuestions = (questions: Array<{ id: string; label?: string; answerValue?: string }>, guestIndex = 0) => {
-        const guestData = input.guests[guestIndex] || input.guests[0];
+      const guests = input.guests!; // We've already checked input.guests exists above
+      const processQuestions = (questions: Array<{ id: string; label?: string; answerValue?: string | null }>, guestIndex = 0) => {
+        const guestData = guests[guestIndex] ?? guests[0];
+        if (!guestData) return; // Safety check
 
         for (const question of questions) {
           // Skip if already answered
@@ -235,9 +237,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           } else if ((label.includes('last') && label.includes('name')) || label.includes('surname') || label.includes('family')) {
             answerValue = guestData.lastName;
           } else if (label.includes('email')) {
-            answerValue = input.customerEmail || guestData.email;
+            answerValue = input.customerEmail ?? guestData.email;
           } else if (label.includes('phone') || label.includes('tel') || label.includes('mobile')) {
-            answerValue = input.customerPhone || guestData.phone;
+            answerValue = input.customerPhone ?? guestData.phone;
           } else if (label.includes('full name') || label === 'name') {
             answerValue = `${guestData.firstName} ${guestData.lastName}`;
           }
@@ -262,8 +264,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         // Person-level questions
         const persons = availability.personList?.nodes ?? [];
         for (let i = 0; i < persons.length; i++) {
-          const personQuestions = persons[i].questionList?.nodes ?? [];
-          processQuestions(personQuestions, i);
+          const person = persons[i];
+          if (person) {
+            const personQuestions = person.questionList?.nodes ?? [];
+            processQuestions(personQuestions, i);
+          }
         }
       }
 
@@ -278,7 +283,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
 
       // Build the lead passenger name
-      const leadPassengerName = `${input.guests[0].firstName} ${input.guests[0].lastName}`;
+      const leadGuest = guests[0];
+      const leadPassengerName = leadGuest ? `${leadGuest.firstName} ${leadGuest.lastName}` : '';
 
       console.log('[Questions API] Lead passenger:', leadPassengerName);
       console.log('[Questions API] Answer list:', JSON.stringify(answerList, null, 2));
@@ -299,7 +305,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
             // Booking-level - show ALL unanswered
             const unansweredBooking = (answeredBooking.questionList?.nodes ?? [])
-              .filter((q: { answerValue?: string }) => !q.answerValue);
+              .filter((q: { answerValue?: string | null }) => !q.answerValue);
             if (unansweredBooking.length > 0) {
               console.log('[Questions API] Booking-level:', JSON.stringify(unansweredBooking, null, 2));
             }
@@ -307,7 +313,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             // Availability and Person-level
             for (const avail of answeredBooking.availabilityList?.nodes ?? []) {
               const unansweredAvail = (avail.questionList?.nodes ?? [])
-                .filter((q: { answerValue?: string }) => !q.answerValue);
+                .filter((q: { answerValue?: string | null }) => !q.answerValue);
               if (unansweredAvail.length > 0) {
                 console.log(`[Questions API] Availability ${avail.id}:`, JSON.stringify(unansweredAvail, null, 2));
               }
@@ -316,7 +322,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
                 // Check isQuestionsComplete flag
                 console.log(`[Questions API] Person ${person.id} (${person.pricingCategoryLabel}) isQuestionsComplete:`, person.isQuestionsComplete);
                 const unansweredPerson = (person.questionList?.nodes ?? [])
-                  .filter((q: { answerValue?: string }) => !q.answerValue);
+                  .filter((q: { answerValue?: string | null }) => !q.answerValue);
                 if (unansweredPerson.length > 0) {
                   console.log(`[Questions API] Person ${person.id} unanswered:`, JSON.stringify(unansweredPerson, null, 2));
                 }
