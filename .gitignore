@@ -47,3 +47,4 @@ yarn-error.log*
 .local/
 tmp/
 temp/
+Demand Gen/

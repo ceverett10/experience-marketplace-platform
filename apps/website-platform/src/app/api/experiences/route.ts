@@ -44,11 +44,18 @@ export async function GET(request: NextRequest) {
     const children = searchParams.get('children');
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
-    const cursor = searchParams.get('cursor');
 
-    // Note: cursor-based pagination would need API support
-    // For now, we use page-based pagination
-    const page = cursor ? parseInt(cursor, 10) : 1;
+    // Get seen product IDs for "Load More" pagination
+    // Holibob doesn't support traditional pagination - instead we pass IDs of products
+    // we've already shown so the API returns new recommendations
+    const seenProductIds = searchParams.get('seenProductIds');
+    const seenProductIdList = seenProductIds ? seenProductIds.split(',').filter(Boolean) : undefined;
+
+    console.log('[API /experiences] Request params:', {
+      destination,
+      searchTerm,
+      seenProductIdCount: seenProductIdList?.length ?? 0,
+    });
 
     const response = await client.discoverProducts(
       {
@@ -62,7 +69,7 @@ export async function GET(request: NextRequest) {
       },
       {
         pageSize: ITEMS_PER_PAGE,
-        page: page,
+        seenProductIdList,
       }
     );
 
@@ -113,12 +120,14 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    const hasMoreResults = response.pageInfo?.hasNextPage ?? false;
+    // hasMore is determined by whether we got a full page of results
+    const hasMoreResults = response.pageInfo?.hasNextPage ?? experiences.length >= ITEMS_PER_PAGE;
+
+    console.log('[API /experiences] Returning', experiences.length, 'experiences, hasMore:', hasMoreResults);
 
     return NextResponse.json({
       experiences,
       hasMore: hasMoreResults,
-      cursor: hasMoreResults ? String(page + 1) : null,
       totalCount: response.totalCount ?? experiences.length,
     });
   } catch (error) {
@@ -127,7 +136,6 @@ export async function GET(request: NextRequest) {
       {
         experiences: [],
         hasMore: false,
-        cursor: null,
         error: error instanceof Error ? error.message : 'Unknown error',
       },
       { status: 500 }

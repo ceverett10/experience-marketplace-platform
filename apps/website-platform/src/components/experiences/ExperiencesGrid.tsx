@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { PremiumExperienceCard } from './PremiumExperienceCard';
 import { useBrand } from '@/lib/site-context';
 
@@ -58,9 +58,15 @@ export function ExperiencesGrid({
   const [experiences, setExperiences] = useState<Experience[]>(initialExperiences);
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [isLoading, setIsLoading] = useState(false);
-  const [cursor, setCursor] = useState<string | null>(null);
 
   const primaryColor = brand?.primaryColor ?? '#0F766E';
+
+  // Track all seen product IDs for Holibob's pagination
+  // Holibob doesn't support traditional pagination - instead we pass IDs of products
+  // we've already shown so the API returns new recommendations
+  const seenProductIds = useMemo(() => {
+    return experiences.map((exp) => exp.id);
+  }, [experiences]);
 
   const loadMore = useCallback(async () => {
     if (isLoading || !hasMore) return;
@@ -72,23 +78,29 @@ export function ExperiencesGrid({
       Object.entries(searchParams).forEach(([key, value]) => {
         if (value) params.set(key, value);
       });
-      if (cursor) params.set('cursor', cursor);
-      params.set('loadMore', 'true');
+
+      // Pass all seen product IDs so API returns new products
+      if (seenProductIds.length > 0) {
+        params.set('seenProductIds', seenProductIds.join(','));
+      }
 
       const response = await fetch(`/api/experiences?${params.toString()}`);
       const data = await response.json();
 
       if (data.experiences && Array.isArray(data.experiences)) {
-        setExperiences((prev) => [...prev, ...data.experiences]);
+        // Filter out any duplicates (safety check)
+        const newExperiences = data.experiences.filter(
+          (exp: Experience) => !seenProductIds.includes(exp.id)
+        );
+        setExperiences((prev) => [...prev, ...newExperiences]);
         setHasMore(data.hasMore ?? false);
-        setCursor(data.cursor ?? null);
       }
     } catch (error) {
       console.error('Error loading more experiences:', error);
     } finally {
       setIsLoading(false);
     }
-  }, [isLoading, hasMore, cursor, searchParams]);
+  }, [isLoading, hasMore, seenProductIds, searchParams]);
 
   if (experiences.length === 0) {
     return (

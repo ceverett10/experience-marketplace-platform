@@ -21,6 +21,7 @@ import {
 } from '../types/index.js';
 import {
   PRODUCT_LIST_QUERY,
+  SUGGESTIONS_QUERY,
   PRODUCT_DETAIL_QUERY,
   AVAILABILITY_LIST_QUERY,
   AVAILABILITY_QUERY,
@@ -124,13 +125,20 @@ export class HolibobClient {
    *
    * Note: Product Discovery only returns id and name for recommended products.
    * We fetch full product details for each recommended product.
+   *
+   * Pagination: Holibob doesn't support traditional pagination. Instead, pass
+   * seenProductIdList with IDs of products already displayed to get new ones.
    */
   async discoverProducts(
     filter: ProductFilter,
-    _pagination?: { page?: number; pageSize?: number }
+    options?: { pageSize?: number; seenProductIdList?: string[] }
   ): Promise<ProductListResponse> {
     // API uses separate arguments (where, when, who, what), not a single input object
     const variables = this.mapProductDiscoveryInput(filter);
+
+    // Add pagination parameters
+    const productCount = options?.pageSize ?? 20;
+    const seenProductIdList = options?.seenProductIdList;
 
     // Step 1: Get recommended product IDs from Product Discovery
     const response = await this.executeQuery<{
@@ -142,11 +150,20 @@ export class HolibobClient {
           nodes: Array<{ id: string; name: string }>;
         };
       };
-    }>(PRODUCT_LIST_QUERY, variables);
+    }>(PRODUCT_LIST_QUERY, {
+      ...variables,
+      productCount,
+      seenProductIdList: seenProductIdList?.length ? seenProductIdList : undefined,
+    });
 
     const recommendedProducts = response.productDiscovery.recommendedProductList.nodes;
 
-    console.log('[HolibobClient] discoverProducts found', recommendedProducts.length, 'products');
+    console.log(
+      '[HolibobClient] discoverProducts found',
+      recommendedProducts.length,
+      'products',
+      seenProductIdList?.length ? `(excluded ${seenProductIdList.length} seen)` : ''
+    );
 
     // Step 2: Fetch full details for each product in parallel
     const productDetailsPromises = recommendedProducts.map(async (rec) => {
@@ -172,11 +189,14 @@ export class HolibobClient {
 
     const products = await Promise.all(productDetailsPromises);
 
+    // hasNextPage is true if we got the full count requested (likely more available)
+    const hasNextPage = recommendedProducts.length >= productCount;
+
     return {
       products,
       pageInfo: {
-        hasNextPage: false, // Simplified - pagination handled client-side
-        hasPreviousPage: false,
+        hasNextPage,
+        hasPreviousPage: (seenProductIdList?.length ?? 0) > 0,
         startCursor: undefined,
         endCursor: undefined,
       },
@@ -187,26 +207,66 @@ export class HolibobClient {
   /**
    * Get real-time suggestions from Product Discovery API
    * Returns destinations, tags, and search terms based on current input
-   * This is a lightweight call that doesn't fetch full product details
+   * This matches Holibob Hub behavior with recommendedDestinationList
    */
   async getSuggestions(filter: ProductFilter): Promise<{
     destination: { id: string; name: string } | null;
+    destinations: Array<{ id: string; name: string }>;
     tags: Array<{ id: string; name: string }>;
     searchTerms: string[];
   }> {
-    const variables = this.mapProductDiscoveryInput(filter);
+    // Build variables matching Holibob Hub format
+    const variables: Record<string, unknown> = {};
+
+    // Where - location as free text
+    if (filter.freeText) {
+      variables['where'] = { freeText: filter.freeText };
+    }
+
+    // When - dates or free text (must be full ISO 8601 DateTime format)
+    if (filter.dateFrom) {
+      variables['when'] = {
+        data: {
+          startDate: this.toDateTimeString(filter.dateFrom, 'start'),
+          endDate: this.toDateTimeString(filter.dateTo || filter.dateFrom, 'end'),
+        },
+      };
+    } else {
+      variables['when'] = { freeText: '' };
+    }
+
+    // Who - traveler info
+    const adults = filter.adults ?? 2;
+    const children = filter.children ?? 0;
+    const parts: string[] = [];
+    if (adults > 0) parts.push(`${adults} Adult${adults > 1 ? 's' : ''}`);
+    if (children > 0) parts.push(`${children} Child${children > 1 ? 'ren' : ''}`);
+    variables['who'] = { freeText: parts.length > 0 ? parts.join(' and ') : '' };
+
+    // What - search term
+    if (filter.searchTerm) {
+      variables['what'] = { freeText: filter.searchTerm };
+    } else {
+      variables['what'] = { freeText: '' };
+    }
+
+    console.log('[HolibobClient] getSuggestions variables:', JSON.stringify(variables, null, 2));
 
     try {
       const response = await this.executeQuery<{
         productDiscovery: {
           selectedDestination?: { id: string; name: string };
+          recommendedDestinationList?: { nodes: Array<{ id: string; name: string }> };
           recommendedTagList?: { nodes: Array<{ id: string; name: string }> };
           recommendedSearchTermList?: { nodes: Array<{ searchTerm: string }> };
         };
-      }>(PRODUCT_LIST_QUERY, variables);
+      }>(SUGGESTIONS_QUERY, variables);
+
+      console.log('[HolibobClient] getSuggestions response:', JSON.stringify(response, null, 2));
 
       return {
         destination: response.productDiscovery.selectedDestination ?? null,
+        destinations: response.productDiscovery.recommendedDestinationList?.nodes ?? [],
         tags: response.productDiscovery.recommendedTagList?.nodes ?? [],
         searchTerms:
           response.productDiscovery.recommendedSearchTermList?.nodes.map((n) => n.searchTerm) ?? [],
@@ -215,6 +275,7 @@ export class HolibobClient {
       console.error('[HolibobClient] getSuggestions error:', error);
       return {
         destination: null,
+        destinations: [],
         tags: [],
         searchTerms: [],
       };
@@ -763,12 +824,12 @@ export class HolibobClient {
       input['where'] = { freeText: 'London' };
     }
 
-    // When - dates in ISO format
+    // When - dates must be full ISO 8601 DateTime format
     if (filter.dateFrom) {
       input['when'] = {
         data: {
-          startDate: filter.dateFrom,
-          endDate: filter.dateTo || filter.dateFrom,
+          startDate: this.toDateTimeString(filter.dateFrom, 'start'),
+          endDate: this.toDateTimeString(filter.dateTo || filter.dateFrom, 'end'),
         },
       };
     }
@@ -826,6 +887,25 @@ export class HolibobClient {
 
   private delay(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Convert a date string to full ISO 8601 DateTime format
+   * Holibob API requires DateTime type, not just date strings
+   * @param dateStr - Date string in YYYY-MM-DD format
+   * @param type - 'start' for beginning of day (00:00:00), 'end' for end of day (23:59:59)
+   */
+  private toDateTimeString(dateStr: string, type: 'start' | 'end'): string {
+    // If already in full DateTime format, return as-is
+    if (dateStr.includes('T')) {
+      return dateStr;
+    }
+    // Add time component based on type
+    if (type === 'start') {
+      return `${dateStr}T00:00:00.000Z`;
+    } else {
+      return `${dateStr}T23:59:59.999Z`;
+    }
   }
 }
 

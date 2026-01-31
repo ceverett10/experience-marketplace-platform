@@ -38,6 +38,7 @@ interface SearchResult {
 // API Suggestions Response
 interface SuggestionsResponse {
   destination: { id: string; name: string } | null;
+  destinations: Array<{ id: string; name: string }>;
   tags: Array<{ id: string; name: string }>;
   searchTerms: string[];
 }
@@ -110,14 +111,77 @@ export function ProductDiscoverySearch({
   // API-driven suggestions state
   const [apiSuggestions, setApiSuggestions] = useState<SuggestionsResponse>({
     destination: null,
+    destinations: [],
     tags: [],
     searchTerms: [],
   });
 
-  // Fetch suggestions from API
+  // Parse "when" into date parameters for API
+  const parseWhenToDates = useCallback((whenValue: string): { startDate?: string; endDate?: string } => {
+    const today = new Date();
+    const formatDate = (date: Date) => date.toISOString().split('T')[0] ?? '';
+    const whenLower = whenValue.toLowerCase();
+
+    if (whenLower === 'today') {
+      return { startDate: formatDate(today) };
+    } else if (whenLower === 'tomorrow') {
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      return { startDate: formatDate(tomorrow) };
+    } else if (whenLower === 'this weekend' || whenLower.includes('weekend')) {
+      const daysUntilSaturday = (6 - today.getDay() + 7) % 7 || 7;
+      const saturday = new Date(today);
+      saturday.setDate(today.getDate() + daysUntilSaturday);
+      const sunday = new Date(saturday);
+      sunday.setDate(saturday.getDate() + 1);
+      return { startDate: formatDate(saturday), endDate: formatDate(sunday) };
+    } else if (whenLower === 'next week') {
+      const daysUntilMonday = (8 - today.getDay()) % 7 || 7;
+      const nextMonday = new Date(today);
+      nextMonday.setDate(today.getDate() + daysUntilMonday);
+      const nextSunday = new Date(nextMonday);
+      nextSunday.setDate(nextMonday.getDate() + 6);
+      return { startDate: formatDate(nextMonday), endDate: formatDate(nextSunday) };
+    } else if (whenLower === 'next month') {
+      const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+      const lastDayNextMonth = new Date(today.getFullYear(), today.getMonth() + 2, 0);
+      return { startDate: formatDate(nextMonth), endDate: formatDate(lastDayNextMonth) };
+    }
+    return {};
+  }, []);
+
+  // Parse "who" into adults/children for API
+  const parseWhoToTravelers = useCallback((whoValue: string): { adults?: number; children?: number } => {
+    const whoLower = whoValue.toLowerCase();
+    const adultsMatch = whoValue.match(/(\d+)\s*adult/i);
+    const childrenMatch = whoValue.match(/(\d+)\s*child/i);
+
+    if (adultsMatch?.[1]) {
+      const result: { adults: number; children?: number } = { adults: parseInt(adultsMatch[1], 10) };
+      if (childrenMatch?.[1]) result.children = parseInt(childrenMatch[1], 10);
+      return result;
+    } else if (whoLower.includes('solo') || whoLower === 'solo traveller') {
+      return { adults: 1 };
+    } else if (whoLower === 'couple') {
+      return { adults: 2 };
+    } else if (whoLower.includes('family') || whoLower === 'family with kids') {
+      return { adults: 2, children: 2 };
+    } else if (whoLower.includes('friends') || whoLower === 'group of friends') {
+      return { adults: 4 };
+    } else if (whoLower.includes('business') || whoLower === 'business trip') {
+      return { adults: 1 };
+    }
+    return {};
+  }, []);
+
+  // Fetch suggestions from API - triggered by where and what inputs
+  // Note: Date and traveler parameters are NOT passed to suggestions API
+  // because Holibob's productDiscovery returns empty suggestions when dates are included.
+  // Suggestions should be context-aware based on location/search, not filtered by availability.
   const fetchSuggestions = useCallback(async () => {
+    // Only fetch if we have location or search input
     if (!where && !what) {
-      setApiSuggestions({ destination: null, tags: [], searchTerms: [] });
+      setApiSuggestions({ destination: null, destinations: [], tags: [], searchTerms: [] });
       return;
     }
 
@@ -126,6 +190,10 @@ export function ProductDiscoverySearch({
       const params = new URLSearchParams();
       if (where) params.set('where', where);
       if (what) params.set('what', what);
+
+      // Note: We intentionally don't pass date/traveler params to suggestions
+      // as they cause the API to return empty results. These params are only
+      // used for the actual product search, not for suggestions.
 
       const response = await fetch(`/api/suggestions?${params.toString()}`);
       if (response.ok) {
@@ -139,7 +207,7 @@ export function ProductDiscoverySearch({
     }
   }, [where, what]);
 
-  // Debounced suggestions fetch (300ms delay)
+  // Debounced suggestions fetch (300ms delay) - triggered by where and what inputs
   useEffect(() => {
     if (suggestionsDebounceRef.current) {
       clearTimeout(suggestionsDebounceRef.current);
@@ -156,9 +224,14 @@ export function ProductDiscoverySearch({
     };
   }, [where, what, fetchSuggestions]);
 
-  // Get location suggestions - API destination or fallback
+  // Get location suggestions - use API destinations array (like Holibob Hub)
   const getLocationSuggestions = useCallback(() => {
-    // If API returned a resolved destination, show it first
+    // If API returned destination suggestions, use them (this is what Holibob Hub does)
+    if (apiSuggestions.destinations.length > 0) {
+      return apiSuggestions.destinations;
+    }
+
+    // If only selected destination is available, show it first along with defaults
     const suggestions = [...DEFAULT_LOCATION_SUGGESTIONS];
     if (
       apiSuggestions.destination &&
@@ -166,12 +239,13 @@ export function ProductDiscoverySearch({
     ) {
       suggestions.unshift(apiSuggestions.destination);
     }
+
     // Filter by input
     if (where) {
       return suggestions.filter((loc) => loc.name.toLowerCase().includes(where.toLowerCase()));
     }
     return suggestions;
-  }, [where, apiSuggestions.destination]);
+  }, [where, apiSuggestions.destinations, apiSuggestions.destination]);
 
   // Get "What" suggestions - prefer API tags and search terms
   const getWhatSuggestions = useCallback((): { id: string; label: string }[] => {
@@ -859,7 +933,7 @@ export function ProductDiscoverySearch({
           // Show generic popular chips when no destination
           <>
             <span className="text-sm text-white/80">Popular:</span>
-            {(WHAT_SUGGESTIONS['default'] ?? []).map((sug) => (
+            {DEFAULT_WHAT_SUGGESTIONS.map((sug) => (
               <button
                 key={sug.id}
                 type="button"

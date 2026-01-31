@@ -153,10 +153,15 @@ async function getExperiences(
       };
     });
 
+    // hasMore is true if we got a full page (likely more available)
+    // Holibob doesn't return accurate pagination info, so we always show "See More"
+    // if we have a reasonable number of products (the API will return empty when exhausted)
+    const hasMore = experiences.length >= ITEMS_PER_PAGE;
+
     return {
       experiences,
       totalCount: response.totalCount ?? experiences.length,
-      hasMore: response.pageInfo?.hasNextPage ?? false,
+      hasMore,
       isUsingMockData: false,
       // These will be populated when the API returns recommended data
       recommendedTags: undefined,

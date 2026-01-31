@@ -5,11 +5,50 @@ import { gql } from 'graphql-request';
 // ============================================================================
 
 /**
+ * Suggestions Query - For real-time search suggestions
+ * Returns destination suggestions, tags, and search terms as user types
+ * Matches Holibob Hub behavior with recommendedDestinationList
+ */
+export const SUGGESTIONS_QUERY = gql`
+  query ProductDiscoverySuggestions(
+    $where: ProductDiscoveryWhere
+    $when: ProductDiscoveryWhen
+    $who: ProductDiscoveryWho
+    $what: ProductDiscoveryWhat
+  ) {
+    productDiscovery(where: $where, when: $when, who: $who, what: $what) {
+      selectedDestination {
+        id
+        name
+      }
+      recommendedDestinationList(count: 5) {
+        nodes {
+          id
+          name
+        }
+      }
+      recommendedTagList {
+        nodes {
+          id
+          name
+        }
+      }
+      recommendedSearchTermList {
+        nodes {
+          searchTerm
+        }
+      }
+    }
+  }
+`;
+
+/**
  * Step 1: Discover Products using Product Discovery API
  * Arguments: where (freeText location), when (dates), who (travelers), what (search/filters)
  * Output: destination, recommendedTagList, recommendedSearchTermList, recommendedProductList
  *
  * Note: The API uses separate arguments, NOT a single input object
+ * Pagination: Use seenProductIdList to get new products (Holibob doesn't support traditional pagination)
  */
 export const PRODUCT_LIST_QUERY = gql`
   query ProductDiscovery(
@@ -17,6 +56,8 @@ export const PRODUCT_LIST_QUERY = gql`
     $when: ProductDiscoveryWhen
     $who: ProductDiscoveryWho
     $what: ProductDiscoveryWhat
+    $seenProductIdList: [ID!]
+    $productCount: Int
   ) {
     productDiscovery(where: $where, when: $when, who: $who, what: $what) {
       selectedDestination {
@@ -34,7 +75,7 @@ export const PRODUCT_LIST_QUERY = gql`
           searchTerm
         }
       }
-      recommendedProductList(count: 20) {
+      recommendedProductList(count: $productCount, seenProductIdList: $seenProductIdList) {
         nodes {
           id
           name

@@ -18,16 +18,18 @@ export async function GET(request: NextRequest) {
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
 
-    // Only call API if we have at least a location query
-    if (!where && !what) {
+    // Only call API if we have at least some input
+    if (!where && !what && !startDate && !adults) {
       return NextResponse.json({
         destination: null,
+        destinations: [],
         tags: [],
         searchTerms: [],
       });
     }
 
     const suggestions = await client.getSuggestions({
+      currency: 'GBP',
       freeText: where || undefined,
       searchTerm: what || undefined,
       adults: adults ? parseInt(adults, 10) : 2,
@@ -42,6 +44,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         destination: null,
+        destinations: [],
         tags: [],
         searchTerms: [],
         error: error instanceof Error ? error.message : 'Unknown error',
