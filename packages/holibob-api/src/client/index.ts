@@ -184,6 +184,43 @@ export class HolibobClient {
     };
   }
 
+  /**
+   * Get real-time suggestions from Product Discovery API
+   * Returns destinations, tags, and search terms based on current input
+   * This is a lightweight call that doesn't fetch full product details
+   */
+  async getSuggestions(filter: ProductFilter): Promise<{
+    destination: { id: string; name: string } | null;
+    tags: Array<{ id: string; name: string }>;
+    searchTerms: string[];
+  }> {
+    const variables = this.mapProductDiscoveryInput(filter);
+
+    try {
+      const response = await this.executeQuery<{
+        productDiscovery: {
+          selectedDestination?: { id: string; name: string };
+          recommendedTagList?: { nodes: Array<{ id: string; name: string }> };
+          recommendedSearchTermList?: { nodes: Array<{ searchTerm: string }> };
+        };
+      }>(PRODUCT_LIST_QUERY, variables);
+
+      return {
+        destination: response.productDiscovery.selectedDestination ?? null,
+        tags: response.productDiscovery.recommendedTagList?.nodes ?? [],
+        searchTerms:
+          response.productDiscovery.recommendedSearchTermList?.nodes.map((n) => n.searchTerm) ?? [],
+      };
+    } catch (error) {
+      console.error('[HolibobClient] getSuggestions error:', error);
+      return {
+        destination: null,
+        tags: [],
+        searchTerms: [],
+      };
+    }
+  }
+
   // ==========================================================================
   // STEP 2: PRODUCT DETAILS
   // ==========================================================================

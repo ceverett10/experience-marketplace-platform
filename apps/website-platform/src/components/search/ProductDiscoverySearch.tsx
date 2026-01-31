@@ -35,8 +35,15 @@ interface SearchResult {
   rating?: { average: number; count: number };
 }
 
-// Location suggestions - will be replaced with API data
-const LOCATION_SUGGESTIONS = [
+// API Suggestions Response
+interface SuggestionsResponse {
+  destination: { id: string; name: string } | null;
+  tags: Array<{ id: string; name: string }>;
+  searchTerms: string[];
+}
+
+// Default fallback suggestions (used before API response)
+const DEFAULT_LOCATION_SUGGESTIONS = [
   { id: 'london', name: 'London' },
   { id: 'paris', name: 'Paris' },
   { id: 'barcelona', name: 'Barcelona' },
@@ -45,7 +52,7 @@ const LOCATION_SUGGESTIONS = [
   { id: 'edinburgh', name: 'Edinburgh' },
 ];
 
-// When suggestions
+// When suggestions (static - dates are deterministic)
 const WHEN_SUGGESTIONS = [
   { id: 'today', label: 'Today' },
   { id: 'tomorrow', label: 'Tomorrow' },
@@ -54,7 +61,7 @@ const WHEN_SUGGESTIONS = [
   { id: 'next-month', label: 'Next Month' },
 ];
 
-// Who suggestions
+// Who suggestions (static - traveler types are fixed)
 const WHO_SUGGESTIONS = [
   { id: 'solo', label: 'Solo Traveller' },
   { id: 'couple', label: 'Couple' },
@@ -63,53 +70,14 @@ const WHO_SUGGESTIONS = [
   { id: 'business', label: 'Business Trip' },
 ];
 
-// What suggestions - context-aware based on destination
-const WHAT_SUGGESTIONS: Record<string, { id: string; label: string }[]> = {
-  default: [
-    { id: 'tours', label: 'Walking Tours' },
-    { id: 'food', label: 'Food & Drink' },
-    { id: 'museums', label: 'Museums' },
-    { id: 'outdoor', label: 'Outdoor Activities' },
-    { id: 'day-trips', label: 'Day Trips' },
-  ],
-  paris: [
-    { id: 'eiffel', label: 'Eiffel Tower' },
-    { id: 'louvre', label: 'Louvre Museum' },
-    { id: 'notre-dame', label: 'Notre Dame' },
-    { id: 'montmartre', label: 'Montmartre' },
-    { id: 'seine', label: 'Seine River Cruise' },
-    { id: 'versailles', label: 'Versailles' },
-  ],
-  london: [
-    { id: 'tower', label: 'Tower of London' },
-    { id: 'british-museum', label: 'British Museum' },
-    { id: 'westminster', label: 'Westminster' },
-    { id: 'london-eye', label: 'London Eye' },
-    { id: 'harry-potter', label: 'Harry Potter' },
-    { id: 'thames', label: 'Thames Cruise' },
-  ],
-  barcelona: [
-    { id: 'sagrada', label: 'Sagrada Familia' },
-    { id: 'park-guell', label: 'Park Güell' },
-    { id: 'gothic', label: 'Gothic Quarter' },
-    { id: 'la-rambla', label: 'La Rambla' },
-    { id: 'tapas', label: 'Tapas Tours' },
-  ],
-  rome: [
-    { id: 'colosseum', label: 'Colosseum' },
-    { id: 'vatican', label: 'Vatican' },
-    { id: 'trevi', label: 'Trevi Fountain' },
-    { id: 'pantheon', label: 'Pantheon' },
-    { id: 'roman-forum', label: 'Roman Forum' },
-  ],
-  amsterdam: [
-    { id: 'van-gogh', label: 'Van Gogh Museum' },
-    { id: 'anne-frank', label: 'Anne Frank House' },
-    { id: 'canals', label: 'Canal Cruise' },
-    { id: 'rijksmuseum', label: 'Rijksmuseum' },
-    { id: 'red-light', label: 'Red Light District' },
-  ],
-};
+// Default "What" suggestions (fallback before API)
+const DEFAULT_WHAT_SUGGESTIONS = [
+  { id: 'tours', label: 'Walking Tours' },
+  { id: 'food', label: 'Food & Drink' },
+  { id: 'museums', label: 'Museums' },
+  { id: 'outdoor', label: 'Outdoor Activities' },
+  { id: 'day-trips', label: 'Day Trips' },
+];
 
 type ActiveSection = 'where' | 'when' | 'who' | 'what' | null;
 
@@ -126,6 +94,7 @@ export function ProductDiscoverySearch({
   const brand = useBrand();
   const searchBarRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const suggestionsDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
   // Search state
   const [where, setWhere] = useState(defaultDestination || searchParams.get('destination') || '');
@@ -136,22 +105,96 @@ export function ProductDiscoverySearch({
   // UI state
   const [activeSection, setActiveSection] = useState<ActiveSection>(null);
   const [isSearching, setIsSearching] = useState(false);
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
 
-  // Filtered suggestions based on input
-  const filteredLocations = where
-    ? LOCATION_SUGGESTIONS.filter((loc) => loc.name.toLowerCase().includes(where.toLowerCase()))
-    : LOCATION_SUGGESTIONS;
+  // API-driven suggestions state
+  const [apiSuggestions, setApiSuggestions] = useState<SuggestionsResponse>({
+    destination: null,
+    tags: [],
+    searchTerms: [],
+  });
 
-  // Get context-aware "what" suggestions based on selected destination
-  const getWhatSuggestions = useCallback((): { id: string; label: string }[] => {
-    const normalizedWhere = where.toLowerCase();
-    for (const key of Object.keys(WHAT_SUGGESTIONS)) {
-      if (key !== 'default' && normalizedWhere.includes(key)) {
-        return WHAT_SUGGESTIONS[key] ?? WHAT_SUGGESTIONS['default'] ?? [];
-      }
+  // Fetch suggestions from API
+  const fetchSuggestions = useCallback(async () => {
+    if (!where && !what) {
+      setApiSuggestions({ destination: null, tags: [], searchTerms: [] });
+      return;
     }
-    return WHAT_SUGGESTIONS['default'] ?? [];
-  }, [where]);
+
+    setIsLoadingSuggestions(true);
+    try {
+      const params = new URLSearchParams();
+      if (where) params.set('where', where);
+      if (what) params.set('what', what);
+
+      const response = await fetch(`/api/suggestions?${params.toString()}`);
+      if (response.ok) {
+        const data: SuggestionsResponse = await response.json();
+        setApiSuggestions(data);
+      }
+    } catch (error) {
+      console.error('Error fetching suggestions:', error);
+    } finally {
+      setIsLoadingSuggestions(false);
+    }
+  }, [where, what]);
+
+  // Debounced suggestions fetch (300ms delay)
+  useEffect(() => {
+    if (suggestionsDebounceRef.current) {
+      clearTimeout(suggestionsDebounceRef.current);
+    }
+
+    suggestionsDebounceRef.current = setTimeout(() => {
+      fetchSuggestions();
+    }, 300);
+
+    return () => {
+      if (suggestionsDebounceRef.current) {
+        clearTimeout(suggestionsDebounceRef.current);
+      }
+    };
+  }, [where, what, fetchSuggestions]);
+
+  // Get location suggestions - API destination or fallback
+  const getLocationSuggestions = useCallback(() => {
+    // If API returned a resolved destination, show it first
+    const suggestions = [...DEFAULT_LOCATION_SUGGESTIONS];
+    if (
+      apiSuggestions.destination &&
+      !suggestions.find((s) => s.id === apiSuggestions.destination?.id)
+    ) {
+      suggestions.unshift(apiSuggestions.destination);
+    }
+    // Filter by input
+    if (where) {
+      return suggestions.filter((loc) => loc.name.toLowerCase().includes(where.toLowerCase()));
+    }
+    return suggestions;
+  }, [where, apiSuggestions.destination]);
+
+  // Get "What" suggestions - prefer API tags and search terms
+  const getWhatSuggestions = useCallback((): { id: string; label: string }[] => {
+    // If we have API suggestions, use them
+    if (apiSuggestions.tags.length > 0 || apiSuggestions.searchTerms.length > 0) {
+      const suggestions: { id: string; label: string }[] = [];
+
+      // Add tags from API
+      apiSuggestions.tags.forEach((tag) => {
+        suggestions.push({ id: tag.id, label: tag.name });
+      });
+
+      // Add search terms from API
+      apiSuggestions.searchTerms.forEach((term, index) => {
+        suggestions.push({ id: `search-${index}`, label: term });
+      });
+
+      return suggestions.slice(0, 8); // Limit to 8 suggestions
+    }
+
+    // Fallback to default suggestions
+    return DEFAULT_WHAT_SUGGESTIONS;
+  }, [apiSuggestions.tags, apiSuggestions.searchTerms]);
 
   const primaryColor = brand?.primaryColor ?? '#0F766E';
 
@@ -397,7 +440,18 @@ export function ProductDiscoverySearch({
               onKeyDown={(e) => handleKeyDown(e, 'where')}
             />
             <div className="flex flex-wrap gap-2">
-              {filteredLocations.map((loc) => (
+              {isLoadingSuggestions && (
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <div
+                    className="h-4 w-4 animate-spin rounded-full border-2 border-t-transparent"
+                    style={{
+                      borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}`,
+                    }}
+                  />
+                  Loading suggestions...
+                </div>
+              )}
+              {getLocationSuggestions().map((loc) => (
                 <button
                   key={loc.id}
                   type="button"
@@ -549,6 +603,17 @@ export function ProductDiscoverySearch({
               }}
             />
             <div className="flex flex-wrap gap-2">
+              {isLoadingSuggestions && (
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <div
+                    className="h-4 w-4 animate-spin rounded-full border-2 border-t-transparent"
+                    style={{
+                      borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}`,
+                    }}
+                  />
+                  Loading suggestions...
+                </div>
+              )}
               {getWhatSuggestions().map((sug) => (
                 <button
                   key={sug.id}
