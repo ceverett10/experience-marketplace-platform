@@ -10,6 +10,7 @@
 ## Overview
 
 Phase 3 focuses on completing the production-ready platform with:
+
 - External API integrations for enhanced autonomy
 - Full domain management automation
 - Monitoring and observability infrastructure
@@ -17,6 +18,7 @@ Phase 3 focuses on completing the production-ready platform with:
 - Level 3 autonomy (minimal human intervention)
 
 **Prerequisites:** ✅ Phase 2 Complete
+
 - All 223 tests passing
 - All 7 workers operational
 - Database schema complete
@@ -27,6 +29,7 @@ Phase 3 focuses on completing the production-ready platform with:
 ## Sprint 3.1: Keyword Research & SEO Intelligence ⏳
 
 ### Priority: HIGH
+
 ### Estimated Duration: 1 week
 
 ### Objectives
@@ -38,11 +41,13 @@ Integrate real keyword research APIs to replace placeholder data in the opportun
 #### 1. SEMrush API Integration
 
 **Files to Modify:**
+
 - `packages/jobs/src/services/keyword-research.ts` (new)
 - `packages/jobs/src/workers/opportunity.ts`
 - `packages/database/prisma/schema.prisma` (add API credentials)
 
 **Implementation:**
+
 ```typescript
 // New service for keyword research
 export class KeywordResearchService {
@@ -62,6 +67,7 @@ export class KeywordResearchService {
 ```
 
 **Environment Variables Required:**
+
 - `SEMRUSH_API_KEY`
 - `SEMRUSH_API_URL=https://api.semrush.com`
 
@@ -70,26 +76,29 @@ export class KeywordResearchService {
 If SEMrush not available, implement Ahrefs as alternative.
 
 **Environment Variables:**
+
 - `AHREFS_API_KEY`
 - `AHREFS_API_URL=https://apiv2.ahrefs.com`
 
 #### 3. Update Opportunity Scanner
 
 **Replace Placeholder Logic:**
+
 ```typescript
 // Before (placeholder):
-searchVolume: Math.floor(Math.random() * 10000)
-keywordDifficulty: Math.floor(Math.random() * 40) + 30
+searchVolume: Math.floor(Math.random() * 10000);
+keywordDifficulty: Math.floor(Math.random() * 40) + 30;
 
 // After (real data):
 const keywordData = await keywordService.getKeywordData(query);
-searchVolume: keywordData.searchVolume
-keywordDifficulty: keywordData.difficulty
+searchVolume: keywordData.searchVolume;
+keywordDifficulty: keywordData.difficulty;
 ```
 
 #### 4. Add Competitor Monitoring
 
 **New Worker Handler:**
+
 ```typescript
 export async function handleCompetitorScan(job: Job<CompetitorScanPayload>) {
   // Scan competitor sites
@@ -118,6 +127,7 @@ export async function handleCompetitorScan(job: Job<CompetitorScanPayload>) {
 ## Sprint 3.2: Domain Management Automation 🔧
 
 ### Priority: HIGH
+
 ### Estimated Duration: 1 week
 
 ### Objectives
@@ -129,6 +139,7 @@ Complete domain registration, DNS configuration, and SSL provisioning with produ
 #### 1. Domain Registrar Integration
 
 **Choose One:**
+
 - Namecheap API
 - Cloudflare Registrar API
 - Google Domains API
@@ -136,6 +147,7 @@ Complete domain registration, DNS configuration, and SSL provisioning with produ
 **Implementation Steps:**
 
 **Files to Create/Modify:**
+
 - `packages/jobs/src/services/domain-registrar.ts` (new)
 - `packages/jobs/src/workers/domain.ts` (update stubs)
 
@@ -241,6 +253,7 @@ await prisma.domain.update({
 ## Sprint 3.3: Monitoring & Observability 📊
 
 ### Priority: MEDIUM
+
 ### Estimated Duration: 1 week
 
 ### Objectives
@@ -252,9 +265,11 @@ Build monitoring infrastructure for queue health, worker performance, and system
 #### 1. Queue Health Dashboard
 
 **New Admin Page:**
+
 - `apps/admin/src/app/queues/page.tsx` (new)
 
 **Features:**
+
 - Real-time queue metrics (waiting, active, completed, failed)
 - Worker status (running, paused, stalled)
 - Job duration histograms
@@ -263,6 +278,7 @@ Build monitoring infrastructure for queue health, worker performance, and system
 - Queue pause/resume controls
 
 **Data Source:**
+
 ```typescript
 // Use BullMQ methods
 const metrics = await queueRegistry.getQueueMetrics();
@@ -272,6 +288,7 @@ const metrics = await queueRegistry.getQueueMetrics();
 #### 2. Worker Performance Monitoring
 
 **Metrics to Track:**
+
 - Job processing time (P50, P95, P99)
 - Job success/failure rates
 - Jobs per hour
@@ -279,6 +296,7 @@ const metrics = await queueRegistry.getQueueMetrics();
 - CPU usage per worker
 
 **Implementation:**
+
 ```typescript
 // Add to worker handlers
 const startTime = Date.now();
@@ -287,12 +305,12 @@ try {
   const duration = Date.now() - startTime;
   await trackMetric('job.duration', duration, {
     jobType: job.name,
-    status: 'success'
+    status: 'success',
   });
 } catch (error) {
   await trackMetric('job.failure', 1, {
     jobType: job.name,
-    error: error.message
+    error: error.message,
   });
 }
 ```
@@ -300,6 +318,7 @@ try {
 #### 3. Email Notification System
 
 **For Critical Events:**
+
 - Worker crashes
 - Job failures (> 3 retries)
 - Queue overflow (> 1000 pending)
@@ -307,6 +326,7 @@ try {
 - Domain expiry warnings (< 30 days)
 
 **Implementation:**
+
 ```typescript
 // Use SendGrid, AWS SES, or Postmark
 export class EmailService {
@@ -318,6 +338,7 @@ export class EmailService {
 ```
 
 **Environment Variables:**
+
 - `EMAIL_SERVICE_API_KEY`
 - `EMAIL_FROM=alerts@yourdomain.com`
 - `EMAIL_TO=ops@yourdomain.com`
@@ -336,6 +357,7 @@ export class SlackService {
 ```
 
 **Environment Variables:**
+
 - `SLACK_WEBHOOK_URL`
 - `DISCORD_WEBHOOK_URL` (optional alternative)
 
@@ -359,6 +381,7 @@ export class SlackService {
 ## Sprint 3.4: Advanced A/B Testing 🧪
 
 ### Priority: MEDIUM
+
 ### Estimated Duration: 1 week
 
 ### Objectives
@@ -414,8 +437,8 @@ if (test.significanceReached && test.hasWinner) {
     stages: [
       { percentage: 50, duration: '1 day' },
       { percentage: 75, duration: '2 days' },
-      { percentage: 100, duration: 'permanent' }
-    ]
+      { percentage: 100, duration: 'permanent' },
+    ],
   });
 }
 ```
@@ -423,6 +446,7 @@ if (test.significanceReached && test.hasWinner) {
 #### 4. Advanced Algorithms
 
 **UCB1 (Upper Confidence Bound):**
+
 ```typescript
 function ucb1Score(variant: Variant, totalTrials: number): number {
   const mean = variant.conversions / variant.impressions;
@@ -432,6 +456,7 @@ function ucb1Score(variant: Variant, totalTrials: number): number {
 ```
 
 **Bayesian Optimization:**
+
 ```typescript
 function bayesianUpdate(
   priorAlpha: number,
@@ -441,7 +466,7 @@ function bayesianUpdate(
 ): { alpha: number; beta: number } {
   return {
     alpha: priorAlpha + conversions,
-    beta: priorBeta + (impressions - conversions)
+    beta: priorBeta + (impressions - conversions),
   };
 }
 ```
@@ -466,6 +491,7 @@ function bayesianUpdate(
 ## Sprint 3.5: Full Autonomy Features 🤖
 
 ### Priority: HIGH
+
 ### Estimated Duration: 2 weeks
 
 ### Objectives
@@ -494,6 +520,7 @@ if (opportunity.score > 75 && opportunity.inventoryCount > 10) {
 ```
 
 **Workflow:**
+
 1. Detect opportunity (score > 75)
 2. Generate brand identity (AI)
 3. Register domain
@@ -503,6 +530,7 @@ if (opportunity.score > 75 && opportunity.inventoryCount > 10) {
 7. Start GSC tracking
 
 **Approval Requirements:**
+
 - ❌ No human approval needed
 - ✅ Post-deployment notification only
 - ✅ Can be rolled back within 24h
@@ -518,10 +546,10 @@ const poorPerformers = await prisma.site.findMany({
     status: 'ACTIVE',
     AND: [
       { avgImpressions: { lt: 100 } }, // < 100 impressions/day
-      { avgClicks: { lt: 5 } },        // < 5 clicks/day
+      { avgClicks: { lt: 5 } }, // < 5 clicks/day
       { lastBooking: { lt: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000) } }, // No bookings in 90 days
-    ]
-  }
+    ],
+  },
 });
 
 for (const site of poorPerformers) {
@@ -533,6 +561,7 @@ for (const site of poorPerformers) {
 ```
 
 **Deprecation Workflow:**
+
 1. Identify underperformer (30-day avg)
 2. Send warning notification
 3. Wait 30 days
@@ -559,6 +588,7 @@ interface BudgetOptimizer {
 ```
 
 **Optimization Rules:**
+
 - Content generation: Pause if quality score < 70 for 10 consecutive pieces
 - SEO opportunities: Reduce scanning frequency if conversion rate < 5%
 - Domain registrations: Cap at 5/month if avg bookings per site < 1/month
@@ -620,6 +650,7 @@ export async function autoHeal(error: Error, context: JobContext): Promise<boole
 ## Sprint 3.6: Performance Optimization 🚀
 
 ### Priority: LOW
+
 ### Estimated Duration: 1 week
 
 ### Objectives
@@ -631,6 +662,7 @@ Optimize system performance for scale and cost efficiency.
 #### 1. Database Query Optimization
 
 **Add Indexes:**
+
 ```sql
 -- High-frequency queries
 CREATE INDEX idx_pages_site_status ON pages(site_id, status);
@@ -640,6 +672,7 @@ CREATE INDEX idx_metrics_page_date ON metrics(page_id, created_at DESC);
 ```
 
 **Query Optimization:**
+
 - Use connection pooling
 - Implement query result caching (Redis)
 - Batch database operations
@@ -648,21 +681,23 @@ CREATE INDEX idx_metrics_page_date ON metrics(page_id, created_at DESC);
 #### 2. Job Queue Optimization
 
 **Concurrency Tuning:**
+
 ```typescript
 const queueOptions = {
   concurrency: {
-    content: 3,      // Parallel content generation
-    seo: 5,          // Parallel opportunity scanning
-    gsc: 2,          // API rate limit consideration
-    site: 2,         // Avoid Heroku rate limits
-    domain: 1,       // Sequential for reliability
-    analytics: 3,    // Parallel analysis
-    abtest: 2,       // Parallel experiments
-  }
+    content: 3, // Parallel content generation
+    seo: 5, // Parallel opportunity scanning
+    gsc: 2, // API rate limit consideration
+    site: 2, // Avoid Heroku rate limits
+    domain: 1, // Sequential for reliability
+    analytics: 3, // Parallel analysis
+    abtest: 2, // Parallel experiments
+  },
 };
 ```
 
 **Job Prioritization:**
+
 ```typescript
 await queueRegistry.addJob('content', {
   type: 'CONTENT_GENERATE',
@@ -676,6 +711,7 @@ await queueRegistry.addJob('content', {
 #### 3. API Rate Limit Management
 
 **Smart Rate Limiting:**
+
 ```typescript
 export class RateLimiter {
   private tokens: Map<string, TokenBucket>;
@@ -691,6 +727,7 @@ export class RateLimiter {
 ```
 
 **Rate Limits:**
+
 - Claude API: 100,000 tokens/min
 - GSC API: 1,200 queries/day
 - SEMrush API: 10,000 API units/month
@@ -699,11 +736,13 @@ export class RateLimiter {
 #### 4. Content Delivery Optimization
 
 **CDN Setup:**
+
 - Enable Cloudflare CDN for static assets
 - Cache pages with 1-hour TTL
 - Use ISR (Incremental Static Regeneration) for semi-static pages
 
 **Image Optimization:**
+
 - Convert to WebP format
 - Lazy loading for below-fold images
 - Responsive image sizes
@@ -784,16 +823,19 @@ export class RateLimiter {
 ## Estimated Costs (Monthly)
 
 ### API Services
+
 - Claude API: $500/month (content generation)
 - SEMrush API: $200/month (keyword research)
 - SendGrid: $15/month (email notifications)
 
 ### Infrastructure
+
 - Heroku Dynos: $100/month (website + workers)
 - Redis: $15/month (job queues)
 - PostgreSQL: $9/month (database)
 
 ### Domain & SSL
+
 - Domain registrations: $50/month (5 domains @ $10/ea)
 - Cloudflare Pro: $20/month (per domain)
 
@@ -804,20 +846,24 @@ export class RateLimiter {
 ## Timeline
 
 ### Week 5: Sprint 3.1 (Keyword Research)
+
 - Days 1-2: SEMrush/Ahrefs API integration
 - Days 3-4: Update opportunity scanner
 - Day 5: Testing and validation
 
 ### Week 6: Sprint 3.2 (Domain Automation)
+
 - Days 1-2: Domain registrar integration
 - Days 3-4: SSL automation
 - Day 5: Testing and validation
 
 ### Week 7: Sprint 3.3 & 3.4 (Monitoring & A/B Testing)
+
 - Days 1-3: Monitoring dashboard
 - Days 4-5: Advanced A/B testing
 
 ### Week 8: Sprint 3.5 (Full Autonomy)
+
 - Days 1-3: Autonomous site creation
 - Days 4-5: Budget optimization & self-healing
 
@@ -845,16 +891,19 @@ Before starting Phase 3:
 ## Next Phase Preview: Phase 4
 
 ### Sprint 4.1: Machine Learning & AI
+
 - Custom AI model training
 - Predictive opportunity scoring
 - Sentiment analysis for reviews
 
 ### Sprint 4.2: International Expansion
+
 - Multi-language content generation
 - Currency conversion
 - Localized SEO strategies
 
 ### Sprint 4.3: Advanced Analytics
+
 - Cohort analysis
 - Funnel optimization
 - Attribution modeling
