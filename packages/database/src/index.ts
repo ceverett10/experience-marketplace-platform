@@ -14,6 +14,10 @@ export type {
   ABTestVariant,
   Booking,
   Job,
+} from '@prisma/client';
+
+// Re-export enums as both types and values
+export {
   SiteStatus,
   DomainStatus,
   PageType,
