@@ -1,10 +1,6 @@
 import { Job } from 'bullmq';
 import { prisma, ABTestStatus } from '@experience-marketplace/database';
-import type {
-  ABTestAnalyzePayload,
-  ABTestRebalancePayload,
-  JobResult,
-} from '../types/index.js';
+import type { ABTestAnalyzePayload, ABTestRebalancePayload, JobResult } from '../types/index.js';
 
 /**
  * A/B Test Worker
@@ -26,14 +22,8 @@ interface AnalysisResult {
  * A/B Test Analysis Handler
  * Analyzes test results and determines statistical significance
  */
-export async function handleABTestAnalyze(
-  job: Job<ABTestAnalyzePayload>
-): Promise<JobResult> {
-  const {
-    abTestId,
-    minSamples = 100,
-    confidenceLevel = 0.95,
-  } = job.data;
+export async function handleABTestAnalyze(job: Job<ABTestAnalyzePayload>): Promise<JobResult> {
+  const { abTestId, minSamples = 100, confidenceLevel = 0.95 } = job.data;
 
   try {
     console.log(`[ABTest Analyze] Starting analysis for test ${abTestId}`);
@@ -55,15 +45,10 @@ export async function handleABTestAnalyze(
     }
 
     // 2. Check if minimum samples reached
-    const totalImpressions = abTest.variants.reduce(
-      (sum, v) => sum + v.impressions,
-      0
-    );
+    const totalImpressions = abTest.variants.reduce((sum, v) => sum + v.impressions, 0);
 
     if (totalImpressions < minSamples) {
-      console.log(
-        `[ABTest Analyze] Not enough samples (${totalImpressions}/${minSamples})`
-      );
+      console.log(`[ABTest Analyze] Not enough samples (${totalImpressions}/${minSamples})`);
       return {
         success: true,
         message: `Not enough samples yet (${totalImpressions}/${minSamples})`,
@@ -162,15 +147,11 @@ export async function handleABTestAnalyze(
  * A/B Test Rebalance Handler
  * Dynamically adjusts traffic allocation using multi-armed bandit algorithms
  */
-export async function handleABTestRebalance(
-  job: Job<ABTestRebalancePayload>
-): Promise<JobResult> {
+export async function handleABTestRebalance(job: Job<ABTestRebalancePayload>): Promise<JobResult> {
   const { abTestId, algorithm = 'thompson_sampling' } = job.data;
 
   try {
-    console.log(
-      `[ABTest Rebalance] Starting rebalance for test ${abTestId} using ${algorithm}`
-    );
+    console.log(`[ABTest Rebalance] Starting rebalance for test ${abTestId} using ${algorithm}`);
 
     // 1. Get test with variants
     const abTest = await prisma.aBTest.findUnique({
@@ -216,10 +197,7 @@ export async function handleABTestRebalance(
       });
     }
 
-    console.log(
-      `[ABTest Rebalance] Traffic rebalanced:`,
-      JSON.stringify(newAllocation)
-    );
+    console.log(`[ABTest Rebalance] Traffic rebalanced:`, JSON.stringify(newAllocation));
 
     return {
       success: true,
@@ -257,8 +235,7 @@ function calculateSignificance(
   const n2 = variant.impressions;
 
   // Pooled proportion
-  const pPooled =
-    (control.conversions + variant.conversions) / (n1 + n2);
+  const pPooled = (control.conversions + variant.conversions) / (n1 + n2);
 
   // Standard error
   const se = Math.sqrt(pPooled * (1 - pPooled) * (1 / n1 + 1 / n2));
@@ -290,10 +267,7 @@ function normalCdf(x: number): number {
   const t = 1 / (1 + 0.2316419 * Math.abs(x));
   const d = 0.3989423 * Math.exp((-x * x) / 2);
   const probability =
-    d *
-    t *
-    (0.3193815 +
-      t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+    d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
 
   return x > 0 ? 1 - probability : probability;
 }
@@ -374,6 +348,7 @@ function gammaSample(alpha: number, beta: number): number {
   const d = alpha - 1 / 3;
   const c = 1 / Math.sqrt(9 * d);
 
+  // eslint-disable-next-line no-constant-condition
   while (true) {
     let x, v;
 

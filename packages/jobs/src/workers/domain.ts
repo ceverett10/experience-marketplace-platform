@@ -16,15 +16,11 @@ import type {
  * Domain Registration Handler
  * Registers a new domain via registrar API
  */
-export async function handleDomainRegister(
-  job: Job<DomainRegisterPayload>
-): Promise<JobResult> {
+export async function handleDomainRegister(job: Job<DomainRegisterPayload>): Promise<JobResult> {
   const { siteId, domain, registrar, autoRenew = true } = job.data;
 
   try {
-    console.log(
-      `[Domain Register] Starting registration for ${domain} via ${registrar}`
-    );
+    console.log(`[Domain Register] Starting registration for ${domain} via ${registrar}`);
 
     // 1. Check if domain already exists
     const existing = await prisma.domain.findUnique({
@@ -76,7 +72,9 @@ export async function handleDomainRegister(
         domain,
         registrar,
         cost: registrationCost.toString(),
-        expiresAt: domainRecord.expiresAt?.toISOString() || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+        expiresAt:
+          domainRecord.expiresAt?.toISOString() ||
+          new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
       },
       timestamp: new Date(),
     };
@@ -94,9 +92,7 @@ export async function handleDomainRegister(
  * Domain Verification Handler
  * Verifies domain ownership via DNS or HTTP methods
  */
-export async function handleDomainVerify(
-  job: Job<DomainVerifyPayload>
-): Promise<JobResult> {
+export async function handleDomainVerify(job: Job<DomainVerifyPayload>): Promise<JobResult> {
   const { domainId, verificationMethod } = job.data;
 
   try {
@@ -114,15 +110,10 @@ export async function handleDomainVerify(
     }
 
     // 2. Verify domain ownership
-    const isVerified = await verifyDomainOwnership(
-      domain.domain,
-      verificationMethod
-    );
+    const isVerified = await verifyDomainOwnership(domain.domain, verificationMethod);
 
     if (!isVerified) {
-      throw new Error(
-        `Domain ${domain.domain} verification failed via ${verificationMethod}`
-      );
+      throw new Error(`Domain ${domain.domain} verification failed via ${verificationMethod}`);
     }
 
     // 3. Update domain status
@@ -183,15 +174,11 @@ export async function handleDomainVerify(
  * SSL Provisioning Handler
  * Provisions SSL certificate via Let's Encrypt or Cloudflare
  */
-export async function handleSslProvision(
-  job: Job<SslProvisionPayload>
-): Promise<JobResult> {
+export async function handleSslProvision(job: Job<SslProvisionPayload>): Promise<JobResult> {
   const { domainId, provider } = job.data;
 
   try {
-    console.log(
-      `[SSL Provision] Starting SSL provisioning for domain ${domainId} via ${provider}`
-    );
+    console.log(`[SSL Provision] Starting SSL provisioning for domain ${domainId} via ${provider}`);
 
     // 1. Get domain record
     const domain = await prisma.domain.findUnique({
@@ -235,7 +222,9 @@ export async function handleSslProvision(
             primaryDomain: domain.domain,
           },
         });
-        console.log(`[SSL Provision] Set ${domain.domain} as primary domain for site ${domain.siteId}`);
+        console.log(
+          `[SSL Provision] Set ${domain.domain} as primary domain for site ${domain.siteId}`
+        );
       }
     }
 
@@ -256,10 +245,12 @@ export async function handleSslProvision(
 
     // Update domain to failed status
     if (domainId) {
-      await prisma.domain.update({
-        where: { id: domainId },
-        data: { status: DomainStatus.FAILED },
-      }).catch(console.error);
+      await prisma.domain
+        .update({
+          where: { id: domainId },
+          data: { status: DomainStatus.FAILED },
+        })
+        .catch(console.error);
     }
 
     return {
@@ -276,10 +267,7 @@ export async function handleSslProvision(
  * Check if domain is available for registration
  * TODO: Implement actual registrar API calls
  */
-async function checkDomainAvailability(
-  domain: string,
-  registrar: string
-): Promise<boolean> {
+async function checkDomainAvailability(domain: string, registrar: string): Promise<boolean> {
   console.log(`[Domain] Checking availability for ${domain} via ${registrar}`);
 
   // For MVP, mock implementation
@@ -297,10 +285,7 @@ async function checkDomainAvailability(
  * Register domain via registrar API
  * TODO: Implement actual registrar API integration
  */
-async function registerDomainViaApi(
-  domain: string,
-  registrar: string
-): Promise<number> {
+async function registerDomainViaApi(domain: string, registrar: string): Promise<number> {
   console.log(`[Domain] Registering ${domain} via ${registrar} API`);
 
   // For MVP, mock implementation
@@ -330,10 +315,7 @@ async function registerDomainViaApi(
  * Verify domain ownership via DNS or HTTP
  * TODO: Implement actual verification checks
  */
-async function verifyDomainOwnership(
-  domain: string,
-  method: 'dns' | 'http'
-): Promise<boolean> {
+async function verifyDomainOwnership(domain: string, method: 'dns' | 'http'): Promise<boolean> {
   console.log(`[Domain] Verifying ${domain} via ${method}`);
 
   // For MVP, mock implementation

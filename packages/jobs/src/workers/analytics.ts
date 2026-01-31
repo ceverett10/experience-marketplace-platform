@@ -59,18 +59,12 @@ export async function handleMetricsAggregate(
     aggregated.trend = calculateTrends(aggregated, previous);
 
     // Identify performance issues
-    const issues = await identifyPerformanceIssues(
-      siteId,
-      currentMetrics,
-      previousMetrics
-    );
+    const issues = await identifyPerformanceIssues(siteId, currentMetrics, previousMetrics);
 
     // Queue optimization jobs for declining pages
     for (const issue of issues) {
       if (issue.severity === 'high' && issue.pageId && issue.contentId) {
-        console.log(
-          `[Metrics Aggregate] Queuing optimization for page ${issue.pageId}`
-        );
+        console.log(`[Metrics Aggregate] Queuing optimization for page ${issue.pageId}`);
         // Queue CONTENT_OPTIMIZE job
         const { addJob } = await import('../queues/index.js');
         await addJob('CONTENT_OPTIMIZE', {
@@ -119,11 +113,7 @@ export async function handleMetricsAggregate(
 export async function handlePerformanceReport(
   job: Job<PerformanceReportPayload>
 ): Promise<JobResult> {
-  const {
-    siteId,
-    reportType = 'weekly',
-    recipients,
-  } = job.data;
+  const { siteId, reportType = 'weekly', recipients } = job.data;
 
   try {
     console.log(
@@ -146,9 +136,7 @@ export async function handlePerformanceReport(
       seo: {
         clicks: aggregated.totalClicks,
         clicksChange:
-          ((aggregated.totalClicks - previous.totalClicks) /
-            (previous.totalClicks || 1)) *
-          100,
+          ((aggregated.totalClicks - previous.totalClicks) / (previous.totalClicks || 1)) * 100,
         impressions: aggregated.totalImpressions,
         impressionsChange:
           ((aggregated.totalImpressions - previous.totalImpressions) /
@@ -156,9 +144,7 @@ export async function handlePerformanceReport(
           100,
         ctr: aggregated.averageCtr,
         ctrChange:
-          ((aggregated.averageCtr - previous.averageCtr) /
-            (previous.averageCtr || 1)) *
-          100,
+          ((aggregated.averageCtr - previous.averageCtr) / (previous.averageCtr || 1)) * 100,
         position: aggregated.averagePosition,
         positionChange:
           ((aggregated.averagePosition - previous.averagePosition) /
@@ -207,9 +193,7 @@ export async function handlePerformanceReport(
 
     // Send report if recipients provided
     if (recipients && recipients.length > 0) {
-      console.log(
-        `[Performance Report] Would send to: ${recipients.join(', ')}`
-      );
+      console.log(`[Performance Report] Would send to: ${recipients.join(', ')}`);
       // TODO: Implement email sending when email service is configured
     }
 
@@ -273,10 +257,7 @@ function getPreviousDateRange(
   };
 }
 
-async function fetchMetrics(
-  siteId: string | undefined,
-  dateRange: { start: Date; end: Date }
-) {
+async function fetchMetrics(siteId: string | undefined, dateRange: { start: Date; end: Date }) {
   const where: any = {
     date: {
       gte: dateRange.start,
@@ -311,22 +292,17 @@ function calculateAggregates(
   // Weighted average CTR
   const averageCtr =
     totalImpressions > 0
-      ? metrics.reduce((sum, m) => sum + m.ctr * m.impressions, 0) /
-        totalImpressions
+      ? metrics.reduce((sum, m) => sum + m.ctr * m.impressions, 0) / totalImpressions
       : 0;
 
   // Weighted average position
   const averagePosition =
     totalImpressions > 0
-      ? metrics.reduce((sum, m) => sum + m.position * m.impressions, 0) /
-        totalImpressions
+      ? metrics.reduce((sum, m) => sum + m.position * m.impressions, 0) / totalImpressions
       : 0;
 
   // Top queries
-  const queryMap = new Map<
-    string,
-    { clicks: number; impressions: number }
-  >();
+  const queryMap = new Map<string, { clicks: number; impressions: number }>();
   metrics.forEach((m) => {
     if (!m.query) return;
     const existing = queryMap.get(m.query) || { clicks: 0, impressions: 0 };
@@ -389,33 +365,23 @@ function calculateAggregates(
   };
 }
 
-function calculateTrends(
-  current: AggregatedMetrics,
-  previous: AggregatedMetrics
-) {
+function calculateTrends(current: AggregatedMetrics, previous: AggregatedMetrics) {
   return {
     impressionsChange:
       previous.totalImpressions > 0
-        ? ((current.totalImpressions - previous.totalImpressions) /
-            previous.totalImpressions) *
-          100
+        ? ((current.totalImpressions - previous.totalImpressions) / previous.totalImpressions) * 100
         : 0,
     clicksChange:
       previous.totalClicks > 0
-        ? ((current.totalClicks - previous.totalClicks) /
-            previous.totalClicks) *
-          100
+        ? ((current.totalClicks - previous.totalClicks) / previous.totalClicks) * 100
         : 0,
     ctrChange:
       previous.averageCtr > 0
-        ? ((current.averageCtr - previous.averageCtr) / previous.averageCtr) *
-          100
+        ? ((current.averageCtr - previous.averageCtr) / previous.averageCtr) * 100
         : 0,
     positionChange:
       previous.averagePosition > 0
-        ? ((current.averagePosition - previous.averagePosition) /
-            previous.averagePosition) *
-          100
+        ? ((current.averagePosition - previous.averagePosition) / previous.averagePosition) * 100
         : 0,
   };
 }
@@ -474,9 +440,7 @@ async function identifyPerformanceIssues(
     if (!previous) continue; // New page, no comparison
 
     // Find matching page record
-    const page = pages.find(
-      (p) => pageUrl.includes(p.slug) || p.slug === pageUrl
-    );
+    const page = pages.find((p) => pageUrl.includes(p.slug) || p.slug === pageUrl);
     if (!page || !page.contentId) continue;
 
     // Check CTR drop
@@ -541,18 +505,14 @@ function aggregateByPage(metrics: any[]) {
       impressions: newImpressions,
       ctr: newImpressions > 0 ? (newClicks / newImpressions) * 100 : 0,
       position:
-        (existing.position * existing.impressions + m.position * m.impressions) /
-        newImpressions,
+        (existing.position * existing.impressions + m.position * m.impressions) / newImpressions,
     });
   });
 
   return pageMap;
 }
 
-async function getContentKpis(
-  siteId: string | undefined,
-  dateRange: { start: Date; end: Date }
-) {
+async function getContentKpis(siteId: string | undefined, dateRange: { start: Date; end: Date }) {
   const where: any = {
     updatedAt: {
       gte: dateRange.start,
@@ -592,13 +552,11 @@ async function getOpportunityKpis(
   const opportunities = await prisma.sEOOpportunity.findMany({ where });
 
   return {
-    newOpportunities: opportunities.filter((o) => o.status === 'IDENTIFIED')
-      .length,
+    newOpportunities: opportunities.filter((o) => o.status === 'IDENTIFIED').length,
     inProgress: opportunities.filter((o) => o.status === 'EVALUATED').length,
     completed: opportunities.filter((o) => o.status === 'PUBLISHED').length,
     averageScore:
-      opportunities.reduce((sum, o) => sum + o.priorityScore, 0) /
-        (opportunities.length || 1),
+      opportunities.reduce((sum, o) => sum + o.priorityScore, 0) / (opportunities.length || 1),
   };
 }
 
@@ -643,8 +601,7 @@ Format as JSON:
   });
 
   try {
-    const content =
-      response.content[0]?.type === 'text' ? response.content[0].text : '';
+    const content = response.content[0]?.type === 'text' ? response.content[0].text : '';
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]);
@@ -660,9 +617,6 @@ Format as JSON:
   // Fallback
   return {
     insights: ['Performance data analyzed successfully'],
-    recommendations: [
-      'Continue monitoring key metrics',
-      'Focus on high-performing queries',
-    ],
+    recommendations: ['Continue monitoring key metrics', 'Focus on high-performing queries'],
   };
 }

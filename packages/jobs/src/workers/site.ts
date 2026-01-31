@@ -20,15 +20,11 @@ interface BrandConfig {
  * Site Creation Handler
  * Creates a new micro-site with brand identity and initial structure
  */
-export async function handleSiteCreate(
-  job: Job<SiteCreatePayload>
-): Promise<JobResult> {
+export async function handleSiteCreate(job: Job<SiteCreatePayload>): Promise<JobResult> {
   const { opportunityId, domain, brandConfig, autoPublish = false } = job.data;
 
   try {
-    console.log(
-      `[Site Create] Starting site creation for opportunity ${opportunityId}`
-    );
+    console.log(`[Site Create] Starting site creation for opportunity ${opportunityId}`);
 
     // 1. Validate opportunity
     const opportunity = await prisma.sEOOpportunity.findUnique({
@@ -44,17 +40,12 @@ export async function handleSiteCreate(
     }
 
     if (!['IDENTIFIED', 'EVALUATED'].includes(opportunity.status)) {
-      throw new Error(
-        `Opportunity ${opportunityId} not in correct status for site creation`
-      );
+      throw new Error(`Opportunity ${opportunityId} not in correct status for site creation`);
     }
 
     // 2. Generate brand identity
     console.log('[Site Create] Generating brand identity...');
-    const brand = await generateBrandIdentity(
-      opportunity,
-      brandConfig || undefined
-    );
+    const brand = await generateBrandIdentity(opportunity, brandConfig || undefined);
 
     // 3. Create site record
     console.log('[Site Create] Creating site record...');
@@ -62,17 +53,13 @@ export async function handleSiteCreate(
 
     // Check for slug collision
     const existingSite = await prisma.site.findUnique({ where: { slug } });
-    const finalSlug = existingSite
-      ? `${slug}-${Math.random().toString(36).substring(7)}`
-      : slug;
+    const finalSlug = existingSite ? `${slug}-${Math.random().toString(36).substring(7)}` : slug;
 
     const site = await prisma.site.create({
       data: {
         name: brand.name,
         slug: finalSlug,
-        description:
-          brand.tagline ||
-          `Discover ${opportunity.niche} in ${opportunity.location}`,
+        description: brand.tagline || `Discover ${opportunity.niche} in ${opportunity.location}`,
         isAutomatic: true,
         holibobPartnerId: process.env['HOLIBOB_PARTNER_ID'] || '',
         status: 'DRAFT',
@@ -110,9 +97,7 @@ export async function handleSiteCreate(
       },
     });
 
-    console.log(
-      `[Site Create] Linked opportunity ${opportunityId} to site ${site.id}`
-    );
+    console.log(`[Site Create] Linked opportunity ${opportunityId} to site ${site.id}`);
 
     // 6. Queue content generation jobs
     console.log('[Site Create] Queuing content generation jobs...');
@@ -164,15 +149,11 @@ export async function handleSiteCreate(
  * Site Deployment Handler
  * Deploys site to staging/production environment
  */
-export async function handleSiteDeploy(
-  job: Job<SiteDeployPayload>
-): Promise<JobResult> {
+export async function handleSiteDeploy(job: Job<SiteDeployPayload>): Promise<JobResult> {
   const { siteId, environment = 'staging' } = job.data;
 
   try {
-    console.log(
-      `[Site Deploy] Starting deployment for site ${siteId} to ${environment}`
-    );
+    console.log(`[Site Deploy] Starting deployment for site ${siteId} to ${environment}`);
 
     // 1. Validate site
     const site = await prisma.site.findUnique({
@@ -210,22 +191,16 @@ export async function handleSiteDeploy(
       deploymentUrl = `https://${site.slug}.herokuapp.com`;
     } else {
       // For production, require custom domain
-      const primaryDomain = site.domains.find((d) =>
-        site.primaryDomain === d.domain
-      );
+      const primaryDomain = site.domains.find((d) => site.primaryDomain === d.domain);
       if (!primaryDomain || !primaryDomain.verifiedAt) {
-        throw new Error(
-          `Site ${siteId} requires verified custom domain for production deployment`
-        );
+        throw new Error(`Site ${siteId} requires verified custom domain for production deployment`);
       }
       deploymentUrl = `https://${primaryDomain.domain}`;
     }
 
     // 4. For MVP, update site metadata rather than actually deploying
     // TODO: Implement actual Heroku deployment in Phase 3
-    console.log(
-      `[Site Deploy] Updating site metadata with deployment URL: ${deploymentUrl}`
-    );
+    console.log(`[Site Deploy] Updating site metadata with deployment URL: ${deploymentUrl}`);
 
     const updatedSite = await prisma.site.update({
       where: { id: siteId },
@@ -235,9 +210,7 @@ export async function handleSiteDeploy(
       },
     });
 
-    console.log(
-      `[Site Deploy] Site ${siteId} status updated to ${updatedSite.status}`
-    );
+    console.log(`[Site Deploy] Site ${siteId} status updated to ${updatedSite.status}`);
 
     // 5. Post-deployment tasks
     if (environment === 'production') {
@@ -310,8 +283,7 @@ async function generateBrandIdentity(
   // Generate brand with AI
   try {
     const client = createClaudeClient({
-      apiKey:
-        process.env['ANTHROPIC_API_KEY'] || process.env['CLAUDE_API_KEY'] || '',
+      apiKey: process.env['ANTHROPIC_API_KEY'] || process.env['CLAUDE_API_KEY'] || '',
     });
 
     const prompt = `Generate a brand identity for a travel experience marketplace focusing on:
@@ -344,17 +316,14 @@ Format as JSON:
       temperature: 0.9, // Higher temperature for creativity
     });
 
-    const content =
-      response.content[0]?.type === 'text' ? response.content[0].text : '';
+    const content = response.content[0]?.type === 'text' ? response.content[0].text : '';
     const jsonMatch = content.match(/\{[\s\S]*\}/);
 
     if (jsonMatch) {
       const generated = JSON.parse(jsonMatch[0]);
       return {
         name: generated.name || extractBrandName(opportunity),
-        tagline:
-          generated.tagline ||
-          `Discover ${opportunity.niche} in ${opportunity.location}`,
+        tagline: generated.tagline || `Discover ${opportunity.niche} in ${opportunity.location}`,
         primaryColor: generated.primaryColor || '#6366f1',
         secondaryColor: generated.secondaryColor || '#8b5cf6',
         accentColor: generated.accentColor || '#ec4899',
