@@ -3,11 +3,11 @@ import { screen } from '@testing-library/react';
 import { renderWithProviders, createMockSiteConfig } from '@/test/test-utils';
 import { Hero } from './Hero';
 
-// Mock the SearchBar component
-vi.mock('@/components/search/SearchBar', () => ({
-  SearchBar: ({ variant }: { variant: string }) => (
+// Mock the ProductDiscoverySearch component
+vi.mock('@/components/search/ProductDiscoverySearch', () => ({
+  ProductDiscoverySearch: ({ variant }: { variant: string }) => (
     <div data-testid="search-bar" data-variant={variant}>
-      Mock SearchBar
+      Mock ProductDiscoverySearch
     </div>
   ),
 }));
@@ -51,43 +51,12 @@ describe('Hero', () => {
     expect(screen.getByText('Amazing adventures await')).toBeInTheDocument();
   });
 
-  it('should render SearchBar component with hero variant', () => {
+  it('should render ProductDiscoverySearch component with hero variant', () => {
     renderWithProviders(<Hero />);
 
     const searchBar = screen.getByTestId('search-bar');
     expect(searchBar).toBeInTheDocument();
     expect(searchBar).toHaveAttribute('data-variant', 'hero');
-  });
-
-  it('should render popular category links', () => {
-    renderWithProviders(<Hero />);
-
-    expect(screen.getByText('Popular:')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Tours' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Day Trips' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Food & Drink' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Attractions' })).toBeInTheDocument();
-  });
-
-  it('should have correct hrefs for category links', () => {
-    renderWithProviders(<Hero />);
-
-    expect(screen.getByRole('link', { name: 'Tours' })).toHaveAttribute(
-      'href',
-      '/experiences?category=tours'
-    );
-    expect(screen.getByRole('link', { name: 'Day Trips' })).toHaveAttribute(
-      'href',
-      '/experiences?category=day-trips'
-    );
-    expect(screen.getByRole('link', { name: 'Food & Drink' })).toHaveAttribute(
-      'href',
-      '/experiences?category=food-drink'
-    );
-    expect(screen.getByRole('link', { name: 'Attractions' })).toHaveAttribute(
-      'href',
-      '/experiences?category=attractions'
-    );
   });
 
   it('should render background image when provided', () => {
