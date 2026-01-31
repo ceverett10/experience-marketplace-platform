@@ -20,6 +20,15 @@ import {
   handleContentReview,
   handleGscSync,
   handleOpportunityScan,
+  handleSiteCreate,
+  handleSiteDeploy,
+  handleDomainRegister,
+  handleDomainVerify,
+  handleSslProvision,
+  handleMetricsAggregate,
+  handlePerformanceReport,
+  handleABTestAnalyze,
+  handleABTestRebalance,
 } from '@experience-marketplace/jobs';
 import type { JobType } from '@experience-marketplace/database';
 
@@ -125,11 +134,9 @@ const siteWorker = new Worker(
 
     switch (job.name as JobType) {
       case 'SITE_CREATE':
-        console.log('[Site Worker] Site creation not yet implemented');
-        return { success: true, message: 'Site creation placeholder', timestamp: new Date() };
+        return await handleSiteCreate(job);
       case 'SITE_DEPLOY':
-        console.log('[Site Worker] Site deployment not yet implemented');
-        return { success: true, message: 'Site deployment placeholder', timestamp: new Date() };
+        return await handleSiteDeploy(job);
       default:
         throw new Error(`Unknown job type: ${job.name}`);
     }
@@ -146,9 +153,16 @@ const domainWorker = new Worker(
   async (job: Job) => {
     console.log(`[Domain Worker] Processing ${job.name} job ${job.id}`);
 
-    // Placeholder implementations
-    console.log(`[Domain Worker] ${job.name} not yet implemented`);
-    return { success: true, message: `${job.name} placeholder`, timestamp: new Date() };
+    switch (job.name as JobType) {
+      case 'DOMAIN_REGISTER':
+        return await handleDomainRegister(job);
+      case 'DOMAIN_VERIFY':
+        return await handleDomainVerify(job);
+      case 'SSL_PROVISION':
+        return await handleSslProvision(job);
+      default:
+        throw new Error(`Unknown job type: ${job.name}`);
+    }
   },
   workerOptions
 );
@@ -162,9 +176,14 @@ const analyticsWorker = new Worker(
   async (job: Job) => {
     console.log(`[Analytics Worker] Processing ${job.name} job ${job.id}`);
 
-    // Placeholder implementations
-    console.log(`[Analytics Worker] ${job.name} not yet implemented`);
-    return { success: true, message: `${job.name} placeholder`, timestamp: new Date() };
+    switch (job.name as JobType) {
+      case 'METRICS_AGGREGATE':
+        return await handleMetricsAggregate(job);
+      case 'PERFORMANCE_REPORT':
+        return await handlePerformanceReport(job);
+      default:
+        throw new Error(`Unknown job type: ${job.name}`);
+    }
   },
   workerOptions
 );
@@ -178,9 +197,14 @@ const abtestWorker = new Worker(
   async (job: Job) => {
     console.log(`[A/B Test Worker] Processing ${job.name} job ${job.id}`);
 
-    // Placeholder implementations
-    console.log(`[A/B Test Worker] ${job.name} not yet implemented`);
-    return { success: true, message: `${job.name} placeholder`, timestamp: new Date() };
+    switch (job.name as JobType) {
+      case 'ABTEST_ANALYZE':
+        return await handleABTestAnalyze(job);
+      case 'ABTEST_REBALANCE':
+        return await handleABTestRebalance(job);
+      default:
+        throw new Error(`Unknown job type: ${job.name}`);
+    }
   },
   workerOptions
 );
