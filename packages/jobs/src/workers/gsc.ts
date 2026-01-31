@@ -1,5 +1,6 @@
 import { Job } from 'bullmq';
 import { prisma } from '@experience-marketplace/database';
+import { getGSCClient, isGSCConfigured } from '../services/gsc-client';
 import type { GscSyncPayload, JobResult } from '../types';
 
 
@@ -34,17 +35,22 @@ export async function handleGscSync(job: Job<GscSyncPayload>): Promise<JobResult
       };
     }
 
-    // TODO: Implement actual GSC API integration
-    // For now, this is a placeholder that would:
-    // 1. Initialize Google Search Console API client
-    // 2. Fetch search analytics data for the domain
-    // 3. Parse and store metrics in PerformanceMetric table
+    // Check if GSC is configured
+    if (!isGSCConfigured()) {
+      console.warn('[GSC Sync] GSC not configured, skipping sync');
+      return {
+        success: true,
+        message: 'GSC not configured (missing credentials)',
+        timestamp: new Date(),
+      };
+    }
 
-    const mockData = await fetchGscData(primaryDomain.domain, startDate, endDate, dimensions);
+    // Fetch data from Google Search Console
+    const gscData = await fetchGscData(primaryDomain.domain, startDate, endDate, dimensions);
 
     // Store performance metrics
     const metricsCreated = await Promise.all(
-      mockData.map((metric) =>
+      gscData.map((metric) =>
         prisma.performanceMetric.upsert({
           where: {
             siteId_date_query_pageUrl_device_country: {
@@ -103,7 +109,7 @@ export async function handleGscSync(job: Job<GscSyncPayload>): Promise<JobResult
 }
 
 /**
- * Mock GSC data fetcher - TODO: Replace with actual GSC API
+ * Fetch GSC data using real Google Search Console API
  */
 async function fetchGscData(
   domain: string,
@@ -123,16 +129,79 @@ async function fetchGscData(
     position: number;
   }>
 > {
-  // TODO: Implement actual GSC API call using google-auth-library and googleapis
-  // This would require:
-  // 1. OAuth2 credentials or service account
-  // 2. Site verification in GSC
-  // 3. API request to searchanalytics.query endpoint
+  const gscClient = getGSCClient();
 
-  console.log(`[GSC Mock] Fetching data for ${domain} from ${startDate} to ${endDate}`);
+  // Calculate date range (default: last 7 days)
+  const end = endDate || new Date().toISOString().split('T')[0]!;
+  const start = startDate || (() => {
+    const date = new Date();
+    date.setDate(date.getDate() - 7);
+    return date.toISOString().split('T')[0]!;
+  })();
 
-  // Return empty array for now - actual implementation will come from GSC API
-  return [];
+  // Ensure domain has correct format for GSC (sc-domain: or https://)
+  let siteUrl = domain;
+  if (!domain.startsWith('http') && !domain.startsWith('sc-domain:')) {
+    siteUrl = `https://${domain}`;
+  }
+
+  console.log(`[GSC] Fetching data for ${siteUrl} from ${start} to ${end}`);
+
+  try {
+    // Query GSC API
+    const response = await gscClient.querySearchAnalytics({
+      siteUrl,
+      startDate: start,
+      endDate: end,
+      dimensions: dimensions || ['query', 'page', 'country', 'device'],
+      rowLimit: 25000,
+    });
+
+    // Transform GSC data to our format
+    const metrics: Array<{
+      date: Date;
+      query?: string;
+      pageUrl?: string;
+      device?: string;
+      country?: string;
+      impressions: number;
+      clicks: number;
+      ctr: number;
+      position: number;
+    }> = [];
+
+    for (const row of response.rows) {
+      // GSC returns keys in same order as dimensions
+      const dimValues = dimensions || ['query', 'page', 'country', 'device'];
+      const keys = row.keys || [];
+
+      metrics.push({
+        date: new Date(start), // Use start date for now; could be more granular with date dimension
+        query: dimValues[0] === 'query' ? keys[0] : undefined,
+        pageUrl: dimValues.includes('page') ? keys[dimValues.indexOf('page')] : undefined,
+        country: dimValues.includes('country') ? keys[dimValues.indexOf('country')] : undefined,
+        device: dimValues.includes('device') ? keys[dimValues.indexOf('device')] : undefined,
+        impressions: row.impressions,
+        clicks: row.clicks,
+        ctr: row.ctr * 100, // Convert to percentage
+        position: row.position,
+      });
+    }
+
+    console.log(`[GSC] Fetched ${metrics.length} metrics from GSC API`);
+    return metrics;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`[GSC] Error fetching data from GSC:`, errorMessage);
+
+    // If error is authentication-related, return empty array
+    if (errorMessage.includes('auth') || errorMessage.includes('credential')) {
+      console.warn('[GSC] Authentication error - check GSC credentials');
+      return [];
+    }
+
+    throw error;
+  }
 }
 
 /**

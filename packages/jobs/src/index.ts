@@ -11,3 +11,6 @@ export * from './workers/opportunity';
 
 // Export schedulers
 export * from './schedulers';
+
+// Export services
+export * from './services/gsc-client';
