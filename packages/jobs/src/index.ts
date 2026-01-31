@@ -10,6 +10,8 @@ export * from './workers/gsc';
 export * from './workers/opportunity';
 export * from './workers/analytics';
 export * from './workers/site';
+export * from './workers/domain';
+export * from './workers/abtest';
 
 // Export schedulers
 export * from './schedulers';
