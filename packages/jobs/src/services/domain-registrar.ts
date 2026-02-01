@@ -96,7 +96,15 @@ export class DomainRegistrarService {
 
       const available = result.Available === 'true';
       const premium = result.IsPremiumName === 'true';
-      const price = premium ? parseFloat(result.PremiumRegistrationPrice || '0') : undefined;
+
+      // Get price: use premium price if premium, otherwise use standard TLD pricing
+      let price: number | undefined;
+      if (premium) {
+        price = parseFloat(result.PremiumRegistrationPrice || '0');
+      } else if (available) {
+        // Get standard pricing for the TLD
+        price = this.getStandardTLDPrice(domain);
+      }
 
       return {
         domain,
@@ -108,6 +116,32 @@ export class DomainRegistrarService {
       console.error('[Namecheap] Error checking domain availability:', error);
       throw error;
     }
+  }
+
+  /**
+   * Get standard pricing for common TLDs
+   * These are approximate Namecheap prices - actual prices may vary
+   */
+  private getStandardTLDPrice(domain: string): number {
+    const tld = domain.split('.').slice(1).join('.').toLowerCase();
+    const pricing: Record<string, number> = {
+      com: 9.58,      // .com registration ~$9.58/year
+      net: 12.98,     // .net registration
+      org: 9.98,      // .org registration
+      co: 25.98,      // .co registration
+      io: 32.98,      // .io registration (expensive)
+      dev: 12.98,     // .dev registration
+      app: 14.98,     // .app registration
+      xyz: 1.98,      // .xyz registration (cheap)
+      info: 3.98,     // .info registration
+      biz: 12.98,     // .biz registration
+      us: 4.98,       // .us registration
+      me: 9.98,       // .me registration
+      tv: 32.98,      // .tv registration
+    };
+
+    // Return known price or default to $15 (conservative estimate)
+    return pricing[tld] ?? 15.0;
   }
 
   /**

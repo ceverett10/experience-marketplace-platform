@@ -46,18 +46,31 @@ export async function handleDomainRegister(job: Job<DomainRegisterPayload>): Pro
       });
     }
 
-    // 2. Check domain availability
-    const isAvailable = await checkDomainAvailability(domain, registrar);
-    if (!isAvailable) {
+    // 2. Check domain availability and price
+    const availabilityResult = await checkDomainAvailabilityAndPrice(domain, registrar);
+    if (!availabilityResult.available) {
       throw new BusinessLogicError(`Domain ${domain} is not available for registration`, {
         context: { domain, registrar },
       });
     }
 
-    // 3. Register domain via registrar API
+    // 3. Price safeguard - reject domains over $10 without manual approval
+    const MAX_AUTO_PURCHASE_PRICE = 10;
+    if (availabilityResult.price && availabilityResult.price > MAX_AUTO_PURCHASE_PRICE) {
+      throw new BusinessLogicError(
+        `Domain ${domain} costs $${availabilityResult.price.toFixed(2)}, which exceeds the $${MAX_AUTO_PURCHASE_PRICE} auto-purchase limit. Manual approval required.`,
+        {
+          context: { domain, price: availabilityResult.price, limit: MAX_AUTO_PURCHASE_PRICE },
+        }
+      );
+    }
+
+    console.log(`[Domain Register] Domain ${domain} is available for $${availabilityResult.price?.toFixed(2) || 'unknown'}`);
+
+    // 4. Register domain via registrar API
     const registrationCost = await registerDomainViaApi(domain, registrar);
 
-    // 4. Create domain record
+    // 5. Create domain record
     const domainRecord = await prisma.domain.create({
       data: {
         domain,
@@ -378,10 +391,13 @@ export async function handleSslProvision(job: Job<SslProvisionPayload>): Promise
 // Helper Functions
 
 /**
- * Check if domain is available for registration
+ * Check if domain is available for registration and get price
  */
-async function checkDomainAvailability(domain: string, registrar: string): Promise<boolean> {
-  console.log(`[Domain] Checking availability for ${domain} via ${registrar}`);
+async function checkDomainAvailabilityAndPrice(
+  domain: string,
+  registrar: string
+): Promise<{ available: boolean; price?: number }> {
+  console.log(`[Domain] Checking availability and price for ${domain} via ${registrar}`);
 
   try {
     const namecheapBreaker = circuitBreakers.getBreaker('namecheap-api');
@@ -391,13 +407,16 @@ async function checkDomainAvailability(domain: string, registrar: string): Promi
       return await registrarService.checkAvailability(domain);
     });
 
-    return availability.available;
+    return {
+      available: availability.available,
+      price: availability.price,
+    };
   } catch (error) {
     console.error(`[Domain] Error checking availability via ${registrar}:`, error);
 
     // Fallback: check if already registered in our system
     const existing = await prisma.domain.findUnique({ where: { domain } });
-    return !existing;
+    return { available: !existing, price: undefined };
   }
 }
 

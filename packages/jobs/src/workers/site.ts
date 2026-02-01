@@ -1,7 +1,7 @@
 import { Job } from 'bullmq';
 import { prisma, PageType, PageStatus } from '@experience-marketplace/database';
 import { createClaudeClient } from '@experience-marketplace/content-engine';
-import type { SiteCreatePayload, SiteDeployPayload, JobResult } from '../types/index.js';
+import type { SiteCreatePayload, SiteDeployPayload, DomainRegisterPayload, JobResult } from '../types/index.js';
 
 /**
  * Site Worker
@@ -114,7 +114,26 @@ export async function handleSiteCreate(job: Job<SiteCreatePayload>): Promise<Job
 
     console.log('[Site Create] Queued homepage content generation');
 
-    // 7. Queue deployment if auto-publish enabled
+    // 7. Queue domain registration
+    // Use provided domain or generate from site slug
+    const suggestedDomain = domain || `${site.slug}.com`;
+    console.log(`[Site Create] Queuing domain registration for ${suggestedDomain}...`);
+
+    const domainPayload: DomainRegisterPayload = {
+      siteId: site.id,
+      domain: suggestedDomain,
+      registrar: 'namecheap',
+      autoRenew: true,
+    };
+
+    await addJob('DOMAIN_REGISTER', domainPayload, {
+      priority: 4, // Medium-high priority
+      delay: 5000, // Small delay to let site creation settle
+    });
+
+    console.log(`[Site Create] Queued domain registration for ${suggestedDomain}`);
+
+    // 8. Queue deployment if auto-publish enabled
     if (autoPublish) {
       console.log('[Site Create] Auto-publish enabled, queuing deployment...');
       await addJob('SITE_DEPLOY', {
@@ -131,6 +150,7 @@ export async function handleSiteCreate(job: Job<SiteCreatePayload>): Promise<Job
         slug: site.slug,
         brandId: site.brand?.id,
         pagesCreated: pages.length,
+        suggestedDomain,
         autoPublish,
       },
       timestamp: new Date(),
