@@ -202,6 +202,12 @@ export async function POST(request: Request) {
 
       const synced = [];
       const unmatched = [];
+      const dnsConfigured = [];
+
+      // Heroku app hostname for DNS configuration
+      const herokuHostname = process.env['HEROKU_APP_NAME']
+        ? `${process.env['HEROKU_APP_NAME']}.herokuapp.com`
+        : 'holibob-experiences-demand-gen-c27f61accbd2.herokuapp.com';
 
       for (const cfDomain of cloudflareDomainsData) {
         // Try to match domain to site by slug
@@ -215,12 +221,12 @@ export async function POST(request: Request) {
             where: { domain: cfDomain.name },
           });
 
+          let domainRecord;
           if (existingDomain) {
             // Update existing domain
-            await prisma.domain.update({
+            domainRecord = await prisma.domain.update({
               where: { id: existingDomain.id },
               data: {
-                status: 'DNS_PENDING',
                 registeredAt: new Date(cfDomain.registered_at),
                 expiresAt: new Date(cfDomain.expires_at),
                 autoRenew: cfDomain.auto_renew,
@@ -230,7 +236,7 @@ export async function POST(request: Request) {
             synced.push({ domain: cfDomain.name, site: matchingSite.name, action: 'updated' });
           } else {
             // Create new domain record
-            await prisma.domain.create({
+            domainRecord = await prisma.domain.create({
               data: {
                 domain: cfDomain.name,
                 status: 'DNS_PENDING',
@@ -244,6 +250,103 @@ export async function POST(request: Request) {
             });
             synced.push({ domain: cfDomain.name, site: matchingSite.name, action: 'created' });
           }
+
+          // Auto-configure DNS if not already active
+          if (domainRecord.status !== 'ACTIVE') {
+            try {
+              // Get zone for this domain (Cloudflare Registrar domains auto-create zones)
+              const zoneResponse = await fetch(
+                `https://api.cloudflare.com/client/v4/zones?name=${cfDomain.name}`,
+                {
+                  headers: {
+                    'X-Auth-Email': email,
+                    'X-Auth-Key': apiKey,
+                  },
+                }
+              );
+              const zoneData = await zoneResponse.json();
+
+              if (zoneData.success && zoneData.result.length > 0) {
+                const zone = zoneData.result[0];
+
+                // Check if DNS records already exist
+                const recordsResponse = await fetch(
+                  `https://api.cloudflare.com/client/v4/zones/${zone.id}/dns_records`,
+                  {
+                    headers: {
+                      'X-Auth-Email': email,
+                      'X-Auth-Key': apiKey,
+                    },
+                  }
+                );
+                const recordsData = await recordsResponse.json();
+                const existingRecords = recordsData.success ? recordsData.result : [];
+
+                // Check if we already have the correct records pointing to Heroku
+                const hasRootRecord = existingRecords.some(
+                  (r: any) => (r.type === 'CNAME' || r.type === 'A') && r.name === cfDomain.name
+                );
+
+                if (!hasRootRecord) {
+                  // Create root CNAME record pointing to Heroku (Cloudflare supports CNAME flattening)
+                  await fetch(
+                    `https://api.cloudflare.com/client/v4/zones/${zone.id}/dns_records`,
+                    {
+                      method: 'POST',
+                      headers: {
+                        'X-Auth-Email': email,
+                        'X-Auth-Key': apiKey,
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({
+                        type: 'CNAME',
+                        name: '@',
+                        content: herokuHostname,
+                        ttl: 1, // Auto
+                        proxied: true, // Enable Cloudflare proxy for SSL
+                      }),
+                    }
+                  );
+
+                  // Create www CNAME record
+                  await fetch(
+                    `https://api.cloudflare.com/client/v4/zones/${zone.id}/dns_records`,
+                    {
+                      method: 'POST',
+                      headers: {
+                        'X-Auth-Email': email,
+                        'X-Auth-Key': apiKey,
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({
+                        type: 'CNAME',
+                        name: 'www',
+                        content: herokuHostname,
+                        ttl: 1,
+                        proxied: true,
+                      }),
+                    }
+                  );
+
+                  dnsConfigured.push(cfDomain.name);
+                }
+
+                // Update domain record with zone ID and set status
+                await prisma.domain.update({
+                  where: { id: domainRecord.id },
+                  data: {
+                    cloudflareZoneId: zone.id,
+                    dnsConfigured: true,
+                    sslEnabled: true, // Cloudflare proxy provides free SSL
+                    status: 'ACTIVE',
+                  },
+                });
+              }
+            } catch (dnsError) {
+              console.error(`[DNS] Error configuring DNS for ${cfDomain.name}:`, dnsError);
+              // Continue with other domains even if one fails
+            }
+          }
         } else {
           unmatched.push({ domain: cfDomain.name, suggestedSlug: domainSlug });
         }
@@ -251,8 +354,9 @@ export async function POST(request: Request) {
 
       return NextResponse.json({
         success: true,
-        message: `Synced ${synced.length} domains from Cloudflare`,
+        message: `Synced ${synced.length} domains from Cloudflare, configured DNS for ${dnsConfigured.length}`,
         synced,
+        dnsConfigured,
         unmatched,
       });
     }
