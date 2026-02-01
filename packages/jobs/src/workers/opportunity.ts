@@ -2,6 +2,7 @@ import { Job } from 'bullmq';
 import { prisma } from '@experience-marketplace/database';
 import { createHolibobClient } from '@experience-marketplace/holibob-api';
 import type { SeoOpportunityScanPayload, JobResult } from '../types';
+import { KeywordResearchService } from '../services/keyword-research';
 
 /**
  * SEO Opportunity Scanner Worker
@@ -166,9 +167,6 @@ async function scanForOpportunities(
       const destinationCity = destination.split(',')[0] || destination;
       const keyword = `${destinationCity.toLowerCase()} ${category}`;
 
-      // TODO: Integrate with actual keyword research API (SEMrush, Ahrefs)
-      // For now, use mock data based on Holibob inventory check
-
       try {
         // Check Holibob inventory for this destination + category
         const inventory = await holibobClient.discoverProducts(
@@ -184,11 +182,38 @@ async function scanForOpportunities(
 
         // Only create opportunity if we have inventory
         if (inventoryCount > 0) {
+          // Get real keyword data from DataForSEO
+          const keywordService = new KeywordResearchService();
+          let keywordData;
+
+          try {
+            keywordData = await keywordService.getKeywordData(
+              keyword,
+              destination.split(',')[1]?.trim() || 'United States'
+            );
+            console.log(`[Opportunity] Real keyword data for "${keyword}":`, {
+              searchVolume: keywordData.searchVolume,
+              difficulty: keywordData.keywordDifficulty,
+              cpc: keywordData.cpc,
+              trend: keywordData.trend,
+            });
+          } catch (keywordError) {
+            console.error(`[Opportunity] Error getting keyword data for "${keyword}":`, keywordError);
+            // Fallback to estimates if API fails
+            keywordData = {
+              searchVolume: estimateSearchVolume(destination, category),
+              keywordDifficulty: estimateDifficulty(destination, category),
+              cpc: estimateCpc(category),
+              trend: 'stable' as const,
+              competition: 0.5,
+            };
+          }
+
           opportunities.push({
             keyword,
-            searchVolume: estimateSearchVolume(destination, category),
-            difficulty: estimateDifficulty(destination, category),
-            cpc: estimateCpc(category),
+            searchVolume: keywordData.searchVolume,
+            difficulty: keywordData.keywordDifficulty,
+            cpc: keywordData.cpc,
             intent: 'TRANSACTIONAL',
             niche: category,
             location: destination,
@@ -197,6 +222,9 @@ async function scanForOpportunities(
               destination,
               category,
               scannedAt: new Date().toISOString(),
+              keywordTrend: keywordData.trend,
+              competition: keywordData.competition,
+              seasonality: keywordData.seasonality,
             },
           });
         }
