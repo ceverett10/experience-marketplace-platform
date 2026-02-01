@@ -15,8 +15,9 @@ interface NavItem {
 const navItems: NavItem[] = [
   { href: '/', label: 'Dashboard', icon: '📊' },
   { href: '/sites', label: 'Sites', icon: '🌐' },
+  { href: '/opportunities', label: 'Opportunities', icon: '🔍' },
+  { href: '/domains', label: 'Domains', icon: '🌍' },
   { href: '/content', label: 'Content', icon: '📝' },
-  { href: '/seo', label: 'SEO', icon: '🔍' },
   { href: '/settings', label: 'Settings', icon: '⚙️' },
 ];
 
