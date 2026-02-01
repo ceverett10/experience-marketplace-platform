@@ -10,6 +10,7 @@ CREATE TABLE "platform_settings" (
     "enableGSCVerification" BOOLEAN NOT NULL DEFAULT true,
     "enableContentOptimization" BOOLEAN NOT NULL DEFAULT true,
     "enableABTesting" BOOLEAN NOT NULL DEFAULT true,
+    "maxTotalSites" INTEGER NOT NULL DEFAULT 200,
     "maxSitesPerHour" INTEGER NOT NULL DEFAULT 10,
     "maxContentPagesPerHour" INTEGER NOT NULL DEFAULT 100,
     "maxGSCRequestsPerHour" INTEGER NOT NULL DEFAULT 200,

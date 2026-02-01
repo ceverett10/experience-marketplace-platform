@@ -30,8 +30,9 @@ model PlatformSettings {
   enableContentOptimization Boolean @default(true)
   enableABTesting           Boolean @default(true)
 
-  // Rate Limits (per hour)
-  maxSitesPerHour           Int @default(10)
+  // Rate Limits
+  maxTotalSites             Int @default(200) // Maximum total sites on platform
+  maxSitesPerHour           Int @default(10) // Maximum sites created per hour
   maxContentPagesPerHour    Int @default(100)
   maxGSCRequestsPerHour     Int @default(200)
   maxOpportunityScansPerDay Int @default(50)
