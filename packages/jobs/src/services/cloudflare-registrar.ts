@@ -11,7 +11,9 @@
  */
 
 interface CloudflareRegistrarCredentials {
-  apiToken: string;
+  apiToken?: string;
+  apiKey?: string;
+  email?: string;
   accountId: string;
 }
 
@@ -75,16 +77,27 @@ const CLOUDFLARE_TLD_PRICING: Record<string, number> = {
 
 export class CloudflareRegistrarService {
   private readonly baseUrl = 'https://api.cloudflare.com/client/v4';
-  private readonly apiToken: string;
+  private readonly apiToken?: string;
+  private readonly apiKey?: string;
+  private readonly email?: string;
   private readonly accountId: string;
 
   constructor(credentials?: CloudflareRegistrarCredentials) {
     const apiToken = credentials?.apiToken || process.env['CLOUDFLARE_API_TOKEN'];
+    const apiKey = credentials?.apiKey || process.env['CLOUDFLARE_API_KEY'];
+    const email = credentials?.email || process.env['CLOUDFLARE_EMAIL'];
     const accountId = credentials?.accountId || process.env['CLOUDFLARE_ACCOUNT_ID'];
 
-    if (!apiToken) {
+    // Support both API Token and Global API Key authentication
+    if (!apiToken && !apiKey) {
       throw new Error(
-        'Cloudflare API token not found. Set CLOUDFLARE_API_TOKEN environment variable.'
+        'Cloudflare credentials not found. Set CLOUDFLARE_API_TOKEN or CLOUDFLARE_API_KEY + CLOUDFLARE_EMAIL.'
+      );
+    }
+
+    if (apiKey && !email) {
+      throw new Error(
+        'CLOUDFLARE_EMAIL is required when using CLOUDFLARE_API_KEY (Global API Key).'
       );
     }
 
@@ -95,6 +108,8 @@ export class CloudflareRegistrarService {
     }
 
     this.apiToken = apiToken;
+    this.apiKey = apiKey;
+    this.email = email;
     this.accountId = accountId;
   }
 
@@ -384,6 +399,7 @@ export class CloudflareRegistrarService {
 
   /**
    * Make authenticated request to Cloudflare API
+   * Supports both API Token and Global API Key authentication
    */
   private async makeRequest<T>(
     endpoint: string,
@@ -392,12 +408,23 @@ export class CloudflareRegistrarService {
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
 
+    // Build headers based on authentication method
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    if (this.apiKey && this.email) {
+      // Use Global API Key authentication (required for Registrar API)
+      headers['X-Auth-Email'] = this.email;
+      headers['X-Auth-Key'] = this.apiKey;
+    } else if (this.apiToken) {
+      // Use API Token authentication
+      headers['Authorization'] = `Bearer ${this.apiToken}`;
+    }
+
     const response = await fetch(url, {
       method,
-      headers: {
-        Authorization: `Bearer ${this.apiToken}`,
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: body ? JSON.stringify(body) : undefined,
     });
 
