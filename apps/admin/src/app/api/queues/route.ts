@@ -40,13 +40,15 @@ export async function GET(request: Request) {
     const queueName = searchParams.get('queue');
     const jobStatus = searchParams.get('status') || 'waiting';
 
-    // Define all queues in the system
+    // Define all queues in the system (must match packages/jobs/src/types QUEUE_NAMES)
     const queueNames = [
-      'keyword-research',
-      'content-generation',
-      'domain-registration',
-      'site-deployment',
-      'seo-optimization',
+      'content',
+      'seo',
+      'gsc',
+      'site',
+      'domain',
+      'analytics',
+      'abtest',
     ];
 
     if (queueName) {

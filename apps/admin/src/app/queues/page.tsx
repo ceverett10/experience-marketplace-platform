@@ -52,12 +52,17 @@ export default function QueuesPage() {
     const fetchQueues = async () => {
       try {
         setLoading(true);
-        const response = await fetch('/api/queues');
+        const response = await fetch('/admin/api/queues');
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
         const data = await response.json();
-        setQueues(data.queues);
-        setTotals(data.totals);
+        setQueues(data.queues || []);
+        setTotals(data.totals || { waiting: 0, active: 0, completed: 0, failed: 0, delayed: 0 });
       } catch (error) {
         console.error('Failed to fetch queues:', error);
+        // Set empty state on error to stop loading spinner
+        setQueues([]);
       } finally {
         setLoading(false);
       }
@@ -74,11 +79,15 @@ export default function QueuesPage() {
 
     const fetchJobs = async () => {
       try {
-        const response = await fetch(`/api/queues?queue=${selectedQueue}&status=${selectedStatus}`);
+        const response = await fetch(`/admin/api/queues?queue=${selectedQueue}&status=${selectedStatus}`);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
         const data = await response.json();
-        setJobs(data.jobs);
+        setJobs(data.jobs || []);
       } catch (error) {
         console.error('Failed to fetch jobs:', error);
+        setJobs([]);
       }
     };
 
@@ -89,7 +98,7 @@ export default function QueuesPage() {
 
   const handleQueueAction = async (action: string, queueName?: string, jobId?: string) => {
     try {
-      const response = await fetch('/api/queues', {
+      const response = await fetch('/admin/api/queues', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action, queueName, jobId }),
@@ -97,9 +106,9 @@ export default function QueuesPage() {
 
       if (response.ok) {
         // Refresh data
-        const data = await fetch('/api/queues').then((r) => r.json());
-        setQueues(data.queues);
-        setTotals(data.totals);
+        const data = await fetch('/admin/api/queues').then((r) => r.json());
+        setQueues(data.queues || []);
+        setTotals(data.totals || { waiting: 0, active: 0, completed: 0, failed: 0, delayed: 0 });
       }
     } catch (error) {
       console.error('Failed to perform action:', error);
