@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Card, CardHeader, CardTitle, CardContent } from '@experience-marketplace/ui-components';
 
@@ -18,64 +18,47 @@ interface DashboardStats {
   };
 }
 
-interface RecentActivity {
+interface TopSite {
   id: string;
-  type: 'site_created' | 'content_approved' | 'booking' | 'seo_update';
-  message: string;
-  timestamp: string;
+  name: string;
+  domain: string;
+  bookings: number;
+  revenue: number;
 }
 
-// Mock data - would be fetched from API
-const mockStats: DashboardStats = {
-  totalSites: 12,
-  activeSites: 8,
-  totalBookings: 156,
-  totalRevenue: 28450.0,
-  contentPending: 5,
-  conversionRate: 4.2,
-  changes: {
-    sites: 25,
-    bookings: 8,
-    revenue: 15,
-  },
-};
-
-const mockRecentActivity: RecentActivity[] = [
-  {
-    id: '1',
-    type: 'site_created',
-    message: "New site 'Barcelona Adventures' created",
-    timestamp: '2 hours ago',
-  },
-  {
-    id: '2',
-    type: 'booking',
-    message: "New booking on 'London Explorer'",
-    timestamp: '4 hours ago',
-  },
-  {
-    id: '3',
-    type: 'content_approved',
-    message: "Content approved for 'Paris Highlights'",
-    timestamp: '6 hours ago',
-  },
-  {
-    id: '4',
-    type: 'seo_update',
-    message: "SEO meta updated for 'Tokyo Food Tours'",
-    timestamp: '1 day ago',
-  },
-];
-
 export default function AdminDashboardPage() {
-  const [stats] = useState<DashboardStats>(mockStats);
-  const [activity] = useState<RecentActivity[]>(mockRecentActivity);
-  const [isLoading, setIsLoading] = useState(false);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [topSites, setTopSites] = useState<TopSite[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchData = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const response = await fetch('/admin/api/dashboard');
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch dashboard data');
+      }
+
+      const data = await response.json();
+      setStats(data.stats);
+      setTopSites(data.topSites || []);
+    } catch (err) {
+      console.error('Error fetching dashboard data:', err);
+      setError('Failed to load dashboard data. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const refreshData = async () => {
-    setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    setIsLoading(false);
+    await fetchData();
   };
 
   const getActivityIcon = (type: RecentActivity['type']) => {
@@ -90,6 +73,33 @@ export default function AdminDashboardPage() {
         return '🔍';
     }
   };
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">{error}</p>
+          <button
+            onClick={refreshData}
+            className="px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading || !stats) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="animate-spin text-4xl mb-4">⏳</div>
+          <p className="text-slate-600">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -187,56 +197,45 @@ export default function AdminDashboardPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {[
-                    {
-                      name: 'London Explorer',
-                      domain: 'london.example.com',
-                      bookings: 45,
-                      revenue: 8250,
-                    },
-                    {
-                      name: 'Paris Highlights',
-                      domain: 'paris.example.com',
-                      bookings: 32,
-                      revenue: 5840,
-                    },
-                    {
-                      name: 'Barcelona Adventures',
-                      domain: 'barcelona.example.com',
-                      bookings: 28,
-                      revenue: 4920,
-                    },
-                  ].map((site, index) => (
-                    <tr key={site.domain} className="hover:bg-slate-50">
-                      <td className="py-3">
-                        <div className="flex items-center gap-3">
-                          <div className="h-8 w-8 bg-gradient-to-br from-sky-500 to-sky-400 rounded-full flex items-center justify-center text-white text-sm font-medium">
-                            {index + 1}
-                          </div>
-                          <div>
-                            <p className="font-medium text-slate-900">{site.name}</p>
-                            <p className="text-xs text-slate-500">{site.domain}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-3 text-right text-slate-900 font-medium tabular-nums">
-                        {site.bookings}
-                      </td>
-                      <td className="py-3 text-right text-slate-900 font-medium tabular-nums">
-                        £{site.revenue.toLocaleString()}
-                      </td>
-                      <td className="py-3 text-right">
-                        <a
-                          href={`https://${site.domain}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-slate-400 hover:text-sky-600"
-                        >
-                          🔗
-                        </a>
+                  {topSites.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="py-8 text-center text-slate-500">
+                        No sites found. Create your first site to get started.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    topSites.map((site, index) => (
+                      <tr key={site.domain} className="hover:bg-slate-50">
+                        <td className="py-3">
+                          <div className="flex items-center gap-3">
+                            <div className="h-8 w-8 bg-gradient-to-br from-sky-500 to-sky-400 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                              {index + 1}
+                            </div>
+                            <div>
+                              <p className="font-medium text-slate-900">{site.name}</p>
+                              <p className="text-xs text-slate-500">{site.domain}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-3 text-right text-slate-900 font-medium tabular-nums">
+                          {site.bookings}
+                        </td>
+                        <td className="py-3 text-right text-slate-900 font-medium tabular-nums">
+                          £{site.revenue.toLocaleString()}
+                        </td>
+                        <td className="py-3 text-right">
+                          <a
+                            href={`https://${site.domain}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-slate-400 hover:text-sky-600"
+                          >
+                            🔗
+                          </a>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
