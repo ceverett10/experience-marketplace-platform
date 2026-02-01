@@ -1,5 +1,7 @@
 // Re-export Prisma Client
 export { prisma, default as db } from './client.js';
+// Also export PrismaClient type for explicit typing
+export { PrismaClient } from '@prisma/client';
 
 // Re-export all Prisma types
 export type {
