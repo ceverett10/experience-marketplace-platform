@@ -44,10 +44,24 @@ export default function SitesPage() {
         setLoading(true);
         const response = await fetch(`/admin/api/sites?status=${statusFilter}`);
         const data = await response.json();
-        setSites(data.sites);
-        setStats(data.stats);
+
+        if (!response.ok || data.error) {
+          console.error('API error:', data.error);
+          setSites([]);
+          return;
+        }
+
+        setSites(data.sites || []);
+        setStats(data.stats || {
+          totalSites: 0,
+          activeSites: 0,
+          draftSites: 0,
+          totalRevenue: 0,
+          totalVisitors: 0,
+        });
       } catch (error) {
         console.error('Failed to fetch sites:', error);
+        setSites([]);
       } finally {
         setLoading(false);
       }

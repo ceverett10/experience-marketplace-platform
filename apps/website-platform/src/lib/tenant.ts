@@ -17,6 +17,7 @@ interface Site {
   status: 'DRAFT' | 'REVIEW' | 'ACTIVE' | 'PAUSED' | 'ARCHIVED';
   isAutomatic: boolean;
   seoConfig: unknown;
+  gscVerificationCode: string | null;
   createdAt: Date;
   updatedAt: Date;
   publishedAt: Date | null;
@@ -49,6 +50,7 @@ export interface SiteConfig {
   description: string | null;
   primaryDomain: string | null;
   holibobPartnerId: string;
+  gscVerificationCode: string | null;
 
   // Brand theming
   brand: {
@@ -81,6 +83,7 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
   description: 'Discover unique experiences in your destination',
   primaryDomain: null,
   holibobPartnerId: process.env['HOLIBOB_PARTNER_ID'] ?? 'demo',
+  gscVerificationCode: null,
   brand: {
     name: 'Experience Marketplace',
     tagline: 'Discover Unique Experiences',
@@ -176,6 +179,7 @@ function mapSiteToConfig(site: Site & { brand: Brand | null }): SiteConfig {
     description: site.description,
     primaryDomain: site.primaryDomain,
     holibobPartnerId: site.holibobPartnerId,
+    gscVerificationCode: site.gscVerificationCode,
     brand: site.brand
       ? {
           name: site.brand.name,

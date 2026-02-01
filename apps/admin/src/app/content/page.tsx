@@ -22,6 +22,10 @@ export default function AdminContentPage() {
   const [selectedContent, setSelectedContent] = useState<ContentItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editContent, setEditContent] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   // Fetch content from API
   useEffect(() => {
@@ -90,7 +94,7 @@ export default function AdminContentPage() {
       setContent((prev) =>
         prev.map((item) => (item.id === id ? { ...item, status } : item))
       );
-      setSelectedContent(null);
+      closeModal();
     } catch (err) {
       console.error('Error updating content:', err);
       alert('Failed to update content. Please try again.');
@@ -107,6 +111,71 @@ export default function AdminContentPage() {
 
   const handlePublish = (id: string) => {
     updateContentStatus(id, 'published');
+  };
+
+  const startEditing = () => {
+    if (selectedContent) {
+      setEditTitle(selectedContent.title);
+      setEditContent(selectedContent.content);
+      setIsEditing(true);
+    }
+  };
+
+  const cancelEditing = () => {
+    setIsEditing(false);
+    setEditTitle('');
+    setEditContent('');
+  };
+
+  const saveContent = async () => {
+    if (!selectedContent) return;
+
+    try {
+      setIsSaving(true);
+      const response = await fetch('/admin/api/content', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: selectedContent.id,
+          title: editTitle,
+          content: editContent,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save content');
+      }
+
+      const updatedItem = await response.json();
+
+      // Update local state
+      setContent((prev) =>
+        prev.map((item) =>
+          item.id === selectedContent.id
+            ? { ...item, title: updatedItem.title, content: updatedItem.content }
+            : item
+        )
+      );
+
+      // Update selected content
+      setSelectedContent((prev) =>
+        prev ? { ...prev, title: updatedItem.title, content: updatedItem.content } : null
+      );
+
+      setIsEditing(false);
+    } catch (err) {
+      console.error('Error saving content:', err);
+      alert('Failed to save content. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const closeModal = () => {
+    setSelectedContent(null);
+    setIsEditing(false);
+    setEditTitle('');
+    setEditContent('');
   };
 
   const getStatusBadge = (status: ContentItem['status']) => {
@@ -176,88 +245,146 @@ export default function AdminContentPage() {
 
   return (
     <div className="space-y-6">
-      {/* Preview Modal */}
+      {/* View/Edit Modal */}
       {selectedContent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden flex flex-col">
+          <div className="bg-white rounded-2xl shadow-xl max-w-3xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
             <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-semibold text-slate-900">Content Preview</h3>
+                <h3 className="text-lg font-semibold text-slate-900">
+                  {isEditing ? 'Edit Content' : 'View Content'}
+                </h3>
                 <p className="text-sm text-slate-500">{selectedContent.siteName}</p>
               </div>
-              <button
-                onClick={() => setSelectedContent(null)}
-                className="p-2 hover:bg-slate-100 rounded-lg"
-              >
-                ✕
-              </button>
+              <div className="flex items-center gap-2">
+                {!isEditing && (
+                  <button
+                    onClick={startEditing}
+                    className="px-3 py-1.5 text-sky-600 hover:bg-sky-50 rounded-lg text-sm font-medium"
+                  >
+                    Edit
+                  </button>
+                )}
+                <button
+                  onClick={closeModal}
+                  className="p-2 hover:bg-slate-100 rounded-lg"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
 
             <div className="p-6 overflow-y-auto flex-1">
-              <div className="mb-4">
-                <h4 className="text-xl font-semibold text-slate-900">{selectedContent.title}</h4>
-                <div className="flex items-center gap-4 mt-2 text-sm text-slate-500">
-                  <span>
-                    {getTypeIcon(selectedContent.type)} {selectedContent.type}
-                  </span>
-                </div>
-              </div>
+              {isEditing ? (
+                <>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Title</label>
+                    <input
+                      type="text"
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"
+                    />
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Content</label>
+                    <textarea
+                      value={editContent}
+                      onChange={(e) => setEditContent(e.target.value)}
+                      rows={15}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 font-mono text-sm"
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="mb-4">
+                    <h4 className="text-xl font-semibold text-slate-900">{selectedContent.title}</h4>
+                    <div className="flex items-center gap-4 mt-2 text-sm text-slate-500">
+                      <span>
+                        {getTypeIcon(selectedContent.type)} {selectedContent.type}
+                      </span>
+                    </div>
+                  </div>
 
-              <div className="bg-slate-50 rounded-lg p-4 mb-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <span>✨</span>
-                  <span className="text-sm font-medium text-slate-700">AI Quality Score</span>
-                  <span className={`font-bold ${getQualityColor(selectedContent.qualityScore)}`}>
-                    {selectedContent.qualityScore}/100
-                  </span>
-                </div>
-                <div className="w-full bg-slate-200 rounded-full h-2">
-                  <div
-                    className={`h-2 rounded-full ${
-                      selectedContent.qualityScore >= 85
-                        ? 'bg-green-500'
-                        : selectedContent.qualityScore >= 70
-                          ? 'bg-amber-500'
-                          : 'bg-red-500'
-                    }`}
-                    style={{ width: `${selectedContent.qualityScore}%` }}
-                  />
-                </div>
-              </div>
+                  <div className="bg-slate-50 rounded-lg p-4 mb-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span>✨</span>
+                      <span className="text-sm font-medium text-slate-700">AI Quality Score</span>
+                      <span className={`font-bold ${getQualityColor(selectedContent.qualityScore)}`}>
+                        {selectedContent.qualityScore}/100
+                      </span>
+                    </div>
+                    <div className="w-full bg-slate-200 rounded-full h-2">
+                      <div
+                        className={`h-2 rounded-full ${
+                          selectedContent.qualityScore >= 85
+                            ? 'bg-green-500'
+                            : selectedContent.qualityScore >= 70
+                              ? 'bg-amber-500'
+                              : 'bg-red-500'
+                        }`}
+                        style={{ width: `${selectedContent.qualityScore}%` }}
+                      />
+                    </div>
+                  </div>
 
-              <div className="prose prose-slate max-w-none">
-                <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">
-                  {selectedContent.content}
-                </p>
-              </div>
+                  <div className="prose prose-slate max-w-none">
+                    <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">
+                      {selectedContent.content}
+                    </p>
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between bg-slate-50">
               <div>{getStatusBadge(selectedContent.status)}</div>
               <div className="flex items-center gap-2">
-                {selectedContent.status === 'pending' && (
+                {isEditing ? (
                   <>
                     <Button
-                      onClick={() => handleReject(selectedContent.id)}
-                      className="px-3 py-1.5 border border-red-200 text-red-600 hover:bg-red-50 rounded-lg text-sm"
+                      onClick={cancelEditing}
+                      className="px-3 py-1.5 border border-slate-200 text-slate-600 hover:bg-slate-100 rounded-lg text-sm"
+                      disabled={isSaving}
                     >
-                      ✕ Reject
+                      Cancel
                     </Button>
                     <Button
-                      onClick={() => handleApprove(selectedContent.id)}
-                      className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm"
+                      onClick={saveContent}
+                      className="px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-sm"
+                      disabled={isSaving}
                     >
-                      ✓ Approve
+                      {isSaving ? 'Saving...' : 'Save Changes'}
                     </Button>
                   </>
-                )}
-                {selectedContent.status === 'approved' && (
-                  <Button
-                    onClick={() => handlePublish(selectedContent.id)}
-                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm"
-                  >
-                    🚀 Publish
-                  </Button>
+                ) : (
+                  <>
+                    {selectedContent.status === 'pending' && (
+                      <>
+                        <Button
+                          onClick={() => handleReject(selectedContent.id)}
+                          className="px-3 py-1.5 border border-red-200 text-red-600 hover:bg-red-50 rounded-lg text-sm"
+                        >
+                          ✕ Reject
+                        </Button>
+                        <Button
+                          onClick={() => handleApprove(selectedContent.id)}
+                          className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm"
+                        >
+                          ✓ Approve
+                        </Button>
+                      </>
+                    )}
+                    {selectedContent.status === 'approved' && (
+                      <Button
+                        onClick={() => handlePublish(selectedContent.id)}
+                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm"
+                      >
+                        🚀 Publish
+                      </Button>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -394,9 +521,21 @@ export default function AdminContentPage() {
                     <button
                       onClick={() => setSelectedContent(item)}
                       className="p-2 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors"
-                      title="Preview"
+                      title="View"
                     >
                       👁️
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSelectedContent(item);
+                        setEditTitle(item.title);
+                        setEditContent(item.content);
+                        setIsEditing(true);
+                      }}
+                      className="p-2 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors"
+                      title="Edit"
+                    >
+                      ✏️
                     </button>
                     {item.status === 'pending' && (
                       <>
