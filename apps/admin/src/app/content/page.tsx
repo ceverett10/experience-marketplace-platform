@@ -14,60 +14,41 @@ interface ContentItem {
   generatedAt: string;
 }
 
-const mockContent: ContentItem[] = [
-  {
-    id: '1',
-    type: 'experience',
-    title: 'London Eye Sunset Experience',
-    content:
-      'Experience the magic of London as the sun sets over the city skyline. This exclusive evening ride offers breathtaking panoramic views...',
-    siteName: 'London Explorer',
-    status: 'pending',
-    qualityScore: 92,
-    generatedAt: '2024-01-15T14:30:00Z',
-  },
-  {
-    id: '2',
-    type: 'collection',
-    title: 'Best Paris Hidden Gems',
-    content:
-      'Discover the Paris that locals love with this curated collection of off-the-beaten-path experiences...',
-    siteName: 'Paris Highlights',
-    status: 'approved',
-    qualityScore: 88,
-    generatedAt: '2024-01-14T10:15:00Z',
-  },
-  {
-    id: '3',
-    type: 'seo',
-    title: 'SEO: Tokyo Food Tours',
-    content:
-      'Discover authentic Tokyo food tours with local guides. Experience ramen shops, sushi bars, and hidden izakayas.',
-    siteName: 'Tokyo Adventures',
-    status: 'published',
-    qualityScore: 95,
-    generatedAt: '2024-01-13T08:00:00Z',
-  },
-  {
-    id: '4',
-    type: 'blog',
-    title: 'Top 10 Adventure Activities in New Zealand',
-    content:
-      'New Zealand is a paradise for thrill-seekers. From bungee jumping in Queenstown to glacier hiking...',
-    siteName: 'NZ Explorer',
-    status: 'pending',
-    qualityScore: 78,
-    generatedAt: '2024-01-15T16:45:00Z',
-  },
-];
-
 export default function AdminContentPage() {
-  const [content, setContent] = useState<ContentItem[]>(mockContent);
-  const [filteredContent, setFilteredContent] = useState<ContentItem[]>(mockContent);
+  const [content, setContent] = useState<ContentItem[]>([]);
+  const [filteredContent, setFilteredContent] = useState<ContentItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedContent, setSelectedContent] = useState<ContentItem | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
+  // Fetch content from API
+  useEffect(() => {
+    const fetchContent = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const response = await fetch('/admin/api/content');
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch content');
+        }
+
+        const data = await response.json();
+        setContent(data);
+      } catch (err) {
+        console.error('Error fetching content:', err);
+        setError('Failed to load content. Please try again.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchContent();
+  }, []);
+
+  // Filter content based on search and status
   useEffect(() => {
     let filtered = content;
 
@@ -93,25 +74,39 @@ export default function AdminContentPage() {
     published: content.filter((c) => c.status === 'published').length,
   };
 
+  const updateContentStatus = async (id: string, status: ContentItem['status']) => {
+    try {
+      const response = await fetch('/admin/api/content', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update content');
+      }
+
+      // Update local state
+      setContent((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, status } : item))
+      );
+      setSelectedContent(null);
+    } catch (err) {
+      console.error('Error updating content:', err);
+      alert('Failed to update content. Please try again.');
+    }
+  };
+
   const handleApprove = (id: string) => {
-    setContent((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, status: 'approved' as const } : item))
-    );
-    setSelectedContent(null);
+    updateContentStatus(id, 'approved');
   };
 
   const handleReject = (id: string) => {
-    setContent((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, status: 'rejected' as const } : item))
-    );
-    setSelectedContent(null);
+    updateContentStatus(id, 'rejected');
   };
 
   const handlePublish = (id: string) => {
-    setContent((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, status: 'published' as const } : item))
-    );
-    setSelectedContent(null);
+    updateContentStatus(id, 'published');
   };
 
   const getStatusBadge = (status: ContentItem['status']) => {
@@ -151,6 +146,33 @@ export default function AdminContentPage() {
     if (score >= 70) return 'text-amber-600';
     return 'text-red-600';
   };
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="animate-spin text-4xl mb-4">⏳</div>
+          <p className="text-slate-600">Loading content...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
