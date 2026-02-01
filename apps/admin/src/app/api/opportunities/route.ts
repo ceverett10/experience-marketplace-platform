@@ -84,6 +84,49 @@ export async function POST(request: Request) {
       });
     }
 
+    if (action === 'fix-stuck') {
+      // Find all stuck opportunities (ASSIGNED but no site)
+      const stuckOpportunities = await prisma.sEOOpportunity.findMany({
+        where: {
+          status: 'ASSIGNED',
+          siteId: null,
+        },
+      });
+
+      if (stuckOpportunities.length === 0) {
+        return NextResponse.json({
+          success: true,
+          message: 'No stuck opportunities found',
+          fixed: 0,
+        });
+      }
+
+      // Re-queue site creation for each stuck opportunity
+      const jobIds: string[] = [];
+      for (const opp of stuckOpportunities) {
+        const destination = opp.location?.split(',')[0] || 'Experiences';
+        const niche = opp.niche;
+
+        const jobId = await addJob('SITE_CREATE', {
+          opportunityId: opp.id,
+          brandConfig: {
+            name: `${destination} ${niche.charAt(0).toUpperCase() + niche.slice(1)}`,
+            tagline: `Discover the best ${niche} in ${destination}`,
+          },
+          autoPublish: false,
+        });
+
+        jobIds.push(jobId);
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: `Re-queued site creation for ${stuckOpportunities.length} stuck opportunities`,
+        fixed: stuckOpportunities.length,
+        jobIds,
+      });
+    }
+
     if (action === 'dismiss') {
       await prisma.sEOOpportunity.update({
         where: { id: opportunityId },
