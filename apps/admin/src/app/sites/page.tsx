@@ -42,7 +42,7 @@ export default function SitesPage() {
     const fetchSites = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`/api/sites?status=${statusFilter}`);
+        const response = await fetch(`/admin/api/sites?status=${statusFilter}`);
         const data = await response.json();
         setSites(data.sites);
         setStats(data.stats);

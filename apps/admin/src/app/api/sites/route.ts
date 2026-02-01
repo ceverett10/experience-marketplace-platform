@@ -19,6 +19,7 @@ export async function GET(request: Request) {
         createdAt: 'desc',
       },
       include: {
+        brand: true,
         domains: {
           where: {
             status: 'ACTIVE',
@@ -53,7 +54,7 @@ export async function GET(request: Request) {
         monthlyVisitors: 0, // TODO: Calculate from analytics
         monthlyBookings: 0, // TODO: Calculate from bookings
         monthlyRevenue: 0, // TODO: Calculate from bookings
-        brandColor: generateRandomColor(), // TODO: Store in Brand model
+        brandColor: site.brand?.primaryColor || '#6366f1',
         pageCount: site._count.pages,
         domainCount: site._count.domains,
         createdAt: site.createdAt.toISOString(),
@@ -91,16 +92,3 @@ export async function POST(request: Request) {
   }
 }
 
-function generateRandomColor(): string {
-  const colors = [
-    '#3b82f6', // blue
-    '#8b5cf6', // purple
-    '#ec4899', // pink
-    '#f59e0b', // amber
-    '#10b981', // emerald
-    '#06b6d4', // cyan
-    '#f97316', // orange
-    '#6366f1', // indigo
-  ];
-  return colors[Math.floor(Math.random() * colors.length)] || '#3b82f6';
-}
