@@ -40,21 +40,31 @@ async function getTopExperiences(
 
   try {
     const client = getHolibobClient(site);
-    const products = await client.searchProducts({
-      locationId,
-      limit: 9,
-      sortBy: 'popularity',
-    });
+    const response = await client.discoverProducts(
+      {
+        placeIds: [locationId],
+      },
+      { pageSize: 9 }
+    );
 
-    return products.map((product) => ({
+    return response.products.map((product) => ({
       id: product.id,
-      slug: product.slug,
-      title: product.title,
-      shortDescription: product.shortDescription,
-      imageUrl: product.imageUrl,
-      price: product.price,
-      rating: product.rating,
-      categories: product.categories || [],
+      slug: product.slug || product.id,
+      title: product.name,
+      shortDescription: product.shortDescription || '',
+      imageUrl: product.imageList?.[0]?.url || '',
+      price: {
+        formatted: product.guidePrice?.formattedPrice || 'From £0',
+      },
+      rating: product.reviewRating && product.reviewCount
+        ? {
+            average: product.reviewRating,
+            count: product.reviewCount,
+          }
+        : null,
+      categories: product.categoryList?.nodes.map((cat) => ({
+        name: cat.name,
+      })) || [],
     }));
   } catch (error) {
     console.error('Error fetching top experiences:', error);

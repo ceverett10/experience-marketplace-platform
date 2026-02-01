@@ -40,19 +40,28 @@ async function getRelatedExperiences(
 
   try {
     const client = getHolibobClient(site);
-    const products = await client.searchProducts({
-      categoryId,
-      limit: 6,
-    });
+    const response = await client.discoverProducts(
+      {
+        categoryIds: [categoryId],
+      },
+      { pageSize: 6 }
+    );
 
-    return products.map((product) => ({
+    return response.products.map((product) => ({
       id: product.id,
-      slug: product.slug,
-      title: product.title,
-      shortDescription: product.shortDescription,
-      imageUrl: product.imageUrl,
-      price: product.price,
-      rating: product.rating,
+      slug: product.slug || product.id,
+      title: product.name,
+      shortDescription: product.shortDescription || '',
+      imageUrl: product.imageList?.[0]?.url || '',
+      price: {
+        formatted: product.guidePrice?.formattedPrice || 'From £0',
+      },
+      rating: product.reviewRating && product.reviewCount
+        ? {
+            average: product.reviewRating,
+            count: product.reviewCount,
+          }
+        : null,
     }));
   } catch (error) {
     console.error('Error fetching related experiences:', error);
