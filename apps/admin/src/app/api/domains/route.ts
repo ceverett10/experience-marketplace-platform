@@ -51,7 +51,7 @@ export async function GET(request: Request) {
           select: {
             id: true,
             status: true,
-            data: true,
+            payload: true,
             createdAt: true,
           },
           orderBy: {
@@ -68,8 +68,8 @@ export async function GET(request: Request) {
     // Create domain entries for sites without registered domains
     const suggestedDomains = sitesWithoutDomains.map((site) => {
       const domainJob = site.jobs[0];
-      const suggestedDomain = domainJob?.data && typeof domainJob.data === 'object' && 'domain' in domainJob.data
-        ? (domainJob.data as any).domain
+      const suggestedDomain = domainJob?.payload && typeof domainJob.payload === 'object' && 'domain' in domainJob.payload
+        ? (domainJob.payload as any).domain
         : `${site.slug}.com`;
 
       // Determine status based on job status

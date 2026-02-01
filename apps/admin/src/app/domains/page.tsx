@@ -47,6 +47,8 @@ export default function DomainsPage() {
   });
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [queueing, setQueueing] = useState(false);
 
   // Fetch domains from API
   useEffect(() => {
@@ -121,9 +123,72 @@ export default function DomainsPage() {
           <h1 className="text-2xl font-bold text-slate-900">Domain Management</h1>
           <p className="text-slate-500 mt-1">Monitor domain registration, DNS, and SSL status</p>
         </div>
-        <button className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-sm font-medium transition-colors">
-          Register Domain
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={async () => {
+              setSyncing(true);
+              try {
+                const response = await fetch('/api/domains', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ action: 'syncFromCloudflare' }),
+                });
+                const result = await response.json();
+                if (response.ok) {
+                  alert(`Synced ${result.synced?.length || 0} domains from Cloudflare`);
+                  // Refetch domains
+                  const domainsResponse = await fetch(`/api/domains?status=${statusFilter}`);
+                  const data = await domainsResponse.json();
+                  setDomains(data.domains || []);
+                  setStats(data.stats || { total: 0, active: 0, pending: 0, sslEnabled: 0, expiringBoon: 0 });
+                } else {
+                  alert(result.error || 'Failed to sync from Cloudflare');
+                }
+              } catch (error) {
+                console.error('Failed to sync from Cloudflare:', error);
+                alert('Failed to sync from Cloudflare');
+              } finally {
+                setSyncing(false);
+              }
+            }}
+            disabled={syncing}
+            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+          >
+            {syncing ? 'Syncing...' : 'Sync from Cloudflare'}
+          </button>
+          <button
+            onClick={async () => {
+              setQueueing(true);
+              try {
+                const response = await fetch('/api/domains', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ action: 'queueMissing' }),
+                });
+                const result = await response.json();
+                if (response.ok) {
+                  alert(`Queued domain registration for ${result.queued?.length || 0} sites`);
+                  // Refetch domains
+                  const domainsResponse = await fetch(`/api/domains?status=${statusFilter}`);
+                  const data = await domainsResponse.json();
+                  setDomains(data.domains || []);
+                  setStats(data.stats || { total: 0, active: 0, pending: 0, sslEnabled: 0, expiringBoon: 0 });
+                } else {
+                  alert(result.error || 'Failed to queue domains');
+                }
+              } catch (error) {
+                console.error('Failed to queue domains:', error);
+                alert('Failed to queue domains');
+              } finally {
+                setQueueing(false);
+              }
+            }}
+            disabled={queueing}
+            className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+          >
+            {queueing ? 'Queueing...' : 'Queue Missing Domains'}
+          </button>
+        </div>
       </div>
 
       {/* Stats cards */}

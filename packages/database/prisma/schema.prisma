@@ -93,6 +93,7 @@ model Site {
   abTests       ABTest[]
   metrics       PerformanceMetric[]
   jobs          Job[]
+  manualTasks   ManualTask[]
 
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -573,6 +574,68 @@ model Job {
   @@index([scheduledFor])
   @@index([type])
   @@index([siteId])
+}
+
+// ============================================================================
+// MANUAL TASKS
+// ============================================================================
+
+model ManualTask {
+  id String @id @default(cuid())
+
+  // Task Details
+  title       String
+  description String?
+  category    ManualTaskCategory
+  priority    ManualTaskPriority @default(MEDIUM)
+  status      ManualTaskStatus   @default(PENDING)
+
+  // Context
+  context Json? // Additional context data (e.g., domain name, site info)
+
+  // Related Entities (optional)
+  site   Site?   @relation(fields: [siteId], references: [id])
+  siteId String?
+
+  // Tracking
+  dueDate     DateTime?
+  completedAt DateTime?
+  completedBy String?
+  notes       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([category])
+  @@index([priority])
+  @@map("manual_tasks")
+}
+
+enum ManualTaskCategory {
+  DOMAIN_PURCHASE
+  DNS_CONFIGURATION
+  SSL_SETUP
+  CONTENT_REVIEW
+  SEO_OPTIMIZATION
+  SITE_CONFIGURATION
+  EXTERNAL_SERVICE
+  OTHER
+}
+
+enum ManualTaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum ManualTaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  BLOCKED
 }
 
 enum JobType {
