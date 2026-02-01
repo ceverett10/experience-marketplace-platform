@@ -61,19 +61,6 @@ export default function AdminDashboardPage() {
     await fetchData();
   };
 
-  const getActivityIcon = (type: RecentActivity['type']) => {
-    switch (type) {
-      case 'site_created':
-        return '🌐';
-      case 'content_approved':
-        return '✅';
-      case 'booking':
-        return '📅';
-      case 'seo_update':
-        return '🔍';
-    }
-  };
-
   if (error) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -176,92 +163,70 @@ export default function AdminDashboardPage() {
         </div>
       )}
 
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* Top Sites */}
-        <Card className="lg:col-span-2">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Top Performing Sites</CardTitle>
-            <Link href="/sites" className="text-sm text-sky-600 hover:underline">
-              View all
-            </Link>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="text-left text-sm text-slate-500 border-b border-slate-100">
-                    <th className="pb-3 font-medium">Site</th>
-                    <th className="pb-3 font-medium text-right">Bookings</th>
-                    <th className="pb-3 font-medium text-right">Revenue</th>
-                    <th className="pb-3 font-medium text-right"></th>
+      {/* Top Sites */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Top Performing Sites</CardTitle>
+          <Link href="/sites" className="text-sm text-sky-600 hover:underline">
+            View all
+          </Link>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="text-left text-sm text-slate-500 border-b border-slate-100">
+                  <th className="pb-3 font-medium">Site</th>
+                  <th className="pb-3 font-medium text-right">Bookings</th>
+                  <th className="pb-3 font-medium text-right">Revenue</th>
+                  <th className="pb-3 font-medium text-right"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {topSites.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="py-8 text-center text-slate-500">
+                      No sites found. Create your first site to get started.
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {topSites.length === 0 ? (
-                    <tr>
-                      <td colSpan={4} className="py-8 text-center text-slate-500">
-                        No sites found. Create your first site to get started.
+                ) : (
+                  topSites.map((site, index) => (
+                    <tr key={site.domain} className="hover:bg-slate-50">
+                      <td className="py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="h-8 w-8 bg-gradient-to-br from-sky-500 to-sky-400 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                            {index + 1}
+                          </div>
+                          <div>
+                            <p className="font-medium text-slate-900">{site.name}</p>
+                            <p className="text-xs text-slate-500">{site.domain}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3 text-right text-slate-900 font-medium tabular-nums">
+                        {site.bookings}
+                      </td>
+                      <td className="py-3 text-right text-slate-900 font-medium tabular-nums">
+                        £{site.revenue.toLocaleString()}
+                      </td>
+                      <td className="py-3 text-right">
+                        <a
+                          href={`https://${site.domain}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-slate-400 hover:text-sky-600"
+                        >
+                          🔗
+                        </a>
                       </td>
                     </tr>
-                  ) : (
-                    topSites.map((site, index) => (
-                      <tr key={site.domain} className="hover:bg-slate-50">
-                        <td className="py-3">
-                          <div className="flex items-center gap-3">
-                            <div className="h-8 w-8 bg-gradient-to-br from-sky-500 to-sky-400 rounded-full flex items-center justify-center text-white text-sm font-medium">
-                              {index + 1}
-                            </div>
-                            <div>
-                              <p className="font-medium text-slate-900">{site.name}</p>
-                              <p className="text-xs text-slate-500">{site.domain}</p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="py-3 text-right text-slate-900 font-medium tabular-nums">
-                          {site.bookings}
-                        </td>
-                        <td className="py-3 text-right text-slate-900 font-medium tabular-nums">
-                          £{site.revenue.toLocaleString()}
-                        </td>
-                        <td className="py-3 text-right">
-                          <a
-                            href={`https://${site.domain}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-slate-400 hover:text-sky-600"
-                          >
-                            🔗
-                          </a>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Recent Activity */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {activity.map((item) => (
-                <div key={item.id} className="flex items-start gap-3">
-                  <div className="mt-0.5">{getActivityIcon(item.type)}</div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-slate-900 leading-snug">{item.message}</p>
-                    <p className="text-xs text-slate-500 mt-0.5">{item.timestamp}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Quick actions */}
       <div className="grid sm:grid-cols-3 gap-4">
