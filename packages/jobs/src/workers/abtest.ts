@@ -29,15 +29,21 @@ export async function handleABTestAnalyze(job: Job<ABTestAnalyzePayload>): Promi
   try {
     console.log(`[ABTest Analyze] Starting analysis for test ${abTestId}`);
 
-    // Get test to check siteId
+    // 1. Get test with variants
     const abTest = await prisma.aBTest.findUnique({
       where: { id: abTestId },
-      select: { siteId: true },
+      include: {
+        variants: true,
+      },
     });
+
+    if (!abTest) {
+      throw new Error(`A/B Test ${abTestId} not found`);
+    }
 
     // Check if autonomous A/B testing is allowed
     const canProceed = await canExecuteAutonomousOperation({
-      siteId: abTest?.siteId,
+      siteId: abTest.siteId,
       feature: 'enableABTesting',
     });
 
@@ -49,18 +55,6 @@ export async function handleABTestAnalyze(job: Job<ABTestAnalyzePayload>): Promi
         errorCategory: 'paused',
         timestamp: new Date(),
       };
-    }
-
-    // 1. Get test with variants
-    const abTest = await prisma.aBTest.findUnique({
-      where: { id: abTestId },
-      include: {
-        variants: true,
-      },
-    });
-
-    if (!abTest) {
-      throw new Error(`A/B Test ${abTestId} not found`);
     }
 
     if (abTest.status !== ABTestStatus.RUNNING) {
