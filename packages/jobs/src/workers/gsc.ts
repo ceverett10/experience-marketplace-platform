@@ -1,7 +1,8 @@
 import { Job } from 'bullmq';
 import { prisma } from '@experience-marketplace/database';
 import { getGSCClient, isGSCConfigured } from '../services/gsc-client';
-import type { GscSyncPayload, JobResult } from '../types';
+import type { GscSyncPayload, JobResult, ContentOptimizePayload } from '../types';
+import { addJob } from '../queues';
 
 /**
  * Google Search Console Sync Worker
@@ -233,6 +234,9 @@ async function detectPerformanceIssues(siteId: string): Promise<void> {
     pageMetrics.get(url)!.push(metric);
   }
 
+  // Track queued optimizations to avoid duplicates
+  const queuedPages = new Set<string>();
+
   // Check each page for issues
   for (const [pageUrl, pageData] of pageMetrics) {
     const avgCtr =
@@ -241,25 +245,77 @@ async function detectPerformanceIssues(siteId: string): Promise<void> {
       pageData.reduce((sum: number, m: { position: number }) => sum + m.position, 0) /
       pageData.length;
 
+    let issueType: 'low_ctr' | 'position_drop' | null = null;
+    let performanceData: { ctr?: number; position?: number } = {};
+
     // Low CTR for pages ranking 1-10
     if (avgPosition <= 10 && avgCtr < 2.0) {
       console.log(`[GSC] Performance Issue: Low CTR (${avgCtr.toFixed(2)}%) for ${pageUrl}`);
-      // TODO: Queue ContentOptimize job
+      issueType = 'low_ctr';
+      performanceData = { ctr: avgCtr, position: avgPosition };
     }
 
     // Check for position drops
-    const recentPosition =
-      pageData.slice(-3).reduce((sum: number, m: { position: number }) => sum + m.position, 0) / 3;
-    const olderPosition =
-      pageData.slice(0, 3).reduce((sum: number, m: { position: number }) => sum + m.position, 0) /
-      3;
-    const positionDrop = recentPosition - olderPosition;
+    if (pageData.length >= 6) {
+      const recentPosition =
+        pageData.slice(-3).reduce((sum: number, m: { position: number }) => sum + m.position, 0) / 3;
+      const olderPosition =
+        pageData.slice(0, 3).reduce((sum: number, m: { position: number }) => sum + m.position, 0) /
+        3;
+      const positionDrop = recentPosition - olderPosition;
 
-    if (positionDrop > 5) {
-      console.log(
-        `[GSC] Performance Issue: Position drop of ${positionDrop.toFixed(1)} for ${pageUrl}`
-      );
-      // TODO: Queue ContentOptimize job
+      if (positionDrop > 5) {
+        console.log(
+          `[GSC] Performance Issue: Position drop of ${positionDrop.toFixed(1)} for ${pageUrl}`
+        );
+        issueType = 'position_drop';
+        performanceData = { position: recentPosition };
+      }
     }
+
+    // Queue CONTENT_OPTIMIZE job if issue detected and not already queued
+    if (issueType && !queuedPages.has(pageUrl)) {
+      try {
+        // Find the page by URL pattern (slug)
+        const urlPath = new URL(pageUrl).pathname;
+        const slug = urlPath.replace(/^\//, '').replace(/\/$/, '') || '';
+
+        const page = await prisma.page.findFirst({
+          where: {
+            siteId,
+            slug,
+          },
+          include: {
+            content: true,
+          },
+        });
+
+        if (page && page.content) {
+          const payload: ContentOptimizePayload = {
+            siteId,
+            pageId: page.id,
+            contentId: page.content.id,
+            reason: issueType,
+            performanceData,
+          };
+
+          const jobId = await addJob('CONTENT_OPTIMIZE', payload, {
+            priority: 4, // Medium-high priority
+          });
+
+          console.log(`[GSC] Queued CONTENT_OPTIMIZE job ${jobId} for page ${page.id} (${issueType})`);
+          queuedPages.add(pageUrl);
+        } else {
+          console.log(`[GSC] Could not find page or content for URL: ${pageUrl}`);
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.error(`[GSC] Failed to queue CONTENT_OPTIMIZE for ${pageUrl}:`, errorMessage);
+      }
+    }
+  }
+
+  if (queuedPages.size > 0) {
+    console.log(`[GSC] Queued ${queuedPages.size} content optimization jobs for site ${siteId}`);
   }
 }

@@ -1,7 +1,7 @@
 import { Job } from 'bullmq';
 import { prisma } from '@experience-marketplace/database';
 import { createHolibobClient } from '@experience-marketplace/holibob-api';
-import type { SeoOpportunityScanPayload, JobResult } from '../types';
+import type { SeoOpportunityScanPayload, JobResult, SiteCreatePayload } from '../types';
 import { KeywordResearchService } from '../services/keyword-research';
 import {
   toJobError,
@@ -13,6 +13,7 @@ import {
 } from '../errors';
 import { errorTracking } from '../errors/tracking';
 import { circuitBreakers } from '../errors/circuit-breaker';
+import { addJob } from '../queues';
 
 /**
  * SEO Opportunity Scanner Worker
@@ -352,29 +353,54 @@ async function autoActionOpportunities(): Promise<void> {
       status: 'IDENTIFIED',
       siteId: null, // Not yet assigned to a site
     },
-    take: 5, // Limit to 5 at a time
+    take: 5, // Limit to 5 at a time to avoid overwhelming the system
   });
+
+  console.log(`[Opportunity] Found ${highPriorityOpps.length} high-priority opportunities to auto-action`);
 
   for (const opp of highPriorityOpps) {
     console.log(
       `[Opportunity] Auto-actioning high-priority opportunity: ${opp.keyword} (score: ${opp.priorityScore})`
     );
 
-    // TODO: Queue SITE_CREATE job
-    // For MVP, just queue content generation for existing sites
+    try {
+      // Generate a brand name suggestion based on the destination and niche
+      const destination = opp.location?.split(',')[0] || 'Experiences';
+      const niche = opp.niche;
 
-    // Find or create a site for this destination
-    const destination =
-      opp.location?.split(',')[0]?.toLowerCase().replace(/\s+/g, '-') || 'experiences';
-    const niche = opp.niche.toLowerCase().replace(/\s+/g, '-');
+      // Queue SITE_CREATE job - this will create the site, brand, and initial content
+      const payload: SiteCreatePayload = {
+        opportunityId: opp.id,
+        brandConfig: {
+          name: `${destination} ${niche.charAt(0).toUpperCase() + niche.slice(1)}`,
+          tagline: `Discover the best ${niche} in ${destination}`,
+        },
+        autoPublish: false, // Start with staging deployment
+      };
 
-    // For now, just mark as evaluated - actual site creation will be implemented later
-    await prisma.sEOOpportunity.update({
-      where: { id: opp.id },
-      data: { status: 'EVALUATED' },
-    });
+      const jobId = await addJob('SITE_CREATE', payload, {
+        priority: 3, // Higher priority for auto-actioned opportunities
+      });
 
-    console.log(`[Opportunity] Marked opportunity ${opp.id} as evaluated for future site creation`);
+      console.log(`[Opportunity] Queued SITE_CREATE job ${jobId} for opportunity ${opp.id}`);
+
+      // Mark opportunity as assigned (site creation in progress)
+      await prisma.sEOOpportunity.update({
+        where: { id: opp.id },
+        data: { status: 'ASSIGNED' },
+      });
+
+      console.log(`[Opportunity] Marked opportunity ${opp.id} as ASSIGNED`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(`[Opportunity] Failed to queue SITE_CREATE for opportunity ${opp.id}:`, errorMessage);
+
+      // Mark as evaluated so we don't retry immediately, but can be manually actioned
+      await prisma.sEOOpportunity.update({
+        where: { id: opp.id },
+        data: { status: 'EVALUATED' },
+      });
+    }
   }
 }
 
