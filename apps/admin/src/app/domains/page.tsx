@@ -55,7 +55,9 @@ export default function DomainsPage() {
     const fetchDomains = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`/api/domains?status=${statusFilter}`);
+        // Use basePath in production
+        const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+        const response = await fetch(`${basePath}/api/domains?status=${statusFilter}`);
         const data = await response.json();
         setDomains(data.domains || []);
         setStats(data.stats || { total: 0, active: 0, pending: 0, sslEnabled: 0, expiringBoon: 0 });
@@ -128,7 +130,8 @@ export default function DomainsPage() {
             onClick={async () => {
               setSyncing(true);
               try {
-                const response = await fetch('/api/domains', {
+                const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+                const response = await fetch(`${basePath}/api/domains`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ action: 'syncFromCloudflare' }),
@@ -137,7 +140,7 @@ export default function DomainsPage() {
                 if (response.ok) {
                   alert(`Synced ${result.synced?.length || 0} domains from Cloudflare`);
                   // Refetch domains
-                  const domainsResponse = await fetch(`/api/domains?status=${statusFilter}`);
+                  const domainsResponse = await fetch(`${basePath}/api/domains?status=${statusFilter}`);
                   const data = await domainsResponse.json();
                   setDomains(data.domains || []);
                   setStats(data.stats || { total: 0, active: 0, pending: 0, sslEnabled: 0, expiringBoon: 0 });
@@ -160,7 +163,8 @@ export default function DomainsPage() {
             onClick={async () => {
               setQueueing(true);
               try {
-                const response = await fetch('/api/domains', {
+                const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+                const response = await fetch(`${basePath}/api/domains`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ action: 'queueMissing' }),
@@ -169,7 +173,7 @@ export default function DomainsPage() {
                 if (response.ok) {
                   alert(`Queued domain registration for ${result.queued?.length || 0} sites`);
                   // Refetch domains
-                  const domainsResponse = await fetch(`/api/domains?status=${statusFilter}`);
+                  const domainsResponse = await fetch(`${basePath}/api/domains?status=${statusFilter}`);
                   const data = await domainsResponse.json();
                   setDomains(data.domains || []);
                   setStats(data.stats || { total: 0, active: 0, pending: 0, sslEnabled: 0, expiringBoon: 0 });
