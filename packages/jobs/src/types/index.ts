@@ -66,6 +66,9 @@ export interface SiteCreatePayload {
     tagline?: string;
     primaryColor?: string;
     secondaryColor?: string;
+    accentColor?: string;
+    font?: string;
+    logoUrl?: string;
   };
   autoPublish?: boolean;
 }
