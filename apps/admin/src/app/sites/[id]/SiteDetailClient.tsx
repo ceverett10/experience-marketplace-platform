@@ -218,7 +218,7 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
       <div className="flex flex-col items-center justify-center h-64 gap-4">
         <div className="text-slate-500">Site not found</div>
         <button
-          onClick={() => router.push('/admin/sites')}
+          onClick={() => router.push('/sites')}
           className="text-sky-600 hover:underline"
         >
           Back to Sites
@@ -232,7 +232,7 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
       {/* Header */}
       <div className="flex items-start gap-4">
         <button
-          onClick={() => router.push('/admin/sites')}
+          onClick={() => router.push('/sites')}
           className="mt-1 text-slate-400 hover:text-slate-600"
         >
           ← Back
