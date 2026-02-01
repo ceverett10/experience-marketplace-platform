@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@experience-marketplace/ui-components';
 
 interface Opportunity {
@@ -13,92 +13,92 @@ interface Opportunity {
   niche: string;
   location: string | null;
   priorityScore: number;
-  status: 'IDENTIFIED' | 'EVALUATED' | 'ASSIGNED' | 'ACTIONED' | 'DISMISSED';
+  status: 'IDENTIFIED' | 'EVALUATED' | 'ASSIGNED' | 'CONTENT_CREATING' | 'CONTENT_REVIEW' | 'PUBLISHED' | 'MONITORING' | 'ARCHIVED';
   source: string;
   siteId: string | null;
   createdAt: string;
 }
 
-// Mock data for now - in production, fetch from API
-const mockOpportunities: Opportunity[] = [
-  {
-    id: '1',
-    keyword: 'london food tours',
-    searchVolume: 8100,
-    difficulty: 42,
-    cpc: 2.35,
-    intent: 'TRANSACTIONAL',
-    niche: 'food tours',
-    location: 'London, England',
-    priorityScore: 87,
-    status: 'IDENTIFIED',
-    source: 'opportunity_scan',
-    siteId: null,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: '2',
-    keyword: 'paris walking tours',
-    searchVolume: 12500,
-    difficulty: 38,
-    cpc: 1.95,
-    intent: 'TRANSACTIONAL',
-    niche: 'walking tours',
-    location: 'Paris, France',
-    priorityScore: 91,
-    status: 'EVALUATED',
-    source: 'opportunity_scan',
-    siteId: null,
-    createdAt: new Date(Date.now() - 86400000).toISOString(),
-  },
-  {
-    id: '3',
-    keyword: 'barcelona wine tasting',
-    searchVolume: 3200,
-    difficulty: 35,
-    cpc: 3.45,
-    intent: 'TRANSACTIONAL',
-    niche: 'wine tasting',
-    location: 'Barcelona, Spain',
-    priorityScore: 78,
-    status: 'ASSIGNED',
-    source: 'opportunity_scan',
-    siteId: 'site-123',
-    createdAt: new Date(Date.now() - 172800000).toISOString(),
-  },
-];
+interface Stats {
+  total: number;
+  identified: number;
+  evaluated: number;
+  assigned: number;
+  highPriority: number;
+}
 
 export default function OpportunitiesPage() {
-  const [opportunities, setOpportunities] = useState<Opportunity[]>(mockOpportunities);
+  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
+  const [stats, setStats] = useState<Stats>({
+    total: 0,
+    identified: 0,
+    evaluated: 0,
+    assigned: 0,
+    highPriority: 0,
+  });
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'score' | 'volume' | 'created'>('score');
+  const [loading, setLoading] = useState(true);
 
-  const filteredOpportunities = opportunities
-    .filter((opp) => statusFilter === 'all' || opp.status === statusFilter)
-    .sort((a, b) => {
-      if (sortBy === 'score') return b.priorityScore - a.priorityScore;
-      if (sortBy === 'volume') return b.searchVolume - a.searchVolume;
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    });
+  // Fetch opportunities from API
+  useEffect(() => {
+    const fetchOpportunities = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(`/api/opportunities?status=${statusFilter}`);
+        const data = await response.json();
+        setOpportunities(data.opportunities);
+        setStats(data.stats);
+      } catch (error) {
+        console.error('Failed to fetch opportunities:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const stats = {
-    total: opportunities.length,
-    identified: opportunities.filter((o) => o.status === 'IDENTIFIED').length,
-    evaluated: opportunities.filter((o) => o.status === 'EVALUATED').length,
-    assigned: opportunities.filter((o) => o.status === 'ASSIGNED').length,
-    highPriority: opportunities.filter((o) => o.priorityScore >= 75).length,
+    fetchOpportunities();
+  }, [statusFilter]);
+
+  const handleAction = async (opportunityId: string, action: 'dismiss' | 'create-site') => {
+    try {
+      const response = await fetch('/api/opportunities', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ opportunityId, action }),
+      });
+
+      if (response.ok) {
+        // Refresh opportunities
+        const data = await fetch(`/api/opportunities?status=${statusFilter}`).then((r) => r.json());
+        setOpportunities(data.opportunities);
+        setStats(data.stats);
+      }
+    } catch (error) {
+      console.error('Failed to perform action:', error);
+    }
   };
+
+  const sortedOpportunities = [...opportunities].sort((a, b) => {
+    if (sortBy === 'score') return b.priorityScore - a.priorityScore;
+    if (sortBy === 'volume') return b.searchVolume - a.searchVolume;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
 
   const getStatusBadge = (status: Opportunity['status']) => {
     const styles = {
       IDENTIFIED: 'bg-blue-100 text-blue-800',
       EVALUATED: 'bg-amber-100 text-amber-800',
       ASSIGNED: 'bg-green-100 text-green-800',
-      ACTIONED: 'bg-purple-100 text-purple-800',
-      DISMISSED: 'bg-gray-100 text-gray-800',
+      CONTENT_CREATING: 'bg-indigo-100 text-indigo-800',
+      CONTENT_REVIEW: 'bg-purple-100 text-purple-800',
+      PUBLISHED: 'bg-emerald-100 text-emerald-800',
+      MONITORING: 'bg-cyan-100 text-cyan-800',
+      ARCHIVED: 'bg-gray-100 text-gray-800',
     };
     return (
-      <span className={`${styles[status]} text-xs px-2 py-1 rounded font-medium`}>{status}</span>
+      <span className={`${styles[status]} text-xs px-2 py-1 rounded font-medium`}>
+        {status.replace(/_/g, ' ')}
+      </span>
     );
   };
 
@@ -123,6 +123,14 @@ export default function OpportunitiesPage() {
     if (difficulty >= 40) return 'text-amber-600';
     return 'text-green-600';
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-slate-500">Loading opportunities...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -184,8 +192,11 @@ export default function OpportunitiesPage() {
           <option value="IDENTIFIED">Identified</option>
           <option value="EVALUATED">Evaluated</option>
           <option value="ASSIGNED">Assigned</option>
-          <option value="ACTIONED">Actioned</option>
-          <option value="DISMISSED">Dismissed</option>
+          <option value="CONTENT_CREATING">Content Creating</option>
+          <option value="CONTENT_REVIEW">Content Review</option>
+          <option value="PUBLISHED">Published</option>
+          <option value="MONITORING">Monitoring</option>
+          <option value="ARCHIVED">Archived</option>
         </select>
         <select
           value={sortBy}
@@ -200,7 +211,7 @@ export default function OpportunitiesPage() {
 
       {/* Opportunities list */}
       <div className="space-y-4">
-        {filteredOpportunities.map((opp) => (
+        {sortedOpportunities.map((opp) => (
           <Card key={opp.id} className="overflow-hidden hover:shadow-md transition-shadow">
             <div className="p-6">
               <div className="flex items-start justify-between mb-4">
@@ -260,18 +271,27 @@ export default function OpportunitiesPage() {
                 <div className="flex items-center gap-2">
                   {opp.status === 'IDENTIFIED' && (
                     <>
-                      <button className="px-3 py-1.5 text-sm border border-slate-200 hover:bg-slate-50 rounded-lg transition-colors">
+                      <button
+                        onClick={() => handleAction(opp.id, 'dismiss')}
+                        className="px-3 py-1.5 text-sm border border-slate-200 hover:bg-slate-50 rounded-lg transition-colors"
+                      >
                         Dismiss
                       </button>
-                      <button className="px-3 py-1.5 text-sm bg-sky-600 hover:bg-sky-700 text-white rounded-lg transition-colors">
+                      <button
+                        onClick={() => handleAction(opp.id, 'create-site')}
+                        className="px-3 py-1.5 text-sm bg-sky-600 hover:bg-sky-700 text-white rounded-lg transition-colors"
+                      >
                         Create Site
                       </button>
                     </>
                   )}
                   {opp.siteId && (
-                    <button className="px-3 py-1.5 text-sm text-sky-600 hover:bg-sky-50 rounded-lg transition-colors">
+                    <a
+                      href={`/sites/${opp.siteId}`}
+                      className="px-3 py-1.5 text-sm text-sky-600 hover:bg-sky-50 rounded-lg transition-colors"
+                    >
                       View Site →
-                    </button>
+                    </a>
                   )}
                 </div>
               </div>
@@ -280,7 +300,7 @@ export default function OpportunitiesPage() {
         ))}
       </div>
 
-      {filteredOpportunities.length === 0 && (
+      {sortedOpportunities.length === 0 && (
         <Card>
           <CardContent className="p-12 text-center">
             <div className="text-4xl mb-4">🔍</div>

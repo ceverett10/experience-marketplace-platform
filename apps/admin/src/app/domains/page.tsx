@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@experience-marketplace/ui-components';
 
 interface Domain {
@@ -19,78 +19,44 @@ interface Domain {
   siteName: string | null;
 }
 
-// Mock data - in production, fetch from API
-const mockDomains: Domain[] = [
-  {
-    id: '1',
-    domain: 'london-food-tours.com',
-    status: 'ACTIVE',
-    registrar: 'namecheap',
-    registeredAt: new Date(Date.now() - 7 * 86400000).toISOString(),
-    expiresAt: new Date(Date.now() + 358 * 86400000).toISOString(),
-    sslEnabled: true,
-    sslExpiresAt: new Date(Date.now() + 85 * 86400000).toISOString(),
-    dnsConfigured: true,
-    cloudflareZoneId: 'zone-abc123',
-    autoRenew: true,
-    registrationCost: 12.99,
-    siteName: 'London Food Tours',
-  },
-  {
-    id: '2',
-    domain: 'paris-walking-tours.com',
-    status: 'SSL_PENDING',
-    registrar: 'namecheap',
-    registeredAt: new Date(Date.now() - 1 * 86400000).toISOString(),
-    expiresAt: new Date(Date.now() + 364 * 86400000).toISOString(),
-    sslEnabled: false,
-    sslExpiresAt: null,
-    dnsConfigured: true,
-    cloudflareZoneId: 'zone-def456',
-    autoRenew: true,
-    registrationCost: 12.99,
-    siteName: 'Paris Walking Tours',
-  },
-  {
-    id: '3',
-    domain: 'barcelona-wine-tours.com',
-    status: 'REGISTERING',
-    registrar: 'namecheap',
-    registeredAt: null,
-    expiresAt: null,
-    sslEnabled: false,
-    sslExpiresAt: null,
-    dnsConfigured: false,
-    cloudflareZoneId: null,
-    autoRenew: true,
-    registrationCost: 12.99,
-    siteName: 'Barcelona Wine Tours',
-  },
-];
+interface Stats {
+  total: number;
+  active: number;
+  pending: number;
+  sslEnabled: number;
+  expiringBoon: number;
+}
 
 export default function DomainsPage() {
-  const [domains] = useState<Domain[]>(mockDomains);
+  const [domains, setDomains] = useState<Domain[]>([]);
+  const [stats, setStats] = useState<Stats>({
+    total: 0,
+    active: 0,
+    pending: 0,
+    sslEnabled: 0,
+    expiringBoon: 0,
+  });
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [loading, setLoading] = useState(true);
 
-  const filteredDomains = domains.filter(
-    (domain) => statusFilter === 'all' || domain.status === statusFilter
-  );
+  // Fetch domains from API
+  useEffect(() => {
+    const fetchDomains = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(`/api/domains?status=${statusFilter}`);
+        const data = await response.json();
+        setDomains(data.domains);
+        setStats(data.stats);
+      } catch (error) {
+        console.error('Failed to fetch domains:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const stats = {
-    total: domains.length,
-    active: domains.filter((d) => d.status === 'ACTIVE').length,
-    pending: domains.filter((d) =>
-      ['REGISTERING', 'DNS_PENDING', 'SSL_PENDING'].includes(d.status)
-    ).length,
-    sslEnabled: domains.filter((d) => d.sslEnabled).length,
-    expiringBoon: domains.filter((d) => {
-      if (!d.expiresAt) return false;
-      const daysUntilExpiry = Math.floor(
-        (new Date(d.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-      );
-      return daysUntilExpiry < 30;
-    }).length,
-  };
+    fetchDomains();
+  }, [statusFilter]);
 
   const getStatusBadge = (status: Domain['status']) => {
     const styles = {
@@ -129,6 +95,14 @@ export default function DomainsPage() {
     if (days < 30) return 'text-amber-600';
     return 'text-green-600';
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-slate-500">Loading domains...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -198,7 +172,7 @@ export default function DomainsPage() {
 
       {/* Domains list */}
       <div className="space-y-4">
-        {filteredDomains.map((domain) => {
+        {domains.map((domain) => {
           const daysUntilExpiry = getDaysUntilExpiry(domain.expiresAt);
           const sslDaysUntilExpiry = getDaysUntilExpiry(domain.sslExpiresAt);
 
@@ -324,7 +298,7 @@ export default function DomainsPage() {
         })}
       </div>
 
-      {filteredDomains.length === 0 && (
+      {domains.length === 0 && (
         <Card>
           <CardContent className="p-12 text-center">
             <div className="text-4xl mb-4">🌐</div>

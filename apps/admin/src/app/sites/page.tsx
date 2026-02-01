@@ -1,96 +1,60 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@experience-marketplace/ui-components';
 
 interface Site {
   id: string;
   name: string;
-  slug: string;
   status: 'DRAFT' | 'REVIEW' | 'ACTIVE' | 'PAUSED' | 'ARCHIVED';
   domain: string | null;
-  isAutomatic: boolean;
-  createdAt: string;
-  publishedAt: string | null;
-
-  // Metrics
   monthlyVisitors: number;
   monthlyBookings: number;
   monthlyRevenue: number;
-  contentCount: number;
-
-  // Brand
-  brandName: string;
   brandColor: string;
+  pageCount?: number;
+  domainCount?: number;
+  createdAt: string;
 }
 
-// Mock data - in production, fetch from API
-const mockSites: Site[] = [
-  {
-    id: '1',
-    name: 'London Food Tours',
-    slug: 'london-food-tours',
-    status: 'ACTIVE',
-    domain: 'london-food-tours.com',
-    isAutomatic: true,
-    createdAt: new Date(Date.now() - 30 * 86400000).toISOString(),
-    publishedAt: new Date(Date.now() - 23 * 86400000).toISOString(),
-    monthlyVisitors: 12450,
-    monthlyBookings: 89,
-    monthlyRevenue: 4235.50,
-    contentCount: 24,
-    brandName: 'London Food Tours',
-    brandColor: '#6366f1',
-  },
-  {
-    id: '2',
-    name: 'Paris Walking Tours',
-    slug: 'paris-walking-tours',
-    status: 'ACTIVE',
-    domain: 'paris-walking-tours.com',
-    isAutomatic: true,
-    createdAt: new Date(Date.now() - 14 * 86400000).toISOString(),
-    publishedAt: new Date(Date.now() - 7 * 86400000).toISOString(),
-    monthlyVisitors: 8920,
-    monthlyBookings: 56,
-    monthlyRevenue: 2841.00,
-    contentCount: 18,
-    brandName: 'Paris Walking Tours',
-    brandColor: '#8b5cf6',
-  },
-  {
-    id: '3',
-    name: 'Barcelona Wine Tours',
-    slug: 'barcelona-wine-tours',
-    status: 'REVIEW',
-    domain: null,
-    isAutomatic: true,
-    createdAt: new Date(Date.now() - 2 * 86400000).toISOString(),
-    publishedAt: null,
-    monthlyVisitors: 0,
-    monthlyBookings: 0,
-    monthlyRevenue: 0,
-    contentCount: 12,
-    brandName: 'Barcelona Wine Tours',
-    brandColor: '#ec4899',
-  },
-];
+interface Stats {
+  totalSites: number;
+  activeSites: number;
+  draftSites: number;
+  totalRevenue: number;
+  totalVisitors: number;
+}
 
 export default function SitesPage() {
-  const [sites] = useState<Site[]>(mockSites);
+  const [sites, setSites] = useState<Site[]>([]);
+  const [stats, setStats] = useState<Stats>({
+    totalSites: 0,
+    activeSites: 0,
+    draftSites: 0,
+    totalRevenue: 0,
+    totalVisitors: 0,
+  });
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [loading, setLoading] = useState(true);
 
-  const filteredSites = sites.filter(
-    (site) => statusFilter === 'all' || site.status === statusFilter
-  );
+  // Fetch sites from API
+  useEffect(() => {
+    const fetchSites = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(`/api/sites?status=${statusFilter}`);
+        const data = await response.json();
+        setSites(data.sites);
+        setStats(data.stats);
+      } catch (error) {
+        console.error('Failed to fetch sites:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const stats = {
-    total: sites.length,
-    active: sites.filter((s) => s.status === 'ACTIVE').length,
-    draft: sites.filter((s) => s.status === 'DRAFT' || s.status === 'REVIEW').length,
-    totalVisitors: sites.reduce((sum, s) => sum + s.monthlyVisitors, 0),
-    totalRevenue: sites.reduce((sum, s) => sum + s.monthlyRevenue, 0),
-  };
+    fetchSites();
+  }, [statusFilter]);
 
   const getStatusBadge = (status: Site['status']) => {
     const styles = {
@@ -104,6 +68,14 @@ export default function SitesPage() {
       <span className={`${styles[status]} text-xs px-2 py-1 rounded font-medium`}>{status}</span>
     );
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-slate-500">Loading sites...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -122,19 +94,19 @@ export default function SitesPage() {
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
         <Card className="cursor-pointer hover:shadow-md transition-shadow">
           <CardContent className="p-4">
-            <p className="text-2xl font-bold text-slate-900">{stats.total}</p>
+            <p className="text-2xl font-bold text-slate-900">{stats.totalSites}</p>
             <p className="text-sm text-slate-500">Total Sites</p>
           </CardContent>
         </Card>
         <Card className="cursor-pointer hover:shadow-md transition-shadow">
           <CardContent className="p-4">
-            <p className="text-2xl font-bold text-green-600">{stats.active}</p>
+            <p className="text-2xl font-bold text-green-600">{stats.activeSites}</p>
             <p className="text-sm text-slate-500">Active</p>
           </CardContent>
         </Card>
         <Card className="cursor-pointer hover:shadow-md transition-shadow">
           <CardContent className="p-4">
-            <p className="text-2xl font-bold text-amber-600">{stats.draft}</p>
+            <p className="text-2xl font-bold text-amber-600">{stats.draftSites}</p>
             <p className="text-sm text-slate-500">In Progress</p>
           </CardContent>
         </Card>
@@ -174,7 +146,7 @@ export default function SitesPage() {
 
       {/* Sites grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {filteredSites.map((site) => (
+        {sites.map((site) => (
           <Card key={site.id} className="overflow-hidden hover:shadow-lg transition-all">
             <div
               className="h-2"
@@ -202,11 +174,6 @@ export default function SitesPage() {
                     <p className="text-sm text-slate-500">No domain configured</p>
                   )}
                 </div>
-                {site.isAutomatic && (
-                  <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded">
-                    🤖 Auto
-                  </span>
-                )}
               </div>
 
               {/* Metrics */}
@@ -240,7 +207,7 @@ export default function SitesPage() {
 
               {/* Info */}
               <div className="flex items-center justify-between text-xs text-slate-500 mb-4">
-                <span>{site.contentCount} pages</span>
+                <span>{site.pageCount || 0} pages</span>
                 <span>Created {new Date(site.createdAt).toLocaleDateString()}</span>
               </div>
 
@@ -258,7 +225,7 @@ export default function SitesPage() {
         ))}
       </div>
 
-      {filteredSites.length === 0 && (
+      {sites.length === 0 && (
         <Card>
           <CardContent className="p-12 text-center">
             <div className="text-4xl mb-4">🌐</div>
