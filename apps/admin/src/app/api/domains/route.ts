@@ -1,6 +1,62 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+/**
+ * Add domain to Heroku via API
+ */
+async function addDomainToHeroku(domain: string): Promise<{ success: boolean; error?: string }> {
+  const herokuApiKey = process.env['HEROKU_API_KEY'];
+  const herokuAppName = process.env['HEROKU_APP_NAME'];
+
+  if (!herokuApiKey || !herokuAppName) {
+    console.log('[Heroku] Skipping - HEROKU_API_KEY or HEROKU_APP_NAME not configured');
+    return { success: false, error: 'Heroku credentials not configured' };
+  }
+
+  try {
+    // Add root domain
+    const rootResponse = await fetch(`https://api.heroku.com/apps/${herokuAppName}/domains`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${herokuApiKey}`,
+        Accept: 'application/vnd.heroku+json; version=3',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ hostname: domain }),
+    });
+
+    if (!rootResponse.ok && rootResponse.status !== 422) {
+      const error = await rootResponse.json().catch(() => ({}));
+      console.error(`[Heroku] Error adding ${domain}:`, error);
+    } else {
+      console.log(`[Heroku] Added ${domain}`);
+    }
+
+    // Add www subdomain
+    const wwwResponse = await fetch(`https://api.heroku.com/apps/${herokuAppName}/domains`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${herokuApiKey}`,
+        Accept: 'application/vnd.heroku+json; version=3',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ hostname: `www.${domain}` }),
+    });
+
+    if (!wwwResponse.ok && wwwResponse.status !== 422) {
+      const error = await wwwResponse.json().catch(() => ({}));
+      console.error(`[Heroku] Error adding www.${domain}:`, error);
+    } else {
+      console.log(`[Heroku] Added www.${domain}`);
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error(`[Heroku] Error adding domain:`, error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -341,6 +397,9 @@ export async function POST(request: Request) {
                     status: 'ACTIVE',
                   },
                 });
+
+                // Add domain to Heroku so it accepts requests for this hostname
+                await addDomainToHeroku(cfDomain.name);
               }
             } catch (dnsError) {
               console.error(`[DNS] Error configuring DNS for ${cfDomain.name}:`, dnsError);
@@ -367,6 +426,45 @@ export async function POST(request: Request) {
         synced,
         dnsConfigured,
         unmatched,
+      });
+    }
+
+    // Action: Add all active domains to Heroku
+    if (action === 'syncHeroku') {
+      const herokuApiKey = process.env['HEROKU_API_KEY'];
+      const herokuAppName = process.env['HEROKU_APP_NAME'];
+
+      if (!herokuApiKey || !herokuAppName) {
+        return NextResponse.json({ error: 'Heroku credentials not configured' }, { status: 500 });
+      }
+
+      // Get all active domains
+      const activeDomains = await prisma.domain.findMany({
+        where: {
+          status: 'ACTIVE',
+        },
+        select: {
+          domain: true,
+        },
+      });
+
+      const added: string[] = [];
+      const failed: string[] = [];
+
+      for (const domainRecord of activeDomains) {
+        const result = await addDomainToHeroku(domainRecord.domain);
+        if (result.success) {
+          added.push(domainRecord.domain);
+        } else {
+          failed.push(domainRecord.domain);
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: `Added ${added.length} domains to Heroku`,
+        added,
+        failed,
       });
     }
 

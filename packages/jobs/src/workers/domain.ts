@@ -3,6 +3,7 @@ import { prisma, DomainStatus } from '@experience-marketplace/database';
 import { CloudflareRegistrarService } from '../services/cloudflare-registrar.js';
 import { CloudflareDNSService } from '../services/cloudflare-dns.js';
 import { SSLService } from '../services/ssl-service.js';
+import { HerokuDomainsService } from '../services/heroku-domains.js';
 import type {
   DomainRegisterPayload,
   DomainVerifyPayload,
@@ -549,9 +550,47 @@ async function configureDnsRecords(domain: string): Promise<void> {
 
     // Cloudflare-registered domains automatically use Cloudflare DNS
     // No need to update nameservers
+
+    // Add domain to Heroku so it accepts requests for this hostname
+    await addDomainToHeroku(domain);
   } catch (error) {
     console.error(`[Domain] Error configuring DNS:`, error);
     throw error;
+  }
+}
+
+/**
+ * Add domain to Heroku
+ * Heroku must have the custom domain configured to accept requests
+ */
+async function addDomainToHeroku(domain: string): Promise<void> {
+  console.log(`[Domain] Adding ${domain} to Heroku`);
+
+  try {
+    const herokuService = new HerokuDomainsService();
+    const result = await herokuService.addDomainWithWww(domain);
+
+    if (!result.success) {
+      console.error(`[Domain] Failed to add domain to Heroku: ${result.error}`);
+      // Don't throw - Heroku domain can be added manually if needed
+      // The site will still work via the tenant fallback (subdomain matching)
+      return;
+    }
+
+    console.log(`[Domain] Added ${domain} and www.${domain} to Heroku`);
+
+    // Update domain record with Heroku configuration status
+    await prisma.domain.update({
+      where: { domain },
+      data: {
+        // Store that Heroku is configured (we can add a field later if needed)
+        // For now, just log success
+      },
+    });
+  } catch (error) {
+    // Log but don't fail the overall process
+    // Missing HEROKU_API_KEY or HEROKU_APP_NAME will throw
+    console.error(`[Domain] Error adding domain to Heroku (non-fatal):`, error);
   }
 }
 
