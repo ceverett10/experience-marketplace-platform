@@ -17,14 +17,12 @@ app.get('/health', (req, res) => {
 });
 
 // Proxy /admin routes to admin dashboard
+// Keep /admin prefix since Next.js is configured with basePath='/admin' in production
 app.use(
   '/admin',
   createProxyMiddleware({
     target: 'http://localhost:3001',
     changeOrigin: true,
-    pathRewrite: {
-      '^/admin': '', // Remove /admin prefix when forwarding
-    },
     onError: (err, req, res) => {
       console.error('Admin proxy error:', err.message);
       res.status(503).json({
