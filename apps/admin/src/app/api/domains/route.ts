@@ -73,7 +73,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { action, domain, siteId, registrar = 'namecheap', autoRenew = true } = body;
+    const { action, domain, siteId, registrar = 'cloudflare', autoRenew = true } = body;
 
     const { addJob } = await import('@experience-marketplace/jobs');
 
@@ -98,7 +98,7 @@ export async function POST(request: Request) {
         await addJob('DOMAIN_REGISTER', {
           siteId: site.id,
           domain: suggestedDomain,
-          registrar: 'namecheap',
+          registrar: 'cloudflare',
           autoRenew: true,
         });
         queued.push({ siteId: site.id, siteName: site.name, domain: suggestedDomain });

@@ -47,6 +47,31 @@ export interface QualityIssue {
   suggestion?: string; // How to fix it
 }
 
+// Brand Context for tone of voice and messaging
+export interface BrandContext {
+  toneOfVoice?: {
+    personality?: string[];
+    writingStyle?: string;
+    doList?: string[];
+    dontList?: string[];
+  };
+  trustSignals?: {
+    expertise?: string[];
+    certifications?: string[];
+    yearsFounded?: number;
+    valuePropositions?: string[];
+    guarantees?: string[];
+  };
+  brandStory?: {
+    mission?: string;
+    vision?: string;
+    values?: string[];
+    targetAudience?: string;
+    uniqueSellingPoints?: string[];
+  };
+  writingGuidelines?: string;
+}
+
 // Content Brief - Input for generation
 export interface ContentBrief {
   type: ContentType;
@@ -65,6 +90,7 @@ export interface ContentBrief {
   excludeElements?: string[];
   sourceData?: Record<string, unknown>; // Holibob product data, etc.
   competitorContent?: string[]; // URLs or content to differentiate from
+  brandContext?: BrandContext; // Brand identity for tone of voice
 }
 
 // Generated Content

@@ -7,6 +7,7 @@ import type { JobType } from '@experience-marketplace/database';
 // Content Generation Jobs
 export interface ContentGeneratePayload {
   siteId: string;
+  pageId?: string; // If provided, update existing page instead of creating new one
   opportunityId?: string;
   contentType: 'destination' | 'experience' | 'category' | 'blog';
   targetKeyword: string;

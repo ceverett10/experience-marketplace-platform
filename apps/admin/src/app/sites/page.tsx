@@ -54,6 +54,7 @@ export default function SitesPage() {
   });
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [loading, setLoading] = useState(true);
+  const [generatingBrand, setGeneratingBrand] = useState(false);
 
   // Fetch sites from API
   useEffect(() => {
@@ -88,6 +89,31 @@ export default function SitesPage() {
     fetchSites();
   }, [statusFilter]);
 
+  const generateBrandIdentity = async () => {
+    try {
+      setGeneratingBrand(true);
+      const response = await fetch('/admin/api/sites/brand-identity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ regenerateAll: true }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate brand identity');
+      }
+
+      const result = await response.json();
+      alert(
+        `${result.message}\n\nSuccessful: ${result.successful}\nFailed: ${result.failed}\n\nBrand identity has been generated for your sites. Content generation will now use these brand guidelines.`
+      );
+    } catch (error) {
+      console.error('Error generating brand identity:', error);
+      alert('Failed to generate brand identity. Please try again.');
+    } finally {
+      setGeneratingBrand(false);
+    }
+  };
+
   const getStatusBadge = (status: Site['status']) => {
     const styles = {
       DRAFT: 'bg-gray-100 text-gray-800',
@@ -117,9 +143,18 @@ export default function SitesPage() {
           <h1 className="text-2xl font-bold text-slate-900">Site Portfolio</h1>
           <p className="text-slate-500 mt-1">Manage your multi-site marketplace network</p>
         </div>
-        <button className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-sm font-medium transition-colors">
-          Create Site
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={generateBrandIdentity}
+            disabled={generatingBrand}
+            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+          >
+            {generatingBrand ? 'Generating...' : 'Generate Brand Identity'}
+          </button>
+          <button className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-sm font-medium transition-colors">
+            Create Site
+          </button>
+        </div>
       </div>
 
       {/* Stats cards */}

@@ -26,6 +26,7 @@ import { getBrandIdentityForContent } from '../services/brand-identity';
 export async function handleContentGenerate(job: Job<ContentGeneratePayload>): Promise<JobResult> {
   const {
     siteId,
+    pageId,
     opportunityId,
     contentType,
     targetKeyword,
@@ -142,22 +143,41 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
       },
     });
 
-    // Create page for the content
-    const page = await prisma.page.create({
-      data: {
-        siteId,
-        slug: result.content.slug,
-        type: contentType.toUpperCase() as any,
-        title: result.content.title,
-        metaTitle: result.content.title,
-        metaDescription: targetKeyword,
-        contentId: content.id,
-        status:
-          result.content.qualityAssessment && result.content.qualityAssessment.overallScore >= 85
-            ? 'PUBLISHED'
-            : 'REVIEW',
-      },
-    });
+    // Update existing page or create new one
+    let page;
+    const newStatus =
+      result.content.qualityAssessment && result.content.qualityAssessment.overallScore >= 85
+        ? 'PUBLISHED'
+        : 'REVIEW';
+
+    if (pageId) {
+      // Update existing page with generated content
+      page = await prisma.page.update({
+        where: { id: pageId },
+        data: {
+          contentId: content.id,
+          metaTitle: result.content.title,
+          metaDescription: targetKeyword,
+          status: newStatus as any,
+        },
+      });
+      console.log(`[Content Generate] Updated existing page ${pageId} with content`);
+    } else {
+      // Create new page for the content
+      page = await prisma.page.create({
+        data: {
+          siteId,
+          slug: result.content.slug,
+          type: contentType.toUpperCase() as any,
+          title: result.content.title,
+          metaTitle: result.content.title,
+          metaDescription: targetKeyword,
+          contentId: content.id,
+          status: newStatus as any,
+        },
+      });
+      console.log(`[Content Generate] Created new page ${page.id}`);
+    }
 
     // Update opportunity status if provided
     if (opportunityId) {

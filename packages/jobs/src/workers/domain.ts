@@ -1,6 +1,6 @@
 import { Job } from 'bullmq';
 import { prisma, DomainStatus } from '@experience-marketplace/database';
-import { DomainRegistrarService } from '../services/domain-registrar.js';
+import { CloudflareRegistrarService } from '../services/cloudflare-registrar.js';
 import { CloudflareDNSService } from '../services/cloudflare-dns.js';
 import { SSLService } from '../services/ssl-service.js';
 import type {
@@ -416,10 +416,10 @@ async function checkDomainAvailabilityAndPrice(
   console.log(`[Domain] Checking availability and price for ${domain} via ${registrar}`);
 
   try {
-    const namecheapBreaker = circuitBreakers.getBreaker('namecheap-api');
+    const cloudflareBreaker = circuitBreakers.getBreaker('cloudflare-api');
 
-    const availability = await namecheapBreaker.execute(async () => {
-      const registrarService = new DomainRegistrarService();
+    const availability = await cloudflareBreaker.execute(async () => {
+      const registrarService = new CloudflareRegistrarService();
       return await registrarService.checkAvailability(domain);
     });
 
@@ -440,13 +440,13 @@ async function checkDomainAvailabilityAndPrice(
  * Register domain via registrar API
  */
 async function registerDomainViaApi(domain: string, registrar: string): Promise<number> {
-  console.log(`[Domain] Registering ${domain} via ${registrar} API`);
+  console.log(`[Domain] Registering ${domain} via Cloudflare Registrar`);
 
   try {
-    const namecheapBreaker = circuitBreakers.getBreaker('namecheap-api');
+    const cloudflareBreaker = circuitBreakers.getBreaker('cloudflare-api');
 
-    const registration = await namecheapBreaker.execute(async () => {
-      const registrarService = new DomainRegistrarService();
+    const registration = await cloudflareBreaker.execute(async () => {
+      const registrarService = new CloudflareRegistrarService();
       // Register domain for 1 year with auto-renewal
       return await registrarService.registerDomain(domain, 1, true);
     });
@@ -455,9 +455,9 @@ async function registerDomainViaApi(domain: string, registrar: string): Promise<
 
     return registration.cost;
   } catch (error) {
-    console.error(`[Domain] Error registering domain via ${registrar}:`, error);
+    console.error(`[Domain] Error registering domain via Cloudflare:`, error);
     throw new ExternalApiError('Domain registration failed', {
-      service: 'namecheap-api',
+      service: 'cloudflare-api',
       context: { domain, registrar },
       originalError: error instanceof Error ? error : undefined,
     });
@@ -547,19 +547,8 @@ async function configureDnsRecords(domain: string): Promise<void> {
 
     console.log(`[Domain] DNS records configured for ${domain}`);
 
-    // If domain was registered via Namecheap, update nameservers to point to Cloudflare
-    if (zone.nameServers.length > 0) {
-      try {
-        const namecheapBreaker = circuitBreakers.getBreaker('namecheap-api');
-        await namecheapBreaker.execute(async () => {
-          const registrar = new DomainRegistrarService();
-          return await registrar.setNameservers(domain, zone.nameServers);
-        });
-        console.log(`[Domain] Nameservers updated for ${domain}:`, zone.nameServers);
-      } catch (error) {
-        console.warn(`[Domain] Could not update nameservers (manual update may be needed):`, error);
-      }
-    }
+    // Cloudflare-registered domains automatically use Cloudflare DNS
+    // No need to update nameservers
   } catch (error) {
     console.error(`[Domain] Error configuring DNS:`, error);
     throw error;

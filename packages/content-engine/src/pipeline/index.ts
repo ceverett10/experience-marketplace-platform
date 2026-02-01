@@ -99,9 +99,23 @@ export class ContentPipeline {
     const model = this.client.getModelId(this.config.draftModel);
     const startTime = Date.now();
 
+    // Build system prompt based on brand context
+    let systemPrompt =
+      'You are an expert travel content writer creating SEO-optimized, engaging content.';
+    if (brief.brandContext?.toneOfVoice) {
+      const { personality, writingStyle } = brief.brandContext.toneOfVoice;
+      systemPrompt = `You are an expert travel content writer creating SEO-optimized content for a premium travel brand.
+
+Your writing style is: ${writingStyle || 'clear, authoritative, and trustworthy'}
+Your personality traits are: ${personality?.join(', ') || 'professional, knowledgeable, helpful'}
+
+You write content that builds trust and positions the brand as an authority in the travel industry.
+Every piece of content should feel authentic, expert-driven, and aligned with the brand's voice.`;
+    }
+
     const response = await this.client.generate({
       model,
-      system: 'You are an expert travel content writer creating SEO-optimized content.',
+      system: systemPrompt,
       messages: [{ role: 'user', content: prompt }],
       maxTokens: 4096,
       temperature: 0.7,
@@ -185,14 +199,35 @@ JSON format:
     assessment: QualityAssessment,
     brief: ContentBrief
   ): Promise<GeneratedContent> {
-    const prompt = `Rewrite this content to address quality issues.
+    // Build brand voice reminder for rewrite
+    let brandReminder = '';
+    if (brief.brandContext?.toneOfVoice) {
+      const { personality, writingStyle } = brief.brandContext.toneOfVoice;
+      brandReminder = `
 
-Original: ${content.content}
+IMPORTANT - Maintain brand voice:
+- Personality: ${personality?.join(', ') || 'professional'}
+- Writing Style: ${writingStyle || 'clear and authoritative'}
+`;
+    }
 
-Issues: ${JSON.stringify(assessment.issues)}
-Suggestions: ${JSON.stringify(assessment.suggestions)}
+    const prompt = `Rewrite this content to address quality issues while maintaining the brand voice.
 
-Improve while maintaining keyword: ${brief.targetKeyword}`;
+## ORIGINAL CONTENT
+${content.content}
+
+## QUALITY ISSUES TO FIX
+${assessment.issues.map((i) => `- [${i.severity}] ${i.description}`).join('\n')}
+
+## IMPROVEMENT SUGGESTIONS
+${assessment.suggestions.map((s) => '- ' + s).join('\n')}
+${brandReminder}
+## REQUIREMENTS
+- Maintain primary keyword: ${brief.targetKeyword}
+- Keep the same structure and approximate length
+- Return markdown content only
+- Fix all identified issues
+- Preserve what's working well`;
 
     const model = this.client.getModelId(this.config.rewriteModel);
     const startTime = Date.now();
@@ -222,16 +257,65 @@ Improve while maintaining keyword: ${brief.targetKeyword}`;
   }
 
   private buildPrompt(brief: ContentBrief): string {
+    // Build brand voice section if available
+    let brandSection = '';
+    if (brief.brandContext) {
+      const { toneOfVoice, trustSignals, brandStory } = brief.brandContext;
+
+      if (toneOfVoice) {
+        brandSection += `
+## BRAND VOICE GUIDELINES (CRITICAL - Follow these exactly)
+
+Personality: ${toneOfVoice.personality?.join(', ') || 'professional, trustworthy'}
+Writing Style: ${toneOfVoice.writingStyle || 'Clear and authoritative'}
+
+${toneOfVoice.doList?.length ? `DO:
+${toneOfVoice.doList.map((d) => '- ' + d).join('\n')}` : ''}
+
+${toneOfVoice.dontList?.length ? `DON'T:
+${toneOfVoice.dontList.map((d) => '- ' + d).join('\n')}` : ''}
+`;
+      }
+
+      if (brandStory) {
+        brandSection += `
+## BRAND CONTEXT
+Mission: ${brandStory.mission || 'N/A'}
+Target Audience: ${brandStory.targetAudience || 'N/A'}
+${brandStory.uniqueSellingPoints?.length ? `Unique Selling Points to weave in naturally:\n${brandStory.uniqueSellingPoints.map((u) => '- ' + u).join('\n')}` : ''}
+`;
+      }
+
+      if (trustSignals) {
+        brandSection += `
+## TRUST ELEMENTS TO INCLUDE
+${trustSignals.expertise?.length ? `Areas of expertise: ${trustSignals.expertise.join(', ')}` : ''}
+${trustSignals.valuePropositions?.length ? `Value propositions to emphasize:\n${trustSignals.valuePropositions.map((v) => '- ' + v).join('\n')}` : ''}
+${trustSignals.guarantees?.length ? `Guarantees to mention naturally: ${trustSignals.guarantees.join(', ')}` : ''}
+`;
+      }
+    }
+
     return `Create ${brief.type} content for: ${brief.targetKeyword}
 
-Keywords: ${brief.secondaryKeywords.join(', ')}
-Length: ${brief.targetLength.min}-${brief.targetLength.max} words
-Tone: ${brief.tone}
+## CONTENT REQUIREMENTS
+Primary Keyword: ${brief.targetKeyword}
+Secondary Keywords: ${brief.secondaryKeywords.join(', ') || 'none'}
+Word Count: ${brief.targetLength.min}-${brief.targetLength.max} words
+Base Tone: ${brief.tone}
 
 ${brief.destination ? 'Destination: ' + brief.destination : ''}
 ${brief.category ? 'Category: ' + brief.category : ''}
+${brandSection}
 
-Return markdown content only.`;
+## OUTPUT INSTRUCTIONS
+- Return markdown content only
+- Include an engaging H1 title
+- Use H2 and H3 subheadings for structure
+- Naturally incorporate keywords without stuffing
+- Write in the brand voice specified above
+- Include compelling calls-to-action
+- Make content scannable with bullet points where appropriate`;
   }
 
   private extractTitle(content: string): string {

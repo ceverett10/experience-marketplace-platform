@@ -293,6 +293,7 @@ export async function POST(request: Request): Promise<NextResponse> {
         try {
           await addJob('CONTENT_GENERATE', {
             siteId: page.siteId,
+            pageId: page.id, // Pass the existing page ID so worker updates it
             contentType: mapPageTypeToGenerationType(page.type),
             targetKeyword: page.title,
             secondaryKeywords: [],

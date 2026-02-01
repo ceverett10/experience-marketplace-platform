@@ -170,7 +170,7 @@ export async function handleSiteCreate(job: Job<SiteCreatePayload>): Promise<Job
     const domainPayload: DomainRegisterPayload = {
       siteId: site.id,
       domain: suggestedDomain,
-      registrar: 'namecheap',
+      registrar: 'cloudflare',
       autoRenew: true,
     };
 
