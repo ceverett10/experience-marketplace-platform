@@ -341,6 +341,15 @@ export async function POST(request: Request) {
                     status: 'ACTIVE',
                   },
                 });
+
+                // Update site with primary domain and activate it
+                await prisma.site.update({
+                  where: { id: matchingSite.id },
+                  data: {
+                    primaryDomain: cfDomain.name,
+                    status: 'ACTIVE',
+                  },
+                });
               }
             } catch (dnsError) {
               console.error(`[DNS] Error configuring DNS for ${cfDomain.name}:`, dnsError);
