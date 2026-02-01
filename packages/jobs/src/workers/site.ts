@@ -39,7 +39,8 @@ export async function handleSiteCreate(job: Job<SiteCreatePayload>): Promise<Job
       throw new Error(`Opportunity ${opportunityId} already assigned to a site`);
     }
 
-    if (!['IDENTIFIED', 'EVALUATED'].includes(opportunity.status)) {
+    // Allow IDENTIFIED, EVALUATED, or ASSIGNED (auto-actioned opportunities get marked ASSIGNED when job is queued)
+    if (!['IDENTIFIED', 'EVALUATED', 'ASSIGNED'].includes(opportunity.status)) {
       throw new Error(`Opportunity ${opportunityId} not in correct status for site creation`);
     }
 
