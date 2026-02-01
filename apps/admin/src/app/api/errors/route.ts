@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { errorTracking, circuitBreakers } from '@experience-marketplace/jobs';
 
-export async function GET(request: Request) {
+export async function GET(request: Request): Promise<NextResponse> {
   try {
     const { searchParams } = new URL(request.url);
     const timeWindow = parseInt(searchParams.get('timeWindow') || '86400000'); // Default 24h
@@ -54,7 +54,7 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: Request): Promise<NextResponse> {
   try {
     const body = await request.json();
     const { action, service } = body;

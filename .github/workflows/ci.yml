@@ -127,6 +127,13 @@ jobs:
         run: npm run build
         env:
           DATABASE_URL: 'postgresql://dummy:dummy@localhost:5432/dummy'
+          HOLIBOB_API_URL: 'https://api.sandbox.holibob.tech/graphql'
+          HOLIBOB_PARTNER_ID: 'demo'
+          HOLIBOB_API_KEY: 'dummy-key'
+          HOLIBOB_API_SECRET: 'dummy-secret'
+          STRIPE_SECRET_KEY: 'sk_test_dummy'
+          STRIPE_WEBHOOK_SECRET: 'whsec_dummy'
+          NODE_ENV: 'production'
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
