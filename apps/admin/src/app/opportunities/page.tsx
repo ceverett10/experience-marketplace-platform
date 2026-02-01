@@ -13,7 +13,15 @@ interface Opportunity {
   niche: string;
   location: string | null;
   priorityScore: number;
-  status: 'IDENTIFIED' | 'EVALUATED' | 'ASSIGNED' | 'CONTENT_CREATING' | 'CONTENT_REVIEW' | 'PUBLISHED' | 'MONITORING' | 'ARCHIVED';
+  status:
+    | 'IDENTIFIED'
+    | 'EVALUATED'
+    | 'ASSIGNED'
+    | 'CONTENT_CREATING'
+    | 'CONTENT_REVIEW'
+    | 'PUBLISHED'
+    | 'MONITORING'
+    | 'ARCHIVED';
   source: string;
   siteId: string | null;
   createdAt: string;
@@ -253,9 +261,7 @@ export default function OpportunitiesPage() {
                 </div>
                 <div>
                   <div className="text-xs text-slate-500 mb-1">CPC</div>
-                  <div className="text-lg font-semibold text-slate-900">
-                    ${opp.cpc.toFixed(2)}
-                  </div>
+                  <div className="text-lg font-semibold text-slate-900">${opp.cpc.toFixed(2)}</div>
                 </div>
                 <div>
                   <div className="text-xs text-slate-500 mb-1">Source</div>

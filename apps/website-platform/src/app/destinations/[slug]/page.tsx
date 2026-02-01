@@ -57,15 +57,17 @@ async function getTopExperiences(
       price: {
         formatted: product.priceFromFormatted || product.guidePriceFormattedText || 'From £0',
       },
-      rating: product.reviewRating && product.reviewCount
-        ? {
-            average: product.reviewRating,
-            count: product.reviewCount,
-          }
-        : null,
-      categories: product.categoryList?.nodes.map((cat) => ({
-        name: cat.name,
-      })) || [],
+      rating:
+        product.reviewRating && product.reviewCount
+          ? {
+              average: product.reviewRating,
+              count: product.reviewCount,
+            }
+          : null,
+      categories:
+        product.categoryList?.nodes.map((cat) => ({
+          name: cat.name,
+        })) || [],
     }));
   } catch (error) {
     console.error('Error fetching top experiences:', error);
@@ -137,7 +139,7 @@ export default async function DestinationPage({ params }: Props) {
     '@type': 'TouristDestination',
     name: destination.title,
     description: destination.metaDescription || undefined,
-    ...(destination.content?.structuredData as Record<string, unknown> || {}),
+    ...((destination.content?.structuredData as Record<string, unknown>) || {}),
   };
 
   return (

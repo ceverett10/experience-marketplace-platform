@@ -175,23 +175,25 @@ export class DataForSEOClient {
 
         const results = response.tasks?.[0]?.result || [];
 
-        results.forEach((data: {
-          keyword: string;
-          search_volume: number;
-          competition: number;
-          competition_level: string;
-          cpc: number;
-          monthly_searches?: Array<{ search_volume: number }>;
-        }) => {
-          allResults.push({
-            keyword: data.keyword,
-            searchVolume: data.search_volume || 0,
-            competition: data.competition || 0,
-            competitionLevel: data.competition_level as 'LOW' | 'MEDIUM' | 'HIGH',
-            cpc: data.cpc || 0,
-            trends: data.monthly_searches?.map(m => m.search_volume) || [],
-          });
-        });
+        results.forEach(
+          (data: {
+            keyword: string;
+            search_volume: number;
+            competition: number;
+            competition_level: string;
+            cpc: number;
+            monthly_searches?: Array<{ search_volume: number }>;
+          }) => {
+            allResults.push({
+              keyword: data.keyword,
+              searchVolume: data.search_volume || 0,
+              competition: data.competition || 0,
+              competitionLevel: data.competition_level as 'LOW' | 'MEDIUM' | 'HIGH',
+              cpc: data.cpc || 0,
+              trends: data.monthly_searches?.map((m) => m.search_volume) || [],
+            });
+          }
+        );
       }
 
       return allResults;
@@ -241,19 +243,21 @@ export class DataForSEOClient {
       const items = response.tasks?.[0]?.result?.[0]?.items || [];
 
       return {
-        results: items.map((item: {
-          rank_absolute: number;
-          url: string;
-          domain: string;
-          title: string;
-          description: string;
-        }) => ({
-          position: item.rank_absolute,
-          url: item.url,
-          domain: item.domain,
-          title: item.title,
-          description: item.description,
-        })),
+        results: items.map(
+          (item: {
+            rank_absolute: number;
+            url: string;
+            domain: string;
+            title: string;
+            description: string;
+          }) => ({
+            position: item.rank_absolute,
+            url: item.url,
+            domain: item.domain,
+            title: item.title,
+            description: item.description,
+          })
+        ),
       };
     } catch (error) {
       console.error('[DataForSEO] Error getting SERP results:', error);
@@ -270,14 +274,14 @@ export class DataForSEOClient {
     const commonLocations: Record<string, number> = {
       'United States': 2840,
       'United Kingdom': 2826,
-      'Canada': 2124,
-      'Australia': 2036,
-      'Germany': 2276,
-      'France': 2250,
-      'Spain': 2724,
-      'Italy': 2380,
-      'Netherlands': 2528,
-      'Belgium': 2056,
+      Canada: 2124,
+      Australia: 2036,
+      Germany: 2276,
+      France: 2250,
+      Spain: 2724,
+      Italy: 2380,
+      Netherlands: 2528,
+      Belgium: 2056,
     };
 
     if (commonLocations[location]) {
@@ -289,8 +293,9 @@ export class DataForSEOClient {
       method: 'GET',
     });
 
-    const found = response.find((l: { location_name: string; location_code: number }) =>
-      l.location_name.toLowerCase() === location.toLowerCase()
+    const found = response.find(
+      (l: { location_name: string; location_code: number }) =>
+        l.location_name.toLowerCase() === location.toLowerCase()
     );
 
     return found?.location_code || 2840; // Default to US
@@ -303,16 +308,16 @@ export class DataForSEOClient {
   private async getLanguageCode(language: string): Promise<string> {
     // Cache common languages
     const commonLanguages: Record<string, string> = {
-      'English': 'en',
-      'Spanish': 'es',
-      'French': 'fr',
-      'German': 'de',
-      'Italian': 'it',
-      'Portuguese': 'pt',
-      'Dutch': 'nl',
-      'Russian': 'ru',
-      'Chinese': 'zh',
-      'Japanese': 'ja',
+      English: 'en',
+      Spanish: 'es',
+      French: 'fr',
+      German: 'de',
+      Italian: 'it',
+      Portuguese: 'pt',
+      Dutch: 'nl',
+      Russian: 'ru',
+      Chinese: 'zh',
+      Japanese: 'ja',
     };
 
     return commonLanguages[language] || 'en';
@@ -333,7 +338,7 @@ export class DataForSEOClient {
     const response = await fetch(url, {
       method: options.method,
       headers: {
-        'Authorization': `Basic ${this.auth}`,
+        Authorization: `Basic ${this.auth}`,
         'Content-Type': 'application/json',
       },
       body: options.body,
@@ -343,7 +348,7 @@ export class DataForSEOClient {
       throw new Error(`DataForSEO API error: ${response.status} ${response.statusText}`);
     }
 
-    const data = await response.json() as any;
+    const data = (await response.json()) as any;
 
     // Check for API errors
     if (data.status_code !== 20000) {

@@ -6,7 +6,14 @@ import { Card, CardContent } from '@experience-marketplace/ui-components';
 interface Domain {
   id: string;
   domain: string;
-  status: 'PENDING' | 'REGISTERING' | 'DNS_PENDING' | 'SSL_PENDING' | 'ACTIVE' | 'EXPIRED' | 'FAILED';
+  status:
+    | 'PENDING'
+    | 'REGISTERING'
+    | 'DNS_PENDING'
+    | 'SSL_PENDING'
+    | 'ACTIVE'
+    | 'EXPIRED'
+    | 'FAILED';
   registrar: string;
   registeredAt: string | null;
   expiresAt: string | null;
@@ -110,9 +117,7 @@ export default function DomainsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Domain Management</h1>
-          <p className="text-slate-500 mt-1">
-            Monitor domain registration, DNS, and SSL status
-          </p>
+          <p className="text-slate-500 mt-1">Monitor domain registration, DNS, and SSL status</p>
         </div>
         <button className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-sm font-medium transition-colors">
           Register Domain
@@ -226,17 +231,13 @@ export default function DomainsPage() {
                   </div>
                   <div>
                     <div className="text-xs text-slate-500 mb-1">Domain Expires</div>
-                    <div
-                      className={`text-sm font-medium ${getExpiryColor(daysUntilExpiry)}`}
-                    >
+                    <div className={`text-sm font-medium ${getExpiryColor(daysUntilExpiry)}`}>
                       {daysUntilExpiry !== null ? `${daysUntilExpiry} days` : 'N/A'}
                     </div>
                   </div>
                   <div>
                     <div className="text-xs text-slate-500 mb-1">SSL Expires</div>
-                    <div
-                      className={`text-sm font-medium ${getExpiryColor(sslDaysUntilExpiry)}`}
-                    >
+                    <div className={`text-sm font-medium ${getExpiryColor(sslDaysUntilExpiry)}`}>
                       {sslDaysUntilExpiry !== null ? `${sslDaysUntilExpiry} days` : 'N/A'}
                     </div>
                   </div>
@@ -246,9 +247,7 @@ export default function DomainsPage() {
                 {domain.status !== 'ACTIVE' && domain.status !== 'EXPIRED' && (
                   <div className="mt-4 p-3 bg-blue-50 rounded-lg">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-blue-900">
-                        Setup Progress
-                      </span>
+                      <span className="text-sm font-medium text-blue-900">Setup Progress</span>
                       <span className="text-xs text-blue-700">
                         {domain.status === 'REGISTERING' && 'Step 1/3'}
                         {domain.status === 'DNS_PENDING' && 'Step 2/3'}
@@ -303,7 +302,9 @@ export default function DomainsPage() {
           <CardContent className="p-12 text-center">
             <div className="text-4xl mb-4">🌐</div>
             <h3 className="text-lg font-medium text-slate-900">No domains found</h3>
-            <p className="text-slate-500 mt-1">Try adjusting your filters or register a new domain</p>
+            <p className="text-slate-500 mt-1">
+              Try adjusting your filters or register a new domain
+            </p>
           </CardContent>
         </Card>
       )}

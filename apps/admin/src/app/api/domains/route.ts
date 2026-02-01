@@ -66,10 +66,7 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     console.error('[API] Error fetching domains:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch domains' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch domains' }, { status: 500 });
   }
 }
 
@@ -93,9 +90,6 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error('[API] Error registering domain:', error);
-    return NextResponse.json(
-      { error: 'Failed to register domain' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to register domain' }, { status: 500 });
   }
 }

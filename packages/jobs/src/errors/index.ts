@@ -60,7 +60,9 @@ export class JobError extends Error {
     this.category = options.category;
     this.severity = options.severity;
     this.retryable =
-      options.retryable !== undefined ? options.retryable : this.severity !== ErrorSeverity.PERMANENT;
+      options.retryable !== undefined
+        ? options.retryable
+        : this.severity !== ErrorSeverity.PERMANENT;
     this.context = options.context;
     this.originalError = options.originalError;
 
@@ -384,10 +386,7 @@ export function calculateRetryDelay(error: JobError, attemptsMade: number): numb
  */
 export function shouldMoveToDeadLetter(error: JobError, attemptsMade: number): boolean {
   // Configuration and critical errors go to DLQ immediately
-  if (
-    error.severity === ErrorSeverity.CRITICAL ||
-    error.category === ErrorCategory.CONFIGURATION
-  ) {
+  if (error.severity === ErrorSeverity.CRITICAL || error.category === ErrorCategory.CONFIGURATION) {
     return true;
   }
 

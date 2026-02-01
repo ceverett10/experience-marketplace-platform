@@ -5,6 +5,7 @@ Simple Express-based reverse proxy for routing requests to multiple Next.js appl
 ## Purpose
 
 Heroku only allows one web process per application, but we need to serve both:
+
 - Public website (website-platform)
 - Admin dashboard (admin)
 

@@ -74,9 +74,7 @@ export default function QueuesPage() {
 
     const fetchJobs = async () => {
       try {
-        const response = await fetch(
-          `/api/queues?queue=${selectedQueue}&status=${selectedStatus}`
-        );
+        const response = await fetch(`/api/queues?queue=${selectedQueue}&status=${selectedStatus}`);
         const data = await response.json();
         setJobs(data.jobs);
       } catch (error) {
@@ -196,7 +194,9 @@ export default function QueuesPage() {
                       <h3 className="text-lg font-semibold text-slate-900 capitalize">
                         {queue.name.replace(/-/g, ' ')}
                       </h3>
-                      <span className={`text-xs px-2 py-1 rounded font-medium ${getHealthColor(health)}`}>
+                      <span
+                        className={`text-xs px-2 py-1 rounded font-medium ${getHealthColor(health)}`}
+                      >
                         {health}
                       </span>
                       {queue.paused && (
@@ -293,9 +293,7 @@ export default function QueuesPage() {
 
             <div className="space-y-2">
               {jobs.length === 0 ? (
-                <div className="text-center py-8 text-slate-500">
-                  No {selectedStatus} jobs
-                </div>
+                <div className="text-center py-8 text-slate-500">No {selectedStatus} jobs</div>
               ) : (
                 jobs.map((job) => (
                   <div

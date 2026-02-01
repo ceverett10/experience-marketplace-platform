@@ -57,12 +57,13 @@ async function getRelatedExperiences(
       price: {
         formatted: product.priceFromFormatted || product.guidePriceFormattedText || 'From £0',
       },
-      rating: product.reviewRating && product.reviewCount
-        ? {
-            average: product.reviewRating,
-            count: product.reviewCount,
-          }
-        : null,
+      rating:
+        product.reviewRating && product.reviewCount
+          ? {
+              average: product.reviewRating,
+              count: product.reviewCount,
+            }
+          : null,
     }));
   } catch (error) {
     console.error('Error fetching related experiences:', error);
@@ -134,7 +135,7 @@ export default async function CategoryPage({ params }: Props) {
     '@type': 'CollectionPage',
     name: category.title,
     description: category.metaDescription || undefined,
-    ...(category.content?.structuredData as Record<string, unknown> || {}),
+    ...((category.content?.structuredData as Record<string, unknown>) || {}),
   };
 
   return (

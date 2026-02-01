@@ -73,9 +73,7 @@ export function DestinationPageTemplate({
       {/* Hero Section */}
       <header className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white">
         <div className="max-w-7xl mx-auto px-4 py-16">
-          <h1 className="text-4xl md:text-6xl font-bold mb-4">
-            {destination.title}
-          </h1>
+          <h1 className="text-4xl md:text-6xl font-bold mb-4">{destination.title}</h1>
 
           {destination.metaDescription && (
             <p className="text-xl md:text-2xl text-blue-100 max-w-3xl leading-relaxed">
@@ -101,9 +99,7 @@ export function DestinationPageTemplate({
             <div className="sticky top-8 space-y-6">
               {/* Quick Links */}
               <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  Quick Navigation
-                </h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Navigation</h3>
                 <nav className="space-y-2">
                   <a
                     href="#things-to-do"
@@ -134,9 +130,7 @@ export function DestinationPageTemplate({
 
               {/* Travel Tips */}
               <div className="bg-yellow-50 rounded-lg p-6 border border-yellow-200">
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                  💡 Travel Tips
-                </h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">💡 Travel Tips</h3>
                 <ul className="space-y-2 text-sm text-gray-700">
                   <li>Book activities in advance</li>
                   <li>Check local weather</li>

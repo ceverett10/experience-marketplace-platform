@@ -36,9 +36,7 @@ export default function ErrorsPage() {
   });
   const [errorsByCategory, setErrorsByCategory] = useState<Record<string, number>>({});
   const [errorsByType, setErrorsByType] = useState<Record<string, number>>({});
-  const [circuitBreakers, setCircuitBreakers] = useState<Record<string, CircuitBreakerStatus>>(
-    {}
-  );
+  const [circuitBreakers, setCircuitBreakers] = useState<Record<string, CircuitBreakerStatus>>({});
   const [loading, setLoading] = useState(true);
   const [timeWindow, setTimeWindow] = useState(86400000); // 24 hours
 
@@ -138,7 +136,9 @@ export default function ErrorsPage() {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-lg font-semibold text-slate-900 mb-2">System Health</h2>
-              <span className={`inline-block px-4 py-2 rounded-lg font-medium ${getHealthColor(health)}`}>
+              <span
+                className={`inline-block px-4 py-2 rounded-lg font-medium ${getHealthColor(health)}`}
+              >
                 {health.toUpperCase()}
               </span>
             </div>
@@ -197,9 +197,16 @@ export default function ErrorsPage() {
               Object.entries(errorsByCategory)
                 .sort(([, a], [, b]) => b - a)
                 .map(([category, count]) => (
-                  <div key={category} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                    <span className="font-medium text-slate-700">{category.replace(/_/g, ' ')}</span>
-                    <span className="px-3 py-1 bg-slate-200 rounded-full text-sm font-bold">{count}</span>
+                  <div
+                    key={category}
+                    className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
+                  >
+                    <span className="font-medium text-slate-700">
+                      {category.replace(/_/g, ' ')}
+                    </span>
+                    <span className="px-3 py-1 bg-slate-200 rounded-full text-sm font-bold">
+                      {count}
+                    </span>
                   </div>
                 ))
             )}
@@ -218,9 +225,14 @@ export default function ErrorsPage() {
               Object.entries(errorsByType)
                 .sort(([, a], [, b]) => b - a)
                 .map(([type, count]) => (
-                  <div key={type} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                  <div
+                    key={type}
+                    className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
+                  >
                     <span className="font-medium text-slate-700">{type.replace(/_/g, ' ')}</span>
-                    <span className="px-3 py-1 bg-slate-200 rounded-full text-sm font-bold">{count}</span>
+                    <span className="px-3 py-1 bg-slate-200 rounded-full text-sm font-bold">
+                      {count}
+                    </span>
                   </div>
                 ))
             )}
@@ -248,8 +260,12 @@ export default function ErrorsPage() {
                 <div key={service} className="p-4 border border-slate-200 rounded-lg">
                   <div className="flex items-center justify-between mb-3">
                     <div>
-                      <h3 className="font-medium text-slate-900 capitalize">{service.replace(/-/g, ' ')}</h3>
-                      <span className={`inline-block mt-1 px-3 py-1 rounded-lg text-sm font-medium ${getCircuitStateColor(status.state)}`}>
+                      <h3 className="font-medium text-slate-900 capitalize">
+                        {service.replace(/-/g, ' ')}
+                      </h3>
+                      <span
+                        className={`inline-block mt-1 px-3 py-1 rounded-lg text-sm font-medium ${getCircuitStateColor(status.state)}`}
+                      >
                         {status.state}
                       </span>
                     </div>
@@ -274,7 +290,9 @@ export default function ErrorsPage() {
                     </div>
                     <div>
                       <p className="text-slate-500">Recent Failures</p>
-                      <p className="font-bold text-slate-700">{status.metrics.recentFailures.length}</p>
+                      <p className="font-bold text-slate-700">
+                        {status.metrics.recentFailures.length}
+                      </p>
                     </div>
                     <div>
                       <p className="text-slate-500">Last Activity</p>

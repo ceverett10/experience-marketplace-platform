@@ -171,10 +171,7 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     console.error('[API] Error fetching queue stats:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch queue stats' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch queue stats' }, { status: 500 });
   }
 }
 
@@ -216,9 +213,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
   } catch (error) {
     console.error('[API] Error performing queue action:', error);
-    return NextResponse.json(
-      { error: 'Failed to perform queue action' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to perform queue action' }, { status: 500 });
   }
 }

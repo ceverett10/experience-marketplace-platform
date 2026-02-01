@@ -223,10 +223,12 @@ export class SSLService {
    * Get all certificates that need renewal
    * Useful for scheduled renewal jobs
    */
-  async getCertificatesNeedingRenewal(domains: Array<{
-    domain: string;
-    zoneId: string;
-  }>): Promise<
+  async getCertificatesNeedingRenewal(
+    domains: Array<{
+      domain: string;
+      zoneId: string;
+    }>
+  ): Promise<
     Array<{
       domain: string;
       zoneId: string;
@@ -301,7 +303,8 @@ export class SSLService {
           method: 'HEAD',
           redirect: 'manual',
         });
-        httpsWorking = httpsResponse.ok || httpsResponse.status === 301 || httpsResponse.status === 302;
+        httpsWorking =
+          httpsResponse.ok || httpsResponse.status === 301 || httpsResponse.status === 302;
         certificateValid = true; // If fetch succeeds, certificate is valid
       } catch (error) {
         console.warn(`[SSL] HTTPS check failed for ${domain}:`, error);

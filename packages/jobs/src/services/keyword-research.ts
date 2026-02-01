@@ -149,7 +149,7 @@ export class KeywordResearchService {
     try {
       const serp = await this.dataForSeo.getSERP(keyword, location, language);
 
-      return serp.results.slice(0, 10).map(result => ({
+      return serp.results.slice(0, 10).map((result) => ({
         domain: result.domain,
         position: result.position,
         estimatedAuthority: this.estimateDomainAuthority(result),
@@ -188,7 +188,7 @@ export class KeywordResearchService {
 
     const topResults = results.slice(0, 10);
 
-    const scores = topResults.map(result => {
+    const scores = topResults.map((result) => {
       let score = 0;
 
       // Domain authority indicators
@@ -283,8 +283,16 @@ export class KeywordResearchService {
     if (result.title.length > 30 && result.title.length < 70) authority += 10;
 
     // Well-known domains (basic check)
-    const majorSites = ['wikipedia', 'youtube', 'amazon', 'facebook', 'twitter', 'linkedin', 'reddit'];
-    if (majorSites.some(site => result.domain.includes(site))) {
+    const majorSites = [
+      'wikipedia',
+      'youtube',
+      'amazon',
+      'facebook',
+      'twitter',
+      'linkedin',
+      'reddit',
+    ];
+    if (majorSites.some((site) => result.domain.includes(site))) {
       authority += 20;
     }
 
@@ -294,10 +302,7 @@ export class KeywordResearchService {
   /**
    * Estimate content quality from meta data
    */
-  private estimateContentQuality(result: {
-    title: string;
-    description: string;
-  }): number {
+  private estimateContentQuality(result: { title: string; description: string }): number {
     let quality = 50; // Base score
 
     // Title quality

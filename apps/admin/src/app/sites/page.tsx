@@ -148,10 +148,7 @@ export default function SitesPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {sites.map((site) => (
           <Card key={site.id} className="overflow-hidden hover:shadow-lg transition-all">
-            <div
-              className="h-2"
-              style={{ backgroundColor: site.brandColor }}
-            />
+            <div className="h-2" style={{ backgroundColor: site.brandColor }} />
             <div className="p-6">
               {/* Header */}
               <div className="flex items-start justify-between mb-4">

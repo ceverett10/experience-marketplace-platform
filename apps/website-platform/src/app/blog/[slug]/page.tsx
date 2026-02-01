@@ -101,7 +101,7 @@ export default async function BlogPostPage({ params }: Props) {
       '@type': 'Organization',
       name: site.name,
     },
-    ...(post.content?.structuredData as Record<string, unknown> || {}),
+    ...((post.content?.structuredData as Record<string, unknown>) || {}),
   };
 
   return (

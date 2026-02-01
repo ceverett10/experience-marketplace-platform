@@ -269,9 +269,12 @@ export async function handleSslProvision(job: Job<SslProvisionPayload>): Promise
     }
 
     if (!domain.verifiedAt) {
-      throw new BusinessLogicError(`Domain ${domain.domain} must be verified before SSL provisioning`, {
-        context: { domainId, domain: domain.domain, status: domain.status },
-      });
+      throw new BusinessLogicError(
+        `Domain ${domain.domain} must be verified before SSL provisioning`,
+        {
+          context: { domainId, domain: domain.domain, status: domain.status },
+        }
+      );
     }
 
     // 2. Provision SSL certificate
@@ -546,9 +549,12 @@ async function provisionSslCertificate(
     const zoneId = domainRecord?.cloudflareZoneId;
 
     if (!zoneId) {
-      throw new BusinessLogicError(`No Cloudflare zone ID found for ${domain}. Configure DNS first.`, {
-        context: { domain },
-      });
+      throw new BusinessLogicError(
+        `No Cloudflare zone ID found for ${domain}. Configure DNS first.`,
+        {
+          context: { domain },
+        }
+      );
     }
 
     // Provision SSL certificate via Cloudflare with circuit breaker

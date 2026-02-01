@@ -153,7 +153,8 @@ export class ErrorTrackingService {
 
           if (error.includes('api') || error.includes('external')) category = 'EXTERNAL_API';
           else if (error.includes('database') || error.includes('prisma')) category = 'DATABASE';
-          else if (error.includes('config') || error.includes('api key')) category = 'CONFIGURATION';
+          else if (error.includes('config') || error.includes('api key'))
+            category = 'CONFIGURATION';
           else if (error.includes('not found')) category = 'NOT_FOUND';
           else if (error.includes('rate limit')) category = 'RATE_LIMIT';
           else if (error.includes('network') || error.includes('timeout')) category = 'NETWORK';

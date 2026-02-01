@@ -62,10 +62,7 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     console.error('[API] Error fetching sites:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch sites' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch sites' }, { status: 500 });
   }
 }
 
@@ -90,10 +87,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ site });
   } catch (error) {
     console.error('[API] Error creating site:', error);
-    return NextResponse.json(
-      { error: 'Failed to create site' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to create site' }, { status: 500 });
   }
 }
 

@@ -53,24 +53,16 @@ export function ContentRenderer({
         components={{
           // Customize heading rendering
           h1: ({ children }) => (
-            <h1 className="text-4xl font-bold mb-6 text-gray-900">
-              {children}
-            </h1>
+            <h1 className="text-4xl font-bold mb-6 text-gray-900">{children}</h1>
           ),
           h2: ({ children }) => (
-            <h2 className="text-3xl font-bold mb-4 mt-8 text-gray-900">
-              {children}
-            </h2>
+            <h2 className="text-3xl font-bold mb-4 mt-8 text-gray-900">{children}</h2>
           ),
           h3: ({ children }) => (
-            <h3 className="text-2xl font-semibold mb-3 mt-6 text-gray-900">
-              {children}
-            </h3>
+            <h3 className="text-2xl font-semibold mb-3 mt-6 text-gray-900">{children}</h3>
           ),
           // Customize paragraph spacing
-          p: ({ children }) => (
-            <p className="mb-4 text-gray-700 leading-relaxed">{children}</p>
-          ),
+          p: ({ children }) => <p className="mb-4 text-gray-700 leading-relaxed">{children}</p>,
           // Customize links
           a: ({ href, children }) => (
             <a
@@ -83,12 +75,8 @@ export function ContentRenderer({
             </a>
           ),
           // Customize lists
-          ul: ({ children }) => (
-            <ul className="list-disc pl-6 mb-4 space-y-2">{children}</ul>
-          ),
-          ol: ({ children }) => (
-            <ol className="list-decimal pl-6 mb-4 space-y-2">{children}</ol>
-          ),
+          ul: ({ children }) => <ul className="list-disc pl-6 mb-4 space-y-2">{children}</ul>,
+          ol: ({ children }) => <ol className="list-decimal pl-6 mb-4 space-y-2">{children}</ol>,
           // Customize blockquotes
           blockquote: ({ children }) => (
             <blockquote className="border-l-4 border-gray-300 pl-4 italic my-4 text-gray-600">
@@ -106,7 +94,9 @@ export function ContentRenderer({
               );
             }
             return (
-              <code className={`${className} block bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto`}>
+              <code
+                className={`${className} block bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto`}
+              >
                 {children}
               </code>
             );

@@ -692,26 +692,31 @@ SSL provisioning simulated
 All API route tests now passing with proper mocking and expectations:
 
 **Availability Route Tests (3 failures fixed)**
+
 - Updated `getAvailabilityList` call expectations to include filter parameter
 - Fixed error message expectations to match actual implementation
 - All 10 availability route tests now passing
 
 **Booking Route Test (1 failure fixed)**
+
 - Updated `createBooking` call to only expect `autoFillQuestions` parameter
 - Added documentation comment explaining BookingCreateInput limitation
 - All 8 booking route tests now passing
 
 **Booking Availability Route Test (1 failure fixed)**
+
 - Updated `addAvailabilityToBooking` call format to use `{ bookingSelector: { id }, id }` structure
 - All 5 booking availability route tests now passing
 
 **Booking Questions Route Tests (3 failures fixed)**
+
 - Added `termsAccepted: true` to all POST requests
 - Updated test expectations to match route validation requirements
 - Fixed mock setup to include proper `getBookingQuestions` responses
 - All 5 booking questions route tests now passing
 
 **BookingForm Component Test (1 failure fixed)**
+
 - Updated step indicator assertions to check for labels instead of numeric regex patterns
 - Improved test robustness by verifying presence of step labels
 - All 14 BookingForm tests now passing

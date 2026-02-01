@@ -64,15 +64,11 @@ export function BlogPostTemplate({ post, siteName }: BlogPostTemplateProps) {
         </h1>
 
         {post.metaDescription && (
-          <p className="text-xl text-gray-600 mb-4 leading-relaxed">
-            {post.metaDescription}
-          </p>
+          <p className="text-xl text-gray-600 mb-4 leading-relaxed">{post.metaDescription}</p>
         )}
 
         <div className="flex items-center gap-4 text-sm text-gray-500">
-          <time dateTime={post.createdAt.toISOString()}>
-            {formattedDate}
-          </time>
+          <time dateTime={post.createdAt.toISOString()}>{formattedDate}</time>
 
           {post.content.isAiGenerated && post.content.aiModel && (
             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
@@ -88,7 +84,8 @@ export function BlogPostTemplate({ post, siteName }: BlogPostTemplateProps) {
 
           {post.updatedAt.getTime() !== post.createdAt.getTime() && (
             <span className="text-xs">
-              Updated: {new Intl.DateTimeFormat('en-US', {
+              Updated:{' '}
+              {new Intl.DateTimeFormat('en-US', {
                 year: 'numeric',
                 month: 'short',
                 day: 'numeric',
@@ -109,12 +106,10 @@ export function BlogPostTemplate({ post, siteName }: BlogPostTemplateProps) {
       {/* Footer */}
       <footer className="border-t pt-8 mt-12">
         <div className="bg-gray-50 rounded-lg p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            About {siteName || 'Us'}
-          </h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">About {siteName || 'Us'}</h3>
           <p className="text-gray-600 text-sm">
-            We provide comprehensive guides and information about travel experiences,
-            activities, and destinations to help you plan your perfect trip.
+            We provide comprehensive guides and information about travel experiences, activities,
+            and destinations to help you plan your perfect trip.
           </p>
         </div>
       </footer>

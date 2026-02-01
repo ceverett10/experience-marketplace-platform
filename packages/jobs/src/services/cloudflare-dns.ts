@@ -49,7 +49,9 @@ export class CloudflareDNSService {
     const accountId = credentials?.accountId || process.env['CLOUDFLARE_ACCOUNT_ID'];
 
     if (!apiToken) {
-      throw new Error('Cloudflare API token not found. Set CLOUDFLARE_API_TOKEN environment variable.');
+      throw new Error(
+        'Cloudflare API token not found. Set CLOUDFLARE_API_TOKEN environment variable.'
+      );
     }
 
     this.apiToken = apiToken;
@@ -155,7 +157,9 @@ export class CloudflareDNSService {
         proxied: record.proxied ?? false,
       });
 
-      console.log(`[Cloudflare] DNS record created: ${record.type} ${record.name} -> ${record.content}`);
+      console.log(
+        `[Cloudflare] DNS record created: ${record.type} ${record.name} -> ${record.content}`
+      );
 
       return { id: result.id };
     } catch (error) {
@@ -268,7 +272,9 @@ export class CloudflareDNSService {
         });
       }
 
-      console.log(`[Cloudflare] Proxy enabled for ${proxyableRecords.length} records in zone ${zoneId}`);
+      console.log(
+        `[Cloudflare] Proxy enabled for ${proxyableRecords.length} records in zone ${zoneId}`
+      );
     } catch (error) {
       console.error('[Cloudflare] Error enabling proxy:', error);
       throw error;

@@ -59,10 +59,7 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     console.error('[API] Error fetching opportunities:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch opportunities' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch opportunities' }, { status: 500 });
   }
 }
 
@@ -116,9 +113,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('[API] Error updating opportunity:', error);
-    return NextResponse.json(
-      { error: 'Failed to update opportunity' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to update opportunity' }, { status: 500 });
   }
 }
