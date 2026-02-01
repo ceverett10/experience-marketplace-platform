@@ -17,6 +17,7 @@ import {
 import { errorTracking } from '../errors/tracking';
 import { circuitBreakers } from '../errors/circuit-breaker';
 import { canExecuteAutonomousOperation } from '../services/pause-control';
+import { getBrandIdentityForContent } from '../services/brand-identity';
 
 /**
  * Content Generation Worker
@@ -60,6 +61,12 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
       throw new NotFoundError('Site', siteId);
     }
 
+    // Get brand identity for tone of voice and trust signals
+    const brandIdentity = await getBrandIdentityForContent(siteId);
+    console.log(
+      `[Content Generate] Using brand identity with tone: ${brandIdentity.toneOfVoice?.personality?.join(', ') || 'default'}`
+    );
+
     // Get opportunity if provided
     let opportunity = null;
     if (opportunityId) {
@@ -68,7 +75,7 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
       });
     }
 
-    // Create content brief
+    // Create content brief with brand context
     const brief = {
       type: contentType,
       siteId,
@@ -78,6 +85,17 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
       category: category || opportunity?.niche || '',
       targetLength: targetLength || { min: 800, max: 1500 },
       tone: 'informative' as const,
+      // Include brand guidelines for content generation
+      brandContext: brandIdentity.toneOfVoice
+        ? {
+            toneOfVoice: brandIdentity.toneOfVoice,
+            trustSignals: brandIdentity.trustSignals,
+            brandStory: brandIdentity.brandStory,
+            writingGuidelines: `Tone: ${brandIdentity.toneOfVoice.writingStyle}. Personality: ${brandIdentity.toneOfVoice.personality?.join(', ')}.
+            Mission: ${brandIdentity.brandStory?.mission}.
+            Value propositions: ${brandIdentity.trustSignals?.valuePropositions?.join('; ')}.`,
+          }
+        : undefined,
     };
 
     // Generate content using pipeline with circuit breaker

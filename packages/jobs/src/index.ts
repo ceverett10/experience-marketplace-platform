@@ -19,6 +19,7 @@ export * from './schedulers';
 // Export services
 export * from './services/gsc-client';
 export * from './services/pause-control';
+export * from './services/brand-identity';
 
 // Export error handling
 export * from './errors';
