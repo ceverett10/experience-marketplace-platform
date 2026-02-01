@@ -1,0 +1,17 @@
+{
+  "name": "@experience-marketplace/proxy",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Heroku proxy server for routing to multiple Next.js apps",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "http-proxy-middleware": "^2.0.6"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

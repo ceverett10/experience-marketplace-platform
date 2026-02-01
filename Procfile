@@ -1,2 +1,2 @@
-web: npm run start --workspace=@experience-marketplace/website-platform
+web: npm run start:web
 worker: npm run start --workspace=@experience-marketplace/demand-generation
