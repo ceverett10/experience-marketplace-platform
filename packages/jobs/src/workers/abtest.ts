@@ -1,6 +1,7 @@
 import { Job } from 'bullmq';
 import { prisma, ABTestStatus } from '@experience-marketplace/database';
 import type { ABTestAnalyzePayload, ABTestRebalancePayload, JobResult } from '../types/index.js';
+import { canExecuteAutonomousOperation } from '../services/pause-control.js';
 
 /**
  * A/B Test Worker
@@ -27,6 +28,28 @@ export async function handleABTestAnalyze(job: Job<ABTestAnalyzePayload>): Promi
 
   try {
     console.log(`[ABTest Analyze] Starting analysis for test ${abTestId}`);
+
+    // Get test to check siteId
+    const abTest = await prisma.aBTest.findUnique({
+      where: { id: abTestId },
+      select: { siteId: true },
+    });
+
+    // Check if autonomous A/B testing is allowed
+    const canProceed = await canExecuteAutonomousOperation({
+      siteId: abTest?.siteId,
+      feature: 'enableABTesting',
+    });
+
+    if (!canProceed.allowed) {
+      console.log(`[ABTest Analyze] Skipping - ${canProceed.reason}`);
+      return {
+        success: false,
+        error: canProceed.reason || 'A/B testing is paused',
+        errorCategory: 'paused',
+        timestamp: new Date(),
+      };
+    }
 
     // 1. Get test with variants
     const abTest = await prisma.aBTest.findUnique({
@@ -152,6 +175,28 @@ export async function handleABTestRebalance(job: Job<ABTestRebalancePayload>): P
 
   try {
     console.log(`[ABTest Rebalance] Starting rebalance for test ${abTestId} using ${algorithm}`);
+
+    // Get test to check siteId
+    const abTestPreCheck = await prisma.aBTest.findUnique({
+      where: { id: abTestId },
+      select: { siteId: true },
+    });
+
+    // Check if autonomous A/B testing is allowed
+    const canProceed = await canExecuteAutonomousOperation({
+      siteId: abTestPreCheck?.siteId,
+      feature: 'enableABTesting',
+    });
+
+    if (!canProceed.allowed) {
+      console.log(`[ABTest Rebalance] Skipping - ${canProceed.reason}`);
+      return {
+        success: false,
+        error: canProceed.reason || 'A/B testing is paused',
+        errorCategory: 'paused',
+        timestamp: new Date(),
+      };
+    }
 
     // 1. Get test with variants
     const abTest = await prisma.aBTest.findUnique({

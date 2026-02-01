@@ -2,6 +2,7 @@ import { Job } from 'bullmq';
 import { prisma, PageType, PageStatus } from '@experience-marketplace/database';
 import { createClaudeClient } from '@experience-marketplace/content-engine';
 import type { SiteCreatePayload, SiteDeployPayload, DomainRegisterPayload, JobResult } from '../types/index.js';
+import { canExecuteAutonomousOperation } from '../services/pause-control.js';
 
 /**
  * Site Worker
@@ -25,6 +26,22 @@ export async function handleSiteCreate(job: Job<SiteCreatePayload>): Promise<Job
 
   try {
     console.log(`[Site Create] Starting site creation for opportunity ${opportunityId}`);
+
+    // Check if autonomous site creation is allowed
+    const canProceed = await canExecuteAutonomousOperation({
+      feature: 'enableSiteCreation',
+      rateLimitType: 'SITE_CREATE',
+    });
+
+    if (!canProceed.allowed) {
+      console.log(`[Site Create] Skipping - ${canProceed.reason}`);
+      return {
+        success: false,
+        error: canProceed.reason || 'Site creation is paused',
+        errorCategory: 'paused',
+        timestamp: new Date(),
+      };
+    }
 
     // 1. Validate opportunity
     const opportunity = await prisma.sEOOpportunity.findUnique({

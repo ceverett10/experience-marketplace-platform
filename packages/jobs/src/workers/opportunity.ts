@@ -14,6 +14,7 @@ import {
 import { errorTracking } from '../errors/tracking';
 import { circuitBreakers } from '../errors/circuit-breaker';
 import { addJob } from '../queues';
+import { canExecuteAutonomousOperation } from '../services/pause-control';
 
 /**
  * SEO Opportunity Scanner Worker
@@ -26,6 +27,22 @@ export async function handleOpportunityScan(
 
   try {
     console.log('[Opportunity Scan] Starting opportunity scan');
+
+    // Check if autonomous opportunity scanning is allowed
+    const canProceed = await canExecuteAutonomousOperation({
+      siteId,
+      rateLimitType: 'OPPORTUNITY_SCAN',
+    });
+
+    if (!canProceed.allowed) {
+      console.log(`[Opportunity Scan] Skipping - ${canProceed.reason}`);
+      return {
+        success: false,
+        error: canProceed.reason || 'Opportunity scanning is paused',
+        errorCategory: 'paused',
+        timestamp: new Date(),
+      };
+    }
 
     // If siteId provided, scan for that site specifically
     let targetSites: Array<{ id: string; name: string; holibobPartnerId: string }> = [];

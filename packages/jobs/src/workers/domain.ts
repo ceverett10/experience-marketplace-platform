@@ -19,6 +19,7 @@ import {
 } from '../errors/index.js';
 import { errorTracking } from '../errors/tracking.js';
 import { circuitBreakers } from '../errors/circuit-breaker.js';
+import { canExecuteAutonomousOperation } from '../services/pause-control.js';
 
 /**
  * Domain Worker
@@ -34,6 +35,21 @@ export async function handleDomainRegister(job: Job<DomainRegisterPayload>): Pro
 
   try {
     console.log(`[Domain Register] Starting registration for ${domain} via ${registrar}`);
+
+    // Check if autonomous domain registration is allowed
+    const canProceed = await canExecuteAutonomousOperation({
+      siteId,
+    });
+
+    if (!canProceed.allowed) {
+      console.log(`[Domain Register] Skipping - ${canProceed.reason}`);
+      return {
+        success: false,
+        error: canProceed.reason || 'Domain registration is paused',
+        errorCategory: 'paused',
+        timestamp: new Date(),
+      };
+    }
 
     // 1. Check if domain already exists
     const existing = await prisma.domain.findUnique({

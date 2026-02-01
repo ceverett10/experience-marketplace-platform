@@ -3,6 +3,7 @@ import { prisma } from '@experience-marketplace/database';
 import { getGSCClient, isGSCConfigured } from '../services/gsc-client';
 import type { GscSyncPayload, JobResult, ContentOptimizePayload } from '../types';
 import { addJob } from '../queues';
+import { canExecuteAutonomousOperation } from '../services/pause-control';
 
 /**
  * Google Search Console Sync Worker
@@ -13,6 +14,23 @@ export async function handleGscSync(job: Job<GscSyncPayload>): Promise<JobResult
 
   try {
     console.log(`[GSC Sync] Starting sync for site ${siteId}`);
+
+    // Check if autonomous GSC sync is allowed
+    const canProceed = await canExecuteAutonomousOperation({
+      siteId,
+      feature: 'enableGSCVerification',
+      rateLimitType: 'GSC_REQUEST',
+    });
+
+    if (!canProceed.allowed) {
+      console.log(`[GSC Sync] Skipping - ${canProceed.reason}`);
+      return {
+        success: false,
+        error: canProceed.reason || 'GSC sync is paused',
+        errorCategory: 'paused',
+        timestamp: new Date(),
+      };
+    }
 
     // Verify site exists
     const site = await prisma.site.findUnique({
