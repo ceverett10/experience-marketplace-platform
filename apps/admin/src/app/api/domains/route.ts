@@ -341,21 +341,21 @@ export async function POST(request: Request) {
                     status: 'ACTIVE',
                   },
                 });
-
-                // Update site with primary domain and activate it
-                await prisma.site.update({
-                  where: { id: matchingSite.id },
-                  data: {
-                    primaryDomain: cfDomain.name,
-                    status: 'ACTIVE',
-                  },
-                });
               }
             } catch (dnsError) {
               console.error(`[DNS] Error configuring DNS for ${cfDomain.name}:`, dnsError);
               // Continue with other domains even if one fails
             }
           }
+
+          // Always update site with primary domain and activate it when domain is matched
+          await prisma.site.update({
+            where: { id: matchingSite.id },
+            data: {
+              primaryDomain: cfDomain.name,
+              status: 'ACTIVE',
+            },
+          });
         } else {
           unmatched.push({ domain: cfDomain.name, suggestedSlug: domainSlug });
         }
