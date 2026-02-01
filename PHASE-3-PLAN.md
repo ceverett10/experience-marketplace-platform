@@ -35,43 +35,118 @@ Integrate real keyword research APIs to replace placeholder data in the opportun
 
 ### Tasks
 
-#### 1. SEMrush API Integration
+#### 1. Budget-Friendly Keyword Research Integration
+
+**Recommended Approach:** Hybrid solution with free + low-cost APIs
 
 **Files to Modify:**
 - `packages/jobs/src/services/keyword-research.ts` (new)
+- `packages/jobs/src/services/datafor-seo-client.ts` (new)
+- `packages/jobs/src/services/serp-api-client.ts` (new)
 - `packages/jobs/src/workers/opportunity.ts`
 - `packages/database/prisma/schema.prisma` (add API credentials)
 
 **Implementation:**
 ```typescript
-// New service for keyword research
+// Budget-friendly keyword research service
 export class KeywordResearchService {
+  private dataForSeo: DataForSEOClient;      // $50/mo - Primary data
+  private serpApi: SerpAPIClient;            // $50/mo - SERP analysis
+  private googleTrends: GoogleTrendsAPI;     // FREE - Trend data
+
   async getKeywordData(keyword: string): Promise<KeywordData> {
-    // Query SEMrush API
-    // Return: search volume, keyword difficulty, CPC, competition
+    // Get search volume from DataForSEO
+    const volume = await this.dataForSeo.getSearchVolume(keyword);
+
+    // Get trend data from Google Trends (free)
+    const trends = await this.googleTrends.getTrend(keyword);
+
+    // Calculate difficulty from SERP analysis
+    const serp = await this.serpApi.search(keyword);
+    const difficulty = this.calculateDifficulty(serp);
+
+    return {
+      searchVolume: volume,
+      keywordDifficulty: difficulty,
+      trend: trends.trend,
+      cpc: volume.cpc || 0,
+    };
   }
 
   async getRelatedKeywords(keyword: string): Promise<string[]> {
-    // Get keyword suggestions
+    // Use DataForSEO related keywords API
+    const related = await this.dataForSeo.getRelatedKeywords(keyword);
+    return related.keywords;
   }
 
   async getCompetitorAnalysis(domain: string): Promise<CompetitorData> {
-    // Analyze competitor domains
+    // Use SerpAPI to get competitor SERP positions
+    const competitors = await this.serpApi.getCompetitors(domain);
+    return this.analyzeCompetitors(competitors);
+  }
+
+  // DIY keyword difficulty calculation (saves $150/month vs SEMrush)
+  private calculateDifficulty(serp: SERPResult): number {
+    const topResults = serp.results.slice(0, 10);
+
+    // Analyze domain authority indicators
+    const scores = topResults.map(result => {
+      let score = 0;
+      // Domain age (estimate from TLD and content)
+      if (result.domain.includes('.gov') || result.domain.includes('.edu')) score += 20;
+      if (result.domain.length < 10) score += 10; // Likely established
+      // HTTPS
+      if (result.link.startsWith('https://')) score += 5;
+      // Content indicators
+      if (result.snippet.length > 200) score += 10;
+      // Position weight
+      score *= (11 - result.position) / 10;
+      return score;
+    });
+
+    const avgScore = scores.reduce((a, b) => a + b, 0) / 10;
+    return Math.min(100, Math.round(avgScore));
   }
 }
 ```
 
+**API Options (Choose One or More):**
+
+**Option A: DataForSEO (Recommended - Best Value)**
+- **Cost:** ~$50/month (pay-as-you-go)
+- **Coverage:** Search volume, CPC, competition, related keywords
+- **Pricing:** $0.002-0.005 per API call
+- **API:** https://dataforseo.com/
+
+**Option B: SerpAPI (For SERP Scraping)**
+- **Cost:** $50/month (5,000 searches)
+- **Coverage:** Real Google SERP data, competitor positions
+- **API:** https://serpapi.com/
+
+**Option C: Google Keyword Planner API (FREE)**
+- **Cost:** FREE (requires minimal Google Ads spend ~$5-10/mo)
+- **Coverage:** Search volume ranges, keyword ideas
+- **Limitation:** Volume ranges, not exact numbers
+
+**Option D: Ubersuggest API (Budget Alternative)**
+- **Cost:** $29/month
+- **Coverage:** Search volume, SEO difficulty, CPC
+- **API:** https://app.neilpatel.com/en/ubersuggest/api
+
 **Environment Variables Required:**
-- `SEMRUSH_API_KEY`
-- `SEMRUSH_API_URL=https://api.semrush.com`
+```bash
+# Primary (choose one)
+DATAFORSEO_API_LOGIN=your-login
+DATAFORSEO_API_PASSWORD=your-password
 
-#### 2. Alternative: Ahrefs API Integration
+# Or alternative
+SERPAPI_KEY=your-key
+# Or
+UBERSUGGEST_API_KEY=your-key
 
-If SEMrush not available, implement Ahrefs as alternative.
-
-**Environment Variables:**
-- `AHREFS_API_KEY`
-- `AHREFS_API_URL=https://apiv2.ahrefs.com`
+# Free supplementary
+GOOGLE_TRENDS_API_KEY=not-required  # Public API
+```
 
 #### 3. Update Opportunity Scanner
 
@@ -784,9 +859,18 @@ export class RateLimiter {
 ## Estimated Costs (Monthly)
 
 ### API Services
-- Claude API: $500/month (content generation)
-- SEMrush API: $200/month (keyword research)
-- SendGrid: $15/month (email notifications)
+
+**Budget Option (Recommended):**
+- Claude API: $300-500/month (content generation, scales with usage)
+- **DataForSEO:** $50/month (keyword research - pay-as-you-go)
+- **SerpAPI:** $50/month (SERP analysis, 5,000 searches)
+- Google Trends: $0 (free)
+- SendGrid: $15/month (email notifications, 40k emails)
+
+**Premium Option (If budget allows):**
+- Claude API: $500/month
+- SEMrush: $200/month (all-in-one SEO suite)
+- SendGrid: $15/month
 
 ### Infrastructure
 - Heroku Dynos: $100/month (website + workers)
@@ -795,9 +879,13 @@ export class RateLimiter {
 
 ### Domain & SSL
 - Domain registrations: $50/month (5 domains @ $10/ea)
-- Cloudflare Pro: $20/month (per domain)
+- Cloudflare Free: $0/month (SSL included)
+- Cloudflare Pro (optional): $20/month per domain (advanced features)
 
-**Total Estimated Monthly Cost: ~$909/month**
+**Budget Total: ~$589-689/month** (saves $220-320/month vs premium)
+**Premium Total: ~$809-909/month** (with SEMrush)
+
+**Recommended:** Start with budget option ($589/mo), upgrade to premium if ROI justifies it.
 
 ---
 
