@@ -364,6 +364,11 @@ export function ProductDiscoverySearch({
   const handleKeyDown = (e: KeyboardEvent, section: ActiveSection) => {
     if (e.key === 'Escape') {
       setActiveSection(null);
+    } else if (e.key === 'Enter') {
+      // Trigger search when Enter is pressed in any input
+      e.preventDefault();
+      setActiveSection(null);
+      navigateToResults();
     } else if (e.key === 'Tab') {
       // Move to next section
       const sections: ActiveSection[] = ['where', 'when', 'who', 'what'];
@@ -390,6 +395,10 @@ export function ProductDiscoverySearch({
     const urlParams = new URLSearchParams();
     if (where) urlParams.set('destination', where);
     if (what) urlParams.set('q', what);
+
+    // Preserve raw when/who values for display on search results page
+    if (when) urlParams.set('when', when);
+    if (who) urlParams.set('who', who);
 
     // Parse "when" into dates
     const today = new Date();
@@ -678,11 +687,6 @@ export function ProductDiscoverySearch({
               style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
               autoFocus
               onKeyDown={(e) => handleKeyDown(e, 'what')}
-              onKeyUp={(e) => {
-                if (e.key === 'Enter') {
-                  navigateToResults();
-                }
-              }}
             />
             <div className="flex flex-wrap gap-2">
               {isLoadingSuggestions && (
@@ -832,12 +836,92 @@ export function ProductDiscoverySearch({
     );
   }
 
-  // Hero variant (default) - Horizontal 4-section search bar
+  // Hero variant (default) - Horizontal 4-section search bar (stacks on mobile)
   return (
     <div ref={searchBarRef} className={`relative w-full ${className}`}>
-      {/* Main Search Bar */}
-      <div className="rounded-full bg-white p-2 shadow-2xl shadow-black/10">
-        <div className="flex items-center">
+      {/* Main Search Bar - Desktop: horizontal pill, Mobile: vertical card */}
+      <div className="rounded-2xl bg-white p-2 shadow-2xl shadow-black/10 md:rounded-full">
+        {/* Mobile Layout - Stacked */}
+        <div className="flex flex-col gap-1 md:hidden">
+          {/* Where */}
+          <button
+            type="button"
+            onClick={() => setActiveSection(activeSection === 'where' ? null : 'where')}
+            className={`w-full rounded-xl px-4 py-3 text-left transition-colors ${
+              activeSection === 'where' ? 'bg-gray-100' : 'hover:bg-gray-50'
+            }`}
+          >
+            <span className="block text-xs font-semibold text-gray-800">Where</span>
+            <span className="block truncate text-sm text-gray-500">
+              {where || 'Search destinations...'}
+            </span>
+          </button>
+
+          <div className="mx-4 border-t border-gray-100" />
+
+          {/* When */}
+          <button
+            type="button"
+            onClick={() => setActiveSection(activeSection === 'when' ? null : 'when')}
+            className={`w-full rounded-xl px-4 py-3 text-left transition-colors ${
+              activeSection === 'when' ? 'bg-gray-100' : 'hover:bg-gray-50'
+            }`}
+          >
+            <span className="block text-xs font-semibold text-gray-800">When</span>
+            <span className="block truncate text-sm text-gray-500">{when || 'Pick a date'}</span>
+          </button>
+
+          <div className="mx-4 border-t border-gray-100" />
+
+          {/* Who */}
+          <button
+            type="button"
+            onClick={() => setActiveSection(activeSection === 'who' ? null : 'who')}
+            className={`w-full rounded-xl px-4 py-3 text-left transition-colors ${
+              activeSection === 'who' ? 'bg-gray-100' : 'hover:bg-gray-50'
+            }`}
+          >
+            <span className="block text-xs font-semibold text-gray-800">Who</span>
+            <span className="block truncate text-sm text-gray-500">{who || 'Add guests'}</span>
+          </button>
+
+          <div className="mx-4 border-t border-gray-100" />
+
+          {/* What */}
+          <button
+            type="button"
+            onClick={() => setActiveSection(activeSection === 'what' ? null : 'what')}
+            className={`w-full rounded-xl px-4 py-3 text-left transition-colors ${
+              activeSection === 'what' ? 'bg-gray-100' : 'hover:bg-gray-50'
+            }`}
+          >
+            <span className="block text-xs font-semibold text-gray-800">What</span>
+            <span className="block truncate text-sm text-gray-500">
+              {what || 'Tours, activities...'}
+            </span>
+          </button>
+
+          {/* Mobile Search Button - Full Width */}
+          <button
+            type="button"
+            onClick={navigateToResults}
+            className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-semibold text-white transition-all hover:opacity-90"
+            style={{ backgroundColor: primaryColor }}
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
+            </svg>
+            Search Experiences
+          </button>
+        </div>
+
+        {/* Desktop Layout - Horizontal */}
+        <div className="hidden items-center md:flex">
           {/* Where */}
           <button
             type="button"
@@ -919,8 +1003,8 @@ export function ProductDiscoverySearch({
       {/* Dropdown */}
       {renderDropdown()}
 
-      {/* Context-aware attraction chips */}
-      <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+      {/* Context-aware attraction chips - Hidden on mobile, shown on desktop */}
+      <div className="mt-4 hidden flex-wrap items-center justify-center gap-2 sm:flex">
         {where ? (
           // Show context-aware chips when destination is selected
           <>
@@ -959,9 +1043,9 @@ export function ProductDiscoverySearch({
         )}
       </div>
 
-      {/* Loading indicator */}
+      {/* Loading indicator - Desktop only */}
       {isSearching && (
-        <div className="absolute right-20 top-1/2 -translate-y-1/2">
+        <div className="absolute right-20 top-1/2 hidden -translate-y-1/2 md:block">
           <div
             className="h-4 w-4 animate-spin rounded-full border-2 border-t-transparent"
             style={{ borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}` }}

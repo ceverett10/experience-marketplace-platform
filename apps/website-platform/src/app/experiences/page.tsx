@@ -17,6 +17,8 @@ interface SearchParams {
   children?: string;
   q?: string;
   page?: string;
+  when?: string;
+  who?: string;
 }
 
 interface Props {
