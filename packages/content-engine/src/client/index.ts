@@ -32,21 +32,23 @@ export class ClaudeClient {
   }
 
   getModelId(model: 'haiku' | 'sonnet' | 'opus'): string {
+    // Claude 4.x model IDs (Claude 3.x models were retired in 2025)
     const modelMap = {
-      haiku: 'claude-3-haiku-20240307',
-      sonnet: 'claude-3-5-sonnet-20241022',
-      opus: 'claude-3-opus-20240229',
+      haiku: 'claude-haiku-4-5-20251001',
+      sonnet: 'claude-sonnet-4-20250514',
+      opus: 'claude-opus-4-5-20251101',
     };
     return modelMap[model];
   }
 
   calculateCost(model: string, inputTokens: number, outputTokens: number): number {
+    // Updated pricing for Claude 4.x models
     const pricing: Record<string, { input: number; output: number }> = {
-      'claude-3-haiku-20240307': { input: 0.25, output: 1.25 },
-      'claude-3-5-sonnet-20241022': { input: 3.0, output: 15.0 },
-      'claude-3-opus-20240229': { input: 15.0, output: 75.0 },
+      'claude-haiku-4-5-20251001': { input: 0.80, output: 4.0 },
+      'claude-sonnet-4-20250514': { input: 3.0, output: 15.0 },
+      'claude-opus-4-5-20251101': { input: 15.0, output: 75.0 },
     };
-    const p = pricing[model] || pricing['claude-3-haiku-20240307'];
+    const p = pricing[model] || pricing['claude-haiku-4-5-20251001'];
     return (inputTokens / 1_000_000) * p!.input + (outputTokens / 1_000_000) * p!.output;
   }
 }
