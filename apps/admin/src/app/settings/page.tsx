@@ -77,11 +77,21 @@ export default function AdminSettingsPage() {
   });
   const [pauseLoading, setPauseLoading] = useState(false);
 
-  // Load autonomous settings on mount
+  // Roadmap Processor State
+  const [processorStatus, setProcessorStatus] = useState<{
+    intervalMinutes: number;
+    isGloballyPaused: boolean;
+    sites: { total: number; active: number; paused: number };
+    recentActivity: { pending: number; running: number; completed: number; failed: number; total: number };
+  } | null>(null);
+  const [processorLoading, setProcessorLoading] = useState(false);
+  const [processorResult, setProcessorResult] = useState<{ message: string; isError: boolean } | null>(null);
+
+  // Load autonomous settings and processor status on mount
   useEffect(() => {
     const loadAutonomousSettings = async () => {
       try {
-        const response = await fetch('/api/settings/autonomous');
+        const response = await fetch('/admin/api/settings/autonomous');
         if (response.ok) {
           const data = await response.json();
           if (data.success && data.settings) {
@@ -105,7 +115,31 @@ export default function AdminSettingsPage() {
       }
     };
 
+    const loadProcessorStatus = async () => {
+      try {
+        const response = await fetch('/admin/api/settings/roadmap-processor');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            setProcessorStatus({
+              intervalMinutes: data.processor.intervalMinutes,
+              isGloballyPaused: data.processor.isGloballyPaused,
+              sites: data.sites,
+              recentActivity: data.recentActivity,
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load processor status:', error);
+      }
+    };
+
     loadAutonomousSettings();
+    loadProcessorStatus();
+
+    // Refresh processor status every 30 seconds
+    const interval = setInterval(loadProcessorStatus, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleSave = async () => {
@@ -115,12 +149,48 @@ export default function AdminSettingsPage() {
     setTimeout(() => setSaved(false), 3000);
   };
 
+  const handleRunProcessor = async () => {
+    setProcessorLoading(true);
+    setProcessorResult(null);
+    try {
+      const response = await fetch('/admin/api/settings/roadmap-processor', {
+        method: 'POST',
+      });
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setProcessorResult({ message: data.message, isError: false });
+        // Refresh processor status
+        const statusResponse = await fetch('/admin/api/settings/roadmap-processor');
+        if (statusResponse.ok) {
+          const statusData = await statusResponse.json();
+          if (statusData.success) {
+            setProcessorStatus({
+              intervalMinutes: statusData.processor.intervalMinutes,
+              isGloballyPaused: statusData.processor.isGloballyPaused,
+              sites: statusData.sites,
+              recentActivity: statusData.recentActivity,
+            });
+          }
+        }
+      } else {
+        setProcessorResult({ message: data.error || 'Failed to run processor', isError: true });
+      }
+    } catch (error) {
+      console.error('Failed to run processor:', error);
+      setProcessorResult({ message: 'Failed to run processor', isError: true });
+    } finally {
+      setProcessorLoading(false);
+      setTimeout(() => setProcessorResult(null), 5000);
+    }
+  };
+
   const handleEmergencyStop = async () => {
     setPauseLoading(true);
     try {
       const endpoint = autonomousState.allProcessesPaused
-        ? '/api/settings/resume-all'
-        : '/api/settings/pause-all';
+        ? '/admin/api/settings/resume-all'
+        : '/admin/api/settings/pause-all';
 
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -150,7 +220,7 @@ export default function AdminSettingsPage() {
 
   const updateAutonomousSettings = async (updates: Partial<typeof autonomousState>) => {
     try {
-      const response = await fetch('/api/settings/autonomous', {
+      const response = await fetch('/admin/api/settings/autonomous', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates),
@@ -507,6 +577,146 @@ export default function AdminSettingsPage() {
           {/* Autonomous Controls */}
           {activeTab === 'autonomous' && (
             <div className="space-y-6">
+              {/* Roadmap Processor Card */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Automatic Roadmap Processor</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {/* Status Banner */}
+                    <div
+                      className={`p-4 rounded-lg border-2 ${
+                        autonomousState.allProcessesPaused
+                          ? 'bg-red-50 border-red-200'
+                          : 'bg-green-50 border-green-200'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <span className="text-2xl">
+                            {autonomousState.allProcessesPaused ? '⏸️' : '🤖'}
+                          </span>
+                          <div>
+                            <h3 className="font-semibold">
+                              {autonomousState.allProcessesPaused
+                                ? 'Processor Paused'
+                                : 'Processor Running'}
+                            </h3>
+                            <p className="text-sm text-slate-600">
+                              {autonomousState.allProcessesPaused
+                                ? 'The automatic roadmap processor is paused'
+                                : `Automatically processes all site roadmaps every ${processorStatus?.intervalMinutes || 5} minutes`}
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          onClick={handleRunProcessor}
+                          disabled={processorLoading || autonomousState.allProcessesPaused}
+                          className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-lg font-medium disabled:opacity-50"
+                        >
+                          {processorLoading ? 'Running...' : '▶ Run Now'}
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Result Message */}
+                    {processorResult && (
+                      <div
+                        className={`p-3 rounded-lg ${
+                          processorResult.isError
+                            ? 'bg-red-50 border border-red-200 text-red-800'
+                            : 'bg-green-50 border border-green-200 text-green-800'
+                        }`}
+                      >
+                        {processorResult.isError ? '❌' : '✅'} {processorResult.message}
+                      </div>
+                    )}
+
+                    {/* Statistics Grid */}
+                    {processorStatus && (
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                        <div className="bg-slate-50 rounded-lg p-4 text-center">
+                          <div className="text-2xl font-bold text-slate-900">
+                            {processorStatus.sites.total}
+                          </div>
+                          <div className="text-sm text-slate-500">Total Sites</div>
+                        </div>
+                        <div className="bg-green-50 rounded-lg p-4 text-center">
+                          <div className="text-2xl font-bold text-green-700">
+                            {processorStatus.sites.active}
+                          </div>
+                          <div className="text-sm text-green-600">Active Sites</div>
+                        </div>
+                        <div className="bg-amber-50 rounded-lg p-4 text-center">
+                          <div className="text-2xl font-bold text-amber-700">
+                            {processorStatus.sites.paused}
+                          </div>
+                          <div className="text-sm text-amber-600">Paused Sites</div>
+                        </div>
+                        <div className="bg-sky-50 rounded-lg p-4 text-center">
+                          <div className="text-2xl font-bold text-sky-700">
+                            {processorStatus.intervalMinutes}m
+                          </div>
+                          <div className="text-sm text-sky-600">Interval</div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Recent Activity */}
+                    {processorStatus?.recentActivity && (
+                      <div className="mt-4">
+                        <h4 className="text-sm font-medium text-slate-700 mb-3">
+                          Recent Activity (Last Hour)
+                        </h4>
+                        <div className="grid grid-cols-4 gap-3">
+                          <div className="text-center p-3 bg-gray-50 rounded-lg">
+                            <div className="text-lg font-semibold text-gray-700">
+                              {processorStatus.recentActivity.pending}
+                            </div>
+                            <div className="text-xs text-gray-500">Pending</div>
+                          </div>
+                          <div className="text-center p-3 bg-yellow-50 rounded-lg">
+                            <div className="text-lg font-semibold text-yellow-700">
+                              {processorStatus.recentActivity.running}
+                            </div>
+                            <div className="text-xs text-yellow-600">Running</div>
+                          </div>
+                          <div className="text-center p-3 bg-green-50 rounded-lg">
+                            <div className="text-lg font-semibold text-green-700">
+                              {processorStatus.recentActivity.completed}
+                            </div>
+                            <div className="text-xs text-green-600">Completed</div>
+                          </div>
+                          <div className="text-center p-3 bg-red-50 rounded-lg">
+                            <div className="text-lg font-semibold text-red-700">
+                              {processorStatus.recentActivity.failed}
+                            </div>
+                            <div className="text-xs text-red-600">Failed</div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Info box */}
+                    <div className="bg-sky-50 border border-sky-200 rounded-lg p-4 mt-4">
+                      <div className="flex items-start gap-3">
+                        <span className="text-sky-600">ℹ️</span>
+                        <div className="text-sm text-sky-800">
+                          <p className="font-medium mb-1">How it works</p>
+                          <p>
+                            The roadmap processor runs automatically every 5 minutes. For each
+                            non-paused site, it checks which tasks can be executed (based on
+                            dependencies) and queues them for processing. Tasks include content
+                            generation, domain registration, SSL setup, and more.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
               {/* Emergency Stop Card */}
               <Card>
                 <CardHeader>

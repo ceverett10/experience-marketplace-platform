@@ -12,8 +12,8 @@ export async function GET(request: Request) {
       where.status = status;
     }
 
-    // Fetch domains from database
-    const domains = await prisma.domain.findMany({
+    // Fetch registered domains from database
+    const registeredDomains = await prisma.domain.findMany({
       where,
       orderBy: {
         createdAt: 'desc',
@@ -23,19 +23,101 @@ export async function GET(request: Request) {
           select: {
             id: true,
             name: true,
+            slug: true,
           },
         },
       },
     });
 
+    // Fetch sites without domains to show suggested domains
+    const sitesWithoutDomains = await prisma.site.findMany({
+      where: {
+        domains: {
+          none: {},
+        },
+        status: {
+          notIn: ['ARCHIVED'],
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        createdAt: true,
+        jobs: {
+          where: {
+            type: 'DOMAIN_REGISTER',
+          },
+          select: {
+            id: true,
+            status: true,
+            data: true,
+            createdAt: true,
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+          take: 1,
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    // Create domain entries for sites without registered domains
+    const suggestedDomains = sitesWithoutDomains.map((site) => {
+      const domainJob = site.jobs[0];
+      const suggestedDomain = domainJob?.data && typeof domainJob.data === 'object' && 'domain' in domainJob.data
+        ? (domainJob.data as any).domain
+        : `${site.slug}.com`;
+
+      // Determine status based on job status
+      let domainStatus: any = 'PENDING';
+      if (domainJob) {
+        if (domainJob.status === 'RUNNING') {
+          domainStatus = 'REGISTERING';
+        } else if (domainJob.status === 'FAILED') {
+          domainStatus = 'FAILED';
+        }
+      }
+
+      return {
+        id: `suggested-${site.id}`,
+        domain: suggestedDomain,
+        status: domainStatus,
+        registrar: 'cloudflare',
+        registeredAt: null,
+        expiresAt: null,
+        sslEnabled: false,
+        sslExpiresAt: null,
+        dnsConfigured: false,
+        cloudflareZoneId: null,
+        autoRenew: true,
+        registrationCost: 0,
+        siteName: site.name,
+        siteId: site.id,
+        isSuggested: true,
+      };
+    });
+
+    // Combine registered and suggested domains
+    const allDomainRecords = [...registeredDomains, ...suggestedDomains];
+
+    // Filter by status if requested
+    let filteredDomains = allDomainRecords;
+    if (status && status !== 'all') {
+      filteredDomains = allDomainRecords.filter((d) => d.status === status);
+    }
+
     // Calculate stats
     const allDomains = await prisma.domain.findMany();
     const stats = {
-      total: allDomains.length,
+      total: allDomains.length + suggestedDomains.length,
       active: allDomains.filter((d) => d.status === 'ACTIVE').length,
       pending: allDomains.filter((d) =>
-        ['REGISTERING', 'DNS_PENDING', 'SSL_PENDING'].includes(d.status)
-      ).length,
+        ['PENDING', 'REGISTERING', 'DNS_PENDING', 'SSL_PENDING'].includes(d.status)
+      ).length + suggestedDomains.filter((d) => d.status === 'PENDING' || d.status === 'REGISTERING').length,
       sslEnabled: allDomains.filter((d) => d.sslEnabled).length,
       expiringBoon: allDomains.filter((d) => {
         if (!d.expiresAt) return false;
@@ -47,20 +129,22 @@ export async function GET(request: Request) {
     };
 
     return NextResponse.json({
-      domains: domains.map((domain) => ({
+      domains: filteredDomains.map((domain: any) => ({
         id: domain.id,
-        domain: domain.domain,
+        domain: 'isSuggested' in domain ? domain.domain : domain.domain,
         status: domain.status,
         registrar: domain.registrar,
-        registeredAt: domain.registeredAt?.toISOString() || null,
-        expiresAt: domain.expiresAt?.toISOString() || null,
+        registeredAt: domain.registeredAt?.toISOString?.() || null,
+        expiresAt: domain.expiresAt?.toISOString?.() || null,
         sslEnabled: domain.sslEnabled,
-        sslExpiresAt: domain.sslExpiresAt?.toISOString() || null,
+        sslExpiresAt: domain.sslExpiresAt?.toISOString?.() || null,
         dnsConfigured: domain.dnsConfigured,
         cloudflareZoneId: domain.cloudflareZoneId,
         autoRenew: domain.autoRenew,
-        registrationCost: domain.registrationCost?.toNumber() || 0,
-        siteName: domain.site?.name || null,
+        registrationCost: domain.registrationCost?.toNumber?.() || domain.registrationCost || 0,
+        siteName: domain.site?.name || domain.siteName || null,
+        siteId: domain.site?.id || domain.siteId || null,
+        isSuggested: 'isSuggested' in domain ? domain.isSuggested : false,
       })),
       stats,
     });
@@ -76,6 +160,102 @@ export async function POST(request: Request) {
     const { action, domain, siteId, registrar = 'cloudflare', autoRenew = true } = body;
 
     const { addJob } = await import('@experience-marketplace/jobs');
+
+    // Action: Sync domains from Cloudflare Registrar
+    if (action === 'syncFromCloudflare') {
+      const apiKey = process.env['CLOUDFLARE_API_KEY'];
+      const email = process.env['CLOUDFLARE_EMAIL'];
+      const accountId = process.env['CLOUDFLARE_ACCOUNT_ID'];
+
+      if (!apiKey || !email || !accountId) {
+        return NextResponse.json({ error: 'Cloudflare credentials not configured' }, { status: 500 });
+      }
+
+      // Fetch domains from Cloudflare Registrar
+      const response = await fetch(
+        `https://api.cloudflare.com/client/v4/accounts/${accountId}/registrar/domains`,
+        {
+          headers: {
+            'X-Auth-Email': email,
+            'X-Auth-Key': apiKey,
+          },
+        }
+      );
+
+      const data = await response.json();
+      if (!data.success) {
+        return NextResponse.json({ error: 'Failed to fetch from Cloudflare', details: data.errors }, { status: 500 });
+      }
+
+      const cloudflareDomainsData = data.result as Array<{
+        name: string;
+        registered_at: string;
+        expires_at: string;
+        auto_renew: boolean;
+        locked: boolean;
+      }>;
+
+      // Get all sites to match domains
+      const sites = await prisma.site.findMany({
+        select: { id: true, slug: true, name: true },
+      });
+
+      const synced = [];
+      const unmatched = [];
+
+      for (const cfDomain of cloudflareDomainsData) {
+        // Try to match domain to site by slug
+        // e.g., london-food-tours.com -> london-food-tours
+        const domainSlug = cfDomain.name.replace(/\.(com|net|org|co|io|dev|app)$/i, '');
+        const matchingSite = sites.find(s => s.slug === domainSlug);
+
+        if (matchingSite) {
+          // Check if domain already exists in DB
+          const existingDomain = await prisma.domain.findFirst({
+            where: { domain: cfDomain.name },
+          });
+
+          if (existingDomain) {
+            // Update existing domain
+            await prisma.domain.update({
+              where: { id: existingDomain.id },
+              data: {
+                status: 'DNS_PENDING',
+                registeredAt: new Date(cfDomain.registered_at),
+                expiresAt: new Date(cfDomain.expires_at),
+                autoRenew: cfDomain.auto_renew,
+                siteId: matchingSite.id,
+              },
+            });
+            synced.push({ domain: cfDomain.name, site: matchingSite.name, action: 'updated' });
+          } else {
+            // Create new domain record
+            await prisma.domain.create({
+              data: {
+                domain: cfDomain.name,
+                status: 'DNS_PENDING',
+                registrar: 'cloudflare',
+                registeredAt: new Date(cfDomain.registered_at),
+                expiresAt: new Date(cfDomain.expires_at),
+                autoRenew: cfDomain.auto_renew,
+                registrationCost: 9.77, // Cloudflare at-cost .com pricing
+                siteId: matchingSite.id,
+              },
+            });
+            synced.push({ domain: cfDomain.name, site: matchingSite.name, action: 'created' });
+          }
+        } else {
+          unmatched.push({ domain: cfDomain.name, suggestedSlug: domainSlug });
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: `Synced ${synced.length} domains from Cloudflare`,
+        synced,
+        unmatched,
+      });
+    }
 
     // Action: Queue domain registrations for all sites without domains
     if (action === 'queueMissing') {

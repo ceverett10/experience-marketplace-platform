@@ -3,8 +3,173 @@
  * Creates and manages the task roadmap for getting a site live
  */
 
-import { prisma, JobType } from '@experience-marketplace/database';
+import { prisma, JobType, DomainStatus, SiteStatus } from '@experience-marketplace/database';
 import { addJob } from '../queues/index.js';
+
+/**
+ * Process all sites' roadmaps autonomously
+ * This is called on a schedule to automatically progress sites through their lifecycle
+ */
+export async function processAllSiteRoadmaps(): Promise<{
+  sitesProcessed: number;
+  tasksQueued: number;
+  errors: string[];
+}> {
+  console.log('[Autonomous Roadmap] Starting automatic roadmap processing...');
+
+  // Find all sites that:
+  // 1. Are not paused (autonomousProcessesPaused = false)
+  // 2. Are not in a terminal state (ACTIVE status means fully launched)
+  const sites = await prisma.site.findMany({
+    where: {
+      autonomousProcessesPaused: false,
+      status: {
+        notIn: [SiteStatus.PAUSED], // Allow processing for all non-paused sites
+      },
+    },
+    select: {
+      id: true,
+      name: true,
+      status: true,
+    },
+  });
+
+  console.log(`[Autonomous Roadmap] Found ${sites.length} sites to process`);
+
+  let totalTasksQueued = 0;
+  const errors: string[] = [];
+
+  for (const site of sites) {
+    try {
+      const result = await executeNextTasks(site.id);
+
+      if (result.queued.length > 0) {
+        console.log(
+          `[Autonomous Roadmap] Site "${site.name}": Queued ${result.queued.length} task(s): ${result.queued.join(', ')}`
+        );
+        totalTasksQueued += result.queued.length;
+      }
+
+      if (result.requeued.length > 0) {
+        console.log(
+          `[Autonomous Roadmap] Site "${site.name}": Cleaned up ${result.requeued.length} invalid job(s)`
+        );
+      }
+    } catch (error) {
+      const errorMsg = `Site ${site.id} (${site.name}): ${error instanceof Error ? error.message : 'Unknown error'}`;
+      console.error(`[Autonomous Roadmap] Error:`, errorMsg);
+      errors.push(errorMsg);
+    }
+  }
+
+  console.log(
+    `[Autonomous Roadmap] Complete. Processed ${sites.length} sites, queued ${totalTasksQueued} tasks, ${errors.length} errors`
+  );
+
+  return {
+    sitesProcessed: sites.length,
+    tasksQueued: totalTasksQueued,
+    errors,
+  };
+}
+
+/**
+ * Artifact validation - verify that actual database artifacts exist for completed tasks
+ * This prevents showing tasks as "complete" when the job record exists but no actual work was done
+ */
+async function validateTaskArtifacts(
+  siteId: string
+): Promise<Record<JobType, { valid: boolean; reason?: string }>> {
+  // Fetch all relevant artifacts for the site
+  const [contentCount, domains, site] = await Promise.all([
+    prisma.content.count({ where: { siteId, isAiGenerated: true } }),
+    prisma.domain.findMany({ where: { siteId } }),
+    prisma.site.findUnique({
+      where: { id: siteId },
+      select: {
+        id: true,
+        primaryDomain: true,
+        gscVerified: true,
+        gscPropertyUrl: true,
+        gscLastSyncedAt: true,
+      },
+    }),
+  ]);
+
+  const activeDomains = domains.filter((d) => d.status === DomainStatus.ACTIVE);
+  const verifiedDomains = domains.filter((d) => d.verifiedAt !== null);
+  const sslEnabledDomains = domains.filter((d) => d.sslEnabled);
+  const gscConfigured = !!site?.gscPropertyUrl;
+  const gscVerified = !!site?.gscVerified;
+
+  return {
+    SITE_CREATE: {
+      valid: !!site,
+      reason: site ? undefined : 'Site record not found',
+    },
+    CONTENT_GENERATE: {
+      valid: contentCount > 0,
+      reason: contentCount > 0 ? undefined : 'No AI-generated content found',
+    },
+    CONTENT_OPTIMIZE: {
+      valid: contentCount > 0, // Optimized content replaces original
+      reason: contentCount > 0 ? undefined : 'No content to optimize',
+    },
+    CONTENT_REVIEW: {
+      valid: contentCount > 0,
+      reason: contentCount > 0 ? undefined : 'No content to review',
+    },
+    DOMAIN_REGISTER: {
+      valid: domains.length > 0,
+      reason: domains.length > 0 ? undefined : 'No domain registered for site',
+    },
+    DOMAIN_VERIFY: {
+      valid: verifiedDomains.length > 0,
+      reason: verifiedDomains.length > 0 ? undefined : 'No verified domains found',
+    },
+    SSL_PROVISION: {
+      valid: sslEnabledDomains.length > 0,
+      reason: sslEnabledDomains.length > 0 ? undefined : 'No domains with SSL enabled',
+    },
+    GSC_SETUP: {
+      valid: gscConfigured,
+      reason: gscConfigured ? undefined : 'No GSC property URL configured',
+    },
+    GSC_VERIFY: {
+      valid: gscVerified,
+      reason: gscVerified ? undefined : 'GSC not verified',
+    },
+    GSC_SYNC: {
+      valid: gscVerified, // Sync requires verified GSC
+      reason: gscVerified ? undefined : 'GSC not ready for sync',
+    },
+    SITE_DEPLOY: {
+      valid: !!site?.primaryDomain && activeDomains.length > 0,
+      reason:
+        site?.primaryDomain && activeDomains.length > 0
+          ? undefined
+          : 'Site not deployed (no active domain)',
+    },
+    SEO_ANALYZE: {
+      valid: true, // Analytics tasks don't create persistent artifacts
+    },
+    SEO_OPPORTUNITY_SCAN: {
+      valid: true,
+    },
+    METRICS_AGGREGATE: {
+      valid: true,
+    },
+    PERFORMANCE_REPORT: {
+      valid: true,
+    },
+    ABTEST_ANALYZE: {
+      valid: true,
+    },
+    ABTEST_REBALANCE: {
+      valid: true,
+    },
+  };
+}
 
 /**
  * Site lifecycle phases and their tasks
@@ -130,24 +295,44 @@ export async function initializeSiteRoadmap(siteId: string): Promise<void> {
 /**
  * Get the roadmap status for a site
  * Returns all tasks organized by phase with their current status
+ * IMPORTANT: Validates that actual artifacts exist before showing tasks as complete
  */
 export async function getSiteRoadmap(siteId: string) {
-  const jobs = await prisma.job.findMany({
-    where: { siteId },
-    orderBy: [{ priority: 'asc' }, { createdAt: 'asc' }],
-  });
+  const [jobs, artifactValidation] = await Promise.all([
+    prisma.job.findMany({
+      where: { siteId },
+      orderBy: [{ priority: 'asc' }, { createdAt: 'asc' }],
+    }),
+    validateTaskArtifacts(siteId),
+  ]);
 
   // Group jobs by phase
   const phases = Object.entries(SITE_LIFECYCLE_PHASES).map(([key, phase]) => {
     const phaseTasks = phase.tasks.map((taskType) => {
       const job = jobs.find((j) => j.type === taskType);
       const taskInfo = TASK_DESCRIPTIONS[taskType];
+      const validation = artifactValidation[taskType];
+
+      // Determine effective status:
+      // - If job says COMPLETED but artifact doesn't exist, mark as INVALID
+      // - This catches legacy jobs that were marked complete without actual work
+      let effectiveStatus = job?.status || 'PLANNED';
+      let validationError: string | undefined;
+
+      if (job?.status === 'COMPLETED' && !validation.valid) {
+        effectiveStatus = 'INVALID';
+        validationError = validation.reason;
+        console.warn(
+          `[Roadmap] Task ${taskType} marked COMPLETED but artifact validation failed: ${validation.reason}`
+        );
+      }
 
       return {
         type: taskType,
         label: taskInfo.label,
         description: taskInfo.description,
-        status: job?.status || 'PLANNED',
+        status: effectiveStatus,
+        validationError,
         job: job
           ? {
               id: job.id,
@@ -161,9 +346,11 @@ export async function getSiteRoadmap(siteId: string) {
       };
     });
 
-    // Calculate phase status
+    // Calculate phase status (INVALID counts as failed for phase calculation)
     const completedTasks = phaseTasks.filter((t) => t.status === 'COMPLETED').length;
-    const failedTasks = phaseTasks.filter((t) => t.status === 'FAILED').length;
+    const failedTasks = phaseTasks.filter(
+      (t) => t.status === 'FAILED' || t.status === 'INVALID'
+    ).length;
     const runningTasks = phaseTasks.filter((t) => t.status === 'RUNNING').length;
     const totalTasks = phaseTasks.length;
 
@@ -186,9 +373,10 @@ export async function getSiteRoadmap(siteId: string) {
     };
   });
 
-  // Calculate overall progress
+  // Calculate overall progress (only count truly completed tasks)
   const allTasks = phases.flatMap((p) => p.tasks);
   const completedCount = allTasks.filter((t) => t.status === 'COMPLETED').length;
+  const invalidCount = allTasks.filter((t) => t.status === 'INVALID').length;
   const totalCount = allTasks.length;
 
   return {
@@ -198,6 +386,7 @@ export async function getSiteRoadmap(siteId: string) {
       completed: completedCount,
       total: totalCount,
       percentage: Math.round((completedCount / totalCount) * 100),
+      invalidTasks: invalidCount,
     },
   };
 }
@@ -256,23 +445,35 @@ function getJobPayload(siteId: string, jobType: JobType): Record<string, unknown
 /**
  * Execute the next pending tasks for a site
  * Respects task dependencies and phase order
+ * Also re-queues tasks that are marked COMPLETED but have no artifacts
  */
 export async function executeNextTasks(siteId: string): Promise<{
   queued: string[];
   skipped: string[];
   blocked: string[];
+  requeued: string[];
   message: string;
 }> {
   console.log(`[Site Roadmap] Executing next tasks for site ${siteId}`);
 
-  // Get all jobs for this site
-  const jobs = await prisma.job.findMany({
-    where: { siteId },
-  });
+  // Get all jobs and validate artifacts
+  const [jobs, artifactValidation] = await Promise.all([
+    prisma.job.findMany({ where: { siteId } }),
+    validateTaskArtifacts(siteId),
+  ]);
 
+  // Build set of truly completed jobs (both status AND artifact exist)
   const completedJobs = new Set(
-    jobs.filter((j) => j.status === 'COMPLETED').map((j) => j.type)
+    jobs
+      .filter((j) => j.status === 'COMPLETED' && artifactValidation[j.type]?.valid)
+      .map((j) => j.type)
   );
+
+  // Jobs marked completed but without artifacts (need re-run)
+  const invalidCompletedJobs = jobs.filter(
+    (j) => j.status === 'COMPLETED' && !artifactValidation[j.type]?.valid
+  );
+
   const runningOrPendingJobs = new Set(
     jobs.filter((j) => ['RUNNING', 'PENDING', 'SCHEDULED'].includes(j.status)).map((j) => j.type)
   );
@@ -280,6 +481,16 @@ export async function executeNextTasks(siteId: string): Promise<{
   const queued: string[] = [];
   const skipped: string[] = [];
   const blocked: string[] = [];
+  const requeued: string[] = [];
+
+  // First, handle invalid completed jobs - delete them so they can be re-queued
+  for (const invalidJob of invalidCompletedJobs) {
+    console.log(
+      `[Site Roadmap] Found invalid completed job ${invalidJob.type} - artifact missing: ${artifactValidation[invalidJob.type]?.reason}`
+    );
+    await prisma.job.delete({ where: { id: invalidJob.id } });
+    requeued.push(`${invalidJob.type} (${artifactValidation[invalidJob.type]?.reason})`);
+  }
 
   // Define execution order (respecting phases)
   const executionOrder: JobType[] = [
@@ -298,7 +509,7 @@ export async function executeNextTasks(siteId: string): Promise<{
   ];
 
   for (const jobType of executionOrder) {
-    // Skip if already completed
+    // Skip if already completed (with valid artifact)
     if (completedJobs.has(jobType)) {
       skipped.push(jobType);
       continue;
@@ -310,7 +521,7 @@ export async function executeNextTasks(siteId: string): Promise<{
       continue;
     }
 
-    // Check dependencies
+    // Check dependencies (only against truly completed jobs with artifacts)
     const dependencies = TASK_DEPENDENCIES[jobType] || [];
     const unmetDependencies = dependencies.filter((dep) => !completedJobs.has(dep));
 
@@ -339,11 +550,20 @@ export async function executeNextTasks(siteId: string): Promise<{
     }
   }
 
-  const message = queued.length > 0
-    ? `Queued ${queued.length} task(s) for execution`
-    : blocked.length > 0
-    ? 'No tasks could be queued - check blocked tasks for dependencies'
-    : 'All tasks are already completed or in progress';
+  const messages: string[] = [];
+  if (requeued.length > 0) {
+    messages.push(`Cleaned up ${requeued.length} invalid job(s)`);
+  }
+  if (queued.length > 0) {
+    messages.push(`Queued ${queued.length} task(s) for execution`);
+  }
+  if (messages.length === 0) {
+    if (blocked.length > 0) {
+      messages.push('No tasks could be queued - check blocked tasks for dependencies');
+    } else {
+      messages.push('All tasks are already completed or in progress');
+    }
+  }
 
-  return { queued, skipped, blocked, message };
+  return { queued, skipped, blocked, requeued, message: messages.join('. ') };
 }

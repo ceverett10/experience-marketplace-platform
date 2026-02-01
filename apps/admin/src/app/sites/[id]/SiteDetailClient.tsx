@@ -124,7 +124,8 @@ interface RoadmapTask {
   type: string;
   label: string;
   description: string;
-  status: 'PLANNED' | 'PENDING' | 'SCHEDULED' | 'RUNNING' | 'COMPLETED' | 'FAILED';
+  status: 'PLANNED' | 'PENDING' | 'SCHEDULED' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'INVALID';
+  validationError?: string;
   job: {
     id: string;
     status: string;
@@ -155,6 +156,7 @@ interface Roadmap {
     completed: number;
     total: number;
     percentage: number;
+    invalidTasks?: number;
   };
 }
 
@@ -428,6 +430,21 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
                   />
                 </div>
 
+                {/* Invalid Tasks Warning */}
+                {roadmap.overall.invalidTasks && roadmap.overall.invalidTasks > 0 && (
+                  <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                    <div className="flex items-center gap-2 text-orange-700">
+                      <span className="text-lg">⚠</span>
+                      <span className="text-sm font-medium">
+                        {roadmap.overall.invalidTasks} task(s) marked complete but missing artifacts
+                      </span>
+                    </div>
+                    <p className="text-xs text-orange-600 mt-1 ml-7">
+                      Click "Execute Next Tasks" to clean up and re-queue these invalid jobs
+                    </p>
+                  </div>
+                )}
+
                 {/* Execute Tasks Button */}
                 {roadmap.overall.percentage < 100 && (
                   <div className="mt-4 pt-4 border-t border-slate-100">
@@ -441,9 +458,16 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
                           const result = await response.json();
 
                           if (response.ok) {
-                            // Show result
+                            // Show result with requeued info
+                            const messages: string[] = [];
+                            if (result.requeued?.length > 0) {
+                              messages.push(`Cleaned up ${result.requeued.length} invalid job(s) that will be re-run`);
+                            }
                             if (result.queued?.length > 0) {
-                              alert(`Queued ${result.queued.length} task(s): ${result.queued.join(', ')}`);
+                              messages.push(`Queued ${result.queued.length} task(s): ${result.queued.join(', ')}`);
+                            }
+                            if (messages.length > 0) {
+                              alert(messages.join('\n\n'));
                             } else {
                               alert(result.message || 'No tasks could be queued');
                             }
@@ -553,6 +577,7 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
                         RUNNING: 'text-yellow-600',
                         COMPLETED: 'text-green-600',
                         FAILED: 'text-red-600',
+                        INVALID: 'text-orange-600',
                       };
 
                       const taskStatusBadges: Record<string, string> = {
@@ -562,6 +587,7 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
                         RUNNING: 'bg-yellow-100 text-yellow-800 animate-pulse',
                         COMPLETED: 'bg-green-100 text-green-800',
                         FAILED: 'bg-red-100 text-red-800',
+                        INVALID: 'bg-orange-100 text-orange-800',
                       };
 
                       const taskStatusIcons: Record<string, string> = {
@@ -571,7 +597,12 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
                         RUNNING: '◕',
                         COMPLETED: '●',
                         FAILED: '✗',
+                        INVALID: '⚠',
                       };
+
+                      const statusLabel = task.status === 'PLANNED' ? 'Planned'
+                        : task.status === 'INVALID' ? 'Needs Re-run'
+                        : task.status;
 
                       return (
                         <div key={task.type} className="px-4 py-3 flex items-center gap-4">
@@ -582,12 +613,17 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
                             <div className="flex items-center gap-2">
                               <span className="font-medium text-slate-900">{task.label}</span>
                               <span className={`text-xs px-2 py-0.5 rounded ${taskStatusBadges[task.status]}`}>
-                                {task.status === 'PLANNED' ? 'Planned' : task.status}
+                                {statusLabel}
                               </span>
                             </div>
                             <p className="text-sm text-slate-500">{task.description}</p>
                             {task.job?.error && task.status === 'FAILED' && (
                               <p className="text-xs text-red-600 mt-1">{task.job.error}</p>
+                            )}
+                            {task.validationError && task.status === 'INVALID' && (
+                              <p className="text-xs text-orange-600 mt-1">
+                                Job marked complete but artifact missing: {task.validationError}
+                              </p>
                             )}
                           </div>
                           {task.job?.completedAt && task.status === 'COMPLETED' && (

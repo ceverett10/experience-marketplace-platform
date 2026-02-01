@@ -24,6 +24,8 @@ interface Domain {
   autoRenew: boolean;
   registrationCost: number;
   siteName: string | null;
+  siteId: string | null;
+  isSuggested?: boolean;
 }
 
 interface Stats {
@@ -51,10 +53,10 @@ export default function DomainsPage() {
     const fetchDomains = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`/admin/api/domains?status=${statusFilter}`);
+        const response = await fetch(`/api/domains?status=${statusFilter}`);
         const data = await response.json();
-        setDomains(data.domains);
-        setStats(data.stats);
+        setDomains(data.domains || []);
+        setStats(data.stats || { total: 0, active: 0, pending: 0, sslEnabled: 0, expiringBoon: 0 });
       } catch (error) {
         console.error('Failed to fetch domains:', error);
       } finally {
@@ -189,6 +191,11 @@ export default function DomainsPage() {
                     <div className="flex items-center gap-3 mb-2">
                       <h3 className="text-lg font-semibold text-slate-900">{domain.domain}</h3>
                       {getStatusBadge(domain.status)}
+                      {domain.isSuggested && (
+                        <span className="text-xs px-2 py-1 bg-amber-100 text-amber-800 rounded font-medium">
+                          Suggested
+                        </span>
+                      )}
                     </div>
                     {domain.siteName && (
                       <p className="text-sm text-slate-600">Site: {domain.siteName}</p>

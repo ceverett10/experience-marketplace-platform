@@ -29,6 +29,7 @@ import {
   handlePerformanceReport,
   handleABTestAnalyze,
   handleABTestRebalance,
+  processAllSiteRoadmaps,
 } from '@experience-marketplace/jobs';
 import { prisma, JobStatus } from '@experience-marketplace/database';
 import type { JobType } from '@experience-marketplace/database';
@@ -316,11 +317,53 @@ async function setupScheduledJobs() {
   }
 }
 
+// Autonomous roadmap processing interval (in milliseconds)
+// Process all site roadmaps every 5 minutes to automatically progress tasks
+const ROADMAP_PROCESS_INTERVAL = 5 * 60 * 1000; // 5 minutes
+let roadmapProcessorInterval: NodeJS.Timeout | null = null;
+
+async function startAutonomousRoadmapProcessor() {
+  console.log(`\n🤖 Starting autonomous roadmap processor (every ${ROADMAP_PROCESS_INTERVAL / 60000} minutes)`);
+
+  // Run immediately on startup
+  try {
+    const result = await processAllSiteRoadmaps();
+    console.log(
+      `   Initial run: ${result.sitesProcessed} sites processed, ${result.tasksQueued} tasks queued`
+    );
+  } catch (error) {
+    console.error('   Initial roadmap processing failed:', error);
+  }
+
+  // Then run on interval
+  roadmapProcessorInterval = setInterval(async () => {
+    try {
+      const result = await processAllSiteRoadmaps();
+      if (result.tasksQueued > 0 || result.errors.length > 0) {
+        console.log(
+          `[Autonomous] Processed ${result.sitesProcessed} sites, queued ${result.tasksQueued} tasks` +
+            (result.errors.length > 0 ? `, ${result.errors.length} errors` : '')
+        );
+      }
+    } catch (error) {
+      console.error('[Autonomous] Roadmap processing error:', error);
+    }
+  }, ROADMAP_PROCESS_INTERVAL);
+
+  console.log('   ✓ Autonomous roadmap processor started\n');
+}
+
 // Graceful shutdown
 async function shutdown(signal: string) {
   console.log(`\n${signal} received, shutting down gracefully...`);
 
   try {
+    // Stop autonomous roadmap processor
+    if (roadmapProcessorInterval) {
+      clearInterval(roadmapProcessorInterval);
+      console.log('✓ Autonomous roadmap processor stopped');
+    }
+
     await Promise.all(workers.map((w) => w.close()));
     await connection.quit();
     console.log('✓ All workers closed');
@@ -345,9 +388,10 @@ console.log('  ✓ Analytics Worker (metrics aggregation, reports)');
 console.log('  ✓ A/B Test Worker (test analysis, rebalancing)');
 console.log('');
 
-// Set up scheduled jobs after a short delay to ensure workers are ready
-setTimeout(() => {
-  setupScheduledJobs().catch(console.error);
+// Set up scheduled jobs and autonomous processor after a short delay to ensure workers are ready
+setTimeout(async () => {
+  await setupScheduledJobs().catch(console.error);
+  await startAutonomousRoadmapProcessor().catch(console.error);
 }, 2000);
 
 console.log('🎯 Demand Generation Service is running and ready to process jobs\n');
