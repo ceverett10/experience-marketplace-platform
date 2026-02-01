@@ -1,8 +1,10 @@
 import SiteDetailClient from './SiteDetailClient';
 
-// Required for dynamic routes with App Router
+// Force dynamic rendering - this page fetches data at runtime
+export const dynamic = 'force-dynamic';
+
+// Required for static export - return empty so no pages are pre-rendered
 export function generateStaticParams() {
-  // Return empty array - pages are fetched dynamically at runtime
   return [];
 }
 
