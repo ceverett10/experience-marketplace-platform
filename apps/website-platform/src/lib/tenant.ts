@@ -113,6 +113,8 @@ export async function getSiteFromHostname(hostname: string): Promise<SiteConfig>
   // Remove port and www prefix for matching
   const cleanHostname = hostname.split(':')[0]?.replace(/^www\./, '') ?? hostname;
 
+  console.log('[Tenant] Looking up site for hostname:', hostname, 'cleaned:', cleanHostname);
+
   // Development: localhost or preview deployments
   if (
     cleanHostname === 'localhost' ||
@@ -120,11 +122,13 @@ export async function getSiteFromHostname(hostname: string): Promise<SiteConfig>
     cleanHostname.includes('.vercel.app') ||
     cleanHostname.includes('.herokuapp.com')
   ) {
+    console.log('[Tenant] Returning default config for development/preview hostname');
     return DEFAULT_SITE_CONFIG;
   }
 
   // In production, query the database for site by domain
   try {
+    console.log('[Tenant] Attempting database lookup for domain:', cleanHostname);
     const { prisma } = await import('@experience-marketplace/database');
 
     // Find domain and its associated site
@@ -139,7 +143,10 @@ export async function getSiteFromHostname(hostname: string): Promise<SiteConfig>
       },
     });
 
+    console.log('[Tenant] Domain lookup result:', domain ? { id: domain.id, domain: domain.domain, hasSite: !!domain.site } : 'not found');
+
     if (domain?.site) {
+      console.log('[Tenant] Found site:', domain.site.name, domain.site.slug);
       return mapSiteToConfig(domain.site as Site & { brand: Brand | null });
     }
 
