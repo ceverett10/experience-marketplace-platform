@@ -184,22 +184,6 @@ export default async function CategoryPage({ params }: Props) {
   );
 }
 
-/**
- * Generate static params for all published category pages
- */
-export async function generateStaticParams() {
-  const categories = await prisma.page.findMany({
-    where: {
-      type: 'CATEGORY',
-      status: 'PUBLISHED',
-    },
-    select: {
-      slug: true,
-    },
-    take: 100,
-  });
-
-  return categories.map((category) => ({
-    slug: category.slug,
-  }));
-}
+// Dynamic rendering - pages generated on-demand
+// Static generation removed as it requires database access at build time
+export const dynamic = 'force-dynamic';

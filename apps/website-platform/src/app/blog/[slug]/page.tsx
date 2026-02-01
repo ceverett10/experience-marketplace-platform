@@ -147,24 +147,6 @@ export default async function BlogPostPage({ params }: Props) {
   );
 }
 
-/**
- * Generate static params for all published blog posts
- * This enables static generation at build time
- */
-export async function generateStaticParams() {
-  // Fetch all published blog posts across all sites
-  const posts = await prisma.page.findMany({
-    where: {
-      type: 'BLOG',
-      status: 'PUBLISHED',
-    },
-    select: {
-      slug: true,
-    },
-    take: 100, // Limit for initial build
-  });
-
-  return posts.map((post) => ({
-    slug: post.slug,
-  }));
-}
+// Dynamic rendering - pages generated on-demand
+// Static generation removed as it requires database access at build time
+export const dynamic = 'force-dynamic';

@@ -187,22 +187,6 @@ export default async function DestinationPage({ params }: Props) {
   );
 }
 
-/**
- * Generate static params for all published destination pages
- */
-export async function generateStaticParams() {
-  const destinations = await prisma.page.findMany({
-    where: {
-      type: 'LANDING',
-      status: 'PUBLISHED',
-    },
-    select: {
-      slug: true,
-    },
-    take: 100,
-  });
-
-  return destinations.map((destination) => ({
-    slug: destination.slug,
-  }));
-}
+// Dynamic rendering - pages generated on-demand
+// Static generation removed as it requires database access at build time
+export const dynamic = 'force-dynamic';
