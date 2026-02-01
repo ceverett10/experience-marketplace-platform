@@ -48,16 +48,17 @@ export default function OpportunitiesPage() {
   const [sortBy, setSortBy] = useState<'score' | 'volume' | 'created'>('score');
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
+  const [scanMessage, setScanMessage] = useState<string | null>(null);
 
   // Fetch opportunities from API
   useEffect(() => {
     const fetchOpportunities = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`/api/opportunities?status=${statusFilter}`);
+        const response = await fetch(`/admin/api/opportunities?status=${statusFilter}`);
         const data = await response.json();
-        setOpportunities(data.opportunities);
-        setStats(data.stats);
+        setOpportunities(data.opportunities || []);
+        setStats(data.stats || { total: 0, identified: 0, evaluated: 0, assigned: 0, highPriority: 0 });
       } catch (error) {
         console.error('Failed to fetch opportunities:', error);
       } finally {
@@ -70,7 +71,7 @@ export default function OpportunitiesPage() {
 
   const handleAction = async (opportunityId: string, action: 'dismiss' | 'create-site') => {
     try {
-      const response = await fetch('/api/opportunities', {
+      const response = await fetch('/admin/api/opportunities', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ opportunityId, action }),
@@ -78,9 +79,9 @@ export default function OpportunitiesPage() {
 
       if (response.ok) {
         // Refresh opportunities
-        const data = await fetch(`/api/opportunities?status=${statusFilter}`).then((r) => r.json());
-        setOpportunities(data.opportunities);
-        setStats(data.stats);
+        const data = await fetch(`/admin/api/opportunities?status=${statusFilter}`).then((r) => r.json());
+        setOpportunities(data.opportunities || []);
+        setStats(data.stats || { total: 0, identified: 0, evaluated: 0, assigned: 0, highPriority: 0 });
       }
     } catch (error) {
       console.error('Failed to perform action:', error);
@@ -90,7 +91,8 @@ export default function OpportunitiesPage() {
   const handleRunScan = async () => {
     try {
       setScanning(true);
-      const response = await fetch('/api/opportunities', {
+      setScanMessage('Starting scan...');
+      const response = await fetch('/admin/api/opportunities', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'start-scan' }),
@@ -99,19 +101,41 @@ export default function OpportunitiesPage() {
       if (response.ok) {
         const result = await response.json();
         console.log('Scan started:', result);
-        // Refresh opportunities after a delay to allow scan to process
-        setTimeout(async () => {
-          const data = await fetch(`/api/opportunities?status=${statusFilter}`).then((r) => r.json());
-          setOpportunities(data.opportunities);
-          setStats(data.stats);
-          setScanning(false);
-        }, 3000);
+        setScanMessage(`Scan job queued (ID: ${result.jobId}). Checking for results...`);
+
+        // Poll for results every 5 seconds for up to 60 seconds
+        let attempts = 0;
+        const maxAttempts = 12;
+        const pollInterval = setInterval(async () => {
+          attempts++;
+          try {
+            const data = await fetch(`/admin/api/opportunities?status=${statusFilter}`).then((r) => r.json());
+            setOpportunities(data.opportunities || []);
+            setStats(data.stats || { total: 0, identified: 0, evaluated: 0, assigned: 0, highPriority: 0 });
+
+            if (attempts >= maxAttempts) {
+              clearInterval(pollInterval);
+              setScanning(false);
+              setScanMessage('Scan complete. Results updated.');
+              setTimeout(() => setScanMessage(null), 5000);
+            } else {
+              setScanMessage(`Scan in progress... (${attempts * 5}s elapsed)`);
+            }
+          } catch (err) {
+            console.error('Error polling for results:', err);
+          }
+        }, 5000);
       } else {
+        const errorData = await response.json().catch(() => ({}));
+        setScanMessage(`Failed to start scan: ${errorData.error || 'Unknown error'}`);
         setScanning(false);
+        setTimeout(() => setScanMessage(null), 5000);
       }
     } catch (error) {
       console.error('Failed to start scan:', error);
+      setScanMessage('Failed to start scan. Please try again.');
       setScanning(false);
+      setTimeout(() => setScanMessage(null), 5000);
     }
   };
 
@@ -187,6 +211,21 @@ export default function OpportunitiesPage() {
           {scanning ? 'Scanning...' : 'Run Scan'}
         </button>
       </div>
+
+      {/* Scan status message */}
+      {scanMessage && (
+        <div className={`p-4 rounded-lg ${scanning ? 'bg-sky-50 border border-sky-200' : 'bg-green-50 border border-green-200'}`}>
+          <div className="flex items-center gap-2">
+            {scanning && (
+              <svg className="animate-spin h-4 w-4 text-sky-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            )}
+            <span className={`text-sm ${scanning ? 'text-sky-700' : 'text-green-700'}`}>{scanMessage}</span>
+          </div>
+        </div>
+      )}
 
       {/* Stats cards */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
