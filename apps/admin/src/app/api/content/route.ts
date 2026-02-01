@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { PageStatus, PageType } from '@prisma/client';
+import { addJob } from '@experience-marketplace/jobs';
 
 export async function GET(): Promise<NextResponse> {
   try {
@@ -42,6 +43,8 @@ export async function GET(): Promise<NextResponse> {
         type: mapPageTypeToContentType(page.type),
         title: page.title,
         content: page.content?.body || '',
+        contentId: page.contentId, // Include for debugging - null means no content record exists
+        hasContent: !!page.content?.body,
         siteName: page.site.name,
         status: mapPageStatusToContentStatus(page.status),
         qualityScore: page.content?.qualityScore ?? 0,
@@ -114,15 +117,35 @@ export async function PUT(request: Request): Promise<NextResponse> {
       });
     }
 
-    // Update content body if provided and content exists
-    if (content !== undefined && page.contentId) {
-      await prisma.content.update({
-        where: { id: page.contentId },
-        data: {
-          body: content,
-          isAiGenerated: false, // Mark as manually edited
-        },
-      });
+    // Update or create content body if provided
+    if (content !== undefined) {
+      if (page.contentId) {
+        // Update existing content
+        await prisma.content.update({
+          where: { id: page.contentId },
+          data: {
+            body: content,
+            isAiGenerated: false, // Mark as manually edited
+          },
+        });
+      } else {
+        // Create new content and link to page
+        const newContent = await prisma.content.create({
+          data: {
+            siteId: page.siteId,
+            body: content,
+            bodyFormat: 'MARKDOWN',
+            isAiGenerated: false,
+            qualityScore: 0,
+            version: 1,
+          },
+        });
+        // Link content to page
+        await prisma.page.update({
+          where: { id },
+          data: { contentId: newContent.id },
+        });
+      }
     }
 
     // Fetch updated page data
@@ -143,6 +166,8 @@ export async function PUT(request: Request): Promise<NextResponse> {
       id: updatedPage.id,
       title: updatedPage.title,
       content: updatedPage.content?.body || '',
+      contentId: updatedPage.contentId,
+      hasContent: !!updatedPage.content?.body,
       siteName: updatedPage.site.name,
       status: mapPageStatusToContentStatus(updatedPage.status),
       qualityScore: updatedPage.content?.qualityScore ?? 0,
@@ -204,5 +229,95 @@ function mapContentStatusToPageStatus(contentStatus: string): PageStatus {
       return PageStatus.ARCHIVED;
     default:
       return PageStatus.DRAFT;
+  }
+}
+
+// Map PageType to content generation type
+function mapPageTypeToGenerationType(
+  pageType: PageType
+): 'destination' | 'experience' | 'category' | 'blog' {
+  switch (pageType) {
+    case PageType.PRODUCT:
+      return 'experience';
+    case PageType.CATEGORY:
+      return 'category';
+    case PageType.BLOG:
+      return 'blog';
+    default:
+      return 'destination';
+  }
+}
+
+export async function POST(request: Request): Promise<NextResponse> {
+  try {
+    const body = await request.json();
+    const { action, pageIds } = body;
+
+    if (action === 'generate') {
+      // Find pages without content or specific pages to regenerate
+      let pagesToGenerate;
+
+      if (pageIds && pageIds.length > 0) {
+        // Generate content for specific pages
+        pagesToGenerate = await prisma.page.findMany({
+          where: {
+            id: { in: pageIds },
+          },
+          include: {
+            site: true,
+          },
+        });
+      } else {
+        // Find all pages without content
+        pagesToGenerate = await prisma.page.findMany({
+          where: {
+            OR: [{ contentId: null }, { content: { body: '' } }],
+          },
+          include: {
+            site: true,
+          },
+        });
+      }
+
+      if (pagesToGenerate.length === 0) {
+        return NextResponse.json({
+          success: true,
+          message: 'No pages need content generation',
+          jobsQueued: 0,
+        });
+      }
+
+      // Queue content generation jobs for each page
+      const queuedJobs = [];
+      for (const page of pagesToGenerate) {
+        try {
+          await addJob('CONTENT_GENERATE', {
+            siteId: page.siteId,
+            contentType: mapPageTypeToGenerationType(page.type),
+            targetKeyword: page.title,
+            secondaryKeywords: [],
+          });
+          queuedJobs.push({
+            pageId: page.id,
+            title: page.title,
+            siteName: page.site.name,
+          });
+        } catch (err) {
+          console.error(`[API] Failed to queue job for page ${page.id}:`, err);
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: `Queued ${queuedJobs.length} content generation jobs`,
+        jobsQueued: queuedJobs.length,
+        pages: queuedJobs,
+      });
+    }
+
+    return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
+  } catch (error) {
+    console.error('[API] Error in content POST:', error);
+    return NextResponse.json({ error: 'Failed to process request' }, { status: 500 });
   }
 }

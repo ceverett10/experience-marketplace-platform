@@ -22,7 +22,7 @@ interface Domain {
   domain: string;
   status: string;
   verifiedAt: string | null;
-  sslStatus: string;
+  sslEnabled: boolean;
 }
 
 interface Page {
@@ -561,7 +561,7 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
                       <div>
                         <h3 className="font-medium text-slate-900">{domain.domain}</h3>
                         <p className="text-sm text-slate-500">
-                          SSL: {domain.sslStatus || 'Not configured'}
+                          SSL: {domain.sslEnabled ? 'Enabled' : 'Not configured'}
                           {domain.verifiedAt && ` • Verified ${formatDate(domain.verifiedAt)}`}
                         </p>
                       </div>

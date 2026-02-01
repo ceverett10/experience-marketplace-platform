@@ -97,7 +97,7 @@ export async function GET(
           domain: d.domain,
           status: d.status,
           verifiedAt: d.verifiedAt?.toISOString() || null,
-          sslStatus: d.sslStatus,
+          sslEnabled: d.sslEnabled,
         })),
         pages: site.pages.map((p) => ({
           id: p.id,

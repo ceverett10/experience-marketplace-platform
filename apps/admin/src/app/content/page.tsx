@@ -8,6 +8,8 @@ interface ContentItem {
   type: 'experience' | 'collection' | 'seo' | 'blog';
   title: string;
   content: string;
+  contentId: string | null;
+  hasContent: boolean;
   siteName: string;
   status: 'pending' | 'approved' | 'rejected' | 'published';
   qualityScore: number;
@@ -26,6 +28,7 @@ export default function AdminContentPage() {
   const [editTitle, setEditTitle] = useState('');
   const [editContent, setEditContent] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   // Fetch content from API
   useEffect(() => {
@@ -152,14 +155,28 @@ export default function AdminContentPage() {
       setContent((prev) =>
         prev.map((item) =>
           item.id === selectedContent.id
-            ? { ...item, title: updatedItem.title, content: updatedItem.content }
+            ? {
+                ...item,
+                title: updatedItem.title,
+                content: updatedItem.content,
+                contentId: updatedItem.contentId,
+                hasContent: updatedItem.hasContent,
+              }
             : item
         )
       );
 
       // Update selected content
       setSelectedContent((prev) =>
-        prev ? { ...prev, title: updatedItem.title, content: updatedItem.content } : null
+        prev
+          ? {
+              ...prev,
+              title: updatedItem.title,
+              content: updatedItem.content,
+              contentId: updatedItem.contentId,
+              hasContent: updatedItem.hasContent,
+            }
+          : null
       );
 
       setIsEditing(false);
@@ -176,6 +193,29 @@ export default function AdminContentPage() {
     setIsEditing(false);
     setEditTitle('');
     setEditContent('');
+  };
+
+  const generateMissingContent = async () => {
+    try {
+      setIsGenerating(true);
+      const response = await fetch('/admin/api/content', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'generate' }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate content');
+      }
+
+      const result = await response.json();
+      alert(`${result.message}\n\nContent generation jobs have been queued. Check the Queues page to monitor progress.`);
+    } catch (err) {
+      console.error('Error generating content:', err);
+      alert('Failed to queue content generation. Please try again.');
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const getStatusBadge = (status: ContentItem['status']) => {
@@ -330,9 +370,18 @@ export default function AdminContentPage() {
                   </div>
 
                   <div className="prose prose-slate max-w-none">
-                    <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">
-                      {selectedContent.content}
-                    </p>
+                    {selectedContent.hasContent ? (
+                      <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">
+                        {selectedContent.content}
+                      </p>
+                    ) : (
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-center">
+                        <p className="text-amber-800 font-medium">No content generated yet</p>
+                        <p className="text-amber-600 text-sm mt-1">
+                          This page doesn&apos;t have content. Click &quot;Edit&quot; to add content manually.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </>
               )}
@@ -398,6 +447,13 @@ export default function AdminContentPage() {
           <h1 className="text-2xl font-bold text-slate-900">Content Management</h1>
           <p className="text-slate-500 mt-1">Review and manage AI-generated content</p>
         </div>
+        <Button
+          onClick={generateMissingContent}
+          disabled={isGenerating}
+          className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-lg font-medium disabled:opacity-50"
+        >
+          {isGenerating ? 'Queuing...' : 'Generate Missing Content'}
+        </Button>
       </div>
 
       {/* Stats cards */}
