@@ -10,11 +10,13 @@ export function createRedisConnection(): IORedis {
   const redisUrl =
     process.env['REDIS_URL'] || process.env['REDIS_TLS_URL'] || 'redis://localhost:6379';
 
+  const usesTls = redisUrl.includes('rediss://');
+
   return new IORedis(redisUrl, {
     maxRetriesPerRequest: null,
     enableReadyCheck: false,
-    // Heroku Redis requires TLS
-    tls: redisUrl.includes('rediss://') ? {} : undefined,
+    // Heroku Redis requires TLS with self-signed certificate support
+    tls: usesTls ? { rejectUnauthorized: false } : undefined,
   });
 }
 

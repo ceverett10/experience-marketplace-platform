@@ -47,6 +47,7 @@ export default function OpportunitiesPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'score' | 'volume' | 'created'>('score');
   const [loading, setLoading] = useState(true);
+  const [scanning, setScanning] = useState(false);
 
   // Fetch opportunities from API
   useEffect(() => {
@@ -83,6 +84,34 @@ export default function OpportunitiesPage() {
       }
     } catch (error) {
       console.error('Failed to perform action:', error);
+    }
+  };
+
+  const handleRunScan = async () => {
+    try {
+      setScanning(true);
+      const response = await fetch('/api/opportunities', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'start-scan' }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Scan started:', result);
+        // Refresh opportunities after a delay to allow scan to process
+        setTimeout(async () => {
+          const data = await fetch(`/api/opportunities?status=${statusFilter}`).then((r) => r.json());
+          setOpportunities(data.opportunities);
+          setStats(data.stats);
+          setScanning(false);
+        }, 3000);
+      } else {
+        setScanning(false);
+      }
+    } catch (error) {
+      console.error('Failed to start scan:', error);
+      setScanning(false);
     }
   };
 
@@ -150,8 +179,12 @@ export default function OpportunitiesPage() {
             Keyword research results from DataForSEO integration
           </p>
         </div>
-        <button className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-sm font-medium transition-colors">
-          Run Scan
+        <button
+          onClick={handleRunScan}
+          disabled={scanning}
+          className="px-4 py-2 bg-sky-600 hover:bg-sky-700 disabled:bg-sky-400 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors"
+        >
+          {scanning ? 'Scanning...' : 'Run Scan'}
         </button>
       </div>
 

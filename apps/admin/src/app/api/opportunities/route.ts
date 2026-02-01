@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { addJob } from '@experience-marketplace/jobs';
 
 export async function GET(request: Request) {
   try {
@@ -66,7 +67,22 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { opportunityId, action } = body;
+    const { opportunityId, action, destinations, categories } = body;
+
+    if (action === 'start-scan') {
+      // Trigger an SEO opportunity scan job
+      const jobId = await addJob('SEO_OPPORTUNITY_SCAN', {
+        destinations,
+        categories,
+        forceRescan: true,
+      });
+
+      return NextResponse.json({
+        success: true,
+        jobId,
+        message: 'Opportunity scan started'
+      });
+    }
 
     if (action === 'dismiss') {
       await prisma.sEOOpportunity.update({
