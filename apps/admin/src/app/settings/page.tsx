@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Card,
   CardHeader,
@@ -76,6 +76,37 @@ export default function AdminSettingsPage() {
     maxOpportunityScansPerDay: 50,
   });
   const [pauseLoading, setPauseLoading] = useState(false);
+
+  // Load autonomous settings on mount
+  useEffect(() => {
+    const loadAutonomousSettings = async () => {
+      try {
+        const response = await fetch('/api/settings/autonomous');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.settings) {
+            setAutonomousState({
+              allProcessesPaused: data.settings.allProcessesPaused,
+              enableSiteCreation: data.settings.enableSiteCreation,
+              enableContentGeneration: data.settings.enableContentGeneration,
+              enableGSCVerification: data.settings.enableGSCVerification,
+              enableContentOptimization: data.settings.enableContentOptimization,
+              enableABTesting: data.settings.enableABTesting,
+              maxTotalSites: data.settings.maxTotalSites,
+              maxSitesPerHour: data.settings.maxSitesPerHour,
+              maxContentPagesPerHour: data.settings.maxContentPagesPerHour,
+              maxGSCRequestsPerHour: data.settings.maxGSCRequestsPerHour,
+              maxOpportunityScansPerDay: data.settings.maxOpportunityScansPerDay,
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load autonomous settings:', error);
+      }
+    };
+
+    loadAutonomousSettings();
+  }, []);
 
   const handleSave = async () => {
     await new Promise((resolve) => setTimeout(resolve, 500));

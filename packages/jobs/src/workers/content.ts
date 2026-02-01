@@ -16,6 +16,7 @@ import {
 } from '../errors';
 import { errorTracking } from '../errors/tracking';
 import { circuitBreakers } from '../errors/circuit-breaker';
+import { canExecuteAutonomousOperation } from '../services/pause-control';
 
 /**
  * Content Generation Worker
@@ -35,6 +36,23 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
 
   try {
     console.log(`[Content Generate] Starting for site ${siteId}, keyword: ${targetKeyword}`);
+
+    // Check if autonomous content generation is allowed
+    const canProceed = await canExecuteAutonomousOperation({
+      siteId,
+      feature: 'enableContentGeneration',
+      rateLimitType: 'CONTENT_GENERATE',
+    });
+
+    if (!canProceed.allowed) {
+      console.log(`[Content Generate] Skipping - ${canProceed.reason}`);
+      return {
+        success: false,
+        error: canProceed.reason || 'Content generation is paused',
+        errorCategory: 'paused',
+        timestamp: new Date(),
+      };
+    }
 
     // Verify site exists
     const site = await prisma.site.findUnique({ where: { id: siteId } });
@@ -194,6 +212,22 @@ export async function handleContentOptimize(job: Job<ContentOptimizePayload>): P
 
   try {
     console.log(`[Content Optimize] Optimizing content ${contentId} for reason: ${reason}`);
+
+    // Check if autonomous content optimization is allowed
+    const canProceed = await canExecuteAutonomousOperation({
+      siteId,
+      feature: 'enableContentOptimization',
+    });
+
+    if (!canProceed.allowed) {
+      console.log(`[Content Optimize] Skipping - ${canProceed.reason}`);
+      return {
+        success: false,
+        error: canProceed.reason || 'Content optimization is paused',
+        errorCategory: 'paused',
+        timestamp: new Date(),
+      };
+    }
 
     // Get current content
     const content = await prisma.content.findUnique({
