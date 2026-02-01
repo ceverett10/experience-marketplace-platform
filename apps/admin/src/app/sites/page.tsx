@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent } from '@experience-marketplace/ui-components';
 
 interface Brand {
@@ -42,6 +43,7 @@ interface Stats {
 }
 
 export default function SitesPage() {
+  const router = useRouter();
   const [sites, setSites] = useState<Site[]>([]);
   const [stats, setStats] = useState<Stats>({
     totalSites: 0,
@@ -315,10 +317,16 @@ export default function SitesPage() {
 
               {/* Actions */}
               <div className="flex items-center gap-2">
-                <button className="flex-1 px-3 py-2 border border-slate-200 hover:bg-slate-50 rounded-lg text-sm font-medium transition-colors">
+                <button
+                  onClick={() => router.push(`/admin/sites/${site.id}`)}
+                  className="flex-1 px-3 py-2 border border-slate-200 hover:bg-slate-50 rounded-lg text-sm font-medium transition-colors"
+                >
                   View Details
                 </button>
-                <button className="flex-1 px-3 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-sm font-medium transition-colors">
+                <button
+                  onClick={() => router.push(`/admin/sites/${site.id}`)}
+                  className="flex-1 px-3 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-sm font-medium transition-colors"
+                >
                   Manage
                 </button>
               </div>
