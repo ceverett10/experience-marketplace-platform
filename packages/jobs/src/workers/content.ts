@@ -217,18 +217,22 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
       timestamp: new Date(),
     });
 
-    if (jobError.retryable) {
+    console.error('[Content Generate] Error:', jobError.toJSON());
+
+    // For retryable errors, throw to trigger BullMQ retry mechanism
+    if (jobError.retryable && !shouldMoveToDeadLetter(jobError, job.attemptsMade)) {
       const retryDelay = calculateRetryDelay(jobError, job.attemptsMade);
       console.log(
         `Error is retryable, will retry in ${(retryDelay / 1000).toFixed(0)}s (configured at queue level)`
       );
+      // Throw the error so BullMQ marks this as failed and retries
+      throw new Error(jobError.message);
     }
 
+    // For non-retryable errors or max retries exceeded, return failure result
     if (shouldMoveToDeadLetter(jobError, job.attemptsMade)) {
       await job.moveToFailed(new Error(`Permanent failure: ${jobError.message}`), '0', true);
     }
-
-    console.error('[Content Generate] Error:', jobError.toJSON());
 
     return {
       success: false,
@@ -388,18 +392,20 @@ export async function handleContentOptimize(job: Job<ContentOptimizePayload>): P
       timestamp: new Date(),
     });
 
-    if (jobError.retryable) {
+    console.error('[Content Optimize] Error:', jobError.toJSON());
+
+    // For retryable errors, throw to trigger BullMQ retry mechanism
+    if (jobError.retryable && !shouldMoveToDeadLetter(jobError, job.attemptsMade)) {
       const retryDelay = calculateRetryDelay(jobError, job.attemptsMade);
       console.log(
         `Error is retryable, will retry in ${(retryDelay / 1000).toFixed(0)}s (configured at queue level)`
       );
+      throw new Error(jobError.message);
     }
 
     if (shouldMoveToDeadLetter(jobError, job.attemptsMade)) {
       await job.moveToFailed(new Error(`Permanent failure: ${jobError.message}`), '0', true);
     }
-
-    console.error('[Content Optimize] Error:', jobError.toJSON());
 
     return {
       success: false,
@@ -468,18 +474,20 @@ export async function handleContentReview(job: Job<ContentReviewPayload>): Promi
       timestamp: new Date(),
     });
 
-    if (jobError.retryable) {
+    console.error('[Content Review] Error:', jobError.toJSON());
+
+    // For retryable errors, throw to trigger BullMQ retry mechanism
+    if (jobError.retryable && !shouldMoveToDeadLetter(jobError, job.attemptsMade)) {
       const retryDelay = calculateRetryDelay(jobError, job.attemptsMade);
       console.log(
         `Error is retryable, will retry in ${(retryDelay / 1000).toFixed(0)}s (configured at queue level)`
       );
+      throw new Error(jobError.message);
     }
 
     if (shouldMoveToDeadLetter(jobError, job.attemptsMade)) {
       await job.moveToFailed(new Error(`Permanent failure: ${jobError.message}`), '0', true);
     }
-
-    console.error('[Content Review] Error:', jobError.toJSON());
 
     return {
       success: false,
