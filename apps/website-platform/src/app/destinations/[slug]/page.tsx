@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getSiteFromHostname } from '@/lib/tenant';
 import { getHolibobClient } from '@/lib/holibob';
-import { prisma } from '@experience-marketplace/database';
+import { prisma } from '@/lib/prisma';
 import { DestinationPageTemplate } from '@/components/content/DestinationPageTemplate';
 
 interface Props {
@@ -137,7 +137,7 @@ export default async function DestinationPage({ params }: Props) {
     '@type': 'TouristDestination',
     name: destination.title,
     description: destination.metaDescription || undefined,
-    ...(destination.content?.structuredData || {}),
+    ...(destination.content?.structuredData as Record<string, unknown> || {}),
   };
 
   return (

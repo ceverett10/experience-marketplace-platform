@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getSiteFromHostname } from '@/lib/tenant';
 import { getHolibobClient } from '@/lib/holibob';
-import { prisma } from '@experience-marketplace/database';
+import { prisma } from '@/lib/prisma';
 import { CategoryPageTemplate } from '@/components/content/CategoryPageTemplate';
 
 interface Props {
@@ -134,7 +134,7 @@ export default async function CategoryPage({ params }: Props) {
     '@type': 'CollectionPage',
     name: category.title,
     description: category.metaDescription || undefined,
-    ...(category.content?.structuredData || {}),
+    ...(category.content?.structuredData as Record<string, unknown> || {}),
   };
 
   return (

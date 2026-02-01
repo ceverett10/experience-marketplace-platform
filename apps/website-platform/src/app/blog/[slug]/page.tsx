@@ -2,7 +2,7 @@ import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getSiteFromHostname } from '@/lib/tenant';
-import { prisma } from '@experience-marketplace/database';
+import { prisma } from '@/lib/prisma';
 import { BlogPostTemplate } from '@/components/content/BlogPostTemplate';
 
 interface Props {
@@ -101,7 +101,7 @@ export default async function BlogPostPage({ params }: Props) {
       '@type': 'Organization',
       name: site.name,
     },
-    ...(post.content?.structuredData || {}),
+    ...(post.content?.structuredData as Record<string, unknown> || {}),
   };
 
   return (

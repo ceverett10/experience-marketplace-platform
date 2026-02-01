@@ -1,7 +1,7 @@
 import { headers } from 'next/headers';
 import type { MetadataRoute } from 'next';
 import { getSiteFromHostname } from '@/lib/tenant';
-import { prisma } from '@experience-marketplace/database';
+import { prisma } from '@/lib/prisma';
 
 /**
  * Generate dynamic sitemap for SEO
