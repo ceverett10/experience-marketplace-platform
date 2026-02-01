@@ -1,10 +1,11 @@
 import { headers } from 'next/headers';
 import type { MetadataRoute } from 'next';
 import { getSiteFromHostname } from '@/lib/tenant';
+import { prisma } from '@experience-marketplace/database';
 
 /**
  * Generate dynamic sitemap for SEO
- * In production, this would query the database for all pages
+ * Includes all static pages and database-generated content
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const headersList = await headers();
@@ -40,6 +41,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.8,
     },
     {
+      url: `${baseUrl}/blog`,
+      lastModified: new Date(),
+      changeFrequency: 'daily',
+      priority: 0.7,
+    },
+    {
       url: `${baseUrl}/about`,
       lastModified: new Date(),
       changeFrequency: 'monthly',
@@ -53,50 +60,57 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ];
 
-  // In production, query database for:
-  // 1. All experience/product pages
-  // 2. All category pages
-  // 3. All destination pages
-  // 4. All blog posts
-  // 5. All content pages
+  // Query database for all published pages for this site
+  const dbPages = await prisma.page.findMany({
+    where: {
+      siteId: site.id,
+      status: 'PUBLISHED',
+      noIndex: false, // Exclude pages marked as noIndex
+    },
+    select: {
+      slug: true,
+      type: true,
+      priority: true,
+      updatedAt: true,
+    },
+  });
 
-  // Mock experience pages for now
-  const mockExperienceSlugs = [
-    'london-eye-experience',
-    'tower-of-london-tour',
-    'thames-river-cruise',
-    'stonehenge-day-trip',
-    'harry-potter-studio-tour',
-    'westminster-walking-tour',
-    'british-museum-guided-tour',
-    'cotswolds-village-tour',
-  ];
+  // Map database pages to sitemap entries
+  const databasePages: MetadataRoute.Sitemap = dbPages.map((page) => {
+    let urlPath: string;
+    let changeFrequency: 'always' | 'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'never' =
+      'weekly';
 
-  const experiencePages: MetadataRoute.Sitemap = mockExperienceSlugs.map((slug) => ({
-    url: `${baseUrl}/experiences/${slug}`,
-    lastModified: new Date(),
-    changeFrequency: 'weekly' as const,
-    priority: 0.7,
-  }));
+    // Determine URL path based on page type
+    switch (page.type) {
+      case 'BLOG':
+        urlPath = `/blog/${page.slug}`;
+        changeFrequency = 'monthly';
+        break;
+      case 'CATEGORY':
+        urlPath = `/categories/${page.slug}`;
+        changeFrequency = 'weekly';
+        break;
+      case 'LANDING':
+        urlPath = `/destinations/${page.slug}`;
+        changeFrequency = 'weekly';
+        break;
+      case 'PRODUCT':
+        urlPath = `/experiences/${page.slug}`;
+        changeFrequency = 'weekly';
+        break;
+      default:
+        urlPath = `/${page.slug}`;
+        changeFrequency = 'monthly';
+    }
 
-  // Mock category pages
-  const categories = [
-    'tours',
-    'day-trips',
-    'attractions',
-    'food-drink',
-    'adventure',
-    'culture',
-    'nature',
-    'water',
-  ];
+    return {
+      url: `${baseUrl}${urlPath}`,
+      lastModified: page.updatedAt,
+      changeFrequency,
+      priority: page.priority,
+    };
+  });
 
-  const categoryPages: MetadataRoute.Sitemap = categories.map((category) => ({
-    url: `${baseUrl}/experiences?category=${category}`,
-    lastModified: new Date(),
-    changeFrequency: 'weekly' as const,
-    priority: 0.6,
-  }));
-
-  return [...staticPages, ...experiencePages, ...categoryPages];
+  return [...staticPages, ...databasePages];
 }
