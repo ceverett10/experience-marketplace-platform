@@ -12,7 +12,22 @@ export async function GET(
     // Fetch site with all related data
     const site = await prisma.site.findUnique({
       where: { id },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        description: true,
+        status: true,
+        isAutomatic: true,
+        autonomousProcessesPaused: true,
+        pauseReason: true,
+        primaryDomain: true,
+        gscVerified: true,
+        gscVerifiedAt: true,
+        seoConfig: true, // Include brand identity data
+        createdAt: true,
+        updatedAt: true,
+        publishedAt: true,
         brand: true,
         domains: true,
         pages: {
@@ -79,6 +94,7 @@ export async function GET(
         suggestedDomain: site.primaryDomain || `${site.slug}.com`,
         gscVerified: site.gscVerified,
         gscVerifiedAt: site.gscVerifiedAt?.toISOString() || null,
+        seoConfig: site.seoConfig, // Brand identity data (tone of voice, trust signals, brand story)
         createdAt: site.createdAt.toISOString(),
         updatedAt: site.updatedAt.toISOString(),
         publishedAt: site.publishedAt?.toISOString() || null,
