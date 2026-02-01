@@ -96,13 +96,49 @@ export default async function ExperienceDetailPage({ params }: Props) {
     notFound();
   }
 
-  // Generate JSON-LD structured data
+  // Generate JSON-LD structured data with enhanced Product schema
   const jsonLd = {
     '@context': 'https://schema.org',
-    '@type': 'TouristAttraction',
+    '@type': ['Product', 'TouristAttraction'],
     name: experience.title,
     description: experience.description,
-    image: experience.images,
+    image: experience.images.length > 0 ? experience.images : [experience.imageUrl],
+    brand: {
+      '@type': 'Brand',
+      name: site.name,
+    },
+    offers: {
+      '@type': 'Offer',
+      price: experience.price.amount / 100,
+      priceCurrency: experience.price.currency,
+      availability: 'https://schema.org/InStock',
+      url: `https://${site.primaryDomain || hostname}/experiences/${slug}`,
+      priceValidUntil: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(), // 90 days from now
+    },
+    aggregateRating: experience.rating
+      ? {
+          '@type': 'AggregateRating',
+          ratingValue: experience.rating.average,
+          reviewCount: experience.rating.count,
+          bestRating: 5,
+          worstRating: 1,
+        }
+      : undefined,
+    review: experience.reviews
+      ? experience.reviews.map((review) => ({
+          '@type': 'Review',
+          reviewRating: {
+            '@type': 'Rating',
+            ratingValue: review.rating,
+            bestRating: 5,
+          },
+          author: {
+            '@type': 'Person',
+            name: review.authorName,
+          },
+          reviewBody: review.content,
+        }))
+      : undefined,
     address: {
       '@type': 'PostalAddress',
       streetAddress: experience.location.address,
@@ -113,19 +149,8 @@ export default async function ExperienceDetailPage({ params }: Props) {
       latitude: experience.location.lat,
       longitude: experience.location.lng,
     },
-    aggregateRating: experience.rating
-      ? {
-          '@type': 'AggregateRating',
-          ratingValue: experience.rating.average,
-          reviewCount: experience.rating.count,
-        }
-      : undefined,
-    offers: {
-      '@type': 'Offer',
-      price: experience.price.amount / 100,
-      priceCurrency: experience.price.currency,
-      availability: 'https://schema.org/InStock',
-    },
+    category: experience.categories.map((cat) => cat.name).join(', '),
+    duration: experience.duration.formatted,
   };
 
   // Check for free cancellation
@@ -133,12 +158,58 @@ export default async function ExperienceDetailPage({ params }: Props) {
     experience.cancellationPolicy?.toLowerCase().includes('free') ||
     experience.cancellationPolicy?.toLowerCase().includes('full refund');
 
+  // BreadcrumbList structured data
+  const breadcrumbLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      {
+        '@type': 'ListItem',
+        position: 1,
+        name: 'Home',
+        item: `https://${site.primaryDomain || hostname}`,
+      },
+      {
+        '@type': 'ListItem',
+        position: 2,
+        name: 'Experiences',
+        item: `https://${site.primaryDomain || hostname}/experiences`,
+      },
+      ...(experience.categories[0]
+        ? [
+            {
+              '@type': 'ListItem',
+              position: 3,
+              name: experience.categories[0].name,
+              item: `https://${site.primaryDomain || hostname}/categories/${experience.categories[0].slug || experience.categories[0].name.toLowerCase().replace(/\s+/g, '-')}`,
+            },
+            {
+              '@type': 'ListItem',
+              position: 4,
+              name: experience.title,
+            },
+          ]
+        : [
+            {
+              '@type': 'ListItem',
+              position: 3,
+              name: experience.title,
+            },
+          ]),
+    ],
+  };
+
   return (
     <>
-      {/* JSON-LD Structured Data */}
+      {/* JSON-LD Structured Data - Product */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      {/* JSON-LD Structured Data - Breadcrumbs */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }}
       />
 
       <div className="min-h-screen bg-gray-50">

@@ -68,7 +68,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   return (
     <html lang="en" className={`${inter.variable} ${playfair.variable}`}>
-      <head>{brandCSS && <style dangerouslySetInnerHTML={{ __html: brandCSS }} />}</head>
+      <head>
+        {/* Preconnect to external APIs for faster resource loading */}
+        <link rel="preconnect" href="https://api.sandbox.holibob.tech" />
+        <link rel="dns-prefetch" href="https://api.sandbox.holibob.tech" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        {brandCSS && <style dangerouslySetInnerHTML={{ __html: brandCSS }} />}
+      </head>
       <body className="min-h-screen bg-white font-sans antialiased">
         <SiteProvider site={site}>
           <div className="flex min-h-screen flex-col">

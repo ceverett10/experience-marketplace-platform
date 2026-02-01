@@ -107,8 +107,41 @@ export default async function HomePage() {
 
   const experiences = await getFeaturedExperiences(site);
 
+  // TravelAgency structured data for SEO
+  const localBusinessLd = {
+    '@context': 'https://schema.org',
+    '@type': 'TravelAgency',
+    name: site.name,
+    description: site.description || `Book amazing experiences and tours with ${site.name}`,
+    url: `https://${site.primaryDomain || hostname}`,
+    logo: site.brand?.logoUrl
+      ? `https://${site.primaryDomain || hostname}${site.brand.logoUrl}`
+      : undefined,
+    image: site.brand?.ogImageUrl || undefined,
+    priceRange: '£',
+    aggregateRating:
+      experiences.length > 0 && experiences.filter((e) => e.rating).length > 0
+        ? {
+            '@type': 'AggregateRating',
+            ratingValue: (
+              experiences.reduce((sum, exp) => sum + (exp.rating?.average || 0), 0) /
+              experiences.filter((e) => e.rating).length
+            ).toFixed(1),
+            reviewCount: experiences.filter((e) => e.rating).length,
+            bestRating: 5,
+            worstRating: 1,
+          }
+        : undefined,
+  };
+
   return (
     <>
+      {/* JSON-LD Structured Data - LocalBusiness */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessLd) }}
+      />
+
       {/* Hero Section */}
       <Hero />
 
