@@ -5,13 +5,13 @@ declare global {
   var prisma: PrismaClient | undefined;
 }
 
-const prismaClientSingleton = () => {
+const prismaClientSingleton = (): PrismaClient => {
   return new PrismaClient({
     log: process.env['NODE_ENV'] === 'development' ? ['query', 'error', 'warn'] : ['error'],
   });
 };
 
-export const prisma = globalThis.prisma ?? prismaClientSingleton();
+export const prisma: PrismaClient = (globalThis.prisma ?? prismaClientSingleton()) as PrismaClient;
 
 if (process.env['NODE_ENV'] !== 'production') {
   globalThis.prisma = prisma;
