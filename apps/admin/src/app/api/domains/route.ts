@@ -73,10 +73,49 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { domain, siteId, registrar = 'namecheap', autoRenew = true } = body;
+    const { action, domain, siteId, registrar = 'namecheap', autoRenew = true } = body;
 
-    // Queue domain registration job
     const { addJob } = await import('@experience-marketplace/jobs');
+
+    // Action: Queue domain registrations for all sites without domains
+    if (action === 'queueMissing') {
+      const sitesWithoutDomains = await prisma.site.findMany({
+        where: {
+          domains: {
+            none: {},
+          },
+        },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+        },
+      });
+
+      const queued = [];
+      for (const site of sitesWithoutDomains) {
+        const suggestedDomain = `${site.slug}.com`;
+        await addJob('DOMAIN_REGISTER', {
+          siteId: site.id,
+          domain: suggestedDomain,
+          registrar: 'namecheap',
+          autoRenew: true,
+        });
+        queued.push({ siteId: site.id, siteName: site.name, domain: suggestedDomain });
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: `Queued domain registration for ${queued.length} sites`,
+        queued,
+      });
+    }
+
+    // Default action: Queue single domain registration
+    if (!domain || !siteId) {
+      return NextResponse.json({ error: 'domain and siteId are required' }, { status: 400 });
+    }
+
     await addJob('DOMAIN_REGISTER', {
       siteId,
       domain,
