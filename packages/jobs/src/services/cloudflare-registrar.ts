@@ -115,33 +115,18 @@ export class CloudflareRegistrarService {
 
   /**
    * Check if a domain is available for registration
+   * Uses DNS lookup to check if domain is already registered
    */
   async checkAvailability(domain: string): Promise<DomainAvailability> {
     try {
       console.log(`[Cloudflare Registrar] Checking availability for ${domain}`);
 
-      // Use the domains check endpoint
-      const response = await this.makeRequest<{
-        domains: Array<{
-          name: string;
-          available: boolean;
-          can_register: boolean;
-          premium: boolean;
-          supported_tld: boolean;
-        }>;
-      }>(
-        `/accounts/${this.accountId}/registrar/domains/check`,
-        'POST',
-        { domains: [domain] }
-      );
+      // Check if TLD is supported by Cloudflare Registrar
+      const tld = domain.split('.').slice(1).join('.').toLowerCase();
+      const isSupportedTLD = CLOUDFLARE_TLD_PRICING[tld] !== undefined;
 
-      const domainResult = response.domains?.[0];
-
-      if (!domainResult) {
-        // If no result, try to get the price from our pricing table
-        const tld = domain.split('.').slice(1).join('.').toLowerCase();
-        const isSupportedTLD = CLOUDFLARE_TLD_PRICING[tld] !== undefined;
-
+      if (!isSupportedTLD) {
+        console.log(`[Cloudflare Registrar] TLD .${tld} is not supported by Cloudflare Registrar`);
         return {
           domain,
           available: false,
@@ -150,18 +135,65 @@ export class CloudflareRegistrarService {
         };
       }
 
-      const available = domainResult.available && domainResult.can_register;
-      const premium = domainResult.premium || false;
+      // Check if domain already exists in our Cloudflare account
+      try {
+        const existingDomain = await this.getDomainInfo(domain);
+        if (existingDomain) {
+          console.log(`[Cloudflare Registrar] ${domain} is already in our account`);
+          return {
+            domain,
+            available: false,
+            premium: false,
+            price: this.getStandardTLDPrice(domain),
+          };
+        }
+      } catch (e) {
+        // Domain not in our account - this is expected for available domains
+      }
+
+      // Use DNS lookup to check if domain is registered anywhere
+      // If DNS resolves, domain is taken; if it doesn't resolve, it might be available
+      let dnsResolved = false;
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+        const response = await fetch(`https://dns.google/resolve?name=${domain}&type=A`, {
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+
+        const data = (await response.json()) as {
+          Answer?: Array<{ type: number; name: string; data: string }>;
+          Authority?: Array<{ type: number; name: string }>;
+        };
+        // If we get Answer records, domain is registered
+        dnsResolved = !!(data.Answer && data.Answer.length > 0);
+
+        // Also check if there's an authority section (domain exists but no A record)
+        if (!dnsResolved && data.Authority && data.Authority.length > 0) {
+          // Check if it's a real authority or NXDOMAIN
+          const authority = data.Authority[0];
+          if (authority && authority.type !== 6) { // 6 = SOA (indicates domain doesn't exist)
+            dnsResolved = true;
+          }
+        }
+      } catch (e) {
+        // DNS lookup failed - assume domain might be available
+        console.log(`[Cloudflare Registrar] DNS lookup failed for ${domain}, assuming potentially available`);
+      }
+
+      const available = !dnsResolved;
       const price = this.getStandardTLDPrice(domain);
 
       console.log(
-        `[Cloudflare Registrar] ${domain}: available=${available}, premium=${premium}, price=$${price}`
+        `[Cloudflare Registrar] ${domain}: available=${available}, price=$${price}`
       );
 
       return {
         domain,
         available,
-        premium,
+        premium: false,
         price,
         currency: 'USD',
       };
@@ -191,40 +223,15 @@ export class CloudflareRegistrarService {
    * Check availability for multiple domains at once
    */
   async checkBulkAvailability(domains: string[]): Promise<DomainAvailability[]> {
-    try {
-      console.log(`[Cloudflare Registrar] Checking bulk availability for ${domains.length} domains`);
+    console.log(`[Cloudflare Registrar] Checking bulk availability for ${domains.length} domains`);
 
-      const response = await this.makeRequest<{
-        domains: Array<{
-          name: string;
-          available: boolean;
-          can_register: boolean;
-          premium: boolean;
-          supported_tld: boolean;
-        }>;
-      }>(
-        `/accounts/${this.accountId}/registrar/domains/check`,
-        'POST',
-        { domains }
-      );
-
-      return (response.domains || []).map((result) => ({
-        domain: result.name,
-        available: result.available && result.can_register,
-        premium: result.premium || false,
-        price: this.getStandardTLDPrice(result.name),
-        currency: 'USD',
-      }));
-    } catch (error) {
-      console.error('[Cloudflare Registrar] Error checking bulk availability:', error);
-      // Return all as unavailable on error
-      return domains.map((domain) => ({
-        domain,
-        available: false,
-        premium: false,
-        price: this.getStandardTLDPrice(domain),
-      }));
+    // Check each domain individually
+    const results: DomainAvailability[] = [];
+    for (const domain of domains) {
+      const availability = await this.checkAvailability(domain);
+      results.push(availability);
     }
+    return results;
   }
 
   /**
@@ -244,7 +251,8 @@ export class CloudflareRegistrarService {
         throw new Error(`Domain ${domain} is not available for registration`);
       }
 
-      // Register the domain
+      // Register the domain using the correct Cloudflare API endpoint
+      // POST /accounts/{account_id}/registrar/domains/{domain_name}/register
       const response = await this.makeRequest<{
         id: string;
         name: string;
@@ -253,10 +261,9 @@ export class CloudflareRegistrarService {
         auto_renew: boolean;
         registrant_contact: any;
       }>(
-        `/accounts/${this.accountId}/registrar/domains`,
+        `/accounts/${this.accountId}/registrar/domains/${domain}/register`,
         'POST',
         {
-          name: domain,
           auto_renew: autoRenew,
           locked: true, // Enable registrar lock by default
           privacy: true, // Enable WHOIS privacy (free with Cloudflare)
