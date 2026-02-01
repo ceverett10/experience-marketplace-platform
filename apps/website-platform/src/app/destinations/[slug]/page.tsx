@@ -43,18 +43,19 @@ async function getTopExperiences(
     const response = await client.discoverProducts(
       {
         placeIds: [locationId],
+        currency: 'GBP',
       },
       { pageSize: 9 }
     );
 
     return response.products.map((product) => ({
       id: product.id,
-      slug: product.slug || product.id,
+      slug: product.id, // Product type doesn't have slug, use id
       title: product.name,
       shortDescription: product.shortDescription || '',
-      imageUrl: product.imageList?.[0]?.url || '',
+      imageUrl: product.primaryImageUrl || product.imageUrl || product.imageList?.[0]?.url || '',
       price: {
-        formatted: product.guidePrice?.formattedPrice || 'From £0',
+        formatted: product.priceFromFormatted || product.guidePriceFormattedText || 'From £0',
       },
       rating: product.reviewRating && product.reviewCount
         ? {
