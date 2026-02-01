@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { PageStatus } from '@prisma/client';
+import { PageStatus, PageType } from '@prisma/client';
 
 export async function GET(): Promise<NextResponse> {
   try {
@@ -28,20 +28,34 @@ export async function GET(): Promise<NextResponse> {
     });
 
     // Transform database pages to match the frontend interface
-    const contentItems = pages.map((page) => ({
-      id: page.id,
-      type: mapPageTypeToContentType(page.type),
-      title: page.title,
-      content: page.content?.body || '',
-      siteName: page.site.name,
-      status: mapPageStatusToContentStatus(page.status),
-      qualityScore: page.content?.qualityScore || 0,
-      generatedAt: page.content?.createdAt.toISOString() || page.createdAt.toISOString(),
-    }));
+    const contentItems = pages.map((page) => {
+      // Safely get the generated date with proper null checking
+      let generatedAt: string;
+      if (page.content?.createdAt) {
+        generatedAt = page.content.createdAt.toISOString();
+      } else {
+        generatedAt = page.createdAt.toISOString();
+      }
+
+      return {
+        id: page.id,
+        type: mapPageTypeToContentType(page.type),
+        title: page.title,
+        content: page.content?.body || '',
+        siteName: page.site.name,
+        status: mapPageStatusToContentStatus(page.status),
+        qualityScore: page.content?.qualityScore ?? 0,
+        generatedAt,
+      };
+    });
 
     return NextResponse.json(contentItems);
   } catch (error) {
     console.error('[API] Error fetching content:', error);
+    // Log more details for debugging
+    if (error instanceof Error) {
+      console.error('[API] Error details:', error.message, error.stack);
+    }
     return NextResponse.json({ error: 'Failed to fetch content' }, { status: 500 });
   }
 }
@@ -75,30 +89,37 @@ export async function PATCH(request: Request): Promise<NextResponse> {
 }
 
 // Helper functions to map between database enums and frontend types
-function mapPageTypeToContentType(pageType: string): 'experience' | 'collection' | 'seo' | 'blog' {
+function mapPageTypeToContentType(pageType: PageType): 'experience' | 'collection' | 'seo' | 'blog' {
   switch (pageType) {
-    case 'BLOG':
+    case PageType.BLOG:
       return 'blog';
-    case 'CATEGORY':
+    case PageType.CATEGORY:
       return 'collection';
-    case 'DESTINATION':
-      return 'seo';
-    case 'EXPERIENCE':
+    case PageType.PRODUCT:
       return 'experience';
+    case PageType.LANDING:
+    case PageType.HOMEPAGE:
+      return 'seo';
+    case PageType.FAQ:
+    case PageType.ABOUT:
+    case PageType.CONTACT:
+    case PageType.LEGAL:
     default:
       return 'blog';
   }
 }
 
 function mapPageStatusToContentStatus(
-  pageStatus: string
+  pageStatus: PageStatus
 ): 'pending' | 'approved' | 'rejected' | 'published' {
   switch (pageStatus) {
-    case 'DRAFT':
+    case PageStatus.DRAFT:
       return 'pending';
-    case 'PUBLISHED':
+    case PageStatus.REVIEW:
+      return 'approved';
+    case PageStatus.PUBLISHED:
       return 'published';
-    case 'ARCHIVED':
+    case PageStatus.ARCHIVED:
       return 'rejected';
     default:
       return 'pending';
