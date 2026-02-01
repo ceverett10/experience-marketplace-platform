@@ -324,6 +324,10 @@ ${brandSection}
   }
 
   private generateSlug(text: string): string {
+    // Defensive handling for undefined/null text
+    if (!text) {
+      return `content-${Date.now()}`;
+    }
     return text
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')

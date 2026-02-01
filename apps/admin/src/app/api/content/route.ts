@@ -291,11 +291,14 @@ export async function POST(request: Request): Promise<NextResponse> {
       const queuedJobs = [];
       for (const page of pagesToGenerate) {
         try {
+          // Ensure we have a valid targetKeyword - use title, slug, or generate from page type
+          const targetKeyword = page.title || page.slug || `${page.type.toLowerCase()} content`;
+
           await addJob('CONTENT_GENERATE', {
             siteId: page.siteId,
             pageId: page.id, // Pass the existing page ID so worker updates it
             contentType: mapPageTypeToGenerationType(page.type),
-            targetKeyword: page.title,
+            targetKeyword,
             secondaryKeywords: [],
           });
           queuedJobs.push({
