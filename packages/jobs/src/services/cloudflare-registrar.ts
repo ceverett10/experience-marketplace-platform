@@ -296,28 +296,37 @@ export class CloudflareRegistrarService {
 
   /**
    * Get domain information
+   * Note: Cloudflare returns basic info (name, supported_tld) for ANY domain,
+   * but only returns id, status, expires_at for domains actually registered
    */
   async getDomainInfo(domain: string): Promise<RegistrarDomain | null> {
     try {
       const response = await this.makeRequest<{
-        id: string;
+        id?: string;
         name: string;
-        status: string;
-        expires_at: string;
-        auto_renew: boolean;
-        locked: boolean;
+        status?: string;
+        expires_at?: string;
+        auto_renew?: boolean;
+        locked?: boolean;
+        supported_tld?: boolean;
       }>(
         `/accounts/${this.accountId}/registrar/domains/${domain}`,
         'GET'
       );
 
+      // Check if the domain is actually registered (has an id and status)
+      // Cloudflare returns {name, supported_tld} for any valid domain name
+      if (!response.id || !response.status) {
+        return null;
+      }
+
       return {
         id: response.id,
         name: response.name,
         status: response.status,
-        expiresAt: new Date(response.expires_at),
-        autoRenew: response.auto_renew,
-        locked: response.locked,
+        expiresAt: response.expires_at ? new Date(response.expires_at) : new Date(),
+        autoRenew: response.auto_renew ?? false,
+        locked: response.locked ?? false,
       };
     } catch (error: any) {
       if (error.message?.includes('404') || error.message?.includes('not found')) {
