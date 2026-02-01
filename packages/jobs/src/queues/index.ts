@@ -1,6 +1,7 @@
 import { Queue, QueueOptions } from 'bullmq';
 import IORedis from 'ioredis';
 import type { JobType } from '@experience-marketplace/database';
+import { prisma } from '@experience-marketplace/database';
 import { QUEUE_NAMES, QueueName, JobPayload, JobOptions, JOB_TYPE_TO_QUEUE } from '../types';
 
 /**
@@ -58,12 +59,31 @@ class QueueRegistry {
 
   /**
    * Add a job to the appropriate queue based on job type
+   * Also creates a database record to track job status
    */
   async addJob(jobType: JobType, payload: JobPayload, options?: JobOptions): Promise<string> {
     const queueName = JOB_TYPE_TO_QUEUE[jobType];
     const queue = this.getQueue(queueName);
 
-    const job = await queue.add(jobType, payload, {
+    // Extract siteId from payload if available
+    const siteId = (payload as { siteId?: string }).siteId || null;
+
+    // Create database record for job tracking
+    const dbJob = await prisma.job.create({
+      data: {
+        type: jobType,
+        queue: queueName,
+        payload: payload as object,
+        status: options?.delay ? 'SCHEDULED' : 'PENDING',
+        priority: options?.priority || 5,
+        maxAttempts: options?.attempts || 3,
+        siteId,
+        scheduledFor: options?.delay ? new Date(Date.now() + options.delay) : null,
+      },
+    });
+
+    // Add to BullMQ queue with database job ID as reference
+    const job = await queue.add(jobType, { ...payload, dbJobId: dbJob.id }, {
       priority: options?.priority,
       delay: options?.delay,
       attempts: options?.attempts,
@@ -72,7 +92,13 @@ class QueueRegistry {
       removeOnFail: options?.removeOnFail,
     });
 
-    return job.id!;
+    // Update database record with BullMQ job ID
+    await prisma.job.update({
+      where: { id: dbJob.id },
+      data: { idempotencyKey: job.id },
+    });
+
+    return dbJob.id;
   }
 
   /**

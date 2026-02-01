@@ -7,6 +7,7 @@ import {
   generateComprehensiveBrandIdentity,
   storeBrandIdentity,
 } from '../services/brand-identity.js';
+import { initializeSiteRoadmap } from '../services/site-roadmap.js';
 
 /**
  * Site Worker
@@ -131,6 +132,9 @@ export async function handleSiteCreate(job: Job<SiteCreatePayload>): Promise<Job
 
     console.log(`[Site Create] Created site ${site.id} with slug ${site.slug}`);
     console.log(`[Site Create] Brand stored with tone: ${brandIdentity.toneOfVoice.personality.join(', ')}`);
+
+    // 4.5 Initialize site roadmap with planned tasks
+    await initializeSiteRoadmap(site.id);
 
     // 5. Create initial page structure
     console.log('[Site Create] Creating initial pages...');

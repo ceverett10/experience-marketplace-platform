@@ -30,7 +30,58 @@ import {
   handleABTestAnalyze,
   handleABTestRebalance,
 } from '@experience-marketplace/jobs';
+import { prisma, JobStatus } from '@experience-marketplace/database';
 import type { JobType } from '@experience-marketplace/database';
+
+/**
+ * Update job status in the database
+ */
+async function updateJobStatus(
+  job: Job,
+  status: 'RUNNING' | 'COMPLETED' | 'FAILED' | 'RETRYING',
+  result?: object,
+  error?: string
+) {
+  const dbJobId = (job.data as { dbJobId?: string }).dbJobId;
+  if (!dbJobId) return;
+
+  try {
+    const updateData: {
+      status: JobStatus;
+      attempts: number;
+      result?: object;
+      error?: string;
+      startedAt?: Date;
+      completedAt?: Date;
+    } = {
+      status: status as JobStatus,
+      attempts: job.attemptsMade,
+    };
+
+    if (status === 'RUNNING') {
+      updateData.startedAt = new Date();
+    }
+
+    if (status === 'COMPLETED' || status === 'FAILED') {
+      updateData.completedAt = new Date();
+    }
+
+    if (result) {
+      updateData.result = result;
+    }
+
+    if (error) {
+      updateData.error = error;
+    }
+
+    await prisma.job.update({
+      where: { id: dbJobId },
+      data: updateData,
+    });
+  } catch (err) {
+    console.error(`Failed to update job ${dbJobId} status:`, err);
+  }
+}
 
 // Environment configuration
 const PORT = process.env['PORT'] || 3002;
@@ -67,6 +118,7 @@ const contentWorker = new Worker(
   QUEUE_NAMES.CONTENT,
   async (job: Job) => {
     console.log(`[Content Worker] Processing ${job.name} job ${job.id}`);
+    await updateJobStatus(job, 'RUNNING');
 
     switch (job.name as JobType) {
       case 'CONTENT_GENERATE':
@@ -90,6 +142,7 @@ const seoWorker = new Worker(
   QUEUE_NAMES.SEO,
   async (job: Job) => {
     console.log(`[SEO Worker] Processing ${job.name} job ${job.id}`);
+    await updateJobStatus(job, 'RUNNING');
 
     switch (job.name as JobType) {
       case 'SEO_ANALYZE':
@@ -112,6 +165,7 @@ const gscWorker = new Worker(
   QUEUE_NAMES.GSC,
   async (job: Job) => {
     console.log(`[GSC Worker] Processing ${job.name} job ${job.id}`);
+    await updateJobStatus(job, 'RUNNING');
 
     switch (job.name as JobType) {
       case 'GSC_SYNC':
@@ -131,6 +185,7 @@ const siteWorker = new Worker(
   QUEUE_NAMES.SITE,
   async (job: Job) => {
     console.log(`[Site Worker] Processing ${job.name} job ${job.id}`);
+    await updateJobStatus(job, 'RUNNING');
 
     switch (job.name as JobType) {
       case 'SITE_CREATE':
@@ -152,6 +207,7 @@ const domainWorker = new Worker(
   QUEUE_NAMES.DOMAIN,
   async (job: Job) => {
     console.log(`[Domain Worker] Processing ${job.name} job ${job.id}`);
+    await updateJobStatus(job, 'RUNNING');
 
     switch (job.name as JobType) {
       case 'DOMAIN_REGISTER':
@@ -175,6 +231,7 @@ const analyticsWorker = new Worker(
   QUEUE_NAMES.ANALYTICS,
   async (job: Job) => {
     console.log(`[Analytics Worker] Processing ${job.name} job ${job.id}`);
+    await updateJobStatus(job, 'RUNNING');
 
     switch (job.name as JobType) {
       case 'METRICS_AGGREGATE':
@@ -196,6 +253,7 @@ const abtestWorker = new Worker(
   QUEUE_NAMES.ABTEST,
   async (job: Job) => {
     console.log(`[A/B Test Worker] Processing ${job.name} job ${job.id}`);
+    await updateJobStatus(job, 'RUNNING');
 
     switch (job.name as JobType) {
       case 'ABTEST_ANALYZE':
@@ -221,12 +279,18 @@ const workers = [
 ];
 
 workers.forEach((worker) => {
-  worker.on('completed', (job) => {
+  worker.on('completed', async (job, result) => {
     console.log(`✓ Job ${job.id} (${job.name}) completed successfully`);
+    await updateJobStatus(job, 'COMPLETED', result as object);
   });
 
-  worker.on('failed', (job, err) => {
+  worker.on('failed', async (job, err) => {
     console.error(`✗ Job ${job?.id} (${job?.name}) failed:`, err.message);
+    if (job) {
+      // Check if job will be retried
+      const willRetry = job.attemptsMade < (job.opts.attempts || 3);
+      await updateJobStatus(job, willRetry ? 'RETRYING' : 'FAILED', undefined, err.message);
+    }
   });
 
   worker.on('error', (err) => {

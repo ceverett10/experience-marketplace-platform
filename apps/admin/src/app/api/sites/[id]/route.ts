@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getSiteRoadmap, TASK_DESCRIPTIONS } from '@experience-marketplace/jobs';
 
 export async function GET(
   request: Request,
@@ -61,6 +62,9 @@ export async function GET(
       failed: site.jobs.filter((j) => j.status === 'FAILED').length,
     };
 
+    // Get site roadmap with phases
+    const roadmap = await getSiteRoadmap(id);
+
     return NextResponse.json({
       site: {
         id: site.id,
@@ -110,6 +114,7 @@ export async function GET(
       },
       jobs: formattedJobs,
       jobSummary,
+      roadmap,
     });
   } catch (error) {
     console.error('[API] Error fetching site:', error);

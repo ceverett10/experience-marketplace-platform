@@ -20,6 +20,7 @@ export * from './schedulers';
 export * from './services/gsc-client';
 export * from './services/pause-control';
 export * from './services/brand-identity';
+export * from './services/site-roadmap';
 
 // Export error handling
 export * from './errors';

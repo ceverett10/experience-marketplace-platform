@@ -82,6 +82,44 @@ interface JobSummary {
   failed: number;
 }
 
+interface RoadmapTask {
+  type: string;
+  label: string;
+  description: string;
+  status: 'PLANNED' | 'PENDING' | 'SCHEDULED' | 'RUNNING' | 'COMPLETED' | 'FAILED';
+  job: {
+    id: string;
+    status: string;
+    startedAt: string | null;
+    completedAt: string | null;
+    error: string | null;
+    attempts: number;
+  } | null;
+}
+
+interface RoadmapPhase {
+  key: string;
+  name: string;
+  description: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'failed';
+  progress: {
+    completed: number;
+    total: number;
+    percentage: number;
+  };
+  tasks: RoadmapTask[];
+}
+
+interface Roadmap {
+  siteId: string;
+  phases: RoadmapPhase[];
+  overall: {
+    completed: number;
+    total: number;
+    percentage: number;
+  };
+}
+
 // Human-friendly job type labels
 const JOB_TYPE_LABELS: Record<string, { label: string; description: string }> = {
   SITE_CREATE: { label: 'Create Site', description: 'Setting up the site structure and brand' },
@@ -113,8 +151,9 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
   const [site, setSite] = useState<Site | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [jobSummary, setJobSummary] = useState<JobSummary | null>(null);
+  const [roadmap, setRoadmap] = useState<Roadmap | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'tasks' | 'pages' | 'domains'>('tasks');
+  const [activeTab, setActiveTab] = useState<'overview' | 'roadmap' | 'pages' | 'domains'>('roadmap');
 
   useEffect(() => {
     const fetchSite = async () => {
@@ -131,6 +170,7 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
         setSite(data.site);
         setJobs(data.jobs || []);
         setJobSummary(data.jobSummary);
+        setRoadmap(data.roadmap || null);
       } catch (error) {
         console.error('Failed to fetch site:', error);
       } finally {
@@ -306,7 +346,7 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
       {/* Tabs */}
       <div className="border-b border-slate-200">
         <nav className="flex gap-4">
-          {(['tasks', 'overview', 'pages', 'domains'] as const).map((tab) => (
+          {(['roadmap', 'overview', 'pages', 'domains'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -322,78 +362,159 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
         </nav>
       </div>
 
-      {/* Tasks Tab */}
-      {activeTab === 'tasks' && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-slate-900">Task History</h2>
-            <p className="text-sm text-slate-500">
-              Showing {jobs.length} recent tasks
-            </p>
-          </div>
+      {/* Roadmap Tab */}
+      {activeTab === 'roadmap' && (
+        <div className="space-y-6">
+          {/* Overall Progress */}
+          {roadmap && (
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="text-lg font-semibold text-slate-900">Site Launch Progress</h2>
+                    <p className="text-sm text-slate-500">Track all tasks needed to get your site live</p>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-3xl font-bold text-sky-600">{roadmap.overall.percentage}%</div>
+                    <div className="text-sm text-slate-500">
+                      {roadmap.overall.completed} of {roadmap.overall.total} tasks
+                    </div>
+                  </div>
+                </div>
+                <div className="w-full bg-slate-200 rounded-full h-3">
+                  <div
+                    className="bg-sky-600 h-3 rounded-full transition-all duration-500"
+                    style={{ width: `${roadmap.overall.percentage}%` }}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
-          {jobs.length === 0 ? (
+          {/* Phases */}
+          {roadmap?.phases.map((phase, phaseIndex) => {
+            const phaseStatusStyles = {
+              pending: 'border-slate-200 bg-slate-50',
+              in_progress: 'border-sky-200 bg-sky-50',
+              completed: 'border-green-200 bg-green-50',
+              failed: 'border-red-200 bg-red-50',
+            };
+
+            const phaseStatusIcons = {
+              pending: '⏸️',
+              in_progress: '▶️',
+              completed: '✅',
+              failed: '❌',
+            };
+
+            return (
+              <Card key={phase.key} className={`border-2 ${phaseStatusStyles[phase.status]}`}>
+                <CardContent className="p-0">
+                  {/* Phase Header */}
+                  <div className="p-4 border-b border-slate-100">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">{phaseStatusIcons[phase.status]}</span>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-slate-400 font-medium">Phase {phaseIndex + 1}</span>
+                            <h3 className="font-semibold text-slate-900">{phase.name}</h3>
+                          </div>
+                          <p className="text-sm text-slate-500">{phase.description}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-medium text-slate-700">
+                          {phase.progress.completed}/{phase.progress.total}
+                        </div>
+                        <div className="w-24 bg-slate-200 rounded-full h-2 mt-1">
+                          <div
+                            className={`h-2 rounded-full transition-all duration-500 ${
+                              phase.status === 'completed'
+                                ? 'bg-green-500'
+                                : phase.status === 'failed'
+                                ? 'bg-red-500'
+                                : 'bg-sky-500'
+                            }`}
+                            style={{ width: `${phase.progress.percentage}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Phase Tasks */}
+                  <div className="divide-y divide-slate-100">
+                    {phase.tasks.map((task) => {
+                      const taskStatusStyles: Record<string, string> = {
+                        PLANNED: 'text-slate-400',
+                        PENDING: 'text-slate-600',
+                        SCHEDULED: 'text-blue-600',
+                        RUNNING: 'text-yellow-600',
+                        COMPLETED: 'text-green-600',
+                        FAILED: 'text-red-600',
+                      };
+
+                      const taskStatusBadges: Record<string, string> = {
+                        PLANNED: 'bg-slate-100 text-slate-600',
+                        PENDING: 'bg-gray-100 text-gray-800',
+                        SCHEDULED: 'bg-blue-100 text-blue-800',
+                        RUNNING: 'bg-yellow-100 text-yellow-800 animate-pulse',
+                        COMPLETED: 'bg-green-100 text-green-800',
+                        FAILED: 'bg-red-100 text-red-800',
+                      };
+
+                      const taskStatusIcons: Record<string, string> = {
+                        PLANNED: '○',
+                        PENDING: '◔',
+                        SCHEDULED: '◑',
+                        RUNNING: '◕',
+                        COMPLETED: '●',
+                        FAILED: '✗',
+                      };
+
+                      return (
+                        <div key={task.type} className="px-4 py-3 flex items-center gap-4">
+                          <span className={`text-xl ${taskStatusStyles[task.status]}`}>
+                            {taskStatusIcons[task.status]}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-slate-900">{task.label}</span>
+                              <span className={`text-xs px-2 py-0.5 rounded ${taskStatusBadges[task.status]}`}>
+                                {task.status === 'PLANNED' ? 'Planned' : task.status}
+                              </span>
+                            </div>
+                            <p className="text-sm text-slate-500">{task.description}</p>
+                            {task.job?.error && task.status === 'FAILED' && (
+                              <p className="text-xs text-red-600 mt-1">{task.job.error}</p>
+                            )}
+                          </div>
+                          {task.job?.completedAt && task.status === 'COMPLETED' && (
+                            <span className="text-xs text-slate-400">
+                              {formatRelativeTime(task.job.completedAt)}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+
+          {/* No roadmap fallback */}
+          {!roadmap && (
             <Card>
               <CardContent className="p-8 text-center">
-                <div className="text-4xl mb-4">📋</div>
-                <h3 className="text-lg font-medium text-slate-900">No tasks yet</h3>
+                <div className="text-4xl mb-4">🗺️</div>
+                <h3 className="text-lg font-medium text-slate-900">Loading roadmap...</h3>
                 <p className="text-slate-500 mt-1">
-                  Tasks will appear here as the system works on this site
+                  The site launch roadmap will appear here
                 </p>
               </CardContent>
             </Card>
-          ) : (
-            <div className="space-y-3">
-              {jobs.map((job) => {
-                const jobInfo = JOB_TYPE_LABELS[job.type] || {
-                  label: job.type,
-                  description: 'Processing task',
-                };
-
-                return (
-                  <Card key={job.id} className="hover:shadow-md transition-shadow">
-                    <CardContent className="p-4">
-                      <div className="flex items-start gap-4">
-                        {/* Icon */}
-                        <div className="text-2xl">{getJobIcon(job.type, job.status)}</div>
-
-                        {/* Content */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-3 mb-1">
-                            <h3 className="font-medium text-slate-900">{jobInfo.label}</h3>
-                            {getJobStatusBadge(job.status)}
-                          </div>
-                          <p className="text-sm text-slate-500 mb-2">{jobInfo.description}</p>
-
-                          {/* Error message if failed */}
-                          {job.status === 'FAILED' && job.error && (
-                            <div className="mt-2 p-2 bg-red-50 rounded text-sm text-red-700">
-                              {job.error}
-                            </div>
-                          )}
-
-                          {/* Timing info */}
-                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400">
-                            <span>Created: {formatRelativeTime(job.createdAt)}</span>
-                            {job.startedAt && (
-                              <span>Started: {formatRelativeTime(job.startedAt)}</span>
-                            )}
-                            {job.completedAt && (
-                              <span>Completed: {formatRelativeTime(job.completedAt)}</span>
-                            )}
-                            {job.attempts > 1 && (
-                              <span>
-                                Attempts: {job.attempts}/{job.maxAttempts}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
           )}
         </div>
       )}
