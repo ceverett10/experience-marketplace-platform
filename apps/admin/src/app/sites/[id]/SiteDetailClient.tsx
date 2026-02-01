@@ -153,6 +153,7 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
   const [jobSummary, setJobSummary] = useState<JobSummary | null>(null);
   const [roadmap, setRoadmap] = useState<Roadmap | null>(null);
   const [loading, setLoading] = useState(true);
+  const [initializingRoadmap, setInitializingRoadmap] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'roadmap' | 'pages' | 'domains'>('roadmap');
 
   useEffect(() => {
@@ -509,10 +510,37 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
             <Card>
               <CardContent className="p-8 text-center">
                 <div className="text-4xl mb-4">🗺️</div>
-                <h3 className="text-lg font-medium text-slate-900">Loading roadmap...</h3>
-                <p className="text-slate-500 mt-1">
-                  The site launch roadmap will appear here
+                <h3 className="text-lg font-medium text-slate-900">No roadmap available</h3>
+                <p className="text-slate-500 mt-1 mb-4">
+                  Initialize the site launch roadmap to track progress
                 </p>
+                <button
+                  onClick={async () => {
+                    setInitializingRoadmap(true);
+                    try {
+                      const response = await fetch(`/admin/api/sites/${siteId}/initialize-roadmap`, {
+                        method: 'POST',
+                      });
+                      if (response.ok) {
+                        // Refetch site data to get the new roadmap
+                        const siteResponse = await fetch(`/admin/api/sites/${siteId}`);
+                        const data = await siteResponse.json();
+                        if (siteResponse.ok) {
+                          setSite(data.site);
+                          setRoadmap(data.roadmap || null);
+                        }
+                      }
+                    } catch (error) {
+                      console.error('Failed to initialize roadmap:', error);
+                    } finally {
+                      setInitializingRoadmap(false);
+                    }
+                  }}
+                  disabled={initializingRoadmap}
+                  className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                >
+                  {initializingRoadmap ? 'Initializing...' : 'Initialize Roadmap'}
+                </button>
               </CardContent>
             </Card>
           )}
