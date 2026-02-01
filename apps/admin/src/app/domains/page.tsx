@@ -51,7 +51,7 @@ export default function DomainsPage() {
     const fetchDomains = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`/api/domains?status=${statusFilter}`);
+        const response = await fetch(`/admin/api/domains?status=${statusFilter}`);
         const data = await response.json();
         setDomains(data.domains);
         setStats(data.stats);
