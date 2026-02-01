@@ -3,6 +3,16 @@ import { prisma } from '@experience-marketplace/database';
 import { createHolibobClient } from '@experience-marketplace/holibob-api';
 import type { SeoOpportunityScanPayload, JobResult } from '../types';
 import { KeywordResearchService } from '../services/keyword-research';
+import {
+  toJobError,
+  ExternalApiError,
+  DatabaseError,
+  NotFoundError,
+  calculateRetryDelay,
+  shouldMoveToDeadLetter,
+} from '../errors';
+import { errorTracking } from '../errors/tracking';
+import { circuitBreakers } from '../errors/circuit-breaker';
 
 /**
  * SEO Opportunity Scanner Worker
@@ -102,10 +112,51 @@ export async function handleOpportunityScan(
       timestamp: new Date(),
     };
   } catch (error) {
-    console.error('[Opportunity Scan] Error:', error);
+    const jobError = toJobError(error);
+
+    // Log error for tracking
+    await errorTracking.logError({
+      jobId: job.id || 'unknown',
+      jobType: 'OPPORTUNITY_SCAN',
+      errorName: jobError.name,
+      errorMessage: jobError.message,
+      errorCategory: jobError.category,
+      errorSeverity: jobError.severity,
+      retryable: jobError.retryable,
+      attemptsMade: job.attemptsMade,
+      context: jobError.context,
+      stackTrace: jobError.stack,
+      timestamp: new Date(),
+    });
+
+    // Calculate retry delay if retryable
+    if (jobError.retryable) {
+      const retryDelay = calculateRetryDelay(jobError, job.attemptsMade);
+      console.log(
+        `[Opportunity Scan] Error is retryable, will retry in ${(retryDelay / 1000).toFixed(0)}s (configured at queue level)`
+      );
+    }
+
+    // Check if should move to dead letter queue
+    if (shouldMoveToDeadLetter(jobError, job.attemptsMade)) {
+      console.error(
+        `[Opportunity Scan] Moving to dead letter queue after ${job.attemptsMade} attempts`
+      );
+      await job.moveToFailed(
+        new Error(`Permanent failure: ${jobError.message}`),
+        '0',
+        true // Remove from current queue
+      );
+    }
+
+    console.error('[Opportunity Scan] Error:', jobError.toJSON());
+
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: jobError.message,
+      errorCategory: jobError.category,
+      errorSeverity: jobError.severity,
+      retryable: jobError.retryable,
       timestamp: new Date(),
     };
   }
@@ -169,14 +220,18 @@ async function scanForOpportunities(
 
       try {
         // Check Holibob inventory for this destination + category
-        const inventory = await holibobClient.discoverProducts(
-          {
-            freeText: destination,
-            searchTerm: category,
-            currency: 'GBP',
-          },
-          { pageSize: 10 }
-        );
+        const holibobBreaker = circuitBreakers.getBreaker('holibob-api');
+
+        const inventory = await holibobBreaker.execute(async () => {
+          return await holibobClient.discoverProducts(
+            {
+              freeText: destination,
+              searchTerm: category,
+              currency: 'GBP',
+            },
+            { pageSize: 10 }
+          );
+        });
 
         const inventoryCount = inventory.products.length;
 
@@ -184,13 +239,17 @@ async function scanForOpportunities(
         if (inventoryCount > 0) {
           // Get real keyword data from DataForSEO
           const keywordService = new KeywordResearchService();
+          const dataForSeoBreaker = circuitBreakers.getBreaker('dataforseo-api');
           let keywordData;
 
           try {
-            keywordData = await keywordService.getKeywordData(
-              keyword,
-              destination.split(',')[1]?.trim() || 'United States'
-            );
+            keywordData = await dataForSeoBreaker.execute(async () => {
+              return await keywordService.getKeywordData(
+                keyword,
+                destination.split(',')[1]?.trim() || 'United States'
+              );
+            });
+
             console.log(`[Opportunity] Real keyword data for "${keyword}":`, {
               searchVolume: keywordData.searchVolume,
               difficulty: keywordData.keywordDifficulty,
@@ -198,7 +257,12 @@ async function scanForOpportunities(
               trend: keywordData.trend,
             });
           } catch (keywordError) {
-            console.error(`[Opportunity] Error getting keyword data for "${keyword}":`, keywordError);
+            const jobError = toJobError(keywordError);
+            console.error(
+              `[Opportunity] Error getting keyword data for "${keyword}":`,
+              jobError.toJSON()
+            );
+
             // Fallback to estimates if API fails
             keywordData = {
               searchVolume: estimateSearchVolume(destination, category),

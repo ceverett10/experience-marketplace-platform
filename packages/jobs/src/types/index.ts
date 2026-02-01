@@ -161,6 +161,9 @@ export interface JobResult {
   message?: string;
   data?: Record<string, unknown>;
   error?: string;
+  errorCategory?: string;
+  errorSeverity?: string;
+  retryable?: boolean;
   timestamp: Date;
 }
 

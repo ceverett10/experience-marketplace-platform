@@ -9,6 +9,16 @@ import type {
   SslProvisionPayload,
   JobResult,
 } from '../types/index.js';
+import {
+  toJobError,
+  ExternalApiError,
+  NotFoundError,
+  BusinessLogicError,
+  calculateRetryDelay,
+  shouldMoveToDeadLetter,
+} from '../errors/index.js';
+import { errorTracking } from '../errors/tracking.js';
+import { circuitBreakers } from '../errors/circuit-breaker.js';
 
 /**
  * Domain Worker
@@ -31,13 +41,17 @@ export async function handleDomainRegister(job: Job<DomainRegisterPayload>): Pro
     });
 
     if (existing) {
-      throw new Error(`Domain ${domain} is already registered`);
+      throw new BusinessLogicError(`Domain ${domain} is already registered`, {
+        context: { domain, existingId: existing.id },
+      });
     }
 
-    // 2. Check domain availability (mock for MVP)
+    // 2. Check domain availability
     const isAvailable = await checkDomainAvailability(domain, registrar);
     if (!isAvailable) {
-      throw new Error(`Domain ${domain} is not available for registration`);
+      throw new BusinessLogicError(`Domain ${domain} is not available for registration`, {
+        context: { domain, registrar },
+      });
     }
 
     // 3. Register domain via registrar API
@@ -82,10 +96,41 @@ export async function handleDomainRegister(job: Job<DomainRegisterPayload>): Pro
       timestamp: new Date(),
     };
   } catch (error) {
-    console.error('[Domain Register] Error:', error);
+    const jobError = toJobError(error);
+
+    await errorTracking.logError({
+      jobId: job.id || 'unknown',
+      jobType: 'DOMAIN_REGISTER',
+      errorName: jobError.name,
+      errorMessage: jobError.message,
+      errorCategory: jobError.category,
+      errorSeverity: jobError.severity,
+      retryable: jobError.retryable,
+      attemptsMade: job.attemptsMade,
+      context: { ...jobError.context, domain, registrar, siteId },
+      stackTrace: jobError.stack,
+      timestamp: new Date(),
+    });
+
+    if (jobError.retryable) {
+      const retryDelay = calculateRetryDelay(jobError, job.attemptsMade);
+      console.log(
+        `Error is retryable, will retry in ${(retryDelay / 1000).toFixed(0)}s (configured at queue level)`
+      );
+    }
+
+    if (shouldMoveToDeadLetter(jobError, job.attemptsMade)) {
+      await job.moveToFailed(new Error(`Permanent failure: ${jobError.message}`), '0', true);
+    }
+
+    console.error('[Domain Register] Error:', jobError.toJSON());
+
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: jobError.message,
+      errorCategory: jobError.category,
+      errorSeverity: jobError.severity,
+      retryable: jobError.retryable,
       timestamp: new Date(),
     };
   }
@@ -109,7 +154,7 @@ export async function handleDomainVerify(job: Job<DomainVerifyPayload>): Promise
     });
 
     if (!domain) {
-      throw new Error(`Domain ${domainId} not found`);
+      throw new NotFoundError('Domain', domainId);
     }
 
     // 2. Verify domain ownership
@@ -164,10 +209,41 @@ export async function handleDomainVerify(job: Job<DomainVerifyPayload>): Promise
       timestamp: new Date(),
     };
   } catch (error) {
-    console.error('[Domain Verify] Error:', error);
+    const jobError = toJobError(error);
+
+    await errorTracking.logError({
+      jobId: job.id || 'unknown',
+      jobType: 'DOMAIN_VERIFY',
+      errorName: jobError.name,
+      errorMessage: jobError.message,
+      errorCategory: jobError.category,
+      errorSeverity: jobError.severity,
+      retryable: jobError.retryable,
+      attemptsMade: job.attemptsMade,
+      context: { ...jobError.context, domainId, verificationMethod },
+      stackTrace: jobError.stack,
+      timestamp: new Date(),
+    });
+
+    if (jobError.retryable) {
+      const retryDelay = calculateRetryDelay(jobError, job.attemptsMade);
+      console.log(
+        `Error is retryable, will retry in ${(retryDelay / 1000).toFixed(0)}s (configured at queue level)`
+      );
+    }
+
+    if (shouldMoveToDeadLetter(jobError, job.attemptsMade)) {
+      await job.moveToFailed(new Error(`Permanent failure: ${jobError.message}`), '0', true);
+    }
+
+    console.error('[Domain Verify] Error:', jobError.toJSON());
+
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: jobError.message,
+      errorCategory: jobError.category,
+      errorSeverity: jobError.severity,
+      retryable: jobError.retryable,
       timestamp: new Date(),
     };
   }
@@ -189,11 +265,13 @@ export async function handleSslProvision(job: Job<SslProvisionPayload>): Promise
     });
 
     if (!domain) {
-      throw new Error(`Domain ${domainId} not found`);
+      throw new NotFoundError('Domain', domainId);
     }
 
     if (!domain.verifiedAt) {
-      throw new Error(`Domain ${domain.domain} must be verified before SSL provisioning`);
+      throw new BusinessLogicError(`Domain ${domain.domain} must be verified before SSL provisioning`, {
+        context: { domainId, domain: domain.domain, status: domain.status },
+      });
     }
 
     // 2. Provision SSL certificate
@@ -244,10 +322,24 @@ export async function handleSslProvision(job: Job<SslProvisionPayload>): Promise
       timestamp: new Date(),
     };
   } catch (error) {
-    console.error('[SSL Provision] Error:', error);
+    const jobError = toJobError(error);
 
-    // Update domain to failed status
-    if (domainId) {
+    await errorTracking.logError({
+      jobId: job.id || 'unknown',
+      jobType: 'SSL_PROVISION',
+      errorName: jobError.name,
+      errorMessage: jobError.message,
+      errorCategory: jobError.category,
+      errorSeverity: jobError.severity,
+      retryable: jobError.retryable,
+      attemptsMade: job.attemptsMade,
+      context: { ...jobError.context, domainId, provider },
+      stackTrace: jobError.stack,
+      timestamp: new Date(),
+    });
+
+    // Only update domain to failed if error is permanent
+    if (!jobError.retryable && domainId) {
       await prisma.domain
         .update({
           where: { id: domainId },
@@ -256,9 +348,25 @@ export async function handleSslProvision(job: Job<SslProvisionPayload>): Promise
         .catch(console.error);
     }
 
+    if (jobError.retryable) {
+      const retryDelay = calculateRetryDelay(jobError, job.attemptsMade);
+      console.log(
+        `Error is retryable, will retry in ${(retryDelay / 1000).toFixed(0)}s (configured at queue level)`
+      );
+    }
+
+    if (shouldMoveToDeadLetter(jobError, job.attemptsMade)) {
+      await job.moveToFailed(new Error(`Permanent failure: ${jobError.message}`), '0', true);
+    }
+
+    console.error('[SSL Provision] Error:', jobError.toJSON());
+
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: jobError.message,
+      errorCategory: jobError.category,
+      errorSeverity: jobError.severity,
+      retryable: jobError.retryable,
       timestamp: new Date(),
     };
   }
@@ -273,9 +381,12 @@ async function checkDomainAvailability(domain: string, registrar: string): Promi
   console.log(`[Domain] Checking availability for ${domain} via ${registrar}`);
 
   try {
-    // Use real Namecheap API to check availability
-    const registrarService = new DomainRegistrarService();
-    const availability = await registrarService.checkAvailability(domain);
+    const namecheapBreaker = circuitBreakers.getBreaker('namecheap-api');
+
+    const availability = await namecheapBreaker.execute(async () => {
+      const registrarService = new DomainRegistrarService();
+      return await registrarService.checkAvailability(domain);
+    });
 
     return availability.available;
   } catch (error) {
@@ -294,17 +405,24 @@ async function registerDomainViaApi(domain: string, registrar: string): Promise<
   console.log(`[Domain] Registering ${domain} via ${registrar} API`);
 
   try {
-    const registrarService = new DomainRegistrarService();
+    const namecheapBreaker = circuitBreakers.getBreaker('namecheap-api');
 
-    // Register domain for 1 year with auto-renewal
-    const registration = await registrarService.registerDomain(domain, 1, true);
+    const registration = await namecheapBreaker.execute(async () => {
+      const registrarService = new DomainRegistrarService();
+      // Register domain for 1 year with auto-renewal
+      return await registrarService.registerDomain(domain, 1, true);
+    });
 
     console.log(`[Domain] Domain registered successfully (Order ID: ${registration.orderId})`);
 
     return registration.cost;
   } catch (error) {
     console.error(`[Domain] Error registering domain via ${registrar}:`, error);
-    throw error;
+    throw new ExternalApiError('Domain registration failed', {
+      service: 'namecheap-api',
+      context: { domain, registrar },
+      originalError: error instanceof Error ? error : undefined,
+    });
   }
 }
 
@@ -351,13 +469,19 @@ async function configureDnsRecords(domain: string): Promise<void> {
   console.log(`[Domain] Configuring DNS for ${domain}`);
 
   try {
-    const cloudflare = new CloudflareDNSService();
+    const cloudflareBreaker = circuitBreakers.getBreaker('cloudflare-api');
 
     // Add zone to Cloudflare (or get existing)
-    let zone = await cloudflare.getZone(domain);
+    let zone = await cloudflareBreaker.execute(async () => {
+      const cloudflare = new CloudflareDNSService();
+      return await cloudflare.getZone(domain);
+    });
 
     if (!zone) {
-      zone = await cloudflare.addZone(domain);
+      zone = await cloudflareBreaker.execute(async () => {
+        const cloudflare = new CloudflareDNSService();
+        return await cloudflare.addZone(domain);
+      });
       console.log(`[Domain] Added ${domain} to Cloudflare (zone: ${zone.id})`);
     }
 
@@ -375,9 +499,12 @@ async function configureDnsRecords(domain: string): Promise<void> {
       ? `${process.env['HEROKU_APP_NAME']}.herokuapp.com`
       : 'experience-marketplace.herokuapp.com';
 
-    await cloudflare.setupStandardRecords(zone.id, {
-      rootTarget: herokuHostname,
-      enableWWW: true,
+    await cloudflareBreaker.execute(async () => {
+      const cloudflare = new CloudflareDNSService();
+      return await cloudflare.setupStandardRecords(zone.id, {
+        rootTarget: herokuHostname,
+        enableWWW: true,
+      });
     });
 
     console.log(`[Domain] DNS records configured for ${domain}`);
@@ -385,8 +512,11 @@ async function configureDnsRecords(domain: string): Promise<void> {
     // If domain was registered via Namecheap, update nameservers to point to Cloudflare
     if (zone.nameServers.length > 0) {
       try {
-        const registrar = new DomainRegistrarService();
-        await registrar.setNameservers(domain, zone.nameServers);
+        const namecheapBreaker = circuitBreakers.getBreaker('namecheap-api');
+        await namecheapBreaker.execute(async () => {
+          const registrar = new DomainRegistrarService();
+          return await registrar.setNameservers(domain, zone.nameServers);
+        });
         console.log(`[Domain] Nameservers updated for ${domain}:`, zone.nameServers);
       } catch (error) {
         console.warn(`[Domain] Could not update nameservers (manual update may be needed):`, error);
@@ -408,8 +538,6 @@ async function provisionSslCertificate(
   console.log(`[Domain] Provisioning SSL for ${domain} via ${provider}`);
 
   try {
-    const sslService = new SSLService();
-
     // Get Cloudflare zone ID from database
     const domainRecord = await prisma.domain.findUnique({
       where: { domain },
@@ -418,19 +546,29 @@ async function provisionSslCertificate(
     const zoneId = domainRecord?.cloudflareZoneId;
 
     if (!zoneId) {
-      throw new Error(`No Cloudflare zone ID found for ${domain}. Configure DNS first.`);
+      throw new BusinessLogicError(`No Cloudflare zone ID found for ${domain}. Configure DNS first.`, {
+        context: { domain },
+      });
     }
 
-    // Provision SSL certificate via Cloudflare
-    const result = await sslService.provisionCertificate(domain, {
-      zoneId,
-      sslMode: 'full',
-      enableAutoHTTPS: true,
-      enableAlwaysUseHTTPS: true,
+    // Provision SSL certificate via Cloudflare with circuit breaker
+    const cloudflareBreaker = circuitBreakers.getBreaker('cloudflare-api');
+
+    const result = await cloudflareBreaker.execute(async () => {
+      const sslService = new SSLService();
+      return await sslService.provisionCertificate(domain, {
+        zoneId,
+        sslMode: 'full',
+        enableAutoHTTPS: true,
+        enableAlwaysUseHTTPS: true,
+      });
     });
 
     if (!result.success || !result.certificate) {
-      throw new Error(result.error || 'SSL provisioning failed');
+      throw new ExternalApiError(result.error || 'SSL provisioning failed', {
+        service: 'cloudflare-api',
+        context: { domain, zoneId },
+      });
     }
 
     console.log(`[Domain] SSL certificate provisioned for ${domain}`);

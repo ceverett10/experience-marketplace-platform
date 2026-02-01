@@ -18,6 +18,7 @@ const navItems: NavItem[] = [
   { href: '/opportunities', label: 'Opportunities', icon: '🔍' },
   { href: '/domains', label: 'Domains', icon: '🌍' },
   { href: '/queues', label: 'Queues', icon: '⚙️' },
+  { href: '/errors', label: 'Errors', icon: '🚨' },
   { href: '/content', label: 'Content', icon: '📝' },
   { href: '/settings', label: 'Settings', icon: '🛠️' },
 ];

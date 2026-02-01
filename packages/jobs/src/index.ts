@@ -18,3 +18,8 @@ export * from './schedulers';
 
 // Export services
 export * from './services/gsc-client';
+
+// Export error handling
+export * from './errors';
+export { errorTracking } from './errors/tracking';
+export { circuitBreakers } from './errors/circuit-breaker';

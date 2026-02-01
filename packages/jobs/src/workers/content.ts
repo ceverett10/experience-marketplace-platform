@@ -7,6 +7,15 @@ import type {
   ContentReviewPayload,
   JobResult,
 } from '../types';
+import {
+  toJobError,
+  NotFoundError,
+  ExternalApiError,
+  calculateRetryDelay,
+  shouldMoveToDeadLetter,
+} from '../errors';
+import { errorTracking } from '../errors/tracking';
+import { circuitBreakers } from '../errors/circuit-breaker';
 
 /**
  * Content Generation Worker
@@ -30,7 +39,7 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
     // Verify site exists
     const site = await prisma.site.findUnique({ where: { id: siteId } });
     if (!site) {
-      throw new Error(`Site ${siteId} not found`);
+      throw new NotFoundError('Site', siteId);
     }
 
     // Get opportunity if provided
@@ -53,19 +62,33 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
       tone: 'informative' as const,
     };
 
-    // Generate content using pipeline
-    const pipeline = createPipeline({
-      qualityThreshold: 80,
-      maxRewrites: 3,
-      draftModel: 'haiku',
-      qualityModel: 'sonnet',
-      rewriteModel: 'haiku',
+    // Generate content using pipeline with circuit breaker
+    const anthropicBreaker = circuitBreakers.getBreaker('anthropic-api', {
+      failureThreshold: 3,
+      timeout: 120000, // 2 minutes for AI
     });
 
-    const result = await pipeline.generate(brief);
+    const result = await anthropicBreaker.execute(async () => {
+      const pipeline = createPipeline({
+        qualityThreshold: 80,
+        maxRewrites: 3,
+        draftModel: 'haiku',
+        qualityModel: 'sonnet',
+        rewriteModel: 'haiku',
+      });
+
+      return await pipeline.generate(brief);
+    });
 
     if (!result.success) {
-      throw new Error(result.error || 'Content generation failed quality threshold');
+      throw new ExternalApiError(result.error || 'Content generation failed quality threshold', {
+        service: 'anthropic-api',
+        context: {
+          targetKeyword,
+          contentType,
+          qualityThreshold: 80,
+        },
+      });
     }
 
     // Save content to database
@@ -122,10 +145,41 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
       timestamp: new Date(),
     };
   } catch (error) {
-    console.error('[Content Generate] Error:', error);
+    const jobError = toJobError(error);
+
+    await errorTracking.logError({
+      jobId: job.id || 'unknown',
+      jobType: 'CONTENT_GENERATE',
+      errorName: jobError.name,
+      errorMessage: jobError.message,
+      errorCategory: jobError.category,
+      errorSeverity: jobError.severity,
+      retryable: jobError.retryable,
+      attemptsMade: job.attemptsMade,
+      context: { ...jobError.context, siteId, targetKeyword },
+      stackTrace: jobError.stack,
+      timestamp: new Date(),
+    });
+
+    if (jobError.retryable) {
+      const retryDelay = calculateRetryDelay(jobError, job.attemptsMade);
+      console.log(
+        `Error is retryable, will retry in ${(retryDelay / 1000).toFixed(0)}s (configured at queue level)`
+      );
+    }
+
+    if (shouldMoveToDeadLetter(jobError, job.attemptsMade)) {
+      await job.moveToFailed(new Error(`Permanent failure: ${jobError.message}`), '0', true);
+    }
+
+    console.error('[Content Generate] Error:', jobError.toJSON());
+
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: jobError.message,
+      errorCategory: jobError.category,
+      errorSeverity: jobError.severity,
+      retryable: jobError.retryable,
       timestamp: new Date(),
     };
   }
@@ -148,7 +202,7 @@ export async function handleContentOptimize(job: Job<ContentOptimizePayload>): P
     });
 
     if (!content) {
-      throw new Error(`Content ${contentId} not found`);
+      throw new NotFoundError('Content', contentId);
     }
 
     // Determine optimization strategy based on reason
@@ -172,9 +226,9 @@ export async function handleContentOptimize(job: Job<ContentOptimizePayload>): P
     }
 
     // Re-generate content with optimization hints
-    const pipeline = createPipeline({
-      qualityThreshold: 85, // Higher threshold for optimizations
-      maxRewrites: 3,
+    const anthropicBreaker = circuitBreakers.getBreaker('anthropic-api', {
+      failureThreshold: 3,
+      timeout: 120000,
     });
 
     const brief = {
@@ -188,10 +242,24 @@ export async function handleContentOptimize(job: Job<ContentOptimizePayload>): P
       tone: 'informative' as const,
     };
 
-    const result = await pipeline.generate(brief);
+    const result = await anthropicBreaker.execute(async () => {
+      const pipeline = createPipeline({
+        qualityThreshold: 85, // Higher threshold for optimizations
+        maxRewrites: 3,
+      });
+
+      return await pipeline.generate(brief);
+    });
 
     if (!result.success) {
-      throw new Error('Content optimization failed quality threshold');
+      throw new ExternalApiError('Content optimization failed quality threshold', {
+        service: 'anthropic-api',
+        context: {
+          contentId,
+          reason,
+          qualityThreshold: 85,
+        },
+      });
     }
 
     // Create new version of content
@@ -232,10 +300,41 @@ export async function handleContentOptimize(job: Job<ContentOptimizePayload>): P
       timestamp: new Date(),
     };
   } catch (error) {
-    console.error('[Content Optimize] Error:', error);
+    const jobError = toJobError(error);
+
+    await errorTracking.logError({
+      jobId: job.id || 'unknown',
+      jobType: 'CONTENT_OPTIMIZE',
+      errorName: jobError.name,
+      errorMessage: jobError.message,
+      errorCategory: jobError.category,
+      errorSeverity: jobError.severity,
+      retryable: jobError.retryable,
+      attemptsMade: job.attemptsMade,
+      context: { ...jobError.context, siteId, contentId, reason },
+      stackTrace: jobError.stack,
+      timestamp: new Date(),
+    });
+
+    if (jobError.retryable) {
+      const retryDelay = calculateRetryDelay(jobError, job.attemptsMade);
+      console.log(
+        `Error is retryable, will retry in ${(retryDelay / 1000).toFixed(0)}s (configured at queue level)`
+      );
+    }
+
+    if (shouldMoveToDeadLetter(jobError, job.attemptsMade)) {
+      await job.moveToFailed(new Error(`Permanent failure: ${jobError.message}`), '0', true);
+    }
+
+    console.error('[Content Optimize] Error:', jobError.toJSON());
+
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: jobError.message,
+      errorCategory: jobError.category,
+      errorSeverity: jobError.severity,
+      retryable: jobError.retryable,
       timestamp: new Date(),
     };
   }
@@ -281,10 +380,41 @@ export async function handleContentReview(job: Job<ContentReviewPayload>): Promi
       timestamp: new Date(),
     };
   } catch (error) {
-    console.error('[Content Review] Error:', error);
+    const jobError = toJobError(error);
+
+    await errorTracking.logError({
+      jobId: job.id || 'unknown',
+      jobType: 'CONTENT_REVIEW',
+      errorName: jobError.name,
+      errorMessage: jobError.message,
+      errorCategory: jobError.category,
+      errorSeverity: jobError.severity,
+      retryable: jobError.retryable,
+      attemptsMade: job.attemptsMade,
+      context: { ...jobError.context, siteId, contentId },
+      stackTrace: jobError.stack,
+      timestamp: new Date(),
+    });
+
+    if (jobError.retryable) {
+      const retryDelay = calculateRetryDelay(jobError, job.attemptsMade);
+      console.log(
+        `Error is retryable, will retry in ${(retryDelay / 1000).toFixed(0)}s (configured at queue level)`
+      );
+    }
+
+    if (shouldMoveToDeadLetter(jobError, job.attemptsMade)) {
+      await job.moveToFailed(new Error(`Permanent failure: ${jobError.message}`), '0', true);
+    }
+
+    console.error('[Content Review] Error:', jobError.toJSON());
+
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: jobError.message,
+      errorCategory: jobError.category,
+      errorSeverity: jobError.severity,
+      retryable: jobError.retryable,
       timestamp: new Date(),
     };
   }
