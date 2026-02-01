@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { ContentRenderer } from './ContentRenderer';
-import type { PageType, PageStatus, ContentFormat } from '@prisma/client';
+import type { PageStatus, ContentFormat } from '@prisma/client';
 import Link from 'next/link';
 
 interface CategoryPageData {
