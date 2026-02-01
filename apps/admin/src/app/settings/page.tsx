@@ -61,11 +61,78 @@ export default function AdminSettingsPage() {
   const [saved, setSaved] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
 
+  // Autonomous Controls State
+  const [autonomousState, setAutonomousState] = useState({
+    allProcessesPaused: false,
+    enableSiteCreation: true,
+    enableContentGeneration: true,
+    enableGSCVerification: true,
+    enableContentOptimization: true,
+    enableABTesting: true,
+    maxTotalSites: 200,
+    maxSitesPerHour: 10,
+    maxContentPagesPerHour: 100,
+    maxGSCRequestsPerHour: 200,
+    maxOpportunityScansPerDay: 50,
+  });
+  const [pauseLoading, setPauseLoading] = useState(false);
+
   const handleSave = async () => {
     await new Promise((resolve) => setTimeout(resolve, 500));
     setSaved(true);
     setHasChanges(false);
     setTimeout(() => setSaved(false), 3000);
+  };
+
+  const handleEmergencyStop = async () => {
+    setPauseLoading(true);
+    try {
+      const endpoint = autonomousState.allProcessesPaused
+        ? '/api/settings/resume-all'
+        : '/api/settings/pause-all';
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pausedBy: 'admin_user',
+          pauseReason: autonomousState.allProcessesPaused
+            ? undefined
+            : 'Manual emergency stop from admin dashboard',
+        }),
+      });
+
+      if (response.ok) {
+        setAutonomousState((prev) => ({
+          ...prev,
+          allProcessesPaused: !prev.allProcessesPaused,
+        }));
+        setSaved(true);
+        setTimeout(() => setSaved(false), 3000);
+      }
+    } catch (error) {
+      console.error('Failed to toggle pause state:', error);
+    } finally {
+      setPauseLoading(false);
+    }
+  };
+
+  const updateAutonomousSettings = async (updates: Partial<typeof autonomousState>) => {
+    try {
+      const response = await fetch('/api/settings/autonomous', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+
+      if (response.ok) {
+        setAutonomousState((prev) => ({ ...prev, ...updates }));
+        setSaved(true);
+        setTimeout(() => setSaved(false), 3000);
+      }
+    } catch (error) {
+      console.error('Failed to update autonomous settings:', error);
+    }
   };
 
   const updateSettings = <K extends keyof PlatformSettings>(
@@ -88,6 +155,7 @@ export default function AdminSettingsPage() {
     { id: 'domains', label: 'Domains', icon: '🌐' },
     { id: 'commissions', label: 'Commissions', icon: '💰' },
     { id: 'features', label: 'Features', icon: '⚡' },
+    { id: 'autonomous', label: 'Autonomous Controls', icon: '🤖' },
   ];
 
   return (
@@ -403,6 +471,234 @@ export default function AdminSettingsPage() {
                 ))}
               </CardContent>
             </Card>
+          )}
+
+          {/* Autonomous Controls */}
+          {activeTab === 'autonomous' && (
+            <div className="space-y-6">
+              {/* Emergency Stop Card */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Emergency Stop</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div
+                    className={`p-6 rounded-lg border-2 ${
+                      autonomousState.allProcessesPaused
+                        ? 'bg-red-50 border-red-200'
+                        : 'bg-green-50 border-green-200'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <span className="text-2xl">
+                            {autonomousState.allProcessesPaused ? '⏸️' : '▶️'}
+                          </span>
+                          <h3 className="text-lg font-semibold">
+                            {autonomousState.allProcessesPaused
+                              ? 'All Autonomous Processes Paused'
+                              : 'Autonomous Processes Running'}
+                          </h3>
+                        </div>
+                        <p className="text-sm text-slate-600 mb-4">
+                          {autonomousState.allProcessesPaused
+                            ? 'All autonomous operations across the entire platform are currently stopped. Site creation, content generation, GSC verification, and optimization jobs are paused.'
+                            : 'The platform is operating normally. All autonomous processes are active and running according to configured schedules and triggers.'}
+                        </p>
+                        <Button
+                          onClick={handleEmergencyStop}
+                          disabled={pauseLoading}
+                          className={`px-6 py-3 rounded-lg font-semibold text-white transition-colors ${
+                            autonomousState.allProcessesPaused
+                              ? 'bg-green-600 hover:bg-green-700'
+                              : 'bg-red-600 hover:bg-red-700'
+                          } disabled:opacity-50 disabled:cursor-not-allowed`}
+                        >
+                          {pauseLoading
+                            ? 'Processing...'
+                            : autonomousState.allProcessesPaused
+                              ? '▶️ Resume All Processes'
+                              : '⏸️ Pause All Processes'}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Feature Flags Card */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Autonomous Feature Flags</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {[
+                    {
+                      key: 'enableSiteCreation',
+                      label: 'Site Creation',
+                      description: 'Allow autonomous creation of new sites based on opportunities',
+                    },
+                    {
+                      key: 'enableContentGeneration',
+                      label: 'Content Generation',
+                      description: 'Enable AI-powered content generation for pages',
+                    },
+                    {
+                      key: 'enableGSCVerification',
+                      label: 'GSC Verification',
+                      description: 'Automatically verify sites with Google Search Console',
+                    },
+                    {
+                      key: 'enableContentOptimization',
+                      label: 'Content Optimization',
+                      description: 'Trigger automatic content improvements based on performance',
+                    },
+                    {
+                      key: 'enableABTesting',
+                      label: 'A/B Testing',
+                      description: 'Run autonomous A/B tests and apply winning variants',
+                    },
+                  ].map((feature) => (
+                    <div
+                      key={feature.key}
+                      className="flex items-center justify-between py-4 border-b border-slate-100 last:border-0"
+                    >
+                      <div className="flex-1">
+                        <p className="font-medium text-slate-900">{feature.label}</p>
+                        <p className="text-sm text-slate-500">{feature.description}</p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={
+                            autonomousState[feature.key as keyof typeof autonomousState] as boolean
+                          }
+                          onChange={(e) =>
+                            updateAutonomousSettings({ [feature.key]: e.target.checked })
+                          }
+                          disabled={autonomousState.allProcessesPaused}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-sky-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-sky-500 peer-disabled:opacity-50"></div>
+                      </label>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+
+              {/* Rate Limits Card */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Rate Limits</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid sm:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        Max Total Sites
+                      </label>
+                      <input
+                        type="number"
+                        value={autonomousState.maxTotalSites}
+                        onChange={(e) =>
+                          updateAutonomousSettings({ maxTotalSites: Number(e.target.value) })
+                        }
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"
+                      />
+                      <p className="text-xs text-slate-500 mt-1">
+                        Maximum total sites allowed on platform
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        Sites Per Hour
+                      </label>
+                      <input
+                        type="number"
+                        value={autonomousState.maxSitesPerHour}
+                        onChange={(e) =>
+                          updateAutonomousSettings({ maxSitesPerHour: Number(e.target.value) })
+                        }
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"
+                      />
+                      <p className="text-xs text-slate-500 mt-1">Maximum sites created per hour</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        Content Pages Per Hour
+                      </label>
+                      <input
+                        type="number"
+                        value={autonomousState.maxContentPagesPerHour}
+                        onChange={(e) =>
+                          updateAutonomousSettings({
+                            maxContentPagesPerHour: Number(e.target.value),
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"
+                      />
+                      <p className="text-xs text-slate-500 mt-1">
+                        Maximum content pages generated per hour
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        GSC Requests Per Hour
+                      </label>
+                      <input
+                        type="number"
+                        value={autonomousState.maxGSCRequestsPerHour}
+                        onChange={(e) =>
+                          updateAutonomousSettings({
+                            maxGSCRequestsPerHour: Number(e.target.value),
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"
+                      />
+                      <p className="text-xs text-slate-500 mt-1">
+                        Maximum GSC API requests per hour
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        Opportunity Scans Per Day
+                      </label>
+                      <input
+                        type="number"
+                        value={autonomousState.maxOpportunityScansPerDay}
+                        onChange={(e) =>
+                          updateAutonomousSettings({
+                            maxOpportunityScansPerDay: Number(e.target.value),
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"
+                      />
+                      <p className="text-xs text-slate-500 mt-1">
+                        Maximum opportunity scans per day
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mt-6">
+                    <div className="flex items-start gap-3">
+                      <span className="text-amber-600">⚠️</span>
+                      <div className="text-sm text-amber-800">
+                        <p className="font-medium mb-1">Rate Limit Safety</p>
+                        <p>
+                          These limits prevent runaway operations and manage infrastructure costs. All
+                          autonomous workers respect these limits before executing operations.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           )}
         </div>
       </div>

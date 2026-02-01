@@ -18,6 +18,7 @@ export * from './schedulers';
 
 // Export services
 export * from './services/gsc-client';
+export * from './services/pause-control';
 
 // Export error handling
 export * from './errors';

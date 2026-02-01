@@ -69,8 +69,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en" className={`${inter.variable} ${playfair.variable}`}>
       <head>
-        {/* Google Search Console Verification */}
-        <meta name="google-site-verification" content="IkrzPmMCco2QcCbNCLeglZjnBVnXyCMQkGoQ5t1a0tU" />
+        {/* Google Search Console Verification - Dynamic per site */}
+        {site.gscVerificationCode && (
+          <meta name="google-site-verification" content={site.gscVerificationCode} />
+        )}
         {/* Preconnect to external APIs for faster resource loading */}
         <link rel="preconnect" href="https://api.sandbox.holibob.tech" />
         <link rel="dns-prefetch" href="https://api.sandbox.holibob.tech" />
