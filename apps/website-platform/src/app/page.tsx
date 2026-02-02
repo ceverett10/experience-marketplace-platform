@@ -8,6 +8,18 @@ import { getHolibobClient, type ExperienceListItem } from '@/lib/holibob';
 // Revalidate every 5 minutes for fresh content
 export const revalidate = 300;
 
+// Map category path to search terms for Holibob API filtering
+const CATEGORY_SEARCH_TERMS: Record<string, string> = {
+  'food-wine-and-beer-experiences': 'food tours wine tasting culinary',
+  'sightseeing-tours': 'sightseeing tours guided walks',
+  'outdoor-activities': 'outdoor adventure hiking nature',
+  'cultural-experiences': 'cultural heritage museum art',
+  'water-activities': 'boat cruise water sports',
+  'theme-parks-and-attractions': 'theme park attractions',
+  'shows-and-events': 'theater shows concerts events',
+  'wellness-and-spa': 'spa wellness relaxation',
+};
+
 async function getFeaturedExperiences(
   siteConfig: Awaited<ReturnType<typeof getSiteFromHostname>>,
   popularExperiencesConfig?: HomepageConfig['popularExperiences']
@@ -15,33 +27,45 @@ async function getFeaturedExperiences(
   try {
     const client = getHolibobClient(siteConfig);
 
-    // Build search params from homepage config
-    const searchParams: {
+    // Build search terms by combining categoryPath keywords + searchTerms
+    const searchTermParts: string[] = [];
+
+    // Add category-specific search terms (e.g., "food tours wine tasting culinary")
+    if (popularExperiencesConfig?.categoryPath) {
+      const categoryTerms = CATEGORY_SEARCH_TERMS[popularExperiencesConfig.categoryPath];
+      if (categoryTerms) {
+        searchTermParts.push(categoryTerms);
+      }
+    }
+
+    // Add explicit search terms from site config (e.g., ["food tours", "culinary"])
+    if (popularExperiencesConfig?.searchTerms?.length) {
+      searchTermParts.push(...popularExperiencesConfig.searchTerms);
+    }
+
+    // Build filter with correct Holibob ProductFilter property names
+    const filter: {
       currency: string;
-      destination?: string;
-      categoryPath?: string;
-      searchText?: string;
+      freeText?: string;
+      searchTerm?: string;
     } = {
       currency: 'GBP',
     };
 
-    // Add destination filter from config (e.g., "London")
+    // "Where" - location as freeText (e.g., "London")
     if (popularExperiencesConfig?.destination) {
-      searchParams.destination = popularExperiencesConfig.destination;
+      filter.freeText = popularExperiencesConfig.destination;
     }
 
-    // Add category path filter from config (e.g., "food-wine-and-beer-experiences")
-    if (popularExperiencesConfig?.categoryPath) {
-      searchParams.categoryPath = popularExperiencesConfig.categoryPath;
+    // "What" - combined search terms for filtering by category/niche
+    if (searchTermParts.length > 0) {
+      filter.searchTerm = searchTermParts.join(' ');
     }
 
-    // Add search terms from config
-    if (popularExperiencesConfig?.searchTerms?.length) {
-      searchParams.searchText = popularExperiencesConfig.searchTerms.join(' ');
-    }
+    console.log('[Homepage] Fetching featured experiences with filter:', JSON.stringify(filter));
 
     // Get featured/popular experiences from Holibob Product Discovery API
-    const response = await client.discoverProducts(searchParams, { pageSize: 8 });
+    const response = await client.discoverProducts(filter, { pageSize: 8 });
 
     // Map to our experience format
     return response.products.map((product) => {
