@@ -32,16 +32,32 @@ export async function initializeScheduledJobs(): Promise<void> {
   );
   console.log('[Scheduler] ✓ Opportunity Scan - Daily at 2 AM');
 
-  // Performance Analysis - Daily at 3 AM
+  // Performance Analysis / SEO Health Audit - Daily at 3 AM
+  // This triggers recursive optimization for underperforming pages
   await scheduleJob(
     'SEO_ANALYZE',
     {
       siteId: 'all',
       fullSiteAudit: false,
+      triggerOptimizations: true, // Automatically queue optimizations for issues found
     },
     '0 3 * * *' // Daily at 3 AM
   );
-  console.log('[Scheduler] ✓ SEO Analysis - Daily at 3 AM');
+  console.log('[Scheduler] ✓ SEO Health Audit - Daily at 3 AM (with auto-optimization)');
+
+  // Weekly Deep SEO Audit - Sundays at 5 AM
+  // Forces comprehensive analysis regardless of recent audits
+  await scheduleJob(
+    'SEO_ANALYZE',
+    {
+      siteId: 'all',
+      fullSiteAudit: true,
+      forceAudit: true, // Run even if recently audited
+      triggerOptimizations: true,
+    },
+    '0 5 * * 0' // Sundays at 5 AM
+  );
+  console.log('[Scheduler] ✓ Weekly Deep SEO Audit - Sundays at 5 AM');
 
   // Metrics Aggregation - Daily at 1 AM
   await scheduleJob(
@@ -162,7 +178,12 @@ export function getScheduledJobs(): Array<{
     {
       jobType: 'SEO_ANALYZE',
       schedule: '0 3 * * *',
-      description: 'Site SEO analysis - Daily at 3 AM',
+      description: 'SEO health audit with auto-optimization - Daily at 3 AM',
+    },
+    {
+      jobType: 'SEO_ANALYZE (deep)',
+      schedule: '0 5 * * 0',
+      description: 'Comprehensive SEO audit - Sundays at 5 AM',
     },
     {
       jobType: 'METRICS_AGGREGATE',

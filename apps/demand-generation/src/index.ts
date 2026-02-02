@@ -31,6 +31,11 @@ import {
   handleABTestAnalyze,
   handleABTestRebalance,
   processAllSiteRoadmaps,
+  // SEO recursive optimization handlers
+  handleSEOAudit,
+  handleRecursiveOptimize,
+  handleBatchOptimize,
+  handleWeeklyAuditScheduler,
 } from '@experience-marketplace/jobs';
 import { prisma, JobStatus } from '@experience-marketplace/database';
 import type { JobType } from '@experience-marketplace/database';
@@ -149,7 +154,8 @@ const contentWorker = new Worker(
 
 /**
  * SEO Queue Worker
- * Handles: SEO_ANALYZE, SEO_OPPORTUNITY_SCAN
+ * Handles: SEO_ANALYZE, SEO_OPPORTUNITY_SCAN, SEO_OPPORTUNITY_OPTIMIZE
+ * Also handles recursive SEO optimization jobs: audit, recursive_optimize, batch_optimize, weekly_scheduler
  */
 const seoWorker = new Worker(
   QUEUE_NAMES.SEO,
@@ -157,12 +163,24 @@ const seoWorker = new Worker(
     console.log(`[SEO Worker] Processing ${job.name} job ${job.id}`);
     await updateJobStatus(job, 'RUNNING');
 
-    switch (job.name as JobType) {
+    switch (job.name as JobType | string) {
       case 'SEO_ANALYZE':
-        console.log('[SEO Worker] SEO analysis not yet implemented');
-        return { success: true, message: 'SEO analysis placeholder', timestamp: new Date() };
+        // Use the health audit for SEO analysis
+        return await handleSEOAudit(job);
       case 'SEO_OPPORTUNITY_SCAN':
         return await handleOpportunityScan(job);
+      case 'SEO_OPPORTUNITY_OPTIMIZE':
+        // Recursive optimization with learning
+        return await handleRecursiveOptimize(job);
+      // Custom job names for the recursive SEO system
+      case 'audit':
+        return await handleSEOAudit(job);
+      case 'recursive_optimize':
+        return await handleRecursiveOptimize(job);
+      case 'batch_optimize':
+        return await handleBatchOptimize(job);
+      case 'weekly_scheduler':
+        return await handleWeeklyAuditScheduler(job);
       default:
         throw new Error(`Unknown job type: ${job.name}`);
     }
