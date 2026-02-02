@@ -521,7 +521,10 @@ export class CloudflareDNSService {
 
       console.log(`[Cloudflare] existingGoogleTxt found: ${!!existingGoogleTxt}`);
 
-      const txtContent = `google-site-verification=${verificationToken}`;
+      // Google returns the full verification string, so don't add the prefix again
+      const txtContent = verificationToken.startsWith('google-site-verification=')
+        ? verificationToken
+        : `google-site-verification=${verificationToken}`;
 
       if (existingGoogleTxt) {
         // Check if content is the same - if so, no update needed
