@@ -4,8 +4,10 @@ import { createClaudeClient } from '@experience-marketplace/content-engine';
 import type {
   MetricsAggregatePayload,
   PerformanceReportPayload,
+  GA4SetupPayload,
   JobResult,
 } from '../types/index.js';
+import { getGA4Client, isGA4Configured } from '../services/ga4-client.js';
 
 /**
  * Analytics Worker
@@ -208,6 +210,132 @@ export async function handlePerformanceReport(
     };
   } catch (error) {
     console.error('[Performance Report] Error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      timestamp: new Date(),
+    };
+  }
+}
+
+/**
+ * GA4 Setup Handler
+ * Creates GA4 property and data stream for a site
+ */
+export async function handleGA4Setup(job: Job<GA4SetupPayload>): Promise<JobResult> {
+  const { siteId, accountId } = job.data;
+
+  try {
+    console.log(`[GA4 Setup] Starting GA4 setup for site ${siteId}`);
+
+    // Check if GA4 is configured
+    if (!isGA4Configured()) {
+      console.log('[GA4 Setup] GA4 credentials not configured, skipping');
+      return {
+        success: false,
+        error: 'GA4 credentials not configured (GSC_CLIENT_EMAIL and GSC_PRIVATE_KEY required)',
+        timestamp: new Date(),
+      };
+    }
+
+    // Get site details
+    const site = await prisma.site.findUnique({
+      where: { id: siteId },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        primaryDomain: true,
+        seoConfig: true,
+      },
+    });
+
+    if (!site) {
+      throw new Error(`Site ${siteId} not found`);
+    }
+
+    // Check if GA4 is already configured
+    const currentSeoConfig = (site.seoConfig as Record<string, unknown>) || {};
+    if (currentSeoConfig.gaMeasurementId) {
+      console.log(`[GA4 Setup] Site already has GA4 configured: ${currentSeoConfig.gaMeasurementId}`);
+      return {
+        success: true,
+        message: 'GA4 already configured',
+        data: {
+          siteId,
+          measurementId: currentSeoConfig.gaMeasurementId as string,
+          alreadyConfigured: true,
+        },
+        timestamp: new Date(),
+      };
+    }
+
+    // Initialize GA4 client
+    const ga4Client = getGA4Client();
+
+    // Get GA4 account to use
+    let targetAccountId = accountId;
+    if (!targetAccountId) {
+      console.log('[GA4 Setup] No account specified, fetching available accounts...');
+      const accounts = await ga4Client.listAccounts();
+
+      if (accounts.length === 0) {
+        throw new Error('No GA4 accounts available. Add service account to GA4 with Editor role.');
+      }
+
+      targetAccountId = accounts[0]?.name || '';
+      console.log(`[GA4 Setup] Using first available account: ${targetAccountId}`);
+    }
+
+    // Determine website URL
+    const domain = site.primaryDomain || `${site.slug}.herokuapp.com`;
+    const websiteUrl = `https://${domain}`;
+
+    // Create GA4 property and data stream
+    console.log(`[GA4 Setup] Creating GA4 property for ${site.name} (${websiteUrl})...`);
+    const result = await ga4Client.setupSiteAnalytics({
+      accountId: targetAccountId,
+      siteName: site.name,
+      websiteUrl,
+      timeZone: 'Europe/London',
+      currencyCode: 'GBP',
+    });
+
+    if (!result.success || !result.measurementId) {
+      throw new Error(result.error || 'Failed to create GA4 property');
+    }
+
+    console.log(`[GA4 Setup] GA4 property created: ${result.propertyId}`);
+    console.log(`[GA4 Setup] Measurement ID: ${result.measurementId}`);
+
+    // Update site seoConfig with measurement ID
+    const updatedSeoConfig = {
+      ...currentSeoConfig,
+      gaMeasurementId: result.measurementId,
+      ga4PropertyId: result.propertyId,
+    };
+
+    await prisma.site.update({
+      where: { id: siteId },
+      data: { seoConfig: updatedSeoConfig as any },
+    });
+
+    console.log(`[GA4 Setup] Site seoConfig updated with GA4 measurement ID`);
+
+    return {
+      success: true,
+      message: `GA4 setup complete for ${site.name}`,
+      data: {
+        siteId,
+        siteName: site.name,
+        propertyId: result.propertyId,
+        measurementId: result.measurementId,
+        websiteUrl,
+      },
+      timestamp: new Date(),
+    };
+  } catch (error) {
+    console.error('[GA4 Setup] Error:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',

@@ -674,6 +674,7 @@ enum JobType {
   GSC_SETUP
 
   // Analytics
+  GA4_SETUP
   METRICS_AGGREGATE
   PERFORMANCE_REPORT
 

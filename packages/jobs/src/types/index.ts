@@ -94,6 +94,11 @@ export interface GscSetupPayload {
   cloudflareZoneId: string;
 }
 
+export interface GA4SetupPayload {
+  siteId: string;
+  accountId?: string; // Optional - if not provided, uses first available account
+}
+
 // Site Management Jobs
 export interface SiteCreatePayload {
   opportunityId: string;
@@ -173,6 +178,7 @@ export type JobPayload =
   | SeoBatchOptimizePayload
   | GscSyncPayload
   | GscSetupPayload
+  | GA4SetupPayload
   | SiteCreatePayload
   | SiteDeployPayload
   | DomainRegisterPayload
@@ -249,6 +255,7 @@ export const JOB_TYPE_TO_QUEUE: Record<JobType, QueueName> = {
   GSC_SYNC: QUEUE_NAMES.GSC,
   GSC_VERIFY: QUEUE_NAMES.GSC,
   GSC_SETUP: QUEUE_NAMES.GSC,
+  GA4_SETUP: QUEUE_NAMES.ANALYTICS,
   SITE_CREATE: QUEUE_NAMES.SITE,
   SITE_DEPLOY: QUEUE_NAMES.SITE,
   DOMAIN_REGISTER: QUEUE_NAMES.DOMAIN,

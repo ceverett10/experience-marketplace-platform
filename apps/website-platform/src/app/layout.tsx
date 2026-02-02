@@ -5,6 +5,7 @@ import { getSiteFromHostname, generateBrandCSSVariables } from '@/lib/tenant';
 import { SiteProvider } from '@/lib/site-context';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
+import { GoogleAnalytics } from '@/components/analytics/GoogleAnalytics';
 import './globals.css';
 
 // Load fonts
@@ -90,6 +91,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <Footer />
           </div>
         </SiteProvider>
+        {/* Google Analytics - Dynamic per site */}
+        <GoogleAnalytics measurementId={site.seoConfig?.gaMeasurementId} />
       </body>
     </html>
   );

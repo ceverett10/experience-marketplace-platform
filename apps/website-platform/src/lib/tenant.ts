@@ -127,6 +127,7 @@ export interface SiteConfig {
     titleTemplate: string;
     defaultDescription: string;
     keywords: string[];
+    gaMeasurementId?: string | null; // Google Analytics 4 measurement ID
   } | null;
 
   // Homepage Configuration (AI-generated)
@@ -263,6 +264,7 @@ function mapSiteToConfig(site: Site & { brand: Brand | null }): SiteConfig {
     titleTemplate?: string;
     defaultDescription?: string;
     keywords?: string[];
+    gaMeasurementId?: string | null;
   } | null;
 
   const homepageConfig = site.homepageConfig as HomepageConfig | null;
@@ -295,11 +297,13 @@ function mapSiteToConfig(site: Site & { brand: Brand | null }): SiteConfig {
           titleTemplate: seoConfig.titleTemplate ?? '%s | ' + site.name,
           defaultDescription: seoConfig.defaultDescription ?? site.description ?? '',
           keywords: seoConfig.keywords ?? [],
+          gaMeasurementId: seoConfig.gaMeasurementId ?? null,
         }
       : {
           titleTemplate: '%s | ' + site.name,
           defaultDescription: site.description ?? '',
           keywords: [],
+          gaMeasurementId: null,
         },
     homepageConfig: homepageConfig,
   };

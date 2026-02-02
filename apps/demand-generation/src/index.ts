@@ -28,6 +28,7 @@ import {
   handleSslProvision,
   handleMetricsAggregate,
   handlePerformanceReport,
+  handleGA4Setup,
   handleABTestAnalyze,
   handleABTestRebalance,
   processAllSiteRoadmaps,
@@ -272,6 +273,8 @@ const analyticsWorker = new Worker(
         return await handleMetricsAggregate(job);
       case 'PERFORMANCE_REPORT':
         return await handlePerformanceReport(job);
+      case 'GA4_SETUP':
+        return await handleGA4Setup(job);
       default:
         throw new Error(`Unknown job type: ${job.name}`);
     }

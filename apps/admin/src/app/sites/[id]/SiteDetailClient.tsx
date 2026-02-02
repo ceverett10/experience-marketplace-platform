@@ -52,6 +52,9 @@ interface SeoConfig {
   trustSignals?: TrustSignals;
   brandStory?: BrandStory;
   contentGuidelines?: ContentGuidelines;
+  // Google Analytics 4
+  gaMeasurementId?: string;
+  ga4PropertyId?: string;
 }
 
 // Homepage configuration
@@ -217,6 +220,7 @@ const JOB_TYPE_LABELS: Record<string, { label: string; description: string }> = 
   GSC_VERIFY: { label: 'Verify Google Search Console', description: 'Connecting to Google Search Console' },
   GSC_SETUP: { label: 'Setup Search Console', description: 'Configuring Google Search Console' },
   GSC_SYNC: { label: 'Sync Search Data', description: 'Fetching data from Google Search Console' },
+  GA4_SETUP: { label: 'Setup Google Analytics', description: 'Creating GA4 property and tracking' },
   SITE_DEPLOY: { label: 'Deploy Site', description: 'Publishing the site to the web' },
   SEO_ANALYZE: { label: 'Analyze SEO', description: 'Checking SEO performance' },
   SEO_OPPORTUNITY_SCAN: { label: 'Scan Opportunities', description: 'Looking for new SEO opportunities' },
@@ -225,6 +229,83 @@ const JOB_TYPE_LABELS: Record<string, { label: string; description: string }> = 
   ABTEST_ANALYZE: { label: 'Analyze A/B Test', description: 'Evaluating test results' },
   ABTEST_REBALANCE: { label: 'Rebalance Traffic', description: 'Adjusting A/B test traffic split' },
 };
+
+// SEO Health data interfaces
+interface SEOIssue {
+  type: 'critical' | 'warning' | 'info';
+  category: 'technical' | 'content' | 'performance' | 'coverage';
+  title: string;
+  description: string;
+  affectedPages?: string[];
+  impact: number;
+  effort: number;
+}
+
+interface SEORecommendation {
+  priority: number;
+  category: 'technical' | 'content' | 'performance' | 'coverage';
+  action: string;
+  expectedImpact: string;
+  affectedPages: string[];
+  automatable: boolean;
+  estimatedLift: number;
+}
+
+interface PageSEOScore {
+  pageId: string;
+  url: string;
+  title: string;
+  pageType: string;
+  scores: {
+    technical: number;
+    content: number;
+    performance: number;
+    overall: number;
+  };
+  issues: SEOIssue[];
+  lastUpdated: string;
+}
+
+interface SEOHealthData {
+  siteId: string;
+  siteName: string;
+  domain: string;
+  auditDate: string;
+  gscVerified: boolean;
+  overallScore: number;
+  scores: {
+    technical: number;
+    content: number;
+    performance: number;
+    coverage: number;
+  };
+  pageCount: number;
+  pageScores: PageSEOScore[];
+  issuesSummary: {
+    critical: number;
+    warning: number;
+    info: number;
+    total: number;
+  };
+  topIssues: SEOIssue[];
+  recommendations: SEORecommendation[];
+  trends: {
+    scoreChange7d: number;
+    scoreChange30d: number;
+    clicksChange7d: number;
+    impressionsChange7d: number;
+  };
+  lastAudit: {
+    jobId: string;
+    completedAt: string;
+  } | null;
+  pendingJobs: Array<{
+    id: string;
+    type: string;
+    status: string;
+    createdAt: string;
+  }>;
+}
 
 interface SiteDetailClientProps {
   siteId: string;
@@ -241,7 +322,10 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
   const [initializingRoadmap, setInitializingRoadmap] = useState(false);
   const [executingTasks, setExecutingTasks] = useState(false);
   const [generatingHomepageConfig, setGeneratingHomepageConfig] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'roadmap' | 'brand' | 'homepage' | 'pages' | 'domains'>('roadmap');
+  const [activeTab, setActiveTab] = useState<'overview' | 'roadmap' | 'seo' | 'brand' | 'homepage' | 'pages' | 'domains'>('roadmap');
+  const [seoHealth, setSeoHealth] = useState<SEOHealthData | null>(null);
+  const [loadingSeoHealth, setLoadingSeoHealth] = useState(false);
+  const [triggeringSeoAudit, setTriggeringSeoAudit] = useState(false);
 
   useEffect(() => {
     const fetchSite = async () => {
@@ -270,6 +354,31 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
       fetchSite();
     }
   }, [siteId]);
+
+  // Fetch SEO health data when SEO tab is active
+  useEffect(() => {
+    const fetchSeoHealth = async () => {
+      if (activeTab !== 'seo' || !siteId) return;
+
+      try {
+        setLoadingSeoHealth(true);
+        const response = await fetch(`/admin/api/sites/${siteId}/seo-health`);
+        const data = await response.json();
+
+        if (response.ok) {
+          setSeoHealth(data);
+        } else {
+          console.error('Failed to fetch SEO health:', data.error);
+        }
+      } catch (error) {
+        console.error('Failed to fetch SEO health:', error);
+      } finally {
+        setLoadingSeoHealth(false);
+      }
+    };
+
+    fetchSeoHealth();
+  }, [activeTab, siteId]);
 
   const getJobStatusBadge = (status: Job['status']) => {
     const styles: Record<Job['status'], string> = {
@@ -434,7 +543,7 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
       {/* Tabs */}
       <div className="border-b border-slate-200">
         <nav className="flex gap-4">
-          {(['roadmap', 'overview', 'brand', 'homepage', 'pages', 'domains'] as const).map((tab) => (
+          {(['roadmap', 'seo', 'overview', 'brand', 'homepage', 'pages', 'domains'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -444,7 +553,7 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
                   : 'border-transparent text-slate-500 hover:text-slate-700'
               }`}
             >
-              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              {tab === 'seo' ? 'SEO Health' : tab.charAt(0).toUpperCase() + tab.slice(1)}
             </button>
           ))}
         </nav>
@@ -728,6 +837,361 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
         </div>
       )}
 
+      {/* SEO Health Tab */}
+      {activeTab === 'seo' && (
+        <div className="space-y-6">
+          {loadingSeoHealth ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="text-slate-500">Loading SEO health data...</div>
+            </div>
+          ) : seoHealth ? (
+            <>
+              {/* Overall Score Card */}
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-6">
+                    <div>
+                      <h2 className="text-lg font-semibold text-slate-900">SEO Health Score</h2>
+                      <p className="text-sm text-slate-500">
+                        {seoHealth.domain} - {seoHealth.pageCount} pages analyzed
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      {seoHealth.lastAudit && (
+                        <span className="text-xs text-slate-400">
+                          Last audit: {formatRelativeTime(seoHealth.lastAudit.completedAt)}
+                        </span>
+                      )}
+                      <button
+                        onClick={async () => {
+                          setTriggeringSeoAudit(true);
+                          try {
+                            const response = await fetch(`/admin/api/sites/${siteId}/seo-health`, {
+                              method: 'POST',
+                            });
+                            const result = await response.json();
+                            if (response.ok) {
+                              alert(result.message || 'SEO audit queued successfully');
+                              // Refresh the data
+                              const refreshResponse = await fetch(`/admin/api/sites/${siteId}/seo-health`);
+                              const refreshData = await refreshResponse.json();
+                              if (refreshResponse.ok) {
+                                setSeoHealth(refreshData);
+                              }
+                            } else {
+                              alert(result.error || result.message || 'Failed to trigger audit');
+                            }
+                          } catch (error) {
+                            console.error('Failed to trigger SEO audit:', error);
+                            alert('Failed to trigger SEO audit');
+                          } finally {
+                            setTriggeringSeoAudit(false);
+                          }
+                        }}
+                        disabled={triggeringSeoAudit || seoHealth.pendingJobs.length > 0}
+                        className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
+                      >
+                        {triggeringSeoAudit ? (
+                          <>
+                            <span className="animate-spin">&#9696;</span>
+                            Running...
+                          </>
+                        ) : seoHealth.pendingJobs.length > 0 ? (
+                          <>
+                            <span className="animate-pulse">&#9679;</span>
+                            Audit in Progress
+                          </>
+                        ) : (
+                          <>
+                            <span>&#128269;</span>
+                            Run SEO Audit
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Score Overview */}
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                    {/* Overall Score */}
+                    <div className="col-span-2 md:col-span-1 flex flex-col items-center justify-center p-4 bg-slate-50 rounded-lg">
+                      <div
+                        className={`text-4xl font-bold ${
+                          seoHealth.overallScore >= 80
+                            ? 'text-green-600'
+                            : seoHealth.overallScore >= 60
+                            ? 'text-yellow-600'
+                            : 'text-red-600'
+                        }`}
+                      >
+                        {seoHealth.overallScore}
+                      </div>
+                      <div className="text-sm text-slate-500 font-medium">Overall</div>
+                    </div>
+
+                    {/* Individual Scores */}
+                    <div className="flex flex-col items-center p-4 bg-blue-50 rounded-lg">
+                      <div className="text-2xl font-bold text-blue-600">{seoHealth.scores.technical}</div>
+                      <div className="text-xs text-slate-500">Technical</div>
+                    </div>
+                    <div className="flex flex-col items-center p-4 bg-purple-50 rounded-lg">
+                      <div className="text-2xl font-bold text-purple-600">{seoHealth.scores.content}</div>
+                      <div className="text-xs text-slate-500">Content</div>
+                    </div>
+                    <div className="flex flex-col items-center p-4 bg-amber-50 rounded-lg">
+                      <div className="text-2xl font-bold text-amber-600">{seoHealth.scores.performance}</div>
+                      <div className="text-xs text-slate-500">Performance</div>
+                    </div>
+                    <div className="flex flex-col items-center p-4 bg-green-50 rounded-lg">
+                      <div className="text-2xl font-bold text-green-600">{seoHealth.scores.coverage}%</div>
+                      <div className="text-xs text-slate-500">Coverage</div>
+                    </div>
+                  </div>
+
+                  {/* Trends */}
+                  {(seoHealth.trends.scoreChange7d !== 0 || seoHealth.trends.clicksChange7d !== 0) && (
+                    <div className="mt-4 pt-4 border-t border-slate-100">
+                      <div className="flex gap-4 text-sm">
+                        {seoHealth.trends.scoreChange7d !== 0 && (
+                          <span className={seoHealth.trends.scoreChange7d > 0 ? 'text-green-600' : 'text-red-600'}>
+                            {seoHealth.trends.scoreChange7d > 0 ? '+' : ''}{seoHealth.trends.scoreChange7d} score (7d)
+                          </span>
+                        )}
+                        {seoHealth.trends.clicksChange7d !== 0 && (
+                          <span className={seoHealth.trends.clicksChange7d > 0 ? 'text-green-600' : 'text-red-600'}>
+                            {seoHealth.trends.clicksChange7d > 0 ? '+' : ''}{seoHealth.trends.clicksChange7d}% clicks (7d)
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Issues Summary */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Issues Card */}
+                <Card>
+                  <CardContent className="p-6">
+                    <h3 className="text-md font-semibold text-slate-900 mb-4">Issues Found</h3>
+                    <div className="grid grid-cols-3 gap-4 mb-4">
+                      <div className="text-center p-3 bg-red-50 rounded-lg">
+                        <div className="text-2xl font-bold text-red-600">{seoHealth.issuesSummary.critical}</div>
+                        <div className="text-xs text-slate-500">Critical</div>
+                      </div>
+                      <div className="text-center p-3 bg-amber-50 rounded-lg">
+                        <div className="text-2xl font-bold text-amber-600">{seoHealth.issuesSummary.warning}</div>
+                        <div className="text-xs text-slate-500">Warnings</div>
+                      </div>
+                      <div className="text-center p-3 bg-blue-50 rounded-lg">
+                        <div className="text-2xl font-bold text-blue-600">{seoHealth.issuesSummary.info}</div>
+                        <div className="text-xs text-slate-500">Info</div>
+                      </div>
+                    </div>
+
+                    {/* Top Issues List */}
+                    {seoHealth.topIssues.length > 0 && (
+                      <div className="space-y-2 max-h-64 overflow-y-auto">
+                        {seoHealth.topIssues.slice(0, 5).map((issue, i) => (
+                          <div
+                            key={i}
+                            className={`p-3 rounded-lg border ${
+                              issue.type === 'critical'
+                                ? 'bg-red-50 border-red-200'
+                                : issue.type === 'warning'
+                                ? 'bg-amber-50 border-amber-200'
+                                : 'bg-blue-50 border-blue-200'
+                            }`}
+                          >
+                            <div className="flex items-start gap-2">
+                              <span
+                                className={`text-sm ${
+                                  issue.type === 'critical'
+                                    ? 'text-red-600'
+                                    : issue.type === 'warning'
+                                    ? 'text-amber-600'
+                                    : 'text-blue-600'
+                                }`}
+                              >
+                                {issue.type === 'critical' ? '!' : issue.type === 'warning' ? '~' : 'i'}
+                              </span>
+                              <div className="flex-1">
+                                <div className="font-medium text-slate-900 text-sm">{issue.title}</div>
+                                <div className="text-xs text-slate-500">{issue.description}</div>
+                              </div>
+                              <div className="text-xs text-slate-400">
+                                Impact: {issue.impact}/10
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Recommendations Card */}
+                <Card>
+                  <CardContent className="p-6">
+                    <h3 className="text-md font-semibold text-slate-900 mb-4">Top Recommendations</h3>
+                    {seoHealth.recommendations.length > 0 ? (
+                      <div className="space-y-3">
+                        {seoHealth.recommendations.map((rec, i) => (
+                          <div key={i} className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1">
+                                <div className="font-medium text-slate-900 text-sm">{rec.action}</div>
+                                <div className="text-xs text-slate-500 mt-1">{rec.expectedImpact}</div>
+                                {rec.affectedPages.length > 0 && (
+                                  <div className="text-xs text-slate-400 mt-1">
+                                    Affects: {rec.affectedPages.slice(0, 3).join(', ')}
+                                    {rec.affectedPages.length > 3 && ` +${rec.affectedPages.length - 3} more`}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex flex-col items-end gap-1">
+                                <span
+                                  className={`text-xs px-2 py-0.5 rounded ${
+                                    rec.priority >= 80
+                                      ? 'bg-red-100 text-red-800'
+                                      : rec.priority >= 60
+                                      ? 'bg-amber-100 text-amber-800'
+                                      : 'bg-blue-100 text-blue-800'
+                                  }`}
+                                >
+                                  Priority: {rec.priority}
+                                </span>
+                                <span className="text-xs text-green-600">+{rec.estimatedLift}% lift</span>
+                                {rec.automatable && (
+                                  <span className="text-xs text-sky-600">Auto-fixable</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center text-slate-500 py-8">
+                        No recommendations at this time
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Page Scores Table */}
+              <Card>
+                <CardContent className="p-6">
+                  <h3 className="text-md font-semibold text-slate-900 mb-4">Page SEO Scores</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-slate-200">
+                          <th className="text-left py-2 px-3 font-medium text-slate-700">Page</th>
+                          <th className="text-center py-2 px-3 font-medium text-slate-700">Overall</th>
+                          <th className="text-center py-2 px-3 font-medium text-slate-700">Technical</th>
+                          <th className="text-center py-2 px-3 font-medium text-slate-700">Content</th>
+                          <th className="text-center py-2 px-3 font-medium text-slate-700">Performance</th>
+                          <th className="text-center py-2 px-3 font-medium text-slate-700">Issues</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {seoHealth.pageScores.map((page) => (
+                          <tr key={page.pageId} className="border-b border-slate-100 hover:bg-slate-50">
+                            <td className="py-2 px-3">
+                              <div className="font-medium text-slate-900">{page.title}</div>
+                              <div className="text-xs text-slate-400">{page.url}</div>
+                            </td>
+                            <td className="text-center py-2 px-3">
+                              <span
+                                className={`inline-block w-10 text-center font-medium rounded ${
+                                  page.scores.overall >= 80
+                                    ? 'bg-green-100 text-green-800'
+                                    : page.scores.overall >= 60
+                                    ? 'bg-yellow-100 text-yellow-800'
+                                    : 'bg-red-100 text-red-800'
+                                }`}
+                              >
+                                {page.scores.overall}
+                              </span>
+                            </td>
+                            <td className="text-center py-2 px-3 text-slate-600">{page.scores.technical}</td>
+                            <td className="text-center py-2 px-3 text-slate-600">{page.scores.content}</td>
+                            <td className="text-center py-2 px-3 text-slate-600">{page.scores.performance}</td>
+                            <td className="text-center py-2 px-3">
+                              {page.issues.length > 0 ? (
+                                <span className="text-xs px-2 py-0.5 bg-amber-100 text-amber-800 rounded">
+                                  {page.issues.length}
+                                </span>
+                              ) : (
+                                <span className="text-green-600">-</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* GSC Connection Status */}
+              {!seoHealth.gscVerified && (
+                <Card className="border-amber-200 bg-amber-50">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">&#9888;</span>
+                      <div>
+                        <h4 className="font-medium text-amber-900">Google Search Console Not Connected</h4>
+                        <p className="text-sm text-amber-700">
+                          Connect GSC to get real performance data (clicks, impressions, CTR, position).
+                          Currently using estimated performance scores.
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </>
+          ) : (
+            <Card>
+              <CardContent className="p-8 text-center">
+                <div className="text-4xl mb-4">&#128202;</div>
+                <h3 className="text-lg font-medium text-slate-900">SEO Health Data Not Available</h3>
+                <p className="text-slate-500 mt-1 mb-4">
+                  Run an SEO audit to analyze your site&apos;s search optimization
+                </p>
+                <button
+                  onClick={async () => {
+                    setTriggeringSeoAudit(true);
+                    try {
+                      const response = await fetch(`/admin/api/sites/${siteId}/seo-health`, {
+                        method: 'POST',
+                      });
+                      const result = await response.json();
+                      if (response.ok) {
+                        alert(result.message || 'SEO audit queued successfully');
+                      } else {
+                        alert(result.error || 'Failed to trigger audit');
+                      }
+                    } catch (error) {
+                      console.error('Failed to trigger SEO audit:', error);
+                      alert('Failed to trigger SEO audit');
+                    } finally {
+                      setTriggeringSeoAudit(false);
+                    }
+                  }}
+                  disabled={triggeringSeoAudit}
+                  className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                >
+                  {triggeringSeoAudit ? 'Triggering...' : 'Run SEO Audit'}
+                </button>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
       {/* Overview Tab */}
       {activeTab === 'overview' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -753,10 +1217,60 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
                   <dd className="font-medium">{site.gscVerified ? 'Yes' : 'No'}</dd>
                 </div>
                 <div className="flex justify-between">
+                  <dt className="text-slate-500">Google Analytics</dt>
+                  <dd className="font-medium">
+                    {site.seoConfig?.gaMeasurementId ? (
+                      <span className="text-green-600">{site.seoConfig.gaMeasurementId}</span>
+                    ) : (
+                      <span className="text-slate-400">Not configured</span>
+                    )}
+                  </dd>
+                </div>
+                <div className="flex justify-between">
                   <dt className="text-slate-500">Created</dt>
                   <dd className="font-medium">{formatDate(site.createdAt)}</dd>
                 </div>
               </dl>
+            </CardContent>
+          </Card>
+
+          {/* Google Analytics Card */}
+          <Card>
+            <CardContent className="p-6">
+              <h3 className="text-lg font-semibold text-slate-900 mb-4">Google Analytics 4</h3>
+              {site.seoConfig?.gaMeasurementId ? (
+                <dl className="space-y-3">
+                  <div className="flex justify-between">
+                    <dt className="text-slate-500">Measurement ID</dt>
+                    <dd className="font-mono font-medium text-green-600">{site.seoConfig.gaMeasurementId}</dd>
+                  </div>
+                  {site.seoConfig.ga4PropertyId && (
+                    <div className="flex justify-between">
+                      <dt className="text-slate-500">Property ID</dt>
+                      <dd className="font-mono font-medium">{site.seoConfig.ga4PropertyId}</dd>
+                    </div>
+                  )}
+                  <div className="pt-3 border-t border-slate-100">
+                    <a
+                      href={`https://analytics.google.com/analytics/web/#/p${site.seoConfig.ga4PropertyId}/reports/dashboard`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-sky-600 hover:text-sky-700 flex items-center gap-1"
+                    >
+                      Open in Google Analytics
+                      <span>↗</span>
+                    </a>
+                  </div>
+                </dl>
+              ) : (
+                <div className="text-center py-4">
+                  <div className="text-3xl mb-2">📊</div>
+                  <p className="text-slate-500 text-sm">GA4 not configured yet</p>
+                  <p className="text-slate-400 text-xs mt-1">
+                    GA4 will be automatically set up when the site is created
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
 

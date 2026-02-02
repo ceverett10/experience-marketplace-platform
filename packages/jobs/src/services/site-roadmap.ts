@@ -92,6 +92,7 @@ async function validateTaskArtifacts(
         gscVerified: true,
         gscPropertyUrl: true,
         gscLastSyncedAt: true,
+        seoConfig: true,
       },
     }),
   ]);
@@ -142,6 +143,10 @@ async function validateTaskArtifacts(
     GSC_SYNC: {
       valid: gscVerified, // Sync requires verified GSC
       reason: gscVerified ? undefined : 'GSC not ready for sync',
+    },
+    GA4_SETUP: {
+      valid: !!(site?.seoConfig as any)?.gaMeasurementId,
+      reason: (site?.seoConfig as any)?.gaMeasurementId ? undefined : 'No GA4 measurement ID configured',
     },
     SITE_DEPLOY: {
       valid: !!site?.primaryDomain && activeDomains.length > 0,
@@ -194,9 +199,9 @@ export const SITE_LIFECYCLE_PHASES = {
     tasks: ['DOMAIN_REGISTER', 'DOMAIN_VERIFY', 'SSL_PROVISION'] as JobType[],
   },
   seo: {
-    name: 'SEO Configuration',
-    description: 'Setting up Google Search Console and SEO',
-    tasks: ['GSC_SETUP', 'GSC_VERIFY', 'GSC_SYNC'] as JobType[],
+    name: 'SEO & Analytics',
+    description: 'Setting up Google Search Console, Analytics, and SEO',
+    tasks: ['GSC_SETUP', 'GSC_VERIFY', 'GA4_SETUP', 'GSC_SYNC'] as JobType[],
   },
   launch: {
     name: 'Site Launch',
@@ -206,7 +211,7 @@ export const SITE_LIFECYCLE_PHASES = {
   optimization: {
     name: 'Ongoing Optimization',
     description: 'Continuous content and performance optimization',
-    tasks: ['SEO_ANALYZE', 'ABTEST_ANALYZE', 'METRICS_AGGREGATE'] as JobType[],
+    tasks: ['SEO_ANALYZE', 'SEO_OPPORTUNITY_SCAN', 'SEO_OPPORTUNITY_OPTIMIZE', 'ABTEST_ANALYZE', 'METRICS_AGGREGATE'] as JobType[],
   },
 };
 
@@ -223,6 +228,7 @@ export const TASK_DESCRIPTIONS: Record<JobType, { label: string; description: st
   SSL_PROVISION: { label: 'Setup SSL', description: 'Install security certificate for HTTPS' },
   GSC_SETUP: { label: 'Setup Search Console', description: 'Add site to Google Search Console' },
   GSC_VERIFY: { label: 'Verify Search Console', description: 'Verify site ownership in GSC' },
+  GA4_SETUP: { label: 'Setup Google Analytics', description: 'Create GA4 property and tracking' },
   GSC_SYNC: { label: 'Sync Search Data', description: 'Import search performance data' },
   SEO_ANALYZE: { label: 'Analyze SEO', description: 'Check and improve search optimization' },
   SEO_OPPORTUNITY_SCAN: { label: 'Scan Opportunities', description: 'Find new keyword opportunities' },
@@ -256,16 +262,19 @@ export async function initializeSiteRoadmap(siteId: string): Promise<void> {
     { type: 'DOMAIN_VERIFY', priority: 4 },
     { type: 'SSL_PROVISION', priority: 5 },
 
-    // Phase 4: SEO
+    // Phase 4: SEO & Analytics
     { type: 'GSC_SETUP', priority: 4 },
     { type: 'GSC_VERIFY', priority: 5 },
+    { type: 'GA4_SETUP', priority: 5 },
 
     // Phase 5: Launch
     { type: 'SITE_DEPLOY', priority: 2 },
 
     // Phase 6: Ongoing (scheduled after launch)
     { type: 'SEO_ANALYZE', priority: 6 },
-    { type: 'METRICS_AGGREGATE', priority: 7 },
+    { type: 'SEO_OPPORTUNITY_SCAN', priority: 7 },
+    { type: 'SEO_OPPORTUNITY_OPTIMIZE', priority: 8 },
+    { type: 'METRICS_AGGREGATE', priority: 9 },
   ];
 
   // Create pending job records for tasks that don't already exist
@@ -407,6 +416,8 @@ const TASK_DEPENDENCIES: Partial<Record<JobType, JobType[]>> = {
   GSC_SYNC: ['GSC_VERIFY'],
   SITE_DEPLOY: ['CONTENT_REVIEW', 'SSL_PROVISION'],
   SEO_ANALYZE: ['SITE_DEPLOY'],
+  SEO_OPPORTUNITY_SCAN: ['SEO_ANALYZE'],
+  SEO_OPPORTUNITY_OPTIMIZE: ['SEO_OPPORTUNITY_SCAN'],
   METRICS_AGGREGATE: ['SITE_DEPLOY'],
 };
 
@@ -434,6 +445,8 @@ function getJobPayload(siteId: string, jobType: JobType): Record<string, unknown
     case 'GSC_VERIFY':
       return { ...basePayload };
     case 'GSC_SYNC':
+      return { ...basePayload };
+    case 'GA4_SETUP':
       return { ...basePayload };
     case 'SITE_DEPLOY':
       return { ...basePayload, environment: 'staging' };
@@ -506,9 +519,12 @@ export async function executeNextTasks(siteId: string): Promise<{
     'SSL_PROVISION',
     'GSC_SETUP',
     'GSC_VERIFY',
+    'GA4_SETUP',
     'GSC_SYNC',
     'SITE_DEPLOY',
     'SEO_ANALYZE',
+    'SEO_OPPORTUNITY_SCAN',
+    'SEO_OPPORTUNITY_OPTIMIZE',
     'METRICS_AGGREGATE',
   ];
 

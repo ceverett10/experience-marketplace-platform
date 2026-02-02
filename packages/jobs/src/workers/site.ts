@@ -332,7 +332,17 @@ export async function handleSiteCreate(job: Job<SiteCreatePayload>): Promise<Job
       console.log(`[Site Create] Domain ${suggestedDomain} costs $${availabilityResult.price?.toFixed(2)} (over $${MAX_AUTO_PURCHASE_PRICE} limit) - requires manual approval`);
     }
 
-    // 9. Queue deployment if auto-publish enabled
+    // 9. Queue GA4 setup for analytics tracking
+    console.log('[Site Create] Queuing GA4 analytics setup...');
+    await addJob('GA4_SETUP', {
+      siteId: site.id,
+    }, {
+      priority: 5,
+      delay: 10000, // Small delay to let other setup settle
+    });
+    console.log('[Site Create] Queued GA4 setup job');
+
+    // 10. Queue deployment if auto-publish enabled
     if (autoPublish) {
       console.log('[Site Create] Auto-publish enabled, queuing deployment...');
       await addJob('SITE_DEPLOY', {
