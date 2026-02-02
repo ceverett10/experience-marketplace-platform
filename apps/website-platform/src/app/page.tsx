@@ -422,12 +422,13 @@ export default async function HomePage() {
           </div>
           <div className="mt-10 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
             {testimonials.map((testimonial, idx) => (
-              <div key={idx} className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-                <div className="mb-3 flex items-center gap-0.5">
+              <div key={idx} className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
+                {/* Star Rating */}
+                <div className="mb-4 flex items-center gap-1">
                   {[...Array(5)].map((_, i) => (
                     <svg
                       key={i}
-                      className={`h-4 w-4 ${i < testimonial.rating ? 'text-yellow-400' : 'text-gray-200'}`}
+                      className={`h-5 w-5 ${i < testimonial.rating ? 'text-yellow-400' : 'text-gray-200'}`}
                       fill="currentColor"
                       viewBox="0 0 20 20"
                     >
@@ -435,16 +436,18 @@ export default async function HomePage() {
                     </svg>
                   ))}
                 </div>
-                <p className="text-sm leading-relaxed text-gray-600">
+                {/* Testimonial Text - Larger, darker, more readable */}
+                <p className="text-base leading-7 text-gray-800">
                   &ldquo;{testimonial.text}&rdquo;
                 </p>
-                <div className="mt-4 flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100 text-sm font-semibold text-indigo-600">
+                {/* Author Info */}
+                <div className="mt-6 flex items-center gap-4">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-100 text-base font-semibold text-indigo-600">
                     {testimonial.name.charAt(0)}
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-900">{testimonial.name}</p>
-                    <p className="text-xs text-gray-500">{testimonial.location}</p>
+                    <p className="text-base font-semibold text-gray-900">{testimonial.name}</p>
+                    <p className="text-sm text-gray-600">{testimonial.location}</p>
                   </div>
                 </div>
               </div>
