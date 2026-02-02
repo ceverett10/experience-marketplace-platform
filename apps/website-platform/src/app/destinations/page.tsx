@@ -162,7 +162,7 @@ export default async function DestinationsPage() {
                       photographerName={destination.imageAttribution.photographerName}
                       photographerUrl={destination.imageAttribution.photographerUrl}
                       unsplashUrl={destination.imageAttribution.unsplashUrl}
-                      variant="overlay"
+                      variant="overlay-compact"
                     />
                   )}
                 </div>

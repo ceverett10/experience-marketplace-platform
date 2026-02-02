@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { UnsplashAttribution } from '@/components/common/UnsplashAttribution';
 
 interface ImageAttribution {
@@ -22,6 +23,8 @@ interface CategoryGridProps {
   title?: string;
   subtitle?: string;
   categories: Category[];
+  /** Destination to include in navigation (for "Where" search param) */
+  destination?: string;
 }
 
 // Default category icons
@@ -44,6 +47,7 @@ export function CategoryGrid({
   title = 'Browse by Category',
   subtitle,
   categories,
+  destination,
 }: CategoryGridProps) {
   // Use default categories if none provided
   const displayCategories: Category[] =
@@ -69,52 +73,94 @@ export function CategoryGrid({
           {subtitle && <p className="mx-auto mt-2 max-w-2xl text-base text-gray-600">{subtitle}</p>}
         </div>
 
-        {/* Categories Grid */}
-        <div className="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:gap-6">
-          {displayCategories.map((category) => (
-            <Link
-              key={category.id}
-              href={`/experiences?category=${category.slug}`}
-              className="group relative flex flex-col items-center justify-center overflow-hidden rounded-xl bg-white p-6 shadow-sm transition-all hover:shadow-md"
-            >
-              {category.imageUrl ? (
-                <>
-                  <img
-                    src={category.imageUrl}
-                    alt={category.name}
-                    className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-black/40 transition-colors group-hover:bg-black/50" />
-                  <span className="relative text-lg font-semibold text-white">{category.name}</span>
-                  {category.count !== undefined && (
-                    <span className="relative mt-1 text-sm text-white/80">
-                      {category.count} experiences
+        {/* Categories Grid - Larger cards with more image visibility */}
+        <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {displayCategories.map((category) => {
+            // Build URL with destination (if known) and category name
+            const searchParams = new URLSearchParams();
+            if (destination) {
+              searchParams.set('destination', destination);
+            }
+            searchParams.set('q', category.name);
+            const href = `/experiences?${searchParams.toString()}`;
+
+            return (
+              <Link
+                key={category.id}
+                href={href}
+                className="group relative overflow-hidden rounded-2xl bg-white shadow-md transition-all hover:shadow-xl"
+              >
+                {category.imageUrl ? (
+                  <>
+                    {/* Image Container - Taller for better visibility */}
+                    <div className="relative h-44 w-full overflow-hidden">
+                      <Image
+                        src={category.imageUrl}
+                        alt={category.name}
+                        fill
+                        className="object-cover transition-transform duration-300 group-hover:scale-105"
+                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                      />
+                      {/* Gradient overlay */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+
+                      {/* Icon badge */}
+                      <div className="absolute right-3 top-3 rounded-full bg-white/90 p-2 text-xl backdrop-blur-sm">
+                        {category.icon ?? categoryIcons[category.slug] ?? '✨'}
+                      </div>
+
+                      {/* Compact attribution */}
+                      {category.imageAttribution && (
+                        <UnsplashAttribution
+                          photographerName={category.imageAttribution.photographerName}
+                          photographerUrl={category.imageAttribution.photographerUrl}
+                          unsplashUrl={category.imageAttribution.unsplashUrl}
+                          variant="overlay-compact"
+                        />
+                      )}
+                    </div>
+
+                    {/* Content below image */}
+                    <div className="p-4">
+                      <h3 className="text-lg font-semibold text-gray-900 group-hover:text-indigo-600">
+                        {category.name}
+                      </h3>
+                      {category.count !== undefined && (
+                        <p className="mt-1 text-sm text-gray-500">
+                          {category.count} experiences
+                        </p>
+                      )}
+                      <div className="mt-2 flex items-center text-sm font-medium text-indigo-600 group-hover:text-indigo-700">
+                        <span>Explore</span>
+                        <svg
+                          className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-1"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth="2"
+                          stroke="currentColor"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                        </svg>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  /* Fallback for categories without images */
+                  <div className="flex flex-col items-center justify-center p-8">
+                    <span className="text-5xl">
+                      {category.icon ?? categoryIcons[category.slug] ?? '✨'}
                     </span>
-                  )}
-                  {category.imageAttribution && (
-                    <UnsplashAttribution
-                      photographerName={category.imageAttribution.photographerName}
-                      photographerUrl={category.imageAttribution.photographerUrl}
-                      unsplashUrl={category.imageAttribution.unsplashUrl}
-                      variant="overlay"
-                    />
-                  )}
-                </>
-              ) : (
-                <>
-                  <span className="text-4xl">
-                    {category.icon ?? categoryIcons[category.slug] ?? '✨'}
-                  </span>
-                  <span className="mt-3 text-center text-sm font-medium text-gray-900">
-                    {category.name}
-                  </span>
-                  {category.count !== undefined && (
-                    <span className="mt-1 text-xs text-gray-500">{category.count} experiences</span>
-                  )}
-                </>
-              )}
-            </Link>
-          ))}
+                    <span className="mt-4 text-center text-base font-semibold text-gray-900 group-hover:text-indigo-600">
+                      {category.name}
+                    </span>
+                    {category.count !== undefined && (
+                      <span className="mt-1 text-sm text-gray-500">{category.count} experiences</span>
+                    )}
+                  </div>
+                )}
+              </Link>
+            );
+          })}
         </div>
       </div>
     </section>

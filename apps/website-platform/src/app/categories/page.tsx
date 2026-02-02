@@ -165,7 +165,7 @@ export default async function CategoriesPage() {
                       photographerName={category.imageAttribution.photographerName}
                       photographerUrl={category.imageAttribution.photographerUrl}
                       unsplashUrl={category.imageAttribution.unsplashUrl}
-                      variant="overlay"
+                      variant="overlay-compact"
                       className="bottom-16" // Positioned above the title
                     />
                   )}

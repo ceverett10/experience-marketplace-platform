@@ -308,6 +308,7 @@ export default async function HomePage() {
             imageUrl: cat.imageUrl,
             imageAttribution: cat.imageAttribution,
           }))}
+          destination={popularExperiencesConfig?.destination}
         />
       )}
 

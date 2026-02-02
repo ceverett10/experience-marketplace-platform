@@ -14,7 +14,7 @@ interface UnsplashAttributionProps {
   photographerName: string;
   photographerUrl: string;
   unsplashUrl?: string;
-  variant?: 'overlay' | 'inline' | 'minimal';
+  variant?: 'overlay' | 'overlay-compact' | 'inline' | 'minimal';
   className?: string;
 }
 
@@ -74,6 +74,33 @@ export function UnsplashAttribution({
           Unsplash
         </a>
       </p>
+    );
+  }
+
+  // Compact overlay version - smaller for tight spaces
+  if (variant === 'overlay-compact') {
+    return (
+      <div
+        className={`absolute bottom-1 left-1 rounded bg-black/40 px-1.5 py-0.5 text-[10px] text-white/90 backdrop-blur-sm ${className}`}
+      >
+        <a
+          href={photographerUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:underline"
+        >
+          {photographerName}
+        </a>
+        {' / '}
+        <a
+          href={unsplashUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:underline"
+        >
+          Unsplash
+        </a>
+      </div>
     );
   }
 
