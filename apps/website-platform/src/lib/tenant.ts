@@ -61,6 +61,15 @@ export interface HomepageConfig {
     name: string;
     slug: string;
     icon: string; // emoji
+    imageUrl?: string; // Unsplash image URL
+    description?: string; // AI-generated description for /destinations page
+  }>;
+  categories?: Array<{
+    name: string;
+    slug: string;
+    icon: string; // emoji
+    imageUrl?: string; // Unsplash image URL
+    description?: string; // AI-generated description for /categories page
   }>;
   testimonials?: Array<{
     name: string;
@@ -144,14 +153,22 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
       subtitle: 'Discover the most loved experiences in your destination',
     },
     destinations: [
-      { name: 'London', slug: 'london', icon: '🇬🇧' },
-      { name: 'Paris', slug: 'paris', icon: '🇫🇷' },
-      { name: 'Barcelona', slug: 'barcelona', icon: '🇪🇸' },
-      { name: 'Rome', slug: 'rome', icon: '🇮🇹' },
-      { name: 'Amsterdam', slug: 'amsterdam', icon: '🇳🇱' },
-      { name: 'Edinburgh', slug: 'edinburgh', icon: '🏴󠁧󠁢󠁳󠁣󠁴󠁿' },
-      { name: 'Lisbon', slug: 'lisbon', icon: '🇵🇹' },
-      { name: 'Berlin', slug: 'berlin', icon: '🇩🇪' },
+      { name: 'London', slug: 'london', icon: '🇬🇧', description: 'Experience world-class culture, history, and entertainment in the UK capital.' },
+      { name: 'Paris', slug: 'paris', icon: '🇫🇷', description: 'Discover romance, art, and culinary excellence in the City of Light.' },
+      { name: 'Barcelona', slug: 'barcelona', icon: '🇪🇸', description: 'Enjoy stunning architecture, beaches, and vibrant Catalan culture.' },
+      { name: 'Rome', slug: 'rome', icon: '🇮🇹', description: 'Walk through ancient history and savor authentic Italian experiences.' },
+      { name: 'Amsterdam', slug: 'amsterdam', icon: '🇳🇱', description: 'Explore charming canals, world-class museums, and Dutch hospitality.' },
+      { name: 'Edinburgh', slug: 'edinburgh', icon: '🏴󠁧󠁢󠁳󠁣󠁴󠁿', description: 'Discover medieval charm and Scottish heritage in this historic capital.' },
+      { name: 'Lisbon', slug: 'lisbon', icon: '🇵🇹', description: 'Experience colorful neighborhoods, delicious cuisine, and coastal beauty.' },
+      { name: 'Berlin', slug: 'berlin', icon: '🇩🇪', description: 'Explore modern culture, fascinating history, and creative energy.' },
+    ],
+    categories: [
+      { name: 'Tours & Sightseeing', slug: 'tours', icon: '🗺️', description: 'Guided tours to discover the best of your destination with expert local guides.' },
+      { name: 'Food & Drink', slug: 'food-drink', icon: '🍷', description: 'Culinary adventures from street food to fine dining, wine tastings, and cooking classes.' },
+      { name: 'Adventure', slug: 'adventure', icon: '🏔️', description: 'Thrilling outdoor activities and adrenaline-pumping experiences for adventurers.' },
+      { name: 'Culture & History', slug: 'culture', icon: '🏛️', description: 'Immerse yourself in local heritage, museums, art galleries, and historical landmarks.' },
+      { name: 'Water Activities', slug: 'water', icon: '🚤', description: 'Boats, cruises, kayaking, diving, and everything aquatic for water lovers.' },
+      { name: 'Day Trips', slug: 'day-trips', icon: '🚗', description: 'Explore beyond the city on exciting excursions to nearby attractions and hidden gems.' },
     ],
   },
 };

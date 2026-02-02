@@ -7,6 +7,7 @@ import { useBrand } from '@/lib/site-context';
 interface ProductDiscoverySearchProps {
   variant?: 'hero' | 'inline' | 'sidebar';
   defaultDestination?: string;
+  defaultWhat?: string; // Pre-fill the "What" field (e.g., "Food & Drink")
   defaultDates?: { startDate?: string; endDate?: string };
   defaultTravelers?: string;
   recommendedTags?: { id: string; name: string }[];
@@ -85,6 +86,7 @@ type ActiveSection = 'where' | 'when' | 'who' | 'what' | null;
 export function ProductDiscoverySearch({
   variant = 'hero',
   defaultDestination = '',
+  defaultWhat = '',
   defaultDates: _defaultDates = {},
   onSearch,
   onResultsChange: _onResultsChange,
@@ -101,7 +103,7 @@ export function ProductDiscoverySearch({
   const [where, setWhere] = useState(defaultDestination || searchParams.get('destination') || '');
   const [when, setWhen] = useState(searchParams.get('when') || '');
   const [who, setWho] = useState(searchParams.get('who') || '');
-  const [what, setWhat] = useState(searchParams.get('q') || '');
+  const [what, setWhat] = useState(searchParams.get('q') || defaultWhat || '');
 
   // UI state
   const [activeSection, setActiveSection] = useState<ActiveSection>(null);

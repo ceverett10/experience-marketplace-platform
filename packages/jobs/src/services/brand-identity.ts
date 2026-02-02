@@ -10,6 +10,7 @@
 
 import { createClaudeClient } from '@experience-marketplace/content-engine';
 import { prisma } from '@experience-marketplace/database';
+import { enrichHomepageConfigWithImages } from './unsplash-images.js';
 
 interface OpportunityContext {
   keyword: string;
@@ -392,6 +393,15 @@ export interface HomepageConfig {
     name: string;
     slug: string;
     icon: string;
+    imageUrl?: string; // Unsplash image URL
+    description?: string; // AI-generated description for /destinations page
+  }>;
+  categories?: Array<{
+    name: string;
+    slug: string;
+    icon: string;
+    imageUrl?: string; // Unsplash image URL
+    description?: string; // AI-generated description for /categories page
   }>;
   testimonials?: Array<{
     name: string;
@@ -447,8 +457,16 @@ I need:
    - For a location-specific brand (like "London Food Tours"), include NEIGHBORHOODS/AREAS within that city
    - For a general brand, include major cities
    - Each destination needs: name, slug (lowercase, hyphenated), icon (country flag or relevant emoji)
+   - description: A compelling 2-3 sentence description of why this destination is great for experiences
 
-4. TESTIMONIALS (3 items):
+4. CATEGORIES (6-8 items):
+   - Generate niche-specific experience CATEGORIES relevant to the brand
+   - For example, for "London Food Tours": wine tasting, brewery tours, fine dining, street food, cooking classes, pub crawls, market tours, afternoon tea
+   - For "Adventure Tours": hiking, climbing, kayaking, ziplining, camping, caving, paragliding
+   - Each category needs: name, slug (lowercase, hyphenated), icon (relevant emoji)
+   - description: A compelling 2-3 sentence description of why this category of experiences is special
+
+5. TESTIMONIALS (3 items):
    - Generate realistic-sounding testimonials from happy customers
    - Each needs: name (first name + initial), location, text (1-2 sentences), rating (4-5)
 
@@ -466,7 +484,10 @@ Return ONLY valid JSON:
     "searchTerms": ["term1", "term2"]
   },
   "destinations": [
-    {"name": "Area Name", "slug": "area-name", "icon": "emoji"}
+    {"name": "Area Name", "slug": "area-name", "icon": "emoji", "description": "Why this destination is great"}
+  ],
+  "categories": [
+    {"name": "Category Name", "slug": "category-slug", "icon": "emoji", "description": "Why this category is special"}
   ],
   "testimonials": [
     {"name": "Name I.", "location": "City, Country", "text": "Review text", "rating": 5}
@@ -484,25 +505,40 @@ Return ONLY valid JSON:
     const jsonMatch = content.match(/\{[\s\S]*\}/);
 
     if (jsonMatch) {
-      const generated = JSON.parse(jsonMatch[0]);
+      const generated = JSON.parse(jsonMatch[0]) as HomepageConfig;
       console.log(`[Homepage Config] Generated config for ${brandIdentity.name}`);
-      return generated as HomepageConfig;
+
+      // Enrich with images from Unsplash
+      try {
+        const enriched = await enrichHomepageConfigWithImages(generated, {
+          location: opportunity.location,
+          niche: opportunity.niche,
+        });
+        return {
+          ...generated,
+          destinations: enriched.destinations || generated.destinations,
+          categories: enriched.categories || generated.categories,
+        };
+      } catch (imageError) {
+        console.warn('[Homepage Config] Failed to enrich with images, using config without images:', imageError);
+        return generated;
+      }
     }
 
     throw new Error('Failed to parse AI-generated homepage config');
   } catch (error) {
     console.error('[Homepage Config] AI generation failed:', error);
-    return createTemplateHomepageConfig(opportunity, brandIdentity);
+    return await createTemplateHomepageConfig(opportunity, brandIdentity);
   }
 }
 
 /**
  * Create template-based homepage config as fallback
  */
-function createTemplateHomepageConfig(
+async function createTemplateHomepageConfig(
   opportunity: OpportunityContext,
   brandIdentity: ComprehensiveBrandIdentity
-): HomepageConfig {
+): Promise<HomepageConfig> {
   const location = opportunity.location?.split(',')[0]?.trim() || '';
   const niche = opportunity.niche.toLowerCase();
 
@@ -535,7 +571,47 @@ function createTemplateHomepageConfig(
     ([key]) => niche.includes(key)
   )?.[1] || 'sightseeing-tours';
 
-  return {
+  // Generate niche-specific categories
+  const nicheCategories: Record<string, Array<{ name: string; slug: string; icon: string; description: string }>> = {
+    'food tours': [
+      { name: 'Wine Tasting', slug: 'wine-tasting', icon: '🍷', description: 'Discover exceptional local wines and vineyards with expert sommeliers.' },
+      { name: 'Brewery Tours', slug: 'brewery-tours', icon: '🍺', description: 'Explore craft breweries and taste unique local beers.' },
+      { name: 'Fine Dining', slug: 'fine-dining', icon: '🍽️', description: 'Experience world-class restaurants and Michelin-starred cuisine.' },
+      { name: 'Street Food', slug: 'street-food', icon: '🥙', description: 'Sample authentic local flavors from the best street vendors.' },
+      { name: 'Cooking Classes', slug: 'cooking-classes', icon: '👨‍🍳', description: 'Learn traditional recipes from expert local chefs.' },
+      { name: 'Market Tours', slug: 'market-tours', icon: '🛒', description: 'Explore vibrant local markets with a knowledgeable guide.' },
+    ],
+    'sightseeing': [
+      { name: 'Walking Tours', slug: 'walking-tours', icon: '🚶', description: 'Discover hidden gems on foot with expert local guides.' },
+      { name: 'Bus Tours', slug: 'bus-tours', icon: '🚌', description: 'See all the highlights comfortably from an open-top bus.' },
+      { name: 'Boat Tours', slug: 'boat-tours', icon: '🚢', description: 'Experience the city from a unique waterside perspective.' },
+      { name: 'Night Tours', slug: 'night-tours', icon: '🌃', description: 'Discover the magic of the city after dark.' },
+      { name: 'Photography Tours', slug: 'photography-tours', icon: '📸', description: 'Capture stunning photos at the best locations.' },
+      { name: 'Private Tours', slug: 'private-tours', icon: '🎩', description: 'Enjoy an exclusive, personalized touring experience.' },
+    ],
+    'adventure': [
+      { name: 'Hiking', slug: 'hiking', icon: '🥾', description: 'Trek through stunning landscapes with experienced guides.' },
+      { name: 'Kayaking', slug: 'kayaking', icon: '🛶', description: 'Paddle through scenic waterways and hidden coves.' },
+      { name: 'Climbing', slug: 'climbing', icon: '🧗', description: 'Challenge yourself on world-class climbing routes.' },
+      { name: 'Ziplining', slug: 'ziplining', icon: '🎿', description: 'Soar through the air on thrilling zipline adventures.' },
+      { name: 'Caving', slug: 'caving', icon: '🦇', description: 'Explore underground wonders and ancient caves.' },
+      { name: 'Rafting', slug: 'rafting', icon: '🚣', description: 'Navigate exciting rapids with professional guides.' },
+    ],
+  };
+
+  // Find matching categories or use default
+  const matchingCategories = Object.entries(nicheCategories).find(
+    ([key]) => niche.includes(key)
+  )?.[1] || [
+    { name: 'Tours', slug: 'tours', icon: '🗺️', description: 'Guided tours to discover the best of the destination.' },
+    { name: 'Activities', slug: 'activities', icon: '🎯', description: 'Exciting activities for all interests and skill levels.' },
+    { name: 'Experiences', slug: 'experiences', icon: '✨', description: 'Unique and memorable experiences you won\'t forget.' },
+    { name: 'Classes', slug: 'classes', icon: '📚', description: 'Learn new skills from expert local instructors.' },
+    { name: 'Day Trips', slug: 'day-trips', icon: '🚗', description: 'Explore beyond the city on exciting day excursions.' },
+    { name: 'Private', slug: 'private', icon: '🌟', description: 'Exclusive private experiences tailored just for you.' },
+  ];
+
+  const config: HomepageConfig = {
     hero: {
       title: brandIdentity.tagline || `Discover ${capitalize(niche)} Experiences`,
       subtitle: `Book the best ${niche} experiences in ${location || 'your destination'}`,
@@ -550,26 +626,27 @@ function createTemplateHomepageConfig(
     destinations: location
       ? [
           // For location-specific sites, show areas within the city
-          { name: 'Central', slug: `${location.toLowerCase()}-central`, icon: '🏛️' },
-          { name: 'Old Town', slug: `${location.toLowerCase()}-old-town`, icon: '🏰' },
-          { name: 'Waterfront', slug: `${location.toLowerCase()}-waterfront`, icon: '🌊' },
-          { name: 'Markets', slug: `${location.toLowerCase()}-markets`, icon: '🛒' },
-          { name: 'Historic', slug: `${location.toLowerCase()}-historic`, icon: '🏺' },
-          { name: 'Modern', slug: `${location.toLowerCase()}-modern`, icon: '🏢' },
-          { name: 'Suburban', slug: `${location.toLowerCase()}-suburban`, icon: '🌳' },
-          { name: 'Downtown', slug: `${location.toLowerCase()}-downtown`, icon: '🌆' },
+          { name: 'Central', slug: `${location.toLowerCase()}-central`, icon: '🏛️', description: `Explore the heart of ${location} with its iconic landmarks and attractions.` },
+          { name: 'Old Town', slug: `${location.toLowerCase()}-old-town`, icon: '🏰', description: `Step back in time through charming historic streets and ancient architecture.` },
+          { name: 'Waterfront', slug: `${location.toLowerCase()}-waterfront`, icon: '🌊', description: `Enjoy stunning views and riverside experiences along the waterfront.` },
+          { name: 'Markets', slug: `${location.toLowerCase()}-markets`, icon: '🛒', description: `Discover vibrant markets bursting with local flavors and artisan goods.` },
+          { name: 'Historic', slug: `${location.toLowerCase()}-historic`, icon: '🏺', description: `Uncover centuries of history in beautifully preserved heritage sites.` },
+          { name: 'Modern', slug: `${location.toLowerCase()}-modern`, icon: '🏢', description: `Experience contemporary culture in the city's dynamic modern districts.` },
+          { name: 'Suburban', slug: `${location.toLowerCase()}-suburban`, icon: '🌳', description: `Escape to peaceful neighborhoods with local charm and hidden gems.` },
+          { name: 'Downtown', slug: `${location.toLowerCase()}-downtown`, icon: '🌆', description: `Feel the energy of downtown with world-class dining, shopping, and entertainment.` },
         ]
       : [
           // Default destinations for general sites
-          { name: 'London', slug: 'london', icon: '🇬🇧' },
-          { name: 'Paris', slug: 'paris', icon: '🇫🇷' },
-          { name: 'Barcelona', slug: 'barcelona', icon: '🇪🇸' },
-          { name: 'Rome', slug: 'rome', icon: '🇮🇹' },
-          { name: 'Amsterdam', slug: 'amsterdam', icon: '🇳🇱' },
-          { name: 'Edinburgh', slug: 'edinburgh', icon: '🏴󠁧󠁢󠁳󠁣󠁴󠁿' },
-          { name: 'Lisbon', slug: 'lisbon', icon: '🇵🇹' },
-          { name: 'Berlin', slug: 'berlin', icon: '🇩🇪' },
+          { name: 'London', slug: 'london', icon: '🇬🇧', description: 'Experience world-class culture, history, and entertainment in the UK capital.' },
+          { name: 'Paris', slug: 'paris', icon: '🇫🇷', description: 'Discover romance, art, and culinary excellence in the City of Light.' },
+          { name: 'Barcelona', slug: 'barcelona', icon: '🇪🇸', description: 'Enjoy stunning architecture, beaches, and vibrant Catalan culture.' },
+          { name: 'Rome', slug: 'rome', icon: '🇮🇹', description: 'Walk through ancient history and savor authentic Italian experiences.' },
+          { name: 'Amsterdam', slug: 'amsterdam', icon: '🇳🇱', description: 'Explore charming canals, world-class museums, and Dutch hospitality.' },
+          { name: 'Edinburgh', slug: 'edinburgh', icon: '🏴󠁧󠁢󠁳󠁣󠁴󠁿', description: 'Discover medieval charm and Scottish heritage in this historic capital.' },
+          { name: 'Lisbon', slug: 'lisbon', icon: '🇵🇹', description: 'Experience colorful neighborhoods, delicious cuisine, and coastal beauty.' },
+          { name: 'Berlin', slug: 'berlin', icon: '🇩🇪', description: 'Explore modern culture, fascinating history, and creative energy.' },
         ],
+    categories: matchingCategories,
     testimonials: [
       {
         name: 'Sarah M.',
@@ -591,6 +668,22 @@ function createTemplateHomepageConfig(
       },
     ],
   };
+
+  // Try to enrich with images (non-blocking)
+  try {
+    const enriched = await enrichHomepageConfigWithImages(config, {
+      location: opportunity.location,
+      niche: opportunity.niche,
+    });
+    return {
+      ...config,
+      destinations: enriched.destinations || config.destinations,
+      categories: enriched.categories || config.categories,
+    };
+  } catch (imageError) {
+    console.warn('[Homepage Config] Failed to enrich template with images:', imageError);
+    return config;
+  }
 }
 
 /**

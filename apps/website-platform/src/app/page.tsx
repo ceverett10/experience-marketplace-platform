@@ -132,6 +132,18 @@ const DEFAULT_DESTINATIONS = [
   { name: 'Berlin', slug: 'berlin', icon: '🇩🇪' },
 ];
 
+// Map category path to user-friendly label for search
+const CATEGORY_LABELS: Record<string, string> = {
+  'food-wine-and-beer-experiences': 'Food & Drink',
+  'sightseeing-tours': 'Sightseeing Tours',
+  'outdoor-activities': 'Outdoor Activities',
+  'cultural-experiences': 'Cultural Experiences',
+  'water-activities': 'Water Activities',
+  'theme-parks-and-attractions': 'Theme Parks',
+  'shows-and-events': 'Shows & Events',
+  'wellness-and-spa': 'Wellness & Spa',
+};
+
 export default async function HomePage() {
   const headersList = await headers();
   // On Heroku/Cloudflare, use x-forwarded-host to get the actual external domain
@@ -143,6 +155,32 @@ export default async function HomePage() {
   const heroConfig = homepageConfig?.hero;
   const popularExperiencesConfig = homepageConfig?.popularExperiences;
   const destinations = homepageConfig?.destinations ?? DEFAULT_DESTINATIONS;
+  const categories = homepageConfig?.categories ?? [];
+  const testimonials = homepageConfig?.testimonials ?? [
+    {
+      name: 'Sarah M.',
+      location: 'London, UK',
+      text: 'Absolutely fantastic experience! The booking process was seamless and the tour exceeded all expectations. Would highly recommend to anyone visiting.',
+      rating: 5,
+    },
+    {
+      name: 'James T.',
+      location: 'New York, US',
+      text: 'Great selection of experiences and very competitive prices. The free cancellation policy gave us peace of mind when planning our trip.',
+      rating: 5,
+    },
+    {
+      name: 'Maria L.',
+      location: 'Barcelona, Spain',
+      text: 'We booked a family tour and it was perfectly organized. The kids loved every minute. Easy to book and excellent customer support.',
+      rating: 4,
+    },
+  ];
+
+  // Get user-friendly category label for the search (e.g., "Food & Drink" for London Food Tours)
+  const categoryLabel = popularExperiencesConfig?.categoryPath
+    ? CATEGORY_LABELS[popularExperiencesConfig.categoryPath]
+    : undefined;
 
   const experiences = await getFeaturedExperiences(site, popularExperiencesConfig);
 
@@ -197,11 +235,19 @@ export default async function HomePage() {
       />
 
       {/* Categories */}
-      <CategoryGrid
-        title="Explore by Category"
-        subtitle="Find the perfect experience for your interests"
-        categories={[]}
-      />
+      {categories.length > 0 && (
+        <CategoryGrid
+          title="Explore by Category"
+          subtitle="Find the perfect experience for your interests"
+          categories={categories.map((cat, idx) => ({
+            id: `cat-${idx}`,
+            name: cat.name,
+            slug: cat.slug,
+            icon: cat.icon,
+            imageUrl: cat.imageUrl,
+          }))}
+        />
+      )}
 
       {/* Trust Section */}
       <section className="bg-white py-16">
@@ -314,18 +360,26 @@ export default async function HomePage() {
             </p>
           </div>
           <div className="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 lg:gap-6">
-            {destinations.map((dest) => (
-              <a
-                key={dest.slug}
-                href={`/experiences?destination=${dest.slug}`}
-                className="group flex flex-col items-center justify-center rounded-xl bg-white p-6 shadow-sm transition-all hover:shadow-md"
-              >
-                <span className="text-4xl">{dest.icon}</span>
-                <span className="mt-3 text-center text-sm font-medium text-gray-900 group-hover:text-indigo-600">
-                  {dest.name}
-                </span>
-              </a>
-            ))}
+            {destinations.map((dest) => {
+              // Build URL with destination and category (if configured)
+              const params = new URLSearchParams();
+              params.set('destination', dest.slug);
+              if (categoryLabel) {
+                params.set('q', categoryLabel);
+              }
+              return (
+                <a
+                  key={dest.slug}
+                  href={`/experiences?${params.toString()}`}
+                  className="group flex flex-col items-center justify-center rounded-xl bg-white p-6 shadow-sm transition-all hover:shadow-md"
+                >
+                  <span className="text-4xl">{dest.icon}</span>
+                  <span className="mt-3 text-center text-sm font-medium text-gray-900 group-hover:text-indigo-600">
+                    {dest.name}
+                  </span>
+                </a>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -342,26 +396,7 @@ export default async function HomePage() {
             </p>
           </div>
           <div className="mt-10 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-            {[
-              {
-                name: 'Sarah M.',
-                location: 'London, UK',
-                text: 'Absolutely fantastic experience! The booking process was seamless and the tour exceeded all expectations. Would highly recommend to anyone visiting.',
-                rating: 5,
-              },
-              {
-                name: 'James T.',
-                location: 'New York, US',
-                text: 'Great selection of experiences and very competitive prices. The free cancellation policy gave us peace of mind when planning our trip.',
-                rating: 5,
-              },
-              {
-                name: 'Maria L.',
-                location: 'Barcelona, Spain',
-                text: 'We booked a family tour and it was perfectly organized. The kids loved every minute. Easy to book and excellent customer support.',
-                rating: 4,
-              },
-            ].map((testimonial, idx) => (
+            {testimonials.map((testimonial, idx) => (
               <div key={idx} className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
                 <div className="mb-3 flex items-center gap-0.5">
                   {[...Array(5)].map((_, i) => (
