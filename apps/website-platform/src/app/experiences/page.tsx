@@ -1,7 +1,7 @@
 import { headers } from 'next/headers';
 import type { Metadata } from 'next';
 import { getSiteFromHostname } from '@/lib/tenant';
-import { getHolibobClient, type ExperienceListItem } from '@/lib/holibob';
+import { getHolibobClient, type ExperienceListItem, parseIsoDuration } from '@/lib/holibob';
 import { ExperiencesGrid } from '@/components/experiences/ExperiencesGrid';
 import { ProductDiscoverySearch } from '@/components/search/ProductDiscoverySearch';
 import { TrustBadges } from '@/components/ui/TrustSignals';
@@ -117,10 +117,25 @@ async function getExperiences(
         product.priceFromFormatted ??
         formatPrice(priceAmount, priceCurrency);
 
-      // Get duration - Product Detail API returns durationText as a string
-      const durationFormatted =
-        product.durationText ??
-        (product.duration ? formatDuration(product.duration, 'minutes') : 'Duration varies');
+      // Get duration - Product Discovery API returns maxDuration as ISO 8601 (e.g., "PT210M")
+      // Product Detail API returns durationText as a string
+      let durationFormatted = 'Duration varies';
+      if (product.durationText) {
+        durationFormatted = product.durationText;
+      } else if (product.maxDuration != null) {
+        // Parse ISO 8601 duration from Product Discovery API
+        const minutes = parseIsoDuration(product.maxDuration);
+        if (minutes > 0) {
+          durationFormatted = formatDuration(minutes, 'minutes');
+        }
+      } else if (typeof product.duration === 'number' && product.duration > 0) {
+        durationFormatted = formatDuration(product.duration, 'minutes');
+      } else if (typeof product.duration === 'string') {
+        const minutes = parseIsoDuration(product.duration);
+        if (minutes > 0) {
+          durationFormatted = formatDuration(minutes, 'minutes');
+        }
+      }
 
       return {
         id: product.id,
@@ -231,17 +246,20 @@ export default async function ExperiencesPage({ searchParams }: Props) {
   const destination = resolvedSearchParams.destination || resolvedSearchParams.location;
 
   // Build page title based on search context
+  // Note: Don't show specific counts - Product Discovery provides access to thousands of experiences
   let pageTitle = 'Discover Experiences';
-  let pageSubtitle = `${totalCount} unique experiences waiting to be explored`;
+  let pageSubtitle = 'Browse tours, activities, and unique experiences';
 
   if (destination) {
     pageTitle = `Things to Do in ${destination}`;
-    pageSubtitle = `${totalCount} experiences in ${destination}`;
+    pageSubtitle = `Explore tours, activities, and unique experiences in ${destination}`;
   }
 
   if (resolvedSearchParams.q) {
     pageTitle = `${resolvedSearchParams.q}`;
-    pageSubtitle = `${totalCount} results found`;
+    pageSubtitle = destination
+      ? `Explore ${resolvedSearchParams.q.toLowerCase()} experiences in ${destination}`
+      : `Explore ${resolvedSearchParams.q.toLowerCase()} experiences`;
   }
 
   // Build breadcrumbs for SEO

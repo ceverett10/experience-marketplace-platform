@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { getSiteFromHostname } from '@/lib/tenant';
-import { getHolibobClient } from '@/lib/holibob';
+import { getHolibobClient, parseIsoDuration } from '@/lib/holibob';
 
 const ITEMS_PER_PAGE = 12;
 
@@ -87,9 +87,23 @@ export async function GET(request: NextRequest) {
         product.priceFromFormatted ??
         formatPrice(priceAmount, priceCurrency);
 
-      const durationFormatted =
-        product.durationText ??
-        (product.duration ? formatDuration(product.duration, 'minutes') : 'Duration varies');
+      // Get duration - Product Discovery API returns maxDuration as ISO 8601 (e.g., "PT210M")
+      let durationFormatted = 'Duration varies';
+      if (product.durationText) {
+        durationFormatted = product.durationText;
+      } else if (product.maxDuration != null) {
+        const minutes = parseIsoDuration(product.maxDuration);
+        if (minutes > 0) {
+          durationFormatted = formatDuration(minutes, 'minutes');
+        }
+      } else if (typeof product.duration === 'number' && product.duration > 0) {
+        durationFormatted = formatDuration(product.duration, 'minutes');
+      } else if (typeof product.duration === 'string') {
+        const minutes = parseIsoDuration(product.duration);
+        if (minutes > 0) {
+          durationFormatted = formatDuration(minutes, 'minutes');
+        }
+      }
 
       return {
         id: product.id,

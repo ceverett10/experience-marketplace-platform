@@ -4,7 +4,7 @@ import { FeaturedExperiences } from '@/components/experiences/FeaturedExperience
 import { CategoryGrid } from '@/components/experiences/CategoryGrid';
 import { LatestBlogPosts } from '@/components/content/LatestBlogPosts';
 import { getSiteFromHostname, type HomepageConfig } from '@/lib/tenant';
-import { getHolibobClient, type ExperienceListItem } from '@/lib/holibob';
+import { getHolibobClient, type ExperienceListItem, parseIsoDuration } from '@/lib/holibob';
 import { prisma } from '@/lib/prisma';
 
 // Revalidate every 5 minutes for fresh content
@@ -84,10 +84,25 @@ async function getFeaturedExperiences(
         product.priceFromFormatted ??
         formatPrice(priceAmount, priceCurrency);
 
-      // Get duration - Product Detail API returns durationText as a string
-      const durationFormatted =
-        product.durationText ??
-        (product.duration ? formatDuration(product.duration, 'minutes') : 'Flexible duration');
+      // Get duration - Product Discovery API returns maxDuration as ISO 8601 (e.g., "PT210M")
+      // Product Detail API returns durationText as a string
+      let durationFormatted = 'Duration varies';
+      if (product.durationText) {
+        durationFormatted = product.durationText;
+      } else if (product.maxDuration != null) {
+        // Parse ISO 8601 duration from Product Discovery API
+        const minutes = parseIsoDuration(product.maxDuration);
+        if (minutes > 0) {
+          durationFormatted = formatDuration(minutes, 'minutes');
+        }
+      } else if (typeof product.duration === 'number' && product.duration > 0) {
+        durationFormatted = formatDuration(product.duration, 'minutes');
+      } else if (typeof product.duration === 'string') {
+        const minutes = parseIsoDuration(product.duration);
+        if (minutes > 0) {
+          durationFormatted = formatDuration(minutes, 'minutes');
+        }
+      }
 
       return {
         id: product.id,

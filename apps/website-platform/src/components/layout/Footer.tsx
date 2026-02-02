@@ -1,30 +1,49 @@
 'use client';
 
 import Link from 'next/link';
-import { useSite, useBrand } from '@/lib/site-context';
+import { useSite, useBrand, useHomepageConfig } from '@/lib/site-context';
+
+// Default footer categories if none configured for the site
+const DEFAULT_FOOTER_CATEGORIES = [
+  { name: 'Tours & Activities', slug: 'tours' },
+  { name: 'Day Trips', slug: 'day-trips' },
+  { name: 'Attractions', slug: 'attractions' },
+  { name: 'Food & Drink', slug: 'food-drink' },
+];
 
 export function Footer() {
   const site = useSite();
   const brand = useBrand();
+  const homepageConfig = useHomepageConfig();
+
+  // Get destination from homepage config (e.g., "London" for london-food-tours.com)
+  const destination = homepageConfig?.popularExperiences?.destination;
+
+  // Use categories from homepage config, or fall back to defaults
+  const siteCategories = homepageConfig?.categories ?? DEFAULT_FOOTER_CATEGORIES;
+
+  // Build experience links with proper search params (q=what, destination=where)
+  const experienceLinks = siteCategories.slice(0, 4).map((category) => {
+    const params = new URLSearchParams();
+    params.set('q', category.name);
+    if (destination) {
+      params.set('destination', destination);
+    }
+    return {
+      name: category.name,
+      href: `/experiences?${params.toString()}`,
+    };
+  });
 
   const footerNavigation = {
-    experiences: [
-      { name: 'Tours & Activities', href: '/experiences?category=tours' },
-      { name: 'Day Trips', href: '/experiences?category=day-trips' },
-      { name: 'Attractions', href: '/experiences?category=attractions' },
-      { name: 'Food & Drink', href: '/experiences?category=food-drink' },
-    ],
+    experiences: experienceLinks,
     company: [
       { name: 'About Us', href: '/about' },
       { name: 'Contact', href: '/contact' },
-      { name: 'Careers', href: '/careers' },
-      { name: 'Press', href: '/press' },
     ],
     legal: [
       { name: 'Privacy Policy', href: '/privacy' },
       { name: 'Terms of Service', href: '/terms' },
-      { name: 'Cookie Policy', href: '/cookies' },
-      { name: 'Accessibility', href: '/accessibility' },
     ],
   };
 
@@ -156,16 +175,7 @@ export function Footer() {
         {/* Bottom section */}
         <div className="mt-16 border-t border-white/10 pt-8 sm:mt-20 lg:mt-24">
           <p className="text-xs leading-5 text-gray-400">
-            &copy; {new Date().getFullYear()} {site.name}. All rights reserved. Powered by{' '}
-            <a
-              href="https://holibob.tech"
-              className="text-gray-300 hover:text-white"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Holibob
-            </a>
-            .
+            &copy; {new Date().getFullYear()} Holibob. All rights reserved.
           </p>
         </div>
       </div>

@@ -166,7 +166,7 @@ export default async function CategoriesPage() {
                       photographerUrl={category.imageAttribution.photographerUrl}
                       unsplashUrl={category.imageAttribution.unsplashUrl}
                       variant="overlay-compact"
-                      className="bottom-16" // Positioned above the title
+                      className="bottom-16 left-auto right-2" // Positioned above the title, bottom-right
                     />
                   )}
                 </div>

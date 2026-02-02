@@ -54,13 +54,14 @@ describe('Footer', () => {
     expect(screen.getByText('Amazing experiences await')).toBeInTheDocument();
   });
 
-  it('should render experience category links', () => {
+  it('should render experience category links from homepage config', () => {
     renderWithProviders(<Footer />);
 
-    expect(screen.getByRole('link', { name: 'Tours & Activities' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Day Trips' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Attractions' })).toBeInTheDocument();
+    // Default categories from DEFAULT_SITE_CONFIG.homepageConfig.categories
+    expect(screen.getByRole('link', { name: 'Tours & Sightseeing' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Food & Drink' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Adventure' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Culture & History' })).toBeInTheDocument();
   });
 
   it('should render company links', () => {
@@ -68,8 +69,6 @@ describe('Footer', () => {
 
     expect(screen.getByRole('link', { name: 'About Us' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Contact' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Careers' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Press' })).toBeInTheDocument();
   });
 
   it('should render legal links', () => {
@@ -77,8 +76,6 @@ describe('Footer', () => {
 
     expect(screen.getByRole('link', { name: 'Privacy Policy' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Terms of Service' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Cookie Policy' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Accessibility' })).toBeInTheDocument();
   });
 
   it('should render social links when provided', () => {
@@ -126,34 +123,45 @@ describe('Footer', () => {
     expect(screen.queryByRole('link', { name: 'Twitter' })).not.toBeInTheDocument();
   });
 
-  it('should render Holibob attribution', () => {
-    renderWithProviders(<Footer />);
-
-    expect(screen.getByText(/Powered by/i)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Holibob' })).toHaveAttribute(
-      'href',
-      'https://holibob.tech'
-    );
-  });
-
-  it('should render copyright with current year', () => {
+  it('should render copyright with current year and Holibob', () => {
     renderWithProviders(<Footer />);
 
     const currentYear = new Date().getFullYear().toString();
     expect(screen.getByText(new RegExp(currentYear))).toBeInTheDocument();
+    expect(screen.getByText(/Holibob/)).toBeInTheDocument();
     expect(screen.getByText(/All rights reserved/)).toBeInTheDocument();
   });
 
-  it('should have correct href for category links', () => {
+  it('should have correct href for category links with search params', () => {
     renderWithProviders(<Footer />);
 
-    expect(screen.getByRole('link', { name: 'Tours & Activities' })).toHaveAttribute(
-      'href',
-      '/experiences?category=tours'
-    );
-    expect(screen.getByRole('link', { name: 'Day Trips' })).toHaveAttribute(
-      'href',
-      '/experiences?category=day-trips'
-    );
+    // Links should use q= param for search
+    const toursLink = screen.getByRole('link', { name: 'Tours & Sightseeing' });
+    expect(toursLink.getAttribute('href')).toContain('/experiences?');
+    expect(toursLink.getAttribute('href')).toContain('q=');
+  });
+
+  it('should include destination in category links when available', () => {
+    const siteConfig = createMockSiteConfig({
+      homepageConfig: {
+        hero: { title: 'Test', subtitle: 'Test' },
+        popularExperiences: {
+          title: 'Popular',
+          subtitle: 'Experiences',
+          destination: 'London',
+        },
+        categories: [
+          { name: 'Food Tours', slug: 'food-tours', icon: '🍕' },
+          { name: 'Wine Tasting', slug: 'wine-tasting', icon: '🍷' },
+        ],
+      },
+    });
+
+    renderWithProviders(<Footer />, { siteConfig });
+
+    // Should use categories from homepageConfig
+    const foodToursLink = screen.getByRole('link', { name: 'Food Tours' });
+    expect(foodToursLink.getAttribute('href')).toContain('q=Food+Tours');
+    expect(foodToursLink.getAttribute('href')).toContain('destination=London');
   });
 });
