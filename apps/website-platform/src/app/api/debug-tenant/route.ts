@@ -50,7 +50,6 @@ export async function GET() {
       result['domainData'] = {
         id: domain.id,
         domain: domain.domain,
-        status: domain.status,
         siteId: domain.siteId,
       };
       if (domain.site) {
