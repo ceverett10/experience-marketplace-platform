@@ -48,6 +48,9 @@ export default async function CategoriesPage() {
 
   const categories = site.homepageConfig?.categories ?? DEFAULT_CATEGORIES;
 
+  // Get the site's default destination for category links (e.g., "London" for london-food-tours.com)
+  const siteDestination = site.homepageConfig?.popularExperiences?.destination;
+
   // JSON-LD structured data for categories list
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -61,7 +64,7 @@ export default async function CategoriesPage() {
         '@type': 'Thing',
         name: cat.name,
         description: cat.description,
-        url: `https://${site.primaryDomain || hostname}/experiences?q=${encodeURIComponent(cat.name)}`,
+        url: `https://${site.primaryDomain || hostname}/experiences?${siteDestination ? `destination=${encodeURIComponent(siteDestination)}&` : ''}q=${encodeURIComponent(cat.name)}`,
       },
     })),
   };
@@ -111,10 +114,19 @@ export default async function CategoriesPage() {
       <section className="py-12 sm:py-16">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {categories.map((category) => (
+            {categories.map((category) => {
+              // Build URL with destination (if known) and category
+              const searchParams = new URLSearchParams();
+              if (siteDestination) {
+                searchParams.set('destination', siteDestination);
+              }
+              searchParams.set('q', category.name);
+              const href = `/experiences?${searchParams.toString()}`;
+
+              return (
               <Link
                 key={category.slug}
-                href={`/experiences?q=${encodeURIComponent(category.name)}`}
+                href={href}
                 className="group relative overflow-hidden rounded-2xl bg-white shadow-md transition-all hover:shadow-xl"
               >
                 {/* Image Container */}
@@ -180,7 +192,8 @@ export default async function CategoriesPage() {
                   </div>
                 </div>
               </Link>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>

@@ -50,6 +50,11 @@ export default async function DestinationsPage() {
 
   const destinations = site.homepageConfig?.destinations ?? DEFAULT_DESTINATIONS;
 
+  // Get the site's default category/search term (e.g., "Food Tours" for london-food-tours.com)
+  const siteCategory =
+    site.homepageConfig?.popularExperiences?.searchTerms?.[0] ??
+    site.homepageConfig?.categories?.[0]?.name;
+
   // JSON-LD structured data for destinations list
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -63,7 +68,7 @@ export default async function DestinationsPage() {
         '@type': 'TouristDestination',
         name: dest.name,
         description: dest.description,
-        url: `https://${site.primaryDomain || hostname}/experiences?destination=${dest.slug}`,
+        url: `https://${site.primaryDomain || hostname}/experiences?destination=${encodeURIComponent(dest.name)}${siteCategory ? `&q=${encodeURIComponent(siteCategory)}` : ''}`,
       },
     })),
   };
@@ -113,10 +118,19 @@ export default async function DestinationsPage() {
       <section className="py-12 sm:py-16">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {destinations.map((destination) => (
+            {destinations.map((destination) => {
+              // Build URL with destination name and site's default category (if known)
+              const searchParams = new URLSearchParams();
+              searchParams.set('destination', destination.name);
+              if (siteCategory) {
+                searchParams.set('q', siteCategory);
+              }
+              const href = `/experiences?${searchParams.toString()}`;
+
+              return (
               <Link
                 key={destination.slug}
-                href={`/experiences?destination=${destination.slug}`}
+                href={href}
                 className="group relative overflow-hidden rounded-2xl bg-white shadow-md transition-all hover:shadow-xl"
               >
                 {/* Image Container */}
@@ -177,7 +191,8 @@ export default async function DestinationsPage() {
                   </div>
                 </div>
               </Link>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>
