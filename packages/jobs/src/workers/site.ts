@@ -10,6 +10,7 @@ import {
   storeHomepageConfig,
 } from '../services/brand-identity.js';
 import { initializeSiteRoadmap } from '../services/site-roadmap.js';
+import { CloudflareRegistrarService } from '../services/cloudflare-registrar.js';
 
 /**
  * Site Worker
@@ -184,24 +185,53 @@ export async function handleSiteCreate(job: Job<SiteCreatePayload>): Promise<Job
 
     console.log('[Site Create] Queued homepage content generation with brand context');
 
-    // 8. Queue domain registration
+    // 8. Check domain availability and create domain record
     // Use provided domain or generate from site slug
     const suggestedDomain = domain || `${site.slug}.com`;
-    console.log(`[Site Create] Queuing domain registration for ${suggestedDomain}...`);
+    console.log(`[Site Create] Checking domain availability for ${suggestedDomain}...`);
 
-    const domainPayload: DomainRegisterPayload = {
-      siteId: site.id,
-      domain: suggestedDomain,
-      registrar: 'cloudflare',
-      autoRenew: true,
-    };
+    const availabilityResult = await checkDomainAvailabilityForSite(suggestedDomain);
 
-    await addJob('DOMAIN_REGISTER', domainPayload, {
-      priority: 4, // Medium-high priority
-      delay: 5000, // Small delay to let site creation settle
+    // Create domain record with availability status
+    // Available domains get AVAILABLE status (price stored for manual approval check in admin UI)
+    // Unavailable domains get NOT_AVAILABLE status
+    // Note: Using 'as any' until Prisma client is regenerated with new enum values
+    const domainRecord = await prisma.domain.create({
+      data: {
+        domain: suggestedDomain,
+        status: (availabilityResult.available ? 'AVAILABLE' : 'NOT_AVAILABLE') as any,
+        registrar: 'cloudflare',
+        registrationCost: availabilityResult.price ?? 9.77,
+        siteId: site.id,
+      },
     });
 
-    console.log(`[Site Create] Queued domain registration for ${suggestedDomain}`);
+    const priceDisplay = availabilityResult.price?.toFixed(2) || 'unknown';
+    console.log(`[Site Create] Domain ${suggestedDomain} status: ${domainRecord.status} (price: $${priceDisplay})`);
+
+    // Only queue registration if available and under $10 limit
+    const MAX_AUTO_PURCHASE_PRICE = 10;
+    if (availabilityResult.available && (!availabilityResult.price || availabilityResult.price <= MAX_AUTO_PURCHASE_PRICE)) {
+      console.log(`[Site Create] Queuing domain registration for ${suggestedDomain}...`);
+
+      const domainPayload: DomainRegisterPayload = {
+        siteId: site.id,
+        domain: suggestedDomain,
+        registrar: 'cloudflare',
+        autoRenew: true,
+      };
+
+      await addJob('DOMAIN_REGISTER', domainPayload, {
+        priority: 4, // Medium-high priority
+        delay: 5000, // Small delay to let site creation settle
+      });
+
+      console.log(`[Site Create] Queued domain registration for ${suggestedDomain}`);
+    } else if (!availabilityResult.available) {
+      console.log(`[Site Create] Domain ${suggestedDomain} is NOT AVAILABLE - requires manual review for alternative domain`);
+    } else {
+      console.log(`[Site Create] Domain ${suggestedDomain} costs $${availabilityResult.price?.toFixed(2)} (over $${MAX_AUTO_PURCHASE_PRICE} limit) - requires manual approval`);
+    }
 
     // 9. Queue deployment if auto-publish enabled
     if (autoPublish) {
@@ -461,6 +491,37 @@ function generateSlug(name: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
+}
+
+/**
+ * Check domain availability via Cloudflare API
+ * Returns availability status and price for the autonomous flow
+ */
+async function checkDomainAvailabilityForSite(
+  domain: string
+): Promise<{ available: boolean; price?: number }> {
+  console.log(`[Site Create] Checking availability for ${domain}`);
+
+  try {
+    const registrarService = new CloudflareRegistrarService();
+    const result = await registrarService.checkAvailability(domain);
+
+    console.log(`[Site Create] Domain ${domain} availability: ${result.available}, price: $${result.price?.toFixed(2) || 'unknown'}`);
+
+    return {
+      available: result.available,
+      price: result.price,
+    };
+  } catch (error) {
+    console.error(`[Site Create] Error checking domain availability:`, error);
+
+    // On error, return as pending (unknown availability)
+    // Domain registration job will re-check at registration time
+    return {
+      available: false,
+      price: undefined,
+    };
+  }
 }
 
 async function createInitialPages(siteId: string, opportunity: any) {

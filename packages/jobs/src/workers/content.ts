@@ -80,23 +80,26 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
     const brief = {
       type: contentType,
       siteId,
+      siteName: site.name, // Include site name for brand-aware content generation
       targetKeyword,
       secondaryKeywords: secondaryKeywords || (opportunity?.keyword ? [opportunity.keyword] : []),
       destination: destination || opportunity?.location || '',
       category: category || opportunity?.niche || '',
       targetLength: targetLength || { min: 800, max: 1500 },
       tone: 'informative' as const,
-      // Include brand guidelines for content generation
-      brandContext: brandIdentity.toneOfVoice
-        ? {
-            toneOfVoice: brandIdentity.toneOfVoice,
-            trustSignals: brandIdentity.trustSignals,
-            brandStory: brandIdentity.brandStory,
-            writingGuidelines: `Tone: ${brandIdentity.toneOfVoice.writingStyle}. Personality: ${brandIdentity.toneOfVoice.personality?.join(', ')}.
+      // Include comprehensive brand guidelines for content generation
+      brandContext: {
+        siteName: site.name,
+        toneOfVoice: brandIdentity.toneOfVoice,
+        trustSignals: brandIdentity.trustSignals,
+        brandStory: brandIdentity.brandStory,
+        contentGuidelines: brandIdentity.contentGuidelines,
+        writingGuidelines: brandIdentity.toneOfVoice
+          ? `Tone: ${brandIdentity.toneOfVoice.writingStyle}. Personality: ${brandIdentity.toneOfVoice.personality?.join(', ')}.
             Mission: ${brandIdentity.brandStory?.mission}.
-            Value propositions: ${brandIdentity.trustSignals?.valuePropositions?.join('; ')}.`,
-          }
-        : undefined,
+            Value propositions: ${brandIdentity.trustSignals?.valuePropositions?.join('; ')}.`
+          : undefined,
+      },
     };
 
     // Generate content using pipeline with circuit breaker

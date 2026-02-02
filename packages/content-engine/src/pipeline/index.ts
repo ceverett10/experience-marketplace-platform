@@ -109,19 +109,84 @@ CRITICAL GUIDELINES - You MUST follow these:
 5. Use general calls-to-action like "Book now" or "Explore our experiences" rather than specific contact methods
 6. If you don't know something, describe the experience category generally rather than inventing specifics`;
 
+    // Build comprehensive brand context section
+    const buildBrandSection = () => {
+      const ctx = brief.brandContext;
+      if (!ctx) return '';
+
+      const sections: string[] = [];
+
+      // Site/Brand name
+      if (ctx.siteName) {
+        sections.push(`BRAND: ${ctx.siteName}`);
+      }
+
+      // Tone of voice
+      if (ctx.toneOfVoice) {
+        const tov = ctx.toneOfVoice;
+        sections.push(`
+BRAND VOICE:
+- Personality: ${tov.personality?.join(', ') || 'professional, trustworthy'}
+- Writing Style: ${tov.writingStyle || 'clear and authoritative'}
+${tov.doList?.length ? `- DO: ${tov.doList.join('; ')}` : ''}
+${tov.dontList?.length ? `- DON'T: ${tov.dontList.join('; ')}` : ''}`);
+      }
+
+      // Brand story
+      if (ctx.brandStory) {
+        const bs = ctx.brandStory;
+        sections.push(`
+BRAND STORY:
+${bs.mission ? `- Mission: ${bs.mission}` : ''}
+${bs.targetAudience ? `- Target Audience: ${bs.targetAudience}` : ''}
+${bs.uniqueSellingPoints?.length ? `- Unique Selling Points: ${bs.uniqueSellingPoints.join('; ')}` : ''}
+${bs.values?.length ? `- Core Values: ${bs.values.join(', ')}` : ''}`);
+      }
+
+      // Trust signals
+      if (ctx.trustSignals) {
+        const ts = ctx.trustSignals;
+        sections.push(`
+TRUST ELEMENTS TO WEAVE IN:
+${ts.expertise?.length ? `- Areas of Expertise: ${ts.expertise.join(', ')}` : ''}
+${ts.valuePropositions?.length ? `- Value Propositions: ${ts.valuePropositions.join('; ')}` : ''}
+${ts.guarantees?.length ? `- Guarantees: ${ts.guarantees.join(', ')}` : ''}
+${ts.certifications?.length ? `- Certifications: ${ts.certifications.join(', ')}` : ''}`);
+      }
+
+      // Content guidelines
+      if (ctx.contentGuidelines) {
+        const cg = ctx.contentGuidelines;
+        sections.push(`
+CONTENT THEMES:
+${cg.keyThemes?.length ? `- Key Themes: ${cg.keyThemes.join(', ')}` : ''}
+${cg.contentPillars?.length ? `- Content Pillars: ${cg.contentPillars.join(', ')}` : ''}`);
+      }
+
+      return sections.filter((s) => s.trim()).join('\n');
+    };
+
+    const brandSection = buildBrandSection();
+    const brandName = brief.brandContext?.siteName || 'the brand';
+
     let systemPrompt =
-      `You are an expert travel content writer creating SEO-optimized, engaging content for a travel experience marketplace powered by Holibob.
+      `You are an expert travel content writer creating SEO-optimized, engaging content for ${brandName}, a travel experience marketplace powered by Holibob.
 ${coreGuidelines}`;
 
     if (brief.brandContext?.toneOfVoice) {
       const { personality, writingStyle } = brief.brandContext.toneOfVoice;
-      systemPrompt = `You are an expert travel content writer creating SEO-optimized content for a travel experience marketplace powered by Holibob.
+      systemPrompt = `You are an expert travel content writer creating SEO-optimized content for ${brandName}, a travel experience marketplace powered by Holibob.
 
 Your writing style is: ${writingStyle || 'clear, authoritative, and trustworthy'}
 Your personality traits are: ${personality?.join(', ') || 'professional, knowledgeable, helpful'}
 
-You write content that builds trust and positions the brand as an authority in the travel industry.
+You write content that builds trust and positions ${brandName} as an authority in the travel industry.
 Every piece of content should feel authentic, expert-driven, and aligned with the brand's voice.
+${brandSection}
+${coreGuidelines}`;
+    } else if (brandSection) {
+      systemPrompt = `You are an expert travel content writer creating SEO-optimized, engaging content for ${brandName}, a travel experience marketplace powered by Holibob.
+${brandSection}
 ${coreGuidelines}`;
     }
 
@@ -213,11 +278,12 @@ JSON format:
   ): Promise<GeneratedContent> {
     // Build brand voice reminder for rewrite
     let brandReminder = '';
+    const brandName = brief.brandContext?.siteName;
     if (brief.brandContext?.toneOfVoice) {
       const { personality, writingStyle } = brief.brandContext.toneOfVoice;
       brandReminder = `
 
-IMPORTANT - Maintain brand voice:
+IMPORTANT - Maintain brand voice${brandName ? ` for ${brandName}` : ''}:
 - Personality: ${personality?.join(', ') || 'professional'}
 - Writing Style: ${writingStyle || 'clear and authoritative'}
 `;
@@ -271,8 +337,17 @@ ${brandReminder}
   private buildPrompt(brief: ContentBrief): string {
     // Build brand voice section if available
     let brandSection = '';
+    const brandName = brief.brandContext?.siteName;
+
     if (brief.brandContext) {
-      const { toneOfVoice, trustSignals, brandStory } = brief.brandContext;
+      const { toneOfVoice, trustSignals, brandStory, contentGuidelines } = brief.brandContext;
+
+      // Add brand name header if available
+      if (brandName) {
+        brandSection += `
+## BRAND: ${brandName}
+`;
+      }
 
       if (toneOfVoice) {
         brandSection += `
@@ -294,6 +369,7 @@ ${toneOfVoice.dontList.map((d) => '- ' + d).join('\n')}` : ''}
 ## BRAND CONTEXT
 Mission: ${brandStory.mission || 'N/A'}
 Target Audience: ${brandStory.targetAudience || 'N/A'}
+${brandStory.values?.length ? `Core Values: ${brandStory.values.join(', ')}` : ''}
 ${brandStory.uniqueSellingPoints?.length ? `Unique Selling Points to weave in naturally:\n${brandStory.uniqueSellingPoints.map((u) => '- ' + u).join('\n')}` : ''}
 `;
       }
@@ -304,11 +380,21 @@ ${brandStory.uniqueSellingPoints?.length ? `Unique Selling Points to weave in na
 ${trustSignals.expertise?.length ? `Areas of expertise: ${trustSignals.expertise.join(', ')}` : ''}
 ${trustSignals.valuePropositions?.length ? `Value propositions to emphasize:\n${trustSignals.valuePropositions.map((v) => '- ' + v).join('\n')}` : ''}
 ${trustSignals.guarantees?.length ? `Guarantees to mention naturally: ${trustSignals.guarantees.join(', ')}` : ''}
+${trustSignals.certifications?.length ? `Certifications: ${trustSignals.certifications.join(', ')}` : ''}
+`;
+      }
+
+      if (contentGuidelines) {
+        brandSection += `
+## CONTENT THEMES
+${contentGuidelines.keyThemes?.length ? `Key themes to incorporate: ${contentGuidelines.keyThemes.join(', ')}` : ''}
+${contentGuidelines.contentPillars?.length ? `Content pillars: ${contentGuidelines.contentPillars.join(', ')}` : ''}
 `;
       }
     }
 
-    return `Create ${brief.type} content for: ${brief.targetKeyword}
+    const brandLabel = brandName ? `for ${brandName}` : '';
+    return `Create ${brief.type} content ${brandLabel}: ${brief.targetKeyword}
 
 ## CONTENT REQUIREMENTS
 Primary Keyword: ${brief.targetKeyword}
@@ -326,7 +412,7 @@ ${brandSection}
 - Use H2 and H3 subheadings for structure
 - Naturally incorporate keywords without stuffing
 - Write in the brand voice specified above
-- Include compelling calls-to-action
+- Include compelling calls-to-action${brandName ? ` for ${brandName}` : ''}
 - Make content scannable with bullet points where appropriate`;
   }
 

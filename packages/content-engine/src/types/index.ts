@@ -49,6 +49,7 @@ export interface QualityIssue {
 
 // Brand Context for tone of voice and messaging
 export interface BrandContext {
+  siteName?: string; // The name of the site/brand for personalized content
   toneOfVoice?: {
     personality?: string[];
     writingStyle?: string;
@@ -69,6 +70,11 @@ export interface BrandContext {
     targetAudience?: string;
     uniqueSellingPoints?: string[];
   };
+  contentGuidelines?: {
+    keyThemes?: string[];
+    contentPillars?: string[];
+    topicClusters?: string[];
+  };
   writingGuidelines?: string;
 }
 
@@ -76,6 +82,7 @@ export interface BrandContext {
 export interface ContentBrief {
   type: ContentType;
   siteId: string;
+  siteName?: string; // Site/brand name for personalized content
   targetKeyword: string;
   secondaryKeywords: string[];
   destination?: string;

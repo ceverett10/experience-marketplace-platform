@@ -29,6 +29,7 @@ export default function AdminContentPage() {
   const [editContent, setEditContent] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [regeneratingIds, setRegeneratingIds] = useState<Set<string>>(new Set());
 
   // Fetch content from API
   useEffect(() => {
@@ -218,6 +219,33 @@ export default function AdminContentPage() {
     }
   };
 
+  const regenerateContent = async (pageId: string, title: string) => {
+    try {
+      setRegeneratingIds((prev) => new Set(prev).add(pageId));
+      const response = await fetch('/admin/api/content', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'generate', pageIds: [pageId] }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to regenerate content');
+      }
+
+      const result = await response.json();
+      alert(`Re-running AI for "${title}"\n\n${result.message}\n\nCheck the Queues page to monitor progress.`);
+    } catch (err) {
+      console.error('Error regenerating content:', err);
+      alert('Failed to queue content regeneration. Please try again.');
+    } finally {
+      setRegeneratingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(pageId);
+        return next;
+      });
+    }
+  };
+
   const getStatusBadge = (status: ContentItem['status']) => {
     switch (status) {
       case 'pending':
@@ -298,12 +326,21 @@ export default function AdminContentPage() {
               </div>
               <div className="flex items-center gap-2">
                 {!isEditing && (
-                  <button
-                    onClick={startEditing}
-                    className="px-3 py-1.5 text-sky-600 hover:bg-sky-50 rounded-lg text-sm font-medium"
-                  >
-                    Edit
-                  </button>
+                  <>
+                    <button
+                      onClick={() => regenerateContent(selectedContent.id, selectedContent.title)}
+                      disabled={regeneratingIds.has(selectedContent.id)}
+                      className="px-3 py-1.5 text-purple-600 hover:bg-purple-50 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                    >
+                      {regeneratingIds.has(selectedContent.id) ? '⏳' : '🤖'} Re-Run AI
+                    </button>
+                    <button
+                      onClick={startEditing}
+                      className="px-3 py-1.5 text-sky-600 hover:bg-sky-50 rounded-lg text-sm font-medium"
+                    >
+                      Edit
+                    </button>
+                  </>
                 )}
                 <button
                   onClick={closeModal}
@@ -592,6 +629,14 @@ export default function AdminContentPage() {
                       title="Edit"
                     >
                       ✏️
+                    </button>
+                    <button
+                      onClick={() => regenerateContent(item.id, item.title)}
+                      disabled={regeneratingIds.has(item.id)}
+                      className="p-2 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Re-Run AI"
+                    >
+                      {regeneratingIds.has(item.id) ? '⏳' : '🤖'}
                     </button>
                     {item.status === 'pending' && (
                       <>
