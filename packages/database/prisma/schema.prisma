@@ -661,6 +661,7 @@ enum JobType {
   // SEO
   SEO_ANALYZE
   SEO_OPPORTUNITY_SCAN
+  SEO_OPPORTUNITY_OPTIMIZE
   GSC_SYNC
 
   // Site Management

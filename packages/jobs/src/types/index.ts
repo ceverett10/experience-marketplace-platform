@@ -51,6 +51,14 @@ export interface SeoOpportunityScanPayload {
   forceRescan?: boolean;
 }
 
+export interface SeoOpportunityOptimizePayload {
+  siteId?: string;
+  maxIterations?: number;
+  destinationFocus?: string[];
+  categoryFocus?: string[];
+  budgetLimit?: number;
+}
+
 export interface GscSyncPayload {
   siteId: string;
   startDate?: string; // YYYY-MM-DD
@@ -137,6 +145,7 @@ export type JobPayload =
   | ContentReviewPayload
   | SeoAnalyzePayload
   | SeoOpportunityScanPayload
+  | SeoOpportunityOptimizePayload
   | GscSyncPayload
   | GscSetupPayload
   | SiteCreatePayload
@@ -211,6 +220,7 @@ export const JOB_TYPE_TO_QUEUE: Record<JobType, QueueName> = {
   CONTENT_REVIEW: QUEUE_NAMES.CONTENT,
   SEO_ANALYZE: QUEUE_NAMES.SEO,
   SEO_OPPORTUNITY_SCAN: QUEUE_NAMES.SEO,
+  SEO_OPPORTUNITY_OPTIMIZE: QUEUE_NAMES.SEO,
   GSC_SYNC: QUEUE_NAMES.GSC,
   GSC_VERIFY: QUEUE_NAMES.GSC,
   GSC_SETUP: QUEUE_NAMES.GSC,

@@ -1,7 +1,8 @@
 import { Job } from 'bullmq';
 import { prisma } from '@experience-marketplace/database';
 import { createHolibobClient } from '@experience-marketplace/holibob-api';
-import type { SeoOpportunityScanPayload, JobResult, SiteCreatePayload } from '../types';
+import type { SeoOpportunityScanPayload, SeoOpportunityOptimizePayload, JobResult, SiteCreatePayload } from '../types';
+import { runRecursiveOptimization } from '../services/opportunity-optimizer';
 import { KeywordResearchService } from '../services/keyword-research';
 import {
   toJobError,
@@ -180,7 +181,7 @@ export async function handleOpportunityScan(
     // Log error for tracking
     await errorTracking.logError({
       jobId: job.id || 'unknown',
-      jobType: 'OPPORTUNITY_SCAN',
+      jobType: 'SEO_OPPORTUNITY_SCAN',
       errorName: jobError.name,
       errorMessage: jobError.message,
       errorCategory: jobError.category,
@@ -677,7 +678,10 @@ async function autoActionOpportunities(): Promise<void> {
       status: 'IDENTIFIED',
       siteId: null, // Not yet assigned to a site
     },
-    take: 5, // Limit to 5 at a time to avoid overwhelming the system
+    orderBy: {
+      priorityScore: 'desc', // Get highest-value opportunities first
+    },
+    take: 10, // Process top 10 highest-value opportunities per scan
   });
 
   console.log(`[Opportunity] Found ${highPriorityOpps.length} high-priority opportunities to auto-action`);
@@ -770,4 +774,170 @@ function estimateCpc(category: string): number {
   }
 
   return base + Math.random();
+}
+
+/**
+ * SEO Opportunity Optimizer Worker
+ * Runs 5-iteration recursive AI optimization to discover highest-value opportunities
+ */
+export async function handleOpportunityOptimize(
+  job: Job<SeoOpportunityOptimizePayload>
+): Promise<JobResult> {
+  const { siteId, maxIterations, destinationFocus, categoryFocus } = job.data;
+
+  try {
+    console.log('[Opportunity Optimize] Starting recursive optimization');
+
+    // Check if autonomous opportunity optimization is allowed
+    const canProceed = await canExecuteAutonomousOperation({
+      siteId,
+      rateLimitType: 'OPPORTUNITY_SCAN',
+    });
+
+    if (!canProceed.allowed) {
+      console.log(`[Opportunity Optimize] Skipping - ${canProceed.reason}`);
+      return {
+        success: false,
+        error: canProceed.reason || 'Opportunity optimization is paused',
+        errorCategory: 'paused',
+        timestamp: new Date(),
+      };
+    }
+
+    // Initialize Holibob client
+    const holibobClient = createHolibobClient({
+      apiUrl: process.env['HOLIBOB_API_URL'] || 'https://api.sandbox.holibob.tech/graphql',
+      partnerId: process.env['HOLIBOB_PARTNER_ID'] || '',
+      apiKey: process.env['HOLIBOB_API_KEY'] || '',
+      apiSecret: process.env['HOLIBOB_API_SECRET'],
+      sandbox: process.env['HOLIBOB_ENV'] !== 'production',
+      timeout: 30000,
+    });
+
+    // Run recursive optimization
+    const result = await runRecursiveOptimization(holibobClient, {
+      maxIterations: maxIterations || 5,
+    });
+
+    if (!result.success) {
+      return {
+        success: false,
+        error: 'Optimization failed',
+        timestamp: new Date(),
+      };
+    }
+
+    // Store top opportunities in database with OPTIMIZED status
+    let storedCount = 0;
+    for (const ranked of result.finalOpportunities) {
+      const opp = ranked.opportunity;
+
+      try {
+        await prisma.sEOOpportunity.upsert({
+          where: {
+            keyword_location: {
+              keyword: opp.suggestion.keyword,
+              location: opp.suggestion.destination || '',
+            },
+          },
+          create: {
+            keyword: opp.suggestion.keyword,
+            searchVolume: opp.dataForSeo.searchVolume,
+            difficulty: opp.dataForSeo.difficulty,
+            cpc: opp.dataForSeo.cpc,
+            intent: 'TRANSACTIONAL',
+            niche: opp.suggestion.niche,
+            location: opp.suggestion.destination,
+            priorityScore: opp.priorityScore,
+            status: 'IDENTIFIED',
+            source: 'optimized_scan',
+            explanation: ranked.explanation,
+            sourceData: {
+              optimizationRank: ranked.rank,
+              optimizationJourney: ranked.journey,
+              domainSuggestions: ranked.domainSuggestions,
+              projectedValue: ranked.projectedValue,
+              dataForSeo: opp.dataForSeo,
+              holibobInventory: opp.holibobInventory,
+              iterationCount: result.iterations.length,
+              totalApiCost: result.totalApiCost.totalCost,
+            },
+            siteId: siteId || undefined,
+          },
+          update: {
+            searchVolume: opp.dataForSeo.searchVolume,
+            difficulty: opp.dataForSeo.difficulty,
+            cpc: opp.dataForSeo.cpc,
+            priorityScore: opp.priorityScore,
+            explanation: ranked.explanation,
+            sourceData: {
+              optimizationRank: ranked.rank,
+              optimizationJourney: ranked.journey,
+              domainSuggestions: ranked.domainSuggestions,
+              projectedValue: ranked.projectedValue,
+              dataForSeo: opp.dataForSeo,
+              holibobInventory: opp.holibobInventory,
+              iterationCount: result.iterations.length,
+              totalApiCost: result.totalApiCost.totalCost,
+            },
+          },
+        });
+
+        storedCount++;
+        console.log(`[Opportunity Optimize] Stored opportunity #${ranked.rank}: ${opp.suggestion.keyword} (score: ${opp.priorityScore})`);
+      } catch (dbError) {
+        console.error(`[Opportunity Optimize] Failed to store opportunity ${opp.suggestion.keyword}:`, dbError);
+      }
+    }
+
+    console.log(`[Opportunity Optimize] Complete: ${result.summary}`);
+
+    return {
+      success: true,
+      message: result.summary,
+      data: {
+        iterations: result.iterations.length,
+        opportunitiesFound: result.finalOpportunities.length,
+        storedCount,
+        improvementHistory: result.improvementHistory,
+        topOpportunities: result.finalOpportunities.slice(0, 5).map((r) => ({
+          rank: r.rank,
+          keyword: r.opportunity.suggestion.keyword,
+          score: r.opportunity.priorityScore,
+          domain: r.domainSuggestions.primary,
+        })),
+        totalApiCost: result.totalApiCost.totalCost,
+        executionTimeMs: result.executionTimeMs,
+      },
+      timestamp: new Date(),
+    };
+  } catch (error) {
+    const jobError = toJobError(error);
+
+    // Log error for tracking
+    await errorTracking.logError({
+      jobId: job.id || 'unknown',
+      jobType: 'SEO_OPPORTUNITY_OPTIMIZE',
+      errorName: jobError.name,
+      errorMessage: jobError.message,
+      errorCategory: jobError.category,
+      errorSeverity: jobError.severity,
+      retryable: jobError.retryable,
+      attemptsMade: job.attemptsMade,
+      context: jobError.context,
+      stackTrace: jobError.stack,
+      timestamp: new Date(),
+    });
+
+    console.error('[Opportunity Optimize] Error:', jobError.toJSON());
+
+    return {
+      success: false,
+      error: jobError.message,
+      errorCategory: jobError.category,
+      errorSeverity: jobError.severity,
+      retryable: jobError.retryable,
+      timestamp: new Date(),
+    };
+  }
 }

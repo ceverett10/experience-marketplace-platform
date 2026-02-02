@@ -1,7 +1,10 @@
 /**
  * Circuit Breaker Pattern
  * Prevents cascading failures by temporarily blocking requests to failing services
+ * Persists state to Redis for cross-dyno visibility
  */
+
+import IORedis from 'ioredis';
 
 export enum CircuitState {
   CLOSED = 'CLOSED', // Normal operation
@@ -28,8 +31,20 @@ interface CircuitMetrics {
   recentFailures: number[]; // Timestamps of recent failures
 }
 
+interface CircuitBreakerState {
+  state: CircuitState;
+  metrics: CircuitMetrics;
+  nextAttemptTime: number;
+  config: Required<CircuitBreakerConfig>;
+  updatedAt: number;
+}
+
+const REDIS_KEY_PREFIX = 'circuit-breaker:';
+const STATE_TTL_SECONDS = 3600; // 1 hour TTL for circuit breaker state
+
 /**
  * Circuit breaker for external services
+ * Persists state to Redis for cross-process visibility
  */
 export class CircuitBreaker {
   private state: CircuitState = CircuitState.CLOSED;
@@ -41,6 +56,7 @@ export class CircuitBreaker {
     recentFailures: [],
   };
   private nextAttemptTime: number = 0;
+  private redis: IORedis | null = null;
 
   constructor(
     private readonly serviceName: string,
@@ -53,9 +69,70 @@ export class CircuitBreaker {
   ) {}
 
   /**
+   * Set Redis client for state persistence
+   */
+  setRedis(redis: IORedis): void {
+    this.redis = redis;
+  }
+
+  /**
+   * Get Redis key for this circuit breaker
+   */
+  private getRedisKey(): string {
+    return `${REDIS_KEY_PREFIX}${this.serviceName}`;
+  }
+
+  /**
+   * Persist state to Redis
+   */
+  private async persistState(): Promise<void> {
+    if (!this.redis) return;
+
+    try {
+      const stateData: CircuitBreakerState = {
+        state: this.state,
+        metrics: this.metrics,
+        nextAttemptTime: this.nextAttemptTime,
+        config: this.config,
+        updatedAt: Date.now(),
+      };
+
+      await this.redis.setex(
+        this.getRedisKey(),
+        STATE_TTL_SECONDS,
+        JSON.stringify(stateData)
+      );
+    } catch (error) {
+      console.error(`[Circuit Breaker] Failed to persist state for ${this.serviceName}:`, error);
+    }
+  }
+
+  /**
+   * Load state from Redis
+   */
+  private async loadState(): Promise<void> {
+    if (!this.redis) return;
+
+    try {
+      const data = await this.redis.get(this.getRedisKey());
+      if (data) {
+        const stateData: CircuitBreakerState = JSON.parse(data);
+        this.state = stateData.state;
+        this.metrics = stateData.metrics;
+        this.nextAttemptTime = stateData.nextAttemptTime;
+      }
+    } catch (error) {
+      console.error(`[Circuit Breaker] Failed to load state for ${this.serviceName}:`, error);
+    }
+  }
+
+  /**
    * Execute function with circuit breaker protection
    */
   async execute<T>(fn: () => Promise<T>): Promise<T> {
+    // Load latest state from Redis
+    await this.loadState();
+
     // Check if circuit is open
     if (this.state === CircuitState.OPEN) {
       if (Date.now() < this.nextAttemptTime) {
@@ -66,15 +143,16 @@ export class CircuitBreaker {
 
       // Transition to half-open for recovery test
       this.state = CircuitState.HALF_OPEN;
+      await this.persistState();
       console.log(`[Circuit Breaker] ${this.serviceName} transitioning to HALF_OPEN`);
     }
 
     try {
       const result = await fn();
-      this.recordSuccess();
+      await this.recordSuccess();
       return result;
     } catch (error) {
-      this.recordFailure();
+      await this.recordFailure();
       throw error;
     }
   }
@@ -82,25 +160,27 @@ export class CircuitBreaker {
   /**
    * Record successful call
    */
-  private recordSuccess(): void {
+  private async recordSuccess(): Promise<void> {
     this.metrics.successes++;
     this.metrics.lastSuccessTime = Date.now();
 
     if (this.state === CircuitState.HALF_OPEN) {
       if (this.metrics.successes >= this.config.successThreshold) {
-        this.close();
+        await this.close();
       }
     } else if (this.state === CircuitState.CLOSED) {
       // Reset failure count on success
       this.metrics.failures = 0;
       this.metrics.recentFailures = [];
     }
+
+    await this.persistState();
   }
 
   /**
    * Record failed call
    */
-  private recordFailure(): void {
+  private async recordFailure(): Promise<void> {
     const now = Date.now();
     this.metrics.failures++;
     this.metrics.lastFailureTime = now;
@@ -116,19 +196,21 @@ export class CircuitBreaker {
     // Check if we should open the circuit
     if (this.state === CircuitState.HALF_OPEN) {
       // Any failure in half-open state opens the circuit again
-      this.open();
+      await this.open();
     } else if (this.state === CircuitState.CLOSED) {
       // Check failure threshold
       if (this.metrics.recentFailures.length >= this.config.failureThreshold) {
-        this.open();
+        await this.open();
       }
     }
+
+    await this.persistState();
   }
 
   /**
    * Open the circuit
    */
-  private open(): void {
+  private async open(): Promise<void> {
     this.state = CircuitState.OPEN;
     this.nextAttemptTime = Date.now() + this.config.timeout;
     this.metrics.successes = 0;
@@ -136,18 +218,22 @@ export class CircuitBreaker {
     console.warn(
       `[Circuit Breaker] ${this.serviceName} OPENED after ${this.metrics.recentFailures.length} failures. Will retry at ${new Date(this.nextAttemptTime).toISOString()}`
     );
+
+    await this.persistState();
   }
 
   /**
    * Close the circuit
    */
-  private close(): void {
+  private async close(): Promise<void> {
     this.state = CircuitState.CLOSED;
     this.metrics.failures = 0;
     this.metrics.successes = 0;
     this.metrics.recentFailures = [];
 
     console.log(`[Circuit Breaker] ${this.serviceName} CLOSED - service recovered`);
+
+    await this.persistState();
   }
 
   /**
@@ -168,7 +254,7 @@ export class CircuitBreaker {
   /**
    * Manually reset circuit breaker
    */
-  reset(): void {
+  async reset(): Promise<void> {
     this.state = CircuitState.CLOSED;
     this.metrics = {
       failures: 0,
@@ -180,42 +266,102 @@ export class CircuitBreaker {
     this.nextAttemptTime = 0;
 
     console.log(`[Circuit Breaker] ${this.serviceName} manually reset`);
+
+    await this.persistState();
   }
 }
 
 /**
  * Circuit breaker registry for managing multiple services
+ * Uses Redis for cross-dyno state persistence
  */
 export class CircuitBreakerRegistry {
   private breakers: Map<string, CircuitBreaker> = new Map();
+  private redis: IORedis | null = null;
+
+  /**
+   * Initialize Redis connection for state persistence
+   */
+  initRedis(redis: IORedis): void {
+    this.redis = redis;
+    // Update existing breakers with Redis client
+    for (const breaker of this.breakers.values()) {
+      breaker.setRedis(redis);
+    }
+  }
+
+  /**
+   * Create Redis connection if not initialized
+   */
+  private ensureRedis(): void {
+    if (!this.redis) {
+      const redisUrl =
+        process.env['REDIS_URL'] || process.env['REDIS_TLS_URL'] || 'redis://localhost:6379';
+      const usesTls = redisUrl.includes('rediss://');
+
+      this.redis = new IORedis(redisUrl, {
+        maxRetriesPerRequest: null,
+        enableReadyCheck: false,
+        tls: usesTls ? { rejectUnauthorized: false } : undefined,
+        lazyConnect: true,
+      });
+    }
+  }
 
   /**
    * Get or create circuit breaker for service
    */
   getBreaker(serviceName: string, config?: CircuitBreakerConfig): CircuitBreaker {
+    this.ensureRedis();
+
     if (!this.breakers.has(serviceName)) {
-      this.breakers.set(
-        serviceName,
-        new CircuitBreaker(serviceName, {
-          failureThreshold: config?.failureThreshold ?? 5,
-          successThreshold: config?.successThreshold ?? 2,
-          timeout: config?.timeout ?? 60000,
-          timeWindow: config?.timeWindow ?? 60000,
-        })
-      );
+      const breaker = new CircuitBreaker(serviceName, {
+        failureThreshold: config?.failureThreshold ?? 5,
+        successThreshold: config?.successThreshold ?? 2,
+        timeout: config?.timeout ?? 60000,
+        timeWindow: config?.timeWindow ?? 60000,
+      });
+
+      if (this.redis) {
+        breaker.setRedis(this.redis);
+      }
+
+      this.breakers.set(serviceName, breaker);
     }
 
     return this.breakers.get(serviceName)!;
   }
 
   /**
-   * Get status of all circuit breakers
+   * Get status of all circuit breakers from Redis
    */
-  getAllStatus(): Record<string, ReturnType<CircuitBreaker['getStatus']>> {
+  async getAllStatus(): Promise<Record<string, ReturnType<CircuitBreaker['getStatus']>>> {
+    this.ensureRedis();
+
     const status: Record<string, ReturnType<CircuitBreaker['getStatus']>> = {};
 
-    for (const [name, breaker] of this.breakers.entries()) {
-      status[name] = breaker.getStatus();
+    if (!this.redis) {
+      return status;
+    }
+
+    try {
+      // Get all circuit breaker keys from Redis
+      const keys = await this.redis.keys(`${REDIS_KEY_PREFIX}*`);
+
+      for (const key of keys) {
+        const data = await this.redis.get(key);
+        if (data) {
+          const stateData: CircuitBreakerState = JSON.parse(data);
+          const serviceName = key.replace(REDIS_KEY_PREFIX, '');
+          status[serviceName] = {
+            state: stateData.state,
+            metrics: stateData.metrics,
+            nextAttemptTime: stateData.nextAttemptTime,
+          };
+        }
+      }
+    } catch (error) {
+      console.error('[Circuit Breaker] Failed to get all status from Redis:', error);
     }
 
     return status;
@@ -224,9 +370,29 @@ export class CircuitBreakerRegistry {
   /**
    * Reset all circuit breakers
    */
-  resetAll(): void {
-    for (const breaker of this.breakers.values()) {
-      breaker.reset();
+  async resetAll(): Promise<void> {
+    this.ensureRedis();
+
+    if (!this.redis) {
+      return;
+    }
+
+    try {
+      // Get all circuit breaker keys from Redis
+      const keys = await this.redis.keys(`${REDIS_KEY_PREFIX}*`);
+
+      for (const key of keys) {
+        await this.redis.del(key);
+      }
+
+      // Reset local breakers too
+      for (const breaker of this.breakers.values()) {
+        await breaker.reset();
+      }
+
+      console.log('[Circuit Breaker] All circuit breakers reset');
+    } catch (error) {
+      console.error('[Circuit Breaker] Failed to reset all circuit breakers:', error);
     }
   }
 }

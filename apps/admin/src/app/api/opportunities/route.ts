@@ -174,6 +174,25 @@ Keep it concise and business-focused.`;
       });
     }
 
+    if (action === 'start-optimized-scan') {
+      // Trigger the recursive AI optimization scan
+      // This runs 5 iterations of AI refinement to find the best opportunities
+      const { maxIterations = 5, destinationFocus, categoryFocus, budgetLimit } = body;
+
+      const jobId = await addJob('SEO_OPPORTUNITY_OPTIMIZE', {
+        maxIterations,
+        destinationFocus: destinationFocus || destinations,
+        categoryFocus: categoryFocus || categories,
+        budgetLimit,
+      });
+
+      return NextResponse.json({
+        success: true,
+        jobId,
+        message: `Optimized opportunity scan started with ${maxIterations} iterations`,
+      });
+    }
+
     if (action === 'fix-stuck') {
       // Find all stuck opportunities (ASSIGNED but no site)
       const stuckOpportunities = await prisma.sEOOpportunity.findMany({

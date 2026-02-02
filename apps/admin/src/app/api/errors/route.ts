@@ -9,8 +9,8 @@ export async function GET(request: Request): Promise<NextResponse> {
     // Get error statistics
     const errorStats = await errorTracking.getErrorStats(timeWindow);
 
-    // Get circuit breaker status
-    const circuitBreakerStatus = circuitBreakers.getAllStatus();
+    // Get circuit breaker status (now async - reads from Redis)
+    const circuitBreakerStatus = await circuitBreakers.getAllStatus();
 
     // Calculate health metrics
     const totalErrors = errorStats.total;
@@ -61,7 +61,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     if (action === 'reset-circuit-breaker' && service) {
       const breaker = circuitBreakers.getBreaker(service);
-      breaker.reset();
+      await breaker.reset();
 
       return NextResponse.json({
         success: true,
@@ -70,7 +70,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     }
 
     if (action === 'reset-all-circuit-breakers') {
-      circuitBreakers.resetAll();
+      await circuitBreakers.resetAll();
 
       return NextResponse.json({
         success: true,

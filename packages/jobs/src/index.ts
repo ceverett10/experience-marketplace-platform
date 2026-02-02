@@ -23,6 +23,9 @@ export * from './services/brand-identity';
 export * from './services/site-roadmap';
 export * from './services/blog-topics';
 export * from './services/weekly-blog-generator';
+export * from './services/structured-data';
+export * from './services/internal-linking';
+export * from './services/opportunity-optimizer';
 
 // Export error handling
 export * from './errors';
