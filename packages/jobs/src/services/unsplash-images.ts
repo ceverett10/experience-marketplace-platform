@@ -121,7 +121,7 @@ export class UnsplashImageService {
       throw new Error(`Unsplash search failed: ${response.status}`);
     }
 
-    const data: UnsplashSearchResult = await response.json();
+    const data: UnsplashSearchResult = (await response.json()) as UnsplashSearchResult;
     console.log(`[Unsplash] Found ${data.total} images for "${query}"`);
 
     return data.results.map((photo) => this.mapPhotoToResult(photo));
@@ -159,7 +159,7 @@ export class UnsplashImageService {
         return null;
       }
 
-      const photo: UnsplashPhoto = await response.json();
+      const photo: UnsplashPhoto = (await response.json()) as UnsplashPhoto;
       return this.mapPhotoToResult(photo);
     } catch (error) {
       console.error(`[Unsplash] Error getting random image:`, error);
