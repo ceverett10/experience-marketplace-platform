@@ -157,7 +157,7 @@ export async function DELETE(
 
     // Remove gaMeasurementId from seoConfig
     const currentSeoConfig = (site.seoConfig as SeoConfig) || {};
-    const { gaMeasurementId, ...restSeoConfig } = currentSeoConfig;
+    const { gaMeasurementId: _gaMeasurementId, ...restSeoConfig } = currentSeoConfig;
 
     await prisma.site.update({
       where: { id },
