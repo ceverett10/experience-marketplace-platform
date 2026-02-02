@@ -200,8 +200,15 @@ export class GSCClient {
       });
       return !!response.data.id;
     } catch (error: any) {
-      // 404 means not verified
-      if (error?.code === 404 || error?.status === 404) {
+      // 404 means not verified, 403 "not owner" also means not verified
+      const errorCode = error?.code || error?.status;
+      const errorMessage = error?.message || '';
+      if (
+        errorCode === 404 ||
+        errorCode === 403 ||
+        errorMessage.includes('not an owner')
+      ) {
+        console.log(`[GSC Client] Domain ${domain} not yet verified (${errorCode || 'unknown'})`);
         return false;
       }
       console.error('[GSC Client] Error checking verification status:', error);
