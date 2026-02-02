@@ -56,40 +56,87 @@ async function searchUnsplash(query, options = {}) {
 }
 
 /**
- * Get a random image for hero backgrounds
+ * Get an image for hero backgrounds
+ * First tries the /photos/random endpoint (requires production key)
+ * Falls back to /search/photos endpoint (works with demo key)
  */
-async function getRandomUnsplash(query, options = {}) {
-  const params = new URLSearchParams({
+async function getHeroImage(query, options = {}) {
+  const orientation = options.orientation || 'landscape';
+  const utmParams = 'utm_source=experience_marketplace&utm_medium=referral';
+
+  console.log(`  [Unsplash] Getting hero image for "${query}"`);
+
+  // First try the random endpoint (better variety, but requires production key)
+  try {
+    const randomParams = new URLSearchParams({
+      query,
+      orientation,
+      content_filter: 'high',
+    });
+
+    const randomResponse = await fetch(`${BASE_URL}/photos/random?${randomParams}`, {
+      headers: {
+        Authorization: `Client-ID ${UNSPLASH_ACCESS_KEY}`,
+        'Accept-Version': 'v1',
+      },
+    });
+
+    if (randomResponse.ok) {
+      const photo = await randomResponse.json();
+      console.log(`  [Unsplash] Got random image from ${photo.user.name}`);
+      return {
+        imageUrl: photo.urls.regular,
+        imageAttribution: {
+          photographerName: photo.user.name,
+          photographerUrl: `${photo.user.links.html}?${utmParams}`,
+          unsplashUrl: `https://unsplash.com?${utmParams}`,
+        },
+      };
+    }
+
+    console.log(`  [Unsplash] Random endpoint not available (${randomResponse.status}), falling back to search`);
+  } catch (error) {
+    console.log(`  [Unsplash] Random endpoint error, falling back to search`);
+  }
+
+  // Fall back to search endpoint (works with demo key)
+  const searchParams = new URLSearchParams({
     query,
-    orientation: options.orientation || 'landscape',
+    per_page: '5',
+    orientation,
     content_filter: 'high',
   });
 
-  console.log(`  [Unsplash] Getting random image for "${query}"`);
-
-  const response = await fetch(`${BASE_URL}/photos/random?${params}`, {
+  const searchResponse = await fetch(`${BASE_URL}/search/photos?${searchParams}`, {
     headers: {
       Authorization: `Client-ID ${UNSPLASH_ACCESS_KEY}`,
       'Accept-Version': 'v1',
     },
   });
 
-  if (!response.ok) {
-    console.error(`  [Unsplash] Random image failed: ${response.status}`);
+  if (!searchResponse.ok) {
+    console.error(`  [Unsplash] Search failed: ${searchResponse.status}`);
     return null;
   }
 
-  const photo = await response.json();
-  const utmParams = 'utm_source=experience_marketplace&utm_medium=referral';
+  const data = await searchResponse.json();
 
-  return {
-    imageUrl: photo.urls.regular,
-    imageAttribution: {
-      photographerName: photo.user.name,
-      photographerUrl: `${photo.user.links.html}?${utmParams}`,
-      unsplashUrl: `https://unsplash.com?${utmParams}`,
-    },
-  };
+  if (data.results && data.results.length > 0) {
+    // Pick a random result from top 5 for variety
+    const randomIndex = Math.floor(Math.random() * Math.min(5, data.results.length));
+    const photo = data.results[randomIndex];
+    console.log(`  [Unsplash] Got search image from ${photo.user.name}`);
+    return {
+      imageUrl: photo.urls.regular,
+      imageAttribution: {
+        photographerName: photo.user.name,
+        photographerUrl: `${photo.user.links.html}?${utmParams}`,
+        unsplashUrl: `https://unsplash.com?${utmParams}`,
+      },
+    };
+  }
+
+  return null;
 }
 
 /**
@@ -177,7 +224,7 @@ async function processSite(prisma, siteId, siteName, location, niche) {
   if (!config.hero.backgroundImage) {
     console.log(`  Getting hero background image...`);
     const heroQuery = buildHeroImageQuery(niche, location);
-    const heroData = await getRandomUnsplash(heroQuery);
+    const heroData = await getHeroImage(heroQuery);
     if (heroData) {
       config.hero.backgroundImage = heroData.imageUrl;
       config.hero.backgroundImageAttribution = heroData.imageAttribution;
