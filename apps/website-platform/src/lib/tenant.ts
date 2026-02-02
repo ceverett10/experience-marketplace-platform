@@ -17,6 +17,7 @@ interface Site {
   status: 'DRAFT' | 'REVIEW' | 'ACTIVE' | 'PAUSED' | 'ARCHIVED';
   isAutomatic: boolean;
   seoConfig: unknown;
+  homepageConfig: unknown;
   gscVerificationCode: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -40,6 +41,33 @@ interface Brand {
   generationPrompt: string | null;
   createdAt: Date;
   updatedAt: Date;
+}
+
+// Homepage configuration for site-specific customization
+export interface HomepageConfig {
+  hero?: {
+    title?: string;
+    subtitle?: string;
+    backgroundImage?: string;
+  };
+  popularExperiences?: {
+    title?: string;
+    subtitle?: string;
+    destination?: string; // e.g., "London" - passed to Holibob API
+    categoryPath?: string; // e.g., "food-wine-and-beer-experiences"
+    searchTerms?: string[];
+  };
+  destinations?: Array<{
+    name: string;
+    slug: string;
+    icon: string; // emoji
+  }>;
+  testimonials?: Array<{
+    name: string;
+    location: string;
+    text: string;
+    rating: number;
+  }>;
 }
 
 // Site configuration with brand info
@@ -73,6 +101,9 @@ export interface SiteConfig {
     defaultDescription: string;
     keywords: string[];
   } | null;
+
+  // Homepage Configuration (AI-generated)
+  homepageConfig: HomepageConfig | null;
 }
 
 // Default site configuration for development/fallback
@@ -102,6 +133,26 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
     defaultDescription:
       'Discover and book unique experiences, tours, and activities in your destination.',
     keywords: ['experiences', 'tours', 'activities', 'travel', 'booking'],
+  },
+  homepageConfig: {
+    hero: {
+      title: 'Discover Unique Experiences',
+      subtitle: 'Find and book unforgettable tours, activities, and attractions worldwide',
+    },
+    popularExperiences: {
+      title: 'Popular Experiences',
+      subtitle: 'Discover the most loved experiences in your destination',
+    },
+    destinations: [
+      { name: 'London', slug: 'london', icon: '🇬🇧' },
+      { name: 'Paris', slug: 'paris', icon: '🇫🇷' },
+      { name: 'Barcelona', slug: 'barcelona', icon: '🇪🇸' },
+      { name: 'Rome', slug: 'rome', icon: '🇮🇹' },
+      { name: 'Amsterdam', slug: 'amsterdam', icon: '🇳🇱' },
+      { name: 'Edinburgh', slug: 'edinburgh', icon: '🏴󠁧󠁢󠁳󠁣󠁴󠁿' },
+      { name: 'Lisbon', slug: 'lisbon', icon: '🇵🇹' },
+      { name: 'Berlin', slug: 'berlin', icon: '🇩🇪' },
+    ],
   },
 };
 
@@ -179,6 +230,8 @@ function mapSiteToConfig(site: Site & { brand: Brand | null }): SiteConfig {
     keywords?: string[];
   } | null;
 
+  const homepageConfig = site.homepageConfig as HomepageConfig | null;
+
   return {
     id: site.id,
     slug: site.slug,
@@ -213,6 +266,7 @@ function mapSiteToConfig(site: Site & { brand: Brand | null }): SiteConfig {
           defaultDescription: site.description ?? '',
           keywords: [],
         },
+    homepageConfig: homepageConfig,
   };
 }
 

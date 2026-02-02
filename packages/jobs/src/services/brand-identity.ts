@@ -372,6 +372,244 @@ export async function getBrandIdentityForContent(siteId: string): Promise<{
   return {};
 }
 
+/**
+ * Homepage configuration structure
+ */
+export interface HomepageConfig {
+  hero?: {
+    title?: string;
+    subtitle?: string;
+    backgroundImage?: string;
+  };
+  popularExperiences?: {
+    title?: string;
+    subtitle?: string;
+    destination?: string;
+    categoryPath?: string;
+    searchTerms?: string[];
+  };
+  destinations?: Array<{
+    name: string;
+    slug: string;
+    icon: string;
+  }>;
+  testimonials?: Array<{
+    name: string;
+    location: string;
+    text: string;
+    rating: number;
+  }>;
+}
+
+/**
+ * Generate homepage configuration using AI
+ * Creates site-specific hero, experiences query, and destinations
+ */
+export async function generateHomepageConfig(
+  opportunity: OpportunityContext,
+  brandIdentity: ComprehensiveBrandIdentity
+): Promise<HomepageConfig> {
+  try {
+    const client = createClaudeClient({
+      apiKey: process.env['ANTHROPIC_API_KEY'] || process.env['CLAUDE_API_KEY'] || '',
+    });
+
+    const prompt = `You are configuring a homepage for a travel experience marketplace website.
+
+Brand: ${brandIdentity.name}
+Tagline: ${brandIdentity.tagline}
+Location: ${opportunity.location || 'Multiple locations'}
+Niche: ${opportunity.niche}
+Primary Keyword: ${opportunity.keyword}
+
+Generate a homepage configuration that will make this site highly relevant and personalized for this brand.
+
+I need:
+
+1. HERO SECTION:
+   - Title: A compelling headline that incorporates the brand's focus (under 60 chars)
+   - Subtitle: A supporting message that builds trust and excitement (under 100 chars)
+
+2. POPULAR EXPERIENCES QUERY:
+   - destination: The main city/location to query (e.g., "London") - just the city name
+   - categoryPath: The Holibob category path that best matches this niche. Choose ONE from:
+     * "food-wine-and-beer-experiences" - for food tours, wine tasting, culinary experiences
+     * "sightseeing-tours" - for general tours and sightseeing
+     * "outdoor-activities" - for adventure, hiking, nature
+     * "cultural-experiences" - for museums, history, art
+     * "water-activities" - for boats, cruises, water sports
+     * "theme-parks-and-attractions" - for amusement parks, attractions
+     * "shows-and-events" - for theater, concerts, events
+     * "wellness-and-spa" - for spa, wellness, relaxation
+   - searchTerms: 2-3 additional search terms to narrow results
+
+3. DESTINATIONS (8 items):
+   - For a location-specific brand (like "London Food Tours"), include NEIGHBORHOODS/AREAS within that city
+   - For a general brand, include major cities
+   - Each destination needs: name, slug (lowercase, hyphenated), icon (country flag or relevant emoji)
+
+4. TESTIMONIALS (3 items):
+   - Generate realistic-sounding testimonials from happy customers
+   - Each needs: name (first name + initial), location, text (1-2 sentences), rating (4-5)
+
+Return ONLY valid JSON:
+{
+  "hero": {
+    "title": "Compelling headline",
+    "subtitle": "Supporting message"
+  },
+  "popularExperiences": {
+    "title": "Section title",
+    "subtitle": "Section subtitle",
+    "destination": "London",
+    "categoryPath": "food-wine-and-beer-experiences",
+    "searchTerms": ["term1", "term2"]
+  },
+  "destinations": [
+    {"name": "Area Name", "slug": "area-name", "icon": "emoji"}
+  ],
+  "testimonials": [
+    {"name": "Name I.", "location": "City, Country", "text": "Review text", "rating": 5}
+  ]
+}`;
+
+    const response = await client.generate({
+      model: client.getModelId('sonnet'),
+      messages: [{ role: 'user', content: prompt }],
+      maxTokens: 2000,
+      temperature: 0.7,
+    });
+
+    const content = response.content[0]?.type === 'text' ? response.content[0].text : '';
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+
+    if (jsonMatch) {
+      const generated = JSON.parse(jsonMatch[0]);
+      console.log(`[Homepage Config] Generated config for ${brandIdentity.name}`);
+      return generated as HomepageConfig;
+    }
+
+    throw new Error('Failed to parse AI-generated homepage config');
+  } catch (error) {
+    console.error('[Homepage Config] AI generation failed:', error);
+    return createTemplateHomepageConfig(opportunity, brandIdentity);
+  }
+}
+
+/**
+ * Create template-based homepage config as fallback
+ */
+function createTemplateHomepageConfig(
+  opportunity: OpportunityContext,
+  brandIdentity: ComprehensiveBrandIdentity
+): HomepageConfig {
+  const location = opportunity.location?.split(',')[0]?.trim() || '';
+  const niche = opportunity.niche.toLowerCase();
+
+  // Map niche to category path
+  const nicheToCategory: Record<string, string> = {
+    'food tours': 'food-wine-and-beer-experiences',
+    'wine tours': 'food-wine-and-beer-experiences',
+    'culinary': 'food-wine-and-beer-experiences',
+    'food': 'food-wine-and-beer-experiences',
+    'sightseeing': 'sightseeing-tours',
+    'tours': 'sightseeing-tours',
+    'adventure': 'outdoor-activities',
+    'outdoor': 'outdoor-activities',
+    'hiking': 'outdoor-activities',
+    'cultural': 'cultural-experiences',
+    'museums': 'cultural-experiences',
+    'history': 'cultural-experiences',
+    'water': 'water-activities',
+    'boats': 'water-activities',
+    'cruises': 'water-activities',
+    'theme parks': 'theme-parks-and-attractions',
+    'attractions': 'theme-parks-and-attractions',
+    'shows': 'shows-and-events',
+    'events': 'shows-and-events',
+    'spa': 'wellness-and-spa',
+    'wellness': 'wellness-and-spa',
+  };
+
+  const categoryPath = Object.entries(nicheToCategory).find(
+    ([key]) => niche.includes(key)
+  )?.[1] || 'sightseeing-tours';
+
+  return {
+    hero: {
+      title: brandIdentity.tagline || `Discover ${capitalize(niche)} Experiences`,
+      subtitle: `Book the best ${niche} experiences in ${location || 'your destination'}`,
+    },
+    popularExperiences: {
+      title: `Popular ${capitalize(niche)} Experiences`,
+      subtitle: `Discover the most loved ${niche} experiences`,
+      destination: location || undefined,
+      categoryPath,
+      searchTerms: [niche],
+    },
+    destinations: location
+      ? [
+          // For location-specific sites, show areas within the city
+          { name: 'Central', slug: `${location.toLowerCase()}-central`, icon: '🏛️' },
+          { name: 'Old Town', slug: `${location.toLowerCase()}-old-town`, icon: '🏰' },
+          { name: 'Waterfront', slug: `${location.toLowerCase()}-waterfront`, icon: '🌊' },
+          { name: 'Markets', slug: `${location.toLowerCase()}-markets`, icon: '🛒' },
+          { name: 'Historic', slug: `${location.toLowerCase()}-historic`, icon: '🏺' },
+          { name: 'Modern', slug: `${location.toLowerCase()}-modern`, icon: '🏢' },
+          { name: 'Suburban', slug: `${location.toLowerCase()}-suburban`, icon: '🌳' },
+          { name: 'Downtown', slug: `${location.toLowerCase()}-downtown`, icon: '🌆' },
+        ]
+      : [
+          // Default destinations for general sites
+          { name: 'London', slug: 'london', icon: '🇬🇧' },
+          { name: 'Paris', slug: 'paris', icon: '🇫🇷' },
+          { name: 'Barcelona', slug: 'barcelona', icon: '🇪🇸' },
+          { name: 'Rome', slug: 'rome', icon: '🇮🇹' },
+          { name: 'Amsterdam', slug: 'amsterdam', icon: '🇳🇱' },
+          { name: 'Edinburgh', slug: 'edinburgh', icon: '🏴󠁧󠁢󠁳󠁣󠁴󠁿' },
+          { name: 'Lisbon', slug: 'lisbon', icon: '🇵🇹' },
+          { name: 'Berlin', slug: 'berlin', icon: '🇩🇪' },
+        ],
+    testimonials: [
+      {
+        name: 'Sarah M.',
+        location: location ? `${location}, UK` : 'London, UK',
+        text: `Absolutely fantastic ${niche} experience! The booking was seamless and exceeded all expectations.`,
+        rating: 5,
+      },
+      {
+        name: 'James T.',
+        location: 'New York, US',
+        text: `Great selection and competitive prices. The free cancellation policy gave us peace of mind.`,
+        rating: 5,
+      },
+      {
+        name: 'Maria L.',
+        location: 'Barcelona, Spain',
+        text: `We booked a ${niche} tour and it was perfectly organized. Easy to book and excellent support.`,
+        rating: 4,
+      },
+    ],
+  };
+}
+
+/**
+ * Store homepage config in database
+ */
+export async function storeHomepageConfig(
+  siteId: string,
+  config: HomepageConfig
+): Promise<void> {
+  await prisma.site.update({
+    where: { id: siteId },
+    data: {
+      homepageConfig: config as any,
+    },
+  });
+
+  console.log(`[Homepage Config] Stored homepage config for site ${siteId}`);
+}
+
 // Helper functions
 function capitalize(str: string): string {
   return str

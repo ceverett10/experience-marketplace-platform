@@ -2,26 +2,46 @@ import { headers } from 'next/headers';
 import { Hero } from '@/components/layout/Hero';
 import { FeaturedExperiences } from '@/components/experiences/FeaturedExperiences';
 import { CategoryGrid } from '@/components/experiences/CategoryGrid';
-import { getSiteFromHostname } from '@/lib/tenant';
+import { getSiteFromHostname, type HomepageConfig } from '@/lib/tenant';
 import { getHolibobClient, type ExperienceListItem } from '@/lib/holibob';
 
 // Revalidate every 5 minutes for fresh content
 export const revalidate = 300;
 
 async function getFeaturedExperiences(
-  siteConfig: Awaited<ReturnType<typeof getSiteFromHostname>>
+  siteConfig: Awaited<ReturnType<typeof getSiteFromHostname>>,
+  popularExperiencesConfig?: HomepageConfig['popularExperiences']
 ): Promise<ExperienceListItem[]> {
   try {
     const client = getHolibobClient(siteConfig);
 
+    // Build search params from homepage config
+    const searchParams: {
+      currency: string;
+      destination?: string;
+      categoryPath?: string;
+      searchText?: string;
+    } = {
+      currency: 'GBP',
+    };
+
+    // Add destination filter from config (e.g., "London")
+    if (popularExperiencesConfig?.destination) {
+      searchParams.destination = popularExperiencesConfig.destination;
+    }
+
+    // Add category path filter from config (e.g., "food-wine-and-beer-experiences")
+    if (popularExperiencesConfig?.categoryPath) {
+      searchParams.categoryPath = popularExperiencesConfig.categoryPath;
+    }
+
+    // Add search terms from config
+    if (popularExperiencesConfig?.searchTerms?.length) {
+      searchParams.searchText = popularExperiencesConfig.searchTerms.join(' ');
+    }
+
     // Get featured/popular experiences from Holibob Product Discovery API
-    const response = await client.discoverProducts(
-      {
-        currency: 'GBP',
-        // In production, filter by partner's configured locations/categories
-      },
-      { pageSize: 8 }
-    );
+    const response = await client.discoverProducts(searchParams, { pageSize: 8 });
 
     // Map to our experience format
     return response.products.map((product) => {
@@ -100,12 +120,30 @@ function formatDuration(value: number, unit: string): string {
   return `${value} ${unit}`;
 }
 
+// Default destinations when none configured
+const DEFAULT_DESTINATIONS = [
+  { name: 'London', slug: 'london', icon: '🇬🇧' },
+  { name: 'Paris', slug: 'paris', icon: '🇫🇷' },
+  { name: 'Barcelona', slug: 'barcelona', icon: '🇪🇸' },
+  { name: 'Rome', slug: 'rome', icon: '🇮🇹' },
+  { name: 'Amsterdam', slug: 'amsterdam', icon: '🇳🇱' },
+  { name: 'Edinburgh', slug: 'edinburgh', icon: '🏴󠁧󠁢󠁳󠁣󠁴󠁿' },
+  { name: 'Lisbon', slug: 'lisbon', icon: '🇵🇹' },
+  { name: 'Berlin', slug: 'berlin', icon: '🇩🇪' },
+];
+
 export default async function HomePage() {
   const headersList = await headers();
   const hostname = headersList.get('host') ?? 'localhost';
   const site = await getSiteFromHostname(hostname);
 
-  const experiences = await getFeaturedExperiences(site);
+  // Get homepage configuration (AI-generated or default)
+  const homepageConfig = site.homepageConfig;
+  const heroConfig = homepageConfig?.hero;
+  const popularExperiencesConfig = homepageConfig?.popularExperiences;
+  const destinations = homepageConfig?.destinations ?? DEFAULT_DESTINATIONS;
+
+  const experiences = await getFeaturedExperiences(site, popularExperiencesConfig);
 
   // TravelAgency structured data for SEO
   const localBusinessLd = {
@@ -143,12 +181,16 @@ export default async function HomePage() {
       />
 
       {/* Hero Section */}
-      <Hero />
+      <Hero
+        title={heroConfig?.title}
+        subtitle={heroConfig?.subtitle}
+        backgroundImage={heroConfig?.backgroundImage}
+      />
 
       {/* Featured Experiences */}
       <FeaturedExperiences
-        title="Popular Experiences"
-        subtitle="Discover the most loved experiences in your destination"
+        title={popularExperiencesConfig?.title ?? 'Popular Experiences'}
+        subtitle={popularExperiencesConfig?.subtitle ?? 'Discover the most loved experiences in your destination'}
         experiences={experiences}
         variant="grid"
       />
@@ -271,16 +313,7 @@ export default async function HomePage() {
             </p>
           </div>
           <div className="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 lg:gap-6">
-            {[
-              { name: 'London', slug: 'london', icon: '🇬🇧' },
-              { name: 'Paris', slug: 'paris', icon: '🇫🇷' },
-              { name: 'Barcelona', slug: 'barcelona', icon: '🇪🇸' },
-              { name: 'Rome', slug: 'rome', icon: '🇮🇹' },
-              { name: 'Amsterdam', slug: 'amsterdam', icon: '🇳🇱' },
-              { name: 'Edinburgh', slug: 'edinburgh', icon: '🏴󠁧󠁢󠁳󠁣󠁴󠁿' },
-              { name: 'Lisbon', slug: 'lisbon', icon: '🇵🇹' },
-              { name: 'Berlin', slug: 'berlin', icon: '🇩🇪' },
-            ].map((dest) => (
+            {destinations.map((dest) => (
               <a
                 key={dest.slug}
                 href={`/experiences?destination=${dest.slug}`}

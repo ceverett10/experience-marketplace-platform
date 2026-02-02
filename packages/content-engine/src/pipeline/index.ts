@@ -100,17 +100,29 @@ export class ContentPipeline {
     const startTime = Date.now();
 
     // Build system prompt based on brand context
+    const coreGuidelines = `
+CRITICAL GUIDELINES - You MUST follow these:
+1. NEVER make up or fabricate any information, facts, statistics, or details
+2. NEVER invent contact details (phone numbers, email addresses, physical addresses)
+3. This is a marketplace of travel experiences powered by Holibob - the content must reflect this
+4. Focus on the type of experience and destination, not specific operational details you don't know
+5. Use general calls-to-action like "Book now" or "Explore our experiences" rather than specific contact methods
+6. If you don't know something, describe the experience category generally rather than inventing specifics`;
+
     let systemPrompt =
-      'You are an expert travel content writer creating SEO-optimized, engaging content.';
+      `You are an expert travel content writer creating SEO-optimized, engaging content for a travel experience marketplace powered by Holibob.
+${coreGuidelines}`;
+
     if (brief.brandContext?.toneOfVoice) {
       const { personality, writingStyle } = brief.brandContext.toneOfVoice;
-      systemPrompt = `You are an expert travel content writer creating SEO-optimized content for a premium travel brand.
+      systemPrompt = `You are an expert travel content writer creating SEO-optimized content for a travel experience marketplace powered by Holibob.
 
 Your writing style is: ${writingStyle || 'clear, authoritative, and trustworthy'}
 Your personality traits are: ${personality?.join(', ') || 'professional, knowledgeable, helpful'}
 
 You write content that builds trust and positions the brand as an authority in the travel industry.
-Every piece of content should feel authentic, expert-driven, and aligned with the brand's voice.`;
+Every piece of content should feel authentic, expert-driven, and aligned with the brand's voice.
+${coreGuidelines}`;
     }
 
     const response = await this.client.generate({

@@ -54,6 +54,33 @@ interface SeoConfig {
   contentGuidelines?: ContentGuidelines;
 }
 
+// Homepage configuration
+interface HomepageConfig {
+  hero?: {
+    title?: string;
+    subtitle?: string;
+    backgroundImage?: string;
+  };
+  popularExperiences?: {
+    title?: string;
+    subtitle?: string;
+    destination?: string;
+    categoryPath?: string;
+    searchTerms?: string[];
+  };
+  destinations?: Array<{
+    name: string;
+    slug: string;
+    icon: string;
+  }>;
+  testimonials?: Array<{
+    name: string;
+    location: string;
+    text: string;
+    rating: number;
+  }>;
+}
+
 interface Domain {
   id: string;
   domain: string;
@@ -99,6 +126,7 @@ interface Site {
   gscVerified: boolean;
   gscVerifiedAt: string | null;
   seoConfig: SeoConfig | null;
+  homepageConfig: HomepageConfig | null;
   createdAt: string;
   updatedAt: string;
   publishedAt: string | null;
@@ -195,7 +223,7 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
   const [loading, setLoading] = useState(true);
   const [initializingRoadmap, setInitializingRoadmap] = useState(false);
   const [executingTasks, setExecutingTasks] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'roadmap' | 'brand' | 'pages' | 'domains'>('roadmap');
+  const [activeTab, setActiveTab] = useState<'overview' | 'roadmap' | 'brand' | 'homepage' | 'pages' | 'domains'>('roadmap');
 
   useEffect(() => {
     const fetchSite = async () => {
@@ -388,7 +416,7 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
       {/* Tabs */}
       <div className="border-b border-slate-200">
         <nav className="flex gap-4">
-          {(['roadmap', 'overview', 'brand', 'pages', 'domains'] as const).map((tab) => (
+          {(['roadmap', 'overview', 'brand', 'homepage', 'pages', 'domains'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -1061,6 +1089,177 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
                 </p>
                 <p className="text-sm text-slate-400">
                   Go to the Sites page and click &quot;Generate Brand Identity&quot; to create brand guidelines for content generation.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {/* Homepage Tab */}
+      {activeTab === 'homepage' && (
+        <div className="space-y-6">
+          <h2 className="text-lg font-semibold text-slate-900">Homepage Configuration</h2>
+          <p className="text-sm text-slate-500">
+            These settings control what appears on the site&apos;s homepage, including the hero section, popular experiences query, and featured destinations.
+          </p>
+
+          {site.homepageConfig ? (
+            <>
+              {/* Hero Section */}
+              <Card>
+                <CardContent className="p-6">
+                  <h3 className="text-md font-semibold text-slate-900 mb-4">Hero Section</h3>
+                  <dl className="space-y-3">
+                    {site.homepageConfig.hero?.title && (
+                      <div>
+                        <dt className="text-slate-500 text-sm">Title</dt>
+                        <dd className="font-medium text-slate-900 text-lg">{site.homepageConfig.hero.title}</dd>
+                      </div>
+                    )}
+                    {site.homepageConfig.hero?.subtitle && (
+                      <div>
+                        <dt className="text-slate-500 text-sm">Subtitle</dt>
+                        <dd className="text-slate-700">{site.homepageConfig.hero.subtitle}</dd>
+                      </div>
+                    )}
+                    {site.homepageConfig.hero?.backgroundImage && (
+                      <div>
+                        <dt className="text-slate-500 text-sm mb-2">Background Image</dt>
+                        <dd>
+                          <img
+                            src={site.homepageConfig.hero.backgroundImage}
+                            alt="Hero background"
+                            className="w-full max-w-md h-32 object-cover rounded-lg border"
+                          />
+                        </dd>
+                      </div>
+                    )}
+                  </dl>
+                </CardContent>
+              </Card>
+
+              {/* Popular Experiences Query */}
+              <Card>
+                <CardContent className="p-6">
+                  <h3 className="text-md font-semibold text-slate-900 mb-4">Popular Experiences Query</h3>
+                  <p className="text-sm text-slate-500 mb-4">
+                    These parameters are passed to the Holibob API to fetch relevant experiences for this site.
+                  </p>
+                  <dl className="space-y-3">
+                    {site.homepageConfig.popularExperiences?.title && (
+                      <div className="flex justify-between">
+                        <dt className="text-slate-500">Section Title</dt>
+                        <dd className="font-medium">{site.homepageConfig.popularExperiences.title}</dd>
+                      </div>
+                    )}
+                    {site.homepageConfig.popularExperiences?.subtitle && (
+                      <div className="flex justify-between">
+                        <dt className="text-slate-500">Section Subtitle</dt>
+                        <dd className="font-medium text-right max-w-[300px]">{site.homepageConfig.popularExperiences.subtitle}</dd>
+                      </div>
+                    )}
+                    {site.homepageConfig.popularExperiences?.destination && (
+                      <div className="flex justify-between">
+                        <dt className="text-slate-500">Destination Filter</dt>
+                        <dd className="font-medium">
+                          <span className="px-2 py-1 bg-sky-100 text-sky-800 rounded text-sm">
+                            {site.homepageConfig.popularExperiences.destination}
+                          </span>
+                        </dd>
+                      </div>
+                    )}
+                    {site.homepageConfig.popularExperiences?.categoryPath && (
+                      <div className="flex justify-between">
+                        <dt className="text-slate-500">Category Path</dt>
+                        <dd className="font-medium">
+                          <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded text-sm">
+                            {site.homepageConfig.popularExperiences.categoryPath}
+                          </span>
+                        </dd>
+                      </div>
+                    )}
+                    {site.homepageConfig.popularExperiences?.searchTerms && site.homepageConfig.popularExperiences.searchTerms.length > 0 && (
+                      <div>
+                        <dt className="text-slate-500 mb-2">Search Terms</dt>
+                        <dd className="flex flex-wrap gap-2">
+                          {site.homepageConfig.popularExperiences.searchTerms.map((term, i) => (
+                            <span key={i} className="px-2 py-1 bg-slate-100 text-slate-700 rounded text-sm">
+                              {term}
+                            </span>
+                          ))}
+                        </dd>
+                      </div>
+                    )}
+                  </dl>
+                </CardContent>
+              </Card>
+
+              {/* Featured Destinations */}
+              {site.homepageConfig.destinations && site.homepageConfig.destinations.length > 0 && (
+                <Card>
+                  <CardContent className="p-6">
+                    <h3 className="text-md font-semibold text-slate-900 mb-4">Featured Destinations</h3>
+                    <p className="text-sm text-slate-500 mb-4">
+                      Destinations shown on the homepage for users to browse experiences by location.
+                    </p>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {site.homepageConfig.destinations.map((dest, i) => (
+                        <div
+                          key={i}
+                          className="flex flex-col items-center p-4 bg-slate-50 rounded-lg border border-slate-200"
+                        >
+                          <span className="text-3xl mb-2">{dest.icon}</span>
+                          <span className="font-medium text-slate-900 text-sm">{dest.name}</span>
+                          <span className="text-xs text-slate-400">/{dest.slug}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Testimonials */}
+              {site.homepageConfig.testimonials && site.homepageConfig.testimonials.length > 0 && (
+                <Card>
+                  <CardContent className="p-6">
+                    <h3 className="text-md font-semibold text-slate-900 mb-4">Testimonials</h3>
+                    <div className="grid gap-4">
+                      {site.homepageConfig.testimonials.map((testimonial, i) => (
+                        <div key={i} className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                          <div className="flex items-center gap-1 mb-2">
+                            {[...Array(5)].map((_, starIdx) => (
+                              <span
+                                key={starIdx}
+                                className={starIdx < testimonial.rating ? 'text-yellow-400' : 'text-slate-200'}
+                              >
+                                *
+                              </span>
+                            ))}
+                          </div>
+                          <p className="text-slate-700 italic mb-2">&ldquo;{testimonial.text}&rdquo;</p>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-slate-900">{testimonial.name}</span>
+                            <span className="text-slate-400">-</span>
+                            <span className="text-slate-500 text-sm">{testimonial.location}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </>
+          ) : (
+            <Card>
+              <CardContent className="p-8 text-center">
+                <div className="text-4xl mb-4">🏠</div>
+                <h3 className="text-lg font-medium text-slate-900">No Homepage Configuration</h3>
+                <p className="text-slate-500 mt-1 mb-4">
+                  Homepage configuration hasn&apos;t been generated yet. This will be created automatically when the site is created, or you can set it manually.
+                </p>
+                <p className="text-sm text-slate-400">
+                  The homepage will use default settings until configuration is added.
                 </p>
               </CardContent>
             </Card>

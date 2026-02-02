@@ -78,6 +78,15 @@ model Site {
   // SEO Configuration
   seoConfig Json? // { titleTemplate, defaultDescription, keywords }
 
+  // Homepage Configuration (AI-generated during site creation)
+  // {
+  //   hero: { title?, subtitle?, backgroundImage? },
+  //   popularExperiences: { title?, subtitle?, destination?, categoryPath?, searchTerms? },
+  //   destinations: [{ name, slug, icon }],
+  //   testimonials?: [{ name, location, text, rating }]
+  // }
+  homepageConfig Json?
+
   // GSC Verification
   gscVerificationCode String? // Meta tag content for verification
   gscVerified         Boolean   @default(false)

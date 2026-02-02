@@ -6,6 +6,8 @@ import { canExecuteAutonomousOperation } from '../services/pause-control.js';
 import {
   generateComprehensiveBrandIdentity,
   storeBrandIdentity,
+  generateHomepageConfig,
+  storeHomepageConfig,
 } from '../services/brand-identity.js';
 import { initializeSiteRoadmap } from '../services/site-roadmap.js';
 
@@ -132,6 +134,22 @@ export async function handleSiteCreate(job: Job<SiteCreatePayload>): Promise<Job
 
     console.log(`[Site Create] Created site ${site.id} with slug ${site.slug}`);
     console.log(`[Site Create] Brand stored with tone: ${brandIdentity.toneOfVoice.personality.join(', ')}`);
+
+    // 4.2 Generate and store homepage configuration
+    console.log('[Site Create] Generating homepage configuration...');
+    const homepageConfig = await generateHomepageConfig(
+      {
+        keyword: opportunity.keyword,
+        location: opportunity.location || undefined,
+        niche: opportunity.niche,
+        searchVolume: opportunity.searchVolume,
+        intent: opportunity.intent,
+      },
+      brandIdentity
+    );
+
+    await storeHomepageConfig(site.id, homepageConfig);
+    console.log(`[Site Create] Homepage config stored with destination: ${homepageConfig.popularExperiences?.destination || 'none'}`);
 
     // 4.5 Initialize site roadmap with planned tasks
     await initializeSiteRoadmap(site.id);

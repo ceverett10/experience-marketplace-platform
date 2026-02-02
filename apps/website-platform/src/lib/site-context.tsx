@@ -46,3 +46,11 @@ export function useSEO() {
   const site = useSite();
   return site.seoConfig ?? DEFAULT_SITE_CONFIG.seoConfig;
 }
+
+/**
+ * Hook to access homepage configuration
+ */
+export function useHomepageConfig() {
+  const site = useSite();
+  return site.homepageConfig ?? DEFAULT_SITE_CONFIG.homepageConfig;
+}
