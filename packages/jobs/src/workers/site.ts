@@ -11,6 +11,7 @@ import {
 } from '../services/brand-identity.js';
 import { initializeSiteRoadmap } from '../services/site-roadmap.js';
 import { CloudflareRegistrarService } from '../services/cloudflare-registrar.js';
+import { generateBlogTopics } from '../services/blog-topics.js';
 
 /**
  * Site Worker
@@ -235,6 +236,52 @@ export async function handleSiteCreate(job: Job<SiteCreatePayload>): Promise<Job
         secondaryKeywords: ['booking terms', 'UK consumer law', 'conditions'],
       });
       console.log('[Site Create] Queued Terms of Service content generation');
+    }
+
+    // 7.5 Generate initial blog posts for SEO
+    console.log('[Site Create] Generating initial blog topics...');
+    try {
+      const blogTopics = await generateBlogTopics(
+        {
+          siteName: brandIdentity.name,
+          niche: opportunity.niche,
+          location: opportunity.location || undefined,
+          destination: opportunity.location || undefined,
+        },
+        5 // Generate 5 initial blog topics
+      );
+
+      console.log(`[Site Create] Generated ${blogTopics.length} blog topics`);
+
+      // Create blog pages and queue content generation
+      for (const topic of blogTopics) {
+        const blogPage = await prisma.page.create({
+          data: {
+            siteId: site.id,
+            title: topic.title,
+            slug: `blog/${topic.slug}`,
+            type: PageType.BLOG,
+            status: PageStatus.DRAFT,
+            metaDescription: `${topic.targetKeyword} - ${brandIdentity.name}`,
+          },
+        });
+
+        // Queue content generation for each blog post
+        await addJob('CONTENT_GENERATE', {
+          siteId: site.id,
+          pageId: blogPage.id,
+          contentType: 'blog',
+          targetKeyword: topic.targetKeyword,
+          secondaryKeywords: topic.secondaryKeywords,
+        });
+
+        console.log(`[Site Create] Queued blog post: "${topic.title}"`);
+      }
+
+      console.log(`[Site Create] Created and queued ${blogTopics.length} initial blog posts`);
+    } catch (blogError) {
+      // Blog generation is non-critical, log and continue
+      console.error('[Site Create] Failed to generate blog topics:', blogError);
     }
 
     // 8. Check domain availability and create domain record

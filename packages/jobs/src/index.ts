@@ -21,6 +21,8 @@ export * from './services/gsc-client';
 export * from './services/pause-control';
 export * from './services/brand-identity';
 export * from './services/site-roadmap';
+export * from './services/blog-topics';
+export * from './services/weekly-blog-generator';
 
 // Export error handling
 export * from './errors';

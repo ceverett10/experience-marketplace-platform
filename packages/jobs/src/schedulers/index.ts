@@ -1,4 +1,8 @@
 import { scheduleJob, queueRegistry } from '../queues';
+import { generateWeeklyBlogPostsForAllSites } from '../services/weekly-blog-generator.js';
+
+// Track interval for cleanup
+let weeklyBlogInterval: NodeJS.Timeout | null = null;
 
 /**
  * Initialize scheduled/recurring jobs
@@ -70,7 +74,48 @@ export async function initializeScheduledJobs(): Promise<void> {
   );
   console.log('[Scheduler] ✓ A/B Test Rebalancing - Every hour');
 
+  // Weekly Blog Generation - Mondays and Thursdays at 4 AM
+  // Uses setInterval with cron-like scheduling since it doesn't need job queue tracking
+  initializeWeeklyBlogSchedule();
+  console.log('[Scheduler] ✓ Weekly Blog Generation - Mon/Thu at 4 AM');
+
   console.log('[Scheduler] All scheduled jobs initialized successfully');
+}
+
+/**
+ * Initialize weekly blog generation schedule
+ * Runs on Mondays and Thursdays at 4 AM to generate 3-4 blog posts per site
+ * This builds site authority through consistent content publishing
+ */
+function initializeWeeklyBlogSchedule(): void {
+  // Check every hour if it's time to generate blog posts
+  // Generates on Monday (1) and Thursday (4) at 4 AM
+  weeklyBlogInterval = setInterval(async () => {
+    const now = new Date();
+    const day = now.getDay(); // 0 = Sunday, 1 = Monday, 4 = Thursday
+    const hour = now.getHours();
+
+    // Run on Monday and Thursday at 4 AM
+    if ((day === 1 || day === 4) && hour === 4) {
+      console.log('[Scheduler] Starting weekly blog generation...');
+      try {
+        const results = await generateWeeklyBlogPostsForAllSites();
+        const totalPosts = results.reduce((sum, r) => sum + r.postsQueued, 0);
+        console.log(`[Scheduler] Weekly blog generation complete: ${totalPosts} posts queued across ${results.length} sites`);
+      } catch (error) {
+        console.error('[Scheduler] Weekly blog generation failed:', error);
+      }
+    }
+  }, 60 * 60 * 1000); // Check every hour
+
+  // Also check immediately on startup if it's the right time
+  const now = new Date();
+  const day = now.getDay();
+  const hour = now.getHours();
+  if ((day === 1 || day === 4) && hour === 4) {
+    console.log('[Scheduler] Running immediate weekly blog check on startup...');
+    generateWeeklyBlogPostsForAllSites().catch(console.error);
+  }
 }
 
 /**
@@ -85,6 +130,12 @@ export async function removeAllScheduledJobs(): Promise<void> {
   await queueRegistry.removeRepeatableJob('METRICS_AGGREGATE', '0 1 * * *');
   await queueRegistry.removeRepeatableJob('PERFORMANCE_REPORT', '0 9 * * 1');
   await queueRegistry.removeRepeatableJob('ABTEST_REBALANCE', '0 * * * *');
+
+  // Clear weekly blog interval
+  if (weeklyBlogInterval) {
+    clearInterval(weeklyBlogInterval);
+    weeklyBlogInterval = null;
+  }
 
   console.log('[Scheduler] All scheduled jobs removed');
 }
@@ -127,6 +178,11 @@ export function getScheduledJobs(): Array<{
       jobType: 'ABTEST_REBALANCE',
       schedule: '0 * * * *',
       description: 'A/B test traffic rebalancing - Every hour',
+    },
+    {
+      jobType: 'WEEKLY_BLOG_GENERATE',
+      schedule: '0 4 * * 1,4',
+      description: 'Weekly blog post generation - Mondays and Thursdays at 4 AM',
     },
   ];
 }
