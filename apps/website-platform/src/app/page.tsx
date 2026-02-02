@@ -77,10 +77,11 @@ async function getFeaturedExperiences(
         duration: {
           formatted: durationFormatted,
         },
-        rating: product.rating
+        // Rating data from Holibob Product Discovery API
+        rating: product.reviewRating
           ? {
-              average: product.rating,
-              count: 0,
+              average: product.reviewRating,
+              count: product.reviewCount ?? 0,
             }
           : null,
         location: {
