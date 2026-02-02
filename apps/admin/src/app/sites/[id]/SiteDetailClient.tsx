@@ -223,6 +223,7 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
   const [loading, setLoading] = useState(true);
   const [initializingRoadmap, setInitializingRoadmap] = useState(false);
   const [executingTasks, setExecutingTasks] = useState(false);
+  const [generatingHomepageConfig, setGeneratingHomepageConfig] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'roadmap' | 'brand' | 'homepage' | 'pages' | 'domains'>('roadmap');
 
   useEffect(() => {
@@ -1256,11 +1257,40 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
                 <div className="text-4xl mb-4">🏠</div>
                 <h3 className="text-lg font-medium text-slate-900">No Homepage Configuration</h3>
                 <p className="text-slate-500 mt-1 mb-4">
-                  Homepage configuration hasn&apos;t been generated yet. This will be created automatically when the site is created, or you can set it manually.
+                  Homepage configuration hasn&apos;t been generated yet. This will be created automatically when the site is created, or you can generate it now using AI.
                 </p>
-                <p className="text-sm text-slate-400">
-                  The homepage will use default settings until configuration is added.
-                </p>
+                <button
+                  onClick={async () => {
+                    setGeneratingHomepageConfig(true);
+                    try {
+                      const response = await fetch(`/admin/api/sites/${siteId}/homepage-config`, {
+                        method: 'POST',
+                      });
+                      const result = await response.json();
+
+                      if (response.ok) {
+                        alert('Homepage configuration generated successfully!');
+                        // Refetch site data
+                        const siteResponse = await fetch(`/admin/api/sites/${siteId}`);
+                        const data = await siteResponse.json();
+                        if (siteResponse.ok) {
+                          setSite(data.site);
+                        }
+                      } else {
+                        alert(result.error || 'Failed to generate homepage config');
+                      }
+                    } catch (error) {
+                      console.error('Failed to generate homepage config:', error);
+                      alert('Failed to generate homepage config');
+                    } finally {
+                      setGeneratingHomepageConfig(false);
+                    }
+                  }}
+                  disabled={generatingHomepageConfig}
+                  className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                >
+                  {generatingHomepageConfig ? 'Generating...' : 'Generate with AI'}
+                </button>
               </CardContent>
             </Card>
           )}

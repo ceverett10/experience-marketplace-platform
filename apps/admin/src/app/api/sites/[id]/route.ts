@@ -25,6 +25,7 @@ export async function GET(
         gscVerified: true,
         gscVerifiedAt: true,
         seoConfig: true, // Include brand identity data
+        homepageConfig: true, // Include homepage configuration
         createdAt: true,
         updatedAt: true,
         publishedAt: true,
@@ -95,6 +96,7 @@ export async function GET(
         gscVerified: site.gscVerified,
         gscVerifiedAt: site.gscVerifiedAt?.toISOString() || null,
         seoConfig: site.seoConfig, // Brand identity data (tone of voice, trust signals, brand story)
+        homepageConfig: site.homepageConfig, // Homepage configuration (hero, experiences query, destinations)
         createdAt: site.createdAt.toISOString(),
         updatedAt: site.updatedAt.toISOString(),
         publishedAt: site.publishedAt?.toISOString() || null,
