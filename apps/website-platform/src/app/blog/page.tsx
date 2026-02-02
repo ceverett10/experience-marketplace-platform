@@ -142,7 +142,7 @@ export default async function BlogPage({ searchParams }: Props) {
       description: post.metaDescription || generateExcerpt(post.content?.body || ''),
       datePublished: post.createdAt.toISOString(),
       dateModified: post.updatedAt.toISOString(),
-      url: `https://${site.primaryDomain || hostname}/blog/${post.slug}`,
+      url: `https://${site.primaryDomain || hostname}/${post.slug}`,
     })),
   };
 
@@ -292,7 +292,7 @@ export default async function BlogPage({ searchParams }: Props) {
 
                       {/* Title */}
                       <h2 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-indigo-600 transition-colors line-clamp-2">
-                        <Link href={`/blog/${post.slug}`}>{post.title}</Link>
+                        <Link href={`/${post.slug}`}>{post.title}</Link>
                       </h2>
 
                       {/* Excerpt */}
@@ -302,7 +302,7 @@ export default async function BlogPage({ searchParams }: Props) {
 
                       {/* Read More Link */}
                       <Link
-                        href={`/blog/${post.slug}`}
+                        href={`/${post.slug}`}
                         className="inline-flex items-center text-sm font-medium text-indigo-600 hover:text-indigo-700"
                       >
                         Read article

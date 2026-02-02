@@ -24,10 +24,10 @@ interface SiteForBlogGeneration {
   status: string;
   seoConfig: any; // JSON field
   homepageConfig: any; // JSON field
-  opportunity: {
+  opportunities: {
     niche: string;
     location: string | null;
-  } | null;
+  }[];
   pages: {
     title: string;
     slug: string;
@@ -48,12 +48,13 @@ async function generateBlogPostsForSite(site: SiteForBlogGeneration, count: numb
   // Build context for topic generation
   const seoConfig = site.seoConfig as any || {};
   const homepageConfig = site.homepageConfig as any || {};
+  const opportunity = site.opportunities?.[0]; // Get first opportunity if exists
 
-  const niche = site.opportunity?.niche ||
+  const niche = opportunity?.niche ||
     seoConfig?.primaryKeywords?.[0] ||
     homepageConfig?.popularExperiences?.searchTerms?.[0] ||
     'travel experiences';
-  const location = site.opportunity?.location ||
+  const location = opportunity?.location ||
     seoConfig?.destination ||
     homepageConfig?.popularExperiences?.destination ||
     undefined;
@@ -146,11 +147,12 @@ async function main(): Promise<void> {
           status: true,
           seoConfig: true,
           homepageConfig: true,
-          opportunity: {
+          opportunities: {
             select: {
               niche: true,
               location: true,
             },
+            take: 1,
           },
           pages: {
             select: {
@@ -180,11 +182,12 @@ async function main(): Promise<void> {
           status: true,
           seoConfig: true,
           homepageConfig: true,
-          opportunity: {
+          opportunities: {
             select: {
               niche: true,
               location: true,
             },
+            take: 1,
           },
           pages: {
             select: {
@@ -193,7 +196,7 @@ async function main(): Promise<void> {
             },
           },
         },
-      }) as SiteForBlogGeneration[];
+      }) as unknown as SiteForBlogGeneration[];
 
       console.log(`Found ${sites.length} active sites`);
     }

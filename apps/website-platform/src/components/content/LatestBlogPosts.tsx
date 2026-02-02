@@ -128,7 +128,7 @@ export function LatestBlogPosts({ posts, siteName: _siteName }: LatestBlogPostsP
 
                 {/* Title */}
                 <h3 className="text-lg font-bold text-gray-900 mb-2 group-hover:text-indigo-600 transition-colors line-clamp-2">
-                  <Link href={`/blog/${post.slug}`}>{post.title}</Link>
+                  <Link href={`/${post.slug}`}>{post.title}</Link>
                 </h3>
 
                 {/* Excerpt */}
@@ -138,7 +138,7 @@ export function LatestBlogPosts({ posts, siteName: _siteName }: LatestBlogPostsP
 
                 {/* Read More */}
                 <Link
-                  href={`/blog/${post.slug}`}
+                  href={`/${post.slug}`}
                   className="mt-4 inline-flex items-center text-sm font-medium text-indigo-600 hover:text-indigo-700"
                 >
                   Read more

@@ -11,13 +11,18 @@ interface Props {
 
 /**
  * Fetch blog post from database
+ * Note: Blog pages are stored with 'blog/' prefix in slug (e.g., 'blog/my-post')
+ * The URL /blog/my-post maps to slug 'blog/my-post' in the database
  */
 async function getBlogPost(siteId: string, slug: string) {
+  // Slugs are stored with 'blog/' prefix, so prepend it for the query
+  const fullSlug = `blog/${slug}`;
+
   return await prisma.page.findUnique({
     where: {
       siteId_slug: {
         siteId,
-        slug,
+        slug: fullSlug,
       },
       type: 'BLOG',
       status: 'PUBLISHED',

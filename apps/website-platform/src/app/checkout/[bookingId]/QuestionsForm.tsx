@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { TermsModal } from '@/components/checkout/TermsModal';
 
 interface BookingQuestion {
   id: string;
@@ -84,6 +85,7 @@ export function QuestionsForm({
   const [phoneCountryCode, setPhoneCountryCode] = useState('+44');
   const [phone, setPhone] = useState('');
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
 
   // Availability-level questions (e.g., risk acceptance waivers)
   const availabilityQuestions = availabilities.flatMap((avail) =>
@@ -301,14 +303,13 @@ export function QuestionsForm({
 
         <p className="mb-4 text-sm text-gray-600">
           You just need to accept Holibob{' '}
-          <a
-            href="https://holibob.tech/terms"
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            type="button"
+            onClick={() => setShowTermsModal(true)}
             className="underline hover:text-gray-900"
           >
             terms and conditions
-          </a>{' '}
+          </button>{' '}
           to continue.
         </p>
 
@@ -369,6 +370,13 @@ export function QuestionsForm({
           Booking for {totalGuests} guests. Lead person details will be used for the booking.
         </p>
       )}
+
+      {/* Terms and Conditions Modal */}
+      <TermsModal
+        isOpen={showTermsModal}
+        onClose={() => setShowTermsModal(false)}
+        primaryColor={primaryColor}
+      />
     </form>
   );
 }
