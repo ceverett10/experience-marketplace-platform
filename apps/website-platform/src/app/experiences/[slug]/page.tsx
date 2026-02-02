@@ -60,7 +60,7 @@ async function getExperience(
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const headersList = await headers();
-  const hostname = headersList.get('host') ?? 'localhost';
+  const hostname = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
   const site = await getSiteFromHostname(hostname);
 
   const { experience } = await getExperience(site, slug);
@@ -86,7 +86,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function ExperienceDetailPage({ params }: Props) {
   const { slug } = await params;
   const headersList = await headers();
-  const hostname = headersList.get('host') ?? 'localhost';
+  const hostname = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
   const site = await getSiteFromHostname(hostname);
 
   const { experience, apiError } = await getExperience(site, slug);

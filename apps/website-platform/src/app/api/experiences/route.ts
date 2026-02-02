@@ -33,7 +33,7 @@ function formatDuration(value: number, unit: string): string {
 export async function GET(request: NextRequest) {
   try {
     const headersList = await headers();
-    const hostname = headersList.get('host') ?? 'localhost';
+    const hostname = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
     const site = await getSiteFromHostname(hostname);
     const client = getHolibobClient(site);
 

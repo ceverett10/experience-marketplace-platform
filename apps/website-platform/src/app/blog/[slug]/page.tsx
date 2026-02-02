@@ -34,7 +34,7 @@ async function getBlogPost(siteId: string, slug: string) {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const headersList = await headers();
-  const hostname = headersList.get('host') ?? 'localhost';
+  const hostname = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
   const site = await getSiteFromHostname(hostname);
 
   const post = await getBlogPost(site.id, slug);
@@ -76,7 +76,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function BlogPostPage({ params }: Props) {
   const { slug } = await params;
   const headersList = await headers();
-  const hostname = headersList.get('host') ?? 'localhost';
+  const hostname = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
   const site = await getSiteFromHostname(hostname);
 
   const post = await getBlogPost(site.id, slug);

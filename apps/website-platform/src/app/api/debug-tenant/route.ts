@@ -3,13 +3,20 @@ import { headers } from 'next/headers';
 
 export async function GET() {
   const headersList = await headers();
-  const hostname = headersList.get('host') ?? 'unknown';
+  // On Heroku/Cloudflare, use x-forwarded-host to get the actual external domain
+  const xForwardedHost = headersList.get('x-forwarded-host');
+  const hostHeader = headersList.get('host');
+  const hostname = xForwardedHost ?? hostHeader ?? 'unknown';
 
   // Clean hostname like tenant.ts does
   const cleanHostname = hostname.split(':')[0]?.replace(/^www\./, '') ?? hostname;
 
   const result: Record<string, unknown> = {
-    hostname,
+    headers: {
+      'x-forwarded-host': xForwardedHost,
+      host: hostHeader,
+    },
+    resolvedHostname: hostname,
     cleanHostname,
     timestamp: new Date().toISOString(),
   };

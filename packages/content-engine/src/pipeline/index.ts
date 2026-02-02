@@ -107,7 +107,8 @@ CRITICAL GUIDELINES - You MUST follow these:
 3. This is a marketplace of travel experiences powered by Holibob - the content must reflect this
 4. Focus on the type of experience and destination, not specific operational details you don't know
 5. Use general calls-to-action like "Book now" or "Explore our experiences" rather than specific contact methods
-6. If you don't know something, describe the experience category generally rather than inventing specifics`;
+6. If you don't know something, describe the experience category generally rather than inventing specifics
+7. LEGAL JURISDICTION: The legal jurisdiction is always the United Kingdom. Any legal references, consumer rights, regulations, or compliance mentions must be based on UK law`;
 
     // Build comprehensive brand context section
     const buildBrandSection = () => {

@@ -9,7 +9,7 @@ import { prisma } from '@/lib/prisma';
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const headersList = await headers();
-  const hostname = headersList.get('host') ?? 'localhost';
+  const hostname = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
   const site = await getSiteFromHostname(hostname);
 
   const baseUrl = site.primaryDomain ? `https://${site.primaryDomain}` : `https://${hostname}`;

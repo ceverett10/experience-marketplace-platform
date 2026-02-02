@@ -27,7 +27,7 @@ interface Props {
 
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const headersList = await headers();
-  const hostname = headersList.get('host') ?? 'localhost';
+  const hostname = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
   const site = await getSiteFromHostname(hostname);
   const resolvedParams = await searchParams;
 
@@ -219,7 +219,7 @@ function formatDuration(value: number, unit: string): string {
 
 export default async function ExperiencesPage({ searchParams }: Props) {
   const headersList = await headers();
-  const hostname = headersList.get('host') ?? 'localhost';
+  const hostname = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
   const site = await getSiteFromHostname(hostname);
   const resolvedSearchParams = await searchParams;
 

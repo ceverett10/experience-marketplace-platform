@@ -4,7 +4,7 @@ import { getSiteFromHostname } from '@/lib/tenant';
 
 export default async function robots(): Promise<MetadataRoute.Robots> {
   const headersList = await headers();
-  const hostname = headersList.get('host') ?? 'localhost';
+  const hostname = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
   const site = await getSiteFromHostname(hostname);
 
   const baseUrl = site.primaryDomain ? `https://${site.primaryDomain}` : `https://${hostname}`;

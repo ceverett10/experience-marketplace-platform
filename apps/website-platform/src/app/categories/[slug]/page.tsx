@@ -77,7 +77,7 @@ async function getRelatedExperiences(
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const headersList = await headers();
-  const hostname = headersList.get('host') ?? 'localhost';
+  const hostname = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
   const site = await getSiteFromHostname(hostname);
 
   const category = await getCategoryPage(site.id, slug);
@@ -117,7 +117,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function CategoryPage({ params }: Props) {
   const { slug } = await params;
   const headersList = await headers();
-  const hostname = headersList.get('host') ?? 'localhost';
+  const hostname = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
   const site = await getSiteFromHostname(hostname);
 
   const category = await getCategoryPage(site.id, slug);

@@ -23,7 +23,8 @@ const playfair = Playfair_Display({
 // Dynamic metadata generation
 export async function generateMetadata(): Promise<Metadata> {
   const headersList = await headers();
-  const hostname = headersList.get('host') ?? 'localhost';
+  // On Heroku/Cloudflare, use x-forwarded-host to get the actual external domain
+  const hostname = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
   const site = await getSiteFromHostname(hostname);
 
   return {
@@ -62,7 +63,8 @@ export const viewport: Viewport = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const headersList = await headers();
-  const hostname = headersList.get('host') ?? 'localhost';
+  // On Heroku/Cloudflare, use x-forwarded-host to get the actual external domain
+  const hostname = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
   const site = await getSiteFromHostname(hostname);
   const brandCSS = generateBrandCSSVariables(site.brand);
 

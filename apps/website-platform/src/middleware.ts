@@ -10,7 +10,8 @@ import type { NextRequest } from 'next/server';
 const SITE_CONFIG_COOKIE = 'x-site-id';
 
 export function middleware(request: NextRequest) {
-  const hostname = request.headers.get('host') ?? 'localhost';
+  // On Heroku/Cloudflare, use x-forwarded-host to get the actual external domain
+  const hostname = request.headers.get('x-forwarded-host') ?? request.headers.get('host') ?? 'localhost';
   const response = NextResponse.next();
 
   // Extract site identifier from hostname

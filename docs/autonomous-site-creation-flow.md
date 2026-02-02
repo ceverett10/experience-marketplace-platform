@@ -101,8 +101,154 @@ Creates page records for:
 
 Queues `CONTENT_GENERATE` job with:
 - Site ID
-- Target keyword
-- Secondary keywords from brand identity
+- Opportunity ID
+- Content type (`destination`)
+- Target keyword from opportunity
+- Secondary keywords from brand identity semantic keywords
+
+---
+
+## Content Generation Flow
+
+When `CONTENT_GENERATE` is queued, it triggers the AI content pipeline:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         CONTENT GENERATION                                   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  CONTENT_GENERATE Job                                                        │
+│       │                                                                      │
+│       ▼                                                                      │
+│  ┌─────────────────┐                                                         │
+│  │ 1. Verify Site  │  Check site exists, get brand identity                 │
+│  │    & Brand      │                                                         │
+│  └────────┬────────┘                                                         │
+│           │                                                                  │
+│           ▼                                                                  │
+│  ┌─────────────────┐                                                         │
+│  │ 2. Build Brief  │  Combines keyword, brand tone, trust signals           │
+│  │    with Brand   │                                                         │
+│  │    Context      │                                                         │
+│  └────────┬────────┘                                                         │
+│           │                                                                  │
+│           ▼                                                                  │
+│  ┌─────────────────┐                                                         │
+│  │ 3. AI Pipeline  │  Draft → Quality Check → Rewrite (if needed)           │
+│  │    Generation   │  Models: Haiku (draft) → Sonnet (quality)              │
+│  └────────┬────────┘                                                         │
+│           │                                                                  │
+│           ▼                                                                  │
+│     ┌─────────────┐                                                          │
+│     │ Quality ≥80 │                                                          │
+│     └──────┬──────┘                                                          │
+│            │                                                                 │
+│     ┌──────┴──────┐                                                          │
+│     │             │                                                          │
+│    YES           NO (max 3 rewrites)                                         │
+│     │             │                                                          │
+│     ▼             ▼                                                          │
+│  ┌────────┐   ┌────────────┐                                                 │
+│  │ Save   │   │ Queue      │                                                 │
+│  │Content │   │CONTENT_    │                                                 │
+│  │& Page  │   │REVIEW job  │                                                 │
+│  └────────┘   └────────────┘                                                 │
+│       │                                                                      │
+│       ▼                                                                      │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │                        OUTCOMES                                      │    │
+│  ├─────────────────────────────────────────────────────────────────────┤    │
+│  │                                                                      │    │
+│  │  Quality ≥ 85  → Page status: PUBLISHED (auto-publish)              │    │
+│  │  Quality 80-84 → Page status: REVIEW (needs human approval)         │    │
+│  │  Quality < 80  → CONTENT_REVIEW job queued for human intervention   │    │
+│  │                                                                      │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Content Generation Details
+**File:** `packages/jobs/src/workers/content.ts:26-249`
+
+**Step 1: Verify Site & Get Brand Identity**
+- Fetches site from database
+- Retrieves comprehensive brand identity including:
+  - Tone of voice (personality, writing style)
+  - Trust signals (value propositions, social proof)
+  - Brand story (mission, origin)
+  - Content guidelines (semantic keywords)
+
+**Step 2: Build Content Brief**
+```typescript
+brief = {
+  type: contentType,
+  siteId,
+  siteName: site.name,
+  targetKeyword,
+  secondaryKeywords,
+  destination: opportunity?.location,
+  category: opportunity?.niche,
+  targetLength: { min: 800, max: 1500 },
+  brandContext: {
+    toneOfVoice,
+    trustSignals,
+    brandStory,
+    contentGuidelines,
+    writingGuidelines,
+  }
+}
+```
+
+**Step 3: AI Pipeline Generation**
+- Uses content-engine pipeline with circuit breaker protection
+- Draft model: Haiku (fast, cost-effective)
+- Quality assessment model: Sonnet (more capable)
+- Rewrite model: Haiku (up to 3 attempts)
+- Quality threshold: 80/100
+
+**Step 4: Save Content & Create Page**
+- Creates `Content` record with:
+  - Generated markdown body
+  - AI model used
+  - Quality score
+  - Version number
+- Creates or updates `Page` record
+- Auto-publishes if quality score ≥ 85
+
+---
+
+## Content Optimization Flow (Performance-Based)
+
+The system also includes automatic content optimization based on GSC performance data:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                       CONTENT OPTIMIZATION                                   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  GSC Performance Data Shows Issues                                           │
+│       │                                                                      │
+│       ▼                                                                      │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ Optimization Triggers:                                               │    │
+│  │  • low_ctr      → Improve headline & meta description               │    │
+│  │  • position_drop → Strengthen SEO, add keywords                     │    │
+│  │  • high_bounce   → Improve intro & engagement                       │    │
+│  │  • low_time      → Add engaging content & visuals                   │    │
+│  │  • no_bookings   → Strengthen CTAs & social proof                   │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│       │                                                                      │
+│       ▼                                                                      │
+│  CONTENT_OPTIMIZE Job → Regenerate with higher quality threshold (85)       │
+│       │                                                                      │
+│       ▼                                                                      │
+│  New content version created (preserves version history)                     │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**File:** `packages/jobs/src/workers/content.ts:255-422`
 
 ---
 
@@ -292,10 +438,13 @@ For `AVAILABLE` domains, the UI shows:
 | File | Purpose |
 |------|---------|
 | `packages/jobs/src/workers/site.ts` | Site creation handler |
+| `packages/jobs/src/workers/content.ts` | Content generation/optimization handlers |
 | `packages/jobs/src/workers/domain.ts` | Domain registration/verification handlers |
+| `packages/jobs/src/services/brand-identity.ts` | Brand identity generation & storage |
 | `packages/jobs/src/services/cloudflare-registrar.ts` | Cloudflare domain API |
 | `packages/jobs/src/services/cloudflare-dns.ts` | Cloudflare DNS configuration |
 | `packages/jobs/src/services/heroku-domains.ts` | Heroku domain configuration |
+| `packages/content-engine/` | AI content pipeline (draft, quality, rewrite) |
 | `apps/admin/src/app/domains/page.tsx` | Admin domains UI |
 | `apps/admin/src/app/api/domains/route.ts` | Domains API endpoints |
 
@@ -330,7 +479,10 @@ HOLIBOB_PARTNER_ID=
 The autonomous flow ensures:
 
 1. **Sites are fully configured** - Brand, pages, content all generated automatically
-2. **Domain costs are controlled** - Only domains ≤$10 are auto-purchased
-3. **Visibility for operators** - All domain statuses visible in admin panel
-4. **Manual override possible** - Expensive or unavailable domains can be handled manually
-5. **Complete hosting setup** - DNS, SSL, and Heroku all configured automatically for purchased domains
+2. **AI-powered content** - Uses Claude (Haiku/Sonnet) with brand tone of voice and quality gates
+3. **Content quality control** - Auto-publish at 85+ quality, human review at 80-84, flagged below 80
+4. **Performance optimization** - Automatic content rewrites based on GSC metrics (CTR, position, bounce)
+5. **Domain costs are controlled** - Only domains ≤$10 are auto-purchased
+6. **Visibility for operators** - All domain statuses visible in admin panel
+7. **Manual override possible** - Expensive or unavailable domains can be handled manually
+8. **Complete hosting setup** - DNS, SSL, and Heroku all configured automatically for purchased domains
