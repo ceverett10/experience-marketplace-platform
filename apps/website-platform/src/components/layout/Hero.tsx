@@ -44,7 +44,7 @@ export function Hero({ title, subtitle, backgroundImage, backgroundImageAttribut
             }}
           />
         )}
-        <div className="absolute inset-0 bg-black/40" />
+        <div className="absolute inset-0 bg-black/50" />
         {/* Decorative travel-themed pattern overlay */}
         {!backgroundImage && (
           <div
@@ -60,8 +60,8 @@ export function Hero({ title, subtitle, backgroundImage, backgroundImageAttribut
             photographerName={backgroundImageAttribution.photographerName}
             photographerUrl={backgroundImageAttribution.photographerUrl}
             unsplashUrl={backgroundImageAttribution.unsplashUrl}
-            variant="overlay"
-            className="bottom-20 right-4"
+            variant="overlay-compact"
+            className="bottom-20 left-auto right-2"
           />
         )}
       </div>
@@ -69,10 +69,18 @@ export function Hero({ title, subtitle, backgroundImage, backgroundImageAttribut
       {/* Content */}
       <div className="relative mx-auto max-w-7xl px-4 py-24 sm:px-6 sm:py-32 lg:px-8 lg:py-40">
         <div className="mx-auto max-w-4xl text-center">
-          <h1 className="font-display text-4xl font-bold tracking-tight text-white sm:text-5xl lg:text-6xl">
+          <h1
+            className="font-display text-4xl font-bold tracking-tight text-white sm:text-5xl lg:text-6xl"
+            style={{ textShadow: '0 2px 8px rgba(0,0,0,0.6)' }}
+          >
             {heroTitle}
           </h1>
-          <p className="mx-auto mt-6 max-w-xl text-lg leading-8 text-white/90">{heroSubtitle}</p>
+          <p
+            className="mx-auto mt-6 max-w-xl text-lg leading-8 text-white/90"
+            style={{ textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}
+          >
+            {heroSubtitle}
+          </p>
 
           {/* Product Discovery Search - standardized across the site */}
           <div className="mt-10">
