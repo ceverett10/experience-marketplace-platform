@@ -342,6 +342,9 @@ model SEOOpportunity {
   source     String? // gsc, semrush, ahrefs, manual
   sourceData Json?
 
+  // AI-generated explanation of why this is a good opportunity
+  explanation String? @db.Text
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

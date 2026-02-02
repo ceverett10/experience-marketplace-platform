@@ -54,6 +54,7 @@ export async function GET(request: Request) {
         status: opp.status,
         source: opp.source,
         siteId: opp.siteId,
+        explanation: opp.explanation,
         createdAt: opp.createdAt.toISOString(),
       })),
       stats,
@@ -68,6 +69,95 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { opportunityId, action, destinations, categories } = body;
+
+    if (action === 'generate-explanation') {
+      // Generate AI explanation for why this opportunity is attractive
+      const opportunity = await prisma.sEOOpportunity.findUnique({
+        where: { id: opportunityId },
+      });
+
+      if (!opportunity) {
+        return NextResponse.json({ error: 'Opportunity not found' }, { status: 404 });
+      }
+
+      // Prepare data for AI analysis
+      const opportunityData = {
+        keyword: opportunity.keyword,
+        searchVolume: opportunity.searchVolume,
+        difficulty: opportunity.difficulty,
+        cpc: opportunity.cpc.toNumber(),
+        intent: opportunity.intent,
+        niche: opportunity.niche,
+        location: opportunity.location,
+        priorityScore: opportunity.priorityScore,
+        sourceData: opportunity.sourceData,
+      };
+
+      // Call Anthropic API to generate explanation
+      const anthropicApiKey = process.env['ANTHROPIC_API_KEY'];
+      if (!anthropicApiKey) {
+        return NextResponse.json({ error: 'Anthropic API key not configured' }, { status: 500 });
+      }
+
+      const prompt = `Analyze this SEO opportunity and explain in 2-3 concise sentences why this is an attractive keyword to target:
+
+Keyword: ${opportunityData.keyword}
+Search Volume: ${opportunityData.searchVolume.toLocaleString()}/month
+Keyword Difficulty: ${opportunityData.difficulty}/100
+Cost Per Click: $${opportunityData.cpc}
+Search Intent: ${opportunityData.intent}
+Niche: ${opportunityData.niche}
+Location: ${opportunityData.location || 'Not specified'}
+Priority Score: ${opportunityData.priorityScore}/100
+
+${opportunityData.sourceData ? `Additional Data from DataForSEO:\n${JSON.stringify(opportunityData.sourceData, null, 2)}` : ''}
+
+Provide a clear, actionable explanation focusing on:
+1. The commercial opportunity (search volume, CPC, competition balance)
+2. Why this fits well for the ${opportunityData.niche} niche
+3. Any location-specific advantages
+
+Keep it concise and business-focused.`;
+
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': anthropicApiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: 'claude-3-5-haiku-20241022',
+          max_tokens: 500,
+          messages: [
+            {
+              role: 'user',
+              content: prompt,
+            },
+          ],
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('[Anthropic API] Error:', errorData);
+        return NextResponse.json({ error: 'Failed to generate explanation' }, { status: 500 });
+      }
+
+      const data = await response.json();
+      const explanation = data.content[0].text;
+
+      // Update opportunity with explanation
+      await prisma.sEOOpportunity.update({
+        where: { id: opportunityId },
+        data: { explanation },
+      });
+
+      return NextResponse.json({
+        success: true,
+        explanation,
+      });
+    }
 
     if (action === 'start-scan') {
       // Trigger an SEO opportunity scan job

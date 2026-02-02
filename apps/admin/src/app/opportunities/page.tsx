@@ -24,6 +24,7 @@ interface Opportunity {
     | 'ARCHIVED';
   source: string;
   siteId: string | null;
+  explanation: string | null;
   createdAt: string;
 }
 
@@ -49,6 +50,7 @@ export default function OpportunitiesPage() {
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
   const [scanMessage, setScanMessage] = useState<string | null>(null);
+  const [generatingExplanation, setGeneratingExplanation] = useState<string | null>(null);
 
   // Fetch opportunities from API
   useEffect(() => {
@@ -85,6 +87,36 @@ export default function OpportunitiesPage() {
       }
     } catch (error) {
       console.error('Failed to perform action:', error);
+    }
+  };
+
+  const handleGenerateExplanation = async (opportunityId: string) => {
+    try {
+      setGeneratingExplanation(opportunityId);
+      const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+      const response = await fetch(`${basePath}/api/opportunities`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ opportunityId, action: 'generate-explanation' }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        // Update the local state with the new explanation
+        setOpportunities((prev) =>
+          prev.map((opp) =>
+            opp.id === opportunityId ? { ...opp, explanation: result.explanation } : opp
+          )
+        );
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        alert(`Failed to generate explanation: ${errorData.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Failed to generate explanation:', error);
+      alert('Failed to generate explanation. Please try again.');
+    } finally {
+      setGeneratingExplanation(null);
     }
   };
 
@@ -340,6 +372,45 @@ export default function OpportunitiesPage() {
                   <div className="text-sm font-medium text-slate-700">{opp.source}</div>
                 </div>
               </div>
+
+              {/* AI Explanation */}
+              {opp.explanation ? (
+                <div className="mt-4 p-4 bg-indigo-50 border border-indigo-100 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <span className="text-lg mt-0.5">💡</span>
+                    <div className="flex-1">
+                      <h4 className="text-sm font-semibold text-indigo-900 mb-1">Why This Opportunity?</h4>
+                      <p className="text-sm text-indigo-800 leading-relaxed">{opp.explanation}</p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-4 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-slate-600">
+                      <span className="text-sm">💡</span>
+                      <span className="text-sm">No explanation generated yet</span>
+                    </div>
+                    <button
+                      onClick={() => handleGenerateExplanation(opp.id)}
+                      disabled={generatingExplanation === opp.id}
+                      className="px-3 py-1.5 text-xs bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors flex items-center gap-1"
+                    >
+                      {generatingExplanation === opp.id ? (
+                        <>
+                          <svg className="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Generating...
+                        </>
+                      ) : (
+                        'Generate Explanation'
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Actions */}
               <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-200">
