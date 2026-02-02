@@ -2,8 +2,10 @@ import { headers } from 'next/headers';
 import { Hero } from '@/components/layout/Hero';
 import { FeaturedExperiences } from '@/components/experiences/FeaturedExperiences';
 import { CategoryGrid } from '@/components/experiences/CategoryGrid';
+import { LatestBlogPosts } from '@/components/content/LatestBlogPosts';
 import { getSiteFromHostname, type HomepageConfig } from '@/lib/tenant';
 import { getHolibobClient, type ExperienceListItem } from '@/lib/holibob';
+import { prisma } from '@/lib/prisma';
 
 // Revalidate every 5 minutes for fresh content
 export const revalidate = 300;
@@ -169,6 +171,36 @@ const CATEGORY_LABELS: Record<string, string> = {
   'wellness-and-spa': 'Wellness & Spa',
 };
 
+/**
+ * Fetch latest blog posts for homepage
+ */
+async function getLatestBlogPosts(siteId: string) {
+  try {
+    return await prisma.page.findMany({
+      where: {
+        siteId,
+        type: 'BLOG',
+        status: 'PUBLISHED',
+      },
+      include: {
+        content: {
+          select: {
+            body: true,
+            qualityScore: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      take: 3,
+    });
+  } catch (error) {
+    console.error('Error fetching blog posts:', error);
+    return [];
+  }
+}
+
 export default async function HomePage() {
   const headersList = await headers();
   // On Heroku/Cloudflare, use x-forwarded-host to get the actual external domain
@@ -208,6 +240,9 @@ export default async function HomePage() {
     : undefined;
 
   const experiences = await getFeaturedExperiences(site, popularExperiencesConfig);
+
+  // Fetch latest blog posts
+  const blogPosts = await getLatestBlogPosts(site.id);
 
   // TravelAgency structured data for SEO
   const localBusinessLd = {
@@ -271,6 +306,7 @@ export default async function HomePage() {
             slug: cat.slug,
             icon: cat.icon,
             imageUrl: cat.imageUrl,
+            imageAttribution: cat.imageAttribution,
           }))}
         />
       )}
@@ -456,6 +492,9 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* Latest Blog Posts - SEO Content */}
+      <LatestBlogPosts posts={blogPosts} siteName={site.name} />
     </>
   );
 }

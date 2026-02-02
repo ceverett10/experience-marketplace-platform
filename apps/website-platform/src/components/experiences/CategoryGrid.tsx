@@ -1,4 +1,11 @@
 import Link from 'next/link';
+import { UnsplashAttribution } from '@/components/common/UnsplashAttribution';
+
+interface ImageAttribution {
+  photographerName: string;
+  photographerUrl: string;
+  unsplashUrl: string;
+}
 
 interface Category {
   id: string;
@@ -6,6 +13,7 @@ interface Category {
   slug: string;
   description?: string;
   imageUrl?: string;
+  imageAttribution?: ImageAttribution;
   icon?: string;
   count?: number;
 }
@@ -82,6 +90,14 @@ export function CategoryGrid({
                     <span className="relative mt-1 text-sm text-white/80">
                       {category.count} experiences
                     </span>
+                  )}
+                  {category.imageAttribution && (
+                    <UnsplashAttribution
+                      photographerName={category.imageAttribution.photographerName}
+                      photographerUrl={category.imageAttribution.photographerUrl}
+                      unsplashUrl={category.imageAttribution.unsplashUrl}
+                      variant="overlay"
+                    />
                   )}
                 </>
               ) : (
