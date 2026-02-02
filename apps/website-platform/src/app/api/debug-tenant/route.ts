@@ -11,11 +11,15 @@ export async function GET() {
   // Clean hostname like tenant.ts does
   const cleanHostname = hostname.split(':')[0]?.replace(/^www\./, '') ?? hostname;
 
+  // Collect all relevant headers for debugging
+  const allHeaders: Record<string, string | null> = {};
+  const headerNames = ['host', 'x-forwarded-host', 'x-forwarded-for', 'x-original-host', 'cf-connecting-ip', 'x-real-ip', 'forwarded', 'x-forwarded-proto'];
+  for (const name of headerNames) {
+    allHeaders[name] = headersList.get(name);
+  }
+
   const result: Record<string, unknown> = {
-    headers: {
-      'x-forwarded-host': xForwardedHost,
-      host: hostHeader,
-    },
+    allHeaders,
     resolvedHostname: hostname,
     cleanHostname,
     timestamp: new Date().toISOString(),
