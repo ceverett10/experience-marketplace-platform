@@ -18,6 +18,263 @@ import { errorTracking } from '../errors/tracking';
 import { circuitBreakers } from '../errors/circuit-breaker';
 import { canExecuteAutonomousOperation } from '../services/pause-control';
 import { getBrandIdentityForContent } from '../services/brand-identity';
+import {
+  generateArticleSchema,
+  generateBreadcrumbSchema,
+  generateLocalBusinessSchema,
+  extractFAQsFromContent,
+  generateFAQSchema,
+} from '../services/structured-data';
+import { suggestInternalLinks } from '../services/internal-linking';
+
+/**
+ * Generate Schema.org structured data based on content type
+ * This data is stored with the content and merged into page JSON-LD
+ */
+function generateStructuredDataForContent(params: {
+  contentType: string;
+  siteName: string;
+  siteUrl: string;
+  title: string;
+  description: string;
+  content: string;
+  destination?: string;
+  datePublished: string;
+}): object {
+  const { contentType, siteName, siteUrl, title, description, content, destination, datePublished } = params;
+
+  // Base breadcrumb structure - will be completed when page URL is known
+  const breadcrumbItems = [
+    { name: 'Home', url: siteUrl },
+  ];
+
+  // Generate type-specific structured data
+  switch (contentType) {
+    case 'blog':
+      // Extract FAQs from content for FAQ rich snippets
+      const faqs = extractFAQsFromContent(content);
+      const faqSchema = faqs.length > 0 ? generateFAQSchema(faqs) : null;
+
+      // Article schema for blog posts
+      const articleSchema = generateArticleSchema({
+        headline: title,
+        description: description,
+        url: '', // Will be filled in when rendering
+        datePublished,
+        authorName: siteName,
+        publisherName: siteName,
+        isBlog: true,
+        wordCount: content.split(/\s+/).length,
+      });
+
+      return {
+        article: articleSchema,
+        ...(faqSchema && { faq: faqSchema }),
+        breadcrumbTemplate: [...breadcrumbItems, { name: 'Blog' }, { name: title }],
+      };
+
+    case 'destination':
+      // LocalBusiness schema for destination pages
+      const destinationSchema = generateLocalBusinessSchema({
+        name: siteName,
+        url: '', // Will be filled in when rendering
+        description,
+        areasServed: destination ? [destination] : undefined,
+      });
+
+      return {
+        localBusiness: destinationSchema,
+        breadcrumbTemplate: [...breadcrumbItems, { name: 'Destinations' }, { name: title }],
+      };
+
+    case 'category':
+      // CollectionPage-style schema for category pages
+      const categorySchema = generateLocalBusinessSchema({
+        name: siteName,
+        url: '',
+        description,
+      });
+
+      return {
+        localBusiness: categorySchema,
+        breadcrumbTemplate: [...breadcrumbItems, { name: 'Categories' }, { name: title }],
+      };
+
+    default:
+      // Generic article schema
+      return {
+        article: generateArticleSchema({
+          headline: title,
+          description,
+          url: '',
+          datePublished,
+          authorName: siteName,
+          publisherName: siteName,
+          isBlog: false,
+        }),
+        breadcrumbTemplate: [...breadcrumbItems, { name: title }],
+      };
+  }
+}
+
+/**
+ * Generate an optimized meta description for higher CTR
+ * - Uses AI-generated description if available
+ * - Falls back to extracting compelling content from the body
+ * - Ensures length is 150-160 chars (optimal for SERP display)
+ */
+function generateOptimizedMetaDescription(params: {
+  aiMetaDescription?: string;
+  contentBody: string;
+  targetKeyword: string;
+  contentType: string;
+  siteName: string;
+}): string {
+  const { aiMetaDescription, contentBody, targetKeyword, contentType, siteName } = params;
+
+  // Use AI-generated description if available and appropriate length
+  if (aiMetaDescription && aiMetaDescription.length >= 100 && aiMetaDescription.length <= 160) {
+    return aiMetaDescription;
+  }
+
+  // Extract first meaningful paragraph from content
+  const paragraphs = contentBody.split('\n\n').filter(p =>
+    p.trim().length > 50 &&
+    !p.startsWith('#') &&
+    !p.startsWith('-') &&
+    !p.startsWith('*')
+  );
+
+  let baseDescription = paragraphs[0] || contentBody;
+
+  // Remove markdown formatting
+  baseDescription = baseDescription
+    .replace(/#{1,6}\s*/g, '')
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/\*(.*?)\*/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .trim();
+
+  // If description is too long, truncate smartly at sentence boundary
+  if (baseDescription.length > 155) {
+    const sentences = baseDescription.split(/[.!?]+\s+/);
+    let result = '';
+    for (const sentence of sentences) {
+      if ((result + sentence).length <= 150) {
+        result += sentence + '. ';
+      } else {
+        break;
+      }
+    }
+    baseDescription = result.trim() || baseDescription.substring(0, 150) + '...';
+  }
+
+  // Ensure keyword is included if not already present
+  if (!baseDescription.toLowerCase().includes(targetKeyword.toLowerCase())) {
+    // Add CTA-style prefix with keyword
+    const ctaTemplates = {
+      blog: `Discover ${targetKeyword}. `,
+      destination: `Explore ${targetKeyword}. `,
+      category: `Find the best ${targetKeyword}. `,
+      experience: `Book ${targetKeyword}. `,
+    };
+    const prefix = ctaTemplates[contentType as keyof typeof ctaTemplates] || '';
+
+    if ((prefix + baseDescription).length <= 160) {
+      baseDescription = prefix + baseDescription;
+    }
+  }
+
+  // Final length check
+  if (baseDescription.length > 160) {
+    baseDescription = baseDescription.substring(0, 157) + '...';
+  }
+
+  return baseDescription;
+}
+
+/**
+ * Generate an optimized SEO title for higher CTR
+ * - Front-loads the keyword
+ * - Includes brand name appropriately
+ * - Ensures length is 50-60 chars (optimal for SERP display)
+ */
+function generateOptimizedMetaTitle(params: {
+  aiTitle: string;
+  targetKeyword: string;
+  siteName: string;
+  contentType: string;
+}): string {
+  const { aiTitle, targetKeyword, siteName, contentType } = params;
+
+  // If AI title is good length and contains keyword, use it
+  const keywordFirstWord = targetKeyword.toLowerCase().split(' ')[0] || targetKeyword.toLowerCase();
+  if (aiTitle.length <= 60 && aiTitle.toLowerCase().includes(keywordFirstWord)) {
+    // Append site name if there's room
+    const withBrand = `${aiTitle} | ${siteName}`;
+    if (withBrand.length <= 60) {
+      return withBrand;
+    }
+    return aiTitle;
+  }
+
+  // Generate optimized title with keyword front-loaded
+  let title = aiTitle;
+
+  // Truncate if too long
+  if (title.length > 50) {
+    // Try to cut at a word boundary
+    const words = title.split(' ');
+    title = '';
+    for (const word of words) {
+      if ((title + ' ' + word).trim().length <= 47) {
+        title = (title + ' ' + word).trim();
+      } else {
+        break;
+      }
+    }
+  }
+
+  // Add brand if there's room
+  const withBrand = `${title} | ${siteName}`;
+  if (withBrand.length <= 60) {
+    return withBrand;
+  }
+
+  return title;
+}
+
+/**
+ * Calculate sitemap priority based on content quality and type
+ * - Higher quality content gets higher priority
+ * - Different content types have different base priorities
+ * - Priority range: 0.1 to 1.0
+ */
+function calculateSitemapPriority(params: {
+  qualityScore: number;
+  contentType: string;
+}): number {
+  const { qualityScore, contentType } = params;
+
+  // Base priorities by content type (SEO importance)
+  const basePriorities: Record<string, number> = {
+    destination: 0.8, // High value landing pages
+    category: 0.7,    // Category hubs
+    experience: 0.6,  // Product pages
+    blog: 0.5,        // Content marketing
+  };
+
+  const basePriority = basePriorities[contentType] || 0.5;
+
+  // Adjust based on quality score (0-100 → +/- 0.2)
+  // Score 0 → -0.2, Score 50 → 0, Score 100 → +0.2
+  const qualityAdjustment = ((qualityScore - 50) / 50) * 0.2;
+
+  // Calculate final priority, clamped to 0.1-1.0 range
+  const priority = Math.max(0.1, Math.min(1.0, basePriority + qualityAdjustment));
+
+  return Math.round(priority * 100) / 100; // Round to 2 decimal places
+}
 
 /**
  * Content Generation Worker
@@ -131,11 +388,43 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
       });
     }
 
+    // Generate Schema.org structured data for SEO
+    const structuredData = generateStructuredDataForContent({
+      contentType,
+      siteName: site.name,
+      siteUrl: site.primaryDomain ? `https://${site.primaryDomain}` : '',
+      title: result.content.title,
+      description: targetKeyword,
+      content: result.content.content,
+      destination,
+      datePublished: new Date().toISOString(),
+    });
+
+    // Add internal links to improve SEO and user navigation
+    const linkSuggestion = await suggestInternalLinks({
+      siteId,
+      content: result.content.content,
+      contentType: contentType as 'blog' | 'destination' | 'category' | 'experience',
+      targetKeyword,
+      secondaryKeywords,
+      destination,
+      category,
+    });
+
+    // Use content with internal links if any were added
+    const finalContent = linkSuggestion.links.length > 0
+      ? linkSuggestion.contentWithLinks
+      : result.content.content;
+
+    if (linkSuggestion.links.length > 0) {
+      console.log(`[Content Generate] Added ${linkSuggestion.links.length} internal links for SEO`);
+    }
+
     // Save content to database
     const content = await prisma.content.create({
       data: {
         siteId,
-        body: result.content.content,
+        body: finalContent,
         bodyFormat: 'MARKDOWN',
         isAiGenerated: true,
         aiModel: result.content.generatedBy,
@@ -143,8 +432,36 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
         qualityScore: result.content.qualityAssessment?.overallScore || 0,
         version: result.content.version,
         opportunityId: opportunityId || undefined,
+        structuredData: structuredData as any,
       },
     });
+
+    // Generate optimized meta description and title for better CTR
+    const optimizedMetaDescription = generateOptimizedMetaDescription({
+      aiMetaDescription: result.content.metaDescription,
+      contentBody: finalContent,
+      targetKeyword,
+      contentType,
+      siteName: site.name,
+    });
+
+    const optimizedMetaTitle = generateOptimizedMetaTitle({
+      aiTitle: result.content.title,
+      targetKeyword,
+      siteName: site.name,
+      contentType,
+    });
+
+    console.log(`[Content Generate] Optimized meta title: "${optimizedMetaTitle}" (${optimizedMetaTitle.length} chars)`);
+    console.log(`[Content Generate] Optimized meta description: "${optimizedMetaDescription.substring(0, 50)}..." (${optimizedMetaDescription.length} chars)`);
+
+    // Calculate sitemap priority based on quality score
+    const qualityScore = result.content.qualityAssessment?.overallScore || 50;
+    const sitemapPriority = calculateSitemapPriority({
+      qualityScore,
+      contentType,
+    });
+    console.log(`[Content Generate] Sitemap priority: ${sitemapPriority} (quality: ${qualityScore})`);
 
     // Update existing page or create new one
     let page;
@@ -159,8 +476,9 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
         where: { id: pageId },
         data: {
           contentId: content.id,
-          metaTitle: result.content.title,
-          metaDescription: targetKeyword,
+          metaTitle: optimizedMetaTitle,
+          metaDescription: optimizedMetaDescription,
+          priority: sitemapPriority,
           status: newStatus as any,
         },
       });
@@ -173,8 +491,9 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
           slug: result.content.slug,
           type: contentType.toUpperCase() as any,
           title: result.content.title,
-          metaTitle: result.content.title,
-          metaDescription: targetKeyword,
+          metaTitle: optimizedMetaTitle,
+          metaDescription: optimizedMetaDescription,
+          priority: sitemapPriority,
           contentId: content.id,
           status: newStatus as any,
         },
@@ -341,6 +660,23 @@ export async function handleContentOptimize(job: Job<ContentOptimizePayload>): P
       });
     }
 
+    // Get site for structured data generation
+    const site = await prisma.site.findUnique({ where: { id: siteId } });
+    const siteName = site?.name || 'Unknown';
+    const siteUrl = site?.primaryDomain ? `https://${site.primaryDomain}` : '';
+
+    // Generate updated structured data
+    const structuredData = generateStructuredDataForContent({
+      contentType: brief.type,
+      siteName,
+      siteUrl,
+      title: result.content.title,
+      description: content.opportunity?.keyword || content.page?.title || '',
+      content: result.content.content,
+      destination: content.opportunity?.location || undefined,
+      datePublished: content.createdAt?.toISOString() || new Date().toISOString(),
+    });
+
     // Create new version of content
     const optimizedContent = await prisma.content.create({
       data: {
@@ -354,6 +690,7 @@ export async function handleContentOptimize(job: Job<ContentOptimizePayload>): P
         version: content.version + 1,
         previousVersionId: contentId,
         opportunityId: content.opportunityId || undefined,
+        structuredData: structuredData as any,
       },
     });
 

@@ -238,18 +238,24 @@ ${coreGuidelines}`;
     content: GeneratedContent,
     brief: ContentBrief
   ): Promise<QualityAssessment> {
-    const prompt = `Assess this content quality. Return JSON only.
+    const prompt = `Assess this content quality for SEO and user engagement. Return JSON only.
 
 Content: ${content.content}
 
-Context: ${JSON.stringify({ type: brief.type, keyword: brief.targetKeyword })}
+Context: ${JSON.stringify({ type: brief.type, keyword: brief.targetKeyword, secondaryKeywords: brief.secondaryKeywords })}
 
-Evaluate (0-100 each): factualAccuracy, seoCompliance, readability, uniqueness, engagement.
-List issues with type, severity, description.
-Provide suggestions.
+Evaluate (0-100 each):
+- factualAccuracy: No made-up facts, accurate information, proper disclaimers
+- seoCompliance: Keyword in title/H1, keyword in first 100 words, proper heading structure (H1>H2>H3), keyword density (1-2%), meta-description-worthy first paragraph, related entities mentioned
+- readability: Clear sentence structure, good flow, appropriate paragraph length, scannable with bullet points
+- uniqueness: Fresh perspective, not generic filler content, specific insights
+- engagement: Compelling title, strong hook, clear value proposition, effective CTAs, answers user intent
+
+List issues with type, severity (low/medium/high/critical), description.
+Provide specific suggestions for improvement.
 
 JSON format:
-{"overallScore": 85, "breakdown": {...}, "issues": [...], "suggestions": [...]}`;
+{"overallScore": 85, "breakdown": {"factualAccuracy": 90, "seoCompliance": 85, "readability": 80, "uniqueness": 85, "engagement": 85}, "issues": [{"type": "seo", "severity": "medium", "description": "Keyword not in first 100 words"}], "suggestions": ["Add primary keyword to the introduction"]}`;
 
     const model = this.client.getModelId(this.config.qualityModel);
     const response = await this.client.generate({
@@ -430,14 +436,25 @@ ${brief.destination ? 'Destination: ' + brief.destination : ''}
 ${brief.category ? 'Category: ' + brief.category : ''}
 ${brandSection}
 ${blogInstructions}
+## SEO OPTIMIZATION GUIDELINES
+- H1 TITLE: Create an engaging, click-worthy title (50-60 chars) with keyword near the start
+- META DESCRIPTION: The first paragraph should work as a meta description (150-160 chars) - compelling, includes keyword, has a clear value proposition
+- HEADINGS: Use H2/H3 with related keywords naturally incorporated - these help search engines understand content structure
+- KEYWORD PLACEMENT: Include primary keyword in H1, first 100 words, at least one H2, and conclusion
+- E-E-A-T SIGNALS: Demonstrate Experience (practical insights), Expertise (specific knowledge), Authoritativeness (confident recommendations), Trustworthiness (accurate information)
+- ENTITY OPTIMIZATION: Mention related entities (places, activities, concepts) that search engines associate with the topic
+- INTERNAL LINKING CONTEXT: When mentioning related topics, use specific anchor text that could link to other pages (destinations, categories, experiences)
+- USER INTENT: Address the search intent - what would someone searching "${brief.targetKeyword}" want to know?
+
 ## OUTPUT INSTRUCTIONS
 - Return markdown content only
-- Include an engaging H1 title
-- Use H2 and H3 subheadings for structure
-- Naturally incorporate keywords without stuffing
+- Include an engaging H1 title that makes users want to click
+- Use H2 and H3 subheadings for structure - these help both readers and search engines
+- Naturally incorporate keywords without stuffing (aim for 1-2% keyword density)
 - CRITICAL: Write in the brand voice specified above - this is essential for brand consistency
 - Include compelling calls-to-action${brandName ? ` for ${brandName}` : ''}
 - Make content scannable with bullet points where appropriate
+- Answer common questions about the topic (FAQ-style sections help with featured snippets)
 - Keep content focused and valuable - avoid filler content`;
   }
 
