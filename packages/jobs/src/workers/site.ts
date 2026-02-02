@@ -185,6 +185,58 @@ export async function handleSiteCreate(job: Job<SiteCreatePayload>): Promise<Job
 
     console.log('[Site Create] Queued homepage content generation with brand context');
 
+    // Queue content generation for About page
+    const aboutPage = pages.find((p) => p.slug === 'about');
+    if (aboutPage) {
+      await addJob('CONTENT_GENERATE', {
+        siteId: site.id,
+        pageId: aboutPage.id,
+        contentType: 'blog', // Using blog type for general content
+        targetKeyword: `About ${brandIdentity.name}`,
+        secondaryKeywords: [opportunity.niche, 'travel experiences', 'our story'],
+      });
+      console.log('[Site Create] Queued About page content generation');
+    }
+
+    // Queue content generation for Contact page
+    const contactPage = pages.find((p) => p.slug === 'contact');
+    if (contactPage) {
+      await addJob('CONTENT_GENERATE', {
+        siteId: site.id,
+        pageId: contactPage.id,
+        contentType: 'blog',
+        targetKeyword: `Contact ${brandIdentity.name}`,
+        secondaryKeywords: ['customer support', 'get in touch', 'help'],
+      });
+      console.log('[Site Create] Queued Contact page content generation');
+    }
+
+    // Queue content generation for Privacy Policy
+    const privacyPage = pages.find((p) => p.slug === 'privacy');
+    if (privacyPage) {
+      await addJob('CONTENT_GENERATE', {
+        siteId: site.id,
+        pageId: privacyPage.id,
+        contentType: 'blog',
+        targetKeyword: `Privacy Policy for ${brandIdentity.name}`,
+        secondaryKeywords: ['data protection', 'UK GDPR', 'personal information'],
+      });
+      console.log('[Site Create] Queued Privacy Policy content generation');
+    }
+
+    // Queue content generation for Terms of Service
+    const termsPage = pages.find((p) => p.slug === 'terms');
+    if (termsPage) {
+      await addJob('CONTENT_GENERATE', {
+        siteId: site.id,
+        pageId: termsPage.id,
+        contentType: 'blog',
+        targetKeyword: `Terms of Service for ${brandIdentity.name}`,
+        secondaryKeywords: ['booking terms', 'UK consumer law', 'conditions'],
+      });
+      console.log('[Site Create] Queued Terms of Service content generation');
+    }
+
     // 8. Check domain availability and create domain record
     // Use provided domain or generate from site slug
     const suggestedDomain = domain || `${site.slug}.com`;

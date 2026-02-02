@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { getSiteFromHostname } from '@/lib/tenant';
+import { UnsplashAttribution } from '@/components/common/UnsplashAttribution';
 
 // Revalidate every 5 minutes
 export const revalidate = 300;
@@ -24,7 +25,14 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 // Default destinations fallback
-const DEFAULT_DESTINATIONS: Array<{ name: string; slug: string; icon: string; description: string; imageUrl?: string }> = [
+const DEFAULT_DESTINATIONS: Array<{
+  name: string;
+  slug: string;
+  icon: string;
+  description: string;
+  imageUrl?: string;
+  imageAttribution?: { photographerName: string; photographerUrl: string; unsplashUrl: string };
+}> = [
   { name: 'London', slug: 'london', icon: '🇬🇧', description: 'Experience world-class culture, history, and entertainment in the UK capital.' },
   { name: 'Paris', slug: 'paris', icon: '🇫🇷', description: 'Discover romance, art, and culinary excellence in the City of Light.' },
   { name: 'Barcelona', slug: 'barcelona', icon: '🇪🇸', description: 'Enjoy stunning architecture, beaches, and vibrant Catalan culture.' },
@@ -133,6 +141,16 @@ export default async function DestinationsPage() {
                   <div className="absolute right-3 top-3 rounded-full bg-white/90 px-3 py-1 text-lg backdrop-blur-sm">
                     {destination.icon}
                   </div>
+
+                  {/* Unsplash Attribution - REQUIRED by Unsplash API Guidelines */}
+                  {destination.imageUrl && destination.imageAttribution && (
+                    <UnsplashAttribution
+                      photographerName={destination.imageAttribution.photographerName}
+                      photographerUrl={destination.imageAttribution.photographerUrl}
+                      unsplashUrl={destination.imageAttribution.unsplashUrl}
+                      variant="overlay"
+                    />
+                  )}
                 </div>
 
                 {/* Content */}

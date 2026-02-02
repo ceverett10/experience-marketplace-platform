@@ -393,15 +393,27 @@ export interface HomepageConfig {
     name: string;
     slug: string;
     icon: string;
-    imageUrl?: string; // Unsplash image URL
+    imageUrl?: string; // Unsplash image URL (hotlinked as required)
     description?: string; // AI-generated description for /destinations page
+    // Unsplash attribution (REQUIRED when displaying images)
+    imageAttribution?: {
+      photographerName: string;
+      photographerUrl: string;
+      unsplashUrl: string;
+    };
   }>;
   categories?: Array<{
     name: string;
     slug: string;
     icon: string;
-    imageUrl?: string; // Unsplash image URL
+    imageUrl?: string; // Unsplash image URL (hotlinked as required)
     description?: string; // AI-generated description for /categories page
+    // Unsplash attribution (REQUIRED when displaying images)
+    imageAttribution?: {
+      photographerName: string;
+      photographerUrl: string;
+      unsplashUrl: string;
+    };
   }>;
   testimonials?: Array<{
     name: string;
@@ -508,14 +520,22 @@ Return ONLY valid JSON:
       const generated = JSON.parse(jsonMatch[0]) as HomepageConfig;
       console.log(`[Homepage Config] Generated config for ${brandIdentity.name}`);
 
-      // Enrich with images from Unsplash
+      // Enrich with images from Unsplash (hero, destinations, and categories)
       try {
-        const enriched = await enrichHomepageConfigWithImages(generated, {
-          location: opportunity.location,
-          niche: opportunity.niche,
-        });
+        const enriched = await enrichHomepageConfigWithImages(
+          {
+            hero: generated.hero,
+            destinations: generated.destinations,
+            categories: generated.categories,
+          },
+          {
+            location: opportunity.location,
+            niche: opportunity.niche,
+          }
+        );
         return {
           ...generated,
+          hero: enriched.hero || generated.hero,
           destinations: enriched.destinations || generated.destinations,
           categories: enriched.categories || generated.categories,
         };
@@ -669,14 +689,22 @@ async function createTemplateHomepageConfig(
     ],
   };
 
-  // Try to enrich with images (non-blocking)
+  // Try to enrich with images (hero, destinations, categories - non-blocking)
   try {
-    const enriched = await enrichHomepageConfigWithImages(config, {
-      location: opportunity.location,
-      niche: opportunity.niche,
-    });
+    const enriched = await enrichHomepageConfigWithImages(
+      {
+        hero: config.hero,
+        destinations: config.destinations,
+        categories: config.categories,
+      },
+      {
+        location: opportunity.location,
+        niche: opportunity.niche,
+      }
+    );
     return {
       ...config,
+      hero: enriched.hero || config.hero,
       destinations: enriched.destinations || config.destinations,
       categories: enriched.categories || config.categories,
     };

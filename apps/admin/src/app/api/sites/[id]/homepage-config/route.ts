@@ -97,7 +97,7 @@ export async function POST(
   try {
     const { id } = await params;
 
-    // Fetch site with brand and opportunity info
+    // Fetch site with brand, seoConfig, and opportunity info
     const site = await prisma.site.findUnique({
       where: { id },
       include: {
@@ -126,7 +126,15 @@ export async function POST(
       intent: opportunity?.intent || 'COMMERCIAL',
     };
 
-    // Prepare brand identity context
+    // Get seoConfig (contains brand identity details like tone of voice, etc.)
+    const seoConfig = site.seoConfig as {
+      toneOfVoice?: { personality?: string[]; writingStyle?: string; doList?: string[]; dontList?: string[] };
+      trustSignals?: { expertise?: string[]; certifications?: string[]; valuePropositions?: string[]; guarantees?: string[] };
+      brandStory?: { mission?: string; vision?: string; values?: string[]; targetAudience?: string; uniqueSellingPoints?: string[] };
+      contentGuidelines?: { keyThemes?: string[]; contentPillars?: string[]; semanticKeywords?: string[] };
+    } | null;
+
+    // Prepare brand identity context - use seoConfig if available for richer context
     const brandIdentity = {
       name: site.brand?.name || site.name,
       tagline: site.brand?.tagline || site.description || '',
@@ -137,28 +145,28 @@ export async function POST(
       bodyFont: site.brand?.bodyFont || 'Inter',
       logoUrl: site.brand?.logoUrl || null,
       toneOfVoice: {
-        personality: ['Professional', 'Friendly'],
-        writingStyle: 'Conversational',
-        doList: [],
-        dontList: [],
+        personality: seoConfig?.toneOfVoice?.personality || ['Professional', 'Friendly'],
+        writingStyle: seoConfig?.toneOfVoice?.writingStyle || 'Conversational',
+        doList: seoConfig?.toneOfVoice?.doList || [],
+        dontList: seoConfig?.toneOfVoice?.dontList || [],
       },
       trustSignals: {
-        expertise: [],
-        certifications: [],
-        valuePropositions: [],
-        guarantees: [],
+        expertise: seoConfig?.trustSignals?.expertise || [],
+        certifications: seoConfig?.trustSignals?.certifications || [],
+        valuePropositions: seoConfig?.trustSignals?.valuePropositions || [],
+        guarantees: seoConfig?.trustSignals?.guarantees || [],
       },
       brandStory: {
-        mission: '',
-        vision: '',
-        values: [],
-        targetAudience: '',
-        uniqueSellingPoints: [],
+        mission: seoConfig?.brandStory?.mission || '',
+        vision: seoConfig?.brandStory?.vision || '',
+        values: seoConfig?.brandStory?.values || [],
+        targetAudience: seoConfig?.brandStory?.targetAudience || '',
+        uniqueSellingPoints: seoConfig?.brandStory?.uniqueSellingPoints || [],
       },
       contentGuidelines: {
-        keyThemes: [],
-        contentPillars: [],
-        semanticKeywords: [],
+        keyThemes: seoConfig?.contentGuidelines?.keyThemes || [],
+        contentPillars: seoConfig?.contentGuidelines?.contentPillars || [],
+        semanticKeywords: seoConfig?.contentGuidelines?.semanticKeywords || [],
       },
     };
 

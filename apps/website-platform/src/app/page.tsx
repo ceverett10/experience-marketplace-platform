@@ -249,6 +249,7 @@ export default async function HomePage() {
         title={heroConfig?.title}
         subtitle={heroConfig?.subtitle}
         backgroundImage={heroConfig?.backgroundImage}
+        backgroundImageAttribution={heroConfig?.backgroundImageAttribution}
       />
 
       {/* Featured Experiences */}

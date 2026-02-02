@@ -55,16 +55,33 @@ interface UnsplashSearchResult {
 }
 
 export interface ImageResult {
-  url: string; // Regular size URL (1080px)
+  url: string; // Regular size URL (1080px) - hotlinked as per Unsplash requirements
   thumbnailUrl: string; // Small size URL (400px)
   blurHash: string; // For loading placeholder
   color: string; // Dominant color for fallback
   alt: string;
+  // REQUIRED by Unsplash API Guidelines: Must be displayed when showing images
   attribution: {
     photographerName: string;
-    photographerUrl: string;
-    photoUrl: string;
+    photographerUrl: string; // Link to photographer profile with UTM params
+    photoUrl: string; // Link to photo on Unsplash with UTM params
+    unsplashUrl: string; // Link to Unsplash.com with UTM params
   };
+  // REQUIRED by Unsplash API Guidelines: Must be called when image is displayed/used
+  downloadLocation: string;
+}
+
+/**
+ * Stored attribution data for database persistence
+ * This is what gets saved with destinations/categories in HomepageConfig
+ */
+export interface StoredImageAttribution {
+  imageUrl: string;
+  thumbnailUrl?: string;
+  photographerName: string;
+  photographerUrl: string;
+  unsplashUrl: string;
+  downloadLocation: string; // Must call this endpoint when image is displayed
 }
 
 export class UnsplashImageService {
@@ -169,7 +186,7 @@ export class UnsplashImageService {
 
   /**
    * Fetch images for destinations
-   * Uses location-aware queries for best results
+   * Uses location-aware queries with fallback for best results
    */
   async getDestinationImage(
     destinationName: string,
@@ -178,23 +195,45 @@ export class UnsplashImageService {
       location?: string; // Parent location for context
     }
   ): Promise<ImageResult | null> {
-    // Build a location-aware query
-    const queryParts = [destinationName];
+    // Try multiple query variants in order of specificity
+    // This handles cases where specific queries return no results
+    const queryVariants: string[] = [];
+
+    // 1. Most specific: destination + parent location + travel
     if (context?.location && !destinationName.toLowerCase().includes(context.location.toLowerCase())) {
-      queryParts.push(context.location);
-    }
-    // Add niche context for more relevant results (but keep it travel-focused)
-    if (context?.niche) {
-      queryParts.push('travel');
-    } else {
-      queryParts.push('cityscape travel');
+      queryVariants.push(`${destinationName} ${context.location} travel`);
     }
 
-    const query = queryParts.join(' ');
-    const results = await this.searchImages(query, { perPage: 3, orientation: 'landscape' });
+    // 2. Destination + simple location context (e.g., "Borough Market London")
+    const loc = context?.location;
+    if (loc) {
+      const simpleLocation = loc.split(',')[0]?.trim() ?? ''; // "London" from "London, England"
+      if (simpleLocation && !destinationName.toLowerCase().includes(simpleLocation.toLowerCase())) {
+        queryVariants.push(`${destinationName} ${simpleLocation}`);
+      }
+    }
 
-    // Return the first (most relevant) result
-    return results[0] || null;
+    // 3. Just the destination name (often works best for well-known places)
+    queryVariants.push(destinationName);
+
+    // 4. Destination + street/area for neighborhoods
+    queryVariants.push(`${destinationName} street`);
+
+    // Try each query variant until we find results
+    for (const query of queryVariants) {
+      const results = await this.searchImages(query, { perPage: 3, orientation: 'landscape' });
+      const firstResult = results[0];
+
+      if (firstResult) {
+        return firstResult;
+      }
+
+      // Small delay between fallback attempts
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+
+    console.log(`[Unsplash] No images found for destination: ${destinationName} (tried ${queryVariants.length} queries)`);
+    return null;
   }
 
   /**
@@ -308,8 +347,12 @@ export class UnsplashImageService {
 
   /**
    * Map Unsplash API response to our ImageResult type
+   * Includes all required attribution and tracking data per Unsplash API Guidelines
    */
   private mapPhotoToResult(photo: UnsplashPhoto): ImageResult {
+    // UTM params required by Unsplash - use your app name
+    const utmParams = 'utm_source=experience_marketplace&utm_medium=referral';
+
     return {
       url: photo.urls.regular,
       thumbnailUrl: photo.urls.small,
@@ -318,9 +361,12 @@ export class UnsplashImageService {
       alt: photo.alt_description || photo.description || 'Travel destination image',
       attribution: {
         photographerName: photo.user.name,
-        photographerUrl: `${photo.user.links.html}?utm_source=experience_marketplace&utm_medium=referral`,
-        photoUrl: `${photo.links.html}?utm_source=experience_marketplace&utm_medium=referral`,
+        photographerUrl: `${photo.user.links.html}?${utmParams}`,
+        photoUrl: `${photo.links.html}?${utmParams}`,
+        unsplashUrl: `https://unsplash.com?${utmParams}`,
       },
+      // REQUIRED: Must trigger this endpoint when image is displayed
+      downloadLocation: photo.links.download_location,
     };
   }
 }
@@ -337,18 +383,51 @@ export function getUnsplashService(): UnsplashImageService {
   return unsplashInstance;
 }
 
+/** Attribution data structure for storage */
+interface ImageAttributionData {
+  photographerName: string;
+  photographerUrl: string;
+  unsplashUrl: string;
+}
+
+/** Item with optional image and attribution */
+interface ItemWithImage {
+  name: string;
+  slug: string;
+  icon: string;
+  description?: string;
+  imageUrl?: string;
+  imageAttribution?: ImageAttributionData;
+}
+
+/** Hero section with optional background image */
+interface HeroConfig {
+  title?: string;
+  subtitle?: string;
+  backgroundImage?: string;
+  backgroundImageAttribution?: ImageAttributionData;
+}
+
 /**
- * Helper to enrich homepage config destinations/categories with images
+ * Helper to enrich homepage config destinations/categories/hero with images
+ * Includes full attribution data as REQUIRED by Unsplash API Guidelines
+ *
+ * COMPLIANCE NOTES:
+ * - Images are hotlinked from Unsplash CDN (required)
+ * - Attribution data is stored for display (required)
+ * - UTM parameters are included in all links (required)
  */
 export async function enrichHomepageConfigWithImages(
   config: {
-    destinations?: Array<{ name: string; slug: string; icon: string; description?: string; imageUrl?: string }>;
-    categories?: Array<{ name: string; slug: string; icon: string; description?: string; imageUrl?: string }>;
+    hero?: HeroConfig;
+    destinations?: Array<ItemWithImage>;
+    categories?: Array<ItemWithImage>;
   },
   context?: { location?: string; niche?: string }
 ): Promise<{
-  destinations?: Array<{ name: string; slug: string; icon: string; description?: string; imageUrl?: string }>;
-  categories?: Array<{ name: string; slug: string; icon: string; description?: string; imageUrl?: string }>;
+  hero?: HeroConfig;
+  destinations?: Array<ItemWithImage>;
+  categories?: Array<ItemWithImage>;
 }> {
   try {
     const service = getUnsplashService();
@@ -372,36 +451,76 @@ export async function enrichHomepageConfigWithImages(
       }
     }
 
-    if (items.length === 0) {
-      return config;
+    // Fetch hero image if not already set
+    let enrichedHero = config.hero;
+    if (config.hero && !config.hero.backgroundImage) {
+      console.log(`[Unsplash] Fetching hero background image for niche: ${context?.niche}, location: ${context?.location}`);
+
+      // Build a search query for the hero image based on niche and location
+      const heroQuery = buildHeroImageQuery(context?.niche, context?.location);
+      const heroImage = await service.getRandomImage(heroQuery, { orientation: 'landscape' });
+
+      if (heroImage) {
+        enrichedHero = {
+          ...config.hero,
+          backgroundImage: heroImage.url,
+          backgroundImageAttribution: {
+            photographerName: heroImage.attribution.photographerName,
+            photographerUrl: heroImage.attribution.photographerUrl,
+            unsplashUrl: heroImage.attribution.unsplashUrl,
+          },
+        };
+        console.log(`[Unsplash] Hero image found: ${heroImage.alt}`);
+      }
     }
 
-    console.log(`[Unsplash] Enriching ${items.length} items with images`);
+    if (items.length === 0 && !enrichedHero?.backgroundImage) {
+      return { ...config, hero: enrichedHero };
+    }
 
-    // Batch fetch images
-    const imageResults = await service.batchGetImages(items, context);
+    console.log(`[Unsplash] Enriching ${items.length} items with images (with attribution)`);
 
-    // Enrich destinations
+    // Batch fetch images for destinations and categories
+    const imageResults = items.length > 0 ? await service.batchGetImages(items, context) : new Map();
+
+    // Enrich destinations with images AND attribution
     const enrichedDestinations = config.destinations?.map((dest) => {
       if (dest.imageUrl) return dest;
       const image = imageResults.get(dest.name);
+      if (!image) return dest;
+
       return {
         ...dest,
-        imageUrl: image?.url || undefined,
+        imageUrl: image.url,
+        // REQUIRED: Store attribution for display
+        imageAttribution: {
+          photographerName: image.attribution.photographerName,
+          photographerUrl: image.attribution.photographerUrl,
+          unsplashUrl: image.attribution.unsplashUrl,
+        },
       };
     });
 
-    // Enrich categories
+    // Enrich categories with images AND attribution
     const enrichedCategories = config.categories?.map((cat) => {
       if (cat.imageUrl) return cat;
       const image = imageResults.get(cat.name);
+      if (!image) return cat;
+
       return {
         ...cat,
-        imageUrl: image?.url || undefined,
+        imageUrl: image.url,
+        // REQUIRED: Store attribution for display
+        imageAttribution: {
+          photographerName: image.attribution.photographerName,
+          photographerUrl: image.attribution.photographerUrl,
+          unsplashUrl: image.attribution.unsplashUrl,
+        },
       };
     });
 
     return {
+      hero: enrichedHero,
       destinations: enrichedDestinations,
       categories: enrichedCategories,
     };
@@ -410,4 +529,43 @@ export async function enrichHomepageConfigWithImages(
     // Return original config if image fetching fails
     return config;
   }
+}
+
+/**
+ * Build a search query for hero images based on niche and location
+ * Creates evocative, high-quality image queries
+ */
+function buildHeroImageQuery(niche?: string, location?: string): string {
+  const queryParts: string[] = [];
+
+  // Add location for location-specific imagery
+  if (location) {
+    // Extract the city name (before any comma)
+    const city = location.split(',')[0]?.trim();
+    if (city) {
+      queryParts.push(city);
+    }
+  }
+
+  // Add niche-specific terms
+  if (niche) {
+    const nicheTerms: Record<string, string> = {
+      'food tours': 'food market culinary',
+      'food-tours': 'food market culinary',
+      'wine tours': 'vineyard wine',
+      'adventure tours': 'adventure nature scenic',
+      'walking tours': 'city street architecture',
+      'cultural tours': 'cultural heritage landmark',
+      'boat tours': 'waterfront harbor boats',
+      'tours': 'travel destination scenic',
+    };
+    const nicheLower = niche.toLowerCase();
+    const nicheQuery = nicheTerms[nicheLower] || niche;
+    queryParts.push(nicheQuery);
+  } else {
+    // Default travel-related terms
+    queryParts.push('travel destination');
+  }
+
+  return queryParts.join(' ');
 }

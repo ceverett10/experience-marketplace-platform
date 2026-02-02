@@ -60,6 +60,11 @@ interface HomepageConfig {
     title?: string;
     subtitle?: string;
     backgroundImage?: string;
+    backgroundImageAttribution?: {
+      photographerName: string;
+      photographerUrl: string;
+      unsplashUrl: string;
+    };
   };
   popularExperiences?: {
     title?: string;
@@ -72,6 +77,18 @@ interface HomepageConfig {
     name: string;
     slug: string;
     icon: string;
+  }>;
+  categories?: Array<{
+    name: string;
+    slug: string;
+    icon: string;
+    description?: string;
+    imageUrl?: string;
+    imageAttribution?: {
+      photographerName: string;
+      photographerUrl: string;
+      unsplashUrl: string;
+    };
   }>;
   testimonials?: Array<{
     name: string;
@@ -1100,10 +1117,63 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
       {/* Homepage Tab */}
       {activeTab === 'homepage' && (
         <div className="space-y-6">
-          <h2 className="text-lg font-semibold text-slate-900">Homepage Configuration</h2>
-          <p className="text-sm text-slate-500">
-            These settings control what appears on the site&apos;s homepage, including the hero section, popular experiences query, and featured destinations.
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">Homepage Configuration</h2>
+              <p className="text-sm text-slate-500">
+                These settings control what appears on the site&apos;s homepage, including the hero section, popular experiences query, and featured destinations.
+              </p>
+            </div>
+            {site.homepageConfig && (
+              <button
+                onClick={async () => {
+                  if (!confirm('This will regenerate the homepage configuration using AI. Existing configuration will be replaced. Continue?')) {
+                    return;
+                  }
+                  setGeneratingHomepageConfig(true);
+                  try {
+                    const response = await fetch(`/admin/api/sites/${siteId}/homepage-config`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ regenerate: true }),
+                    });
+                    const result = await response.json();
+
+                    if (response.ok) {
+                      alert('Homepage configuration regenerated successfully!');
+                      // Refetch site data
+                      const siteResponse = await fetch(`/admin/api/sites/${siteId}`);
+                      const data = await siteResponse.json();
+                      if (siteResponse.ok) {
+                        setSite(data.site);
+                      }
+                    } else {
+                      alert(result.error || 'Failed to regenerate homepage config');
+                    }
+                  } catch (error) {
+                    console.error('Failed to regenerate homepage config:', error);
+                    alert('Failed to regenerate homepage config');
+                  } finally {
+                    setGeneratingHomepageConfig(false);
+                  }
+                }}
+                disabled={generatingHomepageConfig}
+                className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {generatingHomepageConfig ? (
+                  <>
+                    <span className="animate-spin">⟳</span>
+                    Regenerating...
+                  </>
+                ) : (
+                  <>
+                    <span>🔄</span>
+                    Regenerate with AI
+                  </>
+                )}
+              </button>
+            )}
+          </div>
 
           {site.homepageConfig ? (
             <>

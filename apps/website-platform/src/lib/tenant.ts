@@ -48,7 +48,13 @@ export interface HomepageConfig {
   hero?: {
     title?: string;
     subtitle?: string;
-    backgroundImage?: string;
+    backgroundImage?: string; // Unsplash image URL (hotlinked as required)
+    // Unsplash attribution (REQUIRED when displaying images)
+    backgroundImageAttribution?: {
+      photographerName: string;
+      photographerUrl: string; // Link to photographer profile
+      unsplashUrl: string; // Link to Unsplash
+    };
   };
   popularExperiences?: {
     title?: string;
@@ -61,15 +67,27 @@ export interface HomepageConfig {
     name: string;
     slug: string;
     icon: string; // emoji
-    imageUrl?: string; // Unsplash image URL
+    imageUrl?: string; // Unsplash image URL (hotlinked as required)
     description?: string; // AI-generated description for /destinations page
+    // Unsplash attribution (REQUIRED when displaying images)
+    imageAttribution?: {
+      photographerName: string;
+      photographerUrl: string; // Link to photographer profile
+      unsplashUrl: string; // Link to Unsplash
+    };
   }>;
   categories?: Array<{
     name: string;
     slug: string;
     icon: string; // emoji
-    imageUrl?: string; // Unsplash image URL
+    imageUrl?: string; // Unsplash image URL (hotlinked as required)
     description?: string; // AI-generated description for /categories page
+    // Unsplash attribution (REQUIRED when displaying images)
+    imageAttribution?: {
+      photographerName: string;
+      photographerUrl: string; // Link to photographer profile
+      unsplashUrl: string; // Link to Unsplash
+    };
   }>;
   testimonials?: Array<{
     name: string;

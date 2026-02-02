@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { getSiteFromHostname } from '@/lib/tenant';
+import { UnsplashAttribution } from '@/components/common/UnsplashAttribution';
 
 // Revalidate every 5 minutes
 export const revalidate = 300;
@@ -24,7 +25,14 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 // Default categories fallback
-const DEFAULT_CATEGORIES: Array<{ name: string; slug: string; icon: string; description: string; imageUrl?: string }> = [
+const DEFAULT_CATEGORIES: Array<{
+  name: string;
+  slug: string;
+  icon: string;
+  description: string;
+  imageUrl?: string;
+  imageAttribution?: { photographerName: string; photographerUrl: string; unsplashUrl: string };
+}> = [
   { name: 'Tours', slug: 'tours', icon: '🗺️', description: 'Guided tours to discover the best of the destination.' },
   { name: 'Activities', slug: 'activities', icon: '🎯', description: 'Exciting activities for all interests and skill levels.' },
   { name: 'Experiences', slug: 'experiences', icon: '✨', description: 'Unique and memorable experiences you won\'t forget.' },
@@ -53,7 +61,7 @@ export default async function CategoriesPage() {
         '@type': 'Thing',
         name: cat.name,
         description: cat.description,
-        url: `https://${site.primaryDomain || hostname}/categories/${cat.slug}`,
+        url: `https://${site.primaryDomain || hostname}/experiences?q=${encodeURIComponent(cat.name)}`,
       },
     })),
   };
@@ -106,7 +114,7 @@ export default async function CategoriesPage() {
             {categories.map((category) => (
               <Link
                 key={category.slug}
-                href={`/categories/${category.slug}`}
+                href={`/experiences?q=${encodeURIComponent(category.name)}`}
                 className="group relative overflow-hidden rounded-2xl bg-white shadow-md transition-all hover:shadow-xl"
               >
                 {/* Image Container */}
@@ -138,6 +146,17 @@ export default async function CategoriesPage() {
                       </h2>
                     </div>
                   </div>
+
+                  {/* Unsplash Attribution - REQUIRED by Unsplash API Guidelines */}
+                  {category.imageUrl && category.imageAttribution && (
+                    <UnsplashAttribution
+                      photographerName={category.imageAttribution.photographerName}
+                      photographerUrl={category.imageAttribution.photographerUrl}
+                      unsplashUrl={category.imageAttribution.unsplashUrl}
+                      variant="overlay"
+                      className="bottom-16" // Positioned above the title
+                    />
+                  )}
                 </div>
 
                 {/* Content */}

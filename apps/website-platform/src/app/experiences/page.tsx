@@ -339,6 +339,7 @@ export default async function ExperiencesPage({ searchParams }: Props) {
               <ProductDiscoverySearch
                 variant="hero"
                 defaultDestination={destination}
+                defaultWhat={resolvedSearchParams.q}
                 defaultDates={{
                   startDate: resolvedSearchParams.startDate,
                   endDate: resolvedSearchParams.endDate,
