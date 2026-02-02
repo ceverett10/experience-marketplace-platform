@@ -497,18 +497,33 @@ export class CloudflareDNSService {
    */
   async addGoogleVerificationRecord(zoneId: string, verificationToken: string): Promise<{ id: string }> {
     try {
+      // First get the zone to know the domain name
+      const zone = await this.getZoneById(zoneId);
+      const domainName = zone.name;
+
       // Check if a Google verification record already exists
+      // Cloudflare returns full domain name for root records, not '@'
       const existingRecords = await this.listDNSRecords(zoneId);
       const existingGoogleTxt = existingRecords.find(
-        (r) => r.type === 'TXT' && r.name.includes('@') && r.content.startsWith('google-site-verification=')
+        (r) =>
+          r.type === 'TXT' &&
+          (r.name === domainName || r.name === '@' || r.name === '') &&
+          r.content.startsWith('google-site-verification=')
       );
 
+      const txtContent = `google-site-verification=${verificationToken}`;
+
       if (existingGoogleTxt) {
-        // Update existing record
+        // Check if content is the same - if so, no update needed
+        if (existingGoogleTxt.content === txtContent) {
+          console.log(`[Cloudflare] Google verification TXT record already exists with correct token`);
+          return { id: existingGoogleTxt.id };
+        }
+        // Update existing record with new token
         await this.updateDNSRecord(zoneId, existingGoogleTxt.id, {
           type: 'TXT',
           name: '@',
-          content: `google-site-verification=${verificationToken}`,
+          content: txtContent,
           ttl: 1, // Auto
         });
         console.log(`[Cloudflare] Updated Google verification TXT record`);
@@ -519,7 +534,7 @@ export class CloudflareDNSService {
       const result = await this.createDNSRecord(zoneId, {
         type: 'TXT',
         name: '@',
-        content: `google-site-verification=${verificationToken}`,
+        content: txtContent,
         ttl: 1, // Auto (fastest propagation)
       });
 
