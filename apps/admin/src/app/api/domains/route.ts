@@ -171,6 +171,8 @@ export async function GET(request: Request) {
     const stats = {
       total: allDomains.length + suggestedDomains.length,
       active: allDomains.filter((d) => d.status === 'ACTIVE').length,
+      available: allDomains.filter((d) => (d.status as string) === 'AVAILABLE').length,
+      notAvailable: allDomains.filter((d) => (d.status as string) === 'NOT_AVAILABLE').length,
       pending: allDomains.filter((d) =>
         ['PENDING', 'REGISTERING', 'DNS_PENDING', 'SSL_PENDING'].includes(d.status)
       ).length + suggestedDomains.filter((d) => d.status === 'PENDING' || d.status === 'REGISTERING').length,
@@ -466,6 +468,185 @@ export async function POST(request: Request) {
         added,
         failed,
       });
+    }
+
+    // Action: Check availability for all pending/suggested domains
+    if (action === 'checkAvailability') {
+      const apiKey = process.env['CLOUDFLARE_API_KEY'];
+      const email = process.env['CLOUDFLARE_EMAIL'];
+      const accountId = process.env['CLOUDFLARE_ACCOUNT_ID'];
+
+      if (!apiKey || !email || !accountId) {
+        return NextResponse.json({ error: 'Cloudflare credentials not configured' }, { status: 500 });
+      }
+
+      // Get all sites without domains to check their suggested domains
+      const sitesWithoutDomains = await prisma.site.findMany({
+        where: {
+          domains: { none: {} },
+          status: { notIn: ['ARCHIVED'] },
+        },
+        select: { id: true, slug: true, name: true },
+      });
+
+      let checked = 0;
+      let available = 0;
+      let notAvailable = 0;
+
+      for (const site of sitesWithoutDomains) {
+        const suggestedDomain = `${site.slug}.com`;
+
+        try {
+          // Check availability via Cloudflare API
+          const response = await fetch(
+            `https://api.cloudflare.com/client/v4/accounts/${accountId}/registrar/domains/${suggestedDomain}`,
+            {
+              headers: {
+                'X-Auth-Email': email,
+                'X-Auth-Key': apiKey,
+              },
+            }
+          );
+
+          const data = await response.json();
+          checked++;
+
+          // If domain doesn't exist in our account, check if it's available
+          if (!data.success || response.status === 404) {
+            // Check availability
+            const availResponse = await fetch(
+              `https://api.cloudflare.com/client/v4/accounts/${accountId}/registrar/domains/check?name=${suggestedDomain}`,
+              {
+                headers: {
+                  'X-Auth-Email': email,
+                  'X-Auth-Key': apiKey,
+                },
+              }
+            );
+
+            const availData = await availResponse.json();
+            const isAvailable = availData.result?.available ?? false;
+            const price = availData.result?.price ?? null;
+
+            // Create or update domain record with availability status
+            const existingDomain = await prisma.domain.findFirst({
+              where: { domain: suggestedDomain },
+            });
+
+            if (existingDomain) {
+              await prisma.domain.update({
+                where: { id: existingDomain.id },
+                data: {
+                  status: isAvailable ? 'AVAILABLE' : 'NOT_AVAILABLE',
+                  registrationCost: price ? parseFloat(price) : undefined,
+                },
+              });
+            } else {
+              await prisma.domain.create({
+                data: {
+                  domain: suggestedDomain,
+                  status: isAvailable ? 'AVAILABLE' : 'NOT_AVAILABLE',
+                  registrar: 'cloudflare',
+                  registrationCost: price ? parseFloat(price) : 9.77,
+                  siteId: site.id,
+                },
+              });
+            }
+
+            if (isAvailable) {
+              available++;
+            } else {
+              notAvailable++;
+            }
+          } else {
+            // Domain already registered in our account
+            available++; // Count as available since we own it
+          }
+        } catch (error) {
+          console.error(`[Availability] Error checking ${suggestedDomain}:`, error);
+        }
+
+        // Add small delay to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+
+      return NextResponse.json({
+        success: true,
+        checked,
+        available,
+        notAvailable,
+      });
+    }
+
+    // Action: Check availability for a single domain
+    if (action === 'checkSingleAvailability') {
+      const { domain: domainToCheck, domainId } = body;
+
+      if (!domainToCheck) {
+        return NextResponse.json({ error: 'domain is required' }, { status: 400 });
+      }
+
+      const apiKey = process.env['CLOUDFLARE_API_KEY'];
+      const email = process.env['CLOUDFLARE_EMAIL'];
+      const accountId = process.env['CLOUDFLARE_ACCOUNT_ID'];
+
+      if (!apiKey || !email || !accountId) {
+        return NextResponse.json({ error: 'Cloudflare credentials not configured' }, { status: 500 });
+      }
+
+      try {
+        // Check availability via Cloudflare API
+        const availResponse = await fetch(
+          `https://api.cloudflare.com/client/v4/accounts/${accountId}/registrar/domains/check?name=${domainToCheck}`,
+          {
+            headers: {
+              'X-Auth-Email': email,
+              'X-Auth-Key': apiKey,
+            },
+          }
+        );
+
+        const availData = await availResponse.json();
+        const isAvailable = availData.result?.available ?? false;
+        const price = availData.result?.price ?? null;
+
+        // Find or create domain record
+        let domainRecord = await prisma.domain.findFirst({
+          where: { domain: domainToCheck },
+        });
+
+        if (domainRecord) {
+          await prisma.domain.update({
+            where: { id: domainRecord.id },
+            data: {
+              status: isAvailable ? 'AVAILABLE' : 'NOT_AVAILABLE',
+              registrationCost: price ? parseFloat(price) : undefined,
+            },
+          });
+        } else if (domainId?.startsWith('suggested-')) {
+          // This is a suggested domain, create the record
+          const siteId = domainId.replace('suggested-', '');
+          domainRecord = await prisma.domain.create({
+            data: {
+              domain: domainToCheck,
+              status: isAvailable ? 'AVAILABLE' : 'NOT_AVAILABLE',
+              registrar: 'cloudflare',
+              registrationCost: price ? parseFloat(price) : 9.77,
+              siteId,
+            },
+          });
+        }
+
+        return NextResponse.json({
+          success: true,
+          domain: domainToCheck,
+          available: isAvailable,
+          price,
+        });
+      } catch (error) {
+        console.error(`[Availability] Error checking ${domainToCheck}:`, error);
+        return NextResponse.json({ error: 'Failed to check availability' }, { status: 500 });
+      }
     }
 
     // Action: Queue domain registrations for all sites without domains

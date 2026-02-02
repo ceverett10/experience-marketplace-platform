@@ -8,6 +8,8 @@ interface Domain {
   domain: string;
   status:
     | 'PENDING'
+    | 'AVAILABLE'
+    | 'NOT_AVAILABLE'
     | 'REGISTERING'
     | 'DNS_PENDING'
     | 'SSL_PENDING'
@@ -23,6 +25,7 @@ interface Domain {
   cloudflareZoneId: string | null;
   autoRenew: boolean;
   registrationCost: number;
+  estimatedPrice?: number;
   siteName: string | null;
   siteId: string | null;
   isSuggested?: boolean;
@@ -32,6 +35,8 @@ interface Stats {
   total: number;
   active: number;
   pending: number;
+  available: number;
+  notAvailable: number;
   sslEnabled: number;
   expiringBoon: number;
 }
@@ -42,6 +47,8 @@ export default function DomainsPage() {
     total: 0,
     active: 0,
     pending: 0,
+    available: 0,
+    notAvailable: 0,
     sslEnabled: 0,
     expiringBoon: 0,
   });
@@ -49,6 +56,8 @@ export default function DomainsPage() {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [queueing, setQueueing] = useState(false);
+  const [checkingAvailability, setCheckingAvailability] = useState(false);
+  const [checkingDomainId, setCheckingDomainId] = useState<string | null>(null);
 
   // Fetch domains from API
   useEffect(() => {
@@ -60,7 +69,7 @@ export default function DomainsPage() {
         const response = await fetch(`${basePath}/api/domains?status=${statusFilter}`);
         const data = await response.json();
         setDomains(data.domains || []);
-        setStats(data.stats || { total: 0, active: 0, pending: 0, sslEnabled: 0, expiringBoon: 0 });
+        setStats(data.stats || { total: 0, active: 0, pending: 0, available: 0, notAvailable: 0, sslEnabled: 0, expiringBoon: 0 });
       } catch (error) {
         console.error('Failed to fetch domains:', error);
       } finally {
@@ -72,8 +81,10 @@ export default function DomainsPage() {
   }, [statusFilter]);
 
   const getStatusBadge = (status: Domain['status']) => {
-    const styles = {
+    const styles: Record<Domain['status'], string> = {
       PENDING: 'bg-gray-100 text-gray-800',
+      AVAILABLE: 'bg-emerald-100 text-emerald-800',
+      NOT_AVAILABLE: 'bg-rose-100 text-rose-800',
       REGISTERING: 'bg-blue-100 text-blue-800 animate-pulse',
       DNS_PENDING: 'bg-amber-100 text-amber-800',
       SSL_PENDING: 'bg-amber-100 text-amber-800',
@@ -81,8 +92,10 @@ export default function DomainsPage() {
       EXPIRED: 'bg-red-100 text-red-800',
       FAILED: 'bg-red-100 text-red-800',
     };
-    const labels = {
-      PENDING: 'Pending',
+    const labels: Record<Domain['status'], string> = {
+      PENDING: 'Pending Check',
+      AVAILABLE: 'Available for Purchase',
+      NOT_AVAILABLE: 'Not Available',
       REGISTERING: 'Registering...',
       DNS_PENDING: 'DNS Pending',
       SSL_PENDING: 'SSL Pending',
@@ -128,6 +141,39 @@ export default function DomainsPage() {
         <div className="flex gap-2">
           <button
             onClick={async () => {
+              setCheckingAvailability(true);
+              try {
+                const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+                const response = await fetch(`${basePath}/api/domains`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ action: 'checkAvailability' }),
+                });
+                const result = await response.json();
+                if (response.ok) {
+                  alert(`Checked ${result.checked || 0} domains: ${result.available || 0} available, ${result.notAvailable || 0} not available`);
+                  // Refetch domains
+                  const domainsResponse = await fetch(`${basePath}/api/domains?status=${statusFilter}`);
+                  const data = await domainsResponse.json();
+                  setDomains(data.domains || []);
+                  setStats(data.stats || { total: 0, active: 0, pending: 0, available: 0, notAvailable: 0, sslEnabled: 0, expiringBoon: 0 });
+                } else {
+                  alert(result.error || 'Failed to check availability');
+                }
+              } catch (error) {
+                console.error('Failed to check availability:', error);
+                alert('Failed to check availability');
+              } finally {
+                setCheckingAvailability(false);
+              }
+            }}
+            disabled={checkingAvailability}
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+          >
+            {checkingAvailability ? 'Checking...' : 'Check Availability'}
+          </button>
+          <button
+            onClick={async () => {
               setSyncing(true);
               try {
                 const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
@@ -143,7 +189,7 @@ export default function DomainsPage() {
                   const domainsResponse = await fetch(`${basePath}/api/domains?status=${statusFilter}`);
                   const data = await domainsResponse.json();
                   setDomains(data.domains || []);
-                  setStats(data.stats || { total: 0, active: 0, pending: 0, sslEnabled: 0, expiringBoon: 0 });
+                  setStats(data.stats || { total: 0, active: 0, pending: 0, available: 0, notAvailable: 0, sslEnabled: 0, expiringBoon: 0 });
                 } else {
                   alert(result.error || 'Failed to sync from Cloudflare');
                 }
@@ -176,7 +222,7 @@ export default function DomainsPage() {
                   const domainsResponse = await fetch(`${basePath}/api/domains?status=${statusFilter}`);
                   const data = await domainsResponse.json();
                   setDomains(data.domains || []);
-                  setStats(data.stats || { total: 0, active: 0, pending: 0, sslEnabled: 0, expiringBoon: 0 });
+                  setStats(data.stats || { total: 0, active: 0, pending: 0, available: 0, notAvailable: 0, sslEnabled: 0, expiringBoon: 0 });
                 } else {
                   alert(result.error || 'Failed to queue domains');
                 }
@@ -196,20 +242,32 @@ export default function DomainsPage() {
       </div>
 
       {/* Stats cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-        <Card className="cursor-pointer hover:shadow-md transition-shadow">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4">
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setStatusFilter('all')}>
           <CardContent className="p-4">
             <p className="text-2xl font-bold text-slate-900">{stats.total}</p>
-            <p className="text-sm text-slate-500">Total Domains</p>
+            <p className="text-sm text-slate-500">Total</p>
           </CardContent>
         </Card>
-        <Card className="cursor-pointer hover:shadow-md transition-shadow">
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setStatusFilter('ACTIVE')}>
           <CardContent className="p-4">
             <p className="text-2xl font-bold text-green-600">{stats.active}</p>
             <p className="text-sm text-slate-500">Active</p>
           </CardContent>
         </Card>
-        <Card className="cursor-pointer hover:shadow-md transition-shadow">
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setStatusFilter('AVAILABLE')}>
+          <CardContent className="p-4">
+            <p className="text-2xl font-bold text-emerald-600">{stats.available}</p>
+            <p className="text-sm text-slate-500">Available</p>
+          </CardContent>
+        </Card>
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setStatusFilter('NOT_AVAILABLE')}>
+          <CardContent className="p-4">
+            <p className="text-2xl font-bold text-rose-600">{stats.notAvailable}</p>
+            <p className="text-sm text-slate-500">Unavailable</p>
+          </CardContent>
+        </Card>
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setStatusFilter('PENDING')}>
           <CardContent className="p-4">
             <p className="text-2xl font-bold text-amber-600">{stats.pending}</p>
             <p className="text-sm text-slate-500">Pending</p>
@@ -218,13 +276,13 @@ export default function DomainsPage() {
         <Card className="cursor-pointer hover:shadow-md transition-shadow">
           <CardContent className="p-4">
             <p className="text-2xl font-bold text-blue-600">{stats.sslEnabled}</p>
-            <p className="text-sm text-slate-500">SSL Enabled</p>
+            <p className="text-sm text-slate-500">SSL</p>
           </CardContent>
         </Card>
         <Card className="cursor-pointer hover:shadow-md transition-shadow">
           <CardContent className="p-4">
             <p className="text-2xl font-bold text-red-600">{stats.expiringBoon}</p>
-            <p className="text-sm text-slate-500">Expiring Soon</p>
+            <p className="text-sm text-slate-500">Expiring</p>
           </CardContent>
         </Card>
       </div>
@@ -237,6 +295,9 @@ export default function DomainsPage() {
           className="px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"
         >
           <option value="all">All Statuses</option>
+          <option value="PENDING">Pending Check</option>
+          <option value="AVAILABLE">Available for Purchase</option>
+          <option value="NOT_AVAILABLE">Not Available</option>
           <option value="ACTIVE">Active</option>
           <option value="REGISTERING">Registering</option>
           <option value="DNS_PENDING">DNS Pending</option>
@@ -356,15 +417,99 @@ export default function DomainsPage() {
                 {/* Actions */}
                 <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-200">
                   <div className="text-xs text-slate-500">
-                    Cost: ${domain.registrationCost}/year
+                    {domain.estimatedPrice ? `Est. $${domain.estimatedPrice}/year` : domain.registrationCost ? `Cost: $${domain.registrationCost}/year` : 'Price: Check availability'}
                   </div>
                   <div className="flex items-center gap-2">
-                    <button className="px-3 py-1.5 text-sm border border-slate-200 hover:bg-slate-50 rounded-lg transition-colors">
-                      View DNS
-                    </button>
-                    <button className="px-3 py-1.5 text-sm text-sky-600 hover:bg-sky-50 rounded-lg transition-colors">
-                      Manage →
-                    </button>
+                    {/* Check availability button for pending domains */}
+                    {domain.status === 'PENDING' && (
+                      <button
+                        onClick={async () => {
+                          setCheckingDomainId(domain.id);
+                          try {
+                            const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+                            const response = await fetch(`${basePath}/api/domains`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ action: 'checkSingleAvailability', domain: domain.domain, domainId: domain.id }),
+                            });
+                            const result = await response.json();
+                            if (response.ok) {
+                              // Refetch domains
+                              const domainsResponse = await fetch(`${basePath}/api/domains?status=${statusFilter}`);
+                              const data = await domainsResponse.json();
+                              setDomains(data.domains || []);
+                              setStats(data.stats || { total: 0, active: 0, pending: 0, available: 0, notAvailable: 0, sslEnabled: 0, expiringBoon: 0 });
+                            } else {
+                              alert(result.error || 'Failed to check availability');
+                            }
+                          } catch (error) {
+                            console.error('Failed to check availability:', error);
+                            alert('Failed to check availability');
+                          } finally {
+                            setCheckingDomainId(null);
+                          }
+                        }}
+                        disabled={checkingDomainId === domain.id}
+                        className="px-3 py-1.5 text-sm bg-emerald-100 text-emerald-700 hover:bg-emerald-200 rounded-lg transition-colors disabled:opacity-50"
+                      >
+                        {checkingDomainId === domain.id ? 'Checking...' : 'Check Availability'}
+                      </button>
+                    )}
+                    {/* Purchase button for available domains */}
+                    {domain.status === 'AVAILABLE' && (
+                      <button
+                        onClick={async () => {
+                          if (!confirm(`Register ${domain.domain} for ~$${domain.estimatedPrice || 10}/year?`)) return;
+                          try {
+                            const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+                            const response = await fetch(`${basePath}/api/domains`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ domain: domain.domain, siteId: domain.siteId, registrar: 'cloudflare' }),
+                            });
+                            const result = await response.json();
+                            if (response.ok) {
+                              alert('Domain registration queued!');
+                              // Refetch domains
+                              const domainsResponse = await fetch(`${basePath}/api/domains?status=${statusFilter}`);
+                              const data = await domainsResponse.json();
+                              setDomains(data.domains || []);
+                              setStats(data.stats || { total: 0, active: 0, pending: 0, available: 0, notAvailable: 0, sslEnabled: 0, expiringBoon: 0 });
+                            } else {
+                              alert(result.error || 'Failed to register domain');
+                            }
+                          } catch (error) {
+                            console.error('Failed to register domain:', error);
+                            alert('Failed to register domain');
+                          }
+                        }}
+                        className="px-3 py-1.5 text-sm bg-emerald-600 text-white hover:bg-emerald-700 rounded-lg transition-colors"
+                      >
+                        Purchase Domain
+                      </button>
+                    )}
+                    {/* Unavailable notice */}
+                    {domain.status === 'NOT_AVAILABLE' && (
+                      <span className="px-3 py-1.5 text-sm text-rose-600 bg-rose-50 rounded-lg">
+                        Domain taken
+                      </span>
+                    )}
+                    {/* Active domain actions */}
+                    {domain.status === 'ACTIVE' && (
+                      <>
+                        <button className="px-3 py-1.5 text-sm border border-slate-200 hover:bg-slate-50 rounded-lg transition-colors">
+                          View DNS
+                        </button>
+                        <a
+                          href={`https://${domain.domain}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-3 py-1.5 text-sm text-sky-600 hover:bg-sky-50 rounded-lg transition-colors"
+                        >
+                          Visit Site →
+                        </a>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>

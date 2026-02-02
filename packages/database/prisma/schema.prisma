@@ -183,6 +183,8 @@ model Domain {
 
 enum DomainStatus {
   PENDING
+  AVAILABLE       // Domain checked and available for purchase
+  NOT_AVAILABLE   // Domain checked and not available (already registered elsewhere)
   REGISTERING
   DNS_PENDING
   SSL_PENDING

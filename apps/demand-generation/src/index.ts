@@ -111,6 +111,17 @@ const workerOptions = {
   },
 };
 
+// Content worker needs lower concurrency to avoid Anthropic API rate limits
+// (4,000 output tokens/minute limit on basic tier)
+const contentWorkerOptions = {
+  connection,
+  concurrency: 1, // Process one content job at a time to stay within rate limits
+  limiter: {
+    max: 2,
+    duration: 60000, // Max 2 jobs per minute
+  },
+};
+
 /**
  * Content Queue Worker
  * Handles: CONTENT_GENERATE, CONTENT_OPTIMIZE, CONTENT_REVIEW
@@ -132,7 +143,7 @@ const contentWorker = new Worker(
         throw new Error(`Unknown job type: ${job.name}`);
     }
   },
-  workerOptions
+  contentWorkerOptions // Use lower concurrency to respect Anthropic API rate limits
 );
 
 /**
