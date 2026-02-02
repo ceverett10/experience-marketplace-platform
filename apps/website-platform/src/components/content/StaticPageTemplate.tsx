@@ -134,7 +134,7 @@ For the most up-to-date version of our legal documents, please check this page r
       </header>
 
       {/* Main Content */}
-      <div className="prose prose-lg prose-gray max-w-none">
+      <div className="max-w-none">
         <ContentRenderer content={contentBody} format={format} />
       </div>
 
