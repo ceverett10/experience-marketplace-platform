@@ -342,7 +342,17 @@ Return ONLY a valid JSON array with this structure:
 async function sampleHolibobInventory(
   holibobClient: ReturnType<typeof createHolibobClient>
 ): Promise<any> {
-  const sampleDestinations = ['London, England', 'Barcelona, Spain', 'Paris, France', 'New York, USA'];
+  const sampleDestinations = [
+    'London, England',
+    'Paris, France',
+    'Rome, Italy',
+    'Barcelona, Spain',
+    'Madrid, Spain',
+    'New York, USA',
+    'San Francisco, USA',
+    'Tokyo, Japan',
+    'Dubai, UAE',
+  ];
   const sampleCategories = ['tours', 'activities', 'food'];
 
   const inventory: any = {
