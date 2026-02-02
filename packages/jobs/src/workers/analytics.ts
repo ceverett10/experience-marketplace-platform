@@ -256,14 +256,14 @@ export async function handleGA4Setup(job: Job<GA4SetupPayload>): Promise<JobResu
 
     // Check if GA4 is already configured
     const currentSeoConfig = (site.seoConfig as Record<string, unknown>) || {};
-    if (currentSeoConfig.gaMeasurementId) {
-      console.log(`[GA4 Setup] Site already has GA4 configured: ${currentSeoConfig.gaMeasurementId}`);
+    if (currentSeoConfig['gaMeasurementId']) {
+      console.log(`[GA4 Setup] Site already has GA4 configured: ${currentSeoConfig['gaMeasurementId']}`);
       return {
         success: true,
         message: 'GA4 already configured',
         data: {
           siteId,
-          measurementId: currentSeoConfig.gaMeasurementId as string,
+          measurementId: currentSeoConfig['gaMeasurementId'] as string,
           alreadyConfigured: true,
         },
         timestamp: new Date(),
