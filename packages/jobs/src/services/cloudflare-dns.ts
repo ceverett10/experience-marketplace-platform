@@ -504,12 +504,22 @@ export class CloudflareDNSService {
       // Check if a Google verification record already exists
       // Cloudflare returns full domain name for root records, not '@'
       const existingRecords = await this.listDNSRecords(zoneId);
+
+      // Debug logging
+      const txtRecords = existingRecords.filter(r => r.type === 'TXT');
+      console.log(`[Cloudflare] Found ${txtRecords.length} TXT records for zone ${domainName}`);
+      txtRecords.forEach(r => {
+        console.log(`[Cloudflare] TXT: name="${r.name}" content="${r.content.substring(0, 50)}..."`);
+      });
+
       const existingGoogleTxt = existingRecords.find(
         (r) =>
           r.type === 'TXT' &&
           (r.name === domainName || r.name === '@' || r.name === '') &&
           r.content.startsWith('google-site-verification=')
       );
+
+      console.log(`[Cloudflare] existingGoogleTxt found: ${!!existingGoogleTxt}`);
 
       const txtContent = `google-site-verification=${verificationToken}`;
 
