@@ -191,11 +191,17 @@ ${brandSection}
 ${coreGuidelines}`;
     }
 
+    // Limit maxTokens based on target word count to help enforce word limits
+    // Approximately 1.5 tokens per word for English text with markdown formatting
+    const targetMaxTokens = brief.type === 'blog'
+      ? Math.min(2500, Math.ceil(brief.targetLength.max * 1.7))
+      : 4096;
+
     const response = await this.client.generate({
       model,
       system: systemPrompt,
       messages: [{ role: 'user', content: prompt }],
-      maxTokens: 4096,
+      maxTokens: targetMaxTokens,
       temperature: 0.7,
     });
 
@@ -395,26 +401,44 @@ ${contentGuidelines.contentPillars?.length ? `Content pillars: ${contentGuidelin
     }
 
     const brandLabel = brandName ? `for ${brandName}` : '';
+
+    // Blog-specific instructions for focused, concise content
+    const blogInstructions = brief.type === 'blog' ? `
+## CRITICAL: WORD LIMIT
+MAXIMUM ${brief.targetLength.max} WORDS. Do NOT exceed this limit.
+Write focused, valuable content. Quality over quantity.
+Target: ${brief.targetLength.min}-${brief.targetLength.max} words total.
+
+## BLOG POST STRUCTURE
+1. Engaging H1 title (include primary keyword)
+2. Brief intro paragraph (2-3 sentences)
+3. 3-5 main sections with H2 headings
+4. Practical tips or actionable advice
+5. Clear conclusion with call-to-action${brandName ? ` for ${brandName}` : ''}
+
+` : '';
+
     return `Create ${brief.type} content ${brandLabel}: ${brief.targetKeyword}
 
 ## CONTENT REQUIREMENTS
 Primary Keyword: ${brief.targetKeyword}
 Secondary Keywords: ${brief.secondaryKeywords.join(', ') || 'none'}
-Word Count: ${brief.targetLength.min}-${brief.targetLength.max} words
+Word Count: ${brief.targetLength.min}-${brief.targetLength.max} words (STRICT LIMIT - do not exceed)
 Base Tone: ${brief.tone}
 
 ${brief.destination ? 'Destination: ' + brief.destination : ''}
 ${brief.category ? 'Category: ' + brief.category : ''}
 ${brandSection}
-
+${blogInstructions}
 ## OUTPUT INSTRUCTIONS
 - Return markdown content only
 - Include an engaging H1 title
 - Use H2 and H3 subheadings for structure
 - Naturally incorporate keywords without stuffing
-- Write in the brand voice specified above
+- CRITICAL: Write in the brand voice specified above - this is essential for brand consistency
 - Include compelling calls-to-action${brandName ? ` for ${brandName}` : ''}
-- Make content scannable with bullet points where appropriate`;
+- Make content scannable with bullet points where appropriate
+- Keep content focused and valuable - avoid filler content`;
   }
 
   private extractTitle(content: string): string {
