@@ -64,12 +64,25 @@ export async function handleOpportunityScan(
       timeout: 30000,
     });
 
-    // Scan for opportunities
+    // Phase 1: AI-Powered Niche Discovery (if no specific destinations/categories provided)
+    let aiSuggestedNiches: Array<{ destination: string; category: string; niche: string; rationale: string }> = [];
+    if (!destinations && !categories) {
+      console.log('[Opportunity Scan] Generating AI-powered niche suggestions...');
+      try {
+        aiSuggestedNiches = await generateAINicheSuggestions(holibobClient);
+        console.log(`[Opportunity Scan] AI suggested ${aiSuggestedNiches.length} niche opportunities`);
+      } catch (aiError) {
+        console.error('[Opportunity Scan] AI niche generation failed, falling back to defaults:', aiError);
+      }
+    }
+
+    // Phase 2: Scan for opportunities (using AI suggestions or defaults)
     const opportunities = await scanForOpportunities(
       holibobClient,
       destinations,
       categories,
-      forceRescan
+      forceRescan,
+      aiSuggestedNiches
     );
 
     console.log(`[Opportunity Scan] Found ${opportunities.length} potential opportunities`);
@@ -213,13 +226,170 @@ export async function handleOpportunityScan(
 }
 
 /**
+ * Generate AI-powered niche suggestions using Anthropic API
+ * Based on TravelAI micro-segmentation strategy and Holibob inventory analysis
+ */
+async function generateAINicheSuggestions(
+  holibobClient: ReturnType<typeof createHolibobClient>
+): Promise<Array<{ destination: string; category: string; niche: string; rationale: string }>> {
+  const anthropicApiKey = process.env['ANTHROPIC_API_KEY'];
+  if (!anthropicApiKey) {
+    throw new Error('ANTHROPIC_API_KEY not configured');
+  }
+
+  // Sample Holibob inventory to understand available experiences
+  console.log('[AI Niche Discovery] Sampling Holibob inventory...');
+  const inventorySample = await sampleHolibobInventory(holibobClient);
+
+  const prompt = `You are a strategic advisor for an experience marketplace platform. We're building micro-niche websites to capture organic SEO and LLM-driven demand, following the TravelAI strategy which achieved 441% growth by creating 470+ niche sites.
+
+## Our Strategy
+- Build micro-segmented niche sites (NOT generic "all experiences" sites)
+- Each site targets specific demographics, interests, or geographies
+- Example: Instead of "london-experiences.com", we build "london-food-tours.com", "family-london.com", "accessible-london.com"
+- Focus on profitable niches with strong search demand and available inventory
+
+## TravelAI's Successful Niches (for inspiration)
+- Demographics: Family travelers, pet owners, couples, solo travelers
+- Interests: Pickleball players (PickleTrip), ski enthusiasts, beach lovers, cabin seekers
+- Geographic: Hawaii specialists (20+ Hawaii brands), regional focuses
+- Specific: Pet-friendly travel, accessible travel, luxury villas
+
+## Available Holibob Inventory (sample of what we can sell)
+${JSON.stringify(inventorySample, null, 2)}
+
+## Your Task
+Suggest 15-20 creative niche site opportunities that:
+1. Target specific micro-segments (demographics, interests, geographies)
+2. Match available Holibob inventory
+3. Have strong SEO potential (searchable niches)
+4. Would work well for LLM recommendations (ChatGPT/Claude suggesting these sites)
+5. Follow TravelAI's micro-segmentation strategy
+
+For each suggestion, provide:
+- destination: The city/region (e.g., "Barcelona, Spain" or "Iceland")
+- category: The experience type (e.g., "food tours", "adventure activities")
+- niche: The specific micro-segment (e.g., "family-friendly food tours", "accessible wine tasting", "luxury culinary experiences")
+- rationale: Why this niche is promising (1 sentence)
+
+Think creatively about:
+- Underserved demographics (seniors, accessibility needs, solo travelers, families with teens)
+- Interest-based niches (photography tours, fitness activities, wellness retreats)
+- Occasion-based (bachelor parties, corporate events, romantic getaways)
+- Experience level (beginner-friendly, expert-led, luxury vs budget)
+
+Return ONLY a valid JSON array with this structure:
+[
+  {
+    "destination": "Barcelona, Spain",
+    "category": "food tours",
+    "niche": "family-friendly food tours",
+    "rationale": "Families traveling to Barcelona seek kid-friendly culinary experiences that accommodate dietary restrictions and shorter attention spans"
+  },
+  ...
+]`;
+
+  console.log('[AI Niche Discovery] Calling Anthropic API for niche suggestions...');
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': anthropicApiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-3-5-sonnet-20241022', // Use Sonnet for strategic thinking
+      max_tokens: 4000,
+      messages: [
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(`Anthropic API error: ${JSON.stringify(errorData)}`);
+  }
+
+  const data = (await response.json()) as { content: Array<{ text: string }> };
+  if (!data.content?.[0]?.text) {
+    throw new Error('Invalid response from Anthropic API');
+  }
+
+  // Parse JSON response
+  const responseText = data.content[0].text;
+  console.log('[AI Niche Discovery] Received AI response, parsing suggestions...');
+
+  // Extract JSON from response (handle markdown code blocks)
+  const jsonMatch = responseText.match(/\[[\s\S]*\]/);
+  if (!jsonMatch) {
+    throw new Error('Could not extract JSON array from AI response');
+  }
+
+  const suggestions = JSON.parse(jsonMatch[0]);
+  console.log(`[AI Niche Discovery] Successfully parsed ${suggestions.length} niche suggestions`);
+
+  return suggestions;
+}
+
+/**
+ * Sample Holibob inventory to understand available experiences
+ * This helps AI make informed suggestions based on actual inventory
+ */
+async function sampleHolibobInventory(
+  holibobClient: ReturnType<typeof createHolibobClient>
+): Promise<any> {
+  const sampleDestinations = ['London, England', 'Barcelona, Spain', 'Paris, France', 'New York, USA'];
+  const sampleCategories = ['tours', 'activities', 'food'];
+
+  const inventory: any = {
+    destinations: [],
+    totalProducts: 0,
+    categories: {},
+  };
+
+  for (const destination of sampleDestinations) {
+    try {
+      const result = await holibobClient.discoverProducts(
+        {
+          freeText: destination,
+          currency: 'GBP',
+        },
+        { pageSize: 5 }
+      );
+
+      if (result.products.length > 0) {
+        inventory.destinations.push({
+          destination,
+          productCount: result.products.length,
+          sampleProducts: result.products.slice(0, 3).map((p: any) => ({
+            name: p.name,
+            category: p.category,
+            tags: p.tags,
+          })),
+        });
+        inventory.totalProducts += result.products.length;
+      }
+    } catch (error) {
+      console.error(`[Inventory Sample] Error sampling ${destination}:`, error);
+    }
+  }
+
+  return inventory;
+}
+
+/**
  * Scan for opportunities based on keyword research and inventory
  */
 async function scanForOpportunities(
   holibobClient: ReturnType<typeof createHolibobClient>,
   destinations?: string[],
   categories?: string[],
-  forceRescan?: boolean
+  forceRescan?: boolean,
+  aiSuggestedNiches?: Array<{ destination: string; category: string; niche: string; rationale: string }>
 ): Promise<
   Array<{
     keyword: string;
@@ -243,32 +413,56 @@ async function scanForOpportunities(
     sourceData: any;
   }> = [];
 
-  // Define target destinations
-  const targetDestinations = destinations || [
-    'London, England',
-    'Paris, France',
-    'Barcelona, Spain',
-    'Rome, Italy',
-    'Amsterdam, Netherlands',
-    'New York, USA',
-  ];
+  // Use AI-suggested niches if available, otherwise use defaults
+  let searchCombinations: Array<{ destination: string; category: string; niche: string }> = [];
 
-  // Define target categories
-  const targetCategories = categories || [
-    'food tours',
-    'walking tours',
-    'museum tickets',
-    'wine tasting',
-    'cooking classes',
-  ];
+  if (aiSuggestedNiches && aiSuggestedNiches.length > 0) {
+    // Use AI suggestions
+    searchCombinations = aiSuggestedNiches.map(suggestion => ({
+      destination: suggestion.destination,
+      category: suggestion.category,
+      niche: suggestion.niche,
+    }));
+    console.log('[Opportunity Scan] Using AI-generated niche suggestions');
+  } else {
+    // Fall back to default combinations
+    const targetDestinations = destinations || [
+      'London, England',
+      'Paris, France',
+      'Barcelona, Spain',
+      'Rome, Italy',
+      'Amsterdam, Netherlands',
+      'New York, USA',
+    ];
 
-  // For each destination + category combination
-  for (const destination of targetDestinations) {
-    for (const category of targetCategories) {
-      const destinationCity = destination.split(',')[0] || destination;
-      const keyword = `${destinationCity.toLowerCase()} ${category}`;
+    const targetCategories = categories || [
+      'food tours',
+      'walking tours',
+      'museum tickets',
+      'wine tasting',
+      'cooking classes',
+    ];
 
-      try {
+    // Generate combinations from defaults
+    for (const destination of targetDestinations) {
+      for (const category of targetCategories) {
+        searchCombinations.push({
+          destination,
+          category,
+          niche: category, // For defaults, niche same as category
+        });
+      }
+    }
+    console.log('[Opportunity Scan] Using default destination/category combinations');
+  }
+
+  // For each search combination
+  for (const combination of searchCombinations) {
+    const { destination, category, niche } = combination;
+    const destinationCity = destination.split(',')[0] || destination;
+    const keyword = `${destinationCity.toLowerCase()} ${category}`;
+
+    try {
         // Check Holibob inventory for this destination + category
         const holibobBreaker = circuitBreakers.getBreaker('holibob-api');
 
@@ -329,12 +523,13 @@ async function scanForOpportunities(
             difficulty: keywordData.keywordDifficulty,
             cpc: keywordData.cpc,
             intent: 'TRANSACTIONAL',
-            niche: category,
+            niche: niche, // Use the niche from combination (may be AI-generated or default category)
             location: destination,
             sourceData: {
               inventoryCount,
               destination,
               category,
+              niche, // Store the niche for reference
               scannedAt: new Date().toISOString(),
               keywordTrend: keywordData.trend,
               competition: keywordData.competition,
@@ -347,7 +542,6 @@ async function scanForOpportunities(
         console.error(`[Opportunity Scan] Error checking inventory for ${keyword}:`, errorMessage);
       }
     }
-  }
 
   return opportunities;
 }
