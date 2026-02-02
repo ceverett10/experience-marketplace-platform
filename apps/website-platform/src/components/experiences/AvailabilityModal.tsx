@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import {
   fetchAvailability,
@@ -69,6 +70,13 @@ export function AvailabilityModal({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isBooking, setIsBooking] = useState(false);
+
+  // Portal mounting state (for SSR safety)
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Fetch availability when modal opens or date range changes
   useEffect(() => {
@@ -261,12 +269,17 @@ export function AvailabilityModal({
     return label;
   };
 
-  if (!isOpen) return null;
+  // Don't render until mounted (client-side) and isOpen
+  if (!mounted || !isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+  const modalContent = (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div
+        className="absolute inset-0 bg-black/50"
+        onClick={onClose}
+        aria-hidden="true"
+      />
 
       {/* Modal */}
       <div className="relative z-10 mx-4 max-h-[90vh] w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl">
@@ -606,4 +619,7 @@ export function AvailabilityModal({
       </div>
     </div>
   );
+
+  // Use portal to render at document body level
+  return createPortal(modalContent, document.body);
 }

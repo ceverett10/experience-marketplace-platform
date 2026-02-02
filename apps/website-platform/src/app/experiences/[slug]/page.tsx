@@ -7,6 +7,7 @@ import { ExperienceGallery } from '@/components/experiences/ExperienceGallery';
 import { BookingWidget } from '@/components/experiences/BookingWidget';
 import { ReviewsCarousel } from '@/components/experiences/ReviewsCarousel';
 import { AboutActivity } from '@/components/experiences/AboutActivity';
+import { MobileBookingCTA } from '@/components/experiences/MobileBookingCTA';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -682,24 +683,12 @@ export default async function ExperienceDetailPage({ params }: Props) {
           </div>
         </div>
 
-        {/* Mobile Sticky CTA */}
-        <div className="fixed bottom-0 left-0 right-0 border-t border-gray-200 bg-white p-4 lg:hidden">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-gray-500">From</p>
-              <p className="text-xl font-bold text-gray-900">{experience.price.formatted}</p>
-            </div>
-            <a
-              href="#booking"
-              className="rounded-xl bg-teal-600 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-teal-700"
-            >
-              Check availability
-            </a>
-          </div>
-        </div>
-
-        {/* Spacer for mobile sticky CTA */}
-        <div className="h-20 lg:hidden" />
+        {/* Mobile Sticky CTA with Availability Modal */}
+        <MobileBookingCTA
+          productId={experience.id}
+          productName={experience.title}
+          priceFormatted={experience.price.formatted}
+        />
       </div>
     </>
   );
