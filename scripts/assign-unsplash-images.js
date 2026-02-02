@@ -271,7 +271,7 @@ async function main() {
         id: true,
         name: true,
         homepageConfig: true,
-        seoOpportunities: {
+        opportunities: {
           select: {
             location: true,
             niche: true
@@ -284,7 +284,7 @@ async function main() {
     console.log(`Found ${sites.length} sites to process\n`);
 
     for (const site of sites) {
-      const opportunity = site.seoOpportunities[0];
+      const opportunity = site.opportunities[0];
       const location = opportunity?.location || '';
       const niche = opportunity?.niche || '';
 
