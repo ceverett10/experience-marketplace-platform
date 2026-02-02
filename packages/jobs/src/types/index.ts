@@ -59,6 +59,28 @@ export interface SeoOpportunityOptimizePayload {
   budgetLimit?: number;
 }
 
+// SEO Health & Recursive Optimization Jobs
+export interface SeoHealthAuditPayload {
+  siteId: string;
+  triggerOptimizations?: boolean;
+  forceAudit?: boolean;
+}
+
+export interface SeoRecursiveOptimizePayload {
+  siteId: string;
+  pageId: string;
+  reason: string;
+  iteration: number;
+  previousScore?: number;
+  targetScore: number;
+}
+
+export interface SeoBatchOptimizePayload {
+  siteId: string;
+  maxPages?: number;
+  urgencyFilter?: 'high' | 'medium' | 'low' | 'all';
+}
+
 export interface GscSyncPayload {
   siteId: string;
   startDate?: string; // YYYY-MM-DD
@@ -146,6 +168,9 @@ export type JobPayload =
   | SeoAnalyzePayload
   | SeoOpportunityScanPayload
   | SeoOpportunityOptimizePayload
+  | SeoHealthAuditPayload
+  | SeoRecursiveOptimizePayload
+  | SeoBatchOptimizePayload
   | GscSyncPayload
   | GscSetupPayload
   | SiteCreatePayload

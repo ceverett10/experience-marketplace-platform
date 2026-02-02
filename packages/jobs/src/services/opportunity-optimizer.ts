@@ -224,10 +224,11 @@ export async function runRecursiveOptimization(
       const learnings = extractIterationLearnings(validated, finalConfig);
 
       // Step 4: Calculate metrics
+      const previousIteration = iterations.length > 0 ? iterations[iterations.length - 1] : null;
       const metrics = calculateIterationMetrics(
         suggestions,
         validated,
-        iterations.length > 0 ? iterations[iterations.length - 1] : null,
+        previousIteration ?? null,
         Date.now() - iterationStartTime,
         apiCost
       );
@@ -549,7 +550,7 @@ async function batchValidateOpportunities(
         );
         inventory = {
           productCount: holibobResult.products.length,
-          categories: [...new Set(holibobResult.products.map((p: any) => p.category).filter(Boolean))],
+          categories: [...new Set(holibobResult.products.map((p: any) => p.category as string).filter(Boolean))] as string[],
         };
       } catch (e) {
         // Continue with zero inventory
@@ -778,9 +779,10 @@ function calculateIterationMetrics(
   const sortedScores = [...scores].sort((a, b) => a - b);
 
   const averageScore = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
-  const medianScore = sortedScores.length > 0 ? sortedScores[Math.floor(sortedScores.length / 2)] : 0;
-  const maxScore = Math.max(...scores, 0);
-  const minScore = Math.min(...scores, 0);
+  const medianIndex = Math.floor(sortedScores.length / 2);
+  const medianScore = sortedScores.length > 0 ? (sortedScores[medianIndex] ?? 0) : 0;
+  const maxScore = scores.length > 0 ? Math.max(...scores) : 0;
+  const minScore = scores.length > 0 ? Math.min(...scores) : 0;
 
   const previousAvg = previousIteration?.metrics.averageScore || averageScore;
   const improvementFromPrevious = previousIteration
@@ -848,6 +850,7 @@ async function generateFinalRankings(
   const ranked: RankedOpportunity[] = [];
   for (let i = 0; i < sorted.length; i++) {
     const item = sorted[i];
+    if (!item) continue; // TypeScript safety check
     const opp = item.opportunity;
 
     // Generate explanation

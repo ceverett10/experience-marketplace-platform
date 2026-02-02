@@ -12,6 +12,7 @@ export * from './workers/analytics';
 export * from './workers/site';
 export * from './workers/domain';
 export * from './workers/abtest';
+export * from './workers/seo-optimization';
 
 // Export schedulers
 export * from './schedulers';
@@ -27,6 +28,7 @@ export * from './services/weekly-blog-generator';
 export * from './services/structured-data';
 export * from './services/internal-linking';
 export * from './services/opportunity-optimizer';
+export * from './services/seo-health';
 
 // Export error handling
 export * from './errors';

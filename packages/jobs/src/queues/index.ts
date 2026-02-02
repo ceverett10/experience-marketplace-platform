@@ -211,3 +211,11 @@ export const addJob = queueRegistry.addJob.bind(queueRegistry);
 export const scheduleJob = queueRegistry.scheduleJob.bind(queueRegistry);
 export const getQueueMetrics = queueRegistry.getQueueMetrics.bind(queueRegistry);
 export const getAllQueueMetrics = queueRegistry.getAllQueueMetrics.bind(queueRegistry);
+
+/**
+ * Get a queue by name
+ * Useful for workers that need to add jobs to other queues
+ */
+export function getJobQueue(queueName: QueueName): Queue {
+  return queueRegistry.getQueue(queueName);
+}

@@ -28,6 +28,7 @@
     "@experience-marketplace/database": "*",
     "@experience-marketplace/holibob-api": "*",
     "@experience-marketplace/shared": "*",
+    "@google-analytics/data": "^5.2.1",
     "@google-cloud/local-auth": "^3.0.1",
     "bullmq": "^5.1.0",
     "google-auth-library": "^10.5.0",

@@ -156,6 +156,9 @@ async function validateTaskArtifacts(
     SEO_OPPORTUNITY_SCAN: {
       valid: true,
     },
+    SEO_OPPORTUNITY_OPTIMIZE: {
+      valid: true,
+    },
     METRICS_AGGREGATE: {
       valid: true,
     },
@@ -223,6 +226,7 @@ export const TASK_DESCRIPTIONS: Record<JobType, { label: string; description: st
   GSC_SYNC: { label: 'Sync Search Data', description: 'Import search performance data' },
   SEO_ANALYZE: { label: 'Analyze SEO', description: 'Check and improve search optimization' },
   SEO_OPPORTUNITY_SCAN: { label: 'Scan Opportunities', description: 'Find new keyword opportunities' },
+  SEO_OPPORTUNITY_OPTIMIZE: { label: 'Optimize Opportunities', description: 'Recursive AI optimization for SEO' },
   SITE_DEPLOY: { label: 'Deploy Site', description: 'Publish site to the web' },
   METRICS_AGGREGATE: { label: 'Collect Metrics', description: 'Gather performance analytics' },
   PERFORMANCE_REPORT: { label: 'Generate Report', description: 'Create performance summary' },
