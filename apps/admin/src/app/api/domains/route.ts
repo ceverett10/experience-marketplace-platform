@@ -537,7 +537,7 @@ export async function POST(request: Request) {
               await prisma.domain.update({
                 where: { id: existingDomain.id },
                 data: {
-                  status: isAvailable ? 'AVAILABLE' : 'NOT_AVAILABLE',
+                  status: (isAvailable ? 'AVAILABLE' : 'NOT_AVAILABLE') as any,
                   registrationCost: price ? parseFloat(price) : undefined,
                 },
               });
@@ -545,7 +545,7 @@ export async function POST(request: Request) {
               await prisma.domain.create({
                 data: {
                   domain: suggestedDomain,
-                  status: isAvailable ? 'AVAILABLE' : 'NOT_AVAILABLE',
+                  status: (isAvailable ? 'AVAILABLE' : 'NOT_AVAILABLE') as any,
                   registrar: 'cloudflare',
                   registrationCost: price ? parseFloat(price) : 9.77,
                   siteId: site.id,
@@ -619,7 +619,7 @@ export async function POST(request: Request) {
           await prisma.domain.update({
             where: { id: domainRecord.id },
             data: {
-              status: isAvailable ? 'AVAILABLE' : 'NOT_AVAILABLE',
+              status: (isAvailable ? 'AVAILABLE' : 'NOT_AVAILABLE') as any,
               registrationCost: price ? parseFloat(price) : undefined,
             },
           });
@@ -629,7 +629,7 @@ export async function POST(request: Request) {
           domainRecord = await prisma.domain.create({
             data: {
               domain: domainToCheck,
-              status: isAvailable ? 'AVAILABLE' : 'NOT_AVAILABLE',
+              status: (isAvailable ? 'AVAILABLE' : 'NOT_AVAILABLE') as any,
               registrar: 'cloudflare',
               registrationCost: price ? parseFloat(price) : 9.77,
               siteId,
