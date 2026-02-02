@@ -22,7 +22,15 @@ app.use(
   '/admin',
   createProxyMiddleware({
     target: 'http://localhost:3001',
-    changeOrigin: true,
+    changeOrigin: false, // Preserve original Host header for multi-tenant support
+    xfwd: true, // Forward X-Forwarded-* headers
+    onProxyReq: (proxyReq, req) => {
+      // Preserve the original host from the incoming request for tenant identification
+      const originalHost = req.headers['x-forwarded-host'] || req.headers.host;
+      if (originalHost) {
+        proxyReq.setHeader('x-forwarded-host', originalHost);
+      }
+    },
     onError: (err, req, res) => {
       console.error('Admin proxy error:', err.message);
       res.status(503).json({
@@ -38,7 +46,15 @@ app.use(
   '/',
   createProxyMiddleware({
     target: 'http://localhost:3000',
-    changeOrigin: true,
+    changeOrigin: false, // Preserve original Host header for multi-tenant support
+    xfwd: true, // Forward X-Forwarded-* headers
+    onProxyReq: (proxyReq, req) => {
+      // Preserve the original host from the incoming request for tenant identification
+      const originalHost = req.headers['x-forwarded-host'] || req.headers.host;
+      if (originalHost) {
+        proxyReq.setHeader('x-forwarded-host', originalHost);
+      }
+    },
     onError: (err, req, res) => {
       console.error('Website proxy error:', err.message);
       res.status(503).json({
