@@ -340,6 +340,20 @@ export async function handleSslProvision(job: Job<SslProvisionPayload>): Promise
           `[SSL Provision] Set ${domain.domain} as primary domain for site ${domain.siteId}`
         );
       }
+
+      // 5. Queue GSC setup to register domain with Google Search Console
+      // This happens after domain is fully configured (SSL enabled)
+      if (domain.cloudflareZoneId) {
+        const { addJob } = await import('../queues/index.js');
+        await addJob('GSC_SETUP', {
+          siteId: domain.siteId,
+          domain: domain.domain,
+          cloudflareZoneId: domain.cloudflareZoneId,
+        }, {
+          delay: 30000, // Wait 30s for SSL to fully propagate
+        });
+        console.log(`[SSL Provision] Queued GSC setup for ${domain.domain}`);
+      }
     }
 
     return {

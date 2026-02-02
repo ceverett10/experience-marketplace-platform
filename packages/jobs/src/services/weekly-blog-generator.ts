@@ -26,12 +26,14 @@ export async function generateWeeklyBlogPostsForSite(
     where: { id: siteId },
     include: {
       brand: true,
-      seoConfig: true,
       pages: {
         where: { type: PageType.BLOG },
         select: { title: true },
       },
-      opportunity: true,
+      opportunities: {
+        take: 1,
+        orderBy: { createdAt: 'desc' },
+      },
     },
   });
 
@@ -53,11 +55,13 @@ export async function generateWeeklyBlogPostsForSite(
     const weekNumber = getWeekNumber();
 
     // Get niche and location from opportunity or seoConfig
-    const niche = site.opportunity?.niche ||
-      (site.seoConfig?.primaryKeywords as string[] | undefined)?.[0] ||
+    const opportunity = site.opportunities?.[0];
+    const seoConfig = site.seoConfig as { primaryKeywords?: string[]; destination?: string } | null;
+    const niche = opportunity?.niche ||
+      seoConfig?.primaryKeywords?.[0] ||
       'travel experiences';
-    const location = site.opportunity?.location ||
-      (site.seoConfig as { destination?: string } | null)?.destination ||
+    const location = opportunity?.location ||
+      seoConfig?.destination ||
       undefined;
 
     const context: BlogTopicContext = {

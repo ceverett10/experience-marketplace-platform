@@ -19,6 +19,7 @@ import {
   handleContentOptimize,
   handleContentReview,
   handleGscSync,
+  handleGscSetup,
   handleOpportunityScan,
   handleSiteCreate,
   handleSiteDeploy,
@@ -171,7 +172,7 @@ const seoWorker = new Worker(
 
 /**
  * GSC Queue Worker
- * Handles: GSC_SYNC
+ * Handles: GSC_SYNC, GSC_SETUP, GSC_VERIFY
  */
 const gscWorker = new Worker(
   QUEUE_NAMES.GSC,
@@ -182,6 +183,9 @@ const gscWorker = new Worker(
     switch (job.name as JobType) {
       case 'GSC_SYNC':
         return await handleGscSync(job);
+      case 'GSC_SETUP':
+      case 'GSC_VERIFY':
+        return await handleGscSetup(job);
       default:
         throw new Error(`Unknown job type: ${job.name}`);
     }

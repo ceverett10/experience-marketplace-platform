@@ -58,6 +58,12 @@ export interface GscSyncPayload {
   dimensions?: ('query' | 'page' | 'country' | 'device')[];
 }
 
+export interface GscSetupPayload {
+  siteId: string;
+  domain: string;
+  cloudflareZoneId: string;
+}
+
 // Site Management Jobs
 export interface SiteCreatePayload {
   opportunityId: string;
@@ -132,6 +138,7 @@ export type JobPayload =
   | SeoAnalyzePayload
   | SeoOpportunityScanPayload
   | GscSyncPayload
+  | GscSetupPayload
   | SiteCreatePayload
   | SiteDeployPayload
   | DomainRegisterPayload

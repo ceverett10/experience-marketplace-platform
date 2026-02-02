@@ -487,6 +487,48 @@ export class CloudflareDNSService {
   }
 
   /**
+   * Add Google Site Verification TXT record
+   * Used for verifying domain ownership in Google Search Console
+   * @param zoneId - Cloudflare zone ID
+   * @param verificationToken - Token from Google Site Verification API
+   */
+  async addGoogleVerificationRecord(zoneId: string, verificationToken: string): Promise<{ id: string }> {
+    try {
+      // Check if a Google verification record already exists
+      const existingRecords = await this.listDNSRecords(zoneId);
+      const existingGoogleTxt = existingRecords.find(
+        (r) => r.type === 'TXT' && r.name.includes('@') && r.content.startsWith('google-site-verification=')
+      );
+
+      if (existingGoogleTxt) {
+        // Update existing record
+        await this.updateDNSRecord(zoneId, existingGoogleTxt.id, {
+          type: 'TXT',
+          name: '@',
+          content: `google-site-verification=${verificationToken}`,
+          ttl: 1, // Auto
+        });
+        console.log(`[Cloudflare] Updated Google verification TXT record`);
+        return { id: existingGoogleTxt.id };
+      }
+
+      // Create new TXT record
+      const result = await this.createDNSRecord(zoneId, {
+        type: 'TXT',
+        name: '@',
+        content: `google-site-verification=${verificationToken}`,
+        ttl: 1, // Auto (fastest propagation)
+      });
+
+      console.log(`[Cloudflare] Added Google verification TXT record: ${verificationToken}`);
+      return result;
+    } catch (error) {
+      console.error('[Cloudflare] Error adding Google verification record:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Wait for DNS propagation
    * Polls until the DNS records are live
    */

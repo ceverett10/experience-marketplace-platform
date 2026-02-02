@@ -1,9 +1,126 @@
 import { Job } from 'bullmq';
 import { prisma } from '@experience-marketplace/database';
 import { getGSCClient, isGSCConfigured } from '../services/gsc-client';
-import type { GscSyncPayload, JobResult, ContentOptimizePayload } from '../types';
+import { CloudflareDNSService } from '../services/cloudflare-dns';
+import type { GscSyncPayload, GscSetupPayload, JobResult, ContentOptimizePayload } from '../types';
 import { addJob } from '../queues';
 import { canExecuteAutonomousOperation } from '../services/pause-control';
+
+/**
+ * Google Search Console Setup Worker
+ * Registers a domain with GSC via DNS verification
+ *
+ * Flow:
+ * 1. Get verification token from Google Site Verification API
+ * 2. Add TXT record to Cloudflare DNS
+ * 3. Wait for DNS propagation
+ * 4. Verify domain with Google
+ * 5. Add site to GSC as domain property
+ * 6. Submit sitemap
+ * 7. Update database with verification status
+ */
+export async function handleGscSetup(job: Job<GscSetupPayload>): Promise<JobResult> {
+  const { siteId, domain, cloudflareZoneId } = job.data;
+
+  try {
+    console.log(`[GSC Setup] Starting GSC registration for ${domain} (site: ${siteId})`);
+
+    // Check if GSC is configured
+    if (!isGSCConfigured()) {
+      console.warn('[GSC Setup] GSC not configured, skipping setup');
+      return {
+        success: false,
+        error: 'GSC not configured (missing credentials)',
+        errorCategory: 'configuration',
+        timestamp: new Date(),
+      };
+    }
+
+    // Verify site exists
+    const site = await prisma.site.findUnique({
+      where: { id: siteId },
+    });
+
+    if (!site) {
+      throw new Error(`Site ${siteId} not found`);
+    }
+
+    // Initialize services
+    const gscClient = getGSCClient();
+    const cloudflareDns = new CloudflareDNSService();
+
+    // Register site with GSC using the helper method
+    const result = await gscClient.registerSite(domain, async (token) => {
+      // This callback is called after getting the verification token
+      // Add TXT record to Cloudflare DNS
+      console.log(`[GSC Setup] Adding verification TXT record for ${domain}`);
+      await cloudflareDns.addGoogleVerificationRecord(cloudflareZoneId, token);
+
+      // Store the verification code in the database
+      await prisma.site.update({
+        where: { id: siteId },
+        data: {
+          gscVerificationCode: token,
+        },
+      });
+
+      // Wait for DNS propagation (Cloudflare is usually fast, but give it some time)
+      console.log(`[GSC Setup] Waiting 10s for DNS propagation...`);
+      await new Promise(resolve => setTimeout(resolve, 10000));
+    });
+
+    if (!result.success) {
+      console.error(`[GSC Setup] Failed to register ${domain}: ${result.error}`);
+
+      // If verification failed, we may need to retry later (DNS propagation)
+      return {
+        success: false,
+        error: result.error,
+        errorCategory: 'verification',
+        retryable: result.error?.includes('propagate'),
+        timestamp: new Date(),
+      };
+    }
+
+    // Update database with verification success
+    await prisma.site.update({
+      where: { id: siteId },
+      data: {
+        gscVerified: true,
+        gscVerifiedAt: new Date(),
+        gscPropertyUrl: result.siteUrl,
+        gscLastSyncedAt: new Date(),
+      },
+    });
+
+    console.log(`[GSC Setup] Successfully registered ${domain} in GSC`);
+
+    // Queue initial GSC sync to fetch any existing data
+    await addJob('GSC_SYNC', {
+      siteId,
+    }, {
+      delay: 60000, // Wait 1 minute before first sync
+    });
+
+    return {
+      success: true,
+      message: `Domain ${domain} registered in Google Search Console`,
+      data: {
+        domain,
+        siteUrl: result.siteUrl,
+        sitemapSubmitted: true,
+      },
+      timestamp: new Date(),
+    };
+  } catch (error) {
+    console.error('[GSC Setup] Error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      timestamp: new Date(),
+    };
+  }
+}
 
 /**
  * Google Search Console Sync Worker

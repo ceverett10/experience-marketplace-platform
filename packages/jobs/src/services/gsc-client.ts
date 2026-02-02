@@ -4,25 +4,283 @@ import { GoogleAuth } from 'google-auth-library';
 /**
  * Google Search Console Client
  * Handles authentication and API calls to GSC
+ *
+ * Supports:
+ * - Search analytics queries
+ * - Site management (add, list, delete)
+ * - Sitemap submission
+ * - URL inspection
+ * - Site verification via DNS TXT record
  */
 export class GSCClient {
   private auth: GoogleAuth;
   private searchConsole: ReturnType<typeof google.searchconsole>;
+  private siteVerification: ReturnType<typeof google.siteVerification>;
 
   constructor() {
     // Initialize auth with service account credentials
+    // Using full webmasters scope for read/write operations
     this.auth = new GoogleAuth({
       credentials: {
         client_email: process.env['GSC_CLIENT_EMAIL'],
         private_key: process.env['GSC_PRIVATE_KEY']?.replace(/\\n/g, '\n'),
       },
-      scopes: ['https://www.googleapis.com/auth/webmasters.readonly'],
+      scopes: [
+        'https://www.googleapis.com/auth/webmasters', // Full GSC access (read/write)
+        'https://www.googleapis.com/auth/siteverification', // Site verification
+      ],
     });
 
     this.searchConsole = google.searchconsole({
       version: 'v1',
       auth: this.auth,
     });
+
+    this.siteVerification = google.siteVerification({
+      version: 'v1',
+      auth: this.auth,
+    });
+  }
+
+  // ==========================================================================
+  // SITE MANAGEMENT
+  // ==========================================================================
+
+  /**
+   * Add a site to Google Search Console
+   * The site must be verified first using getVerificationToken + verifySite
+   * @param siteUrl - Full URL (https://example.com) or domain property (sc-domain:example.com)
+   */
+  async addSite(siteUrl: string): Promise<void> {
+    try {
+      await this.searchConsole.sites.add({
+        siteUrl,
+      });
+      console.log(`[GSC Client] Site added: ${siteUrl}`);
+    } catch (error) {
+      console.error('[GSC Client] Error adding site:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a site from Google Search Console
+   */
+  async deleteSite(siteUrl: string): Promise<void> {
+    try {
+      await this.searchConsole.sites.delete({
+        siteUrl,
+      });
+      console.log(`[GSC Client] Site deleted: ${siteUrl}`);
+    } catch (error) {
+      console.error('[GSC Client] Error deleting site:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get site details from GSC
+   */
+  async getSite(siteUrl: string): Promise<{
+    siteUrl: string;
+    permissionLevel: string;
+  } | null> {
+    try {
+      const response = await this.searchConsole.sites.get({
+        siteUrl,
+      });
+
+      if (!response.data.siteUrl) {
+        return null;
+      }
+
+      return {
+        siteUrl: response.data.siteUrl,
+        permissionLevel: response.data.permissionLevel || 'siteUnverifiedUser',
+      };
+    } catch (error: any) {
+      // 404 means site not found, which is a valid response
+      if (error?.code === 404 || error?.status === 404) {
+        return null;
+      }
+      console.error('[GSC Client] Error getting site:', error);
+      throw error;
+    }
+  }
+
+  // ==========================================================================
+  // SITE VERIFICATION
+  // ==========================================================================
+
+  /**
+   * Get DNS TXT verification token for a domain
+   * This token must be added as a TXT record at the domain root
+   * @param domain - Domain name (e.g., example.com)
+   * @returns The TXT record value to add to DNS
+   */
+  async getVerificationToken(domain: string): Promise<{
+    token: string;
+    method: 'DNS_TXT';
+  }> {
+    try {
+      const response = await this.siteVerification.webResource.getToken({
+        requestBody: {
+          site: {
+            type: 'INET_DOMAIN',
+            identifier: domain,
+          },
+          verificationMethod: 'DNS_TXT',
+        },
+      });
+
+      if (!response.data.token) {
+        throw new Error('No verification token received from Google');
+      }
+
+      console.log(`[GSC Client] Got verification token for ${domain}`);
+
+      return {
+        token: response.data.token,
+        method: 'DNS_TXT',
+      };
+    } catch (error) {
+      console.error('[GSC Client] Error getting verification token:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Verify a domain using DNS TXT record
+   * The TXT record must already be in place before calling this
+   * @param domain - Domain name (e.g., example.com)
+   */
+  async verifySite(domain: string): Promise<{
+    verified: boolean;
+    owners: string[];
+  }> {
+    try {
+      const response = await this.siteVerification.webResource.insert({
+        verificationMethod: 'DNS_TXT',
+        requestBody: {
+          site: {
+            type: 'INET_DOMAIN',
+            identifier: domain,
+          },
+        },
+      });
+
+      console.log(`[GSC Client] Site verified: ${domain}`);
+
+      return {
+        verified: true,
+        owners: response.data.owners || [],
+      };
+    } catch (error: any) {
+      // Check for specific verification failure
+      if (error?.message?.includes('verification')) {
+        console.error(`[GSC Client] Verification failed for ${domain} - DNS record may not have propagated yet`);
+        return {
+          verified: false,
+          owners: [],
+        };
+      }
+      console.error('[GSC Client] Error verifying site:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Check if a domain is already verified
+   * @param domain - Domain name (e.g., example.com)
+   */
+  async isVerified(domain: string): Promise<boolean> {
+    try {
+      const response = await this.siteVerification.webResource.get({
+        id: domain,
+      });
+      return !!response.data.id;
+    } catch (error: any) {
+      // 404 means not verified
+      if (error?.code === 404 || error?.status === 404) {
+        return false;
+      }
+      console.error('[GSC Client] Error checking verification status:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Complete site registration flow:
+   * 1. Get verification token
+   * 2. Verify the site (DNS record must be in place)
+   * 3. Add site to GSC
+   * 4. Submit sitemap
+   *
+   * @param domain - Domain name (e.g., example.com)
+   * @param onTokenReceived - Callback to add DNS TXT record before verification
+   */
+  async registerSite(
+    domain: string,
+    onTokenReceived: (token: string) => Promise<void>
+  ): Promise<{
+    success: boolean;
+    siteUrl: string;
+    error?: string;
+  }> {
+    const siteUrl = `sc-domain:${domain}`;
+
+    try {
+      // Step 1: Check if already verified
+      const alreadyVerified = await this.isVerified(domain);
+      if (alreadyVerified) {
+        console.log(`[GSC Client] Domain ${domain} already verified`);
+      } else {
+        // Step 2: Get verification token
+        const { token } = await this.getVerificationToken(domain);
+
+        // Step 3: Callback to add DNS record
+        await onTokenReceived(token);
+
+        // Step 4: Wait a moment for DNS propagation (Google checks quickly)
+        console.log(`[GSC Client] Waiting for DNS propagation...`);
+        await this.delay(5000);
+
+        // Step 5: Verify the site
+        const verification = await this.verifySite(domain);
+        if (!verification.verified) {
+          return {
+            success: false,
+            siteUrl,
+            error: 'DNS verification failed - record may not have propagated',
+          };
+        }
+      }
+
+      // Step 6: Add site to GSC (as domain property)
+      await this.addSite(siteUrl);
+
+      // Step 7: Submit sitemap
+      const sitemapUrl = `https://${domain}/sitemap.xml`;
+      await this.submitSitemap(siteUrl, sitemapUrl);
+
+      console.log(`[GSC Client] Site ${domain} fully registered in GSC`);
+
+      return {
+        success: true,
+        siteUrl,
+      };
+    } catch (error) {
+      console.error(`[GSC Client] Error registering site ${domain}:`, error);
+      return {
+        success: false,
+        siteUrl,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  private delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 
   /**
