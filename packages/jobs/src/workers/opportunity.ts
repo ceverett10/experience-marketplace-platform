@@ -76,12 +76,13 @@ export async function handleOpportunityScan(
 
     // Score and store opportunities
     let stored = 0;
+    let explanationsGenerated = 0;
     for (const opp of opportunities) {
       const priorityScore = calculateOpportunityScore(opp);
 
       // Only store opportunities with score > 50
       if (priorityScore >= 50) {
-        await prisma.sEOOpportunity.upsert({
+        const opportunity = await prisma.sEOOpportunity.upsert({
           where: {
             keyword_location: {
               keyword: opp.keyword,
@@ -111,20 +112,51 @@ export async function handleOpportunityScan(
           },
         });
         stored++;
+
+        // Auto-generate explanation for high-priority opportunities (score >= 75)
+        if (priorityScore >= 75 && !opportunity.explanation) {
+          try {
+            const explanation = await generateOpportunityExplanation({
+              keyword: opp.keyword,
+              searchVolume: opp.searchVolume,
+              difficulty: opp.difficulty,
+              cpc: opp.cpc,
+              intent: opp.intent,
+              niche: opp.niche,
+              location: opp.location,
+              priorityScore,
+              sourceData: opp.sourceData,
+            });
+
+            await prisma.sEOOpportunity.update({
+              where: { id: opportunity.id },
+              data: { explanation },
+            });
+
+            explanationsGenerated++;
+            console.log(`[Opportunity] Generated explanation for "${opp.keyword}"`);
+          } catch (explanationError) {
+            // Don't fail the entire scan if explanation generation fails
+            const errorMessage = explanationError instanceof Error ? explanationError.message : String(explanationError);
+            console.error(`[Opportunity] Failed to generate explanation for "${opp.keyword}":`, errorMessage);
+          }
+        }
       }
     }
 
     console.log(`[Opportunity Scan] Stored ${stored} opportunities with score >= 50`);
+    console.log(`[Opportunity Scan] Generated ${explanationsGenerated} AI explanations for high-priority opportunities`);
 
     // Auto-action high-priority opportunities (score > 75)
     await autoActionOpportunities();
 
     return {
       success: true,
-      message: `Scanned and found ${opportunities.length} opportunities, stored ${stored}`,
+      message: `Scanned and found ${opportunities.length} opportunities, stored ${stored}, generated ${explanationsGenerated} explanations`,
       data: {
         totalFound: opportunities.length,
         stored,
+        explanationsGenerated,
         highPriority: opportunities.filter((o) => calculateOpportunityScore(o) > 75).length,
       },
       timestamp: new Date(),
@@ -318,6 +350,77 @@ async function scanForOpportunities(
   }
 
   return opportunities;
+}
+
+/**
+ * Generate AI explanation for why an opportunity is attractive
+ * Uses Anthropic API to analyze the opportunity data
+ */
+async function generateOpportunityExplanation(opportunityData: {
+  keyword: string;
+  searchVolume: number;
+  difficulty: number;
+  cpc: number;
+  intent: string;
+  niche: string;
+  location?: string;
+  priorityScore: number;
+  sourceData: any;
+}): Promise<string> {
+  const anthropicApiKey = process.env['ANTHROPIC_API_KEY'];
+  if (!anthropicApiKey) {
+    throw new Error('ANTHROPIC_API_KEY not configured');
+  }
+
+  const prompt = `Analyze this SEO opportunity and explain in 2-3 concise sentences why this is an attractive keyword to target:
+
+Keyword: ${opportunityData.keyword}
+Search Volume: ${opportunityData.searchVolume.toLocaleString()}/month
+Keyword Difficulty: ${opportunityData.difficulty}/100
+Cost Per Click: $${opportunityData.cpc}
+Search Intent: ${opportunityData.intent}
+Niche: ${opportunityData.niche}
+Location: ${opportunityData.location || 'Not specified'}
+Priority Score: ${opportunityData.priorityScore}/100
+
+${opportunityData.sourceData ? `Additional Data from DataForSEO:\n${JSON.stringify(opportunityData.sourceData, null, 2)}` : ''}
+
+Provide a clear, actionable explanation focusing on:
+1. The commercial opportunity (search volume, CPC, competition balance)
+2. Why this fits well for the ${opportunityData.niche} niche
+3. Any location-specific advantages
+
+Keep it concise and business-focused.`;
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': anthropicApiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-3-5-haiku-20241022',
+      max_tokens: 500,
+      messages: [
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(`Anthropic API error: ${JSON.stringify(errorData)}`);
+  }
+
+  const data = (await response.json()) as { content: Array<{ text: string }> };
+  if (!data.content?.[0]?.text) {
+    throw new Error('Invalid response from Anthropic API');
+  }
+  return data.content[0].text;
 }
 
 /**
