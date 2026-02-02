@@ -471,11 +471,14 @@ export class CloudflareDNSService {
       body: body ? JSON.stringify(body) : undefined,
     });
 
-    if (!response.ok) {
-      throw new Error(`Cloudflare API error: ${response.status} ${response.statusText}`);
-    }
-
     const data = (await response.json()) as CloudflareResponse<T>;
+
+    if (!response.ok) {
+      // Extract detailed error from response body
+      const errorMessage = data.errors?.map((e) => `[${e.code}] ${e.message}`).join(', ') ||
+        `${response.status} ${response.statusText}`;
+      throw new Error(`Cloudflare API error: ${errorMessage}`);
+    }
 
     if (!data.success) {
       const errorMessage =
