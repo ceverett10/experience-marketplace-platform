@@ -188,6 +188,10 @@ interface RoadmapPhase {
   key: string;
   name: string;
   description: string;
+  estimatedMinutes?: number | null;
+  autonomousExplanation?: string;
+  blockingReason?: string | null;
+  nextAction?: string | null;
   status: 'pending' | 'in_progress' | 'completed' | 'failed';
   progress: {
     completed: number;
@@ -702,17 +706,28 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
                 <CardContent className="p-0">
                   {/* Phase Header */}
                   <div className="p-4 border-b border-slate-100">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-3 flex-1">
                         <span className="text-2xl">{phaseStatusIcons[phase.status]}</span>
-                        <div>
+                        <div className="flex-1">
                           <div className="flex items-center gap-2">
                             <span className="text-sm text-slate-400 font-medium">
                               Phase {phaseIndex + 1}
                             </span>
                             <h3 className="font-semibold text-slate-900">{phase.name}</h3>
+                            {phase.estimatedMinutes && phase.status !== 'completed' && (
+                              <span className="text-xs text-slate-400">
+                                (Est. {phase.estimatedMinutes}m)
+                              </span>
+                            )}
                           </div>
                           <p className="text-sm text-slate-500">{phase.description}</p>
+                          {phase.autonomousExplanation && phase.status !== 'completed' && (
+                            <p className="text-xs text-sky-600 mt-1 flex items-center gap-1">
+                              <span>&#9432;</span>
+                              <span>{phase.autonomousExplanation}</span>
+                            </p>
+                          )}
                         </div>
                       </div>
                       <div className="text-right">
@@ -733,6 +748,34 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
                         </div>
                       </div>
                     </div>
+
+                    {/* Status Banner */}
+                    {(phase.blockingReason || phase.nextAction) && phase.status !== 'completed' && (
+                      <div
+                        className={`mt-3 p-3 rounded-lg border ${
+                          phase.blockingReason
+                            ? 'bg-amber-50 border-amber-200'
+                            : phase.status === 'in_progress'
+                              ? 'bg-blue-50 border-blue-200'
+                              : 'bg-green-50 border-green-200'
+                        }`}
+                      >
+                        {phase.blockingReason && (
+                          <div className="flex items-center gap-2 text-amber-800 mb-1">
+                            <span className="text-sm">&#128274;</span>
+                            <span className="text-sm font-medium">{phase.blockingReason}</span>
+                          </div>
+                        )}
+                        {phase.nextAction && (
+                          <div className="flex items-center gap-2 text-slate-700">
+                            <span className="text-sm">
+                              {phase.status === 'in_progress' ? '&#9654;' : '&#9654;'}
+                            </span>
+                            <span className="text-sm">{phase.nextAction}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Phase Tasks */}

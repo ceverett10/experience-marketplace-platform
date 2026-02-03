@@ -203,33 +203,46 @@ export const SITE_LIFECYCLE_PHASES = {
   setup: {
     name: 'Site Setup',
     description: 'Creating site structure and brand identity',
+    estimatedMinutes: 2,
+    autonomousExplanation: 'System creates site structure, brand identity, and initial configuration',
     tasks: ['SITE_CREATE'] as JobType[],
   },
   content: {
     name: 'Content Creation',
     description: 'Generating and optimizing site content',
+    estimatedMinutes: 15,
+    autonomousExplanation: 'AI generates homepage and key pages, then optimizes for SEO',
     tasks: ['CONTENT_GENERATE', 'CONTENT_OPTIMIZE', 'CONTENT_REVIEW'] as JobType[],
   },
   domain: {
     name: 'Domain & SSL',
     description: 'Registering domain and setting up SSL',
+    estimatedMinutes: 10,
+    autonomousExplanation: 'System registers domain via Cloudflare and provisions SSL certificate',
     tasks: ['DOMAIN_REGISTER', 'DOMAIN_VERIFY', 'SSL_PROVISION'] as JobType[],
   },
   seo: {
     name: 'SEO & Analytics',
     description: 'Setting up Google Search Console, Analytics, and SEO',
+    estimatedMinutes: 5,
+    autonomousExplanation: 'Connects to Google Search Console and Analytics, imports initial data',
     tasks: ['GSC_SETUP', 'GSC_VERIFY', 'GA4_SETUP', 'GSC_SYNC'] as JobType[],
   },
   launch: {
     name: 'Site Launch',
     description: 'Deploying site to production',
+    estimatedMinutes: 3,
+    autonomousExplanation: 'Deploys site to production with your custom domain',
     tasks: ['SITE_DEPLOY'] as JobType[],
   },
   optimization: {
     name: 'Ongoing Optimization',
     description: 'Continuous content and performance optimization',
+    estimatedMinutes: null, // Ongoing
+    autonomousExplanation: 'System continuously monitors and optimizes SEO, content, and performance',
     tasks: [
       'SEO_ANALYZE',
+      'SEO_AUTO_OPTIMIZE',
       'SEO_OPPORTUNITY_SCAN',
       'SEO_OPPORTUNITY_OPTIMIZE',
       'ABTEST_ANALYZE',
@@ -433,16 +446,51 @@ export async function getSiteRoadmap(siteId: string) {
     else if (completedTasks === totalTasks) phaseStatus = 'completed';
     else if (runningTasks > 0 || completedTasks > 0) phaseStatus = 'in_progress';
 
+    // Determine blocking reason for pending phases
+    let blockingReason: string | null = null;
+    let nextAction: string | null = null;
+
+    if (phaseStatus === 'pending' || phaseStatus === 'in_progress') {
+      // Find the first incomplete task and check its dependencies
+      const firstIncompleteTask = phaseTasks.find((t) => t.status !== 'COMPLETED');
+      if (firstIncompleteTask) {
+        const deps = TASK_DEPENDENCIES[firstIncompleteTask.type] || [];
+        const incompleteDeps = deps.filter((depType) => {
+          const depJob = jobs.find((j) => j.type === depType);
+          return !depJob || depJob.status !== 'COMPLETED';
+        });
+
+        if (incompleteDeps.length > 0) {
+          const depLabels = incompleteDeps.map((dt) => TASK_DESCRIPTIONS[dt].label);
+          blockingReason = `Waiting for: ${depLabels.join(', ')}`;
+          nextAction = 'System will automatically start once dependencies complete';
+        } else if (
+          firstIncompleteTask.status === 'PLANNED' ||
+          firstIncompleteTask.status === 'PENDING'
+        ) {
+          nextAction = 'Ready to start - click "Execute Next Tasks" to begin';
+        } else if (firstIncompleteTask.status === 'RUNNING') {
+          nextAction = `Currently running: ${firstIncompleteTask.label}`;
+        } else if (firstIncompleteTask.status === 'FAILED') {
+          nextAction = 'Click "Execute Next Tasks" to retry failed task';
+        }
+      }
+    }
+
     return {
       key,
       name: phase.name,
       description: phase.description,
+      estimatedMinutes: phase.estimatedMinutes,
+      autonomousExplanation: phase.autonomousExplanation,
       status: phaseStatus,
       progress: {
         completed: completedTasks,
         total: totalTasks,
         percentage: Math.round((completedTasks / totalTasks) * 100),
       },
+      blockingReason,
+      nextAction,
       tasks: phaseTasks,
     };
   });
