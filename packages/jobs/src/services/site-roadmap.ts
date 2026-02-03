@@ -545,8 +545,10 @@ export async function executeNextTasks(siteId: string): Promise<{
     (j) => j.status === 'COMPLETED' && !artifactValidation[j.type]?.valid
   );
 
-  const runningOrPendingJobs = new Set(
-    jobs.filter((j) => ['RUNNING', 'PENDING', 'SCHEDULED'].includes(j.status)).map((j) => j.type)
+  // Include RETRYING and FAILED to prevent the roadmap from re-queuing
+  // jobs that are still being processed or have permanently failed
+  const activeOrFailedJobs = new Set(
+    jobs.filter((j) => ['RUNNING', 'PENDING', 'SCHEDULED', 'RETRYING', 'FAILED'].includes(j.status)).map((j) => j.type)
   );
 
   const queued: string[] = [];
@@ -589,8 +591,8 @@ export async function executeNextTasks(siteId: string): Promise<{
       continue;
     }
 
-    // Skip if already running or pending
-    if (runningOrPendingJobs.has(jobType)) {
+    // Skip if already running, pending, retrying, or failed
+    if (activeOrFailedJobs.has(jobType)) {
       skipped.push(jobType);
       continue;
     }

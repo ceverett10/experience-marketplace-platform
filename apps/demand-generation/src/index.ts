@@ -21,6 +21,7 @@ import {
   handleGscSync,
   handleGscSetup,
   handleOpportunityScan,
+  handleOpportunityOptimize,
   handleSiteCreate,
   handleSiteDeploy,
   handleDomainRegister,
@@ -171,8 +172,8 @@ const seoWorker = new Worker(
       case 'SEO_OPPORTUNITY_SCAN':
         return await handleOpportunityScan(job);
       case 'SEO_OPPORTUNITY_OPTIMIZE':
-        // Recursive optimization with learning
-        return await handleRecursiveOptimize(job);
+        // Multi-mode opportunity optimizer (5-iteration recursive AI optimization)
+        return await handleOpportunityOptimize(job);
       // Custom job names for the recursive SEO system
       case 'audit':
         return await handleSEOAudit(job);

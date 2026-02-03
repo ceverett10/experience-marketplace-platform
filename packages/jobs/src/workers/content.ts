@@ -738,7 +738,13 @@ export async function handleContentOptimize(job: Job<ContentOptimizePayload>): P
     });
 
     if (!content) {
-      throw new NotFoundError('Content', contentId);
+      console.log(`[Content Optimize] Content ${contentId} not found - skipping (content may not have been generated yet)`);
+      return {
+        success: false,
+        error: `Content not found: ${contentId}`,
+        errorCategory: 'not_found',
+        timestamp: new Date(),
+      };
     }
 
     // Determine optimization strategy based on reason

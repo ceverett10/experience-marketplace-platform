@@ -97,9 +97,10 @@ class QueueRegistry {
     );
 
     // Update database record with BullMQ job ID
+    // Prefix with queue name since BullMQ IDs are only unique per queue, not globally
     await prisma.job.update({
       where: { id: dbJob.id },
-      data: { idempotencyKey: job.id },
+      data: { idempotencyKey: `${queueName}:${job.id}` },
     });
 
     return dbJob.id;
