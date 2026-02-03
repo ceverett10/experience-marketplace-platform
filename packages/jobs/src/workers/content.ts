@@ -28,6 +28,56 @@ import {
 import { suggestInternalLinks } from '../services/internal-linking';
 
 /**
+ * Valid internal routes that exist on every site.
+ * Links to any other paths are considered hallucinated and will be stripped.
+ */
+const VALID_ROUTE_PREFIXES = [
+  '/experiences',
+  '/destinations',
+  '/categories',
+  '/about',
+  '/contact',
+  '/privacy',
+  '/terms',
+];
+
+/**
+ * Sanitize AI-generated content by removing invalid internal links.
+ * The AI sometimes fabricates links to non-existent pages like /tours/camden,
+ * /guides/borough-market, /faq, etc. This function strips those links while
+ * preserving the anchor text.
+ */
+function sanitizeContentLinks(content: string): { sanitized: string; removedCount: number } {
+  let removedCount = 0;
+
+  // Match markdown links: [text](url)
+  const sanitized = content.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, text, url) => {
+    // Allow external links (http/https)
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return match;
+    }
+
+    // Allow anchor links
+    if (url.startsWith('#')) {
+      return match;
+    }
+
+    // Check if internal link matches a valid route
+    const isValid = VALID_ROUTE_PREFIXES.some((prefix) => url === prefix || url.startsWith(prefix + '?') || url.startsWith(prefix + '/'));
+
+    if (isValid) {
+      return match;
+    }
+
+    // Invalid link - strip the markdown link but keep the text
+    removedCount++;
+    return text;
+  });
+
+  return { sanitized, removedCount };
+}
+
+/**
  * Generate Schema.org structured data based on content type
  * This data is stored with the content and merged into page JSON-LD
  */
@@ -400,24 +450,30 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
       datePublished: new Date().toISOString(),
     });
 
+    // Sanitize AI-generated links - remove any links to non-existent pages
+    const { sanitized: sanitizedContent, removedCount } = sanitizeContentLinks(result.content.content);
+    if (removedCount > 0) {
+      console.log(`[Content Generate] Removed ${removedCount} invalid AI-generated links from content`);
+    }
+
     // Add internal links to improve SEO and user navigation
-    const linkSuggestion = await suggestInternalLinks({
-      siteId,
-      content: result.content.content,
-      contentType: contentType as 'blog' | 'destination' | 'category' | 'experience',
-      targetKeyword,
-      secondaryKeywords,
-      destination,
-      category,
-    });
+    // Skip for about pages - they should not have inline internal links
+    let finalContent = sanitizedContent;
+    if (contentType !== 'about') {
+      const linkSuggestion = await suggestInternalLinks({
+        siteId,
+        content: sanitizedContent,
+        contentType: contentType as 'blog' | 'destination' | 'category' | 'experience',
+        targetKeyword,
+        secondaryKeywords,
+        destination,
+        category,
+      });
 
-    // Use content with internal links if any were added
-    const finalContent = linkSuggestion.links.length > 0
-      ? linkSuggestion.contentWithLinks
-      : result.content.content;
-
-    if (linkSuggestion.links.length > 0) {
-      console.log(`[Content Generate] Added ${linkSuggestion.links.length} internal links for SEO`);
+      if (linkSuggestion.links.length > 0) {
+        finalContent = linkSuggestion.contentWithLinks;
+        console.log(`[Content Generate] Added ${linkSuggestion.links.length} internal links for SEO`);
+      }
     }
 
     // Save content to database

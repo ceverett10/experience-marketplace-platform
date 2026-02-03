@@ -6,6 +6,7 @@ export type ContentType =
   | 'category'
   | 'experience'
   | 'blog'
+  | 'about'
   | 'meta_description'
   | 'seo_title';
 

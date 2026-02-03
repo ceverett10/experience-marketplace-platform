@@ -408,6 +408,41 @@ ${contentGuidelines.contentPillars?.length ? `Content pillars: ${contentGuidelin
 
     const brandLabel = brandName ? `for ${brandName}` : '';
 
+    // About Us specific instructions - strict factual guardrails
+    const aboutInstructions = brief.type === 'about' ? `
+## CRITICAL: ABOUT US PAGE RULES
+This is an About Us page. You MUST follow these rules absolutely:
+
+### NEVER FABRICATE:
+- Founding dates, years, or timelines
+- Founder names, team member names, or staff counts
+- Statistics (e.g., "helped 50,000 travelers", "over 200 tours")
+- Partnerships with specific organizations (e.g., museums, tourism boards)
+- Certifications or compliance claims (e.g., "PCI-DSS compliant")
+- Awards or recognitions
+- Office addresses or locations
+- Specific claims about customer support availability (e.g., "24/7 support")
+
+### NEVER CREATE LINKS:
+- Do NOT include any markdown links [text](url) in the content
+- Do NOT reference page URLs like /tours, /guides, /faq
+- Internal links will be added separately by the platform
+- Only mention page sections generically: "browse our experiences" or "explore our destinations"
+
+### STRUCTURE (follow this exactly):
+1. **H1: About ${brandName || 'Us'}**
+2. **Welcome paragraph** - What the site is (a curated marketplace for travel experiences powered by Holibob) and what type of experiences it focuses on
+3. **Our Mission** - Use ONLY the brand mission from the brand context above. If no mission is provided, write a general mission about connecting travelers with quality experiences
+4. **What We Offer** - Describe the TYPE of experiences available (use the category/destination info). Do NOT claim specific numbers
+5. **Our Approach** - How experiences are curated: browsing quality options, verified reviews from real travelers, transparent pricing. Do NOT claim to "personally vet" or have a "team of experts" unless this is true
+6. **Why Choose ${brandName || 'Us'}** - Focus on the actual platform features: easy booking, curated selection, real customer reviews, secure payments
+7. **Closing** - Invite users to browse experiences. No fake contact details
+
+### WORD COUNT
+Target: ${brief.targetLength.min}-${brief.targetLength.max} words.
+
+` : '';
+
     // Blog-specific instructions for focused, concise content
     const blogInstructions = brief.type === 'blog' ? `
 ## CRITICAL: WORD LIMIT
@@ -435,7 +470,7 @@ Base Tone: ${brief.tone}
 ${brief.destination ? 'Destination: ' + brief.destination : ''}
 ${brief.category ? 'Category: ' + brief.category : ''}
 ${brandSection}
-${blogInstructions}
+${aboutInstructions}${blogInstructions}
 ## SEO OPTIMIZATION GUIDELINES
 - H1 TITLE: Create an engaging, click-worthy title (50-60 chars) with keyword near the start
 - META DESCRIPTION: The first paragraph should work as a meta description (150-160 chars) - compelling, includes keyword, has a clear value proposition
@@ -443,7 +478,7 @@ ${blogInstructions}
 - KEYWORD PLACEMENT: Include primary keyword in H1, first 100 words, at least one H2, and conclusion
 - E-E-A-T SIGNALS: Demonstrate Experience (practical insights), Expertise (specific knowledge), Authoritativeness (confident recommendations), Trustworthiness (accurate information)
 - ENTITY OPTIMIZATION: Mention related entities (places, activities, concepts) that search engines associate with the topic
-- INTERNAL LINKING CONTEXT: When mentioning related topics, use specific anchor text that could link to other pages (destinations, categories, experiences)
+${brief.type !== 'about' ? `- INTERNAL LINKING CONTEXT: When mentioning related topics, use specific anchor text that could link to other pages (destinations, categories, experiences)` : '- DO NOT include any markdown links - internal links are added automatically by the platform'}
 - USER INTENT: Address the search intent - what would someone searching "${brief.targetKeyword}" want to know?
 
 ## OUTPUT INSTRUCTIONS
@@ -452,9 +487,9 @@ ${blogInstructions}
 - Use H2 and H3 subheadings for structure - these help both readers and search engines
 - Naturally incorporate keywords without stuffing (aim for 1-2% keyword density)
 - CRITICAL: Write in the brand voice specified above - this is essential for brand consistency
-- Include compelling calls-to-action${brandName ? ` for ${brandName}` : ''}
+${brief.type === 'about' ? '- DO NOT include any markdown links [text](url) - links are managed by the platform' : `- Include compelling calls-to-action${brandName ? ` for ${brandName}` : ''}`}
 - Make content scannable with bullet points where appropriate
-- Answer common questions about the topic (FAQ-style sections help with featured snippets)
+${brief.type !== 'about' ? '- Answer common questions about the topic (FAQ-style sections help with featured snippets)' : '- Keep all claims factual and verifiable - do not fabricate statistics, dates, names, or partnerships'}
 - Keep content focused and valuable - avoid filler content`;
   }
 

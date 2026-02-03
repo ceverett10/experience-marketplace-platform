@@ -213,11 +213,11 @@ export async function handleSiteCreate(job: Job<SiteCreatePayload>): Promise<Job
       await addJob('CONTENT_GENERATE', {
         siteId: site.id,
         pageId: aboutPage.id,
-        contentType: 'blog', // Using blog type for general content
+        contentType: 'about', // Dedicated about type with strict factual guardrails
         targetKeyword: `About ${brandIdentity.name}`,
-        secondaryKeywords: [opportunity.niche, 'travel experiences', 'our story'],
+        secondaryKeywords: [opportunity.niche, 'travel experiences', opportunity.location || ''].filter(Boolean),
       });
-      console.log('[Site Create] Queued About page content generation');
+      console.log('[Site Create] Queued About page content generation (with factual guardrails)');
     }
 
     // Queue content generation for Contact page
