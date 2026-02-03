@@ -38,6 +38,14 @@ interface Opportunity {
       monthlyRevenue: number;
       paybackPeriod: number;
     };
+    keywordCluster?: {
+      primaryKeyword: string;
+      primaryVolume: number;
+      clusterKeywords: Array<{ keyword: string; searchVolume: number; cpc: number }>;
+      clusterTotalVolume: number;
+      clusterKeywordCount: number;
+      clusterAvgCpc: number;
+    };
   };
 }
 
@@ -415,6 +423,43 @@ export default function OpportunitiesPage() {
                   <div className="text-sm font-medium text-slate-700">{opp.source}</div>
                 </div>
               </div>
+
+              {/* Keyword Cluster */}
+              {opp.sourceData?.keywordCluster && (
+                <div className="mt-4 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <span className="text-2xl mt-0.5">🔗</span>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="text-sm font-semibold text-purple-900">Keyword Cluster</h4>
+                        <div className="text-lg font-bold text-purple-900">
+                          {opp.sourceData.keywordCluster.clusterTotalVolume.toLocaleString()}
+                          <span className="text-xs text-purple-600 font-normal ml-1">
+                            /mo total ({opp.sourceData.keywordCluster.clusterKeywordCount} keywords)
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <span className="inline-flex items-center gap-1 text-xs bg-purple-200 text-purple-800 px-2 py-1 rounded font-semibold">
+                          {opp.keyword}:{' '}
+                          {opp.sourceData.keywordCluster.primaryVolume.toLocaleString()}/mo
+                        </span>
+                        {opp.sourceData.keywordCluster.clusterKeywords
+                          .sort((a, b) => b.searchVolume - a.searchVolume)
+                          .slice(0, 8)
+                          .map((kw, idx) => (
+                            <span
+                              key={idx}
+                              className="inline-flex items-center gap-1 text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded"
+                            >
+                              {kw.keyword}: {kw.searchVolume.toLocaleString()}/mo
+                            </span>
+                          ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Domain Suggestions */}
               {opp.sourceData?.domainSuggestions && (

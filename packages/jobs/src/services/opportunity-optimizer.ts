@@ -47,6 +47,7 @@ export interface OpportunitySuggestion {
   category: string;
   niche: string;
   keyword: string;
+  clusterKeywords?: string[];
   rationale: string;
   suggestedDomain?: string;
   alternativeDomains?: string[];
@@ -58,6 +59,15 @@ export interface OpportunitySuggestion {
     alternativesAvailable: number;
     checkedDomains: Array<{ domain: string; available: boolean }>;
   };
+}
+
+export interface ClusterData {
+  primaryKeyword: string;
+  primaryVolume: number;
+  clusterKeywords: Array<{ keyword: string; searchVolume: number; cpc: number }>;
+  clusterTotalVolume: number;
+  clusterKeywordCount: number;
+  clusterAvgCpc: number;
 }
 
 export interface ValidatedOpportunity {
@@ -72,6 +82,7 @@ export interface ValidatedOpportunity {
     seasonality: boolean;
     monthlyTrends?: number[];
   };
+  clusterData?: ClusterData;
   holibobInventory: {
     productCount: number;
     categories: string[];
@@ -423,6 +434,7 @@ async function generateRefinedSuggestions(
     category: string;
     niche: string;
     keyword: string;
+    clusterKeywords?: string[];
     rationale: string;
     suggestedDomain?: string;
     alternativeDomains?: string[];
@@ -432,6 +444,7 @@ async function generateRefinedSuggestions(
   return suggestions.map((s) => ({
     id: uuidv4(),
     ...s,
+    clusterKeywords: Array.isArray(s.clusterKeywords) ? s.clusterKeywords : [],
     iterationSource: iterationNumber,
   }));
 }
@@ -504,12 +517,14 @@ Return EXACTLY ${suggestionsCount} items as a JSON array:
     "category": "food tours",
     "niche": "family-friendly food tours",
     "keyword": "london family food tours",
+    "clusterKeywords": ["family food tours london", "kids food tour london", "london food tours for families", "family cooking class london", "child friendly restaurants london"],
     "rationale": "Families seek kid-friendly culinary experiences",
     "suggestedDomain": "london-family-food-tours.com",
     "alternativeDomains": ["familyfoodtourslondon.com", "london-family-foodie.com"],
     "confidenceScore": 75
   }
 ]
+Include 5-8 clusterKeywords per item — related search terms a niche site would also rank for.
 
 Return ONLY valid JSON, no markdown fences.`;
     }
@@ -537,12 +552,14 @@ Return ONLY valid JSON array:
     "category": "food tours",
     "niche": "family-friendly food tours",
     "keyword": "london family food tours",
+    "clusterKeywords": ["family food tours london", "kids food tour london", "london food tours for families", "family cooking class london", "child friendly restaurants london"],
     "rationale": "Families seek kid-friendly culinary experiences",
     "suggestedDomain": "london-family-food-tours.com",
     "alternativeDomains": ["familyfoodtourslondon.com", "london-family-foodie.com"],
     "confidenceScore": 75
   }
-]`;
+]
+Include 5-8 clusterKeywords per item — related search terms a niche site would also rank for.`;
   }
 
   if (iterationNumber === 5) {
@@ -579,7 +596,7 @@ Generate ${suggestionsCount} FINAL high-confidence suggestions that:
 4. Provide detailed rationale including projected value
 
 ## Output Format
-Return ONLY valid JSON array with the same structure as before, but with higher confidence scores (aim for 80+).`;
+Return ONLY valid JSON array with the same structure as before (including clusterKeywords with 5-8 related search terms), but with higher confidence scores (aim for 80+).`;
   }
 
   // Iterations 2-4: Refinement with learning context
@@ -642,13 +659,15 @@ Return ONLY valid JSON array:
     "destination": "...",
     "category": "...",
     "niche": "...",
-    "keyword": "...",
+    "keyword": "short search term",
+    "clusterKeywords": ["related term 1", "related term 2", "related term 3", "related term 4", "related term 5"],
     "rationale": "...",
     "suggestedDomain": "...",
     "alternativeDomains": ["...", "..."],
     "confidenceScore": 75
   }
-]`;
+]
+Include 5-8 clusterKeywords per item — related search terms a niche site would also rank for.`;
 }
 
 // ==========================================
@@ -756,31 +775,72 @@ async function batchValidateOpportunities(
   });
 
   const validated: ValidatedOpportunity[] = [];
-  const keywords = suggestions.map((s) => s.keyword);
+
+  // Collect ALL keywords (primary + cluster) for a single bulk validation call
+  const allKeywords = new Set<string>();
+  for (const suggestion of suggestions) {
+    allKeywords.add(suggestion.keyword.toLowerCase());
+    if (suggestion.clusterKeywords) {
+      suggestion.clusterKeywords.forEach((k) => allKeywords.add(k.toLowerCase()));
+    }
+  }
+  const uniqueKeywords = [...allKeywords];
+
+  console.info(
+    `[Optimizer] Validating ${uniqueKeywords.length} keywords (${suggestions.length} primary + cluster keywords)`
+  );
 
   try {
-    // Batch DataForSEO validation
+    // Single bulk DataForSEO validation for all keywords (primary + cluster)
     const keywordData = await dataForSeoBreaker.execute(async () => {
-      return await keywordService.getBulkKeywordData(keywords);
+      return await keywordService.getBulkKeywordData(uniqueKeywords);
     });
 
-    apiCost.dataForSeo.searchVolumeCalls += Math.ceil(keywords.length / batchSize);
-    apiCost.dataForSeo.searchVolumeCost += keywords.length * 0.002;
+    apiCost.dataForSeo.searchVolumeCalls += Math.ceil(uniqueKeywords.length / batchSize);
+    apiCost.dataForSeo.searchVolumeCost += uniqueKeywords.length * 0.002;
 
-    // Map keyword data back to suggestions
+    // Map keyword data back by lowercase keyword
     const keywordMap = new Map(keywordData.map((k) => [k.keyword.toLowerCase(), k]));
 
-    let skippedZeroVolume = 0;
+    let skippedZeroCluster = 0;
     for (const suggestion of suggestions) {
-      const metrics = keywordMap.get(suggestion.keyword.toLowerCase());
-      if (!metrics) continue;
+      const primaryMetrics = keywordMap.get(suggestion.keyword.toLowerCase());
+      if (!primaryMetrics) continue;
 
-      // Skip keywords with zero search volume - DataForSEO has no data for these
-      // which means they're too specific/obscure to drive meaningful traffic
-      if (metrics.searchVolume === 0) {
-        skippedZeroVolume++;
+      // Assemble cluster data from validated keywords
+      const clusterResults = (suggestion.clusterKeywords || [])
+        .map((k) => {
+          const m = keywordMap.get(k.toLowerCase());
+          return m && m.searchVolume > 0
+            ? { keyword: m.keyword, searchVolume: m.searchVolume, cpc: m.cpc }
+            : null;
+        })
+        .filter((r): r is { keyword: string; searchVolume: number; cpc: number } => r !== null);
+
+      const primaryVolume = primaryMetrics.searchVolume;
+      const clusterTotalVolume =
+        primaryVolume + clusterResults.reduce((sum, r) => sum + r.searchVolume, 0);
+
+      // Skip if entire cluster (primary + related) has zero volume
+      if (clusterTotalVolume === 0) {
+        skippedZeroCluster++;
         continue;
       }
+
+      // Calculate volume-weighted average CPC across cluster
+      const totalWeightedCpc =
+        primaryVolume * primaryMetrics.cpc +
+        clusterResults.reduce((sum, r) => sum + r.searchVolume * r.cpc, 0);
+      const clusterAvgCpc = clusterTotalVolume > 0 ? totalWeightedCpc / clusterTotalVolume : 0;
+
+      const clusterData: ClusterData = {
+        primaryKeyword: suggestion.keyword,
+        primaryVolume,
+        clusterKeywords: clusterResults,
+        clusterTotalVolume,
+        clusterKeywordCount: clusterResults.length + 1, // +1 for primary
+        clusterAvgCpc,
+      };
 
       // Get Holibob inventory for this destination/category
       let inventory = { productCount: 0, categories: [] as string[] };
@@ -808,13 +868,15 @@ async function batchValidateOpportunities(
       // Check domain availability for suggested domains
       const domainAvailability = await checkDomainAvailability(suggestion);
 
-      // Calculate priority score with domain availability factor
+      // Calculate priority score using CLUSTER volume and CPC
       const priorityScore = calculateEnhancedScore({
-        searchVolume: metrics.searchVolume,
-        difficulty: metrics.keywordDifficulty,
-        cpc: metrics.cpc,
-        competition: metrics.competition,
-        trend: metrics.trend,
+        searchVolume: primaryMetrics.searchVolume,
+        clusterTotalVolume,
+        difficulty: primaryMetrics.keywordDifficulty,
+        cpc: primaryMetrics.cpc,
+        clusterAvgCpc,
+        competition: primaryMetrics.competition,
+        trend: primaryMetrics.trend,
         inventoryCount: inventory.productCount,
         confidenceScore: suggestion.confidenceScore,
         domainAvailable: domainAvailability.primaryAvailable,
@@ -824,28 +886,28 @@ async function batchValidateOpportunities(
       validated.push({
         suggestion: {
           ...suggestion,
-          // Store domain availability in suggestion for reference
           domainAvailability: domainAvailability,
         },
         dataForSeo: {
-          searchVolume: metrics.searchVolume,
-          difficulty: metrics.keywordDifficulty,
-          cpc: metrics.cpc,
-          competition: metrics.competition,
-          competitionLevel: metrics.competitionLevel,
-          trend: metrics.trend,
-          seasonality: metrics.seasonality,
-          monthlyTrends: metrics.monthlyTrends,
+          searchVolume: primaryMetrics.searchVolume,
+          difficulty: primaryMetrics.keywordDifficulty,
+          cpc: primaryMetrics.cpc,
+          competition: primaryMetrics.competition,
+          competitionLevel: primaryMetrics.competitionLevel,
+          trend: primaryMetrics.trend,
+          seasonality: primaryMetrics.seasonality,
+          monthlyTrends: primaryMetrics.monthlyTrends,
         },
+        clusterData,
         holibobInventory: inventory,
         priorityScore,
         validatedAt: new Date(),
       });
     }
 
-    if (skippedZeroVolume > 0) {
+    if (skippedZeroCluster > 0) {
       console.info(
-        `[Optimizer] Skipped ${skippedZeroVolume}/${suggestions.length} keywords with zero search volume (too specific for DataForSEO)`
+        `[Optimizer] Skipped ${skippedZeroCluster}/${suggestions.length} opportunities with zero cluster volume`
       );
     }
   } catch (error) {
@@ -874,8 +936,10 @@ async function batchValidateOpportunities(
 
 function calculateEnhancedScore(data: {
   searchVolume: number;
+  clusterTotalVolume?: number;
   difficulty: number;
   cpc: number;
+  clusterAvgCpc?: number;
   competition: number;
   trend: 'rising' | 'stable' | 'declining';
   inventoryCount: number;
@@ -883,17 +947,19 @@ function calculateEnhancedScore(data: {
   domainAvailable?: boolean;
   alternativesAvailable?: number;
 }): number {
-  // Search Volume (35%) - logarithmic scaling so 1K and 100K aren't linear
-  // log10(100)=2, log10(1000)=3, log10(10000)=4, log10(100000)=5
-  const logVolume = data.searchVolume > 0 ? Math.log10(data.searchVolume) : 0;
-  const volumeScore = Math.min((logVolume / 5) * 35, 35);
+  // Search Volume (35%) - use CLUSTER total volume for scoring (the real addressable volume)
+  // log10(1000)=3, log10(10000)=4, log10(100000)=5, log10(1000000)=6
+  const effectiveVolume = data.clusterTotalVolume || data.searchVolume;
+  const logVolume = effectiveVolume > 0 ? Math.log10(effectiveVolume) : 0;
+  const volumeScore = Math.min((logVolume / 6) * 35, 35); // /6 instead of /5 to account for larger cluster volumes
 
   // Competition / Difficulty (20%) - lower difficulty = higher score
   const competitionScore = ((100 - data.difficulty) / 100) * 20;
 
-  // Commercial Intent via CPC (20%) - CPC is the best proxy for commercial value
+  // Commercial Intent via CPC (20%) - use cluster average CPC for broader signal
   // $0=0pts, $1=8pts, $3=14pts, $5+=20pts
-  const cpcScore = Math.min((data.cpc / 5) * 20, 20);
+  const effectiveCpc = data.clusterAvgCpc || data.cpc;
+  const cpcScore = Math.min((effectiveCpc / 5) * 20, 20);
 
   // Inventory (10%) - signal, not a gate. Zero inventory gets 3pts minimum
   const inventoryBase = 3; // Minimum score even with zero inventory
@@ -1168,16 +1234,21 @@ async function generateFinalRankings(
     }
   }
 
-  // Sort by final score and keep opportunities above score 40 with real search volume
-  const MIN_SEARCH_VOLUME = 10;
+  // Sort by final score and keep opportunities above score 40 with real cluster search volume
+  const MIN_CLUSTER_VOLUME = 20000;
   const sorted = [...allOpportunities.values()]
-    .filter((item) => item.opportunity.dataForSeo.searchVolume >= MIN_SEARCH_VOLUME)
+    .filter((item) => {
+      const clusterVol =
+        item.opportunity.clusterData?.clusterTotalVolume ||
+        item.opportunity.dataForSeo.searchVolume;
+      return clusterVol >= MIN_CLUSTER_VOLUME;
+    })
     .sort((a, b) => b.opportunity.priorityScore - a.opportunity.priorityScore)
     .filter((item) => item.opportunity.priorityScore >= 40);
 
-  const droppedNoVolume = allOpportunities.size - sorted.length;
+  const droppedCount = allOpportunities.size - sorted.length;
   console.info(
-    `[Optimizer] Final ranking: ${sorted.length} opportunities above score 40 with volume >= ${MIN_SEARCH_VOLUME} (dropped ${droppedNoVolume} from ${allOpportunities.size} total)`
+    `[Optimizer] Final ranking: ${sorted.length} opportunities above score 40 with cluster volume >= ${MIN_CLUSTER_VOLUME} (dropped ${droppedCount} from ${allOpportunities.size} total)`
   );
 
   // Generate explanations only for top 20 (to control API costs)
@@ -1187,11 +1258,14 @@ async function generateFinalRankings(
     if (!item) continue;
     const opp = item.opportunity;
 
+    const clusterVol = opp.clusterData?.clusterTotalVolume || opp.dataForSeo.searchVolume;
+    const clusterCount = opp.clusterData?.clusterKeywordCount || 1;
+
     // Only generate AI explanations for top 20
     const explanation =
       i < 20
         ? await generateOpportunityExplanation(opp, apiCost)
-        : `Score ${opp.priorityScore}: ${opp.dataForSeo.searchVolume}/mo searches, difficulty ${opp.dataForSeo.difficulty}, CPC $${opp.dataForSeo.cpc.toFixed(2)}`;
+        : `Score ${opp.priorityScore}: ${clusterVol.toLocaleString()}/mo cluster volume (${clusterCount} keywords), difficulty ${opp.dataForSeo.difficulty}, CPC $${opp.dataForSeo.cpc.toFixed(2)}`;
 
     const projectedValue = calculateProjectedValue(opp);
 
@@ -1272,9 +1346,15 @@ function calculateProjectedValue(opp: ValidatedOpportunity): {
   monthlyRevenue: number;
   paybackPeriod: number;
 } {
-  // Estimate CTR based on assumed position 5 (new site)
-  const estimatedCtr = 0.05; // 5% CTR at position 5
-  const monthlyTraffic = Math.round(opp.dataForSeo.searchVolume * estimatedCtr);
+  // Blended CTR model: primary keyword ranks higher, cluster keywords at lower positions
+  const primaryVolume = opp.dataForSeo.searchVolume;
+  const clusterTotalVolume = opp.clusterData?.clusterTotalVolume || primaryVolume;
+  const secondaryVolume = clusterTotalVolume - primaryVolume;
+
+  const primaryCtr = 0.05; // 5% CTR for primary keyword (~position 5)
+  const secondaryCtr = 0.03; // 3% CTR for cluster keywords (~position 7-8)
+
+  const monthlyTraffic = Math.round(primaryVolume * primaryCtr + secondaryVolume * secondaryCtr);
 
   // Estimate conversion rate for travel experiences
   const conversionRate = 0.02; // 2% booking conversion

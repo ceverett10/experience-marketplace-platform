@@ -125,6 +125,7 @@ async function runIntegratedOptimization(
             domainSuggestions: ranked.domainSuggestions,
             projectedValue: ranked.projectedValue,
             dataForSeo: opp.dataForSeo,
+            keywordCluster: opp.clusterData ? JSON.parse(JSON.stringify(opp.clusterData)) : null,
             holibobInventory: opp.holibobInventory,
             iterationCount: result.iterations.length,
             totalApiCost: result.totalApiCost.totalCost,
@@ -144,6 +145,7 @@ async function runIntegratedOptimization(
             domainSuggestions: ranked.domainSuggestions,
             projectedValue: ranked.projectedValue,
             dataForSeo: opp.dataForSeo,
+            keywordCluster: opp.clusterData ? JSON.parse(JSON.stringify(opp.clusterData)) : null,
             holibobInventory: opp.holibobInventory,
             iterationCount: result.iterations.length,
             totalApiCost: result.totalApiCost.totalCost,
@@ -766,11 +768,16 @@ async function generateAISeeds(inventoryLandscape: InventoryLandscape): Promise<
     '## Required Output',
     'Return EXACTLY 120 items as a JSON array. Each must have:',
     '- keyword: A SHORT (2-5 word) Google search term that real people type (e.g., "food tours rome", "things to do london", "wine tasting tours")',
+    '- clusterKeywords: Array of 5-8 related Google search terms that a niche site for this keyword would ALSO rank for. These represent the broader keyword cluster. Each must be a real search query.',
+    '  Example: for keyword "honeymoon activities" → clusterKeywords: ["honeymoon ideas", "honeymoon things to do", "romantic trip activities", "best honeymoon experiences", "honeymoon planning", "honeymoon destinations"]',
+    '  Example: for keyword "food tours rome" → clusterKeywords: ["rome food tour", "best restaurants rome", "rome cooking class", "rome street food", "italian food tour", "trastevere food tour"]',
     '- destination: Specific location or null for location-agnostic',
     '- category: Primary experience category',
     '- niche: The micro-segment description',
     '- scanMode: One of "hyper_local", "generic_activity", "demographic", "occasion", "experience_level", "regional"',
     '- rationale: One sentence on why this is a strong opportunity',
+    '',
+    'The clusterKeywords are CRITICAL - we evaluate opportunities by TOTAL cluster volume, not just the primary keyword. A site ranks for many related terms.',
     '',
     'Aim for roughly: 40 hyper_local, 20 generic_activity, 20 demographic, 15 occasion, 15 experience_level, 10 regional.',
     '',
@@ -787,7 +794,7 @@ async function generateAISeeds(inventoryLandscape: InventoryLandscape): Promise<
     },
     body: JSON.stringify({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 16000,
+      max_tokens: 32000,
       messages: [{ role: 'user', content: prompt }],
     }),
   });
@@ -834,6 +841,7 @@ async function generateAISeeds(inventoryLandscape: InventoryLandscape): Promise<
 
   const rawSeeds = JSON.parse(jsonMatch[0]) as Array<{
     keyword: string;
+    clusterKeywords?: string[];
     destination: string | null;
     category: string;
     niche: string;
@@ -846,6 +854,7 @@ async function generateAISeeds(inventoryLandscape: InventoryLandscape): Promise<
   // Convert to OpportunitySeed format - NO inventory gating
   return rawSeeds.map((seed) => ({
     keyword: seed.keyword,
+    clusterKeywords: Array.isArray(seed.clusterKeywords) ? seed.clusterKeywords : [],
     destination: seed.destination || undefined,
     category: seed.category,
     niche: seed.niche,

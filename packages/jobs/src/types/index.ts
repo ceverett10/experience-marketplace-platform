@@ -71,6 +71,7 @@ export type ScanMode =
 // Seed opportunity structure for multi-mode scanning
 export interface OpportunitySeed {
   keyword: string;
+  clusterKeywords?: string[]; // Related search terms for keyword cluster volume estimation
   destination?: string; // undefined for generic/demographic/occasion
   category: string;
   niche: string;
