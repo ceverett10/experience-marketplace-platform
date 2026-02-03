@@ -29,6 +29,11 @@ interface Opportunity {
   sourceData?: {
     scanMode?: string;
     optimizationRank?: number;
+    optimizationJourney?: {
+      firstSeenIteration: number;
+      iterationScores: number[];
+      wasRefined: boolean;
+    };
     domainSuggestions?: {
       primary: string;
       alternatives: string[];
@@ -46,6 +51,20 @@ interface Opportunity {
       clusterKeywordCount: number;
       clusterAvgCpc: number;
     };
+    dataForSeo?: {
+      searchVolume: number;
+      difficulty: number;
+      cpc: number;
+      trend?: string;
+      competition?: number;
+      seasonality?: number[];
+    };
+    holibobInventory?: {
+      productCount: number;
+      categories: string[];
+    };
+    iterationCount?: number;
+    totalApiCost?: number;
   };
 }
 
@@ -55,6 +74,7 @@ interface Stats {
   evaluated: number;
   assigned: number;
   highPriority: number;
+  archived: number;
 }
 
 export default function OpportunitiesPage() {
@@ -65,9 +85,11 @@ export default function OpportunitiesPage() {
     evaluated: 0,
     assigned: 0,
     highPriority: 0,
+    archived: 0,
   });
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<'score' | 'volume' | 'created'>('score');
+  const [discarding, setDiscarding] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<'score' | 'volume' | 'cluster' | 'created'>('score');
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
   const [scanMessage, setScanMessage] = useState<string | null>(null);
@@ -82,7 +104,14 @@ export default function OpportunitiesPage() {
         const data = await response.json();
         setOpportunities(data.opportunities || []);
         setStats(
-          data.stats || { total: 0, identified: 0, evaluated: 0, assigned: 0, highPriority: 0 }
+          data.stats || {
+            total: 0,
+            identified: 0,
+            evaluated: 0,
+            assigned: 0,
+            highPriority: 0,
+            archived: 0,
+          }
         );
       } catch (error) {
         console.error('Failed to fetch opportunities:', error);
@@ -96,24 +125,39 @@ export default function OpportunitiesPage() {
 
   const handleAction = async (opportunityId: string, action: 'dismiss' | 'create-site') => {
     try {
-      const response = await fetch('/api/opportunities', {
+      if (action === 'dismiss') setDiscarding(opportunityId);
+      const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+      const response = await fetch(`${basePath}/api/opportunities`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ opportunityId, action }),
       });
 
       if (response.ok) {
+        // Remove discarded opportunity from local state immediately for snappy UX
+        if (action === 'dismiss') {
+          setOpportunities((prev) => prev.filter((o) => o.id !== opportunityId));
+        }
         // Refresh opportunities
         const data = await fetch(`/admin/api/opportunities?status=${statusFilter}`).then((r) =>
           r.json()
         );
         setOpportunities(data.opportunities || []);
         setStats(
-          data.stats || { total: 0, identified: 0, evaluated: 0, assigned: 0, highPriority: 0 }
+          data.stats || {
+            total: 0,
+            identified: 0,
+            evaluated: 0,
+            assigned: 0,
+            highPriority: 0,
+            archived: 0,
+          }
         );
       }
     } catch (error) {
       console.error('Failed to perform action:', error);
+    } finally {
+      setDiscarding(null);
     }
   };
 
@@ -151,7 +195,8 @@ export default function OpportunitiesPage() {
     try {
       setScanning(true);
       setScanMessage('Starting scan...');
-      const response = await fetch('/api/opportunities', {
+      const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+      const response = await fetch(`${basePath}/api/opportunities`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'start-scan' }),
@@ -173,7 +218,14 @@ export default function OpportunitiesPage() {
             );
             setOpportunities(data.opportunities || []);
             setStats(
-              data.stats || { total: 0, identified: 0, evaluated: 0, assigned: 0, highPriority: 0 }
+              data.stats || {
+                total: 0,
+                identified: 0,
+                evaluated: 0,
+                assigned: 0,
+                highPriority: 0,
+                archived: 0,
+              }
             );
 
             if (attempts >= maxAttempts) {
@@ -205,6 +257,11 @@ export default function OpportunitiesPage() {
   const sortedOpportunities = [...opportunities].sort((a, b) => {
     if (sortBy === 'score') return b.priorityScore - a.priorityScore;
     if (sortBy === 'volume') return b.searchVolume - a.searchVolume;
+    if (sortBy === 'cluster') {
+      const aCluster = a.sourceData?.keywordCluster?.clusterTotalVolume ?? a.searchVolume;
+      const bCluster = b.sourceData?.keywordCluster?.clusterTotalVolume ?? b.searchVolume;
+      return bCluster - aCluster;
+    }
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
 
@@ -311,7 +368,7 @@ export default function OpportunitiesPage() {
       )}
 
       {/* Stats cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-6 gap-4">
         <Card className="cursor-pointer hover:shadow-md transition-shadow">
           <CardContent className="p-4">
             <p className="text-2xl font-bold text-slate-900">{stats.total}</p>
@@ -342,6 +399,15 @@ export default function OpportunitiesPage() {
             <p className="text-sm text-slate-500">High Priority</p>
           </CardContent>
         </Card>
+        <Card
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => setStatusFilter(statusFilter === 'ARCHIVED' ? 'all' : 'ARCHIVED')}
+        >
+          <CardContent className="p-4">
+            <p className="text-2xl font-bold text-slate-400">{stats.archived}</p>
+            <p className="text-sm text-slate-500">Discarded</p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Filters */}
@@ -359,15 +425,16 @@ export default function OpportunitiesPage() {
           <option value="CONTENT_REVIEW">Content Review</option>
           <option value="PUBLISHED">Published</option>
           <option value="MONITORING">Monitoring</option>
-          <option value="ARCHIVED">Archived</option>
+          <option value="ARCHIVED">Discarded</option>
         </select>
         <select
           value={sortBy}
-          onChange={(e) => setSortBy(e.target.value as 'score' | 'volume' | 'created')}
+          onChange={(e) => setSortBy(e.target.value as 'score' | 'volume' | 'cluster' | 'created')}
           className="px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"
         >
           <option value="score">Sort by Priority Score</option>
           <option value="volume">Sort by Search Volume</option>
+          <option value="cluster">Sort by Cluster Volume</option>
           <option value="created">Sort by Date</option>
         </select>
       </div>
@@ -399,7 +466,7 @@ export default function OpportunitiesPage() {
               </div>
 
               {/* Metrics grid */}
-              <div className="grid grid-cols-4 gap-4 p-4 bg-slate-50 rounded-lg">
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-4 p-4 bg-slate-50 rounded-lg">
                 <div>
                   <div className="text-xs text-slate-500 mb-1">Search Volume</div>
                   <div className="text-lg font-semibold text-slate-900">
@@ -419,8 +486,22 @@ export default function OpportunitiesPage() {
                   <div className="text-lg font-semibold text-slate-900">${opp.cpc.toFixed(2)}</div>
                 </div>
                 <div>
-                  <div className="text-xs text-slate-500 mb-1">Source</div>
-                  <div className="text-sm font-medium text-slate-700">{opp.source}</div>
+                  <div className="text-xs text-slate-500 mb-1">Products</div>
+                  <div className="text-lg font-semibold text-slate-900">
+                    {opp.sourceData?.holibobInventory?.productCount?.toLocaleString() ?? '—'}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-slate-500 mb-1">Trend</div>
+                  <div className="text-sm font-semibold text-slate-900">
+                    {opp.sourceData?.dataForSeo?.trend ?? '—'}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-slate-500 mb-1">Rank</div>
+                  <div className="text-lg font-semibold text-slate-900">
+                    {opp.sourceData?.optimizationRank ? `#${opp.sourceData.optimizationRank}` : '—'}
+                  </div>
                 </div>
               </div>
 
@@ -633,23 +714,29 @@ export default function OpportunitiesPage() {
               <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-200">
                 <div className="text-xs text-slate-500">
                   Created {new Date(opp.createdAt).toLocaleDateString()}
+                  {opp.sourceData?.scanMode && (
+                    <span className="ml-2 text-xs text-slate-400">
+                      via {opp.sourceData.scanMode.replace(/_/g, ' ')}
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
-                  {opp.status === 'IDENTIFIED' && (
-                    <>
-                      <button
-                        onClick={() => handleAction(opp.id, 'dismiss')}
-                        className="px-3 py-1.5 text-sm border border-slate-200 hover:bg-slate-50 rounded-lg transition-colors"
-                      >
-                        Dismiss
-                      </button>
-                      <button
-                        onClick={() => handleAction(opp.id, 'create-site')}
-                        className="px-3 py-1.5 text-sm bg-sky-600 hover:bg-sky-700 text-white rounded-lg transition-colors"
-                      >
-                        Create Site
-                      </button>
-                    </>
+                  {opp.status !== 'ARCHIVED' && (
+                    <button
+                      onClick={() => handleAction(opp.id, 'dismiss')}
+                      disabled={discarding === opp.id}
+                      className="px-3 py-1.5 text-sm border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
+                    >
+                      {discarding === opp.id ? 'Discarding...' : 'Discard'}
+                    </button>
+                  )}
+                  {(opp.status === 'IDENTIFIED' || opp.status === 'EVALUATED') && (
+                    <button
+                      onClick={() => handleAction(opp.id, 'create-site')}
+                      className="px-3 py-1.5 text-sm bg-sky-600 hover:bg-sky-700 text-white rounded-lg transition-colors"
+                    >
+                      Create Site
+                    </button>
                   )}
                   {opp.siteId && (
                     <a

@@ -9,8 +9,13 @@ export async function GET(request: Request) {
 
     // Build query filters
     const where: any = {};
-    if (status && status !== 'all') {
+    if (status === 'ARCHIVED') {
+      where.status = 'ARCHIVED';
+    } else if (status && status !== 'all') {
       where.status = status;
+    } else {
+      // Default "all" excludes ARCHIVED so discarded opportunities are hidden
+      where.status = { not: 'ARCHIVED' };
     }
 
     // Fetch opportunities from database
@@ -38,6 +43,7 @@ export async function GET(request: Request) {
       highPriority: await prisma.sEOOpportunity.count({
         where: { priorityScore: { gte: 75 } },
       }),
+      archived: await prisma.sEOOpportunity.count({ where: { status: 'ARCHIVED' } }),
     };
 
     return NextResponse.json({
