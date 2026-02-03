@@ -90,10 +90,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         {/* Preconnect to external APIs for faster resource loading */}
         <link rel="preconnect" href="https://api.sandbox.holibob.tech" />
         <link rel="dns-prefetch" href="https://api.sandbox.holibob.tech" />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        {/* Preconnect to image CDNs for faster image loading */}
+        <link rel="preconnect" href="https://images.holibob.tech" />
+        <link rel="dns-prefetch" href="https://images.holibob.tech" />
         <link rel="preconnect" href="https://images.unsplash.com" />
         <link rel="dns-prefetch" href="https://images.unsplash.com" />
+        <link rel="preconnect" href="https://res.cloudinary.com" />
+        <link rel="dns-prefetch" href="https://res.cloudinary.com" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         {brandCSS && <style dangerouslySetInnerHTML={{ __html: brandCSS }} />}
       </head>
       <body className="min-h-screen bg-white font-sans antialiased">

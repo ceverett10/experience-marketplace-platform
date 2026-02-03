@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { useSite, useBrand } from '@/lib/site-context';
@@ -57,13 +58,18 @@ export function Header() {
         <div className="flex lg:flex-1">
           <Link href="/" className="-m-1.5 p-1.5">
             {brand?.logoUrl ? (
-              <img
-                className={`h-8 w-auto transition-all duration-300 ${
-                  isTransparent ? 'brightness-0 invert drop-shadow-md' : ''
-                }`}
-                src={brand.logoUrl}
-                alt={site.name}
-              />
+              <div className="relative h-8 w-32">
+                <Image
+                  className={`object-contain object-left transition-all duration-300 ${
+                    isTransparent ? 'brightness-0 invert drop-shadow-md' : ''
+                  }`}
+                  src={brand.logoUrl}
+                  alt={site.name}
+                  fill
+                  sizes="128px"
+                  priority
+                />
+              </div>
             ) : (
               <span
                 className={`text-xl font-bold transition-colors duration-300 ${

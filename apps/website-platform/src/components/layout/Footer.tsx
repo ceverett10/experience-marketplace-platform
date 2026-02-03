@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useSite, useBrand, useHomepageConfig } from '@/lib/site-context';
 
 // Default footer categories if none configured for the site
@@ -59,7 +60,15 @@ export function Footer() {
           {/* Brand section */}
           <div className="space-y-8">
             {brand?.logoUrl ? (
-              <img className="h-8" src={brand.logoUrl} alt={site.name} />
+              <div className="relative h-8 w-32">
+                <Image
+                  className="object-contain object-left brightness-0 invert"
+                  src={brand.logoUrl}
+                  alt={site.name}
+                  fill
+                  sizes="128px"
+                />
+              </div>
             ) : (
               <span className="text-2xl font-bold text-white">{site.name}</span>
             )}
