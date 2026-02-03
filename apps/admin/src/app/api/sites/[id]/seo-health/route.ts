@@ -502,11 +502,21 @@ export async function POST(
     }
 
     // Create and enqueue the SEO audit job via BullMQ
-    const jobId = await addJob('SEO_ANALYZE', {
-      siteId: id,
-      triggerOptimizations: true,
-      fullSiteAudit: true,
-    });
+    let jobId: string;
+    try {
+      jobId = await addJob('SEO_ANALYZE', {
+        siteId: id,
+        triggerOptimizations: true,
+        fullSiteAudit: true,
+      });
+    } catch (addJobError) {
+      const msg = addJobError instanceof Error ? addJobError.message : String(addJobError);
+      console.error('[API] addJob failed:', msg, addJobError);
+      return NextResponse.json(
+        { error: `Failed to enqueue SEO audit job: ${msg}` },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,
@@ -517,6 +527,10 @@ export async function POST(
     });
   } catch (error) {
     console.error('[API] Error triggering SEO audit:', error);
-    return NextResponse.json({ error: 'Failed to trigger SEO audit' }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return NextResponse.json(
+      { error: `Failed to trigger SEO audit: ${errorMessage}` },
+      { status: 500 }
+    );
   }
 }
