@@ -195,7 +195,7 @@ export function ExperienceGallery({ images, title }: ExperienceGalleryProps) {
             onClick={(e) => e.stopPropagation()}
           >
             <Image
-              src={images[selectedIndex]}
+              src={images[selectedIndex] ?? images[0] ?? '/placeholder-experience.jpg'}
               alt={`${title} - Image ${selectedIndex + 1}`}
               fill
               sizes="90vw"
