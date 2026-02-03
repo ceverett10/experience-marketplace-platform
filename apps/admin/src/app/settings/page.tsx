@@ -100,7 +100,7 @@ export default function AdminSettingsPage() {
   useEffect(() => {
     const loadAutonomousSettings = async () => {
       try {
-        const response = await fetch('/admin/api/settings/autonomous');
+        const response = await fetch('/api/settings/autonomous');
         if (response.ok) {
           const data = await response.json();
           if (data.success && data.settings) {
@@ -126,7 +126,7 @@ export default function AdminSettingsPage() {
 
     const loadProcessorStatus = async () => {
       try {
-        const response = await fetch('/admin/api/settings/roadmap-processor');
+        const response = await fetch('/api/settings/roadmap-processor');
         if (response.ok) {
           const data = await response.json();
           if (data.success) {
@@ -162,7 +162,7 @@ export default function AdminSettingsPage() {
     setProcessorLoading(true);
     setProcessorResult(null);
     try {
-      const response = await fetch('/admin/api/settings/roadmap-processor', {
+      const response = await fetch('/api/settings/roadmap-processor', {
         method: 'POST',
       });
       const data = await response.json();
@@ -170,7 +170,7 @@ export default function AdminSettingsPage() {
       if (response.ok && data.success) {
         setProcessorResult({ message: data.message, isError: false });
         // Refresh processor status
-        const statusResponse = await fetch('/admin/api/settings/roadmap-processor');
+        const statusResponse = await fetch('/api/settings/roadmap-processor');
         if (statusResponse.ok) {
           const statusData = await statusResponse.json();
           if (statusData.success) {
@@ -198,8 +198,8 @@ export default function AdminSettingsPage() {
     setPauseLoading(true);
     try {
       const endpoint = autonomousState.allProcessesPaused
-        ? '/admin/api/settings/resume-all'
-        : '/admin/api/settings/pause-all';
+        ? '/api/settings/resume-all'
+        : '/api/settings/pause-all';
 
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -229,7 +229,7 @@ export default function AdminSettingsPage() {
 
   const updateAutonomousSettings = async (updates: Partial<typeof autonomousState>) => {
     try {
-      const response = await fetch('/admin/api/settings/autonomous', {
+      const response = await fetch('/api/settings/autonomous', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates),

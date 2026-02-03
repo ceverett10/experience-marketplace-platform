@@ -194,7 +194,7 @@ function JobExplorerContent() {
   const fetchJobDetail = async (jobId: string) => {
     setDetailLoading(true);
     try {
-      const response = await fetch('/admin/api/operations/jobs', {
+      const response = await fetch('/api/operations/jobs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'get-detail', jobId }),
@@ -222,7 +222,7 @@ function JobExplorerContent() {
   const handleRetry = async (jobId: string) => {
     setRetryingJobId(jobId);
     try {
-      await fetch('/admin/api/operations/jobs', {
+      await fetch('/api/operations/jobs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'retry', jobId }),
@@ -241,7 +241,7 @@ function JobExplorerContent() {
     try {
       const filter: any = {};
       if (type) filter.type = type;
-      await fetch('/admin/api/operations/jobs', {
+      await fetch('/api/operations/jobs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'bulk-retry', filter }),

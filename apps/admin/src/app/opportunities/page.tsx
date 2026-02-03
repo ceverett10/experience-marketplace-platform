@@ -96,7 +96,7 @@ export default function OpportunitiesPage() {
 
   const handleAction = async (opportunityId: string, action: 'dismiss' | 'create-site') => {
     try {
-      const response = await fetch('/admin/api/opportunities', {
+      const response = await fetch('/api/opportunities', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ opportunityId, action }),
@@ -151,7 +151,7 @@ export default function OpportunitiesPage() {
     try {
       setScanning(true);
       setScanMessage('Starting scan...');
-      const response = await fetch('/admin/api/opportunities', {
+      const response = await fetch('/api/opportunities', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'start-scan' }),

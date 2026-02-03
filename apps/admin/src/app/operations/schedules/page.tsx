@@ -86,7 +86,7 @@ export default function ScheduledJobsPage() {
   useEffect(() => {
     const fetchSchedules = async () => {
       try {
-        const response = await fetch('/admin/api/operations/schedules');
+        const response = await fetch('/api/operations/schedules');
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
         setSchedules(data.schedules || []);
@@ -105,7 +105,7 @@ export default function ScheduledJobsPage() {
   const triggerJob = async (jobType: string) => {
     setTriggerLoading(jobType);
     try {
-      const response = await fetch('/admin/api/operations/schedules', {
+      const response = await fetch('/api/operations/schedules', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'trigger', jobType }),
@@ -113,7 +113,7 @@ export default function ScheduledJobsPage() {
       const data = await response.json();
       if (data.success) {
         // Refresh to show the new job
-        const res = await fetch('/admin/api/operations/schedules');
+        const res = await fetch('/api/operations/schedules');
         const refreshed = await res.json();
         setSchedules(refreshed.schedules || []);
       }

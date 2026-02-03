@@ -79,7 +79,7 @@ export default function OperationsDashboard() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await fetch('/admin/api/operations/dashboard');
+        const response = await fetch('/api/operations/dashboard');
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const json = await response.json();
         setData(json);
