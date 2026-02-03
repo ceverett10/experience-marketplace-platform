@@ -2,12 +2,19 @@ import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getSiteFromHostname } from '@/lib/tenant';
-import { getHolibobClient, mapProductToExperience, type Experience } from '@/lib/holibob';
+import {
+  getHolibobClient,
+  mapProductToExperience,
+  parseIsoDuration,
+  type Experience,
+  type ExperienceListItem,
+} from '@/lib/holibob';
 import { ExperienceGallery } from '@/components/experiences/ExperienceGallery';
 import { BookingWidget } from '@/components/experiences/BookingWidget';
 import { ReviewsCarousel } from '@/components/experiences/ReviewsCarousel';
 import { AboutActivity } from '@/components/experiences/AboutActivity';
 import { MobileBookingCTA } from '@/components/experiences/MobileBookingCTA';
+import { RelatedExperiences } from '@/components/experiences/RelatedExperiences';
 import { TrackViewItem } from '@/components/analytics/TrackViewItem';
 
 interface Props {
@@ -57,6 +64,69 @@ async function getExperience(
   }
 }
 
+async function getRelatedExperiences(
+  site: Awaited<ReturnType<typeof getSiteFromHostname>>,
+  experience: Experience
+): Promise<ExperienceListItem[]> {
+  try {
+    const client = getHolibobClient(site);
+    const response = await client.discoverProducts(
+      {
+        currency: 'GBP',
+        freeText: experience.location.name || undefined,
+      },
+      { pageSize: 5 }
+    );
+
+    return response.products
+      .filter((p) => p.id !== experience.id)
+      .slice(0, 4)
+      .map((product) => {
+        const primaryImage =
+          product.imageList?.[0]?.url ?? product.imageUrl ?? '/placeholder-experience.jpg';
+        const priceAmount = product.guidePrice ?? product.priceFrom ?? 0;
+        const priceCurrency =
+          product.guidePriceCurrency ?? product.priceCurrency ?? product.currency ?? 'GBP';
+
+        let durationFormatted = 'Duration varies';
+        if (product.durationText) {
+          durationFormatted = product.durationText;
+        } else if (product.maxDuration != null) {
+          const minutes = parseIsoDuration(product.maxDuration);
+          if (minutes > 0) {
+            const hours = Math.floor(minutes / 60);
+            const mins = minutes % 60;
+            durationFormatted = hours > 0 ? (mins > 0 ? `${hours}h ${mins}m` : `${hours}h`) : `${minutes}m`;
+          }
+        }
+
+        const priceFormatted =
+          product.guidePriceFormattedText ??
+          product.priceFromFormatted ??
+          new Intl.NumberFormat('en-GB', { style: 'currency', currency: priceCurrency }).format(
+            priceAmount / 100
+          );
+
+        return {
+          id: product.id,
+          title: product.name ?? 'Experience',
+          slug: product.id,
+          shortDescription: product.shortDescription ?? '',
+          imageUrl: primaryImage,
+          price: { amount: priceAmount, currency: priceCurrency, formatted: priceFormatted },
+          duration: { formatted: durationFormatted },
+          rating: product.reviewRating
+            ? { average: product.reviewRating, count: product.reviewCount ?? 0 }
+            : null,
+          location: { name: product.location?.name ?? '' },
+        };
+      });
+  } catch (error) {
+    console.error('Error fetching related experiences:', error);
+    return [];
+  }
+}
+
 // No mock data - all data comes from Holibob API
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -82,6 +152,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       images: [experience.imageUrl],
       type: 'website',
     },
+    twitter: {
+      card: 'summary_large_image',
+      title: experience.title,
+      description: experience.shortDescription,
+      images: [experience.imageUrl],
+    },
+    alternates: {
+      canonical: `https://${site.primaryDomain || hostname}/experiences/${slug}`,
+    },
   };
 }
 
@@ -97,6 +176,9 @@ export default async function ExperienceDetailPage({ params }: Props) {
     // Return 404 if product not found or API error
     notFound();
   }
+
+  // Fetch related experiences in parallel (non-blocking)
+  const relatedExperiences = await getRelatedExperiences(site, experience);
 
   // Generate JSON-LD structured data with enhanced Product schema
   const jsonLd = {
@@ -160,6 +242,44 @@ export default async function ExperienceDetailPage({ params }: Props) {
     experience.cancellationPolicy?.toLowerCase().includes('free') ||
     experience.cancellationPolicy?.toLowerCase().includes('full refund');
 
+  // FAQ structured data for SEO
+  const faqLd = {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: [
+      ...(hasFreeCancellation
+        ? [
+            {
+              '@type': 'Question',
+              name: 'What is the cancellation policy?',
+              acceptedAnswer: {
+                '@type': 'Answer',
+                text:
+                  experience.cancellationPolicy ||
+                  'You can cancel free of charge up to 24 hours before the activity starts for a full refund.',
+              },
+            },
+          ]
+        : []),
+      {
+        '@type': 'Question',
+        name: 'How do I book this experience?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: "Click 'Check availability' to select your preferred date and number of guests. You'll receive instant confirmation after booking.",
+        },
+      },
+      {
+        '@type': 'Question',
+        name: 'What should I bring?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: 'We recommend comfortable shoes and weather-appropriate clothing. Your booking confirmation will include any specific requirements for this activity.',
+        },
+      },
+    ],
+  };
+
   // BreadcrumbList structured data
   const breadcrumbLd = {
     '@context': 'https://schema.org',
@@ -220,6 +340,11 @@ export default async function ExperienceDetailPage({ params }: Props) {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }}
+      />
+      {/* JSON-LD Structured Data - FAQ */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }}
       />
 
       <div className="min-h-screen bg-gray-50">
@@ -691,6 +816,69 @@ export default async function ExperienceDetailPage({ params }: Props) {
             </div>
           </div>
         </div>
+
+        {/* FAQ Section */}
+        <section className="mx-auto max-w-7xl px-4 pb-8 sm:px-6 lg:px-8">
+          <div className="rounded-xl border border-gray-200 bg-white p-6">
+            <h2 className="mb-4 text-xl font-semibold text-gray-900">
+              Frequently asked questions
+            </h2>
+            <div className="divide-y divide-gray-200">
+              {hasFreeCancellation && (
+                <details className="group py-4">
+                  <summary className="flex cursor-pointer items-center justify-between text-sm font-medium text-gray-900">
+                    What is the cancellation policy?
+                    <svg className="h-5 w-5 text-gray-400 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                    </svg>
+                  </summary>
+                  <p className="mt-2 text-sm text-gray-600">
+                    {experience.cancellationPolicy || 'You can cancel free of charge up to 24 hours before the activity starts for a full refund.'}
+                  </p>
+                </details>
+              )}
+              <details className="group py-4">
+                <summary className="flex cursor-pointer items-center justify-between text-sm font-medium text-gray-900">
+                  How do I book this experience?
+                  <svg className="h-5 w-5 text-gray-400 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                  </svg>
+                </summary>
+                <p className="mt-2 text-sm text-gray-600">
+                  Click &quot;Check availability&quot; to select your preferred date and number of guests. You&apos;ll receive instant confirmation after booking.
+                </p>
+              </details>
+              <details className="group py-4">
+                <summary className="flex cursor-pointer items-center justify-between text-sm font-medium text-gray-900">
+                  What should I bring?
+                  <svg className="h-5 w-5 text-gray-400 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                  </svg>
+                </summary>
+                <p className="mt-2 text-sm text-gray-600">
+                  We recommend comfortable shoes and weather-appropriate clothing. Your booking confirmation will include any specific requirements for this activity.
+                </p>
+              </details>
+              <details className="group py-4">
+                <summary className="flex cursor-pointer items-center justify-between text-sm font-medium text-gray-900">
+                  Is this experience suitable for children?
+                  <svg className="h-5 w-5 text-gray-400 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                  </svg>
+                </summary>
+                <p className="mt-2 text-sm text-gray-600">
+                  Check the additional information section above for age requirements. When booking, you can specify the number of children to see if discounted rates apply.
+                </p>
+              </details>
+            </div>
+          </div>
+        </section>
+
+        {/* Related Experiences */}
+        <RelatedExperiences
+          experiences={relatedExperiences}
+          title={`More things to do in ${experience.location.name || 'this area'}`}
+        />
 
         {/* Mobile Sticky CTA with Availability Modal */}
         <MobileBookingCTA

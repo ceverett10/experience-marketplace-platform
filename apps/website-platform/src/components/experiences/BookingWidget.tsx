@@ -18,8 +18,8 @@ export function BookingWidget({ experience }: BookingWidgetProps) {
     experience.cancellationPolicy?.toLowerCase().includes('free') ||
     experience.cancellationPolicy?.toLowerCase().includes('full refund');
 
-  // Simulate "likely to sell out" based on rating
-  const isPopular = experience.rating && experience.rating.count > 50;
+  // Show "likely to sell out" for experiences with decent engagement
+  const isPopular = experience.rating && experience.rating.count > 10;
 
   const primaryColor = brand?.primaryColor ?? '#0d9488'; // teal-600
 

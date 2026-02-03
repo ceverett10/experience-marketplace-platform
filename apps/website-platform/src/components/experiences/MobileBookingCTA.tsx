@@ -31,7 +31,7 @@ export function MobileBookingCTA({ productId, productName, priceFormatted }: Mob
             className="min-h-[48px] rounded-xl px-6 py-3 text-sm font-semibold text-white shadow-sm transition-opacity active:opacity-80"
             style={{ backgroundColor: primaryColor }}
           >
-            Check availability
+            Reserve now - Free cancellation
           </button>
         </div>
       </div>

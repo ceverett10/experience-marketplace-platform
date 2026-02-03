@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { useState } from 'react';
+import { useState, useCallback, useRef } from 'react';
 
 interface ExperienceGalleryProps {
   images: string[];
@@ -11,6 +11,32 @@ interface ExperienceGalleryProps {
 export function ExperienceGallery({ images, title }: ExperienceGalleryProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Touch/swipe handling for lightbox
+  const touchStartX = useRef(0);
+  const touchEndX = useRef(0);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  }, []);
+
+  const handleTouchEnd = useCallback(
+    (e: React.TouchEvent) => {
+      touchEndX.current = e.changedTouches[0].clientX;
+      const diff = touchStartX.current - touchEndX.current;
+      const threshold = 50;
+      if (Math.abs(diff) > threshold) {
+        if (diff > 0) {
+          // Swipe left - next image
+          setSelectedIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1));
+        } else {
+          // Swipe right - previous image
+          setSelectedIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1));
+        }
+      }
+    },
+    [images.length]
+  );
 
   const displayImages = images.slice(0, 5);
   const remainingCount = images.length - 5;
@@ -52,6 +78,7 @@ export function ExperienceGallery({ images, title }: ExperienceGalleryProps) {
                 src={image}
                 alt={`${title} - Image ${idx + 2}`}
                 fill
+                loading="lazy"
                 sizes="25vw"
                 className="object-cover transition-opacity hover:opacity-90"
               />
@@ -92,11 +119,13 @@ export function ExperienceGallery({ images, title }: ExperienceGalleryProps) {
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
           onClick={() => setIsModalOpen(false)}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
         >
           {/* Close button */}
           <button
             onClick={() => setIsModalOpen(false)}
-            className="absolute right-4 top-4 rounded-full bg-white/10 p-2 text-white hover:bg-white/20"
+            className="absolute right-4 top-4 z-10 rounded-full bg-white/10 p-2 text-white hover:bg-white/20"
           >
             <svg
               className="h-6 w-6"
@@ -117,7 +146,7 @@ export function ExperienceGallery({ images, title }: ExperienceGalleryProps) {
                   e.stopPropagation();
                   setSelectedIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1));
                 }}
-                className="absolute left-4 rounded-full bg-white/10 p-3 text-white hover:bg-white/20"
+                className="absolute left-4 z-10 rounded-full bg-white/10 p-3 text-white hover:bg-white/20"
               >
                 <svg
                   className="h-6 w-6"
@@ -138,7 +167,7 @@ export function ExperienceGallery({ images, title }: ExperienceGalleryProps) {
                   e.stopPropagation();
                   setSelectedIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1));
                 }}
-                className="absolute right-4 rounded-full bg-white/10 p-3 text-white hover:bg-white/20"
+                className="absolute right-4 z-10 rounded-full bg-white/10 p-3 text-white hover:bg-white/20"
               >
                 <svg
                   className="h-6 w-6"
@@ -157,17 +186,26 @@ export function ExperienceGallery({ images, title }: ExperienceGalleryProps) {
             </>
           )}
 
-          {/* Image */}
-          <img
-            src={images[selectedIndex]}
-            alt={`${title} - Image ${selectedIndex + 1}`}
-            className="max-h-[90vh] max-w-[90vw] object-contain"
+          {/* Image - using next/image for optimization */}
+          <div
+            className="relative h-[90vh] w-[90vw]"
             onClick={(e) => e.stopPropagation()}
-          />
+          >
+            <Image
+              src={images[selectedIndex]}
+              alt={`${title} - Image ${selectedIndex + 1}`}
+              fill
+              sizes="90vw"
+              className="object-contain"
+            />
+          </div>
 
-          {/* Counter */}
+          {/* Counter + swipe hint on mobile */}
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-black/50 px-4 py-2 text-sm text-white">
             {selectedIndex + 1} / {images.length}
+            {images.length > 1 && (
+              <span className="ml-2 text-white/60 sm:hidden">Swipe to navigate</span>
+            )}
           </div>
         </div>
       )}

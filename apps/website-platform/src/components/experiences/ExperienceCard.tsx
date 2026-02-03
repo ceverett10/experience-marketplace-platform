@@ -94,7 +94,7 @@ export function ExperienceCard({ experience, variant = 'default' }: ExperienceCa
       className="group flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white transition-shadow hover:shadow-lg"
     >
       {/* Image */}
-      <div className="relative aspect-[4/3] overflow-hidden">
+      <div className="relative aspect-[16/9] overflow-hidden sm:aspect-[4/3]">
         <Image
           src={experience.imageUrl || '/placeholder-experience.jpg'}
           alt={experience.title}
