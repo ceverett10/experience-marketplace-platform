@@ -36,9 +36,7 @@ const navItems: NavItem[] = [
 ];
 
 // Flat list for breadcrumb lookup
-const allNavItems = navItems.flatMap((item) =>
-  item.children ? [item, ...item.children] : [item]
-);
+const allNavItems = navItems.flatMap((item) => (item.children ? [item, ...item.children] : [item]));
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

@@ -10,7 +10,8 @@
 
 const { PrismaClient } = require('@prisma/client');
 
-const UNSPLASH_ACCESS_KEY = process.env.UNSPLASH_ACCESS_KEY || 'ZlewrGbzZiXP1mh-4ZBrMkQzZPJY4uL2jZTajFsze6Y';
+const UNSPLASH_ACCESS_KEY =
+  process.env.UNSPLASH_ACCESS_KEY || 'ZlewrGbzZiXP1mh-4ZBrMkQzZPJY4uL2jZTajFsze6Y';
 const BASE_URL = 'https://api.unsplash.com';
 
 async function searchUnsplash(query, options = {}) {
@@ -94,7 +95,9 @@ async function getHeroImage(query, options = {}) {
       };
     }
 
-    console.log(`  [Unsplash] Random endpoint not available (${randomResponse.status}), falling back to search`);
+    console.log(
+      `  [Unsplash] Random endpoint not available (${randomResponse.status}), falling back to search`
+    );
   } catch (error) {
     console.log(`  [Unsplash] Random endpoint error, falling back to search`);
   }
@@ -159,7 +162,7 @@ function buildHeroImageQuery(niche, location) {
     'cultural tours': 'cultural heritage landmark',
     'boat tours': 'waterfront harbor boats',
     'museum tickets': 'museum art gallery',
-    'tours': 'travel destination scenic',
+    tours: 'travel destination scenic',
   };
 
   if (niche) {
@@ -175,11 +178,7 @@ function buildHeroImageQuery(niche, location) {
 
 async function getImageForDestination(name, location) {
   // Try multiple query variants
-  const queries = [
-    `${name} ${location}`,
-    name,
-    `${name} street`,
-  ];
+  const queries = [`${name} ${location}`, name, `${name} street`];
 
   for (const query of queries) {
     const result = await searchUnsplash(query);
@@ -196,7 +195,7 @@ async function getImageForCategory(name, location) {
 }
 
 function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function processSite(prisma, siteId, siteName, location, niche) {
@@ -206,7 +205,7 @@ async function processSite(prisma, siteId, siteName, location, niche) {
 
   const site = await prisma.site.findUnique({
     where: { id: siteId },
-    select: { homepageConfig: true }
+    select: { homepageConfig: true },
   });
 
   if (!site || !site.homepageConfig) {
@@ -283,7 +282,7 @@ async function processSite(prisma, siteId, siteName, location, niche) {
   console.log(`\nUpdating site in database...`);
   await prisma.site.update({
     where: { id: siteId },
-    data: { homepageConfig: config }
+    data: { homepageConfig: config },
   });
 
   console.log(`✓ ${siteName} updated successfully!`);
@@ -291,14 +290,20 @@ async function processSite(prisma, siteId, siteName, location, niche) {
   // Print summary
   console.log(`\n--- Summary for ${siteName} ---`);
   console.log('Hero:');
-  console.log(`  Background: ${config.hero?.backgroundImageAttribution ? config.hero.backgroundImageAttribution.photographerName : 'No image'}`);
+  console.log(
+    `  Background: ${config.hero?.backgroundImageAttribution ? config.hero.backgroundImageAttribution.photographerName : 'No image'}`
+  );
   console.log('Destinations:');
-  config.destinations?.forEach(d => {
-    console.log(`  ${d.name}: ${d.imageAttribution ? d.imageAttribution.photographerName : 'No image'}`);
+  config.destinations?.forEach((d) => {
+    console.log(
+      `  ${d.name}: ${d.imageAttribution ? d.imageAttribution.photographerName : 'No image'}`
+    );
   });
   console.log('Categories:');
-  config.categories?.forEach(c => {
-    console.log(`  ${c.name}: ${c.imageAttribution ? c.imageAttribution.photographerName : 'No image'}`);
+  config.categories?.forEach((c) => {
+    console.log(
+      `  ${c.name}: ${c.imageAttribution ? c.imageAttribution.photographerName : 'No image'}`
+    );
   });
 }
 
@@ -312,7 +317,7 @@ async function main() {
     const sites = await prisma.site.findMany({
       where: {
         status: { in: ['ACTIVE', 'DRAFT'] },
-        homepageConfig: { not: null }
+        homepageConfig: { not: null },
       },
       select: {
         id: true,
@@ -321,11 +326,11 @@ async function main() {
         opportunities: {
           select: {
             location: true,
-            niche: true
+            niche: true,
           },
-          take: 1
-        }
-      }
+          take: 1,
+        },
+      },
     });
 
     console.log(`Found ${sites.length} sites to process\n`);
@@ -335,13 +340,7 @@ async function main() {
       const location = opportunity?.location || '';
       const niche = opportunity?.niche || '';
 
-      await processSite(
-        prisma,
-        site.id,
-        site.name,
-        location,
-        niche
-      );
+      await processSite(prisma, site.id, site.name, location, niche);
     }
 
     console.log('\n========================================');

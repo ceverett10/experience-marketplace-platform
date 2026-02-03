@@ -57,7 +57,9 @@ export async function POST(request: Request) {
           });
           fixes.push(`✅ FIXED: Created Domain record linking ${cleanDomain} → ${site.name}`);
         } else {
-          fixes.push(`⚠️  DRY RUN: Would create Domain record linking ${cleanDomain} → ${site.name}`);
+          fixes.push(
+            `⚠️  DRY RUN: Would create Domain record linking ${cleanDomain} → ${site.name}`
+          );
         }
       } else {
         // Try finding by name (fuzzy match)
@@ -81,7 +83,9 @@ export async function POST(request: Request) {
             });
             fixes.push(`✅ FIXED: Created Domain record linking ${cleanDomain} → ${site.name}`);
           } else {
-            fixes.push(`⚠️  DRY RUN: Would create Domain record linking ${cleanDomain} → ${site.name}`);
+            fixes.push(
+              `⚠️  DRY RUN: Would create Domain record linking ${cleanDomain} → ${site.name}`
+            );
           }
         } else {
           errors.push(`❌ ERROR: Could not find site for domain ${cleanDomain}`);
@@ -158,11 +162,15 @@ export async function POST(request: Request) {
       });
 
       if (orphanedContent.length > 0) {
-        fixes.push(`✓ Found ${orphanedContent.length} orphaned content records that might be privacy policies`);
+        fixes.push(
+          `✓ Found ${orphanedContent.length} orphaned content records that might be privacy policies`
+        );
 
         // Use the most recent one
         const contentToLink = orphanedContent[0];
-        fixes.push(`✓ Selected most recent: ${contentToLink.id} (created ${contentToLink.createdAt})`);
+        fixes.push(
+          `✓ Selected most recent: ${contentToLink.id} (created ${contentToLink.createdAt})`
+        );
 
         if (!dryRun && privacyPage.id !== 'DRY_RUN_PAGE_ID') {
           await prisma.page.update({
@@ -200,11 +208,11 @@ export async function POST(request: Request) {
           });
 
           fixes.push(`✅ FIXED: Created default privacy policy content and linked to page`);
-          fixes.push(`💡 NOTE: This is a basic template. Consider generating custom content via AI.`);
-        } else {
           fixes.push(
-            `⚠️  DRY RUN: Would create default privacy policy content and link to page`
+            `💡 NOTE: This is a basic template. Consider generating custom content via AI.`
           );
+        } else {
+          fixes.push(`⚠️  DRY RUN: Would create default privacy policy content and link to page`);
         }
       }
     }

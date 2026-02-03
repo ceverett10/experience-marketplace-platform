@@ -162,17 +162,20 @@ export function ExperienceListSchema({
           price: (exp.price.amount / 100).toFixed(2),
           priceCurrency: exp.price.currency,
           availability: 'https://schema.org/InStock',
-          priceValidUntil: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          priceValidUntil: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
+            .toISOString()
+            .split('T')[0],
         },
-        ...(exp.rating && exp.rating.count > 0 && {
-          aggregateRating: {
-            '@type': 'AggregateRating',
-            ratingValue: exp.rating.average.toFixed(1),
-            reviewCount: exp.rating.count,
-            bestRating: '5',
-            worstRating: '1',
-          },
-        }),
+        ...(exp.rating &&
+          exp.rating.count > 0 && {
+            aggregateRating: {
+              '@type': 'AggregateRating',
+              ratingValue: exp.rating.average.toFixed(1),
+              reviewCount: exp.rating.count,
+              bestRating: '5',
+              worstRating: '1',
+            },
+          }),
       },
     })),
     provider: {

@@ -10,7 +10,11 @@ interface MobileBookingCTAProps {
   priceFormatted: string;
 }
 
-export function MobileBookingCTA({ productId, productName, priceFormatted }: MobileBookingCTAProps) {
+export function MobileBookingCTA({
+  productId,
+  productName,
+  priceFormatted,
+}: MobileBookingCTAProps) {
   const brand = useBrand();
   const [isModalOpen, setIsModalOpen] = useState(false);
 

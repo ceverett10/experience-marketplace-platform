@@ -125,19 +125,19 @@ export class DomainRegistrarService {
   private getStandardTLDPrice(domain: string): number {
     const tld = domain.split('.').slice(1).join('.').toLowerCase();
     const pricing: Record<string, number> = {
-      com: 9.58,      // .com registration ~$9.58/year
-      net: 12.98,     // .net registration
-      org: 9.98,      // .org registration
-      co: 25.98,      // .co registration
-      io: 32.98,      // .io registration (expensive)
-      dev: 12.98,     // .dev registration
-      app: 14.98,     // .app registration
-      xyz: 1.98,      // .xyz registration (cheap)
-      info: 3.98,     // .info registration
-      biz: 12.98,     // .biz registration
-      us: 4.98,       // .us registration
-      me: 9.98,       // .me registration
-      tv: 32.98,      // .tv registration
+      com: 9.58, // .com registration ~$9.58/year
+      net: 12.98, // .net registration
+      org: 9.98, // .org registration
+      co: 25.98, // .co registration
+      io: 32.98, // .io registration (expensive)
+      dev: 12.98, // .dev registration
+      app: 14.98, // .app registration
+      xyz: 1.98, // .xyz registration (cheap)
+      info: 3.98, // .info registration
+      biz: 12.98, // .biz registration
+      us: 4.98, // .us registration
+      me: 9.98, // .me registration
+      tv: 32.98, // .tv registration
     };
 
     // Return known price or default to $15 (conservative estimate)

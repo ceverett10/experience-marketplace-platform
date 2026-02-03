@@ -82,7 +82,9 @@ export async function handleDomainRegister(job: Job<DomainRegisterPayload>): Pro
       );
     }
 
-    console.log(`[Domain Register] Domain ${domain} is available for $${availabilityResult.price?.toFixed(2) || 'unknown'}`);
+    console.log(
+      `[Domain Register] Domain ${domain} is available for $${availabilityResult.price?.toFixed(2) || 'unknown'}`
+    );
 
     // 4. Register domain via registrar API
     const registrationCost = await registerDomainViaApi(domain, registrar);
@@ -345,13 +347,17 @@ export async function handleSslProvision(job: Job<SslProvisionPayload>): Promise
       // This happens after domain is fully configured (SSL enabled)
       if (domain.cloudflareZoneId) {
         const { addJob } = await import('../queues/index.js');
-        await addJob('GSC_SETUP', {
-          siteId: domain.siteId,
-          domain: domain.domain,
-          cloudflareZoneId: domain.cloudflareZoneId,
-        }, {
-          delay: 30000, // Wait 30s for SSL to fully propagate
-        });
+        await addJob(
+          'GSC_SETUP',
+          {
+            siteId: domain.siteId,
+            domain: domain.domain,
+            cloudflareZoneId: domain.cloudflareZoneId,
+          },
+          {
+            delay: 30000, // Wait 30s for SSL to fully propagate
+          }
+        );
         console.log(`[SSL Provision] Queued GSC setup for ${domain.domain}`);
       }
     }

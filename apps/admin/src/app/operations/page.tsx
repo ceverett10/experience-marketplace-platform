@@ -124,7 +124,9 @@ export default function OperationsDashboard() {
       PENDING: 'bg-slate-100 text-slate-800',
     };
     return (
-      <span className={`text-xs px-2 py-0.5 rounded font-medium ${colors[status] || 'bg-slate-100 text-slate-800'}`}>
+      <span
+        className={`text-xs px-2 py-0.5 rounded font-medium ${colors[status] || 'bg-slate-100 text-slate-800'}`}
+      >
         {status}
       </span>
     );
@@ -139,9 +141,7 @@ export default function OperationsDashboard() {
           <p className="text-slate-500 mt-1">System health and job pipeline overview</p>
         </div>
         <div className="flex items-center gap-4">
-          <div
-            className={`px-4 py-2 rounded-lg border font-medium ${healthColors[data.health]}`}
-          >
+          <div className={`px-4 py-2 rounded-lg border font-medium ${healthColors[data.health]}`}>
             System {data.health.toUpperCase()}
           </div>
           <div className="flex items-center gap-2">
@@ -187,9 +187,7 @@ export default function OperationsDashboard() {
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-2xl font-bold text-slate-700">
-              {data.metrics.throughputPerHour}
-            </p>
+            <p className="text-2xl font-bold text-slate-700">{data.metrics.throughputPerHour}</p>
             <p className="text-sm text-slate-500">Jobs/Hour</p>
           </CardContent>
         </Card>
@@ -199,26 +197,17 @@ export default function OperationsDashboard() {
       <div>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-semibold text-slate-900">Queue Health</h2>
-          <Link
-            href="/operations/jobs"
-            className="text-sm text-sky-600 hover:text-sky-700"
-          >
+          <Link href="/operations/jobs" className="text-sm text-sky-600 hover:text-sky-700">
             View all jobs
           </Link>
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3">
           {data.queues.map((q) => (
-            <Link
-              key={q.name}
-              href={`/operations/jobs?queue=${q.name}`}
-              className="block"
-            >
+            <Link key={q.name} href={`/operations/jobs?queue=${q.name}`} className="block">
               <Card className="hover:shadow-md transition-shadow">
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-sm font-medium text-slate-900 capitalize">
-                      {q.name}
-                    </h3>
+                    <h3 className="text-sm font-medium text-slate-900 capitalize">{q.name}</h3>
                     <span
                       className={`text-xs px-1.5 py-0.5 rounded font-medium ${queueHealthColors[q.health] || ''}`}
                     >
@@ -265,22 +254,15 @@ export default function OperationsDashboard() {
                 <p className="text-slate-500 text-sm text-center py-4">No recent failures</p>
               ) : (
                 data.recentFailures.map((f) => (
-                  <div
-                    key={f.id}
-                    className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg"
-                  >
+                  <div key={f.id} className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-sm font-medium text-slate-900">
                           {f.type.replace(/_/g, ' ')}
                         </span>
-                        {f.siteName && (
-                          <span className="text-xs text-slate-500">{f.siteName}</span>
-                        )}
+                        {f.siteName && <span className="text-xs text-slate-500">{f.siteName}</span>}
                       </div>
-                      {f.error && (
-                        <p className="text-xs text-red-600 truncate">{f.error}</p>
-                      )}
+                      {f.error && <p className="text-xs text-red-600 truncate">{f.error}</p>}
                       <div className="text-xs text-slate-400 mt-1">
                         {timeAgo(f.failedAt)} · Attempt {f.attempts}
                       </div>
@@ -389,9 +371,7 @@ export default function OperationsDashboard() {
             <CardContent className="p-6 text-center">
               <div className="text-2xl mb-2">&#128269;</div>
               <h3 className="font-medium text-slate-900">Job Explorer</h3>
-              <p className="text-sm text-slate-500 mt-1">
-                Search, filter, and inspect all jobs
-              </p>
+              <p className="text-sm text-slate-500 mt-1">Search, filter, and inspect all jobs</p>
             </CardContent>
           </Card>
         </Link>
@@ -400,9 +380,7 @@ export default function OperationsDashboard() {
             <CardContent className="p-6 text-center">
               <div className="text-2xl mb-2">&#128680;</div>
               <h3 className="font-medium text-slate-900">Error Log</h3>
-              <p className="text-sm text-slate-500 mt-1">
-                Investigate errors with stack traces
-              </p>
+              <p className="text-sm text-slate-500 mt-1">Investigate errors with stack traces</p>
             </CardContent>
           </Card>
         </Link>
@@ -411,9 +389,7 @@ export default function OperationsDashboard() {
             <CardContent className="p-6 text-center">
               <div className="text-2xl mb-2">&#128339;</div>
               <h3 className="font-medium text-slate-900">Scheduled Jobs</h3>
-              <p className="text-sm text-slate-500 mt-1">
-                Monitor cron jobs and trigger manually
-              </p>
+              <p className="text-sm text-slate-500 mt-1">Monitor cron jobs and trigger manually</p>
             </CardContent>
           </Card>
         </Link>

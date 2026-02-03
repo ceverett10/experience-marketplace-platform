@@ -192,7 +192,11 @@ export async function findRelatedPages(params: {
     }
 
     // 5. Generate experience listing page links (blog → experience search pages)
-    const experienceListingLinks = generateExperienceListingLinks({ destination, category, keywords });
+    const experienceListingLinks = generateExperienceListingLinks({
+      destination,
+      category,
+      keywords,
+    });
     for (const link of experienceListingLinks) {
       if (!relatedLinks.some((l) => l.url === link.url)) {
         relatedLinks.push(link);
@@ -288,7 +292,10 @@ function findAndInsertLink(
   // Try to find a matching phrase in the content that isn't already linked
   for (const word of titleWords) {
     // Case-insensitive search for the word
-    const regex = new RegExp(`(?<!\\[)\\b(${escapeRegex(word)}(?:s|es|ing|ed)?)\\b(?!\\])(?![^\\[]*\\])`, 'gi');
+    const regex = new RegExp(
+      `(?<!\\[)\\b(${escapeRegex(word)}(?:s|es|ing|ed)?)\\b(?!\\])(?![^\\[]*\\])`,
+      'gi'
+    );
     const matches = content.match(regex);
 
     if (matches && matches.length > 0) {
@@ -505,7 +512,11 @@ export async function analyzeInternalLinkOpportunities(siteId: string): Promise<
         const keywords = extractKeywordsFromContent(content, page.title);
         const suggestedLinks = await findRelatedPages({
           siteId,
-          contentType: page.type.toLowerCase() as 'blog' | 'destination' | 'category' | 'experience',
+          contentType: page.type.toLowerCase() as
+            | 'blog'
+            | 'destination'
+            | 'category'
+            | 'experience',
           keywords,
           excludePageId: page.id,
           limit: 3,

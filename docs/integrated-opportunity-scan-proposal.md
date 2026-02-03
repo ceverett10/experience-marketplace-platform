@@ -1,6 +1,7 @@
 # Integrated Multi-Mode Scan + Recursive Optimization
 
 ## Overview
+
 Combine the new multi-mode scanning (hyper-local, generic, demographic, occasion, etc.) with the existing 5-iteration recursive optimization to produce the highest-quality opportunities.
 
 ---
@@ -106,7 +107,8 @@ export async function handleOpportunityScan(
     });
 
     // DECISION POINT: Use recursive optimization or direct scan?
-    if (useRecursiveOptimization !== false) { // Default to true
+    if (useRecursiveOptimization !== false) {
+      // Default to true
       console.log('[Opportunity Scan] Using RECURSIVE OPTIMIZATION mode');
       return await runIntegratedOptimization(holibobClient, { siteId });
     } else {
@@ -144,30 +146,26 @@ async function runIntegratedOptimization(
   const seeds = await generateMultiModeSeeds(holibobClient);
 
   console.log(`[Integrated] Generated ${seeds.length} seed opportunities:
-    - Hyper-Local: ${seeds.filter(s => s.scanMode === 'hyper_local').length}
-    - Generic: ${seeds.filter(s => s.scanMode === 'generic_activity').length}
-    - Demographic: ${seeds.filter(s => s.scanMode === 'demographic').length}
-    - Occasion: ${seeds.filter(s => s.scanMode === 'occasion').length}
-    - Experience-Level: ${seeds.filter(s => s.scanMode === 'experience_level').length}
-    - Regional: ${seeds.filter(s => s.scanMode === 'regional').length}
+    - Hyper-Local: ${seeds.filter((s) => s.scanMode === 'hyper_local').length}
+    - Generic: ${seeds.filter((s) => s.scanMode === 'generic_activity').length}
+    - Demographic: ${seeds.filter((s) => s.scanMode === 'demographic').length}
+    - Occasion: ${seeds.filter((s) => s.scanMode === 'occasion').length}
+    - Experience-Level: ${seeds.filter((s) => s.scanMode === 'experience_level').length}
+    - Regional: ${seeds.filter((s) => s.scanMode === 'regional').length}
   `);
 
   // PHASE 2: Run recursive optimization with seeds as context
   console.log('[Integrated] PHASE 2: Running 5-iteration recursive optimization...');
 
-  const optimizationResult = await runRecursiveOptimizationWithSeeds(
-    holibobClient,
-    seeds,
-    {
-      maxIterations: 5,
-      initialSuggestionsCount: 20,
-      narrowingFactor: 0.8,
-      minScoreThreshold: 50,
-      targetScoreThreshold: 75,
-      earlyStopImprovementThreshold: 2,
-      batchSize: 50,
-    }
-  );
+  const optimizationResult = await runRecursiveOptimizationWithSeeds(holibobClient, seeds, {
+    maxIterations: 5,
+    initialSuggestionsCount: 20,
+    narrowingFactor: 0.8,
+    minScoreThreshold: 50,
+    targetScoreThreshold: 75,
+    earlyStopImprovementThreshold: 2,
+    batchSize: 50,
+  });
 
   if (!optimizationResult.success) {
     throw new Error('Optimization failed');
@@ -234,7 +232,9 @@ async function runIntegratedOptimization(
       });
 
       stored++;
-      console.log(`[Integrated] Stored #${ranked.rank}: ${opp.suggestion.keyword} (score: ${opp.priorityScore})`);
+      console.log(
+        `[Integrated] Stored #${ranked.rank}: ${opp.suggestion.keyword} (score: ${opp.priorityScore})`
+      );
     } catch (dbError) {
       console.error(`[Integrated] Failed to store ${opp.suggestion.keyword}:`, dbError);
     }
@@ -252,7 +252,7 @@ async function runIntegratedOptimization(
       phase1Seeds: seeds.length,
       phase2Iterations: optimizationResult.iterations.length,
       phase3Stored: stored,
-      topOpportunities: optimizationResult.finalOpportunities.map(r => ({
+      topOpportunities: optimizationResult.finalOpportunities.map((r) => ({
         rank: r.rank,
         keyword: r.opportunity.suggestion.keyword,
         type: determineScanMode(r.opportunity.suggestion),
@@ -277,9 +277,7 @@ Generates diverse initial seeds from all scan modes:
  * Generate diverse seed opportunities from all scan modes
  * These serve as the starting point for recursive optimization
  */
-async function generateMultiModeSeeds(
-  holibobClient: any
-): Promise<OpportunitySeed[]> {
+async function generateMultiModeSeeds(holibobClient: any): Promise<OpportunitySeed[]> {
   const seeds: OpportunitySeed[] = [];
 
   // Mode 1: Hyper-Local (top cities x top categories)
@@ -314,13 +312,25 @@ interface OpportunitySeed {
   destination?: string;
   category: string;
   niche: string;
-  scanMode: 'hyper_local' | 'generic_activity' | 'demographic' | 'occasion' | 'experience_level' | 'regional';
+  scanMode:
+    | 'hyper_local'
+    | 'generic_activity'
+    | 'demographic'
+    | 'occasion'
+    | 'experience_level'
+    | 'regional';
   rationale: string;
   inventoryCount: number;
 }
 
 async function generateHyperLocalSeeds(client: any): Promise<OpportunitySeed[]> {
-  const destinations = ['London, England', 'Paris, France', 'Barcelona, Spain', 'Rome, Italy', 'New York, USA'];
+  const destinations = [
+    'London, England',
+    'Paris, France',
+    'Barcelona, Spain',
+    'Rome, Italy',
+    'New York, USA',
+  ];
   const categories = ['food tours', 'walking tours', 'museum tickets', 'wine tasting'];
 
   const seeds: OpportunitySeed[] = [];
@@ -475,7 +485,7 @@ function buildIterationPrompt(
 ): string {
   if (iterationNumber === 1 && seedContext && seedContext.length > 0) {
     // NEW: First iteration with seed context
-    const seedsByMode = groupBy(seedContext, s => s.scanMode);
+    const seedsByMode = groupBy(seedContext, (s) => s.scanMode);
 
     return `You are a strategic advisor for an experience marketplace platform following the TravelAI micro-segmentation strategy.
 
@@ -485,16 +495,36 @@ Generate ${suggestionsCount} creative niche site opportunities. You have SEED OP
 ## Seed Opportunities (${seedContext.length} total)
 
 ### Hyper-Local Seeds (${seedsByMode.hyper_local?.length || 0})
-${seedsByMode.hyper_local?.slice(0, 5).map(s => `- ${s.keyword} (${s.inventoryCount} products)`).join('\n') || 'None'}
+${
+  seedsByMode.hyper_local
+    ?.slice(0, 5)
+    .map((s) => `- ${s.keyword} (${s.inventoryCount} products)`)
+    .join('\n') || 'None'
+}
 
 ### Generic Activity Seeds (${seedsByMode.generic_activity?.length || 0})
-${seedsByMode.generic_activity?.slice(0, 5).map(s => `- ${s.keyword} (${s.inventoryCount} products globally)`).join('\n') || 'None'}
+${
+  seedsByMode.generic_activity
+    ?.slice(0, 5)
+    .map((s) => `- ${s.keyword} (${s.inventoryCount} products globally)`)
+    .join('\n') || 'None'
+}
 
 ### Demographic Seeds (${seedsByMode.demographic?.length || 0})
-${seedsByMode.demographic?.slice(0, 5).map(s => `- ${s.keyword} (${s.rationale})`).join('\n') || 'None'}
+${
+  seedsByMode.demographic
+    ?.slice(0, 5)
+    .map((s) => `- ${s.keyword} (${s.rationale})`)
+    .join('\n') || 'None'
+}
 
 ### Occasion Seeds (${seedsByMode.occasion?.length || 0})
-${seedsByMode.occasion?.slice(0, 5).map(s => `- ${s.keyword} (${s.rationale})`).join('\n') || 'None'}
+${
+  seedsByMode.occasion
+    ?.slice(0, 5)
+    .map((s) => `- ${s.keyword} (${s.rationale})`)
+    .join('\n') || 'None'
+}
 
 ## Available Holibob Inventory
 ${JSON.stringify(inventorySample, null, 2)}
@@ -527,12 +557,15 @@ Return ONLY valid JSON array:
 
 // Helper function
 function groupBy<T>(array: T[], keyFn: (item: T) => string): Record<string, T[]> {
-  return array.reduce((acc, item) => {
-    const key = keyFn(item);
-    if (!acc[key]) acc[key] = [];
-    acc[key]!.push(item);
-    return acc;
-  }, {} as Record<string, T[]>);
+  return array.reduce(
+    (acc, item) => {
+      const key = keyFn(item);
+      if (!acc[key]) acc[key] = [];
+      acc[key]!.push(item);
+      return acc;
+    },
+    {} as Record<string, T[]>
+  );
 }
 ```
 
@@ -541,21 +574,26 @@ function groupBy<T>(array: T[], keyFn: (item: T) => string): Record<string, T[]>
 ## Benefits of Integrated Approach
 
 ### 1. **Diversity + Quality**
+
 - Seeds ensure all opportunity types (hyper-local, generic, demographic) are considered
 - Recursive optimization ensures only the BEST of each type survive
 
 ### 2. **Data-Driven Refinement**
+
 - Iteration 1: "Here's a diverse portfolio - let's validate"
 - Iteration 2-4: "Generic domains are taken, hyper-local works better"
 - Iteration 5: "Top 10 = 6 hyper-local, 2 demographic, 2 occasion-based"
 
 ### 3. **Automatic Balancing**
+
 - If generic "food tours" domain is unavailable/expensive → score drops
 - If hyper-local "london food tours" has great metrics → score rises
 - Natural selection finds the best opportunities regardless of type
 
 ### 4. **Progressive Learning**
+
 Example learning progression:
+
 ```
 Iteration 1:
 - Tried 20 opportunities (mix of all types)
@@ -585,20 +623,21 @@ Iterations 4-5:
 
 After running integrated optimization, the final ranked list might look like:
 
-| Rank | Keyword | Type | Score | Volume | Difficulty | Domain | Revenue/mo |
-|------|---------|------|-------|---------|-----------|--------|------------|
-| 1 | family food tours barcelona | Demographic + Local | 92 | 4,200 | 38 | ✅ $9.99 | $315 |
-| 2 | paris food tours | Hyper-Local | 89 | 6,800 | 42 | ✅ $9.99 | $510 |
-| 3 | senior-friendly tours | Demographic | 87 | 3,100 | 28 | ✅ $11.99 | $232 |
-| 4 | london wine tasting | Hyper-Local | 86 | 5,400 | 45 | ✅ $9.99 | $405 |
-| 5 | bachelor party experiences | Occasion | 84 | 8,200 | 35 | ✅ $14.99 | $615 |
-| 6 | rome walking tours | Hyper-Local | 83 | 7,100 | 48 | ✅ $8.99 | $532 |
-| 7 | accessible travel experiences | Demographic | 82 | 2,900 | 32 | ✅ $12.99 | $217 |
-| 8 | luxury wine tours | Experience-Level | 81 | 1,800 | 42 | ✅ $24.99 | $270 |
-| 9 | amsterdam bike tours | Hyper-Local | 79 | 4,500 | 51 | ✅ $9.99 | $337 |
-| 10 | european city breaks | Regional | 78 | 18,000 | 64 | ❌ Taken | $0 |
+| Rank | Keyword                       | Type                | Score | Volume | Difficulty | Domain    | Revenue/mo |
+| ---- | ----------------------------- | ------------------- | ----- | ------ | ---------- | --------- | ---------- |
+| 1    | family food tours barcelona   | Demographic + Local | 92    | 4,200  | 38         | ✅ $9.99  | $315       |
+| 2    | paris food tours              | Hyper-Local         | 89    | 6,800  | 42         | ✅ $9.99  | $510       |
+| 3    | senior-friendly tours         | Demographic         | 87    | 3,100  | 28         | ✅ $11.99 | $232       |
+| 4    | london wine tasting           | Hyper-Local         | 86    | 5,400  | 45         | ✅ $9.99  | $405       |
+| 5    | bachelor party experiences    | Occasion            | 84    | 8,200  | 35         | ✅ $14.99 | $615       |
+| 6    | rome walking tours            | Hyper-Local         | 83    | 7,100  | 48         | ✅ $8.99  | $532       |
+| 7    | accessible travel experiences | Demographic         | 82    | 2,900  | 32         | ✅ $12.99 | $217       |
+| 8    | luxury wine tours             | Experience-Level    | 81    | 1,800  | 42         | ✅ $24.99 | $270       |
+| 9    | amsterdam bike tours          | Hyper-Local         | 79    | 4,500  | 51         | ✅ $9.99  | $337       |
+| 10   | european city breaks          | Regional            | 78    | 18,000 | 64         | ❌ Taken  | $0         |
 
 **Portfolio Breakdown:**
+
 - Hyper-Local: 4 opportunities (40%)
 - Demographic: 3 opportunities (30%)
 - Occasion: 1 opportunity (10%)
@@ -606,6 +645,7 @@ After running integrated optimization, the final ranked list might look like:
 - Regional: 1 opportunity (10%)
 
 **Why This Mix?**
+
 - Hyper-local won because: Good domains available, lower competition, clear inventory match
 - Demographics won because: Underserved markets, reasonable volume, community potential
 - Generic struggled because: Domains taken, very high competition
@@ -616,21 +656,25 @@ After running integrated optimization, the final ranked list might look like:
 ## Implementation Timeline
 
 ### Phase 1: Core Integration (Week 1)
+
 - Update `handleOpportunityScan()` with integrated mode
 - Implement `generateMultiModeSeeds()` and mode-specific seed functions
 - Update `runRecursiveOptimization()` to accept seeds
 
 ### Phase 2: Enhanced Scoring (Week 2)
+
 - Add domain availability checking to scoring
 - Implement market saturation checks
 - Update scoring formula with strategic fit multipliers
 
 ### Phase 3: Testing & Tuning (Week 3)
+
 - Run test scans with integrated mode
 - Analyze results and tune scoring weights
 - Validate that diverse opportunities are balanced fairly
 
 ### Phase 4: Production Deployment (Week 4)
+
 - Deploy to production
 - Monitor first automated scan results
 - Iterate on scoring based on real performance
@@ -653,7 +697,14 @@ interface SeoOpportunityScanPayload {
   optimizationConfig?: {
     maxIterations?: number; // Default: 5
     initialSuggestionsCount?: number; // Default: 20
-    seedModes?: ('hyper_local' | 'generic_activity' | 'demographic' | 'occasion' | 'experience_level' | 'regional')[];
+    seedModes?: (
+      | 'hyper_local'
+      | 'generic_activity'
+      | 'demographic'
+      | 'occasion'
+      | 'experience_level'
+      | 'regional'
+    )[];
     // Default: all modes
   };
 }
@@ -664,6 +715,7 @@ interface SeoOpportunityScanPayload {
 ## Cost Estimates
 
 ### Per Daily Scan (Integrated Mode):
+
 - **Phase 1 (Seeds)**: ~60 Holibob API calls × $0.001 = $0.06
 - **Phase 2 (Optimization)**:
   - Anthropic (5 iterations): ~$0.50
@@ -672,6 +724,7 @@ interface SeoOpportunityScanPayload {
 - **Total per scan**: ~$1.06
 
 ### Monthly Cost:
+
 - 30 daily scans × $1.06 = ~$31.80/month
 
 **ROI**: If each top-10 opportunity generates $300/month revenue, monthly value = $3,000.

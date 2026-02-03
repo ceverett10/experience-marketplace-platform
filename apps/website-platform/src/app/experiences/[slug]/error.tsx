@@ -30,7 +30,8 @@ export default function ExperienceDetailError({
             Unable to load this experience
           </h2>
           <p className="mt-2 max-w-md text-gray-600">
-            We couldn&apos;t load the details for this experience. Please try again or browse other options.
+            We couldn&apos;t load the details for this experience. Please try again or browse other
+            options.
           </p>
           <div className="mt-6 flex items-center justify-center gap-4">
             <button

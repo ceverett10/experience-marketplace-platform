@@ -44,8 +44,7 @@ function categorizeError(errorName: string, errorMessage: string): string {
     return 'DATABASE';
   if (msg.includes('config') || msg.includes('api key') || msg.includes('missing'))
     return 'CONFIGURATION';
-  if (msg.includes('not found') || name.includes('notfound'))
-    return 'NOT_FOUND';
+  if (msg.includes('not found') || name.includes('notfound')) return 'NOT_FOUND';
   if (msg.includes('rate limit') || msg.includes('ratelimit') || msg.includes('429'))
     return 'RATE_LIMIT';
   if (msg.includes('network') || msg.includes('timeout') || msg.includes('econnrefused'))
@@ -56,11 +55,7 @@ function categorizeError(errorName: string, errorMessage: string): string {
 /**
  * Determine severity based on error characteristics
  */
-function determineSeverity(
-  errorName: string,
-  errorMessage: string,
-  retryable: boolean
-): string {
+function determineSeverity(errorName: string, errorMessage: string, retryable: boolean): string {
   const msg = errorMessage.toLowerCase();
 
   if (msg.includes('critical') || msg.includes('api key') || msg.includes('config'))
@@ -214,28 +209,27 @@ export class ErrorTrackingService {
       const timeFilter = { createdAt: { gte: since } };
 
       // Use groupBy aggregations instead of loading all rows into memory
-      const [categoryStats, typeStats, severityStats, retryableCount, total] =
-        await Promise.all([
-          prisma.errorLog.groupBy({
-            by: ['errorCategory'],
-            where: timeFilter,
-            _count: { _all: true },
-          }),
-          prisma.errorLog.groupBy({
-            by: ['jobType'],
-            where: timeFilter,
-            _count: { _all: true },
-          }),
-          prisma.errorLog.groupBy({
-            by: ['errorSeverity'],
-            where: timeFilter,
-            _count: { _all: true },
-          }),
-          prisma.errorLog.count({
-            where: { ...timeFilter, retryable: true },
-          }),
-          prisma.errorLog.count({ where: timeFilter }),
-        ]);
+      const [categoryStats, typeStats, severityStats, retryableCount, total] = await Promise.all([
+        prisma.errorLog.groupBy({
+          by: ['errorCategory'],
+          where: timeFilter,
+          _count: { _all: true },
+        }),
+        prisma.errorLog.groupBy({
+          by: ['jobType'],
+          where: timeFilter,
+          _count: { _all: true },
+        }),
+        prisma.errorLog.groupBy({
+          by: ['errorSeverity'],
+          where: timeFilter,
+          _count: { _all: true },
+        }),
+        prisma.errorLog.count({
+          where: { ...timeFilter, retryable: true },
+        }),
+        prisma.errorLog.count({ where: timeFilter }),
+      ]);
 
       const byCategory: Record<string, number> = {};
       for (const s of categoryStats) {

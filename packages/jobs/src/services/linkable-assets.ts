@@ -39,7 +39,12 @@ export async function generateStatisticsRoundup(params: {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
 
-  const content = buildStatisticsContent(targetKeyword, destination, year, site.brand?.name ?? site.name);
+  const content = buildStatisticsContent(
+    targetKeyword,
+    destination,
+    year,
+    site.brand?.name ?? site.name
+  );
 
   // Create the content record
   const contentRecord = await prisma.content.create({
@@ -77,12 +82,18 @@ export async function generateStatisticsRoundup(params: {
       content,
       metaTitle: title,
       metaDescription: `Comprehensive ${targetKeyword.toLowerCase()} statistics for ${year}.`,
-      targetKeywords: [targetKeyword, `${targetKeyword} statistics`, `${targetKeyword} data ${year}`],
+      targetKeywords: [
+        targetKeyword,
+        `${targetKeyword} statistics`,
+        `${targetKeyword} data ${year}`,
+      ],
       pageId: page.id,
     },
   });
 
-  console.log(`[Linkable Assets] Created statistics roundup: "${title}" (asset: ${asset.id}, page: ${page.id})`);
+  console.log(
+    `[Linkable Assets] Created statistics roundup: "${title}" (asset: ${asset.id}, page: ${page.id})`
+  );
   return { assetId: asset.id, pageId: page.id };
 }
 
@@ -114,7 +125,12 @@ export async function generateComprehensiveGuide(params: {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
 
-  const content = buildComprehensiveGuideContent(targetKeyword, destination, year, site.brand?.name ?? site.name);
+  const content = buildComprehensiveGuideContent(
+    targetKeyword,
+    destination,
+    year,
+    site.brand?.name ?? site.name
+  );
 
   const contentRecord = await prisma.content.create({
     data: {
@@ -154,7 +170,9 @@ export async function generateComprehensiveGuide(params: {
     },
   });
 
-  console.log(`[Linkable Assets] Created comprehensive guide: "${title}" (asset: ${asset.id}, page: ${page.id})`);
+  console.log(
+    `[Linkable Assets] Created comprehensive guide: "${title}" (asset: ${asset.id}, page: ${page.id})`
+  );
   return { assetId: asset.id, pageId: page.id };
 }
 
@@ -184,7 +202,13 @@ export async function generateInfographicData(params: {
     .replace(/^-|-$/g, '');
 
   const domain = site.primaryDomain ?? 'example.com';
-  const content = buildInfographicContent(targetKeyword, year, site.brand?.name ?? site.name, domain, slug);
+  const content = buildInfographicContent(
+    targetKeyword,
+    year,
+    site.brand?.name ?? site.name,
+    domain,
+    slug
+  );
 
   const contentRecord = await prisma.content.create({
     data: {
@@ -224,13 +248,20 @@ export async function generateInfographicData(params: {
     },
   });
 
-  console.log(`[Linkable Assets] Created infographic data page: "${title}" (asset: ${asset.id}, page: ${page.id})`);
+  console.log(
+    `[Linkable Assets] Created infographic data page: "${title}" (asset: ${asset.id}, page: ${page.id})`
+  );
   return { assetId: asset.id, pageId: page.id };
 }
 
 // --- Content Builders ---
 
-function buildStatisticsContent(keyword: string, destination: string | undefined, year: number, brandName: string): string {
+function buildStatisticsContent(
+  keyword: string,
+  destination: string | undefined,
+  year: number,
+  brandName: string
+): string {
   const location = destination ? ` in ${destination}` : '';
   return `# ${keyword} Statistics ${year}: Key Facts & Data${location}
 
@@ -295,7 +326,12 @@ Statistics and data in this report are compiled from publicly available industry
 `;
 }
 
-function buildComprehensiveGuideContent(keyword: string, destination: string | undefined, year: number, brandName: string): string {
+function buildComprehensiveGuideContent(
+  keyword: string,
+  destination: string | undefined,
+  year: number,
+  brandName: string
+): string {
   const location = destination ? ` in ${destination}` : '';
   return `# The Complete Guide to ${keyword}${location} (${year})
 
@@ -399,7 +435,13 @@ Ready to start exploring? Browse available [${keyword.toLowerCase()} experiences
 `;
 }
 
-function buildInfographicContent(keyword: string, year: number, brandName: string, domain: string, slug: string): string {
+function buildInfographicContent(
+  keyword: string,
+  year: number,
+  brandName: string,
+  domain: string,
+  slug: string
+): string {
   const embedUrl = `https://${domain}/${slug}`;
   return `# ${keyword} by the Numbers: Key Data & Insights (${year})
 

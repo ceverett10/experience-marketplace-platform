@@ -58,13 +58,16 @@ export async function handleLinkOpportunityScan(
 
     // Get our backlink profile first
     const profile = await getBacklinkProfile(site.primaryDomain);
-    console.log(`[Link Building] Our profile: ${profile.totalBacklinks} backlinks, DA: ${profile.domainAuthority}`);
+    console.log(
+      `[Link Building] Our profile: ${profile.totalBacklinks} backlinks, DA: ${profile.domainAuthority}`
+    );
 
     // If no competitor domains provided, we can't do a gap analysis
     if (competitorDomains.length === 0) {
       return {
         success: true,
-        message: 'No competitor domains provided for gap analysis. Provide competitor domains to find opportunities.',
+        message:
+          'No competitor domains provided for gap analysis. Provide competitor domains to find opportunities.',
         data: { profile },
         timestamp: new Date(),
       };
@@ -177,7 +180,9 @@ export async function handleLinkOutreachGenerate(
 ): Promise<JobResult> {
   const { siteId, opportunityId, templateType } = job.data;
 
-  console.log(`[Link Building] Generating ${templateType} outreach for opportunity ${opportunityId}`);
+  console.log(
+    `[Link Building] Generating ${templateType} outreach for opportunity ${opportunityId}`
+  );
 
   try {
     const template = await generateOutreachForOpportunity({

@@ -24,7 +24,9 @@ export async function POST() {
         console.log(`[API] Initialized roadmap for site: ${site.name}`);
       } catch (error) {
         results.failed++;
-        results.errors.push(`${site.name}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        results.errors.push(
+          `${site.name}: ${error instanceof Error ? error.message : 'Unknown error'}`
+        );
         console.error(`[API] Failed to initialize roadmap for ${site.name}:`, error);
       }
     }

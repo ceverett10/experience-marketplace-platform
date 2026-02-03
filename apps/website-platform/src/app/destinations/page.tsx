@@ -33,14 +33,54 @@ const DEFAULT_DESTINATIONS: Array<{
   imageUrl?: string;
   imageAttribution?: { photographerName: string; photographerUrl: string; unsplashUrl: string };
 }> = [
-  { name: 'London', slug: 'london', icon: '🇬🇧', description: 'Experience world-class culture, history, and entertainment in the UK capital.' },
-  { name: 'Paris', slug: 'paris', icon: '🇫🇷', description: 'Discover romance, art, and culinary excellence in the City of Light.' },
-  { name: 'Barcelona', slug: 'barcelona', icon: '🇪🇸', description: 'Enjoy stunning architecture, beaches, and vibrant Catalan culture.' },
-  { name: 'Rome', slug: 'rome', icon: '🇮🇹', description: 'Walk through ancient history and savor authentic Italian experiences.' },
-  { name: 'Amsterdam', slug: 'amsterdam', icon: '🇳🇱', description: 'Explore charming canals, world-class museums, and Dutch hospitality.' },
-  { name: 'Edinburgh', slug: 'edinburgh', icon: '🏴󠁧󠁢󠁳󠁣󠁴󠁿', description: 'Discover medieval charm and Scottish heritage in this historic capital.' },
-  { name: 'Lisbon', slug: 'lisbon', icon: '🇵🇹', description: 'Experience colorful neighborhoods, delicious cuisine, and coastal beauty.' },
-  { name: 'Berlin', slug: 'berlin', icon: '🇩🇪', description: 'Explore modern culture, fascinating history, and creative energy.' },
+  {
+    name: 'London',
+    slug: 'london',
+    icon: '🇬🇧',
+    description: 'Experience world-class culture, history, and entertainment in the UK capital.',
+  },
+  {
+    name: 'Paris',
+    slug: 'paris',
+    icon: '🇫🇷',
+    description: 'Discover romance, art, and culinary excellence in the City of Light.',
+  },
+  {
+    name: 'Barcelona',
+    slug: 'barcelona',
+    icon: '🇪🇸',
+    description: 'Enjoy stunning architecture, beaches, and vibrant Catalan culture.',
+  },
+  {
+    name: 'Rome',
+    slug: 'rome',
+    icon: '🇮🇹',
+    description: 'Walk through ancient history and savor authentic Italian experiences.',
+  },
+  {
+    name: 'Amsterdam',
+    slug: 'amsterdam',
+    icon: '🇳🇱',
+    description: 'Explore charming canals, world-class museums, and Dutch hospitality.',
+  },
+  {
+    name: 'Edinburgh',
+    slug: 'edinburgh',
+    icon: '🏴󠁧󠁢󠁳󠁣󠁴󠁿',
+    description: 'Discover medieval charm and Scottish heritage in this historic capital.',
+  },
+  {
+    name: 'Lisbon',
+    slug: 'lisbon',
+    icon: '🇵🇹',
+    description: 'Experience colorful neighborhoods, delicious cuisine, and coastal beauty.',
+  },
+  {
+    name: 'Berlin',
+    slug: 'berlin',
+    icon: '🇩🇪',
+    description: 'Explore modern culture, fascinating history, and creative energy.',
+  },
 ];
 
 export default async function DestinationsPage() {
@@ -128,69 +168,73 @@ export default async function DestinationsPage() {
               const href = `/experiences?${searchParams.toString()}`;
 
               return (
-              <Link
-                key={destination.slug}
-                href={href}
-                className="group relative overflow-hidden rounded-2xl bg-white shadow-md transition-all hover:shadow-xl"
-              >
-                {/* Image Container */}
-                <div className="relative h-48 w-full overflow-hidden">
-                  {destination.imageUrl ? (
-                    <Image
-                      src={destination.imageUrl}
-                      alt={destination.name}
-                      fill
-                      className="object-cover transition-transform duration-500 group-hover:scale-110"
-                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-indigo-500 to-purple-600">
-                      <span className="text-6xl">{destination.icon}</span>
+                <Link
+                  key={destination.slug}
+                  href={href}
+                  className="group relative overflow-hidden rounded-2xl bg-white shadow-md transition-all hover:shadow-xl"
+                >
+                  {/* Image Container */}
+                  <div className="relative h-48 w-full overflow-hidden">
+                    {destination.imageUrl ? (
+                      <Image
+                        src={destination.imageUrl}
+                        alt={destination.name}
+                        fill
+                        className="object-cover transition-transform duration-500 group-hover:scale-110"
+                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-indigo-500 to-purple-600">
+                        <span className="text-6xl">{destination.icon}</span>
+                      </div>
+                    )}
+                    {/* Gradient Overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+
+                    {/* Icon Badge */}
+                    <div className="absolute right-3 top-3 rounded-full bg-white/90 px-3 py-1 text-lg backdrop-blur-sm">
+                      {destination.icon}
                     </div>
-                  )}
-                  {/* Gradient Overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
 
-                  {/* Icon Badge */}
-                  <div className="absolute right-3 top-3 rounded-full bg-white/90 px-3 py-1 text-lg backdrop-blur-sm">
-                    {destination.icon}
+                    {/* Unsplash Attribution - REQUIRED by Unsplash API Guidelines */}
+                    {destination.imageUrl && destination.imageAttribution && (
+                      <UnsplashAttribution
+                        photographerName={destination.imageAttribution.photographerName}
+                        photographerUrl={destination.imageAttribution.photographerUrl}
+                        unsplashUrl={destination.imageAttribution.unsplashUrl}
+                        variant="overlay-compact"
+                      />
+                    )}
                   </div>
 
-                  {/* Unsplash Attribution - REQUIRED by Unsplash API Guidelines */}
-                  {destination.imageUrl && destination.imageAttribution && (
-                    <UnsplashAttribution
-                      photographerName={destination.imageAttribution.photographerName}
-                      photographerUrl={destination.imageAttribution.photographerUrl}
-                      unsplashUrl={destination.imageAttribution.unsplashUrl}
-                      variant="overlay-compact"
-                    />
-                  )}
-                </div>
-
-                {/* Content */}
-                <div className="p-5">
-                  <h2 className="text-xl font-bold text-gray-900 group-hover:text-indigo-600">
-                    {destination.name}
-                  </h2>
-                  {destination.description && (
-                    <p className="mt-2 line-clamp-3 text-sm text-gray-600">
-                      {destination.description}
-                    </p>
-                  )}
-                  <div className="mt-4 flex items-center text-sm font-medium text-indigo-600 group-hover:text-indigo-700">
-                    <span>Explore experiences</span>
-                    <svg
-                      className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-1"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth="2"
-                      stroke="currentColor"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-                    </svg>
+                  {/* Content */}
+                  <div className="p-5">
+                    <h2 className="text-xl font-bold text-gray-900 group-hover:text-indigo-600">
+                      {destination.name}
+                    </h2>
+                    {destination.description && (
+                      <p className="mt-2 line-clamp-3 text-sm text-gray-600">
+                        {destination.description}
+                      </p>
+                    )}
+                    <div className="mt-4 flex items-center text-sm font-medium text-indigo-600 group-hover:text-indigo-700">
+                      <span>Explore experiences</span>
+                      <svg
+                        className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-1"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth="2"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"
+                        />
+                      </svg>
+                    </div>
                   </div>
-                </div>
-              </Link>
+                </Link>
               );
             })}
           </div>
@@ -211,9 +255,23 @@ export default async function DestinationsPage() {
           <div className="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
             <div className="text-center">
               <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-100">
-                <svg className="h-7 w-7 text-indigo-600" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+                <svg
+                  className="h-7 w-7 text-indigo-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth="1.5"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"
+                  />
                 </svg>
               </div>
               <h3 className="mt-4 text-lg font-semibold text-gray-900">Local Expertise</h3>
@@ -223,8 +281,18 @@ export default async function DestinationsPage() {
             </div>
             <div className="text-center">
               <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-100">
-                <svg className="h-7 w-7 text-indigo-600" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
+                <svg
+                  className="h-7 w-7 text-indigo-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth="1.5"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z"
+                  />
                 </svg>
               </div>
               <h3 className="mt-4 text-lg font-semibold text-gray-900">Hand-Picked Quality</h3>
@@ -234,8 +302,18 @@ export default async function DestinationsPage() {
             </div>
             <div className="text-center">
               <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-100">
-                <svg className="h-7 w-7 text-indigo-600" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+                <svg
+                  className="h-7 w-7 text-indigo-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth="1.5"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"
+                  />
                 </svg>
               </div>
               <h3 className="mt-4 text-lg font-semibold text-gray-900">Secure Booking</h3>

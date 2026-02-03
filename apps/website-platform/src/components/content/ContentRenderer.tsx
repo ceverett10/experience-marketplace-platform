@@ -75,8 +75,12 @@ export function ContentRenderer({
             </a>
           ),
           // Customize lists
-          ul: ({ children }) => <ul className="list-disc pl-6 mb-4 space-y-2 text-gray-700">{children}</ul>,
-          ol: ({ children }) => <ol className="list-decimal pl-6 mb-4 space-y-2 text-gray-700">{children}</ol>,
+          ul: ({ children }) => (
+            <ul className="list-disc pl-6 mb-4 space-y-2 text-gray-700">{children}</ul>
+          ),
+          ol: ({ children }) => (
+            <ol className="list-decimal pl-6 mb-4 space-y-2 text-gray-700">{children}</ol>
+          ),
           li: ({ children }) => <li className="text-gray-700">{children}</li>,
           // Customize blockquotes
           blockquote: ({ children }) => (

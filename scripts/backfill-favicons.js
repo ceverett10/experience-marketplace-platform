@@ -28,10 +28,13 @@ function hexToRgb(hex) {
 }
 
 function rgbToHsl(r, g, b) {
-  r /= 255; g /= 255; b /= 255;
+  r /= 255;
+  g /= 255;
+  b /= 255;
   const max = Math.max(r, g, b);
   const min = Math.min(r, g, b);
-  let h = 0, s = 0;
+  let h = 0,
+    s = 0;
   const l = (max + min) / 2;
   if (max !== min) {
     const d = max - min;
@@ -62,7 +65,10 @@ function hslToHex(h, s, l) {
     g = hue2rgb(p, q, h);
     b = hue2rgb(p, q, h - 1 / 3);
   }
-  const toHex = (c) => Math.round(c * 255).toString(16).padStart(2, '0');
+  const toHex = (c) =>
+    Math.round(c * 255)
+      .toString(16)
+      .padStart(2, '0');
   return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
 }
 
@@ -86,7 +92,10 @@ function getContrastTextColor(backgroundHex) {
 }
 
 function extractInitials(brandName) {
-  const words = brandName.trim().split(/[\s\-_]+/).filter(Boolean);
+  const words = brandName
+    .trim()
+    .split(/[\s\-_]+/)
+    .filter(Boolean);
   if (words.length === 0) return 'X';
   if (words.length === 1) return words[0].charAt(0).toUpperCase();
   return (words[0].charAt(0) + words[1].charAt(0)).toUpperCase();
@@ -179,7 +188,9 @@ async function main() {
   try {
     const where = {
       brand: { isNot: null },
-      status: { in: ['ACTIVE', 'DRAFT', 'REVIEW', 'DNS_PENDING', 'GSC_VERIFICATION', 'SSL_PENDING'] },
+      status: {
+        in: ['ACTIVE', 'DRAFT', 'REVIEW', 'DNS_PENDING', 'GSC_VERIFICATION', 'SSL_PENDING'],
+      },
     };
     if (siteSlug) {
       where.slug = siteSlug;
@@ -219,7 +230,9 @@ async function main() {
         const svg = generateFaviconSvg(brand.name, brand.primaryColor);
         const faviconUrl = svgToDataUri(svg);
         const initials = extractInitials(brand.name);
-        console.log(`  Favicon: "${initials}" on ${brand.primaryColor} (${faviconUrl.length} bytes)`);
+        console.log(
+          `  Favicon: "${initials}" on ${brand.primaryColor} (${faviconUrl.length} bytes)`
+        );
 
         if (!dryRun) {
           await prisma.brand.update({
@@ -253,7 +266,9 @@ async function main() {
 
           console.log(`  SEO Title: "${seoTitleConfig.defaultTitle}"`);
           console.log(`  SEO Template: "${seoTitleConfig.titleTemplate}"`);
-          console.log(`  SEO Description: "${seoTitleConfig.defaultDescription.substring(0, 80)}..."`);
+          console.log(
+            `  SEO Description: "${seoTitleConfig.defaultDescription.substring(0, 80)}..."`
+          );
           console.log(`  Keywords: ${seoTitleConfig.keywords.slice(0, 5).join(', ')}`);
 
           if (!dryRun) {

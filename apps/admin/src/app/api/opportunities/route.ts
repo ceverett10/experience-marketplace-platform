@@ -171,7 +171,7 @@ Keep it concise and business-focused.`;
       return NextResponse.json({
         success: true,
         jobId,
-        message: 'Opportunity scan started'
+        message: 'Opportunity scan started',
       });
     }
 

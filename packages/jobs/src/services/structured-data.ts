@@ -414,7 +414,9 @@ export function generateLocalBusinessSchema(params: {
  * Extract FAQ pairs from markdown content
  * Looks for Q&A patterns or FAQ sections
  */
-export function extractFAQsFromContent(content: string): Array<{ question: string; answer: string }> {
+export function extractFAQsFromContent(
+  content: string
+): Array<{ question: string; answer: string }> {
   const faqs: Array<{ question: string; answer: string }> = [];
 
   // Pattern 1: Q: ... A: ... format

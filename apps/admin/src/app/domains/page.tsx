@@ -69,7 +69,17 @@ export default function DomainsPage() {
         const response = await fetch(`${basePath}/api/domains?status=${statusFilter}`);
         const data = await response.json();
         setDomains(data.domains || []);
-        setStats(data.stats || { total: 0, active: 0, pending: 0, available: 0, notAvailable: 0, sslEnabled: 0, expiringBoon: 0 });
+        setStats(
+          data.stats || {
+            total: 0,
+            active: 0,
+            pending: 0,
+            available: 0,
+            notAvailable: 0,
+            sslEnabled: 0,
+            expiringBoon: 0,
+          }
+        );
       } catch (error) {
         console.error('Failed to fetch domains:', error);
       } finally {
@@ -151,12 +161,26 @@ export default function DomainsPage() {
                 });
                 const result = await response.json();
                 if (response.ok) {
-                  alert(`Checked ${result.checked || 0} domains: ${result.available || 0} available, ${result.notAvailable || 0} not available`);
+                  alert(
+                    `Checked ${result.checked || 0} domains: ${result.available || 0} available, ${result.notAvailable || 0} not available`
+                  );
                   // Refetch domains
-                  const domainsResponse = await fetch(`${basePath}/api/domains?status=${statusFilter}`);
+                  const domainsResponse = await fetch(
+                    `${basePath}/api/domains?status=${statusFilter}`
+                  );
                   const data = await domainsResponse.json();
                   setDomains(data.domains || []);
-                  setStats(data.stats || { total: 0, active: 0, pending: 0, available: 0, notAvailable: 0, sslEnabled: 0, expiringBoon: 0 });
+                  setStats(
+                    data.stats || {
+                      total: 0,
+                      active: 0,
+                      pending: 0,
+                      available: 0,
+                      notAvailable: 0,
+                      sslEnabled: 0,
+                      expiringBoon: 0,
+                    }
+                  );
                 } else {
                   alert(result.error || 'Failed to check availability');
                 }
@@ -186,10 +210,22 @@ export default function DomainsPage() {
                 if (response.ok) {
                   alert(`Synced ${result.synced?.length || 0} domains from Cloudflare`);
                   // Refetch domains
-                  const domainsResponse = await fetch(`${basePath}/api/domains?status=${statusFilter}`);
+                  const domainsResponse = await fetch(
+                    `${basePath}/api/domains?status=${statusFilter}`
+                  );
                   const data = await domainsResponse.json();
                   setDomains(data.domains || []);
-                  setStats(data.stats || { total: 0, active: 0, pending: 0, available: 0, notAvailable: 0, sslEnabled: 0, expiringBoon: 0 });
+                  setStats(
+                    data.stats || {
+                      total: 0,
+                      active: 0,
+                      pending: 0,
+                      available: 0,
+                      notAvailable: 0,
+                      sslEnabled: 0,
+                      expiringBoon: 0,
+                    }
+                  );
                 } else {
                   alert(result.error || 'Failed to sync from Cloudflare');
                 }
@@ -219,10 +255,22 @@ export default function DomainsPage() {
                 if (response.ok) {
                   alert(`Queued domain registration for ${result.queued?.length || 0} sites`);
                   // Refetch domains
-                  const domainsResponse = await fetch(`${basePath}/api/domains?status=${statusFilter}`);
+                  const domainsResponse = await fetch(
+                    `${basePath}/api/domains?status=${statusFilter}`
+                  );
                   const data = await domainsResponse.json();
                   setDomains(data.domains || []);
-                  setStats(data.stats || { total: 0, active: 0, pending: 0, available: 0, notAvailable: 0, sslEnabled: 0, expiringBoon: 0 });
+                  setStats(
+                    data.stats || {
+                      total: 0,
+                      active: 0,
+                      pending: 0,
+                      available: 0,
+                      notAvailable: 0,
+                      sslEnabled: 0,
+                      expiringBoon: 0,
+                    }
+                  );
                 } else {
                   alert(result.error || 'Failed to queue domains');
                 }
@@ -243,31 +291,46 @@ export default function DomainsPage() {
 
       {/* Stats cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4">
-        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setStatusFilter('all')}>
+        <Card
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => setStatusFilter('all')}
+        >
           <CardContent className="p-4">
             <p className="text-2xl font-bold text-slate-900">{stats.total}</p>
             <p className="text-sm text-slate-500">Total</p>
           </CardContent>
         </Card>
-        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setStatusFilter('ACTIVE')}>
+        <Card
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => setStatusFilter('ACTIVE')}
+        >
           <CardContent className="p-4">
             <p className="text-2xl font-bold text-green-600">{stats.active}</p>
             <p className="text-sm text-slate-500">Active</p>
           </CardContent>
         </Card>
-        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setStatusFilter('AVAILABLE')}>
+        <Card
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => setStatusFilter('AVAILABLE')}
+        >
           <CardContent className="p-4">
             <p className="text-2xl font-bold text-emerald-600">{stats.available}</p>
             <p className="text-sm text-slate-500">Available</p>
           </CardContent>
         </Card>
-        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setStatusFilter('NOT_AVAILABLE')}>
+        <Card
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => setStatusFilter('NOT_AVAILABLE')}
+        >
           <CardContent className="p-4">
             <p className="text-2xl font-bold text-rose-600">{stats.notAvailable}</p>
             <p className="text-sm text-slate-500">Unavailable</p>
           </CardContent>
         </Card>
-        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setStatusFilter('PENDING')}>
+        <Card
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => setStatusFilter('PENDING')}
+        >
           <CardContent className="p-4">
             <p className="text-2xl font-bold text-amber-600">{stats.pending}</p>
             <p className="text-sm text-slate-500">Pending</p>
@@ -417,7 +480,11 @@ export default function DomainsPage() {
                 {/* Actions */}
                 <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-200">
                   <div className="text-xs text-slate-500">
-                    {domain.estimatedPrice ? `Est. $${domain.estimatedPrice}/year` : domain.registrationCost ? `Cost: $${domain.registrationCost}/year` : 'Price: Check availability'}
+                    {domain.estimatedPrice
+                      ? `Est. $${domain.estimatedPrice}/year`
+                      : domain.registrationCost
+                        ? `Cost: $${domain.registrationCost}/year`
+                        : 'Price: Check availability'}
                   </div>
                   <div className="flex items-center gap-2">
                     {/* Check availability button for pending domains */}
@@ -430,15 +497,31 @@ export default function DomainsPage() {
                             const response = await fetch(`${basePath}/api/domains`, {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ action: 'checkSingleAvailability', domain: domain.domain, domainId: domain.id }),
+                              body: JSON.stringify({
+                                action: 'checkSingleAvailability',
+                                domain: domain.domain,
+                                domainId: domain.id,
+                              }),
                             });
                             const result = await response.json();
                             if (response.ok) {
                               // Refetch domains
-                              const domainsResponse = await fetch(`${basePath}/api/domains?status=${statusFilter}`);
+                              const domainsResponse = await fetch(
+                                `${basePath}/api/domains?status=${statusFilter}`
+                              );
                               const data = await domainsResponse.json();
                               setDomains(data.domains || []);
-                              setStats(data.stats || { total: 0, active: 0, pending: 0, available: 0, notAvailable: 0, sslEnabled: 0, expiringBoon: 0 });
+                              setStats(
+                                data.stats || {
+                                  total: 0,
+                                  active: 0,
+                                  pending: 0,
+                                  available: 0,
+                                  notAvailable: 0,
+                                  sslEnabled: 0,
+                                  expiringBoon: 0,
+                                }
+                              );
                             } else {
                               alert(result.error || 'Failed to check availability');
                             }
@@ -459,22 +542,43 @@ export default function DomainsPage() {
                     {domain.status === 'AVAILABLE' && (
                       <button
                         onClick={async () => {
-                          if (!confirm(`Register ${domain.domain} for ~$${domain.estimatedPrice || 10}/year?`)) return;
+                          if (
+                            !confirm(
+                              `Register ${domain.domain} for ~$${domain.estimatedPrice || 10}/year?`
+                            )
+                          )
+                            return;
                           try {
                             const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
                             const response = await fetch(`${basePath}/api/domains`, {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ domain: domain.domain, siteId: domain.siteId, registrar: 'cloudflare' }),
+                              body: JSON.stringify({
+                                domain: domain.domain,
+                                siteId: domain.siteId,
+                                registrar: 'cloudflare',
+                              }),
                             });
                             const result = await response.json();
                             if (response.ok) {
                               alert('Domain registration queued!');
                               // Refetch domains
-                              const domainsResponse = await fetch(`${basePath}/api/domains?status=${statusFilter}`);
+                              const domainsResponse = await fetch(
+                                `${basePath}/api/domains?status=${statusFilter}`
+                              );
                               const data = await domainsResponse.json();
                               setDomains(data.domains || []);
-                              setStats(data.stats || { total: 0, active: 0, pending: 0, available: 0, notAvailable: 0, sslEnabled: 0, expiringBoon: 0 });
+                              setStats(
+                                data.stats || {
+                                  total: 0,
+                                  active: 0,
+                                  pending: 0,
+                                  available: 0,
+                                  notAvailable: 0,
+                                  sslEnabled: 0,
+                                  expiringBoon: 0,
+                                }
+                              );
                             } else {
                               alert(result.error || 'Failed to register domain');
                             }

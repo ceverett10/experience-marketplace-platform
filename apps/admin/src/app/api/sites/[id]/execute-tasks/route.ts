@@ -2,10 +2,7 @@ import { NextResponse } from 'next/server';
 import { executeNextTasks } from '@experience-marketplace/jobs';
 import { prisma } from '@/lib/prisma';
 
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
 
@@ -21,10 +18,13 @@ export async function POST(
 
     // Check if autonomous processes are paused for this site
     if (site.autonomousProcessesPaused) {
-      return NextResponse.json({
-        error: 'Autonomous processes are paused for this site',
-        success: false,
-      }, { status: 400 });
+      return NextResponse.json(
+        {
+          error: 'Autonomous processes are paused for this site',
+          success: false,
+        },
+        { status: 400 }
+      );
     }
 
     // Execute next tasks

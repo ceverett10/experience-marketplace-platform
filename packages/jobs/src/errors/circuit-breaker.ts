@@ -97,11 +97,7 @@ export class CircuitBreaker {
         updatedAt: Date.now(),
       };
 
-      await this.redis.setex(
-        this.getRedisKey(),
-        STATE_TTL_SECONDS,
-        JSON.stringify(stateData)
-      );
+      await this.redis.setex(this.getRedisKey(), STATE_TTL_SECONDS, JSON.stringify(stateData));
     } catch (error) {
       console.error(`[Circuit Breaker] Failed to persist state for ${this.serviceName}:`, error);
     }

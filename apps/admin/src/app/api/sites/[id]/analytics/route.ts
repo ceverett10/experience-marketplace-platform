@@ -13,10 +13,7 @@ interface SeoConfig {
  * GET /api/sites/[id]/analytics
  * Retrieve analytics configuration for a site
  */
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
 
@@ -56,10 +53,7 @@ export async function GET(
  *
  * Body: { gaMeasurementId: "G-XXXXXXXXXX" }
  */
-export async function PATCH(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     const body = await request.json();
@@ -136,10 +130,7 @@ export async function PATCH(
  * DELETE /api/sites/[id]/analytics
  * Remove analytics configuration from a site
  */
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
 

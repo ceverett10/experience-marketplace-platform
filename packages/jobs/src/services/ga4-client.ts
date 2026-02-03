@@ -89,7 +89,9 @@ export class GA4Client {
         },
       });
     } catch (error) {
-      console.warn('[GA4 Client] Data API client initialization failed - data retrieval will be unavailable');
+      console.warn(
+        '[GA4 Client] Data API client initialization failed - data retrieval will be unavailable'
+      );
       this.dataClient = null;
     }
   }
@@ -493,10 +495,7 @@ export class GA4Client {
       const [response] = await this.dataClient.runReport({
         property: `properties/${propertyId}`,
         dateRanges: [{ startDate, endDate }],
-        dimensions: [
-          { name: 'pagePath' },
-          { name: 'pageTitle' },
-        ],
+        dimensions: [{ name: 'pagePath' }, { name: 'pageTitle' }],
         metrics: [
           { name: 'screenPageViews' },
           { name: 'userEngagementDuration' },
@@ -504,9 +503,7 @@ export class GA4Client {
           { name: 'entrances' },
           { name: 'exits' },
         ],
-        orderBys: [
-          { metric: { metricName: 'screenPageViews' }, desc: true },
-        ],
+        orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: true }],
         limit,
       });
 
@@ -546,19 +543,14 @@ export class GA4Client {
       const [response] = await this.dataClient.runReport({
         property: `properties/${propertyId}`,
         dateRanges: [{ startDate, endDate }],
-        dimensions: [
-          { name: 'sessionSource' },
-          { name: 'sessionMedium' },
-        ],
+        dimensions: [{ name: 'sessionSource' }, { name: 'sessionMedium' }],
         metrics: [
           { name: 'totalUsers' },
           { name: 'sessions' },
           { name: 'bounceRate' },
           { name: 'conversions' },
         ],
-        orderBys: [
-          { metric: { metricName: 'sessions' }, desc: true },
-        ],
+        orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
         limit: 20,
       });
 
@@ -596,18 +588,14 @@ export class GA4Client {
       const [response] = await this.dataClient.runReport({
         property: `properties/${propertyId}`,
         dateRanges: [{ startDate, endDate }],
-        dimensions: [
-          { name: 'deviceCategory' },
-        ],
+        dimensions: [{ name: 'deviceCategory' }],
         metrics: [
           { name: 'totalUsers' },
           { name: 'sessions' },
           { name: 'bounceRate' },
           { name: 'screenPageViews' },
         ],
-        orderBys: [
-          { metric: { metricName: 'sessions' }, desc: true },
-        ],
+        orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
       });
 
       return (response.rows || []).map((row) => ({

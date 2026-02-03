@@ -4,10 +4,7 @@ import { prisma } from '@/lib/prisma';
 /**
  * GET - Retrieve homepage config for a site
  */
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
 
@@ -41,10 +38,7 @@ export async function GET(
 /**
  * PUT - Update homepage config for a site
  */
-export async function PUT(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     const body = await request.json();
@@ -90,10 +84,7 @@ export async function PUT(
 /**
  * POST - Generate homepage config using AI for an existing site
  */
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
 
@@ -128,10 +119,30 @@ export async function POST(
 
     // Get seoConfig (contains brand identity details like tone of voice, etc.)
     const seoConfig = site.seoConfig as {
-      toneOfVoice?: { personality?: string[]; writingStyle?: string; doList?: string[]; dontList?: string[] };
-      trustSignals?: { expertise?: string[]; certifications?: string[]; valuePropositions?: string[]; guarantees?: string[] };
-      brandStory?: { mission?: string; vision?: string; values?: string[]; targetAudience?: string; uniqueSellingPoints?: string[] };
-      contentGuidelines?: { keyThemes?: string[]; contentPillars?: string[]; semanticKeywords?: string[] };
+      toneOfVoice?: {
+        personality?: string[];
+        writingStyle?: string;
+        doList?: string[];
+        dontList?: string[];
+      };
+      trustSignals?: {
+        expertise?: string[];
+        certifications?: string[];
+        valuePropositions?: string[];
+        guarantees?: string[];
+      };
+      brandStory?: {
+        mission?: string;
+        vision?: string;
+        values?: string[];
+        targetAudience?: string;
+        uniqueSellingPoints?: string[];
+      };
+      contentGuidelines?: {
+        keyThemes?: string[];
+        contentPillars?: string[];
+        semanticKeywords?: string[];
+      };
     } | null;
 
     // Prepare brand identity context - use seoConfig if available for richer context

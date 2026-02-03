@@ -113,9 +113,6 @@ export async function POST() {
     });
   } catch (error) {
     console.error('Failed to run roadmap processor:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to run processor' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: 'Failed to run processor' }, { status: 500 });
   }
 }

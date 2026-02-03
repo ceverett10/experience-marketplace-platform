@@ -28,12 +28,14 @@ The SEO Opportunity Scanner is an autonomous system that identifies high-value k
 ## System Architecture
 
 ### Job Type
+
 - **Job Name:** `SEO_OPPORTUNITY_SCAN`
 - **Worker Location:** `packages/jobs/src/workers/opportunity.ts`
 - **Handler Function:** `handleOpportunityScan()`
 - **Queue Priority:** Standard (priority level 5)
 
 ### Dependencies
+
 - **Holibob API:** Product inventory data
 - **DataForSEO API:** Keyword research metrics (search volume, difficulty, CPC)
 - **Anthropic API:** AI-powered explanation generation (new in v2.0)
@@ -45,20 +47,25 @@ The SEO Opportunity Scanner is an autonomous system that identifies high-value k
 ## Execution Schedule
 
 ### Automatic Execution
+
 The opportunity scanner runs automatically on the following schedule:
 
-| Schedule Type | Cron Pattern | Time (UTC) | Description |
-|--------------|--------------|------------|-------------|
-| Daily Scan | `0 2 * * *` | 2:00 AM | Full opportunity scan |
+| Schedule Type | Cron Pattern | Time (UTC) | Description           |
+| ------------- | ------------ | ---------- | --------------------- |
+| Daily Scan    | `0 2 * * *`  | 2:00 AM    | Full opportunity scan |
 
 ### Manual Execution
+
 Administrators can trigger scans manually via:
+
 - **Admin UI:** https://holibob-experiences-demand-gen.herokuapp.com/admin/opportunities
 - **Click:** "Run Scan" button
 - **Options:** Can specify custom destinations and categories
 
 ### Pause Control
+
 The scan respects the autonomous operation pause system:
+
 - Checks `canExecuteAutonomousOperation()` before proceeding
 - Rate limit type: `OPPORTUNITY_SCAN`
 - Will skip if paused at site or global level
@@ -260,20 +267,24 @@ The scan respects the autonomous operation pause system:
 **Purpose:** Validate inventory availability for keyword opportunities
 
 **Endpoint:** GraphQL API
+
 - Production: `https://api.holibob.tech/graphql`
 - Sandbox: `https://api.sandbox.holibob.tech/graphql`
 
 **Query Parameters:**
+
 - `freeText`: Destination string (e.g., "London, England")
 - `searchTerm`: Category keyword (e.g., "food tours")
 - `currency`: "GBP"
 - `pageSize`: 10
 
 **Response Data Used:**
+
 - `products.length`: Inventory count (must be > 0)
 - Product availability confirms demand can be fulfilled
 
 **Circuit Breaker:**
+
 - Name: `holibob-api`
 - Timeout: 30 seconds
 - Failure threshold: 5 consecutive failures
@@ -288,6 +299,7 @@ The scan respects the autonomous operation pause system:
 **Service:** KeywordResearchService wrapper
 
 **Data Retrieved:**
+
 - **Search Volume:** Monthly search count
 - **Keyword Difficulty:** Competition score (0-100)
 - **CPC (Cost Per Click):** Commercial value indicator
@@ -296,6 +308,7 @@ The scan respects the autonomous operation pause system:
 - **Seasonality:** Seasonal search patterns
 
 **Circuit Breaker:**
+
 - Name: `dataforseo-api`
 - Timeout: 15 seconds
 - Failure threshold: 3 consecutive failures
@@ -336,6 +349,7 @@ estimateCpc(category):
 **API Version:** 2023-06-01
 
 **Input Data:**
+
 - Keyword
 - Search volume (formatted with locale)
 - Keyword difficulty score
@@ -347,6 +361,7 @@ estimateCpc(category):
 - Complete DataForSEO source data (JSON)
 
 **Prompt Structure:**
+
 ```
 Analyze this SEO opportunity and explain in 2-3 concise sentences
 why this is an attractive keyword to target:
@@ -372,6 +387,7 @@ Keep it concise and business-focused.
 ```
 
 **Response Format:**
+
 ```json
 {
   "content": [
@@ -383,6 +399,7 @@ Keep it concise and business-focused.
 ```
 
 **Error Handling:**
+
 - Invalid API key: Throw error, skip explanation generation
 - API error response: Log error, continue scan
 - Invalid response structure: Log error, skip opportunity
@@ -407,11 +424,13 @@ priorityScore = volumeScore(30%) +
 **Formula:** `min((searchVolume / 10,000) × 30, 30)`
 
 **Logic:**
+
 - Maximum 30 points
 - Linear scaling up to 10,000 searches/month
 - Above 10,000: capped at 30 points
 
 **Examples:**
+
 - 1,000 searches → 3 points
 - 5,000 searches → 15 points
 - 10,000+ searches → 30 points (maximum)
@@ -425,11 +444,13 @@ priorityScore = volumeScore(30%) +
 **Formula:** `((100 - difficulty) / 100) × 20`
 
 **Logic:**
+
 - Inverted difficulty score (easier = better)
 - Maximum 20 points for difficulty = 0
 - Minimum 0 points for difficulty = 100
 
 **Examples:**
+
 - Difficulty 20 → 16 points (easy)
 - Difficulty 50 → 10 points (moderate)
 - Difficulty 80 → 4 points (hard)
@@ -443,12 +464,14 @@ priorityScore = volumeScore(30%) +
 **Formula:** `intentScores[intent]`
 
 **Intent Values:**
+
 - TRANSACTIONAL → 25 points (highest)
 - COMMERCIAL → 20 points
 - NAVIGATIONAL → 10 points
 - INFORMATIONAL → 5 points (lowest)
 
 **Examples:**
+
 - "buy london food tour" → TRANSACTIONAL → 25 points
 - "best food tours london" → COMMERCIAL → 20 points
 - "food tour companies" → NAVIGATIONAL → 10 points
@@ -463,11 +486,13 @@ priorityScore = volumeScore(30%) +
 **Formula:** `min((inventoryCount / 50) × 15, 15)`
 
 **Logic:**
+
 - Based on Holibob product availability
 - Linear scaling up to 50 products
 - Maximum 15 points
 
 **Examples:**
+
 - 5 products → 1.5 points
 - 25 products → 7.5 points
 - 50+ products → 15 points (maximum)
@@ -483,12 +508,14 @@ priorityScore = volumeScore(30%) +
 **Status:** Placeholder for future implementation
 
 **Planned Logic:**
+
 - Analyze DataForSEO trend data
 - Detect seasonal patterns
 - Boost score for in-season keywords
 - Reduce score for off-season keywords
 
 **Example Future Scoring:**
+
 - Year-round demand → 10 points
 - Peak season approaching → 12 points
 - Off-season declining → 6 points
@@ -499,11 +526,11 @@ priorityScore = volumeScore(30%) +
 
 ### Score Thresholds
 
-| Score Range | Priority Level | Action Taken |
-|-------------|----------------|--------------|
-| 75-100 | High Priority | ✅ Store + ✅ Generate Explanation + ✅ Auto-create Site |
-| 50-74 | Medium Priority | ✅ Store + ❌ No explanation + ❌ No auto-action |
-| 0-49 | Low Priority | ❌ Discard (not stored) |
+| Score Range | Priority Level  | Action Taken                                             |
+| ----------- | --------------- | -------------------------------------------------------- |
+| 75-100      | High Priority   | ✅ Store + ✅ Generate Explanation + ✅ Auto-create Site |
+| 50-74       | Medium Priority | ✅ Store + ❌ No explanation + ❌ No auto-action         |
+| 0-49        | Low Priority    | ❌ Discard (not stored)                                  |
 
 ---
 
@@ -512,6 +539,7 @@ priorityScore = volumeScore(30%) +
 **Opportunity:** "barcelona food tours"
 
 **Input Data:**
+
 - Search Volume: 6,200/month
 - Difficulty: 38/100
 - CPC: $2.80
@@ -520,6 +548,7 @@ priorityScore = volumeScore(30%) +
 - Seasonality: 10 (default)
 
 **Calculation:**
+
 ```
 Volume Score    = (6,200 / 10,000) × 30 = 18.6 points
 Competition Score = ((100 - 38) / 100) × 20 = 12.4 points
@@ -531,6 +560,7 @@ Total Priority Score = 18.6 + 12.4 + 25 + 12.6 + 10 = 78.6 → 79 points
 ```
 
 **Result:** **HIGH PRIORITY** (score ≥ 75)
+
 - ✅ Stored in database
 - ✅ AI explanation generated automatically
 - ✅ Site creation job queued automatically
@@ -580,6 +610,7 @@ Each explanation contains **2-3 concise sentences** covering:
 ### Example Generated Explanations
 
 **Example 1: High Volume, Moderate Competition**
+
 ```
 Keyword: london food tours
 Score: 87
@@ -594,6 +625,7 @@ opportunities."
 ```
 
 **Example 2: Lower Volume, Low Competition**
+
 ```
 Keyword: amsterdam wine tasting
 Score: 76
@@ -607,6 +639,7 @@ premium wine tasting experiences targeting affluent travelers."
 ```
 
 **Example 3: Very High Volume, High Competition**
+
 ```
 Keyword: paris museum tickets
 Score: 82
@@ -623,12 +656,14 @@ museum visits."
 ### Cost & Performance Metrics
 
 **Model:** Claude 3.5 Haiku
+
 - **Input tokens:** ~400 tokens per request
 - **Output tokens:** ~150 tokens per response
 - **Cost per explanation:** ~$0.001-0.002 USD
 - **Generation time:** 1-2 seconds per explanation
 
 **Daily Scan Estimates:**
+
 - Typical scan: 50 opportunities found
 - High-priority: ~15 opportunities (30%)
 - Explanations generated: ~15 per day
@@ -638,6 +673,7 @@ museum visits."
 ### Error Handling
 
 **Scenario 1: API Key Missing**
+
 ```javascript
 if (!anthropicApiKey) {
   throw new Error('ANTHROPIC_API_KEY not configured');
@@ -647,6 +683,7 @@ if (!anthropicApiKey) {
 ```
 
 **Scenario 2: API Error Response**
+
 ```javascript
 if (!response.ok) {
   const errorData = await response.json();
@@ -658,6 +695,7 @@ if (!response.ok) {
 ```
 
 **Scenario 3: Invalid Response Format**
+
 ```javascript
 if (!data.content?.[0]?.text) {
   throw new Error('Invalid response from Anthropic API');
@@ -670,12 +708,14 @@ if (!data.content?.[0]?.text) {
 ### Fallback & Retry Strategy
 
 **During Scan:**
+
 - ❌ No automatic retries (prevents blocking)
 - ✅ Log error for manual review
 - ✅ Continue scan with remaining opportunities
 - ✅ Opportunity remains valid without explanation
 
 **Manual Retry:**
+
 - Admin can click "Generate Explanation" button
 - Uses same API and prompt
 - Immediate feedback on success/failure
@@ -763,6 +803,7 @@ When a `SITE_CREATE` job executes (triggered by auto-actioning):
 
 **Limit per scan:** 10 sites maximum (top 10 highest-value opportunities)
 **Rationale:**
+
 - Focuses on highest-value opportunities first (sorted by priority score)
 - Increased from 5 to 10 for faster portfolio growth
 - Still prevents overwhelming downstream systems
@@ -770,6 +811,7 @@ When a `SITE_CREATE` job executes (triggered by auto-actioning):
 - Controls infrastructure costs
 
 **If more than 10 high-priority opportunities exist:**
+
 - Top 10 by priority score are actioned
 - Remaining opportunities stay as IDENTIFIED
 - Will be considered in next scan
@@ -818,6 +860,7 @@ FINAL OUTPUT: Top 10 ranked opportunities with domain suggestions
 #### Iteration 1: Broad Discovery
 
 The AI (Claude 3.5 Sonnet) generates **20 diverse niche suggestions** based on:
+
 - Holibob inventory sample (random 50 products)
 - High-level market analysis
 - Destination and category coverage
@@ -851,6 +894,7 @@ Each iteration receives **learning context** from previous iterations:
 #### Iteration 5: Final Optimization
 
 Receives **cumulative learnings** from all 4 previous iterations:
+
 - Generates 8 final high-confidence suggestions
 - Focuses on patterns proven to score highly
 - Avoids all identified failure patterns
@@ -870,6 +914,7 @@ priorityScore = (
 ```
 
 **Scoring Thresholds:**
+
 - **Excellent:** 80+ (top candidates)
 - **Good:** 65-79 (solid opportunities)
 - **Moderate:** 50-64 (acceptable)
@@ -911,6 +956,7 @@ POST /api/opportunities
 ```
 
 **Parameters:**
+
 - `maxIterations` (optional): Number of AI iterations (default: 5)
 - `destinationFocus` (optional): Limit to specific destinations
 - `categoryFocus` (optional): Limit to specific categories
@@ -922,21 +968,21 @@ Click **"Run Optimized Scan"** button on the Opportunities page.
 
 ### Cost & Performance
 
-| Component | Per Run | Notes |
-|-----------|---------|-------|
-| Anthropic Sonnet (5 iterations) | ~$0.50 | Progressive context |
-| Anthropic Haiku (learning extraction) | ~$0.05 | Pattern analysis |
-| DataForSEO Bulk (65 keywords) | ~$0.26 | Batch API |
-| **Total per optimization run** | **~$0.80** | |
-| **Execution time** | 3-5 minutes | Parallelized |
+| Component                             | Per Run     | Notes               |
+| ------------------------------------- | ----------- | ------------------- |
+| Anthropic Sonnet (5 iterations)       | ~$0.50      | Progressive context |
+| Anthropic Haiku (learning extraction) | ~$0.05      | Pattern analysis    |
+| DataForSEO Bulk (65 keywords)         | ~$0.26      | Batch API           |
+| **Total per optimization run**        | **~$0.80**  |                     |
+| **Execution time**                    | 3-5 minutes | Parallelized        |
 
 ### Expected Improvements vs Standard Scan
 
-| Metric | Standard Scan | Optimized Scan | Improvement |
-|--------|---------------|----------------|-------------|
-| High-score rate (75+) | 15-20% | 50-60% | +35% |
-| Average score | 55-60 | 70-80 | +15-25 |
-| Domain-ready opportunities | 2-3 | 8-10 | +200% |
+| Metric                     | Standard Scan | Optimized Scan | Improvement |
+| -------------------------- | ------------- | -------------- | ----------- |
+| High-score rate (75+)      | 15-20%        | 50-60%         | +35%        |
+| Average score              | 55-60         | 70-80          | +15-25      |
+| Domain-ready opportunities | 2-3           | 8-10           | +200%       |
 
 ### Opportunity Storage
 
@@ -965,23 +1011,27 @@ SEOOpportunity {
 **Input:** General scan with 5 iterations
 
 **Iteration 1 Results:**
+
 - 20 suggestions generated
 - Top performer: "barcelona wine tasting" (score: 78)
 - Bottom performer: "generic tours online" (score: 32)
 - Pattern identified: Wine/culinary niches outperform generic tours
 
 **Iteration 2 Results:**
+
 - 15 suggestions (narrowed)
 - AI focuses on culinary niches based on learnings
 - Top performer: "rome cooking class experiences" (score: 82)
 - Pattern confirmed: Experiential keywords score better
 
 **Iteration 3-4:**
+
 - Progressive refinement
 - Difficulty range optimized to 30-55
 - European destinations consistently outperform
 
 **Iteration 5 Final Output:**
+
 ```
 Rank 1: barcelona-wine-experiences (Score: 86)
 Rank 2: rome-cooking-classes (Score: 84)
@@ -994,16 +1044,19 @@ Rank 5: amsterdam-cheese-tours (Score: 79)
 ### Error Handling
 
 **Per-Iteration Failures:**
+
 - If an iteration fails, learnings from previous iterations are preserved
 - System continues with available data
 - Minimum 3 iterations required for valid output
 
 **API Failures:**
+
 - Anthropic API: Falls back to simpler prompts
 - DataForSEO: Uses estimation for affected keywords
 - Results marked with `partialData: true`
 
 **Budget Exceeded:**
+
 - Stops early if `budgetLimit` reached
 - Returns best results from completed iterations
 - Logs budget status for monitoring
@@ -1017,6 +1070,7 @@ Rank 5: amsterdam-cheese-tours (Score: 79)
 **Purpose:** Prevent cascade failures from external API outages
 
 **Implementation:**
+
 ```javascript
 const circuitBreakers = {
   'holibob-api': {
@@ -1033,24 +1087,26 @@ const circuitBreakers = {
 ```
 
 **States:**
+
 - **CLOSED:** Normal operation, requests pass through
 - **OPEN:** Threshold exceeded, fail fast without calling API
 - **HALF-OPEN:** Testing recovery, allow limited requests
 
 ### Error Categories & Responses
 
-| Error Type | Category | Retryable | Action |
-|------------|----------|-----------|--------|
-| Holibob API timeout | external_api | ✅ Yes | Circuit breaker, skip opportunity |
-| DataForSEO API failure | external_api | ✅ Yes | Fall back to estimation |
-| Anthropic API error | external_api | ✅ Yes | Log and continue, no explanation |
-| Database connection | infrastructure | ✅ Yes | Retry with exponential backoff |
-| Invalid opportunity data | validation | ❌ No | Log and skip |
-| Paused operations | paused | ❌ No | Return immediately with reason |
+| Error Type               | Category       | Retryable | Action                            |
+| ------------------------ | -------------- | --------- | --------------------------------- |
+| Holibob API timeout      | external_api   | ✅ Yes    | Circuit breaker, skip opportunity |
+| DataForSEO API failure   | external_api   | ✅ Yes    | Fall back to estimation           |
+| Anthropic API error      | external_api   | ✅ Yes    | Log and continue, no explanation  |
+| Database connection      | infrastructure | ✅ Yes    | Retry with exponential backoff    |
+| Invalid opportunity data | validation     | ❌ No     | Log and skip                      |
+| Paused operations        | paused         | ❌ No     | Return immediately with reason    |
 
 ### Retry Strategy
 
 **Exponential Backoff:**
+
 ```javascript
 retryDelay = baseDelay × (2 ^ attemptNumber)
 
@@ -1067,6 +1123,7 @@ Attempt 5: 16 seconds (max, then fail)
 ### Logging & Monitoring
 
 **Error Tracking:**
+
 ```javascript
 await errorTracking.logError({
   jobId: job.id,
@@ -1079,11 +1136,12 @@ await errorTracking.logError({
   attemptsMade: 2,
   context: { destination, category },
   stackTrace: error.stack,
-  timestamp: new Date()
+  timestamp: new Date(),
 });
 ```
 
 **Success Logging:**
+
 ```javascript
 console.log('[Opportunity Scan] Found 150 potential opportunities');
 console.log('[Opportunity Scan] Stored 45 opportunities with score >= 50');
@@ -1098,12 +1156,14 @@ console.log('[Opportunity] Auto-actioning 10 highest-value opportunities');
 ### Typical Scan Performance
 
 **Input Scale:**
+
 - 6 destinations × 5 categories = 30 combinations
 - Inventory check: 30 API calls to Holibob
 - Keyword research: ~20 API calls to DataForSEO (filtered by inventory)
 - AI explanations: ~5-15 calls to Anthropic (high-priority only)
 
 **Timing Breakdown:**
+
 ```
 Phase 1: Initialization          ~1 second
 Phase 2: Inventory Discovery     ~60-90 seconds (30 API calls @ 2-3s each)
@@ -1117,6 +1177,7 @@ Total Scan Duration: 2-4 minutes
 ```
 
 **Resource Utilization:**
+
 - API Calls: ~55-75 total
 - Database Writes: ~45-60 (one per opportunity + updates)
 - Memory: ~50-100 MB
@@ -1125,11 +1186,13 @@ Total Scan Duration: 2-4 minutes
 ### Scaling Considerations
 
 **Current Limits:**
+
 - 30 destination/category combinations per scan
 - 10 auto-actioned sites per scan (top 10 highest-value opportunities)
 - No explicit rate limiting (relies on circuit breakers)
 
 **Future Optimization:**
+
 - Parallel API calls (currently sequential)
 - Caching for repeated keywords
 - Batch database writes
@@ -1188,11 +1251,12 @@ SKIP_EXPLANATION_GENERATION=false  # Set to 'true' to disable
 **Scheduler Location:** `packages/jobs/src/schedulers/index.ts`
 
 **To modify schedule:**
+
 ```javascript
 await scheduleJob(
   'SEO_OPPORTUNITY_SCAN',
   { forceRescan: false },
-  '0 2 * * *'  // Change this cron pattern
+  '0 2 * * *' // Change this cron pattern
 );
 ```
 
@@ -1203,6 +1267,7 @@ await scheduleJob(
 ### Health Check Indicators
 
 **Scan is healthy if:**
+
 - ✅ Completes within 5 minutes
 - ✅ Stores 30-50 opportunities per run
 - ✅ Generates explanations for all high-priority opportunities
@@ -1211,6 +1276,7 @@ await scheduleJob(
 - ✅ Database writes succeed
 
 **Warning signs:**
+
 - ⚠️ Scan takes >5 minutes
 - ⚠️ Stores <20 opportunities
 - ⚠️ Circuit breakers frequently tripping
@@ -1218,6 +1284,7 @@ await scheduleJob(
 - ⚠️ AI explanation generation failures
 
 **Critical issues:**
+
 - ❌ Scan fails completely
 - ❌ No opportunities stored
 - ❌ Database write failures
@@ -1227,6 +1294,7 @@ await scheduleJob(
 ### Common Issues & Solutions
 
 **Issue 1: No opportunities found**
+
 ```
 Symptoms: scan returns 0 opportunities
 Possible causes:
@@ -1242,6 +1310,7 @@ Solution:
 ```
 
 **Issue 2: DataForSEO API failures**
+
 ```
 Symptoms: All keyword data using estimates
 Possible causes:
@@ -1257,6 +1326,7 @@ Solution:
 ```
 
 **Issue 3: AI explanations not generating**
+
 ```
 Symptoms: High-priority opportunities have null explanation
 Possible causes:
@@ -1272,6 +1342,7 @@ Solution:
 ```
 
 **Issue 4: Scan paused automatically**
+
 ```
 Symptoms: Scan returns "Opportunity scanning is paused"
 Possible causes:
@@ -1292,11 +1363,13 @@ Solution:
 https://holibob-experiences-demand-gen.herokuapp.com/admin/opportunities
 
 **Heroku Logs:**
+
 ```bash
 heroku logs --app holibob-experiences-demand-gen --source app[worker.1] | grep "Opportunity"
 ```
 
 **Database Query:**
+
 ```sql
 -- Recent opportunities
 SELECT
@@ -1326,6 +1399,7 @@ LIMIT 7;
 ## Version History
 
 ### v3.0 (February 2, 2026)
+
 - 🚀 **MAJOR:** Recursive AI Optimization - 5-iteration learning loop for finding best opportunities
 - ✨ **NEW:** AI learns from DataForSEO validation results to refine suggestions
 - ✨ **NEW:** Pattern extraction identifies high-score vs low-score characteristics
@@ -1338,12 +1412,14 @@ LIMIT 7;
 - ✅ 3x improvement in finding high-scoring opportunities (50-60% vs 15-20%)
 
 ### v2.1 (February 2, 2026)
+
 - ✨ **NEW:** Increased auto-action limit from 5 to 10 opportunities per scan
 - ✨ **NEW:** Opportunities now sorted by priority score (highest-value first)
 - ✅ Ensures each scan processes the 10 best, highest-value opportunities
 - ✅ Faster portfolio growth while maintaining quality focus
 
 ### v2.0 (February 2, 2026)
+
 - ✨ **NEW:** Autonomous AI explanation generation for high-priority opportunities
 - ✨ **NEW:** Uses Claude 3.5 Haiku for cost-effective explanations
 - ✨ **NEW:** Automatic generation during daily scans (score ≥ 75)
@@ -1352,6 +1428,7 @@ LIMIT 7;
 - ✅ Manual generation option still available via admin UI
 
 ### v1.0 (January 2026)
+
 - 🎉 Initial release of SEO Opportunity Scanner
 - ✅ Daily scheduled scans (2 AM UTC)
 - ✅ Holibob inventory integration
@@ -1408,15 +1485,17 @@ LIMIT 7;
 **Next Review:** March 2, 2026
 
 **For technical issues:**
+
 - Check Heroku logs: `heroku logs --tail --app holibob-experiences-demand-gen`
 - Review error tracking in database
 - Contact platform engineering team
 
 **For feature requests:**
+
 - Submit via admin UI feedback
 - Document in platform roadmap
 - Discuss in engineering sync meetings
 
 ---
 
-*This document is auto-generated from code analysis and maintained by the platform engineering team. For the most up-to-date implementation details, refer to the source code at `packages/jobs/src/workers/opportunity.ts`.*
+_This document is auto-generated from code analysis and maintained by the platform engineering team. For the most up-to-date implementation details, refer to the source code at `packages/jobs/src/workers/opportunity.ts`._

@@ -237,7 +237,15 @@ export interface DailyCostSummary {
 
 // Zod schemas for validation
 export const ContentBriefSchema = z.object({
-  type: z.enum(['destination', 'category', 'experience', 'blog', 'about', 'meta_description', 'seo_title']),
+  type: z.enum([
+    'destination',
+    'category',
+    'experience',
+    'blog',
+    'about',
+    'meta_description',
+    'seo_title',
+  ]),
   siteId: z.string().min(1),
   targetKeyword: z.string().min(1),
   secondaryKeywords: z.array(z.string()),

@@ -75,10 +75,7 @@ interface StoredHealthReport {
  * GET /api/sites/[id]/seo-health
  * Retrieve the latest SEO health report for a site
  */
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
 
@@ -263,7 +260,9 @@ export async function GET(
       }
 
       // === PERFORMANCE CHECKS (GSC DATA) ===
-      const pageMetric = siteMetrics.find((m) => m.pageUrl && page.slug && m.pageUrl.includes(page.slug));
+      const pageMetric = siteMetrics.find(
+        (m) => m.pageUrl && page.slug && m.pageUrl.includes(page.slug)
+      );
 
       if (pageMetric) {
         const ctr = pageMetric.ctr || 0;
@@ -318,7 +317,9 @@ export async function GET(
       }
 
       // Calculate overall score
-      const overallScore = Math.round(technicalScore * 0.3 + contentScore * 0.4 + performanceScore * 0.3);
+      const overallScore = Math.round(
+        technicalScore * 0.3 + contentScore * 0.4 + performanceScore * 0.3
+      );
 
       technicalTotal += technicalScore;
       contentTotal += contentScore;
@@ -346,7 +347,7 @@ export async function GET(
     const avgTechnical = Math.round(technicalTotal / pageCount);
     const avgContent = Math.round(contentTotal / pageCount);
     const avgPerformance = Math.round(performanceTotal / pageCount);
-    const coverage = pageScores.filter((p) => p.scores.overall >= 70).length / pageCount * 100;
+    const coverage = (pageScores.filter((p) => p.scores.overall >= 70).length / pageCount) * 100;
     const overallScore = Math.round(avgTechnical * 0.3 + avgContent * 0.4 + avgPerformance * 0.3);
 
     // Group issues by type
@@ -358,8 +359,8 @@ export async function GET(
     const recommendations: SEORecommendation[] = [];
 
     // Missing meta titles
-    const missingMetaTitles = pageScores.filter(
-      (p) => p.issues.some((i) => i.title === 'Missing meta title')
+    const missingMetaTitles = pageScores.filter((p) =>
+      p.issues.some((i) => i.title === 'Missing meta title')
     );
     if (missingMetaTitles.length > 0) {
       recommendations.push({
@@ -374,8 +375,8 @@ export async function GET(
     }
 
     // Missing meta descriptions
-    const missingMetaDesc = pageScores.filter(
-      (p) => p.issues.some((i) => i.title === 'Missing meta description')
+    const missingMetaDesc = pageScores.filter((p) =>
+      p.issues.some((i) => i.title === 'Missing meta description')
     );
     if (missingMetaDesc.length > 0) {
       recommendations.push({
@@ -390,8 +391,8 @@ export async function GET(
     }
 
     // Missing structured data
-    const missingStructuredData = pageScores.filter(
-      (p) => p.issues.some((i) => i.title === 'Missing structured data')
+    const missingStructuredData = pageScores.filter((p) =>
+      p.issues.some((i) => i.title === 'Missing structured data')
     );
     if (missingStructuredData.length > 0) {
       recommendations.push({
@@ -420,7 +421,9 @@ export async function GET(
     }
 
     // Stale content
-    const staleContent = pageScores.filter((p) => p.issues.some((i) => i.title === 'Stale content'));
+    const staleContent = pageScores.filter((p) =>
+      p.issues.some((i) => i.title === 'Stale content')
+    );
     if (staleContent.length > 0) {
       recommendations.push({
         priority: 60,
@@ -455,18 +458,23 @@ export async function GET(
     const impressionsCurrent = current7d._sum.impressions || 0;
     const impressionsPrevious = previous7d._sum.impressions || 0;
 
-    const trends = storedReport?.trends && (clicksCurrent === 0 && impressionsCurrent === 0)
-      ? storedReport.trends
-      : {
-          scoreChange7d: 0,
-          scoreChange30d: 0,
-          clicksChange7d: clicksPrevious > 0
-            ? Math.round(((clicksCurrent - clicksPrevious) / clicksPrevious) * 100)
-            : 0,
-          impressionsChange7d: impressionsPrevious > 0
-            ? Math.round(((impressionsCurrent - impressionsPrevious) / impressionsPrevious) * 100)
-            : 0,
-        };
+    const trends =
+      storedReport?.trends && clicksCurrent === 0 && impressionsCurrent === 0
+        ? storedReport.trends
+        : {
+            scoreChange7d: 0,
+            scoreChange30d: 0,
+            clicksChange7d:
+              clicksPrevious > 0
+                ? Math.round(((clicksCurrent - clicksPrevious) / clicksPrevious) * 100)
+                : 0,
+            impressionsChange7d:
+              impressionsPrevious > 0
+                ? Math.round(
+                    ((impressionsCurrent - impressionsPrevious) / impressionsPrevious) * 100
+                  )
+                : 0,
+          };
 
     // Get last audit info from jobs
     const lastAuditJob = await prisma.job.findFirst({
@@ -548,10 +556,7 @@ export async function GET(
  * POST /api/sites/[id]/seo-health
  * Trigger a new SEO health audit for the site
  */
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
 
@@ -581,7 +586,11 @@ export async function POST(
       if (existingJob.status === 'PENDING' && ageMinutes > 5) {
         await prisma.job.update({
           where: { id: existingJob.id },
-          data: { status: 'FAILED', error: 'Stale job - never picked up by worker', completedAt: new Date() },
+          data: {
+            status: 'FAILED',
+            error: 'Stale job - never picked up by worker',
+            completedAt: new Date(),
+          },
         });
         // Fall through to create a new job
       } else {

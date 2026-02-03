@@ -13,7 +13,9 @@ export default function DebugPage() {
     setResult(null);
 
     try {
-      const response = await fetch(`/admin/api/debug/domain-mapping?domain=${encodeURIComponent(domain)}`);
+      const response = await fetch(
+        `/admin/api/debug/domain-mapping?domain=${encodeURIComponent(domain)}`
+      );
       const data = await response.json();
       setResult(data);
     } catch (error) {
@@ -98,8 +100,8 @@ export default function DebugPage() {
                 <strong>Dry Run Fix:</strong> Shows what would be fixed without making changes
               </li>
               <li>
-                <strong>Apply Fix:</strong> Automatically fixes domain mapping, creates missing pages, and links
-                content
+                <strong>Apply Fix:</strong> Automatically fixes domain mapping, creates missing
+                pages, and links content
               </li>
             </ul>
           </div>

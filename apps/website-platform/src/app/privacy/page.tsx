@@ -32,7 +32,8 @@ export async function generateMetadata(): Promise<Metadata> {
 
   const title = page?.metaTitle || page?.title || 'Privacy Policy';
   const description =
-    page?.metaDescription || `Privacy Policy for ${site.name}. Learn how we collect, use, and protect your personal information.`;
+    page?.metaDescription ||
+    `Privacy Policy for ${site.name}. Learn how we collect, use, and protect your personal information.`;
 
   return {
     title: `${title} | ${site.name}`,

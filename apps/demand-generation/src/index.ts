@@ -359,7 +359,9 @@ const ROADMAP_PROCESS_INTERVAL = 5 * 60 * 1000; // 5 minutes
 let roadmapProcessorInterval: NodeJS.Timeout | null = null;
 
 async function startAutonomousRoadmapProcessor() {
-  console.log(`\n🤖 Starting autonomous roadmap processor (every ${ROADMAP_PROCESS_INTERVAL / 60000} minutes)`);
+  console.log(
+    `\n🤖 Starting autonomous roadmap processor (every ${ROADMAP_PROCESS_INTERVAL / 60000} minutes)`
+  );
 
   // Run immediately on startup
   try {

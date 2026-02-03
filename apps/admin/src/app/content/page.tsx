@@ -95,9 +95,7 @@ export default function AdminContentPage() {
       }
 
       // Update local state
-      setContent((prev) =>
-        prev.map((item) => (item.id === id ? { ...item, status } : item))
-      );
+      setContent((prev) => prev.map((item) => (item.id === id ? { ...item, status } : item)));
       closeModal();
     } catch (err) {
       console.error('Error updating content:', err);
@@ -210,7 +208,9 @@ export default function AdminContentPage() {
       }
 
       const result = await response.json();
-      alert(`${result.message}\n\nContent generation jobs have been queued. Check the Queues page to monitor progress.`);
+      alert(
+        `${result.message}\n\nContent generation jobs have been queued. Check the Queues page to monitor progress.`
+      );
     } catch (err) {
       console.error('Error generating content:', err);
       alert('Failed to queue content generation. Please try again.');
@@ -233,7 +233,9 @@ export default function AdminContentPage() {
       }
 
       const result = await response.json();
-      alert(`Re-running AI for "${title}"\n\n${result.message}\n\nCheck the Queues page to monitor progress.`);
+      alert(
+        `Re-running AI for "${title}"\n\n${result.message}\n\nCheck the Queues page to monitor progress.`
+      );
     } catch (err) {
       console.error('Error regenerating content:', err);
       alert('Failed to queue content regeneration. Please try again.');
@@ -342,10 +344,7 @@ export default function AdminContentPage() {
                     </button>
                   </>
                 )}
-                <button
-                  onClick={closeModal}
-                  className="p-2 hover:bg-slate-100 rounded-lg"
-                >
+                <button onClick={closeModal} className="p-2 hover:bg-slate-100 rounded-lg">
                   ✕
                 </button>
               </div>
@@ -376,7 +375,9 @@ export default function AdminContentPage() {
               ) : (
                 <>
                   <div className="mb-4">
-                    <h4 className="text-xl font-semibold text-slate-900">{selectedContent.title}</h4>
+                    <h4 className="text-xl font-semibold text-slate-900">
+                      {selectedContent.title}
+                    </h4>
                     <div className="flex items-center gap-4 mt-2 text-sm text-slate-500">
                       <span>
                         {getTypeIcon(selectedContent.type)} {selectedContent.type}
@@ -388,7 +389,9 @@ export default function AdminContentPage() {
                     <div className="flex items-center gap-2 mb-2">
                       <span>✨</span>
                       <span className="text-sm font-medium text-slate-700">AI Quality Score</span>
-                      <span className={`font-bold ${getQualityColor(selectedContent.qualityScore)}`}>
+                      <span
+                        className={`font-bold ${getQualityColor(selectedContent.qualityScore)}`}
+                      >
                         {selectedContent.qualityScore}/100
                       </span>
                     </div>
@@ -415,7 +418,8 @@ export default function AdminContentPage() {
                       <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-center">
                         <p className="text-amber-800 font-medium">No content generated yet</p>
                         <p className="text-amber-600 text-sm mt-1">
-                          This page doesn&apos;t have content. Click &quot;Edit&quot; to add content manually.
+                          This page doesn&apos;t have content. Click &quot;Edit&quot; to add content
+                          manually.
                         </p>
                       </div>
                     )}

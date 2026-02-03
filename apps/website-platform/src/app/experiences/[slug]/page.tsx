@@ -96,7 +96,8 @@ async function getRelatedExperiences(
           if (minutes > 0) {
             const hours = Math.floor(minutes / 60);
             const mins = minutes % 60;
-            durationFormatted = hours > 0 ? (mins > 0 ? `${hours}h ${mins}m` : `${hours}h`) : `${minutes}m`;
+            durationFormatted =
+              hours > 0 ? (mins > 0 ? `${hours}h ${mins}m` : `${hours}h`) : `${minutes}m`;
           }
         }
 
@@ -820,54 +821,96 @@ export default async function ExperienceDetailPage({ params }: Props) {
         {/* FAQ Section */}
         <section className="mx-auto max-w-7xl px-4 pb-8 sm:px-6 lg:px-8">
           <div className="rounded-xl border border-gray-200 bg-white p-6">
-            <h2 className="mb-4 text-xl font-semibold text-gray-900">
-              Frequently asked questions
-            </h2>
+            <h2 className="mb-4 text-xl font-semibold text-gray-900">Frequently asked questions</h2>
             <div className="divide-y divide-gray-200">
               {hasFreeCancellation && (
                 <details className="group py-4">
                   <summary className="flex cursor-pointer items-center justify-between text-sm font-medium text-gray-900">
                     What is the cancellation policy?
-                    <svg className="h-5 w-5 text-gray-400 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                    <svg
+                      className="h-5 w-5 text-gray-400 transition-transform group-open:rotate-180"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth="1.5"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M19.5 8.25l-7.5 7.5-7.5-7.5"
+                      />
                     </svg>
                   </summary>
                   <p className="mt-2 text-sm text-gray-600">
-                    {experience.cancellationPolicy || 'You can cancel free of charge up to 24 hours before the activity starts for a full refund.'}
+                    {experience.cancellationPolicy ||
+                      'You can cancel free of charge up to 24 hours before the activity starts for a full refund.'}
                   </p>
                 </details>
               )}
               <details className="group py-4">
                 <summary className="flex cursor-pointer items-center justify-between text-sm font-medium text-gray-900">
                   How do I book this experience?
-                  <svg className="h-5 w-5 text-gray-400 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                  <svg
+                    className="h-5 w-5 text-gray-400 transition-transform group-open:rotate-180"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth="1.5"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M19.5 8.25l-7.5 7.5-7.5-7.5"
+                    />
                   </svg>
                 </summary>
                 <p className="mt-2 text-sm text-gray-600">
-                  Click &quot;Check availability&quot; to select your preferred date and number of guests. You&apos;ll receive instant confirmation after booking.
+                  Click &quot;Check availability&quot; to select your preferred date and number of
+                  guests. You&apos;ll receive instant confirmation after booking.
                 </p>
               </details>
               <details className="group py-4">
                 <summary className="flex cursor-pointer items-center justify-between text-sm font-medium text-gray-900">
                   What should I bring?
-                  <svg className="h-5 w-5 text-gray-400 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                  <svg
+                    className="h-5 w-5 text-gray-400 transition-transform group-open:rotate-180"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth="1.5"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M19.5 8.25l-7.5 7.5-7.5-7.5"
+                    />
                   </svg>
                 </summary>
                 <p className="mt-2 text-sm text-gray-600">
-                  We recommend comfortable shoes and weather-appropriate clothing. Your booking confirmation will include any specific requirements for this activity.
+                  We recommend comfortable shoes and weather-appropriate clothing. Your booking
+                  confirmation will include any specific requirements for this activity.
                 </p>
               </details>
               <details className="group py-4">
                 <summary className="flex cursor-pointer items-center justify-between text-sm font-medium text-gray-900">
                   Is this experience suitable for children?
-                  <svg className="h-5 w-5 text-gray-400 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                  <svg
+                    className="h-5 w-5 text-gray-400 transition-transform group-open:rotate-180"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth="1.5"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M19.5 8.25l-7.5 7.5-7.5-7.5"
+                    />
                   </svg>
                 </summary>
                 <p className="mt-2 text-sm text-gray-600">
-                  Check the additional information section above for age requirements. When booking, you can specify the number of children to see if discounted rates apply.
+                  Check the additional information section above for age requirements. When booking,
+                  you can specify the number of children to see if discounted rates apply.
                 </p>
               </details>
             </div>

@@ -26,11 +26,10 @@ export default function ExperiencesError({
               />
             </svg>
           </div>
-          <h2 className="mt-4 text-xl font-semibold text-gray-900">
-            Unable to load experiences
-          </h2>
+          <h2 className="mt-4 text-xl font-semibold text-gray-900">Unable to load experiences</h2>
           <p className="mt-2 max-w-md text-gray-600">
-            We&apos;re having trouble connecting to our experience provider. This is usually temporary.
+            We&apos;re having trouble connecting to our experience provider. This is usually
+            temporary.
           </p>
           <div className="mt-6 flex items-center justify-center gap-4">
             <button

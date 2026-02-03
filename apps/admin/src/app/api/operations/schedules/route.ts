@@ -45,9 +45,7 @@ export async function GET(): Promise<NextResponse> {
             ? {
                 id: lastExecution.id,
                 status: lastExecution.status,
-                error: lastExecution.error
-                  ? lastExecution.error.substring(0, 200)
-                  : null,
+                error: lastExecution.error ? lastExecution.error.substring(0, 200) : null,
                 createdAt: lastExecution.createdAt.toISOString(),
                 startedAt: lastExecution.startedAt?.toISOString() || null,
                 completedAt: lastExecution.completedAt?.toISOString() || null,
@@ -64,9 +62,7 @@ export async function GET(): Promise<NextResponse> {
             error: e.error ? e.error.substring(0, 100) : null,
             createdAt: e.createdAt.toISOString(),
             durationMs:
-              e.startedAt && e.completedAt
-                ? e.completedAt.getTime() - e.startedAt.getTime()
-                : null,
+              e.startedAt && e.completedAt ? e.completedAt.getTime() - e.startedAt.getTime() : null,
           })),
         };
       })
@@ -109,10 +105,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     const payload = defaultPayloads[cleanType];
     if (!payload) {
-      return NextResponse.json(
-        { error: `Cannot trigger job type: ${jobType}` },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: `Cannot trigger job type: ${jobType}` }, { status: 400 });
     }
 
     // For deep SEO audit

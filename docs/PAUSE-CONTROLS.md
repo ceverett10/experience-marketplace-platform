@@ -170,10 +170,7 @@ export async function POST() {
 
 ```typescript
 // POST /admin/api/sites/[siteId]/pause
-export async function POST(
-  request: Request,
-  { params }: { params: { siteId: string } }
-) {
+export async function POST(request: Request, { params }: { params: { siteId: string } }) {
   const { pausedBy, pauseReason } = await request.json();
   const { siteId } = params;
 
@@ -228,15 +225,13 @@ export function EmergencyStopButton() {
   const handleTogglePause = async () => {
     setLoading(true);
 
-    const endpoint = isPaused
-      ? '/admin/api/settings/resume-all'
-      : '/admin/api/settings/pause-all';
+    const endpoint = isPaused ? '/admin/api/settings/resume-all' : '/admin/api/settings/pause-all';
 
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        pausedBy: 'admin_user_id',  // Get from session
+        pausedBy: 'admin_user_id', // Get from session
         pauseReason: 'Manual emergency stop',
       }),
     });
@@ -332,7 +327,9 @@ async function checkRateLimit(operationType: string): Promise<boolean> {
     });
 
     if (recentSites >= settings.maxSitesPerHour) {
-      console.log(`[Rate Limit] ❌ Max sites per hour reached (${recentSites}/${settings.maxSitesPerHour})`);
+      console.log(
+        `[Rate Limit] ❌ Max sites per hour reached (${recentSites}/${settings.maxSitesPerHour})`
+      );
       return false;
     }
   }
@@ -363,6 +360,7 @@ npx prisma db seed  # Or manual INSERT via SQL
 ### 3. Add UI Components
 
 Add the Emergency Stop button and Feature Flags panel to:
+
 - `apps/admin/src/app/settings/page.tsx`
 
 ### 4. Update All Workers

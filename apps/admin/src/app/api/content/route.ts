@@ -171,7 +171,8 @@ export async function PUT(request: Request): Promise<NextResponse> {
       siteName: updatedPage.site.name,
       status: mapPageStatusToContentStatus(updatedPage.status),
       qualityScore: updatedPage.content?.qualityScore ?? 0,
-      generatedAt: updatedPage.content?.createdAt?.toISOString() || updatedPage.createdAt.toISOString(),
+      generatedAt:
+        updatedPage.content?.createdAt?.toISOString() || updatedPage.createdAt.toISOString(),
     });
   } catch (error) {
     console.error('[API] Error updating content:', error);
@@ -180,7 +181,9 @@ export async function PUT(request: Request): Promise<NextResponse> {
 }
 
 // Helper functions to map between database enums and frontend types
-function mapPageTypeToContentType(pageType: PageType): 'experience' | 'collection' | 'seo' | 'blog' {
+function mapPageTypeToContentType(
+  pageType: PageType
+): 'experience' | 'collection' | 'seo' | 'blog' {
   switch (pageType) {
     case PageType.BLOG:
       return 'blog';

@@ -26,9 +26,7 @@ export default function Error({
           </svg>
         </div>
         <h2 className="mt-4 text-xl font-semibold text-gray-900">Something went wrong</h2>
-        <p className="mt-2 text-gray-600">
-          We encountered an unexpected error. Please try again.
-        </p>
+        <p className="mt-2 text-gray-600">We encountered an unexpected error. Please try again.</p>
         <div className="mt-6 flex items-center justify-center gap-4">
           <button
             onClick={reset}

@@ -112,15 +112,17 @@ async function enrichSiteWithImages(siteIdentifier: string) {
   console.log(`   Categories: ${currentConfig.categories?.length || 0}`);
 
   // Check which items already have images
-  const destinationsWithImages = currentConfig.destinations?.filter(d => d.imageUrl)?.length || 0;
-  const categoriesWithImages = currentConfig.categories?.filter(c => c.imageUrl)?.length || 0;
+  const destinationsWithImages = currentConfig.destinations?.filter((d) => d.imageUrl)?.length || 0;
+  const categoriesWithImages = currentConfig.categories?.filter((c) => c.imageUrl)?.length || 0;
 
   console.log(`   Destinations with images: ${destinationsWithImages}`);
   console.log(`   Categories with images: ${categoriesWithImages}`);
 
-  if (destinationsWithImages === (currentConfig.destinations?.length || 0) &&
-      categoriesWithImages === (currentConfig.categories?.length || 0) &&
-      (currentConfig.destinations?.length || 0) > 0) {
+  if (
+    destinationsWithImages === (currentConfig.destinations?.length || 0) &&
+    categoriesWithImages === (currentConfig.categories?.length || 0) &&
+    (currentConfig.destinations?.length || 0) > 0
+  ) {
     console.log('\n✅ All items already have images! Skipping...');
     console.log('   (Use --force to re-fetch images anyway)');
 
@@ -137,19 +139,21 @@ async function enrichSiteWithImages(siteIdentifier: string) {
     niche: opportunity?.niche || undefined,
   };
 
-  console.log(`\n🌍 Context: ${context.location || 'Unknown location'}, ${context.niche || 'Unknown niche'}`);
+  console.log(
+    `\n🌍 Context: ${context.location || 'Unknown location'}, ${context.niche || 'Unknown niche'}`
+  );
 
   // Clear existing images if forcing
   if (process.argv.includes('--force')) {
     if (currentConfig.destinations) {
-      currentConfig.destinations = currentConfig.destinations.map(d => ({
+      currentConfig.destinations = currentConfig.destinations.map((d) => ({
         ...d,
         imageUrl: undefined,
         imageAttribution: undefined,
       }));
     }
     if (currentConfig.categories) {
-      currentConfig.categories = currentConfig.categories.map(c => ({
+      currentConfig.categories = currentConfig.categories.map((c) => ({
         ...c,
         imageUrl: undefined,
         imageAttribution: undefined,
@@ -217,12 +221,15 @@ async function enrichSiteWithImages(siteIdentifier: string) {
   console.log('✅ Site updated successfully!');
 
   // Summary
-  const newDestinationsWithImages = updatedConfig.destinations?.filter(d => d.imageUrl)?.length || 0;
-  const newCategoriesWithImages = updatedConfig.categories?.filter(c => c.imageUrl)?.length || 0;
+  const newDestinationsWithImages =
+    updatedConfig.destinations?.filter((d) => d.imageUrl)?.length || 0;
+  const newCategoriesWithImages = updatedConfig.categories?.filter((c) => c.imageUrl)?.length || 0;
 
   console.log('\n' + '='.repeat(60));
   console.log('📊 Summary:');
-  console.log(`   Destinations with images: ${destinationsWithImages} → ${newDestinationsWithImages}`);
+  console.log(
+    `   Destinations with images: ${destinationsWithImages} → ${newDestinationsWithImages}`
+  );
   console.log(`   Categories with images: ${categoriesWithImages} → ${newCategoriesWithImages}`);
   console.log('\n✨ Done! Refresh your website to see the images.\n');
   console.log('Note: Images are displayed with required Unsplash attribution:');

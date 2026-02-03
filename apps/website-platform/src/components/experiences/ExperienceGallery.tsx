@@ -190,10 +190,7 @@ export function ExperienceGallery({ images, title }: ExperienceGalleryProps) {
           )}
 
           {/* Image - using next/image for optimization */}
-          <div
-            className="relative h-[90vh] w-[90vw]"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="relative h-[90vh] w-[90vw]" onClick={(e) => e.stopPropagation()}>
             <Image
               src={images[selectedIndex] ?? images[0] ?? '/placeholder-experience.jpg'}
               alt={`${title} - Image ${selectedIndex + 1}`}

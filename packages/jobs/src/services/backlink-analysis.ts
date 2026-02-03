@@ -26,7 +26,9 @@ export async function getBacklinkProfile(domain: string) {
   const client = getClient();
   const summary = await client.getBacklinkSummary(domain);
 
-  console.log(`[Backlink Analysis] Profile for ${domain}: ${summary.totalBacklinks} backlinks from ${summary.referringDomains} domains (DA: ${summary.domainAuthority})`);
+  console.log(
+    `[Backlink Analysis] Profile for ${domain}: ${summary.totalBacklinks} backlinks from ${summary.referringDomains} domains (DA: ${summary.domainAuthority})`
+  );
 
   return summary;
 }
@@ -38,7 +40,9 @@ export async function getCompetitorBacklinks(competitorDomain: string, limit: nu
   const client = getClient();
   const backlinks = await client.getBacklinks(competitorDomain, limit);
 
-  console.log(`[Backlink Analysis] Found ${backlinks.length} backlinks for competitor ${competitorDomain}`);
+  console.log(
+    `[Backlink Analysis] Found ${backlinks.length} backlinks for competitor ${competitorDomain}`
+  );
 
   return backlinks;
 }
@@ -56,7 +60,9 @@ export async function findLinkOpportunities(params: {
   const { siteId, ourDomain, competitorDomains, maxOpportunities = 50 } = params;
   const client = getClient();
 
-  console.log(`[Backlink Analysis] Scanning ${competitorDomains.length} competitors for link opportunities`);
+  console.log(
+    `[Backlink Analysis] Scanning ${competitorDomains.length} competitors for link opportunities`
+  );
 
   // Get our existing backlink sources
   const ourBacklinks = await client.getBacklinks(ourDomain, 500);
@@ -131,11 +137,16 @@ export async function findLinkOpportunities(params: {
       created++;
     } catch (error) {
       // Skip unique constraint violations
-      console.error(`[Backlink Analysis] Error upserting opportunity for ${opp.sourceDomain}:`, error);
+      console.error(
+        `[Backlink Analysis] Error upserting opportunity for ${opp.sourceDomain}:`,
+        error
+      );
     }
   }
 
-  console.log(`[Backlink Analysis] Created/updated ${created} link opportunities for site ${siteId}`);
+  console.log(
+    `[Backlink Analysis] Created/updated ${created} link opportunities for site ${siteId}`
+  );
   return created;
 }
 
@@ -252,7 +263,10 @@ export async function discoverNewBacklinks(siteId: string): Promise<number> {
       });
       created++;
     } catch (error) {
-      console.error(`[Backlink Analysis] Error storing new backlink from ${link.sourceDomain}:`, error);
+      console.error(
+        `[Backlink Analysis] Error storing new backlink from ${link.sourceDomain}:`,
+        error
+      );
     }
   }
 

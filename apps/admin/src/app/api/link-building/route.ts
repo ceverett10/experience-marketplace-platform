@@ -50,10 +50,12 @@ export async function GET(request: Request): Promise<NextResponse> {
 
     // Compute summary stats
     const totalBacklinks = backlinks.filter((b) => b.isActive).length;
-    const referringDomains = new Set(backlinks.filter((b) => b.isActive).map((b) => b.sourceDomain)).size;
-    const avgDA = backlinks.length > 0
-      ? Math.round(backlinks.reduce((sum, b) => sum + b.domainAuthority, 0) / backlinks.length)
-      : 0;
+    const referringDomains = new Set(backlinks.filter((b) => b.isActive).map((b) => b.sourceDomain))
+      .size;
+    const avgDA =
+      backlinks.length > 0
+        ? Math.round(backlinks.reduce((sum, b) => sum + b.domainAuthority, 0) / backlinks.length)
+        : 0;
 
     // Opportunity pipeline counts
     const pipelineCounts = {
@@ -153,7 +155,10 @@ export async function POST(request: Request): Promise<NextResponse> {
       case 'generate-outreach': {
         const { opportunityId, templateType } = params;
         if (!opportunityId || !templateType) {
-          return NextResponse.json({ error: 'Missing opportunityId or templateType' }, { status: 400 });
+          return NextResponse.json(
+            { error: 'Missing opportunityId or templateType' },
+            { status: 400 }
+          );
         }
         const jobId = await addJob('LINK_OUTREACH_GENERATE', {
           siteId,
@@ -166,7 +171,10 @@ export async function POST(request: Request): Promise<NextResponse> {
       case 'create-asset': {
         const { assetType, targetKeyword, destination } = params;
         if (!assetType || !targetKeyword) {
-          return NextResponse.json({ error: 'Missing assetType or targetKeyword' }, { status: 400 });
+          return NextResponse.json(
+            { error: 'Missing assetType or targetKeyword' },
+            { status: 400 }
+          );
         }
         const jobId = await addJob('LINK_ASSET_GENERATE', {
           siteId,

@@ -38,6 +38,7 @@ This document describes the complete autonomous flow for creating micro-sites fr
 ## Detailed Step-by-Step Flow
 
 ### Step 1: Validate Opportunity
+
 **File:** `packages/jobs/src/workers/site.ts:53-69`
 
 - Fetches the SEO opportunity from database
@@ -45,9 +46,11 @@ This document describes the complete autonomous flow for creating micro-sites fr
 - Checks opportunity status is `IDENTIFIED`, `EVALUATED`, or `ASSIGNED`
 
 ### Step 2: Generate Brand Identity
+
 **File:** `packages/jobs/src/workers/site.ts:71-92`
 
 Uses AI to generate comprehensive brand identity:
+
 - Brand name and tagline
 - Color palette (primary, secondary, accent)
 - Typography (heading/body fonts)
@@ -55,6 +58,7 @@ Uses AI to generate comprehensive brand identity:
 - Content guidelines and semantic keywords
 
 ### Step 3: Create Site Record
+
 **File:** `packages/jobs/src/workers/site.ts:96-130`
 
 - Generates URL slug from brand name
@@ -63,6 +67,7 @@ Uses AI to generate comprehensive brand identity:
 - Creates associated brand record
 
 ### Step 4: Store Brand Identity & Homepage Config
+
 **File:** `packages/jobs/src/workers/site.ts:132-152`
 
 - Stores extended brand identity in `seoConfig`
@@ -73,17 +78,21 @@ Uses AI to generate comprehensive brand identity:
   - Testimonials
 
 ### Step 5: Initialize Site Roadmap
+
 **File:** `packages/jobs/src/workers/site.ts:154-155`
 
 Creates planned tasks for the site including:
+
 - Content generation tasks
 - SEO optimization tasks
 - GSC verification tasks
 
 ### Step 6: Create Initial Pages
+
 **File:** `packages/jobs/src/workers/site.ts:157-159`
 
 Creates page records for:
+
 - Homepage
 - About Us
 - Contact
@@ -91,15 +100,18 @@ Creates page records for:
 - Terms of Service
 
 ### Step 7: Link Opportunity to Site
+
 **File:** `packages/jobs/src/workers/site.ts:161-170`
 
 - Updates opportunity with `siteId`
 - Sets opportunity status to `ASSIGNED`
 
 ### Step 8: Queue Content Generation
+
 **File:** `packages/jobs/src/workers/site.ts:172-185`
 
 Queues `CONTENT_GENERATE` job with:
+
 - Site ID
 - Opportunity ID
 - Content type (`destination`)
@@ -169,9 +181,11 @@ When `CONTENT_GENERATE` is queued, it triggers the AI content pipeline:
 ```
 
 ### Content Generation Details
+
 **File:** `packages/jobs/src/workers/content.ts:26-249`
 
 **Step 1: Verify Site & Get Brand Identity**
+
 - Fetches site from database
 - Retrieves comprehensive brand identity including:
   - Tone of voice (personality, writing style)
@@ -180,6 +194,7 @@ When `CONTENT_GENERATE` is queued, it triggers the AI content pipeline:
   - Content guidelines (semantic keywords)
 
 **Step 2: Build Content Brief**
+
 ```typescript
 brief = {
   type: contentType,
@@ -196,11 +211,12 @@ brief = {
     brandStory,
     contentGuidelines,
     writingGuidelines,
-  }
-}
+  },
+};
 ```
 
 **Step 3: AI Pipeline Generation**
+
 - Uses content-engine pipeline with circuit breaker protection
 - Draft model: Haiku (fast, cost-effective)
 - Quality assessment model: Sonnet (more capable)
@@ -208,6 +224,7 @@ brief = {
 - Quality threshold: 80/100
 
 **Step 4: Save Content & Create Page**
+
 - Creates `Content` record with:
   - Generated markdown body
   - AI model used
@@ -317,6 +334,7 @@ This is the newly integrated availability checking that happens during site crea
 ```
 
 ### Step 9: Check Domain Availability
+
 **File:** `packages/jobs/src/workers/site.ts:187-192`
 
 ```typescript
@@ -325,27 +343,31 @@ const availabilityResult = await checkDomainAvailabilityForSite(suggestedDomain)
 ```
 
 Calls Cloudflare Registrar API to check:
+
 - Is domain available for registration?
 - What is the registration price?
 
 ### Step 10: Create Domain Record
+
 **File:** `packages/jobs/src/workers/site.ts:194-209`
 
 Creates a domain record in the database with:
+
 - `AVAILABLE` status if domain can be purchased
 - `NOT_AVAILABLE` status if domain is taken
 - Stores the registration price for admin visibility
 
 ### Step 11: Conditional Domain Registration
+
 **File:** `packages/jobs/src/workers/site.ts:211-233`
 
 **Decision Logic:**
 
-| Condition | Action | Status |
-|-----------|--------|--------|
-| Available + Price ≤ $10 | Queue `DOMAIN_REGISTER` job | Auto-purchase |
-| Available + Price > $10 | Log message, no job queued | Requires approval |
-| Not Available | Log message, no job queued | Requires alternative |
+| Condition               | Action                      | Status               |
+| ----------------------- | --------------------------- | -------------------- |
+| Available + Price ≤ $10 | Queue `DOMAIN_REGISTER` job | Auto-purchase        |
+| Available + Price > $10 | Log message, no job queued  | Requires approval    |
+| Not Available           | Log message, no job queued  | Requires alternative |
 
 ---
 
@@ -413,20 +435,21 @@ When `DOMAIN_REGISTER` is queued, it triggers a separate workflow:
 
 The admin panel at `/admin/domains` shows all domains with their statuses:
 
-| Status | Description | Admin Action |
-|--------|-------------|--------------|
-| `AVAILABLE` | Domain available for purchase | "Purchase Domain" button |
-| `NOT_AVAILABLE` | Domain taken elsewhere | Shows "Domain taken" - needs alternative |
-| `PENDING` | Legacy: not yet checked | "Check Availability" button |
-| `REGISTERING` | Purchase in progress | Shows spinner |
-| `DNS_PENDING` | Awaiting DNS propagation | Status indicator |
-| `SSL_PENDING` | Awaiting SSL certificate | Status indicator |
-| `ACTIVE` | Fully configured and live | "Visit Site" link |
-| `FAILED` | Registration failed | Retry option |
+| Status          | Description                   | Admin Action                             |
+| --------------- | ----------------------------- | ---------------------------------------- |
+| `AVAILABLE`     | Domain available for purchase | "Purchase Domain" button                 |
+| `NOT_AVAILABLE` | Domain taken elsewhere        | Shows "Domain taken" - needs alternative |
+| `PENDING`       | Legacy: not yet checked       | "Check Availability" button              |
+| `REGISTERING`   | Purchase in progress          | Shows spinner                            |
+| `DNS_PENDING`   | Awaiting DNS propagation      | Status indicator                         |
+| `SSL_PENDING`   | Awaiting SSL certificate      | Status indicator                         |
+| `ACTIVE`        | Fully configured and live     | "Visit Site" link                        |
+| `FAILED`        | Registration failed           | Retry option                             |
 
 ### Price Visibility
 
 For `AVAILABLE` domains, the UI shows:
+
 - Estimated price per year
 - Domains over $10 are available but weren't auto-purchased
 - Operators can manually approve expensive domain purchases
@@ -435,18 +458,18 @@ For `AVAILABLE` domains, the UI shows:
 
 ## Key Files Reference
 
-| File | Purpose |
-|------|---------|
-| `packages/jobs/src/workers/site.ts` | Site creation handler |
-| `packages/jobs/src/workers/content.ts` | Content generation/optimization handlers |
-| `packages/jobs/src/workers/domain.ts` | Domain registration/verification handlers |
-| `packages/jobs/src/services/brand-identity.ts` | Brand identity generation & storage |
-| `packages/jobs/src/services/cloudflare-registrar.ts` | Cloudflare domain API |
-| `packages/jobs/src/services/cloudflare-dns.ts` | Cloudflare DNS configuration |
-| `packages/jobs/src/services/heroku-domains.ts` | Heroku domain configuration |
-| `packages/content-engine/` | AI content pipeline (draft, quality, rewrite) |
-| `apps/admin/src/app/domains/page.tsx` | Admin domains UI |
-| `apps/admin/src/app/api/domains/route.ts` | Domains API endpoints |
+| File                                                 | Purpose                                       |
+| ---------------------------------------------------- | --------------------------------------------- |
+| `packages/jobs/src/workers/site.ts`                  | Site creation handler                         |
+| `packages/jobs/src/workers/content.ts`               | Content generation/optimization handlers      |
+| `packages/jobs/src/workers/domain.ts`                | Domain registration/verification handlers     |
+| `packages/jobs/src/services/brand-identity.ts`       | Brand identity generation & storage           |
+| `packages/jobs/src/services/cloudflare-registrar.ts` | Cloudflare domain API                         |
+| `packages/jobs/src/services/cloudflare-dns.ts`       | Cloudflare DNS configuration                  |
+| `packages/jobs/src/services/heroku-domains.ts`       | Heroku domain configuration                   |
+| `packages/content-engine/`                           | AI content pipeline (draft, quality, rewrite) |
+| `apps/admin/src/app/domains/page.tsx`                | Admin domains UI                              |
+| `apps/admin/src/app/api/domains/route.ts`            | Domains API endpoints                         |
 
 ---
 

@@ -77,18 +77,39 @@ function timeAgo(dateStr: string): string {
 const STATUS_OPTIONS = ['PENDING', 'RUNNING', 'COMPLETED', 'FAILED', 'SCHEDULED', 'CANCELLED'];
 
 const JOB_TYPES = [
-  'SITE_CREATE', 'SITE_UPDATE', 'GSC_SYNC', 'SEO_ANALYZE', 'SEO_OPTIMIZE',
-  'SEO_OPPORTUNITY_SCAN', 'CONTENT_GENERATE', 'CONTENT_OPTIMIZE', 'CONTENT_PUBLISH',
-  'DOMAIN_VERIFY', 'DOMAIN_SSL', 'METRICS_AGGREGATE', 'PERFORMANCE_REPORT',
-  'ABTEST_CREATE', 'ABTEST_REBALANCE', 'ABTEST_ANALYZE',
-  'LINK_OPPORTUNITY_SCAN', 'LINK_BACKLINK_MONITOR', 'LINK_OUTREACH_GENERATE', 'LINK_ASSET_GENERATE',
+  'SITE_CREATE',
+  'SITE_UPDATE',
+  'GSC_SYNC',
+  'SEO_ANALYZE',
+  'SEO_OPTIMIZE',
+  'SEO_OPPORTUNITY_SCAN',
+  'CONTENT_GENERATE',
+  'CONTENT_OPTIMIZE',
+  'CONTENT_PUBLISH',
+  'DOMAIN_VERIFY',
+  'DOMAIN_SSL',
+  'METRICS_AGGREGATE',
+  'PERFORMANCE_REPORT',
+  'ABTEST_CREATE',
+  'ABTEST_REBALANCE',
+  'ABTEST_ANALYZE',
+  'LINK_OPPORTUNITY_SCAN',
+  'LINK_BACKLINK_MONITOR',
+  'LINK_OUTREACH_GENERATE',
+  'LINK_ASSET_GENERATE',
 ];
 
 const QUEUES = ['content', 'seo', 'gsc', 'site', 'domain', 'analytics', 'abtest'];
 
 export default function JobExplorerPage() {
   return (
-    <Suspense fallback={<div className="flex items-center justify-center h-64"><div className="text-slate-500">Loading job explorer...</div></div>}>
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center h-64">
+          <div className="text-slate-500">Loading job explorer...</div>
+        </div>
+      }
+    >
       <JobExplorerContent />
     </Suspense>
   );
@@ -107,8 +128,19 @@ function JobExplorerContent() {
   const [limit, setLimit] = useState(parseInt(searchParams.get('limit') || '25'));
 
   const [jobs, setJobs] = useState<Job[]>([]);
-  const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 25, total: 0, totalPages: 0 });
-  const [stats, setStats] = useState<Stats>({ pending: 0, running: 0, completed: 0, failed: 0, total: 0 });
+  const [pagination, setPagination] = useState<Pagination>({
+    page: 1,
+    limit: 25,
+    total: 0,
+    totalPages: 0,
+  });
+  const [stats, setStats] = useState<Stats>({
+    pending: 0,
+    running: 0,
+    completed: 0,
+    failed: 0,
+    total: 0,
+  });
   const [loading, setLoading] = useState(true);
   const [expandedJob, setExpandedJob] = useState<string | null>(null);
   const [jobDetail, setJobDetail] = useState<JobDetail | null>(null);
@@ -280,13 +312,21 @@ function JobExplorerContent() {
           { label: 'Total', value: stats.total, color: 'text-slate-700', filter: '' },
           { label: 'Pending', value: stats.pending, color: 'text-slate-600', filter: 'PENDING' },
           { label: 'Running', value: stats.running, color: 'text-blue-600', filter: 'RUNNING' },
-          { label: 'Completed', value: stats.completed, color: 'text-green-600', filter: 'COMPLETED' },
+          {
+            label: 'Completed',
+            value: stats.completed,
+            color: 'text-green-600',
+            filter: 'COMPLETED',
+          },
           { label: 'Failed', value: stats.failed, color: 'text-red-600', filter: 'FAILED' },
         ].map((s) => (
           <Card
             key={s.label}
             className={`cursor-pointer hover:shadow-md transition-shadow ${status === s.filter ? 'ring-2 ring-sky-500' : ''}`}
-            onClick={() => { setStatus(s.filter); setPage(1); }}
+            onClick={() => {
+              setStatus(s.filter);
+              setPage(1);
+            }}
           >
             <CardContent className="p-3">
               <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
@@ -302,34 +342,49 @@ function JobExplorerContent() {
           <div className="flex flex-wrap items-center gap-3">
             <select
               value={status}
-              onChange={(e) => { setStatus(e.target.value); setPage(1); }}
+              onChange={(e) => {
+                setStatus(e.target.value);
+                setPage(1);
+              }}
               className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
             >
               <option value="">All Statuses</option>
               {STATUS_OPTIONS.map((s) => (
-                <option key={s} value={s}>{s}</option>
+                <option key={s} value={s}>
+                  {s}
+                </option>
               ))}
             </select>
 
             <select
               value={type}
-              onChange={(e) => { setType(e.target.value); setPage(1); }}
+              onChange={(e) => {
+                setType(e.target.value);
+                setPage(1);
+              }}
               className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
             >
               <option value="">All Types</option>
               {JOB_TYPES.map((t) => (
-                <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>
+                <option key={t} value={t}>
+                  {t.replace(/_/g, ' ')}
+                </option>
               ))}
             </select>
 
             <select
               value={queue}
-              onChange={(e) => { setQueue(e.target.value); setPage(1); }}
+              onChange={(e) => {
+                setQueue(e.target.value);
+                setPage(1);
+              }}
               className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
             >
               <option value="">All Queues</option>
               {QUEUES.map((q) => (
-                <option key={q} value={q}>{q}</option>
+                <option key={q} value={q}>
+                  {q}
+                </option>
               ))}
             </select>
 
@@ -354,7 +409,10 @@ function JobExplorerContent() {
               <span className="text-xs text-slate-500">Per page:</span>
               <select
                 value={limit}
-                onChange={(e) => { setLimit(parseInt(e.target.value)); setPage(1); }}
+                onChange={(e) => {
+                  setLimit(parseInt(e.target.value));
+                  setPage(1);
+                }}
                 className="px-2 py-1 border border-slate-200 rounded text-sm"
               >
                 <option value={25}>25</option>
@@ -372,14 +430,30 @@ function JobExplorerContent() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50">
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Type</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Site</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Status</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Created</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Duration</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Attempts</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Error</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Actions</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                  Type
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                  Site
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                  Status
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                  Created
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                  Duration
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                  Attempts
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                  Error
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -408,18 +482,18 @@ function JobExplorerContent() {
                         </div>
                         <div className="text-xs text-slate-400">{job.queue}</div>
                       </td>
-                      <td className="px-4 py-3 text-sm text-slate-600">
-                        {job.siteName || '-'}
-                      </td>
+                      <td className="px-4 py-3 text-sm text-slate-600">{job.siteName || '-'}</td>
                       <td className="px-4 py-3">
-                        <span className={`text-xs px-2 py-1 rounded font-medium ${statusColors[job.status] || ''}`}>
+                        <span
+                          className={`text-xs px-2 py-1 rounded font-medium ${statusColors[job.status] || ''}`}
+                        >
                           {job.status}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-sm text-slate-600">
-                        {timeAgo(job.createdAt)}
-                      </td>
-                      <td className={`px-4 py-3 text-sm font-medium ${durationColor(job.durationMs)}`}>
+                      <td className="px-4 py-3 text-sm text-slate-600">{timeAgo(job.createdAt)}</td>
+                      <td
+                        className={`px-4 py-3 text-sm font-medium ${durationColor(job.durationMs)}`}
+                      >
                         {formatDuration(job.durationMs)}
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-600">
@@ -453,31 +527,41 @@ function JobExplorerContent() {
                       <tr>
                         <td colSpan={8} className="px-4 py-4 bg-slate-50 border-t border-slate-200">
                           {detailLoading ? (
-                            <div className="text-center py-4 text-slate-500">Loading details...</div>
+                            <div className="text-center py-4 text-slate-500">
+                              Loading details...
+                            </div>
                           ) : jobDetail ? (
                             <div className="space-y-4">
                               {/* Timeline */}
                               <div className="flex flex-wrap gap-6 text-sm">
                                 <div>
                                   <span className="text-slate-500">Created:</span>{' '}
-                                  <span className="font-medium">{formatDate(jobDetail.createdAt)}</span>
+                                  <span className="font-medium">
+                                    {formatDate(jobDetail.createdAt)}
+                                  </span>
                                 </div>
                                 {jobDetail.startedAt && (
                                   <div>
                                     <span className="text-slate-500">Started:</span>{' '}
-                                    <span className="font-medium">{formatDate(jobDetail.startedAt)}</span>
+                                    <span className="font-medium">
+                                      {formatDate(jobDetail.startedAt)}
+                                    </span>
                                   </div>
                                 )}
                                 {jobDetail.completedAt && (
                                   <div>
                                     <span className="text-slate-500">Completed:</span>{' '}
-                                    <span className="font-medium">{formatDate(jobDetail.completedAt)}</span>
+                                    <span className="font-medium">
+                                      {formatDate(jobDetail.completedAt)}
+                                    </span>
                                   </div>
                                 )}
                                 {jobDetail.durationMs !== null && (
                                   <div>
                                     <span className="text-slate-500">Duration:</span>{' '}
-                                    <span className={`font-medium ${durationColor(jobDetail.durationMs)}`}>
+                                    <span
+                                      className={`font-medium ${durationColor(jobDetail.durationMs)}`}
+                                    >
                                       {formatDuration(jobDetail.durationMs)}
                                     </span>
                                   </div>
@@ -491,7 +575,9 @@ function JobExplorerContent() {
                               {/* Payload */}
                               {jobDetail.payload && (
                                 <div>
-                                  <h4 className="text-sm font-medium text-slate-700 mb-1">Payload</h4>
+                                  <h4 className="text-sm font-medium text-slate-700 mb-1">
+                                    Payload
+                                  </h4>
                                   <pre className="p-3 bg-white border border-slate-200 rounded-lg text-xs overflow-x-auto max-h-40">
                                     {JSON.stringify(jobDetail.payload, null, 2)}
                                   </pre>
@@ -501,7 +587,9 @@ function JobExplorerContent() {
                               {/* Result */}
                               {jobDetail.result && (
                                 <div>
-                                  <h4 className="text-sm font-medium text-slate-700 mb-1">Result</h4>
+                                  <h4 className="text-sm font-medium text-slate-700 mb-1">
+                                    Result
+                                  </h4>
                                   <pre className="p-3 bg-white border border-slate-200 rounded-lg text-xs overflow-x-auto max-h-40">
                                     {JSON.stringify(jobDetail.result, null, 2)}
                                   </pre>
@@ -526,9 +614,14 @@ function JobExplorerContent() {
                                   </h4>
                                   <div className="space-y-2">
                                     {jobDetail.errorLogs.map((el) => (
-                                      <div key={el.id} className="p-3 bg-white border border-slate-200 rounded-lg">
+                                      <div
+                                        key={el.id}
+                                        className="p-3 bg-white border border-slate-200 rounded-lg"
+                                      >
                                         <div className="flex items-center gap-2 mb-1">
-                                          <span className={`text-xs px-2 py-0.5 rounded font-medium ${severityColors[el.errorSeverity] || ''}`}>
+                                          <span
+                                            className={`text-xs px-2 py-0.5 rounded font-medium ${severityColors[el.errorSeverity] || ''}`}
+                                          >
                                             {el.errorSeverity}
                                           </span>
                                           <span className="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded">
@@ -538,8 +631,12 @@ function JobExplorerContent() {
                                             Attempt {el.attemptNumber} · {formatDate(el.createdAt)}
                                           </span>
                                         </div>
-                                        <p className="text-sm font-medium text-slate-900">{el.errorName}</p>
-                                        <p className="text-xs text-slate-600 mt-0.5">{el.errorMessage}</p>
+                                        <p className="text-sm font-medium text-slate-900">
+                                          {el.errorName}
+                                        </p>
+                                        <p className="text-xs text-slate-600 mt-0.5">
+                                          {el.errorMessage}
+                                        </p>
                                         {el.stackTrace && (
                                           <details className="mt-2">
                                             <summary className="text-xs text-sky-600 cursor-pointer">
@@ -572,8 +669,7 @@ function JobExplorerContent() {
           <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200">
             <div className="text-sm text-slate-500">
               Showing {(pagination.page - 1) * pagination.limit + 1}–
-              {Math.min(pagination.page * pagination.limit, pagination.total)} of{' '}
-              {pagination.total}
+              {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total}
             </div>
             <div className="flex items-center gap-2">
               <button

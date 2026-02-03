@@ -157,7 +157,9 @@ export default function TasksPage() {
   const getPriorityBadge = (priority: string) => {
     const p = PRIORITIES.find((pr) => pr.value === priority);
     return (
-      <span className={`${p?.color || 'bg-gray-100 text-gray-800'} text-xs px-2 py-1 rounded font-medium`}>
+      <span
+        className={`${p?.color || 'bg-gray-100 text-gray-800'} text-xs px-2 py-1 rounded font-medium`}
+      >
         {p?.label || priority}
       </span>
     );
@@ -166,7 +168,9 @@ export default function TasksPage() {
   const getStatusBadge = (status: string) => {
     const s = STATUSES.find((st) => st.value === status);
     return (
-      <span className={`${s?.color || 'bg-gray-100 text-gray-800'} text-xs px-2 py-1 rounded font-medium`}>
+      <span
+        className={`${s?.color || 'bg-gray-100 text-gray-800'} text-xs px-2 py-1 rounded font-medium`}
+      >
         {s?.label || status}
       </span>
     );
@@ -198,25 +202,37 @@ export default function TasksPage() {
 
       {/* Stats cards */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setStatusFilter('all')}>
+        <Card
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => setStatusFilter('all')}
+        >
           <CardContent className="p-4">
             <p className="text-2xl font-bold text-slate-900">{stats.total}</p>
             <p className="text-sm text-slate-500">Total Tasks</p>
           </CardContent>
         </Card>
-        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setStatusFilter('PENDING')}>
+        <Card
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => setStatusFilter('PENDING')}
+        >
           <CardContent className="p-4">
             <p className="text-2xl font-bold text-amber-600">{stats.pending}</p>
             <p className="text-sm text-slate-500">Pending</p>
           </CardContent>
         </Card>
-        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setStatusFilter('IN_PROGRESS')}>
+        <Card
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => setStatusFilter('IN_PROGRESS')}
+        >
           <CardContent className="p-4">
             <p className="text-2xl font-bold text-blue-600">{stats.inProgress}</p>
             <p className="text-sm text-slate-500">In Progress</p>
           </CardContent>
         </Card>
-        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setStatusFilter('COMPLETED')}>
+        <Card
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => setStatusFilter('COMPLETED')}
+        >
           <CardContent className="p-4">
             <p className="text-2xl font-bold text-green-600">{stats.completed}</p>
             <p className="text-sm text-slate-500">Completed</p>
@@ -239,7 +255,9 @@ export default function TasksPage() {
         >
           <option value="all">All Statuses</option>
           {STATUSES.map((s) => (
-            <option key={s.value} value={s.value}>{s.label}</option>
+            <option key={s.value} value={s.value}>
+              {s.label}
+            </option>
           ))}
         </select>
         <select
@@ -249,7 +267,9 @@ export default function TasksPage() {
         >
           <option value="all">All Categories</option>
           {CATEGORIES.map((c) => (
-            <option key={c.value} value={c.value}>{c.icon} {c.label}</option>
+            <option key={c.value} value={c.value}>
+              {c.icon} {c.label}
+            </option>
           ))}
         </select>
       </div>
@@ -277,24 +297,28 @@ export default function TasksPage() {
               </div>
 
               {/* Context info if present */}
-              {task.context && typeof task.context === 'object' && Object.keys(task.context).length > 0 && (
-                <div className="ml-9 mt-3 p-3 bg-slate-50 rounded-lg">
-                  <p className="text-xs text-slate-500 mb-2">Context:</p>
-                  <div className="text-sm text-slate-700">
-                    {Object.entries(task.context).map(([key, value]) => (
-                      <div key={key}>
-                        <span className="font-medium">{key}:</span> {String(value)}
-                      </div>
-                    ))}
+              {task.context &&
+                typeof task.context === 'object' &&
+                Object.keys(task.context).length > 0 && (
+                  <div className="ml-9 mt-3 p-3 bg-slate-50 rounded-lg">
+                    <p className="text-xs text-slate-500 mb-2">Context:</p>
+                    <div className="text-sm text-slate-700">
+                      {Object.entries(task.context).map(([key, value]) => (
+                        <div key={key}>
+                          <span className="font-medium">{key}:</span> {String(value)}
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
               {/* Actions */}
               <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-200">
                 <div className="text-xs text-slate-500">
-                  {getCategoryLabel(task.category)} • Created {new Date(task.createdAt).toLocaleDateString()}
-                  {task.completedAt && ` • Completed ${new Date(task.completedAt).toLocaleDateString()}`}
+                  {getCategoryLabel(task.category)} • Created{' '}
+                  {new Date(task.createdAt).toLocaleDateString()}
+                  {task.completedAt &&
+                    ` • Completed ${new Date(task.completedAt).toLocaleDateString()}`}
                 </div>
                 <div className="flex items-center gap-2">
                   {task.status === 'PENDING' && (
@@ -386,7 +410,9 @@ export default function TasksPage() {
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"
                   >
                     {CATEGORIES.map((c) => (
-                      <option key={c.value} value={c.value}>{c.icon} {c.label}</option>
+                      <option key={c.value} value={c.value}>
+                        {c.icon} {c.label}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -399,7 +425,9 @@ export default function TasksPage() {
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"
                   >
                     {PRIORITIES.map((p) => (
-                      <option key={p.value} value={p.value}>{p.label}</option>
+                      <option key={p.value} value={p.value}>
+                        {p.label}
+                      </option>
                     ))}
                   </select>
                 </div>

@@ -1,7 +1,12 @@
 import { Job } from 'bullmq';
 import { prisma, PageType, PageStatus } from '@experience-marketplace/database';
 import { createClaudeClient } from '@experience-marketplace/content-engine';
-import type { SiteCreatePayload, SiteDeployPayload, DomainRegisterPayload, JobResult } from '../types/index.js';
+import type {
+  SiteCreatePayload,
+  SiteDeployPayload,
+  DomainRegisterPayload,
+  JobResult,
+} from '../types/index.js';
 import { canExecuteAutonomousOperation } from '../services/pause-control.js';
 import {
   generateComprehensiveBrandIdentity,
@@ -95,7 +100,9 @@ export async function handleSiteCreate(job: Job<SiteCreatePayload>): Promise<Job
         : undefined
     );
 
-    console.log(`[Site Create] Generated brand: "${brandIdentity.name}" - ${brandIdentity.tagline}`);
+    console.log(
+      `[Site Create] Generated brand: "${brandIdentity.name}" - ${brandIdentity.tagline}`
+    );
 
     // 3. Create site record with comprehensive brand
     console.log('[Site Create] Creating site record...');
@@ -144,7 +151,9 @@ export async function handleSiteCreate(job: Job<SiteCreatePayload>): Promise<Job
     await storeBrandIdentity(site.id, site.brand?.id || '', brandIdentity, seoTitleConfig);
 
     console.log(`[Site Create] Created site ${site.id} with slug ${site.slug}`);
-    console.log(`[Site Create] Brand stored with tone: ${brandIdentity.toneOfVoice.personality.join(', ')}`);
+    console.log(
+      `[Site Create] Brand stored with tone: ${brandIdentity.toneOfVoice.personality.join(', ')}`
+    );
     console.log(`[Site Create] SEO title: "${seoTitleConfig.defaultTitle}"`);
 
     // 4.1 Generate and store favicon
@@ -172,7 +181,9 @@ export async function handleSiteCreate(job: Job<SiteCreatePayload>): Promise<Job
     );
 
     await storeHomepageConfig(site.id, homepageConfig);
-    console.log(`[Site Create] Homepage config stored with destination: ${homepageConfig.popularExperiences?.destination || 'none'}`);
+    console.log(
+      `[Site Create] Homepage config stored with destination: ${homepageConfig.popularExperiences?.destination || 'none'}`
+    );
 
     // 4.5 Initialize site roadmap with planned tasks
     await initializeSiteRoadmap(site.id);
@@ -215,7 +226,11 @@ export async function handleSiteCreate(job: Job<SiteCreatePayload>): Promise<Job
         pageId: aboutPage.id,
         contentType: 'about', // Dedicated about type with strict factual guardrails
         targetKeyword: `About ${brandIdentity.name}`,
-        secondaryKeywords: [opportunity.niche, 'travel experiences', opportunity.location || ''].filter(Boolean),
+        secondaryKeywords: [
+          opportunity.niche,
+          'travel experiences',
+          opportunity.location || '',
+        ].filter(Boolean),
       });
       console.log('[Site Create] Queued About page content generation (with factual guardrails)');
     }
@@ -327,11 +342,16 @@ export async function handleSiteCreate(job: Job<SiteCreatePayload>): Promise<Job
     });
 
     const priceDisplay = availabilityResult.price?.toFixed(2) || 'unknown';
-    console.log(`[Site Create] Domain ${suggestedDomain} status: ${domainRecord.status} (price: $${priceDisplay})`);
+    console.log(
+      `[Site Create] Domain ${suggestedDomain} status: ${domainRecord.status} (price: $${priceDisplay})`
+    );
 
     // Only queue registration if available and under $10 limit
     const MAX_AUTO_PURCHASE_PRICE = 10;
-    if (availabilityResult.available && (!availabilityResult.price || availabilityResult.price <= MAX_AUTO_PURCHASE_PRICE)) {
+    if (
+      availabilityResult.available &&
+      (!availabilityResult.price || availabilityResult.price <= MAX_AUTO_PURCHASE_PRICE)
+    ) {
       console.log(`[Site Create] Queuing domain registration for ${suggestedDomain}...`);
 
       const domainPayload: DomainRegisterPayload = {
@@ -348,19 +368,27 @@ export async function handleSiteCreate(job: Job<SiteCreatePayload>): Promise<Job
 
       console.log(`[Site Create] Queued domain registration for ${suggestedDomain}`);
     } else if (!availabilityResult.available) {
-      console.log(`[Site Create] Domain ${suggestedDomain} is NOT AVAILABLE - requires manual review for alternative domain`);
+      console.log(
+        `[Site Create] Domain ${suggestedDomain} is NOT AVAILABLE - requires manual review for alternative domain`
+      );
     } else {
-      console.log(`[Site Create] Domain ${suggestedDomain} costs $${availabilityResult.price?.toFixed(2)} (over $${MAX_AUTO_PURCHASE_PRICE} limit) - requires manual approval`);
+      console.log(
+        `[Site Create] Domain ${suggestedDomain} costs $${availabilityResult.price?.toFixed(2)} (over $${MAX_AUTO_PURCHASE_PRICE} limit) - requires manual approval`
+      );
     }
 
     // 9. Queue GA4 setup for analytics tracking
     console.log('[Site Create] Queuing GA4 analytics setup...');
-    await addJob('GA4_SETUP', {
-      siteId: site.id,
-    }, {
-      priority: 5,
-      delay: 10000, // Small delay to let other setup settle
-    });
+    await addJob(
+      'GA4_SETUP',
+      {
+        siteId: site.id,
+      },
+      {
+        priority: 5,
+        delay: 10000, // Small delay to let other setup settle
+      }
+    );
     console.log('[Site Create] Queued GA4 setup job');
 
     // 10. Queue deployment if auto-publish enabled
@@ -636,7 +664,9 @@ async function checkDomainAvailabilityForSite(
     const registrarService = new CloudflareRegistrarService();
     const result = await registrarService.checkAvailability(domain);
 
-    console.log(`[Site Create] Domain ${domain} availability: ${result.available}, price: $${result.price?.toFixed(2) || 'unknown'}`);
+    console.log(
+      `[Site Create] Domain ${domain} availability: ${result.available}, price: $${result.price?.toFixed(2) || 'unknown'}`
+    );
 
     return {
       available: result.available,

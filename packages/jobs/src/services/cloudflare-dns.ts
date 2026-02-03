@@ -475,7 +475,8 @@ export class CloudflareDNSService {
 
     if (!response.ok) {
       // Extract detailed error from response body
-      const errorMessage = data.errors?.map((e) => `[${e.code}] ${e.message}`).join(', ') ||
+      const errorMessage =
+        data.errors?.map((e) => `[${e.code}] ${e.message}`).join(', ') ||
         `${response.status} ${response.statusText}`;
       throw new Error(`Cloudflare API error: ${errorMessage}`);
     }
@@ -495,7 +496,10 @@ export class CloudflareDNSService {
    * @param zoneId - Cloudflare zone ID
    * @param verificationToken - Token from Google Site Verification API
    */
-  async addGoogleVerificationRecord(zoneId: string, verificationToken: string): Promise<{ id: string }> {
+  async addGoogleVerificationRecord(
+    zoneId: string,
+    verificationToken: string
+  ): Promise<{ id: string }> {
     try {
       // First get the zone to know the domain name
       const zone = await this.getZoneById(zoneId);
@@ -506,10 +510,12 @@ export class CloudflareDNSService {
       const existingRecords = await this.listDNSRecords(zoneId);
 
       // Debug logging
-      const txtRecords = existingRecords.filter(r => r.type === 'TXT');
+      const txtRecords = existingRecords.filter((r) => r.type === 'TXT');
       console.log(`[Cloudflare] Found ${txtRecords.length} TXT records for zone ${domainName}`);
-      txtRecords.forEach(r => {
-        console.log(`[Cloudflare] TXT: name="${r.name}" content="${r.content.substring(0, 50)}..."`);
+      txtRecords.forEach((r) => {
+        console.log(
+          `[Cloudflare] TXT: name="${r.name}" content="${r.content.substring(0, 50)}..."`
+        );
       });
 
       const existingGoogleTxt = existingRecords.find(
@@ -529,7 +535,9 @@ export class CloudflareDNSService {
       if (existingGoogleTxt) {
         // Check if content is the same - if so, no update needed
         if (existingGoogleTxt.content === txtContent) {
-          console.log(`[Cloudflare] Google verification TXT record already exists with correct token`);
+          console.log(
+            `[Cloudflare] Google verification TXT record already exists with correct token`
+          );
           return { id: existingGoogleTxt.id };
         }
         // Update existing record with new token

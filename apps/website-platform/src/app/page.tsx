@@ -305,7 +305,10 @@ export default async function HomePage() {
       {/* Featured Experiences */}
       <FeaturedExperiences
         title={popularExperiencesConfig?.title ?? 'Popular Experiences'}
-        subtitle={popularExperiencesConfig?.subtitle ?? 'Discover the most loved experiences in your destination'}
+        subtitle={
+          popularExperiencesConfig?.subtitle ??
+          'Discover the most loved experiences in your destination'
+        }
         experiences={experiences}
         variant="grid"
       />

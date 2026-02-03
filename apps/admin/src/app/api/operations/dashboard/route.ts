@@ -2,11 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import {
-  getJobQueue,
-  circuitBreakers,
-  getScheduledJobs,
-} from '@experience-marketplace/jobs';
+import { getJobQueue, circuitBreakers, getScheduledJobs } from '@experience-marketplace/jobs';
 
 const QUEUE_NAMES = ['content', 'seo', 'gsc', 'site', 'domain', 'analytics', 'abtest'];
 
@@ -99,7 +95,15 @@ export async function GET(): Promise<NextResponse> {
         getScheduledJobs(),
       ]);
 
-    const [activeNow, completedToday, failedToday, completed24h, failed24h, durationJobs, completedLastHour] = dbStats;
+    const [
+      activeNow,
+      completedToday,
+      failedToday,
+      completed24h,
+      failed24h,
+      durationJobs,
+      completedLastHour,
+    ] = dbStats;
 
     // Compute average duration
     let avgDurationMs = 0;
@@ -199,9 +203,6 @@ export async function GET(): Promise<NextResponse> {
     });
   } catch (error) {
     console.error('[API] Error fetching operations dashboard:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch operations dashboard' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch operations dashboard' }, { status: 500 });
   }
 }

@@ -58,17 +58,11 @@ export function trackBeginCheckout(booking: {
     transaction_id: booking.id,
     value: booking.value,
     currency: booking.currency ?? 'GBP',
-    items: booking.itemName
-      ? [{ item_name: booking.itemName }]
-      : [],
+    items: booking.itemName ? [{ item_name: booking.itemName }] : [],
   });
 }
 
-export function trackAddPaymentInfo(booking: {
-  id: string;
-  value?: number;
-  currency?: string;
-}) {
+export function trackAddPaymentInfo(booking: { id: string; value?: number; currency?: string }) {
   sendEvent('add_payment_info', {
     transaction_id: booking.id,
     value: booking.value,
@@ -87,9 +81,7 @@ export function trackPurchase(booking: {
     transaction_id: booking.id,
     value: booking.value,
     currency: booking.currency ?? 'GBP',
-    items: booking.itemName
-      ? [{ item_name: booking.itemName }]
-      : [],
+    items: booking.itemName ? [{ item_name: booking.itemName }] : [],
   });
 }
 

@@ -108,10 +108,7 @@ export function Hero({ title, subtitle, backgroundImage, backgroundImageAttribut
           className="block w-full"
           preserveAspectRatio="none"
         >
-          <path
-            d="M0 40C240 70 480 80 720 60C960 40 1200 10 1440 30V80H0V40Z"
-            fill="white"
-          />
+          <path d="M0 40C240 70 480 80 720 60C960 40 1200 10 1440 30V80H0V40Z" fill="white" />
         </svg>
       </div>
     </section>

@@ -13,7 +13,16 @@ export async function GET() {
 
   // Collect all relevant headers for debugging
   const allHeaders: Record<string, string | null> = {};
-  const headerNames = ['host', 'x-forwarded-host', 'x-forwarded-for', 'x-original-host', 'cf-connecting-ip', 'x-real-ip', 'forwarded', 'x-forwarded-proto'];
+  const headerNames = [
+    'host',
+    'x-forwarded-host',
+    'x-forwarded-for',
+    'x-original-host',
+    'cf-connecting-ip',
+    'x-real-ip',
+    'forwarded',
+    'x-forwarded-proto',
+  ];
   for (const name of headerNames) {
     allHeaders[name] = headersList.get(name);
   }

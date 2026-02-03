@@ -10,12 +10,42 @@ const prisma = new PrismaClient();
 
 // Food tour specific categories
 const FOOD_TOUR_CATEGORIES = [
-  { name: 'Wine Tasting', slug: 'wine-tasting', icon: '🍷', description: 'Discover exceptional wines with guided tastings and vineyard experiences.' },
-  { name: 'Brewery Tours', slug: 'brewery-tours', icon: '🍺', description: 'Explore craft breweries and sample unique local beers with expert guides.' },
-  { name: 'Fine Dining', slug: 'fine-dining', icon: '🍽️', description: 'Experience world-class restaurants and gourmet cuisine from top chefs.' },
-  { name: 'Street Food', slug: 'street-food', icon: '🌮', description: 'Discover authentic street food and hidden culinary gems in local markets.' },
-  { name: 'Cooking Classes', slug: 'cooking-classes', icon: '👨‍🍳', description: 'Learn to cook local dishes with expert chefs and take home new skills.' },
-  { name: 'Market Tours', slug: 'market-tours', icon: '🧺', description: 'Explore vibrant food markets and taste fresh, local produce.' },
+  {
+    name: 'Wine Tasting',
+    slug: 'wine-tasting',
+    icon: '🍷',
+    description: 'Discover exceptional wines with guided tastings and vineyard experiences.',
+  },
+  {
+    name: 'Brewery Tours',
+    slug: 'brewery-tours',
+    icon: '🍺',
+    description: 'Explore craft breweries and sample unique local beers with expert guides.',
+  },
+  {
+    name: 'Fine Dining',
+    slug: 'fine-dining',
+    icon: '🍽️',
+    description: 'Experience world-class restaurants and gourmet cuisine from top chefs.',
+  },
+  {
+    name: 'Street Food',
+    slug: 'street-food',
+    icon: '🌮',
+    description: 'Discover authentic street food and hidden culinary gems in local markets.',
+  },
+  {
+    name: 'Cooking Classes',
+    slug: 'cooking-classes',
+    icon: '👨‍🍳',
+    description: 'Learn to cook local dishes with expert chefs and take home new skills.',
+  },
+  {
+    name: 'Market Tours',
+    slug: 'market-tours',
+    icon: '🧺',
+    description: 'Explore vibrant food markets and taste fresh, local produce.',
+  },
 ];
 
 async function addCategories() {
@@ -24,7 +54,7 @@ async function addCategories() {
 
   const site = await prisma.site.findFirst({
     where: { slug: 'london-food-tours' },
-    select: { id: true, homepageConfig: true }
+    select: { id: true, homepageConfig: true },
   });
 
   if (!site) {
@@ -51,7 +81,7 @@ async function addCategories() {
   // Update database
   await prisma.site.update({
     where: { id: site.id },
-    data: { homepageConfig: config }
+    data: { homepageConfig: config },
   });
 
   console.log('\n✅ Categories added with images:\n');

@@ -301,7 +301,8 @@ export default async function ExperiencesPage({ searchParams }: Props) {
                   />
                 </svg>
                 <span>
-                  We&apos;re having trouble loading experiences right now. Please try refreshing the page.
+                  We&apos;re having trouble loading experiences right now. Please try refreshing the
+                  page.
                 </span>
               </div>
             </div>

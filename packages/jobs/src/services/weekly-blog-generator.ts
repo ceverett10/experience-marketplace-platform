@@ -57,12 +57,8 @@ export async function generateWeeklyBlogPostsForSite(
     // Get niche and location from opportunity or seoConfig
     const opportunity = site.opportunities?.[0];
     const seoConfig = site.seoConfig as { primaryKeywords?: string[]; destination?: string } | null;
-    const niche = opportunity?.niche ||
-      seoConfig?.primaryKeywords?.[0] ||
-      'travel experiences';
-    const location = opportunity?.location ||
-      seoConfig?.destination ||
-      undefined;
+    const niche = opportunity?.niche || seoConfig?.primaryKeywords?.[0] || 'travel experiences';
+    const location = opportunity?.location || seoConfig?.destination || undefined;
 
     const context: BlogTopicContext = {
       siteName: site.name,
@@ -174,7 +170,9 @@ export async function generateWeeklyBlogPostsForAllSites(): Promise<WeeklyBlogGe
   const totalPosts = results.reduce((sum, r) => sum + r.postsQueued, 0);
   const errors = results.filter((r) => r.error).length;
 
-  console.log(`[Weekly Blog] Completed. Sites: ${results.length}, Topics: ${totalTopics}, Posts queued: ${totalPosts}, Errors: ${errors}`);
+  console.log(
+    `[Weekly Blog] Completed. Sites: ${results.length}, Topics: ${totalTopics}, Posts queued: ${totalPosts}, Errors: ${errors}`
+  );
 
   return results;
 }

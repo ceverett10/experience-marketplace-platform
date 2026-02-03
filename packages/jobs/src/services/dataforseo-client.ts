@@ -373,7 +373,9 @@ export class DataForSEOClient {
     try {
       const response = await this.makeRequest('/backlinks/summary/live', {
         method: 'POST',
-        body: JSON.stringify([{ target: domain, internal_list_limit: 0, backlinks_status_type: 'live' }]),
+        body: JSON.stringify([
+          { target: domain, internal_list_limit: 0, backlinks_status_type: 'live' },
+        ]),
       });
 
       const data = response.tasks?.[0]?.result?.[0];
@@ -381,7 +383,10 @@ export class DataForSEOClient {
         totalBacklinks: data?.backlinks || 0,
         referringDomains: data?.referring_domains || 0,
         domainAuthority: data?.rank || 0,
-        doFollowLinks: data?.backlinks_nofollow === undefined ? data?.backlinks || 0 : (data?.backlinks || 0) - (data?.backlinks_nofollow || 0),
+        doFollowLinks:
+          data?.backlinks_nofollow === undefined
+            ? data?.backlinks || 0
+            : (data?.backlinks || 0) - (data?.backlinks_nofollow || 0),
         noFollowLinks: data?.backlinks_nofollow || 0,
       };
     } catch (error) {
@@ -395,24 +400,31 @@ export class DataForSEOClient {
    * Uses: Backlinks > Backlinks > Live
    * Cost: ~$0.003 per request
    */
-  async getBacklinks(target: string, limit: number = 100): Promise<Array<{
-    sourceUrl: string;
-    sourceDomain: string;
-    targetUrl: string;
-    anchorText: string;
-    domainAuthority: number;
-    isDoFollow: boolean;
-    firstSeen: string;
-  }>> {
+  async getBacklinks(
+    target: string,
+    limit: number = 100
+  ): Promise<
+    Array<{
+      sourceUrl: string;
+      sourceDomain: string;
+      targetUrl: string;
+      anchorText: string;
+      domainAuthority: number;
+      isDoFollow: boolean;
+      firstSeen: string;
+    }>
+  > {
     try {
       const response = await this.makeRequest('/backlinks/backlinks/live', {
         method: 'POST',
-        body: JSON.stringify([{
-          target,
-          limit,
-          order_by: ['rank,desc'],
-          backlinks_status_type: 'live',
-        }]),
+        body: JSON.stringify([
+          {
+            target,
+            limit,
+            order_by: ['rank,desc'],
+            backlinks_status_type: 'live',
+          },
+        ]),
       });
 
       const items = response.tasks?.[0]?.result?.[0]?.items || [];
@@ -436,24 +448,31 @@ export class DataForSEOClient {
    * Uses: Backlinks > New Backlinks > Live
    * Cost: ~$0.003 per request
    */
-  async getNewBacklinks(target: string, dateFrom: string): Promise<Array<{
-    sourceUrl: string;
-    sourceDomain: string;
-    targetUrl: string;
-    anchorText: string;
-    domainAuthority: number;
-    isDoFollow: boolean;
-    firstSeen: string;
-  }>> {
+  async getNewBacklinks(
+    target: string,
+    dateFrom: string
+  ): Promise<
+    Array<{
+      sourceUrl: string;
+      sourceDomain: string;
+      targetUrl: string;
+      anchorText: string;
+      domainAuthority: number;
+      isDoFollow: boolean;
+      firstSeen: string;
+    }>
+  > {
     try {
       const response = await this.makeRequest('/backlinks/new_backlinks/live', {
         method: 'POST',
-        body: JSON.stringify([{
-          target,
-          date_from: dateFrom,
-          backlinks_status_type: 'live',
-          limit: 100,
-        }]),
+        body: JSON.stringify([
+          {
+            target,
+            date_from: dateFrom,
+            backlinks_status_type: 'live',
+            limit: 100,
+          },
+        ]),
       });
 
       const items = response.tasks?.[0]?.result?.[0]?.items || [];

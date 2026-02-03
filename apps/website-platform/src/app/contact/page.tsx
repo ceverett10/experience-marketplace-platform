@@ -32,7 +32,8 @@ export async function generateMetadata(): Promise<Metadata> {
 
   const title = page?.metaTitle || page?.title || 'Contact Us';
   const description =
-    page?.metaDescription || `Get in touch with ${site.name}. We're here to help with your travel experience questions.`;
+    page?.metaDescription ||
+    `Get in touch with ${site.name}. We're here to help with your travel experience questions.`;
 
   return {
     title: `${title} | ${site.name}`,

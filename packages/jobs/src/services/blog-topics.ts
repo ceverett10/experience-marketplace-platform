@@ -33,7 +33,9 @@ export async function generateBlogTopics(
   context: BlogTopicContext,
   count: number = 5
 ): Promise<BlogTopicSuggestion[]> {
-  console.log(`[Blog Topics] Generating ${count} topics for ${context.siteName} (${context.niche})`);
+  console.log(
+    `[Blog Topics] Generating ${count} topics for ${context.siteName} (${context.niche})`
+  );
 
   try {
     const client = createClaudeClient({
@@ -193,9 +195,7 @@ export async function generateWeeklyBlogTopics(
   weekNumber: number = 1
 ): Promise<BlogTopicSuggestion[]> {
   // For variety, rotate focus each week
-  const weeklyFocus = ['seasonal', 'trending', 'evergreen', 'local-insights'][
-    (weekNumber - 1) % 4
-  ];
+  const weeklyFocus = ['seasonal', 'trending', 'evergreen', 'local-insights'][(weekNumber - 1) % 4];
 
   console.log(`[Blog Topics] Generating weekly topics with focus: ${weeklyFocus}`);
 

@@ -61,12 +61,12 @@ export interface SeoOpportunityScanPayload {
 
 // Scan mode types for opportunity identification
 export type ScanMode =
-  | 'hyper_local'       // "london food tours"
-  | 'generic_activity'  // "food tours" (no location)
-  | 'demographic'       // "family travel experiences"
-  | 'occasion'          // "bachelor party activities"
-  | 'experience_level'  // "luxury wine tours"
-  | 'regional';         // "european city breaks"
+  | 'hyper_local' // "london food tours"
+  | 'generic_activity' // "food tours" (no location)
+  | 'demographic' // "family travel experiences"
+  | 'occasion' // "bachelor party activities"
+  | 'experience_level' // "luxury wine tours"
+  | 'regional'; // "european city breaks"
 
 // Seed opportunity structure for multi-mode scanning
 export interface OpportunitySeed {
@@ -213,7 +213,11 @@ export interface LinkOutreachGeneratePayload {
 
 export interface LinkAssetGeneratePayload {
   siteId: string;
-  assetType: 'statistics_roundup' | 'comprehensive_guide' | 'infographic_data' | 'original_research';
+  assetType:
+    | 'statistics_roundup'
+    | 'comprehensive_guide'
+    | 'infographic_data'
+    | 'original_research';
   targetKeyword: string;
   destination?: string;
 }

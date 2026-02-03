@@ -297,7 +297,7 @@ export async function gscVerificationWorker(job: Job<GSCVerifyPayload>) {
       // Wait for deployment to pick up the new meta tag
       await job.updateProgress(30);
       console.log(`[GSC Verify] Waiting for meta tag to be deployed...`);
-      await new Promise(resolve => setTimeout(resolve, 60000)); // Wait 1 minute
+      await new Promise((resolve) => setTimeout(resolve, 60000)); // Wait 1 minute
     }
 
     await job.updateProgress(50);
@@ -352,7 +352,6 @@ export async function gscVerificationWorker(job: Job<GSCVerifyPayload>) {
       siteUrl,
       verifiedAt: new Date().toISOString(),
     };
-
   } catch (error) {
     console.error(`[GSC Verify] Error verifying site ${siteId}:`, error);
 
@@ -416,9 +415,13 @@ export async function siteCreationWorker(job: Job) {
     await addJob('DOMAIN_VERIFY', { siteId: site.id, domainId: domain.id });
 
     // 6. ⭐ Queue GSC verification (runs after DNS is ready)
-    await addJob('GSC_VERIFY', { siteId: site.id }, {
-      delay: 5 * 60 * 1000, // Wait 5 minutes for DNS
-    });
+    await addJob(
+      'GSC_VERIFY',
+      { siteId: site.id },
+      {
+        delay: 5 * 60 * 1000, // Wait 5 minutes for DNS
+      }
+    );
 
     // 7. Queue content generation (runs in parallel)
     await addJob('CONTENT_GENERATE', {
@@ -429,7 +432,6 @@ export async function siteCreationWorker(job: Job) {
     });
 
     return { success: true, siteId: site.id, domain: domain.domain };
-
   } catch (error) {
     console.error('[Site Creation] Error:', error);
     throw error;
@@ -502,16 +504,13 @@ export class GSCClient {
   }): Promise<void> {
     const { siteUrl, emailAddress, permissionLevel } = params;
 
-    await this.request(
-      `/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/permissions`,
-      {
-        method: 'POST',
-        body: JSON.stringify({
-          emailAddress,
-          permissionLevel,
-        }),
-      }
-    );
+    await this.request(`/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/permissions`, {
+      method: 'POST',
+      body: JSON.stringify({
+        emailAddress,
+        permissionLevel,
+      }),
+    });
   }
 }
 ```
@@ -525,6 +524,7 @@ Once GSC is verified and syncing data, the optimization loop activates:
 ### Triggers for Optimization
 
 1. **Low CTR Detection**
+
    ```typescript
    // In GSC sync worker
    if (ctr < 2.0 && avgPosition <= 10) {
@@ -538,6 +538,7 @@ Once GSC is verified and syncing data, the optimization loop activates:
    ```
 
 2. **Position Drop Detection**
+
    ```typescript
    // Check position drop over 7 days
    if (positionDrop > 5) {
@@ -604,26 +605,31 @@ LIMIT 100;
 ## Production Rollout Plan
 
 ### Phase 1: Setup Current Site (Manual)
+
 - ✅ Verify current production site manually
 - ✅ Configure GSC environment variables
 - ✅ Test GSC data sync
 
 ### Phase 2: Add Database Fields
+
 - [ ] Create and run migration
 - [ ] Update TypeScript types
 - [ ] Deploy to production
 
 ### Phase 3: Update Layout
+
 - [ ] Add dynamic verification tag
 - [ ] Test with development site
 - [ ] Deploy to production
 
 ### Phase 4: Implement Workers
+
 - [ ] Create GSC verification worker
 - [ ] Update site creation worker
 - [ ] Test end-to-end flow in development
 
 ### Phase 5: Enable Automation
+
 - [ ] Create test site via automation
 - [ ] Verify GSC verification works
 - [ ] Monitor first 24 hours

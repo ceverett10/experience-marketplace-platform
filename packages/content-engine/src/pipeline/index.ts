@@ -170,8 +170,7 @@ ${cg.contentPillars?.length ? `- Content Pillars: ${cg.contentPillars.join(', ')
     const brandSection = buildBrandSection();
     const brandName = brief.brandContext?.siteName || 'the brand';
 
-    let systemPrompt =
-      `You are an expert travel content writer creating SEO-optimized, engaging content for ${brandName}, a travel experience marketplace powered by Holibob.
+    let systemPrompt = `You are an expert travel content writer creating SEO-optimized, engaging content for ${brandName}, a travel experience marketplace powered by Holibob.
 ${coreGuidelines}`;
 
     if (brief.brandContext?.toneOfVoice) {
@@ -193,9 +192,8 @@ ${coreGuidelines}`;
 
     // Limit maxTokens based on target word count to help enforce word limits
     // Approximately 1.5 tokens per word for English text with markdown formatting
-    const targetMaxTokens = brief.type === 'blog'
-      ? Math.min(2500, Math.ceil(brief.targetLength.max * 1.7))
-      : 4096;
+    const targetMaxTokens =
+      brief.type === 'blog' ? Math.min(2500, Math.ceil(brief.targetLength.max * 1.7)) : 4096;
 
     const response = await this.client.generate({
       model,
@@ -369,11 +367,19 @@ ${brandReminder}
 Personality: ${toneOfVoice.personality?.join(', ') || 'professional, trustworthy'}
 Writing Style: ${toneOfVoice.writingStyle || 'Clear and authoritative'}
 
-${toneOfVoice.doList?.length ? `DO:
-${toneOfVoice.doList.map((d) => '- ' + d).join('\n')}` : ''}
+${
+  toneOfVoice.doList?.length
+    ? `DO:
+${toneOfVoice.doList.map((d) => '- ' + d).join('\n')}`
+    : ''
+}
 
-${toneOfVoice.dontList?.length ? `DON'T:
-${toneOfVoice.dontList.map((d) => '- ' + d).join('\n')}` : ''}
+${
+  toneOfVoice.dontList?.length
+    ? `DON'T:
+${toneOfVoice.dontList.map((d) => '- ' + d).join('\n')}`
+    : ''
+}
 `;
       }
 
@@ -409,7 +415,9 @@ ${contentGuidelines.contentPillars?.length ? `Content pillars: ${contentGuidelin
     const brandLabel = brandName ? `for ${brandName}` : '';
 
     // About Us specific instructions - strict factual guardrails
-    const aboutInstructions = brief.type === 'about' ? `
+    const aboutInstructions =
+      brief.type === 'about'
+        ? `
 ## CRITICAL: ABOUT US PAGE RULES
 This is an About Us page. You MUST follow these rules absolutely:
 
@@ -441,10 +449,13 @@ This is an About Us page. You MUST follow these rules absolutely:
 ### WORD COUNT
 Target: ${brief.targetLength.min}-${brief.targetLength.max} words.
 
-` : '';
+`
+        : '';
 
     // Blog-specific instructions for focused, concise content
-    const blogInstructions = brief.type === 'blog' ? `
+    const blogInstructions =
+      brief.type === 'blog'
+        ? `
 ## CRITICAL: WORD LIMIT
 MAXIMUM ${brief.targetLength.max} WORDS. Do NOT exceed this limit.
 Write focused, valuable content. Quality over quantity.
@@ -458,7 +469,8 @@ Target: ${brief.targetLength.min}-${brief.targetLength.max} words total.
 5. MANDATORY FAQ SECTION: Include a "## Frequently Asked Questions" section with 3-5 questions formatted as "### Question?" headings followed by paragraph answers. Questions should target real search queries related to "${brief.targetKeyword}".
 6. Clear conclusion with call-to-action${brandName ? ` for ${brandName}` : ''}
 
-` : '';
+`
+        : '';
 
     return `Create ${brief.type} content ${brandLabel}: ${brief.targetKeyword}
 

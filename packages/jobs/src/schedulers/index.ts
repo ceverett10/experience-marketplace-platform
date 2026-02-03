@@ -106,23 +106,28 @@ export async function initializeScheduledJobs(): Promise<void> {
 function initializeWeeklyBlogSchedule(): void {
   // Check every hour if it's time to generate blog posts
   // Generates on Monday (1) and Thursday (4) at 4 AM
-  weeklyBlogInterval = setInterval(async () => {
-    const now = new Date();
-    const day = now.getDay(); // 0 = Sunday, 1 = Monday, 4 = Thursday
-    const hour = now.getHours();
+  weeklyBlogInterval = setInterval(
+    async () => {
+      const now = new Date();
+      const day = now.getDay(); // 0 = Sunday, 1 = Monday, 4 = Thursday
+      const hour = now.getHours();
 
-    // Run on Monday and Thursday at 4 AM
-    if ((day === 1 || day === 4) && hour === 4) {
-      console.log('[Scheduler] Starting weekly blog generation...');
-      try {
-        const results = await generateWeeklyBlogPostsForAllSites();
-        const totalPosts = results.reduce((sum, r) => sum + r.postsQueued, 0);
-        console.log(`[Scheduler] Weekly blog generation complete: ${totalPosts} posts queued across ${results.length} sites`);
-      } catch (error) {
-        console.error('[Scheduler] Weekly blog generation failed:', error);
+      // Run on Monday and Thursday at 4 AM
+      if ((day === 1 || day === 4) && hour === 4) {
+        console.log('[Scheduler] Starting weekly blog generation...');
+        try {
+          const results = await generateWeeklyBlogPostsForAllSites();
+          const totalPosts = results.reduce((sum, r) => sum + r.postsQueued, 0);
+          console.log(
+            `[Scheduler] Weekly blog generation complete: ${totalPosts} posts queued across ${results.length} sites`
+          );
+        } catch (error) {
+          console.error('[Scheduler] Weekly blog generation failed:', error);
+        }
       }
-    }
-  }, 60 * 60 * 1000); // Check every hour
+    },
+    60 * 60 * 1000
+  ); // Check every hour
 
   // Also check immediately on startup if it's the right time
   const now = new Date();

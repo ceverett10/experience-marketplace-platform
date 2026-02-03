@@ -26,9 +26,7 @@ export function generateGuestPostPitch(params: {
 }): OutreachTemplate {
   const { brandName, brandDescription, targetDomain, suggestedTopics, siteUrl } = params;
 
-  const topicsList = suggestedTopics
-    .map((t, i) => `${i + 1}. ${t}`)
-    .join('\n');
+  const topicsList = suggestedTopics.map((t, i) => `${i + 1}. ${t}`).join('\n');
 
   return {
     subject: `Guest post idea for ${targetDomain}`,
@@ -66,7 +64,8 @@ export function generateResourcePageRequest(params: {
   ourPageTitle: string;
   ourPageDescription: string;
 }): OutreachTemplate {
-  const { brandName, targetUrl, targetDomain, ourPageUrl, ourPageTitle, ourPageDescription } = params;
+  const { brandName, targetUrl, targetDomain, ourPageUrl, ourPageTitle, ourPageDescription } =
+    params;
 
   return {
     subject: `Resource suggestion for your ${targetDomain} page`,
@@ -101,7 +100,8 @@ export function generateBrokenLinkEmail(params: {
   replacementUrl: string;
   replacementTitle: string;
 }): OutreachTemplate {
-  const { brandName, targetUrl, targetDomain, brokenUrl, replacementUrl, replacementTitle } = params;
+  const { brandName, targetUrl, targetDomain, brokenUrl, replacementUrl, replacementTitle } =
+    params;
 
   return {
     subject: `Broken link found on ${targetDomain}`,
@@ -182,7 +182,8 @@ export async function generateOutreachForOpportunity(params: {
         targetDomain: opportunity.targetDomain,
         ourPageUrl: asset ? `${siteUrl}/${asset.slug}` : siteUrl,
         ourPageTitle: asset?.title ?? `${brandName} Travel Guide`,
-        ourPageDescription: asset?.metaDescription ?? `A comprehensive travel resource by ${brandName}.`,
+        ourPageDescription:
+          asset?.metaDescription ?? `A comprehensive travel resource by ${brandName}.`,
       });
       break;
     }

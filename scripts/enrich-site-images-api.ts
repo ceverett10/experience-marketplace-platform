@@ -77,7 +77,9 @@ async function regenerateHomepageConfig(siteId: string) {
     console.log('3. Verify the site ID exists');
     console.log('\nAlternatively, you can:');
     console.log('- Use the Admin UI to regenerate the homepage config');
-    console.log('- Start PostgreSQL locally and run: npx tsx scripts/enrich-site-images.ts <site-slug>');
+    console.log(
+      '- Start PostgreSQL locally and run: npx tsx scripts/enrich-site-images.ts <site-slug>'
+    );
   }
 }
 

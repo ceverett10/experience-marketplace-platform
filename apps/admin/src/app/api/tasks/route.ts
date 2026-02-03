@@ -19,10 +19,7 @@ export async function GET(request: Request) {
     // Fetch tasks
     const tasks = await prisma.manualTask.findMany({
       where,
-      orderBy: [
-        { priority: 'desc' },
-        { createdAt: 'desc' },
-      ],
+      orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }],
       include: {
         site: {
           select: {

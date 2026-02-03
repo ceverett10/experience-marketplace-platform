@@ -57,18 +57,30 @@ async function main() {
     const issues = [];
     if (/founded in \d{4}/i.test(content)) issues.push('fabricated founding date');
     if (/founded by [A-Z][a-z]+ [A-Z][a-z]+/i.test(content)) issues.push('fabricated founder name');
-    if (/over [\d,]+ (travelers|customers|visitors|tours)/i.test(content)) issues.push('fabricated statistics');
+    if (/over [\d,]+ (travelers|customers|visitors|tours)/i.test(content))
+      issues.push('fabricated statistics');
     if (/partnership with|partnered with/i.test(content)) issues.push('fabricated partnerships');
-    if (/24\/7 (support|customer service)/i.test(content)) issues.push('unverifiable support claim');
+    if (/24\/7 (support|customer service)/i.test(content))
+      issues.push('unverifiable support claim');
 
     // Check for broken links (links to non-standard routes)
     const linkPattern = /\[([^\]]+)\]\(\/([^)]+)\)/g;
-    const validPrefixes = ['experiences', 'destinations', 'categories', 'about', 'contact', 'privacy', 'terms'];
+    const validPrefixes = [
+      'experiences',
+      'destinations',
+      'categories',
+      'about',
+      'contact',
+      'privacy',
+      'terms',
+    ];
     let match;
     const brokenLinks = [];
     while ((match = linkPattern.exec(content)) !== null) {
       const path = match[2];
-      const isValid = validPrefixes.some((p) => path === p || path.startsWith(p + '?') || path.startsWith(p + '/'));
+      const isValid = validPrefixes.some(
+        (p) => path === p || path.startsWith(p + '?') || path.startsWith(p + '/')
+      );
       if (!isValid) {
         brokenLinks.push(`/${path}`);
       }
@@ -93,20 +105,25 @@ async function main() {
   for (const page of aboutPages) {
     const siteName = page.site?.name || 'Unknown Site';
     const seoConfig = page.site?.seoConfig;
-    const niche = typeof seoConfig === 'object' && seoConfig !== null && 'niche' in seoConfig
-      ? seoConfig.niche
-      : '';
+    const niche =
+      typeof seoConfig === 'object' && seoConfig !== null && 'niche' in seoConfig
+        ? seoConfig.niche
+        : '';
 
-    const job = await queue.add('CONTENT_GENERATE', {
-      siteId: page.site?.id,
-      pageId: page.id,
-      contentType: 'about',
-      targetKeyword: `About ${siteName}`,
-      secondaryKeywords: [niche, 'travel experiences'].filter(Boolean),
-    }, {
-      removeOnComplete: 100,
-      removeOnFail: 50,
-    });
+    const job = await queue.add(
+      'CONTENT_GENERATE',
+      {
+        siteId: page.site?.id,
+        pageId: page.id,
+        contentType: 'about',
+        targetKeyword: `About ${siteName}`,
+        secondaryKeywords: [niche, 'travel experiences'].filter(Boolean),
+      },
+      {
+        removeOnComplete: 100,
+        removeOnFail: 50,
+      }
+    );
 
     console.log(`  Queued regeneration for ${siteName} (job: ${job.id})`);
     queued++;

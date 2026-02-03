@@ -30,7 +30,11 @@ interface StaticPageTemplateProps {
 /**
  * Generic template for static pages (About, Contact, Legal, etc.)
  */
-export function StaticPageTemplate({ page, siteName, pageType = 'about' }: StaticPageTemplateProps) {
+export function StaticPageTemplate({
+  page,
+  siteName,
+  pageType = 'about',
+}: StaticPageTemplateProps) {
   const format = (page.content?.bodyFormat?.toLowerCase() || 'markdown') as
     | 'markdown'
     | 'html'

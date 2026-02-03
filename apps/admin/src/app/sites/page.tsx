@@ -71,13 +71,15 @@ export default function SitesPage() {
         }
 
         setSites(data.sites || []);
-        setStats(data.stats || {
-          totalSites: 0,
-          activeSites: 0,
-          draftSites: 0,
-          totalRevenue: 0,
-          totalVisitors: 0,
-        });
+        setStats(
+          data.stats || {
+            totalSites: 0,
+            activeSites: 0,
+            draftSites: 0,
+            totalRevenue: 0,
+            totalVisitors: 0,
+          }
+        );
       } catch (error) {
         console.error('Failed to fetch sites:', error);
         setSites([]);
@@ -242,7 +244,9 @@ export default function SitesPage() {
                   </div>
                   {/* Brand tagline / promise */}
                   {site.brand?.tagline && (
-                    <p className="text-sm text-slate-600 italic mb-1">&ldquo;{site.brand.tagline}&rdquo;</p>
+                    <p className="text-sm text-slate-600 italic mb-1">
+                      &ldquo;{site.brand.tagline}&rdquo;
+                    </p>
                   )}
                   {/* Domain info */}
                   <div className="flex items-center gap-2 text-sm">
@@ -258,7 +262,8 @@ export default function SitesPage() {
                       </a>
                     ) : (
                       <span className="text-slate-500">
-                        Planned: <span className="font-medium text-slate-700">{site.suggestedDomain}</span>
+                        Planned:{' '}
+                        <span className="font-medium text-slate-700">{site.suggestedDomain}</span>
                       </span>
                     )}
                   </div>
@@ -268,7 +273,9 @@ export default function SitesPage() {
               {/* Brand Details Section */}
               {site.brand && (
                 <div className="mb-4 p-3 bg-slate-50 rounded-lg">
-                  <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">Brand Identity</div>
+                  <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">
+                    Brand Identity
+                  </div>
                   <div className="grid grid-cols-2 gap-3">
                     {/* Color Palette */}
                     <div>
@@ -296,7 +303,8 @@ export default function SitesPage() {
                       <div className="text-xs text-slate-500 mb-1">Typography</div>
                       <div className="text-sm text-slate-700">
                         {site.brand.headingFont}
-                        {site.brand.bodyFont !== site.brand.headingFont && ` / ${site.brand.bodyFont}`}
+                        {site.brand.bodyFont !== site.brand.headingFont &&
+                          ` / ${site.brand.bodyFont}`}
                       </div>
                     </div>
                   </div>
@@ -309,7 +317,9 @@ export default function SitesPage() {
               {/* Site Description */}
               {site.description && (
                 <div className="mb-4">
-                  <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">About</div>
+                  <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">
+                    About
+                  </div>
                   <p className="text-sm text-slate-600 line-clamp-2">{site.description}</p>
                 </div>
               )}

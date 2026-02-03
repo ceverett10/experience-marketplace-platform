@@ -178,7 +178,9 @@ export class GSCClient {
     } catch (error: any) {
       // Check for specific verification failure
       if (error?.message?.includes('verification')) {
-        console.error(`[GSC Client] Verification failed for ${domain} - DNS record may not have propagated yet`);
+        console.error(
+          `[GSC Client] Verification failed for ${domain} - DNS record may not have propagated yet`
+        );
         return {
           verified: false,
           owners: [],
@@ -203,11 +205,7 @@ export class GSCClient {
       // 404 means not verified, 403 "not owner" also means not verified
       const errorCode = error?.code || error?.status;
       const errorMessage = error?.message || '';
-      if (
-        errorCode === 404 ||
-        errorCode === 403 ||
-        errorMessage.includes('not an owner')
-      ) {
+      if (errorCode === 404 || errorCode === 403 || errorMessage.includes('not an owner')) {
         console.log(`[GSC Client] Domain ${domain} not yet verified (${errorCode || 'unknown'})`);
         return false;
       }
@@ -287,7 +285,7 @@ export class GSCClient {
   }
 
   private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   /**

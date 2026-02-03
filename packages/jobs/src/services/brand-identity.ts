@@ -222,7 +222,8 @@ function createTemplateBrandIdentity(opportunity: OpportunityContext): Comprehen
 
     toneOfVoice: {
       personality: ['Professional', 'Knowledgeable', 'Trustworthy', 'Helpful'],
-      writingStyle: 'Clear, authoritative yet approachable. We educate and guide rather than sell aggressively.',
+      writingStyle:
+        'Clear, authoritative yet approachable. We educate and guide rather than sell aggressively.',
       doList: [
         'Use expert knowledge to build trust',
         'Provide detailed, accurate information',
@@ -602,7 +603,10 @@ Return ONLY valid JSON:
           categories: enriched.categories || generated.categories,
         };
       } catch (imageError) {
-        console.warn('[Homepage Config] Failed to enrich with images, using config without images:', imageError);
+        console.warn(
+          '[Homepage Config] Failed to enrich with images, using config without images:',
+          imageError
+        );
         return generated;
       }
     }
@@ -628,69 +632,192 @@ async function createTemplateHomepageConfig(
   const nicheToCategory: Record<string, string> = {
     'food tours': 'food-wine-and-beer-experiences',
     'wine tours': 'food-wine-and-beer-experiences',
-    'culinary': 'food-wine-and-beer-experiences',
-    'food': 'food-wine-and-beer-experiences',
-    'sightseeing': 'sightseeing-tours',
-    'tours': 'sightseeing-tours',
-    'adventure': 'outdoor-activities',
-    'outdoor': 'outdoor-activities',
-    'hiking': 'outdoor-activities',
-    'cultural': 'cultural-experiences',
-    'museums': 'cultural-experiences',
-    'history': 'cultural-experiences',
-    'water': 'water-activities',
-    'boats': 'water-activities',
-    'cruises': 'water-activities',
+    culinary: 'food-wine-and-beer-experiences',
+    food: 'food-wine-and-beer-experiences',
+    sightseeing: 'sightseeing-tours',
+    tours: 'sightseeing-tours',
+    adventure: 'outdoor-activities',
+    outdoor: 'outdoor-activities',
+    hiking: 'outdoor-activities',
+    cultural: 'cultural-experiences',
+    museums: 'cultural-experiences',
+    history: 'cultural-experiences',
+    water: 'water-activities',
+    boats: 'water-activities',
+    cruises: 'water-activities',
     'theme parks': 'theme-parks-and-attractions',
-    'attractions': 'theme-parks-and-attractions',
-    'shows': 'shows-and-events',
-    'events': 'shows-and-events',
-    'spa': 'wellness-and-spa',
-    'wellness': 'wellness-and-spa',
+    attractions: 'theme-parks-and-attractions',
+    shows: 'shows-and-events',
+    events: 'shows-and-events',
+    spa: 'wellness-and-spa',
+    wellness: 'wellness-and-spa',
   };
 
-  const categoryPath = Object.entries(nicheToCategory).find(
-    ([key]) => niche.includes(key)
-  )?.[1] || 'sightseeing-tours';
+  const categoryPath =
+    Object.entries(nicheToCategory).find(([key]) => niche.includes(key))?.[1] ||
+    'sightseeing-tours';
 
   // Generate niche-specific categories
-  const nicheCategories: Record<string, Array<{ name: string; slug: string; icon: string; description: string }>> = {
+  const nicheCategories: Record<
+    string,
+    Array<{ name: string; slug: string; icon: string; description: string }>
+  > = {
     'food tours': [
-      { name: 'Wine Tasting', slug: 'wine-tasting', icon: '🍷', description: 'Discover exceptional local wines and vineyards with expert sommeliers.' },
-      { name: 'Brewery Tours', slug: 'brewery-tours', icon: '🍺', description: 'Explore craft breweries and taste unique local beers.' },
-      { name: 'Fine Dining', slug: 'fine-dining', icon: '🍽️', description: 'Experience world-class restaurants and Michelin-starred cuisine.' },
-      { name: 'Street Food', slug: 'street-food', icon: '🥙', description: 'Sample authentic local flavors from the best street vendors.' },
-      { name: 'Cooking Classes', slug: 'cooking-classes', icon: '👨‍🍳', description: 'Learn traditional recipes from expert local chefs.' },
-      { name: 'Market Tours', slug: 'market-tours', icon: '🛒', description: 'Explore vibrant local markets with a knowledgeable guide.' },
+      {
+        name: 'Wine Tasting',
+        slug: 'wine-tasting',
+        icon: '🍷',
+        description: 'Discover exceptional local wines and vineyards with expert sommeliers.',
+      },
+      {
+        name: 'Brewery Tours',
+        slug: 'brewery-tours',
+        icon: '🍺',
+        description: 'Explore craft breweries and taste unique local beers.',
+      },
+      {
+        name: 'Fine Dining',
+        slug: 'fine-dining',
+        icon: '🍽️',
+        description: 'Experience world-class restaurants and Michelin-starred cuisine.',
+      },
+      {
+        name: 'Street Food',
+        slug: 'street-food',
+        icon: '🥙',
+        description: 'Sample authentic local flavors from the best street vendors.',
+      },
+      {
+        name: 'Cooking Classes',
+        slug: 'cooking-classes',
+        icon: '👨‍🍳',
+        description: 'Learn traditional recipes from expert local chefs.',
+      },
+      {
+        name: 'Market Tours',
+        slug: 'market-tours',
+        icon: '🛒',
+        description: 'Explore vibrant local markets with a knowledgeable guide.',
+      },
     ],
-    'sightseeing': [
-      { name: 'Walking Tours', slug: 'walking-tours', icon: '🚶', description: 'Discover hidden gems on foot with expert local guides.' },
-      { name: 'Bus Tours', slug: 'bus-tours', icon: '🚌', description: 'See all the highlights comfortably from an open-top bus.' },
-      { name: 'Boat Tours', slug: 'boat-tours', icon: '🚢', description: 'Experience the city from a unique waterside perspective.' },
-      { name: 'Night Tours', slug: 'night-tours', icon: '🌃', description: 'Discover the magic of the city after dark.' },
-      { name: 'Photography Tours', slug: 'photography-tours', icon: '📸', description: 'Capture stunning photos at the best locations.' },
-      { name: 'Private Tours', slug: 'private-tours', icon: '🎩', description: 'Enjoy an exclusive, personalized touring experience.' },
+    sightseeing: [
+      {
+        name: 'Walking Tours',
+        slug: 'walking-tours',
+        icon: '🚶',
+        description: 'Discover hidden gems on foot with expert local guides.',
+      },
+      {
+        name: 'Bus Tours',
+        slug: 'bus-tours',
+        icon: '🚌',
+        description: 'See all the highlights comfortably from an open-top bus.',
+      },
+      {
+        name: 'Boat Tours',
+        slug: 'boat-tours',
+        icon: '🚢',
+        description: 'Experience the city from a unique waterside perspective.',
+      },
+      {
+        name: 'Night Tours',
+        slug: 'night-tours',
+        icon: '🌃',
+        description: 'Discover the magic of the city after dark.',
+      },
+      {
+        name: 'Photography Tours',
+        slug: 'photography-tours',
+        icon: '📸',
+        description: 'Capture stunning photos at the best locations.',
+      },
+      {
+        name: 'Private Tours',
+        slug: 'private-tours',
+        icon: '🎩',
+        description: 'Enjoy an exclusive, personalized touring experience.',
+      },
     ],
-    'adventure': [
-      { name: 'Hiking', slug: 'hiking', icon: '🥾', description: 'Trek through stunning landscapes with experienced guides.' },
-      { name: 'Kayaking', slug: 'kayaking', icon: '🛶', description: 'Paddle through scenic waterways and hidden coves.' },
-      { name: 'Climbing', slug: 'climbing', icon: '🧗', description: 'Challenge yourself on world-class climbing routes.' },
-      { name: 'Ziplining', slug: 'ziplining', icon: '🎿', description: 'Soar through the air on thrilling zipline adventures.' },
-      { name: 'Caving', slug: 'caving', icon: '🦇', description: 'Explore underground wonders and ancient caves.' },
-      { name: 'Rafting', slug: 'rafting', icon: '🚣', description: 'Navigate exciting rapids with professional guides.' },
+    adventure: [
+      {
+        name: 'Hiking',
+        slug: 'hiking',
+        icon: '🥾',
+        description: 'Trek through stunning landscapes with experienced guides.',
+      },
+      {
+        name: 'Kayaking',
+        slug: 'kayaking',
+        icon: '🛶',
+        description: 'Paddle through scenic waterways and hidden coves.',
+      },
+      {
+        name: 'Climbing',
+        slug: 'climbing',
+        icon: '🧗',
+        description: 'Challenge yourself on world-class climbing routes.',
+      },
+      {
+        name: 'Ziplining',
+        slug: 'ziplining',
+        icon: '🎿',
+        description: 'Soar through the air on thrilling zipline adventures.',
+      },
+      {
+        name: 'Caving',
+        slug: 'caving',
+        icon: '🦇',
+        description: 'Explore underground wonders and ancient caves.',
+      },
+      {
+        name: 'Rafting',
+        slug: 'rafting',
+        icon: '🚣',
+        description: 'Navigate exciting rapids with professional guides.',
+      },
     ],
   };
 
   // Find matching categories or use default
-  const matchingCategories = Object.entries(nicheCategories).find(
-    ([key]) => niche.includes(key)
+  const matchingCategories = Object.entries(nicheCategories).find(([key]) =>
+    niche.includes(key)
   )?.[1] || [
-    { name: 'Tours', slug: 'tours', icon: '🗺️', description: 'Guided tours to discover the best of the destination.' },
-    { name: 'Activities', slug: 'activities', icon: '🎯', description: 'Exciting activities for all interests and skill levels.' },
-    { name: 'Experiences', slug: 'experiences', icon: '✨', description: 'Unique and memorable experiences you won\'t forget.' },
-    { name: 'Classes', slug: 'classes', icon: '📚', description: 'Learn new skills from expert local instructors.' },
-    { name: 'Day Trips', slug: 'day-trips', icon: '🚗', description: 'Explore beyond the city on exciting day excursions.' },
-    { name: 'Private', slug: 'private', icon: '🌟', description: 'Exclusive private experiences tailored just for you.' },
+    {
+      name: 'Tours',
+      slug: 'tours',
+      icon: '🗺️',
+      description: 'Guided tours to discover the best of the destination.',
+    },
+    {
+      name: 'Activities',
+      slug: 'activities',
+      icon: '🎯',
+      description: 'Exciting activities for all interests and skill levels.',
+    },
+    {
+      name: 'Experiences',
+      slug: 'experiences',
+      icon: '✨',
+      description: "Unique and memorable experiences you won't forget.",
+    },
+    {
+      name: 'Classes',
+      slug: 'classes',
+      icon: '📚',
+      description: 'Learn new skills from expert local instructors.',
+    },
+    {
+      name: 'Day Trips',
+      slug: 'day-trips',
+      icon: '🚗',
+      description: 'Explore beyond the city on exciting day excursions.',
+    },
+    {
+      name: 'Private',
+      slug: 'private',
+      icon: '🌟',
+      description: 'Exclusive private experiences tailored just for you.',
+    },
   ];
 
   const config: HomepageConfig = {
@@ -708,25 +835,107 @@ async function createTemplateHomepageConfig(
     destinations: location
       ? [
           // For location-specific sites, show areas within the city
-          { name: 'Central', slug: `${location.toLowerCase()}-central`, icon: '🏛️', description: `Explore the heart of ${location} with its iconic landmarks and attractions.` },
-          { name: 'Old Town', slug: `${location.toLowerCase()}-old-town`, icon: '🏰', description: `Step back in time through charming historic streets and ancient architecture.` },
-          { name: 'Waterfront', slug: `${location.toLowerCase()}-waterfront`, icon: '🌊', description: `Enjoy stunning views and riverside experiences along the waterfront.` },
-          { name: 'Markets', slug: `${location.toLowerCase()}-markets`, icon: '🛒', description: `Discover vibrant markets bursting with local flavors and artisan goods.` },
-          { name: 'Historic', slug: `${location.toLowerCase()}-historic`, icon: '🏺', description: `Uncover centuries of history in beautifully preserved heritage sites.` },
-          { name: 'Modern', slug: `${location.toLowerCase()}-modern`, icon: '🏢', description: `Experience contemporary culture in the city's dynamic modern districts.` },
-          { name: 'Suburban', slug: `${location.toLowerCase()}-suburban`, icon: '🌳', description: `Escape to peaceful neighborhoods with local charm and hidden gems.` },
-          { name: 'Downtown', slug: `${location.toLowerCase()}-downtown`, icon: '🌆', description: `Feel the energy of downtown with world-class dining, shopping, and entertainment.` },
+          {
+            name: 'Central',
+            slug: `${location.toLowerCase()}-central`,
+            icon: '🏛️',
+            description: `Explore the heart of ${location} with its iconic landmarks and attractions.`,
+          },
+          {
+            name: 'Old Town',
+            slug: `${location.toLowerCase()}-old-town`,
+            icon: '🏰',
+            description: `Step back in time through charming historic streets and ancient architecture.`,
+          },
+          {
+            name: 'Waterfront',
+            slug: `${location.toLowerCase()}-waterfront`,
+            icon: '🌊',
+            description: `Enjoy stunning views and riverside experiences along the waterfront.`,
+          },
+          {
+            name: 'Markets',
+            slug: `${location.toLowerCase()}-markets`,
+            icon: '🛒',
+            description: `Discover vibrant markets bursting with local flavors and artisan goods.`,
+          },
+          {
+            name: 'Historic',
+            slug: `${location.toLowerCase()}-historic`,
+            icon: '🏺',
+            description: `Uncover centuries of history in beautifully preserved heritage sites.`,
+          },
+          {
+            name: 'Modern',
+            slug: `${location.toLowerCase()}-modern`,
+            icon: '🏢',
+            description: `Experience contemporary culture in the city's dynamic modern districts.`,
+          },
+          {
+            name: 'Suburban',
+            slug: `${location.toLowerCase()}-suburban`,
+            icon: '🌳',
+            description: `Escape to peaceful neighborhoods with local charm and hidden gems.`,
+          },
+          {
+            name: 'Downtown',
+            slug: `${location.toLowerCase()}-downtown`,
+            icon: '🌆',
+            description: `Feel the energy of downtown with world-class dining, shopping, and entertainment.`,
+          },
         ]
       : [
           // Default destinations for general sites
-          { name: 'London', slug: 'london', icon: '🇬🇧', description: 'Experience world-class culture, history, and entertainment in the UK capital.' },
-          { name: 'Paris', slug: 'paris', icon: '🇫🇷', description: 'Discover romance, art, and culinary excellence in the City of Light.' },
-          { name: 'Barcelona', slug: 'barcelona', icon: '🇪🇸', description: 'Enjoy stunning architecture, beaches, and vibrant Catalan culture.' },
-          { name: 'Rome', slug: 'rome', icon: '🇮🇹', description: 'Walk through ancient history and savor authentic Italian experiences.' },
-          { name: 'Amsterdam', slug: 'amsterdam', icon: '🇳🇱', description: 'Explore charming canals, world-class museums, and Dutch hospitality.' },
-          { name: 'Edinburgh', slug: 'edinburgh', icon: '🏴󠁧󠁢󠁳󠁣󠁴󠁿', description: 'Discover medieval charm and Scottish heritage in this historic capital.' },
-          { name: 'Lisbon', slug: 'lisbon', icon: '🇵🇹', description: 'Experience colorful neighborhoods, delicious cuisine, and coastal beauty.' },
-          { name: 'Berlin', slug: 'berlin', icon: '🇩🇪', description: 'Explore modern culture, fascinating history, and creative energy.' },
+          {
+            name: 'London',
+            slug: 'london',
+            icon: '🇬🇧',
+            description:
+              'Experience world-class culture, history, and entertainment in the UK capital.',
+          },
+          {
+            name: 'Paris',
+            slug: 'paris',
+            icon: '🇫🇷',
+            description: 'Discover romance, art, and culinary excellence in the City of Light.',
+          },
+          {
+            name: 'Barcelona',
+            slug: 'barcelona',
+            icon: '🇪🇸',
+            description: 'Enjoy stunning architecture, beaches, and vibrant Catalan culture.',
+          },
+          {
+            name: 'Rome',
+            slug: 'rome',
+            icon: '🇮🇹',
+            description: 'Walk through ancient history and savor authentic Italian experiences.',
+          },
+          {
+            name: 'Amsterdam',
+            slug: 'amsterdam',
+            icon: '🇳🇱',
+            description: 'Explore charming canals, world-class museums, and Dutch hospitality.',
+          },
+          {
+            name: 'Edinburgh',
+            slug: 'edinburgh',
+            icon: '🏴󠁧󠁢󠁳󠁣󠁴󠁿',
+            description: 'Discover medieval charm and Scottish heritage in this historic capital.',
+          },
+          {
+            name: 'Lisbon',
+            slug: 'lisbon',
+            icon: '🇵🇹',
+            description:
+              'Experience colorful neighborhoods, delicious cuisine, and coastal beauty.',
+          },
+          {
+            name: 'Berlin',
+            slug: 'berlin',
+            icon: '🇩🇪',
+            description: 'Explore modern culture, fascinating history, and creative energy.',
+          },
         ],
     categories: matchingCategories,
     testimonials: [
@@ -779,10 +988,7 @@ async function createTemplateHomepageConfig(
 /**
  * Store homepage config in database
  */
-export async function storeHomepageConfig(
-  siteId: string,
-  config: HomepageConfig
-): Promise<void> {
+export async function storeHomepageConfig(siteId: string, config: HomepageConfig): Promise<void> {
   await prisma.site.update({
     where: { id: siteId },
     data: {

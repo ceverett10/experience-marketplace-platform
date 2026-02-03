@@ -82,10 +82,19 @@ export default function AdminSettingsPage() {
     intervalMinutes: number;
     isGloballyPaused: boolean;
     sites: { total: number; active: number; paused: number };
-    recentActivity: { pending: number; running: number; completed: number; failed: number; total: number };
+    recentActivity: {
+      pending: number;
+      running: number;
+      completed: number;
+      failed: number;
+      total: number;
+    };
   } | null>(null);
   const [processorLoading, setProcessorLoading] = useState(false);
-  const [processorResult, setProcessorResult] = useState<{ message: string; isError: boolean } | null>(null);
+  const [processorResult, setProcessorResult] = useState<{
+    message: string;
+    isError: boolean;
+  } | null>(null);
 
   // Load autonomous settings and processor status on mount
   useEffect(() => {
@@ -931,8 +940,8 @@ export default function AdminSettingsPage() {
                       <div className="text-sm text-amber-800">
                         <p className="font-medium mb-1">Rate Limit Safety</p>
                         <p>
-                          These limits prevent runaway operations and manage infrastructure costs. All
-                          autonomous workers respect these limits before executing operations.
+                          These limits prevent runaway operations and manage infrastructure costs.
+                          All autonomous workers respect these limits before executing operations.
                         </p>
                       </div>
                     </div>

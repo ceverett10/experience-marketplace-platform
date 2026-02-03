@@ -111,17 +111,21 @@ export async function handleSEOAudit(job: Job<SEOAuditPayload>): Promise<JobResu
     const report = await generateSiteHealthReport(siteId);
 
     console.log(`[SEO Audit] Site ${report.siteName} health score: ${report.overallScore}/100`);
-    console.log(`[SEO Audit] Technical: ${report.scores.technical}, Content: ${report.scores.content}, Performance: ${report.scores.performance}`);
-    console.log(`[SEO Audit] Found ${report.issues.length} issues, ${report.recommendations.length} recommendations`);
+    console.log(
+      `[SEO Audit] Technical: ${report.scores.technical}, Content: ${report.scores.content}, Performance: ${report.scores.performance}`
+    );
+    console.log(
+      `[SEO Audit] Found ${report.issues.length} issues, ${report.recommendations.length} recommendations`
+    );
 
     // Store report for trend tracking
     await storeHealthReport(report);
 
     // Log critical issues
-    const criticalIssues = report.issues.filter(i => i.type === 'critical');
+    const criticalIssues = report.issues.filter((i) => i.type === 'critical');
     if (criticalIssues.length > 0) {
       console.log(`[SEO Audit] Critical issues:`);
-      criticalIssues.forEach(issue => {
+      criticalIssues.forEach((issue) => {
         console.log(`  - ${issue.title}: ${issue.description}`);
       });
     }
@@ -148,7 +152,9 @@ export async function handleSEOAudit(job: Job<SEOAuditPayload>): Promise<JobResu
     }
 
     const duration = Date.now() - startTime;
-    console.log(`[SEO Audit] Completed in ${duration}ms, queued ${optimizationsQueued} optimizations`);
+    console.log(
+      `[SEO Audit] Completed in ${duration}ms, queued ${optimizationsQueued} optimizations`
+    );
 
     return {
       success: true,
@@ -167,17 +173,18 @@ export async function handleSEOAudit(job: Job<SEOAuditPayload>): Promise<JobResu
       timestamp: new Date(),
     };
   } catch (error) {
-    const jobError = error instanceof JobError
-      ? error
-      : new JobError(
-          `SEO audit failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          {
-            category: ErrorCategory.UNKNOWN,
-            severity: ErrorSeverity.RECOVERABLE,
-            retryable: true,
-            context: { siteId },
-          }
-        );
+    const jobError =
+      error instanceof JobError
+        ? error
+        : new JobError(
+            `SEO audit failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            {
+              category: ErrorCategory.UNKNOWN,
+              severity: ErrorSeverity.RECOVERABLE,
+              retryable: true,
+              context: { siteId },
+            }
+          );
 
     await errorTracking.logError({
       jobId: job.id || 'unknown',
@@ -232,11 +239,13 @@ async function queueOptimizations(siteId: string, report: SiteHealthReport): Pro
     );
 
     queued++;
-    console.log(`[SEO Audit] Queued optimization for page ${page.pageId}: ${page.reason} (${page.urgency})`);
+    console.log(
+      `[SEO Audit] Queued optimization for page ${page.pageId}: ${page.reason} (${page.urgency})`
+    );
   }
 
   // Also queue automatable recommendations
-  for (const rec of report.recommendations.filter(r => r.automatable).slice(0, 5)) {
+  for (const rec of report.recommendations.filter((r) => r.automatable).slice(0, 5)) {
     if (rec.affectedPages.length > 0 && queued < 15) {
       // These are already covered by pagesNeedingWork in most cases
       // But we queue any remaining high-priority ones
@@ -340,7 +349,9 @@ export async function handleRecursiveOptimize(
 
     // Check for improvement stagnation
     if (previousScore && currentScore <= previousScore) {
-      console.log(`[Recursive SEO] No improvement detected. Previous: ${previousScore}, Current: ${currentScore}`);
+      console.log(
+        `[Recursive SEO] No improvement detected. Previous: ${previousScore}, Current: ${currentScore}`
+      );
 
       // Try a different optimization approach
       const alternativeReason = getAlternativeOptimization(reason);
@@ -410,17 +421,18 @@ export async function handleRecursiveOptimize(
       timestamp: new Date(),
     };
   } catch (error) {
-    const jobError = error instanceof JobError
-      ? error
-      : new JobError(
-          `Recursive optimization failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          {
-            category: ErrorCategory.UNKNOWN,
-            severity: ErrorSeverity.RECOVERABLE,
-            retryable: true,
-            context: { siteId, pageId, iteration },
-          }
-        );
+    const jobError =
+      error instanceof JobError
+        ? error
+        : new JobError(
+            `Recursive optimization failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            {
+              category: ErrorCategory.UNKNOWN,
+              severity: ErrorSeverity.RECOVERABLE,
+              retryable: true,
+              context: { siteId, pageId, iteration },
+            }
+          );
 
     await errorTracking.logError({
       jobId: job.id || 'unknown',
@@ -521,7 +533,7 @@ export async function handleBatchOptimize(job: Job<SEOBatchOptimizePayload>): Pr
 
     // Filter by urgency if specified
     if (urgencyFilter !== 'all') {
-      pages = pages.filter(p => p.urgency === urgencyFilter);
+      pages = pages.filter((p) => p.urgency === urgencyFilter);
     }
 
     pages = pages.slice(0, maxPages);
@@ -570,25 +582,26 @@ export async function handleBatchOptimize(job: Job<SEOBatchOptimizePayload>): Pr
       data: {
         pagesProcessed: queued,
         urgencyBreakdown: {
-          high: pages.filter(p => p.urgency === 'high').length,
-          medium: pages.filter(p => p.urgency === 'medium').length,
-          low: pages.filter(p => p.urgency === 'low').length,
+          high: pages.filter((p) => p.urgency === 'high').length,
+          medium: pages.filter((p) => p.urgency === 'medium').length,
+          low: pages.filter((p) => p.urgency === 'low').length,
         },
       },
       timestamp: new Date(),
     };
   } catch (error) {
-    const jobError = error instanceof JobError
-      ? error
-      : new JobError(
-          `Batch optimization failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          {
-            category: ErrorCategory.UNKNOWN,
-            severity: ErrorSeverity.RECOVERABLE,
-            retryable: true,
-            context: { siteId },
-          }
-        );
+    const jobError =
+      error instanceof JobError
+        ? error
+        : new JobError(
+            `Batch optimization failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            {
+              category: ErrorCategory.UNKNOWN,
+              severity: ErrorSeverity.RECOVERABLE,
+              retryable: true,
+              context: { siteId },
+            }
+          );
 
     throw jobError;
   }
@@ -635,7 +648,7 @@ export async function handleWeeklyAuditScheduler(job: Job): Promise<JobResult> {
       success: true,
       data: {
         sitesScheduled: scheduled,
-        sites: sites.map(s => s.name),
+        sites: sites.map((s) => s.name),
       },
       timestamp: new Date(),
     };

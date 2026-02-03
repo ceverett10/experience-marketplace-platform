@@ -48,7 +48,7 @@ async function searchUnsplash(query: string): Promise<UnsplashPhoto[]> {
     throw new Error(`Unsplash API error: ${response.status}`);
   }
 
-  const data = await response.json() as SearchResult;
+  const data = (await response.json()) as SearchResult;
   return data.results;
 }
 
@@ -99,7 +99,7 @@ async function testLondonFoodTours() {
     }
 
     // Small delay to respect rate limits
-    await new Promise(resolve => setTimeout(resolve, 200));
+    await new Promise((resolve) => setTimeout(resolve, 200));
   }
 
   console.log('\n\n🍴 CATEGORIES\n');
@@ -127,7 +127,7 @@ async function testLondonFoodTours() {
     }
 
     // Small delay to respect rate limits
-    await new Promise(resolve => setTimeout(resolve, 200));
+    await new Promise((resolve) => setTimeout(resolve, 200));
   }
 
   console.log('\n\n' + '='.repeat(60));

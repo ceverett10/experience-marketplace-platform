@@ -146,7 +146,9 @@ async function validateTaskArtifacts(
     },
     GA4_SETUP: {
       valid: !!(site?.seoConfig as any)?.gaMeasurementId,
-      reason: (site?.seoConfig as any)?.gaMeasurementId ? undefined : 'No GA4 measurement ID configured',
+      reason: (site?.seoConfig as any)?.gaMeasurementId
+        ? undefined
+        : 'No GA4 measurement ID configured',
     },
     SITE_DEPLOY: {
       valid: !!site?.primaryDomain && activeDomains.length > 0,
@@ -223,7 +225,13 @@ export const SITE_LIFECYCLE_PHASES = {
   optimization: {
     name: 'Ongoing Optimization',
     description: 'Continuous content and performance optimization',
-    tasks: ['SEO_ANALYZE', 'SEO_OPPORTUNITY_SCAN', 'SEO_OPPORTUNITY_OPTIMIZE', 'ABTEST_ANALYZE', 'METRICS_AGGREGATE'] as JobType[],
+    tasks: [
+      'SEO_ANALYZE',
+      'SEO_OPPORTUNITY_SCAN',
+      'SEO_OPPORTUNITY_OPTIMIZE',
+      'ABTEST_ANALYZE',
+      'METRICS_AGGREGATE',
+    ] as JobType[],
   },
 };
 
@@ -232,28 +240,58 @@ export const SITE_LIFECYCLE_PHASES = {
  */
 export const TASK_DESCRIPTIONS: Record<JobType, { label: string; description: string }> = {
   SITE_CREATE: { label: 'Create Site', description: 'Set up site structure and brand identity' },
-  CONTENT_GENERATE: { label: 'Generate Content', description: 'Write homepage and key pages using AI' },
-  CONTENT_OPTIMIZE: { label: 'Optimize Content', description: 'Improve content for SEO and conversions' },
+  CONTENT_GENERATE: {
+    label: 'Generate Content',
+    description: 'Write homepage and key pages using AI',
+  },
+  CONTENT_OPTIMIZE: {
+    label: 'Optimize Content',
+    description: 'Improve content for SEO and conversions',
+  },
   CONTENT_REVIEW: { label: 'Review Content', description: 'Quality check all generated content' },
   DOMAIN_REGISTER: { label: 'Register Domain', description: 'Purchase and configure domain name' },
-  DOMAIN_VERIFY: { label: 'Verify Domain', description: 'Confirm domain ownership and DNS settings' },
+  DOMAIN_VERIFY: {
+    label: 'Verify Domain',
+    description: 'Confirm domain ownership and DNS settings',
+  },
   SSL_PROVISION: { label: 'Setup SSL', description: 'Install security certificate for HTTPS' },
   GSC_SETUP: { label: 'Setup Search Console', description: 'Add site to Google Search Console' },
   GSC_VERIFY: { label: 'Verify Search Console', description: 'Verify site ownership in GSC' },
   GA4_SETUP: { label: 'Setup Google Analytics', description: 'Create GA4 property and tracking' },
   GSC_SYNC: { label: 'Sync Search Data', description: 'Import search performance data' },
   SEO_ANALYZE: { label: 'Analyze SEO', description: 'Check and improve search optimization' },
-  SEO_OPPORTUNITY_SCAN: { label: 'Scan Opportunities', description: 'Find new keyword opportunities' },
-  SEO_OPPORTUNITY_OPTIMIZE: { label: 'Optimize Opportunities', description: 'Recursive AI optimization for SEO' },
+  SEO_OPPORTUNITY_SCAN: {
+    label: 'Scan Opportunities',
+    description: 'Find new keyword opportunities',
+  },
+  SEO_OPPORTUNITY_OPTIMIZE: {
+    label: 'Optimize Opportunities',
+    description: 'Recursive AI optimization for SEO',
+  },
   SITE_DEPLOY: { label: 'Deploy Site', description: 'Publish site to the web' },
   METRICS_AGGREGATE: { label: 'Collect Metrics', description: 'Gather performance analytics' },
   PERFORMANCE_REPORT: { label: 'Generate Report', description: 'Create performance summary' },
   ABTEST_ANALYZE: { label: 'Analyze Tests', description: 'Evaluate A/B test results' },
-  ABTEST_REBALANCE: { label: 'Optimize Traffic', description: 'Adjust A/B test traffic allocation' },
-  LINK_OPPORTUNITY_SCAN: { label: 'Scan Link Opportunities', description: 'Analyze competitor backlinks for link building' },
-  LINK_BACKLINK_MONITOR: { label: 'Monitor Backlinks', description: 'Check existing backlinks and discover new ones' },
-  LINK_OUTREACH_GENERATE: { label: 'Generate Outreach', description: 'Create personalized outreach emails' },
-  LINK_ASSET_GENERATE: { label: 'Create Link Asset', description: 'Generate link-attracting content' },
+  ABTEST_REBALANCE: {
+    label: 'Optimize Traffic',
+    description: 'Adjust A/B test traffic allocation',
+  },
+  LINK_OPPORTUNITY_SCAN: {
+    label: 'Scan Link Opportunities',
+    description: 'Analyze competitor backlinks for link building',
+  },
+  LINK_BACKLINK_MONITOR: {
+    label: 'Monitor Backlinks',
+    description: 'Check existing backlinks and discover new ones',
+  },
+  LINK_OUTREACH_GENERATE: {
+    label: 'Generate Outreach',
+    description: 'Create personalized outreach emails',
+  },
+  LINK_ASSET_GENERATE: {
+    label: 'Create Link Asset',
+    description: 'Generate link-attracting content',
+  },
 };
 
 /**

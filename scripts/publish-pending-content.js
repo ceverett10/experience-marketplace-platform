@@ -25,7 +25,9 @@ async function main() {
         contentId: { not: null },
         status: { in: ['DRAFT', 'REVIEW'] },
         site: {
-          status: { in: ['ACTIVE', 'DRAFT', 'REVIEW', 'DNS_PENDING', 'GSC_VERIFICATION', 'SSL_PENDING'] },
+          status: {
+            in: ['ACTIVE', 'DRAFT', 'REVIEW', 'DNS_PENDING', 'GSC_VERIFICATION', 'SSL_PENDING'],
+          },
         },
       },
       include: {
@@ -43,7 +45,9 @@ async function main() {
 
     for (const page of unpublishedPages) {
       console.log(`  [${page.status}] ${page.site.name} / ${page.title || page.slug}`);
-      console.log(`    Type: ${page.type} | Quality: ${page.content?.qualityScore ?? 'N/A'} | AI: ${page.content?.isAiGenerated ?? false}`);
+      console.log(
+        `    Type: ${page.type} | Quality: ${page.content?.qualityScore ?? 'N/A'} | AI: ${page.content?.isAiGenerated ?? false}`
+      );
     }
 
     if (!dryRun) {

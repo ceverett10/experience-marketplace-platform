@@ -124,9 +124,10 @@ export async function GET(request: Request) {
     // Create domain entries for sites without registered domains
     const suggestedDomains = sitesWithoutDomains.map((site) => {
       const domainJob = site.jobs[0];
-      const suggestedDomain = domainJob?.payload && typeof domainJob.payload === 'object' && 'domain' in domainJob.payload
-        ? (domainJob.payload as any).domain
-        : `${site.slug}.com`;
+      const suggestedDomain =
+        domainJob?.payload && typeof domainJob.payload === 'object' && 'domain' in domainJob.payload
+          ? (domainJob.payload as any).domain
+          : `${site.slug}.com`;
 
       // Determine status based on job status
       let domainStatus: any = 'PENDING';
@@ -173,9 +174,11 @@ export async function GET(request: Request) {
       active: allDomains.filter((d) => d.status === 'ACTIVE').length,
       available: allDomains.filter((d) => (d.status as string) === 'AVAILABLE').length,
       notAvailable: allDomains.filter((d) => (d.status as string) === 'NOT_AVAILABLE').length,
-      pending: allDomains.filter((d) =>
-        ['PENDING', 'REGISTERING', 'DNS_PENDING', 'SSL_PENDING'].includes(d.status)
-      ).length + suggestedDomains.filter((d) => d.status === 'PENDING' || d.status === 'REGISTERING').length,
+      pending:
+        allDomains.filter((d) =>
+          ['PENDING', 'REGISTERING', 'DNS_PENDING', 'SSL_PENDING'].includes(d.status)
+        ).length +
+        suggestedDomains.filter((d) => d.status === 'PENDING' || d.status === 'REGISTERING').length,
       sslEnabled: allDomains.filter((d) => d.sslEnabled).length,
       expiringBoon: allDomains.filter((d) => {
         if (!d.expiresAt) return false;
@@ -226,7 +229,10 @@ export async function POST(request: Request) {
       const accountId = process.env['CLOUDFLARE_ACCOUNT_ID'];
 
       if (!apiKey || !email || !accountId) {
-        return NextResponse.json({ error: 'Cloudflare credentials not configured' }, { status: 500 });
+        return NextResponse.json(
+          { error: 'Cloudflare credentials not configured' },
+          { status: 500 }
+        );
       }
 
       // Fetch domains from Cloudflare Registrar
@@ -242,7 +248,10 @@ export async function POST(request: Request) {
 
       const data = await response.json();
       if (!data.success) {
-        return NextResponse.json({ error: 'Failed to fetch from Cloudflare', details: data.errors }, { status: 500 });
+        return NextResponse.json(
+          { error: 'Failed to fetch from Cloudflare', details: data.errors },
+          { status: 500 }
+        );
       }
 
       const cloudflareDomainsData = data.result as Array<{
@@ -271,7 +280,7 @@ export async function POST(request: Request) {
         // Try to match domain to site by slug
         // e.g., london-food-tours.com -> london-food-tours
         const domainSlug = cfDomain.name.replace(/\.(com|net|org|co|io|dev|app)$/i, '');
-        const matchingSite = sites.find(s => s.slug === domainSlug);
+        const matchingSite = sites.find((s) => s.slug === domainSlug);
 
         if (matchingSite) {
           // Check if domain already exists in DB
@@ -347,44 +356,38 @@ export async function POST(request: Request) {
 
                 if (!hasRootRecord) {
                   // Create root CNAME record pointing to Heroku (Cloudflare supports CNAME flattening)
-                  await fetch(
-                    `https://api.cloudflare.com/client/v4/zones/${zone.id}/dns_records`,
-                    {
-                      method: 'POST',
-                      headers: {
-                        'X-Auth-Email': email,
-                        'X-Auth-Key': apiKey,
-                        'Content-Type': 'application/json',
-                      },
-                      body: JSON.stringify({
-                        type: 'CNAME',
-                        name: '@',
-                        content: herokuHostname,
-                        ttl: 1, // Auto
-                        proxied: true, // Enable Cloudflare proxy for SSL
-                      }),
-                    }
-                  );
+                  await fetch(`https://api.cloudflare.com/client/v4/zones/${zone.id}/dns_records`, {
+                    method: 'POST',
+                    headers: {
+                      'X-Auth-Email': email,
+                      'X-Auth-Key': apiKey,
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                      type: 'CNAME',
+                      name: '@',
+                      content: herokuHostname,
+                      ttl: 1, // Auto
+                      proxied: true, // Enable Cloudflare proxy for SSL
+                    }),
+                  });
 
                   // Create www CNAME record
-                  await fetch(
-                    `https://api.cloudflare.com/client/v4/zones/${zone.id}/dns_records`,
-                    {
-                      method: 'POST',
-                      headers: {
-                        'X-Auth-Email': email,
-                        'X-Auth-Key': apiKey,
-                        'Content-Type': 'application/json',
-                      },
-                      body: JSON.stringify({
-                        type: 'CNAME',
-                        name: 'www',
-                        content: herokuHostname,
-                        ttl: 1,
-                        proxied: true,
-                      }),
-                    }
-                  );
+                  await fetch(`https://api.cloudflare.com/client/v4/zones/${zone.id}/dns_records`, {
+                    method: 'POST',
+                    headers: {
+                      'X-Auth-Email': email,
+                      'X-Auth-Key': apiKey,
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                      type: 'CNAME',
+                      name: 'www',
+                      content: herokuHostname,
+                      ttl: 1,
+                      proxied: true,
+                    }),
+                  });
 
                   dnsConfigured.push(cfDomain.name);
                 }
@@ -477,7 +480,10 @@ export async function POST(request: Request) {
       const accountId = process.env['CLOUDFLARE_ACCOUNT_ID'];
 
       if (!apiKey || !email || !accountId) {
-        return NextResponse.json({ error: 'Cloudflare credentials not configured' }, { status: 500 });
+        return NextResponse.json(
+          { error: 'Cloudflare credentials not configured' },
+          { status: 500 }
+        );
       }
 
       // Get all sites without domains to check their suggested domains
@@ -567,7 +573,7 @@ export async function POST(request: Request) {
         }
 
         // Add small delay to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 200));
+        await new Promise((resolve) => setTimeout(resolve, 200));
       }
 
       return NextResponse.json({
@@ -591,7 +597,10 @@ export async function POST(request: Request) {
       const accountId = process.env['CLOUDFLARE_ACCOUNT_ID'];
 
       if (!apiKey || !email || !accountId) {
-        return NextResponse.json({ error: 'Cloudflare credentials not configured' }, { status: 500 });
+        return NextResponse.json(
+          { error: 'Cloudflare credentials not configured' },
+          { status: 500 }
+        );
       }
 
       try {

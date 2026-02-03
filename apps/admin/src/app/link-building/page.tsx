@@ -68,7 +68,9 @@ export default function LinkBuildingPage() {
   const [data, setData] = useState<LinkBuildingData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'backlinks' | 'opportunities' | 'assets'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'backlinks' | 'opportunities' | 'assets'>(
+    'overview'
+  );
   const [actionStatus, setActionStatus] = useState<string | null>(null);
 
   const fetchData = async () => {
@@ -140,7 +142,9 @@ export default function LinkBuildingPage() {
         <h1 className="text-2xl font-bold">Link Building</h1>
         <div className="flex gap-2">
           {actionStatus && (
-            <span className="px-3 py-1.5 text-sm bg-blue-50 text-blue-700 rounded-lg">{actionStatus}</span>
+            <span className="px-3 py-1.5 text-sm bg-blue-50 text-blue-700 rounded-lg">
+              {actionStatus}
+            </span>
           )}
         </div>
       </div>
@@ -187,12 +191,36 @@ export default function LinkBuildingPage() {
         <CardContent>
           <div className="flex items-center gap-2 overflow-x-auto pb-2">
             {[
-              { label: 'Identified', count: summary.pipeline.identified, color: 'bg-gray-100 text-gray-800' },
-              { label: 'Researched', count: summary.pipeline.researched, color: 'bg-blue-100 text-blue-800' },
-              { label: 'Drafted', count: summary.pipeline.outreachDrafted, color: 'bg-yellow-100 text-yellow-800' },
-              { label: 'Sent', count: summary.pipeline.outreachSent, color: 'bg-orange-100 text-orange-800' },
-              { label: 'Responded', count: summary.pipeline.responded, color: 'bg-purple-100 text-purple-800' },
-              { label: 'Acquired', count: summary.pipeline.acquired, color: 'bg-green-100 text-green-800' },
+              {
+                label: 'Identified',
+                count: summary.pipeline.identified,
+                color: 'bg-gray-100 text-gray-800',
+              },
+              {
+                label: 'Researched',
+                count: summary.pipeline.researched,
+                color: 'bg-blue-100 text-blue-800',
+              },
+              {
+                label: 'Drafted',
+                count: summary.pipeline.outreachDrafted,
+                color: 'bg-yellow-100 text-yellow-800',
+              },
+              {
+                label: 'Sent',
+                count: summary.pipeline.outreachSent,
+                color: 'bg-orange-100 text-orange-800',
+              },
+              {
+                label: 'Responded',
+                count: summary.pipeline.responded,
+                color: 'bg-purple-100 text-purple-800',
+              },
+              {
+                label: 'Acquired',
+                count: summary.pipeline.acquired,
+                color: 'bg-green-100 text-green-800',
+              },
             ].map((stage) => (
               <div key={stage.label} className="flex items-center gap-2">
                 <div className={`px-3 py-2 rounded-lg text-center min-w-[100px] ${stage.color}`}>
@@ -248,27 +276,40 @@ export default function LinkBuildingPage() {
                   {data.backlinks.map((bl) => (
                     <tr key={bl.id} className="border-b hover:bg-gray-50">
                       <td className="py-2 px-3">
-                        <a href={bl.sourceUrl} target="_blank" rel="noopener" className="text-blue-600 hover:underline">
+                        <a
+                          href={bl.sourceUrl}
+                          target="_blank"
+                          rel="noopener"
+                          className="text-blue-600 hover:underline"
+                        >
                           {bl.sourceDomain}
                         </a>
                       </td>
                       <td className="py-2 px-3">
-                        <span className={`font-medium ${bl.domainAuthority >= 40 ? 'text-green-600' : bl.domainAuthority >= 20 ? 'text-yellow-600' : 'text-gray-500'}`}>
+                        <span
+                          className={`font-medium ${bl.domainAuthority >= 40 ? 'text-green-600' : bl.domainAuthority >= 20 ? 'text-yellow-600' : 'text-gray-500'}`}
+                        >
                           {bl.domainAuthority}
                         </span>
                       </td>
                       <td className="py-2 px-3 max-w-[200px] truncate">{bl.anchorText || '—'}</td>
                       <td className="py-2 px-3">
-                        <span className={`px-2 py-0.5 rounded text-xs ${bl.isDoFollow ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+                        <span
+                          className={`px-2 py-0.5 rounded text-xs ${bl.isDoFollow ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}
+                        >
                           {bl.isDoFollow ? 'DoFollow' : 'NoFollow'}
                         </span>
                       </td>
                       <td className="py-2 px-3">
-                        <span className={`px-2 py-0.5 rounded text-xs ${bl.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                        <span
+                          className={`px-2 py-0.5 rounded text-xs ${bl.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}
+                        >
                           {bl.isActive ? 'Active' : 'Lost'}
                         </span>
                       </td>
-                      <td className="py-2 px-3 text-gray-500">{new Date(bl.firstSeenAt).toLocaleDateString()}</td>
+                      <td className="py-2 px-3 text-gray-500">
+                        {new Date(bl.firstSeenAt).toLocaleDateString()}
+                      </td>
                     </tr>
                   ))}
                   {data.backlinks.length === 0 && (
@@ -307,16 +348,25 @@ export default function LinkBuildingPage() {
                   {data.opportunities.map((opp) => (
                     <tr key={opp.id} className="border-b hover:bg-gray-50">
                       <td className="py-2 px-3">
-                        <a href={opp.targetUrl} target="_blank" rel="noopener" className="text-blue-600 hover:underline">
+                        <a
+                          href={opp.targetUrl}
+                          target="_blank"
+                          rel="noopener"
+                          className="text-blue-600 hover:underline"
+                        >
                           {opp.targetDomain}
                         </a>
                       </td>
                       <td className="py-2 px-3">
-                        <span className={`font-medium ${opp.domainAuthority >= 40 ? 'text-green-600' : opp.domainAuthority >= 20 ? 'text-yellow-600' : 'text-gray-500'}`}>
+                        <span
+                          className={`font-medium ${opp.domainAuthority >= 40 ? 'text-green-600' : opp.domainAuthority >= 20 ? 'text-yellow-600' : 'text-gray-500'}`}
+                        >
                           {opp.domainAuthority}
                         </span>
                       </td>
-                      <td className="py-2 px-3 text-xs">{opp.opportunityType.replace(/_/g, ' ')}</td>
+                      <td className="py-2 px-3 text-xs">
+                        {opp.opportunityType.replace(/_/g, ' ')}
+                      </td>
                       <td className="py-2 px-3">
                         <div className="w-16 bg-gray-200 rounded-full h-2">
                           <div
@@ -326,23 +376,31 @@ export default function LinkBuildingPage() {
                         </div>
                       </td>
                       <td className="py-2 px-3">
-                        <span className={`px-2 py-0.5 rounded text-xs ${
-                          opp.status === 'LINK_ACQUIRED' ? 'bg-green-100 text-green-700' :
-                          opp.status === 'OUTREACH_SENT' ? 'bg-orange-100 text-orange-700' :
-                          opp.status === 'OUTREACH_DRAFTED' ? 'bg-yellow-100 text-yellow-700' :
-                          opp.status === 'REJECTED' ? 'bg-red-100 text-red-700' :
-                          'bg-gray-100 text-gray-700'
-                        }`}>
+                        <span
+                          className={`px-2 py-0.5 rounded text-xs ${
+                            opp.status === 'LINK_ACQUIRED'
+                              ? 'bg-green-100 text-green-700'
+                              : opp.status === 'OUTREACH_SENT'
+                                ? 'bg-orange-100 text-orange-700'
+                                : opp.status === 'OUTREACH_DRAFTED'
+                                  ? 'bg-yellow-100 text-yellow-700'
+                                  : opp.status === 'REJECTED'
+                                    ? 'bg-red-100 text-red-700'
+                                    : 'bg-gray-100 text-gray-700'
+                          }`}
+                        >
                           {opp.status.replace(/_/g, ' ')}
                         </span>
                       </td>
                       <td className="py-2 px-3">
                         {!opp.hasOutreach && opp.status === 'IDENTIFIED' && (
                           <button
-                            onClick={() => triggerAction('generate-outreach', {
-                              opportunityId: opp.id,
-                              templateType: 'resource_page',
-                            })}
+                            onClick={() =>
+                              triggerAction('generate-outreach', {
+                                opportunityId: opp.id,
+                                templateType: 'resource_page',
+                              })
+                            }
                             className="text-xs text-blue-600 hover:underline"
                           >
                             Generate Outreach
@@ -354,7 +412,8 @@ export default function LinkBuildingPage() {
                   {data.opportunities.length === 0 && (
                     <tr>
                       <td colSpan={6} className="py-8 text-center text-gray-500">
-                        No opportunities found yet. Run a competitor scan to discover link building opportunities.
+                        No opportunities found yet. Run a competitor scan to discover link building
+                        opportunities.
                       </td>
                     </tr>
                   )}
@@ -395,13 +454,16 @@ export default function LinkBuildingPage() {
                       <td className="py-2 px-3">{asset.backlinkCount}</td>
                       <td className="py-2 px-3">{asset.socialShares}</td>
                       <td className="py-2 px-3 text-gray-500">{asset.siteName}</td>
-                      <td className="py-2 px-3 text-gray-500">{new Date(asset.createdAt).toLocaleDateString()}</td>
+                      <td className="py-2 px-3 text-gray-500">
+                        {new Date(asset.createdAt).toLocaleDateString()}
+                      </td>
                     </tr>
                   ))}
                   {data.assets.length === 0 && (
                     <tr>
                       <td colSpan={6} className="py-8 text-center text-gray-500">
-                        No linkable assets created yet. Generate statistics roundups, guides, or infographics to attract backlinks.
+                        No linkable assets created yet. Generate statistics roundups, guides, or
+                        infographics to attract backlinks.
                       </td>
                     </tr>
                   )}
@@ -421,12 +483,19 @@ export default function LinkBuildingPage() {
             </CardHeader>
             <CardContent>
               {data.backlinks.slice(0, 5).map((bl) => (
-                <div key={bl.id} className="flex items-center justify-between py-2 border-b last:border-0">
+                <div
+                  key={bl.id}
+                  className="flex items-center justify-between py-2 border-b last:border-0"
+                >
                   <div>
                     <p className="text-sm font-medium">{bl.sourceDomain}</p>
-                    <p className="text-xs text-gray-500 truncate max-w-[250px]">{bl.anchorText || 'No anchor'}</p>
+                    <p className="text-xs text-gray-500 truncate max-w-[250px]">
+                      {bl.anchorText || 'No anchor'}
+                    </p>
                   </div>
-                  <span className={`text-sm font-bold ${bl.domainAuthority >= 40 ? 'text-green-600' : 'text-gray-500'}`}>
+                  <span
+                    className={`text-sm font-bold ${bl.domainAuthority >= 40 ? 'text-green-600' : 'text-gray-500'}`}
+                  >
                     DA {bl.domainAuthority}
                   </span>
                 </div>
@@ -444,13 +513,20 @@ export default function LinkBuildingPage() {
             </CardHeader>
             <CardContent>
               {data.opportunities.slice(0, 5).map((opp) => (
-                <div key={opp.id} className="flex items-center justify-between py-2 border-b last:border-0">
+                <div
+                  key={opp.id}
+                  className="flex items-center justify-between py-2 border-b last:border-0"
+                >
                   <div>
                     <p className="text-sm font-medium">{opp.targetDomain}</p>
-                    <p className="text-xs text-gray-500">{opp.opportunityType.replace(/_/g, ' ')}</p>
+                    <p className="text-xs text-gray-500">
+                      {opp.opportunityType.replace(/_/g, ' ')}
+                    </p>
                   </div>
                   <div className="text-right">
-                    <span className={`text-sm font-bold ${opp.domainAuthority >= 40 ? 'text-green-600' : 'text-gray-500'}`}>
+                    <span
+                      className={`text-sm font-bold ${opp.domainAuthority >= 40 ? 'text-green-600' : 'text-gray-500'}`}
+                    >
                       DA {opp.domainAuthority}
                     </span>
                     <p className="text-xs text-gray-400">{opp.status.replace(/_/g, ' ')}</p>

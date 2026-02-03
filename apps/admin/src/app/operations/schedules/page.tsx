@@ -56,8 +56,7 @@ function cronToHuman(cron: string): string {
   const [minute, hour, dayOfMonth, , dayOfWeek] = parts;
 
   if (hour === '*' && minute === '0') return 'Every hour';
-  if (hour?.startsWith('*/'))
-    return `Every ${hour.replace('*/', '')} hours`;
+  if (hour?.startsWith('*/')) return `Every ${hour.replace('*/', '')} hours`;
 
   const dayNames: Record<string, string> = {
     '0': 'Sundays',
@@ -215,28 +214,20 @@ export default function ScheduledJobsPage() {
                 <React.Fragment key={sj.jobType}>
                   <tr
                     className={`hover:bg-slate-50 cursor-pointer transition-colors ${expandedJob === sj.jobType ? 'bg-sky-50' : ''}`}
-                    onClick={() =>
-                      setExpandedJob(expandedJob === sj.jobType ? null : sj.jobType)
-                    }
+                    onClick={() => setExpandedJob(expandedJob === sj.jobType ? null : sj.jobType)}
                   >
                     <td className="px-4 py-4">
                       <div className="text-sm font-medium text-slate-900">
                         {sj.jobType.replace(/_/g, ' ')}
                       </div>
-                      <div className="text-xs text-slate-500 mt-0.5">
-                        {sj.description}
-                      </div>
+                      <div className="text-xs text-slate-500 mt-0.5">{sj.description}</div>
                     </td>
                     <td className="px-4 py-4">
-                      <div className="text-sm text-slate-900">
-                        {cronToHuman(sj.schedule)}
-                      </div>
+                      <div className="text-sm text-slate-900">{cronToHuman(sj.schedule)}</div>
                       <div className="text-xs text-slate-400 font-mono">{sj.schedule}</div>
                     </td>
                     <td className="px-4 py-4 text-sm text-slate-600">
-                      {sj.lastExecution
-                        ? timeAgo(sj.lastExecution.createdAt)
-                        : 'Never'}
+                      {sj.lastExecution ? timeAgo(sj.lastExecution.createdAt) : 'Never'}
                     </td>
                     <td className="px-4 py-4">
                       {sj.lastExecution ? (
@@ -311,7 +302,10 @@ export default function ScheduledJobsPage() {
 
                   {expandedJob === sj.jobType && sj.recentHistory.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="px-4 py-4 bg-slate-50 border-t border-slate-200 text-center text-sm text-slate-500">
+                      <td
+                        colSpan={6}
+                        className="px-4 py-4 bg-slate-50 border-t border-slate-200 text-center text-sm text-slate-500"
+                      >
                         No execution history available
                       </td>
                     </tr>

@@ -126,9 +126,7 @@ export function CategoryGrid({
                         {category.name}
                       </h3>
                       {category.count !== undefined && (
-                        <p className="mt-1 text-sm text-gray-500">
-                          {category.count} experiences
-                        </p>
+                        <p className="mt-1 text-sm text-gray-500">{category.count} experiences</p>
                       )}
                       <div className="mt-2 flex items-center text-sm font-medium text-indigo-600 group-hover:text-indigo-700">
                         <span>Explore</span>
@@ -139,7 +137,11 @@ export function CategoryGrid({
                           strokeWidth="2"
                           stroke="currentColor"
                         >
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"
+                          />
                         </svg>
                       </div>
                     </div>
@@ -154,7 +156,9 @@ export function CategoryGrid({
                       {category.name}
                     </span>
                     {category.count !== undefined && (
-                      <span className="mt-1 text-sm text-gray-500">{category.count} experiences</span>
+                      <span className="mt-1 text-sm text-gray-500">
+                        {category.count} experiences
+                      </span>
                     )}
                   </div>
                 )}

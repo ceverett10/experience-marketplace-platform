@@ -174,21 +174,22 @@ export class CloudflareRegistrarService {
         if (!dnsResolved && data.Authority && data.Authority.length > 0) {
           // Check if it's a real authority or NXDOMAIN
           const authority = data.Authority[0];
-          if (authority && authority.type !== 6) { // 6 = SOA (indicates domain doesn't exist)
+          if (authority && authority.type !== 6) {
+            // 6 = SOA (indicates domain doesn't exist)
             dnsResolved = true;
           }
         }
       } catch (e) {
         // DNS lookup failed - assume domain might be available
-        console.log(`[Cloudflare Registrar] DNS lookup failed for ${domain}, assuming potentially available`);
+        console.log(
+          `[Cloudflare Registrar] DNS lookup failed for ${domain}, assuming potentially available`
+        );
       }
 
       const available = !dnsResolved;
       const price = this.getStandardTLDPrice(domain);
 
-      console.log(
-        `[Cloudflare Registrar] ${domain}: available=${available}, price=$${price}`
-      );
+      console.log(`[Cloudflare Registrar] ${domain}: available=${available}, price=$${price}`);
 
       return {
         domain,
@@ -260,15 +261,11 @@ export class CloudflareRegistrarService {
         expires_at: string;
         auto_renew: boolean;
         registrant_contact: any;
-      }>(
-        `/accounts/${this.accountId}/registrar/domains/${domain}/register`,
-        'POST',
-        {
-          auto_renew: autoRenew,
-          locked: true, // Enable registrar lock by default
-          privacy: true, // Enable WHOIS privacy (free with Cloudflare)
-        }
-      );
+      }>(`/accounts/${this.accountId}/registrar/domains/${domain}/register`, 'POST', {
+        auto_renew: autoRenew,
+        locked: true, // Enable registrar lock by default
+        privacy: true, // Enable WHOIS privacy (free with Cloudflare)
+      });
 
       const registeredAt = new Date();
       const expiresAt = response.expires_at
@@ -309,10 +306,7 @@ export class CloudflareRegistrarService {
         auto_renew?: boolean;
         locked?: boolean;
         supported_tld?: boolean;
-      }>(
-        `/accounts/${this.accountId}/registrar/domains/${domain}`,
-        'GET'
-      );
+      }>(`/accounts/${this.accountId}/registrar/domains/${domain}`, 'GET');
 
       // Check if the domain is actually registered (has an id and status)
       // Cloudflare returns {name, supported_tld} for any valid domain name
@@ -351,10 +345,7 @@ export class CloudflareRegistrarService {
           auto_renew: boolean;
           locked: boolean;
         }>
-      >(
-        `/accounts/${this.accountId}/registrar/domains`,
-        'GET'
-      );
+      >(`/accounts/${this.accountId}/registrar/domains`, 'GET');
 
       return response.map((domain) => ({
         id: domain.id,

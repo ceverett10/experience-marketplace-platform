@@ -33,7 +33,8 @@ export async function generateMetadata(): Promise<Metadata> {
 
   const title = page?.metaTitle || page?.title || 'About Us';
   const description =
-    page?.metaDescription || `Learn more about ${site.name} and our mission to connect travellers with unforgettable experiences.`;
+    page?.metaDescription ||
+    `Learn more about ${site.name} and our mission to connect travellers with unforgettable experiences.`;
 
   return {
     title: `${title} | ${site.name}`,

@@ -92,12 +92,7 @@ export function UnsplashAttribution({
           {photographerName}
         </a>
         {' / '}
-        <a
-          href={unsplashUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="hover:underline"
-        >
+        <a href={unsplashUrl} target="_blank" rel="noopener noreferrer" className="hover:underline">
           Unsplash
         </a>
       </div>

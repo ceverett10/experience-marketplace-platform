@@ -83,14 +83,18 @@ class QueueRegistry {
     });
 
     // Add to BullMQ queue with database job ID as reference
-    const job = await queue.add(jobType, { ...payload, dbJobId: dbJob.id }, {
-      priority: options?.priority,
-      delay: options?.delay,
-      attempts: options?.attempts,
-      backoff: options?.backoff,
-      removeOnComplete: options?.removeOnComplete,
-      removeOnFail: options?.removeOnFail,
-    });
+    const job = await queue.add(
+      jobType,
+      { ...payload, dbJobId: dbJob.id },
+      {
+        priority: options?.priority,
+        delay: options?.delay,
+        attempts: options?.attempts,
+        backoff: options?.backoff,
+        removeOnComplete: options?.removeOnComplete,
+        removeOnFail: options?.removeOnFail,
+      }
+    );
 
     // Update database record with BullMQ job ID
     await prisma.job.update({

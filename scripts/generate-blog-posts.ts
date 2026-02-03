@@ -34,27 +34,30 @@ interface SiteForBlogGeneration {
   }[];
 }
 
-async function generateBlogPostsForSite(site: SiteForBlogGeneration, count: number = 5): Promise<void> {
+async function generateBlogPostsForSite(
+  site: SiteForBlogGeneration,
+  count: number = 5
+): Promise<void> {
   console.log(`\n📝 Generating ${count} blog posts for: ${site.name}`);
   console.log(`   Status: ${site.status}`);
 
   // Get existing blog post titles to avoid duplicates
-  const existingTopics = site.pages
-    .filter(p => p.slug.startsWith('blog/'))
-    .map(p => p.title);
+  const existingTopics = site.pages.filter((p) => p.slug.startsWith('blog/')).map((p) => p.title);
 
   console.log(`   Existing blog posts: ${existingTopics.length}`);
 
   // Build context for topic generation
-  const seoConfig = site.seoConfig as any || {};
-  const homepageConfig = site.homepageConfig as any || {};
+  const seoConfig = (site.seoConfig as any) || {};
+  const homepageConfig = (site.homepageConfig as any) || {};
   const opportunity = site.opportunities?.[0]; // Get first opportunity if exists
 
-  const niche = opportunity?.niche ||
+  const niche =
+    opportunity?.niche ||
     seoConfig?.primaryKeywords?.[0] ||
     homepageConfig?.popularExperiences?.searchTerms?.[0] ||
     'travel experiences';
-  const location = opportunity?.location ||
+  const location =
+    opportunity?.location ||
     seoConfig?.destination ||
     homepageConfig?.popularExperiences?.destination ||
     undefined;
@@ -117,7 +120,9 @@ async function generateBlogPostsForSite(site: SiteForBlogGeneration, count: numb
       console.log(`      Type: ${topic.contentType}, Intent: ${topic.intent}`);
     }
 
-    console.log(`   📊 Summary: ${createdCount} new posts created and queued for content generation`);
+    console.log(
+      `   📊 Summary: ${createdCount} new posts created and queued for content generation`
+    );
   } catch (error) {
     console.error(`   ❌ Error generating posts for ${site.name}:`, error);
   }
@@ -136,10 +141,7 @@ async function main(): Promise<void> {
       // Generate for specific site
       const site = await prisma.site.findFirst({
         where: {
-          OR: [
-            { id: siteArg },
-            { slug: siteArg },
-          ],
+          OR: [{ id: siteArg }, { slug: siteArg }],
         },
         select: {
           id: true,
@@ -172,7 +174,7 @@ async function main(): Promise<void> {
       console.log(`Found site: ${site.name}`);
     } else {
       // Generate for all active sites
-      sites = await prisma.site.findMany({
+      sites = (await prisma.site.findMany({
         where: {
           status: 'ACTIVE',
         },
@@ -196,7 +198,7 @@ async function main(): Promise<void> {
             },
           },
         },
-      }) as unknown as SiteForBlogGeneration[];
+      })) as unknown as SiteForBlogGeneration[];
 
       console.log(`Found ${sites.length} active sites`);
     }
@@ -213,7 +215,7 @@ async function main(): Promise<void> {
       // Add a small delay between sites to avoid API rate limits
       if (sites.length > 1) {
         console.log('\n   Waiting 3 seconds before next site...');
-        await new Promise(resolve => setTimeout(resolve, 3000));
+        await new Promise((resolve) => setTimeout(resolve, 3000));
       }
     }
 
@@ -221,7 +223,6 @@ async function main(): Promise<void> {
     console.log('✅ Blog generation complete!');
     console.log('\nContent generation jobs have been queued.');
     console.log('Monitor the job queue to see content being generated.');
-
   } catch (error) {
     console.error('❌ Script failed:', error);
     process.exit(1);

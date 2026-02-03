@@ -143,16 +143,23 @@ function generateStructuredDataForContent(params: {
   destination?: string;
   datePublished: string;
 }): object {
-  const { contentType, siteName, siteUrl, title, description, content, destination, datePublished } = params;
+  const {
+    contentType,
+    siteName,
+    siteUrl,
+    title,
+    description,
+    content,
+    destination,
+    datePublished,
+  } = params;
 
   // Base breadcrumb structure - will be completed when page URL is known
-  const breadcrumbItems = [
-    { name: 'Home', url: siteUrl },
-  ];
+  const breadcrumbItems = [{ name: 'Home', url: siteUrl }];
 
   // Generate type-specific structured data
   switch (contentType) {
-    case 'blog':
+    case 'blog': {
       // Extract FAQs from content for FAQ rich snippets
       const faqs = extractFAQsFromContent(content);
       const faqSchema = faqs.length > 0 ? generateFAQSchema(faqs) : null;
@@ -174,8 +181,9 @@ function generateStructuredDataForContent(params: {
         ...(faqSchema && { faq: faqSchema }),
         breadcrumbTemplate: [...breadcrumbItems, { name: 'Blog' }, { name: title }],
       };
+    }
 
-    case 'destination':
+    case 'destination': {
       // LocalBusiness schema for destination pages
       const destinationSchema = generateLocalBusinessSchema({
         name: siteName,
@@ -188,8 +196,9 @@ function generateStructuredDataForContent(params: {
         localBusiness: destinationSchema,
         breadcrumbTemplate: [...breadcrumbItems, { name: 'Destinations' }, { name: title }],
       };
+    }
 
-    case 'category':
+    case 'category': {
       // CollectionPage-style schema for category pages
       const categorySchema = generateLocalBusinessSchema({
         name: siteName,
@@ -201,6 +210,7 @@ function generateStructuredDataForContent(params: {
         localBusiness: categorySchema,
         breadcrumbTemplate: [...breadcrumbItems, { name: 'Categories' }, { name: title }],
       };
+    }
 
     default:
       // Generic article schema
@@ -240,12 +250,11 @@ function generateOptimizedMetaDescription(params: {
   }
 
   // Extract first meaningful paragraph from content
-  const paragraphs = contentBody.split('\n\n').filter(p =>
-    p.trim().length > 50 &&
-    !p.startsWith('#') &&
-    !p.startsWith('-') &&
-    !p.startsWith('*')
-  );
+  const paragraphs = contentBody
+    .split('\n\n')
+    .filter(
+      (p) => p.trim().length > 50 && !p.startsWith('#') && !p.startsWith('-') && !p.startsWith('*')
+    );
 
   let baseDescription = paragraphs[0] || contentBody;
 
@@ -352,18 +361,15 @@ function generateOptimizedMetaTitle(params: {
  * - Different content types have different base priorities
  * - Priority range: 0.1 to 1.0
  */
-function calculateSitemapPriority(params: {
-  qualityScore: number;
-  contentType: string;
-}): number {
+function calculateSitemapPriority(params: { qualityScore: number; contentType: string }): number {
   const { qualityScore, contentType } = params;
 
   // Base priorities by content type (SEO importance)
   const basePriorities: Record<string, number> = {
     destination: 0.8, // High value landing pages
-    category: 0.7,    // Category hubs
-    experience: 0.6,  // Product pages
-    blog: 0.5,        // Content marketing
+    category: 0.7, // Category hubs
+    experience: 0.6, // Product pages
+    blog: 0.5, // Content marketing
   };
 
   const basePriority = basePriorities[contentType] || 0.5;
@@ -509,7 +515,9 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
       contentType
     );
     if (removedCount > 0) {
-      console.log(`[Content Generate] Removed ${removedCount} invalid AI-generated links from content`);
+      console.log(
+        `[Content Generate] Removed ${removedCount} invalid AI-generated links from content`
+      );
     }
 
     // For about pages, also sanitize fabricated credential/partnership claims
@@ -517,7 +525,9 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
     if (contentType === 'about') {
       const { sanitized: claimSanitized, claimsRemoved } = sanitizeAboutContent(sanitizedContent);
       if (claimsRemoved > 0) {
-        console.log(`[Content Generate] Removed ${claimsRemoved} fabricated claims from about page content`);
+        console.log(
+          `[Content Generate] Removed ${claimsRemoved} fabricated claims from about page content`
+        );
         postSanitized = claimSanitized;
       }
     }
@@ -538,7 +548,9 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
 
       if (linkSuggestion.links.length > 0) {
         finalContent = linkSuggestion.contentWithLinks;
-        console.log(`[Content Generate] Added ${linkSuggestion.links.length} internal links for SEO`);
+        console.log(
+          `[Content Generate] Added ${linkSuggestion.links.length} internal links for SEO`
+        );
       }
     }
 
@@ -574,8 +586,12 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
       contentType,
     });
 
-    console.log(`[Content Generate] Optimized meta title: "${optimizedMetaTitle}" (${optimizedMetaTitle.length} chars)`);
-    console.log(`[Content Generate] Optimized meta description: "${optimizedMetaDescription.substring(0, 50)}..." (${optimizedMetaDescription.length} chars)`);
+    console.log(
+      `[Content Generate] Optimized meta title: "${optimizedMetaTitle}" (${optimizedMetaTitle.length} chars)`
+    );
+    console.log(
+      `[Content Generate] Optimized meta description: "${optimizedMetaDescription.substring(0, 50)}..." (${optimizedMetaDescription.length} chars)`
+    );
 
     // Calculate sitemap priority based on quality score
     const qualityScore = result.content.qualityAssessment?.overallScore || 50;
@@ -583,7 +599,9 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
       qualityScore,
       contentType,
     });
-    console.log(`[Content Generate] Sitemap priority: ${sitemapPriority} (quality: ${qualityScore})`);
+    console.log(
+      `[Content Generate] Sitemap priority: ${sitemapPriority} (quality: ${qualityScore})`
+    );
 
     // Update existing page or create new one
     // Auto-publish all generated content - quality score is tracked for admin review

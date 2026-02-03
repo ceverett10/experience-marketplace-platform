@@ -103,7 +103,10 @@ export function getContrastTextColor(backgroundHex: string): '#FFFFFF' | '#1A1A2
  * Examples: "London Food Tours" -> "LF", "Explore" -> "E"
  */
 export function extractInitials(brandName: string): string {
-  const words = brandName.trim().split(/[\s\-_]+/).filter(Boolean);
+  const words = brandName
+    .trim()
+    .split(/[\s\-_]+/)
+    .filter(Boolean);
   if (words.length === 0) return 'X';
   if (words.length === 1) return words[0]!.charAt(0).toUpperCase();
   return (words[0]!.charAt(0) + words[1]!.charAt(0)).toUpperCase();
@@ -175,6 +178,8 @@ export async function generateAndStoreFavicon(
     data: { faviconUrl },
   });
 
-  console.log(`[Favicon] Generated and stored favicon for brand "${brandName}" (${extractInitials(brandName)})`);
+  console.log(
+    `[Favicon] Generated and stored favicon for brand "${brandName}" (${extractInitials(brandName)})`
+  );
   return { faviconUrl };
 }

@@ -13,9 +13,8 @@ export async function POST(request: Request): Promise<NextResponse> {
     const { siteIds, regenerateAll = false } = body;
 
     // Import the brand identity functions dynamically
-    const { generateComprehensiveBrandIdentity, storeBrandIdentity } = await import(
-      '@experience-marketplace/jobs'
-    ).then((m) => m);
+    const { generateComprehensiveBrandIdentity, storeBrandIdentity } =
+      await import('@experience-marketplace/jobs').then((m) => m);
 
     // Common include for all queries
     const includeRelations = {

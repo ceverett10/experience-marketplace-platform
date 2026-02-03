@@ -1,7 +1,9 @@
 # Opportunity Scan Enhancement Proposal
+
 ## Balanced Hyper-Local + Generic Opportunities
 
 ### Overview
+
 Enhance the opportunity scanner to identify BOTH hyper-local (e.g., "Amsterdam Food Tours") AND generic (e.g., "Food Tours", "Family Travel") opportunities, then rank them all together based on likelihood of success.
 
 ---
@@ -9,14 +11,17 @@ Enhance the opportunity scanner to identify BOTH hyper-local (e.g., "Amsterdam F
 ## Scan Mode Types
 
 ### 1. **Hyper-Local Mode** (EXISTING - Keep)
+
 **Format:** `{City} + {Category}`
 **Examples:**
+
 - "london food tours"
 - "new york wine tasting"
 - "paris museum tickets"
 
 **Inventory Check:** Single destination
 **Success Factors:**
+
 - Lower competition (niche + geographic)
 - Specific buyer intent
 - Easier to rank locally
@@ -25,8 +30,10 @@ Enhance the opportunity scanner to identify BOTH hyper-local (e.g., "Amsterdam F
 ---
 
 ### 2. **Generic Activity Mode** (NEW)
+
 **Format:** `{Activity}` (no location)
 **Examples:**
+
 - "food tours"
 - "wine tasting"
 - "museum tickets"
@@ -34,12 +41,14 @@ Enhance the opportunity scanner to identify BOTH hyper-local (e.g., "Amsterdam F
 
 **Inventory Check:** Must have inventory in 5+ destinations
 **Success Factors:**
+
 - High search volume
 - Global reach
 - Can build authority site
 - LLM recommendation-friendly
 
 **Scoring Adjustments:**
+
 - Requires 3x more inventory (need multi-destination coverage)
 - Higher competition penalty
 - Domain availability critical (premium domains likely taken)
@@ -48,8 +57,10 @@ Enhance the opportunity scanner to identify BOTH hyper-local (e.g., "Amsterdam F
 ---
 
 ### 3. **Demographic Mode** (NEW)
+
 **Format:** `{Demographic} + {Activity/Travel}`
 **Examples:**
+
 - "family travel experiences"
 - "senior-friendly tours"
 - "accessible travel experiences"
@@ -58,12 +69,14 @@ Enhance the opportunity scanner to identify BOTH hyper-local (e.g., "Amsterdam F
 
 **Inventory Check:** Must support demographic across destinations
 **Success Factors:**
+
 - Underserved markets = less competition
 - Strong community potential
 - Repeat customers
 - Word-of-mouth growth
 
 **Scoring Adjustments:**
+
 - Bonus for underserved demographics (+10 points)
 - Lower search volume acceptable (niche audience)
 - Community engagement score
@@ -71,8 +84,10 @@ Enhance the opportunity scanner to identify BOTH hyper-local (e.g., "Amsterdam F
 ---
 
 ### 4. **Occasion-Based Mode** (NEW)
+
 **Format:** `{Occasion} + {Activity/Experience}`
 **Examples:**
+
 - "bachelor party experiences"
 - "corporate team building activities"
 - "anniversary celebrations"
@@ -80,12 +95,14 @@ Enhance the opportunity scanner to identify BOTH hyper-local (e.g., "Amsterdam F
 
 **Inventory Check:** Premium/group experiences available
 **Success Factors:**
+
 - High-value transactions
 - B2B potential (corporate)
 - Seasonal spikes (can plan for)
 - Higher CPC = commercial intent
 
 **Scoring Adjustments:**
+
 - CPC weight increased (25% → 35%)
 - Bonus for group booking capability
 - B2B multiplier for corporate-focused
@@ -93,8 +110,10 @@ Enhance the opportunity scanner to identify BOTH hyper-local (e.g., "Amsterdam F
 ---
 
 ### 5. **Experience-Level Mode** (NEW)
+
 **Format:** `{Level} + {Activity}`
 **Examples:**
+
 - "beginner cooking classes"
 - "luxury wine tours"
 - "budget-friendly activities"
@@ -102,19 +121,23 @@ Enhance the opportunity scanner to identify BOTH hyper-local (e.g., "Amsterdam F
 
 **Inventory Check:** Price tier availability
 **Success Factors:**
+
 - Clear buyer segmentation
 - Less competition (specific audience)
 - Premium = higher margins
 
 **Scoring Adjustments:**
+
 - Bonus for luxury (+5 points, higher margins)
 - Budget tier requires high volume
 
 ---
 
 ### 6. **Regional Mode** (NEW)
+
 **Format:** `{Region} + {Activity}` (broader than city)
 **Examples:**
+
 - "european city breaks"
 - "caribbean island tours"
 - "mediterranean cruises"
@@ -122,11 +145,13 @@ Enhance the opportunity scanner to identify BOTH hyper-local (e.g., "Amsterdam F
 
 **Inventory Check:** Multi-destination inventory in region
 **Success Factors:**
+
 - Broader than hyper-local, narrower than generic
 - Good balance of volume and specificity
 - Regional authority
 
 **Scoring Adjustments:**
+
 - Sweet spot: lower competition than generic, higher volume than hyper-local
 - Inventory spread bonus
 
@@ -135,6 +160,7 @@ Enhance the opportunity scanner to identify BOTH hyper-local (e.g., "Amsterdam F
 ## Enhanced Scoring Algorithm
 
 ### Current Factors (Keep)
+
 ```
 Search Volume:    30%
 Competition:      20%
@@ -146,6 +172,7 @@ Seasonality:      10%
 ### New Success Factors to Add
 
 #### 1. **Market Saturation Check** (10% weight)
+
 ```typescript
 async function checkMarketSaturation(keyword: string): Promise<number> {
   // Check how many existing sites target this keyword
@@ -170,41 +197,41 @@ async function checkMarketSaturation(keyword: string): Promise<number> {
 ```
 
 #### 2. **Domain Availability Score** (10% weight)
+
 ```typescript
 async function scoreDomainAvailability(keyword: string): Promise<number> {
   const domains = generateDomainSuggestions(keyword);
-  const checks = await Promise.all(
-    domains.map(d => checkDomainAvailabilityForSite(d))
-  );
+  const checks = await Promise.all(domains.map((d) => checkDomainAvailabilityForSite(d)));
 
   // Score based on best available option
-  const available = checks.filter(c => c.available);
+  const available = checks.filter((c) => c.available);
   if (available.length === 0) return 0; // No domains available
 
-  const bestPrice = Math.min(...available.map(a => a.price || 999));
+  const bestPrice = Math.min(...available.map((a) => a.price || 999));
   if (bestPrice <= 10) return 10; // Cheap domain available
-  if (bestPrice <= 20) return 7;  // Moderate price
-  if (bestPrice <= 50) return 4;  // Expensive but feasible
+  if (bestPrice <= 20) return 7; // Moderate price
+  if (bestPrice <= 50) return 4; // Expensive but feasible
   return 2; // Very expensive
 }
 ```
 
 #### 3. **Inventory Quality Score** (10% weight)
+
 ```typescript
 function scoreInventoryQuality(inventory: any): number {
   let score = 0;
 
   // Diversity of products
-  const uniqueSuppliers = new Set(inventory.products.map(p => p.supplierId)).size;
+  const uniqueSuppliers = new Set(inventory.products.map((p) => p.supplierId)).size;
   score += Math.min(uniqueSuppliers / 10, 3); // Up to 3 points
 
   // Price range (good to have variety)
-  const prices = inventory.products.map(p => p.price);
+  const prices = inventory.products.map((p) => p.price);
   const priceRange = Math.max(...prices) - Math.min(...prices);
   score += priceRange > 100 ? 3 : 1; // Up to 3 points
 
   // Availability (in-stock products)
-  const availableCount = inventory.products.filter(p => p.available).length;
+  const availableCount = inventory.products.filter((p) => p.available).length;
   score += Math.min(availableCount / 5, 4); // Up to 4 points
 
   return score;
@@ -212,7 +239,9 @@ function scoreInventoryQuality(inventory: any): number {
 ```
 
 #### 4. **Strategic Fit Score** (Adjust existing weights)
+
 For generic opportunities, adjust the scoring:
+
 ```typescript
 function calculateStrategicFitMultiplier(opp: Opportunity): number {
   if (opp.isGeneric) {
@@ -535,8 +564,8 @@ async function checkGlobalInventory(
     })
   );
 
-  const withInventory = results.filter(r => r.count > 0);
-  const allProducts = results.flatMap(r => r.products);
+  const withInventory = results.filter((r) => r.count > 0);
+  const allProducts = results.flatMap((r) => r.products);
 
   return {
     totalCount: allProducts.length,
@@ -544,7 +573,7 @@ async function checkGlobalInventory(
     topDestinations: withInventory
       .sort((a, b) => b.count - a.count)
       .slice(0, 5)
-      .map(r => ({ destination: r.destination, count: r.count })),
+      .map((r) => ({ destination: r.destination, count: r.count })),
     products: allProducts,
   };
 }
@@ -626,18 +655,18 @@ async function checkGlobalInventory(
 
 After implementation, the daily scan would produce a ranked list like:
 
-| Rank | Keyword | Type | Score | Volume | Difficulty | Domain |
-|------|---------|------|-------|---------|-----------|--------|
-| 1 | family travel experiences | Demographic | 89 | 12,500 | 38 | ✅ $8.99 |
-| 2 | london food tours | Hyper-Local | 87 | 8,900 | 45 | ✅ $9.99 |
-| 3 | barcelona walking tours | Hyper-Local | 86 | 6,200 | 42 | ✅ $8.99 |
-| 4 | food tours | Generic | 84 | 45,000 | 68 | ❌ Taken |
-| 5 | bachelor party activities | Occasion | 83 | 5,400 | 35 | ✅ $12.99 |
-| 6 | pet-friendly travel | Demographic | 82 | 8,100 | 41 | ✅ $15.99 |
-| 7 | paris wine tasting | Hyper-Local | 81 | 4,800 | 52 | ✅ $9.99 |
-| 8 | senior travel tours | Demographic | 79 | 3,200 | 28 | ✅ $11.99 |
-| 9 | luxury wine tours | Experience-Level | 78 | 2,900 | 45 | ✅ $18.99 |
-| 10 | european city breaks | Regional | 76 | 15,000 | 62 | ❌ Taken |
+| Rank | Keyword                   | Type             | Score | Volume | Difficulty | Domain    |
+| ---- | ------------------------- | ---------------- | ----- | ------ | ---------- | --------- |
+| 1    | family travel experiences | Demographic      | 89    | 12,500 | 38         | ✅ $8.99  |
+| 2    | london food tours         | Hyper-Local      | 87    | 8,900  | 45         | ✅ $9.99  |
+| 3    | barcelona walking tours   | Hyper-Local      | 86    | 6,200  | 42         | ✅ $8.99  |
+| 4    | food tours                | Generic          | 84    | 45,000 | 68         | ❌ Taken  |
+| 5    | bachelor party activities | Occasion         | 83    | 5,400  | 35         | ✅ $12.99 |
+| 6    | pet-friendly travel       | Demographic      | 82    | 8,100  | 41         | ✅ $15.99 |
+| 7    | paris wine tasting        | Hyper-Local      | 81    | 4,800  | 52         | ✅ $9.99  |
+| 8    | senior travel tours       | Demographic      | 79    | 3,200  | 28         | ✅ $11.99 |
+| 9    | luxury wine tours         | Experience-Level | 78    | 2,900  | 45         | ✅ $18.99 |
+| 10   | european city breaks      | Regional         | 76    | 15,000 | 62         | ❌ Taken  |
 
 The system automatically recommends the **top 10 highest-scoring opportunities** for site creation, regardless of whether they're hyper-local or generic.
 

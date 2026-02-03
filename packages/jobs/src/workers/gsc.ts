@@ -66,7 +66,7 @@ export async function handleGscSetup(job: Job<GscSetupPayload>): Promise<JobResu
 
       // Wait for DNS propagation (Cloudflare is usually fast, but give it some time)
       console.log(`[GSC Setup] Waiting 10s for DNS propagation...`);
-      await new Promise(resolve => setTimeout(resolve, 10000));
+      await new Promise((resolve) => setTimeout(resolve, 10000));
     });
 
     if (!result.success) {
@@ -96,11 +96,15 @@ export async function handleGscSetup(job: Job<GscSetupPayload>): Promise<JobResu
     console.log(`[GSC Setup] Successfully registered ${domain} in GSC`);
 
     // Queue initial GSC sync to fetch any existing data
-    await addJob('GSC_SYNC', {
-      siteId,
-    }, {
-      delay: 60000, // Wait 1 minute before first sync
-    });
+    await addJob(
+      'GSC_SYNC',
+      {
+        siteId,
+      },
+      {
+        delay: 60000, // Wait 1 minute before first sync
+      }
+    );
 
     return {
       success: true,
@@ -393,7 +397,8 @@ async function detectPerformanceIssues(siteId: string): Promise<void> {
     // Check for position drops
     if (pageData.length >= 6) {
       const recentPosition =
-        pageData.slice(-3).reduce((sum: number, m: { position: number }) => sum + m.position, 0) / 3;
+        pageData.slice(-3).reduce((sum: number, m: { position: number }) => sum + m.position, 0) /
+        3;
       const olderPosition =
         pageData.slice(0, 3).reduce((sum: number, m: { position: number }) => sum + m.position, 0) /
         3;
@@ -438,7 +443,9 @@ async function detectPerformanceIssues(siteId: string): Promise<void> {
             priority: 4, // Medium-high priority
           });
 
-          console.log(`[GSC] Queued CONTENT_OPTIMIZE job ${jobId} for page ${page.id} (${issueType})`);
+          console.log(
+            `[GSC] Queued CONTENT_OPTIMIZE job ${jobId} for page ${page.id} (${issueType})`
+          );
           queuedPages.add(pageUrl);
         } else {
           console.log(`[GSC] Could not find page or content for URL: ${pageUrl}`);

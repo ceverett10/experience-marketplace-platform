@@ -152,8 +152,8 @@ export async function auditPageSEO(pageId: string): Promise<PageSEOScore> {
   }
 
   // Check structured data
-  const hasStructuredData = page.content?.structuredData &&
-    Object.keys(page.content.structuredData as object).length > 0;
+  const hasStructuredData =
+    page.content?.structuredData && Object.keys(page.content.structuredData as object).length > 0;
   if (!hasStructuredData) {
     technicalScore -= 10;
     issues.push({
@@ -292,7 +292,7 @@ export async function auditPageSEO(pageId: string): Promise<PageSEOScore> {
     } else if (ctr >= 0.05) {
       performanceScore = 90;
     } else {
-      performanceScore = 60 + (ctr * 600); // Scale based on CTR
+      performanceScore = 60 + ctr * 600; // Scale based on CTR
     }
 
     // Position analysis
@@ -320,7 +320,7 @@ export async function auditPageSEO(pageId: string): Promise<PageSEOScore> {
 
   // Calculate overall score
   const overallScore = Math.round(
-    (technicalScore * 0.3) + (contentScore * 0.4) + (performanceScore * 0.3)
+    technicalScore * 0.3 + contentScore * 0.4 + performanceScore * 0.3
   );
 
   return {
@@ -375,23 +375,26 @@ export async function generateSiteHealthReport(siteId: string): Promise<SiteHeal
   }
 
   // Calculate aggregate scores
-  const avgTechnical = pageScores.length > 0
-    ? pageScores.reduce((sum, p) => sum + p.scores.technical, 0) / pageScores.length
-    : 0;
-  const avgContent = pageScores.length > 0
-    ? pageScores.reduce((sum, p) => sum + p.scores.content, 0) / pageScores.length
-    : 0;
-  const avgPerformance = pageScores.length > 0
-    ? pageScores.reduce((sum, p) => sum + p.scores.performance, 0) / pageScores.length
-    : 0;
+  const avgTechnical =
+    pageScores.length > 0
+      ? pageScores.reduce((sum, p) => sum + p.scores.technical, 0) / pageScores.length
+      : 0;
+  const avgContent =
+    pageScores.length > 0
+      ? pageScores.reduce((sum, p) => sum + p.scores.content, 0) / pageScores.length
+      : 0;
+  const avgPerformance =
+    pageScores.length > 0
+      ? pageScores.reduce((sum, p) => sum + p.scores.performance, 0) / pageScores.length
+      : 0;
 
   // Calculate coverage (% of pages with good SEO)
-  const goodPages = pageScores.filter(p => p.scores.overall >= 70).length;
+  const goodPages = pageScores.filter((p) => p.scores.overall >= 70).length;
   const coverageScore = pages.length > 0 ? (goodPages / pages.length) * 100 : 0;
 
   // Calculate overall site score
   const overallScore = Math.round(
-    (avgTechnical * 0.25) + (avgContent * 0.35) + (avgPerformance * 0.25) + (coverageScore * 0.15)
+    avgTechnical * 0.25 + avgContent * 0.35 + avgPerformance * 0.25 + coverageScore * 0.15
   );
 
   // Get trend data
@@ -465,7 +468,9 @@ async function calculateTrends(siteId: string): Promise<SiteHealthReport['trends
     scoreChange7d: 0, // Would require historical score storage
     scoreChange30d: 0,
     clicksChange7d: Math.round(((clicksCurrent - clicksPrevious) / clicksPrevious) * 100),
-    impressionsChange7d: Math.round(((impressionsCurrent - impressionsPrevious) / impressionsPrevious) * 100),
+    impressionsChange7d: Math.round(
+      ((impressionsCurrent - impressionsPrevious) / impressionsPrevious) * 100
+    ),
   };
 }
 
@@ -479,23 +484,21 @@ function generateRecommendations(
   const recommendations: SEORecommendation[] = [];
 
   // Group issues by type
-  const missingMetaTitles = pageScores.filter(p =>
-    p.issues.some(i => i.title === 'Missing meta title')
+  const missingMetaTitles = pageScores.filter((p) =>
+    p.issues.some((i) => i.title === 'Missing meta title')
   );
-  const missingMetaDescs = pageScores.filter(p =>
-    p.issues.some(i => i.title === 'Missing meta description')
+  const missingMetaDescs = pageScores.filter((p) =>
+    p.issues.some((i) => i.title === 'Missing meta description')
   );
-  const lowQualityContent = pageScores.filter(p =>
-    p.issues.some(i => i.title === 'Low content quality')
+  const lowQualityContent = pageScores.filter((p) =>
+    p.issues.some((i) => i.title === 'Low content quality')
   );
-  const lowCTRPages = pageScores.filter(p =>
-    p.issues.some(i => i.title === 'Low CTR in top 10')
+  const lowCTRPages = pageScores.filter((p) =>
+    p.issues.some((i) => i.title === 'Low CTR in top 10')
   );
-  const thinContent = pageScores.filter(p =>
-    p.issues.some(i => i.title === 'Thin content')
-  );
-  const missingStructuredData = pageScores.filter(p =>
-    p.issues.some(i => i.title === 'Missing structured data')
+  const thinContent = pageScores.filter((p) => p.issues.some((i) => i.title === 'Thin content'));
+  const missingStructuredData = pageScores.filter((p) =>
+    p.issues.some((i) => i.title === 'Missing structured data')
   );
 
   // Add recommendations based on issue prevalence
@@ -506,7 +509,7 @@ function generateRecommendations(
       category: 'technical',
       action: `Add meta titles to ${missingMetaTitles.length} page(s)`,
       expectedImpact: 'Critical for search appearance and rankings',
-      affectedPages: missingMetaTitles.map(p => p.pageId),
+      affectedPages: missingMetaTitles.map((p) => p.pageId),
       automatable: true,
       estimatedLift: 15,
     });
@@ -518,7 +521,7 @@ function generateRecommendations(
       category: 'technical',
       action: `Add meta descriptions to ${missingMetaDescs.length} page(s)`,
       expectedImpact: 'Improves CTR in search results',
-      affectedPages: missingMetaDescs.map(p => p.pageId),
+      affectedPages: missingMetaDescs.map((p) => p.pageId),
       automatable: true,
       estimatedLift: 10,
     });
@@ -530,7 +533,7 @@ function generateRecommendations(
       category: 'performance',
       action: `Optimize titles/descriptions for ${lowCTRPages.length} high-ranking but low-CTR page(s)`,
       expectedImpact: 'Direct traffic increase from existing rankings',
-      affectedPages: lowCTRPages.map(p => p.pageId),
+      affectedPages: lowCTRPages.map((p) => p.pageId),
       automatable: true,
       estimatedLift: 25,
     });
@@ -542,7 +545,7 @@ function generateRecommendations(
       category: 'content',
       action: `Improve content quality on ${lowQualityContent.length} page(s)`,
       expectedImpact: 'Better rankings and user engagement',
-      affectedPages: lowQualityContent.map(p => p.pageId),
+      affectedPages: lowQualityContent.map((p) => p.pageId),
       automatable: true,
       estimatedLift: 20,
     });
@@ -554,7 +557,7 @@ function generateRecommendations(
       category: 'content',
       action: `Expand thin content on ${thinContent.length} page(s)`,
       expectedImpact: 'Thin content is penalized by search engines',
-      affectedPages: thinContent.map(p => p.pageId),
+      affectedPages: thinContent.map((p) => p.pageId),
       automatable: true,
       estimatedLift: 15,
     });
@@ -566,7 +569,7 @@ function generateRecommendations(
       category: 'technical',
       action: `Add structured data to ${missingStructuredData.length} page(s)`,
       expectedImpact: 'Enables rich snippets in search results',
-      affectedPages: missingStructuredData.map(p => p.pageId),
+      affectedPages: missingStructuredData.map((p) => p.pageId),
       automatable: true,
       estimatedLift: 8,
     });
@@ -600,11 +603,12 @@ function deduplicateIssues(issues: SEOIssue[]): SEOIssue[] {
   }
 
   return Array.from(grouped.values())
-    .map(issue => ({
+    .map((issue) => ({
       ...issue,
-      description: issue.count > 1
-        ? `${issue.description} (${issue.count} pages affected)`
-        : issue.description,
+      description:
+        issue.count > 1
+          ? `${issue.description} (${issue.count} pages affected)`
+          : issue.description,
       affectedPages: issue.pages,
     }))
     .sort((a, b) => b.impact - a.impact);
@@ -619,9 +623,10 @@ function generateSummary(
   issues: SEOIssue[],
   recommendations: SEORecommendation[]
 ): string {
-  const scoreLabel = score >= 80 ? 'excellent' : score >= 60 ? 'good' : score >= 40 ? 'needs improvement' : 'poor';
-  const criticalCount = issues.filter(i => i.type === 'critical').length;
-  const warningCount = issues.filter(i => i.type === 'warning').length;
+  const scoreLabel =
+    score >= 80 ? 'excellent' : score >= 60 ? 'good' : score >= 40 ? 'needs improvement' : 'poor';
+  const criticalCount = issues.filter((i) => i.type === 'critical').length;
+  const warningCount = issues.filter((i) => i.type === 'warning').length;
   const topRecommendation = recommendations[0];
 
   let summary = `Site SEO health is ${scoreLabel} (${score}/100) across ${pageCount} pages. `;
@@ -643,17 +648,22 @@ function generateSummary(
 /**
  * Get pages that need optimization based on performance data
  */
-export async function getPagesNeedingOptimization(siteId: string, limit = 10): Promise<{
-  pageId: string;
-  reason: string;
-  urgency: 'high' | 'medium' | 'low';
-  metrics: {
-    position?: number;
-    ctr?: number;
-    clicks?: number;
-    qualityScore?: number;
-  };
-}[]> {
+export async function getPagesNeedingOptimization(
+  siteId: string,
+  limit = 10
+): Promise<
+  {
+    pageId: string;
+    reason: string;
+    urgency: 'high' | 'medium' | 'low';
+    metrics: {
+      position?: number;
+      ctr?: number;
+      clicks?: number;
+      qualityScore?: number;
+    };
+  }[]
+> {
   const results: {
     pageId: string;
     reason: string;
@@ -739,7 +749,9 @@ export async function getPagesNeedingOptimization(siteId: string, limit = 10): P
 
     // Low urgency: Stale content
     const daysSinceUpdate = page.content?.updatedAt
-      ? Math.floor((Date.now() - new Date(page.content.updatedAt).getTime()) / (1000 * 60 * 60 * 24))
+      ? Math.floor(
+          (Date.now() - new Date(page.content.updatedAt).getTime()) / (1000 * 60 * 60 * 24)
+        )
       : 365;
     if (daysSinceUpdate > 90) {
       results.push({
@@ -753,9 +765,7 @@ export async function getPagesNeedingOptimization(siteId: string, limit = 10): P
 
   // Sort by urgency and limit
   const urgencyOrder = { high: 0, medium: 1, low: 2 };
-  return results
-    .sort((a, b) => urgencyOrder[a.urgency] - urgencyOrder[b.urgency])
-    .slice(0, limit);
+  return results.sort((a, b) => urgencyOrder[a.urgency] - urgencyOrder[b.urgency]).slice(0, limit);
 }
 
 /**
@@ -768,7 +778,8 @@ export async function storeHealthReport(report: SiteHealthReport): Promise<void>
     where: { id: report.siteId },
     data: {
       seoConfig: {
-        ...(await prisma.site.findUnique({ where: { id: report.siteId } }))?.seoConfig as object || {},
+        ...(((await prisma.site.findUnique({ where: { id: report.siteId } }))
+          ?.seoConfig as object) || {}),
         lastHealthAudit: {
           date: report.auditDate.toISOString(),
           score: report.overallScore,

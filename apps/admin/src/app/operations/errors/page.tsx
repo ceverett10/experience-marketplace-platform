@@ -56,8 +56,13 @@ const TIME_WINDOWS = [
 
 const SEVERITY_OPTIONS = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
 const CATEGORY_OPTIONS = [
-  'EXTERNAL_API', 'DATABASE', 'CONFIGURATION', 'NOT_FOUND',
-  'RATE_LIMIT', 'NETWORK', 'UNKNOWN',
+  'EXTERNAL_API',
+  'DATABASE',
+  'CONFIGURATION',
+  'NOT_FOUND',
+  'RATE_LIMIT',
+  'NETWORK',
+  'UNKNOWN',
 ];
 
 function formatDate(dateStr: string): string {
@@ -217,11 +222,16 @@ export default function ErrorLogPage() {
           </span>
           <select
             value={timeWindow}
-            onChange={(e) => { setTimeWindow(parseInt(e.target.value)); setPage(1); }}
+            onChange={(e) => {
+              setTimeWindow(parseInt(e.target.value));
+              setPage(1);
+            }}
             className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
           >
             {TIME_WINDOWS.map((tw) => (
-              <option key={tw.value} value={tw.value}>{tw.label}</option>
+              <option key={tw.value} value={tw.value}>
+                {tw.label}
+              </option>
             ))}
           </select>
         </div>
@@ -250,7 +260,9 @@ export default function ErrorLogPage() {
         <Card>
           <CardContent className="p-4">
             <p className="text-2xl font-bold text-slate-600">
-              {Object.entries(summary.byCategory).sort(([, a], [, b]) => b - a)[0]?.[0]?.replace(/_/g, ' ') || 'None'}
+              {Object.entries(summary.byCategory)
+                .sort(([, a], [, b]) => b - a)[0]?.[0]
+                ?.replace(/_/g, ' ') || 'None'}
             </p>
             <p className="text-sm text-slate-500">Top Category</p>
           </CardContent>
@@ -268,10 +280,15 @@ export default function ErrorLogPage() {
                 .map(([cat, count]) => (
                   <button
                     key={cat}
-                    onClick={() => { setCategory(category === cat ? '' : cat); setPage(1); }}
+                    onClick={() => {
+                      setCategory(category === cat ? '' : cat);
+                      setPage(1);
+                    }}
                     className={`flex items-center justify-between w-full p-2 rounded text-sm hover:bg-slate-50 transition-colors ${category === cat ? 'ring-1 ring-sky-400' : ''}`}
                   >
-                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${categoryColors[cat] || ''}`}>
+                    <span
+                      className={`px-2 py-0.5 rounded text-xs font-medium ${categoryColors[cat] || ''}`}
+                    >
                       {cat.replace(/_/g, ' ')}
                     </span>
                     <span className="font-bold text-slate-700">{count}</span>
@@ -292,7 +309,10 @@ export default function ErrorLogPage() {
                 .map(([typ, count]) => (
                   <button
                     key={typ}
-                    onClick={() => { setJobType(jobType === typ ? '' : typ); setPage(1); }}
+                    onClick={() => {
+                      setJobType(jobType === typ ? '' : typ);
+                      setPage(1);
+                    }}
                     className={`flex items-center justify-between w-full p-2 rounded text-sm hover:bg-slate-50 transition-colors ${jobType === typ ? 'ring-1 ring-sky-400' : ''}`}
                   >
                     <span className="text-slate-700">{typ.replace(/_/g, ' ')}</span>
@@ -311,27 +331,42 @@ export default function ErrorLogPage() {
       <div className="flex flex-wrap items-center gap-3">
         <select
           value={severity}
-          onChange={(e) => { setSeverity(e.target.value); setPage(1); }}
+          onChange={(e) => {
+            setSeverity(e.target.value);
+            setPage(1);
+          }}
           className="px-3 py-2 border border-slate-200 rounded-lg text-sm"
         >
           <option value="">All Severities</option>
           {SEVERITY_OPTIONS.map((s) => (
-            <option key={s} value={s}>{s}</option>
+            <option key={s} value={s}>
+              {s}
+            </option>
           ))}
         </select>
         <select
           value={category}
-          onChange={(e) => { setCategory(e.target.value); setPage(1); }}
+          onChange={(e) => {
+            setCategory(e.target.value);
+            setPage(1);
+          }}
           className="px-3 py-2 border border-slate-200 rounded-lg text-sm"
         >
           <option value="">All Categories</option>
           {CATEGORY_OPTIONS.map((c) => (
-            <option key={c} value={c}>{c.replace(/_/g, ' ')}</option>
+            <option key={c} value={c}>
+              {c.replace(/_/g, ' ')}
+            </option>
           ))}
         </select>
         {(severity || category || jobType) && (
           <button
-            onClick={() => { setSeverity(''); setCategory(''); setJobType(''); setPage(1); }}
+            onClick={() => {
+              setSeverity('');
+              setCategory('');
+              setJobType('');
+              setPage(1);
+            }}
             className="px-3 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg"
           >
             Clear filters
@@ -360,13 +395,17 @@ export default function ErrorLogPage() {
                   onClick={() => handleExpandError(err.id)}
                 >
                   <div className="flex items-start gap-3">
-                    <span className={`text-xs px-2 py-1 rounded font-medium mt-0.5 ${severityColors[err.errorSeverity] || ''}`}>
+                    <span
+                      className={`text-xs px-2 py-1 rounded font-medium mt-0.5 ${severityColors[err.errorSeverity] || ''}`}
+                    >
                       {err.errorSeverity}
                     </span>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-sm font-medium text-slate-900">{err.errorName}</span>
-                        <span className={`text-xs px-1.5 py-0.5 rounded ${categoryColors[err.errorCategory] || ''}`}>
+                        <span
+                          className={`text-xs px-1.5 py-0.5 rounded ${categoryColors[err.errorCategory] || ''}`}
+                        >
                           {err.errorCategory.replace(/_/g, ' ')}
                         </span>
                       </div>
@@ -480,9 +519,14 @@ export default function ErrorLogPage() {
               <p className="text-slate-500 text-sm text-center py-4">No circuit breakers active</p>
             ) : (
               Object.entries(circuitBreakers).map(([service, status]) => (
-                <div key={service} className="flex items-center justify-between p-4 border border-slate-200 rounded-lg">
+                <div
+                  key={service}
+                  className="flex items-center justify-between p-4 border border-slate-200 rounded-lg"
+                >
                   <div className="flex items-center gap-3">
-                    <span className={`text-xs px-2 py-1 rounded font-medium ${circuitStateColors[status.state]}`}>
+                    <span
+                      className={`text-xs px-2 py-1 rounded font-medium ${circuitStateColors[status.state]}`}
+                    >
                       {status.state}
                     </span>
                     <span className="font-medium text-slate-900 capitalize">

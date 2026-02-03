@@ -1,7 +1,14 @@
 import { Job } from 'bullmq';
 import { prisma } from '@experience-marketplace/database';
 import { createHolibobClient } from '@experience-marketplace/holibob-api';
-import type { SeoOpportunityScanPayload, SeoOpportunityOptimizePayload, JobResult, SiteCreatePayload, OpportunitySeed, ScanMode } from '../types';
+import type {
+  SeoOpportunityScanPayload,
+  SeoOpportunityOptimizePayload,
+  JobResult,
+  SiteCreatePayload,
+  OpportunitySeed,
+  ScanMode,
+} from '../types';
 import { runRecursiveOptimization } from '../services/opportunity-optimizer';
 import { KeywordResearchService } from '../services/keyword-research';
 import {
@@ -44,10 +51,12 @@ async function runIntegratedOptimization(
 
   // Filter seeds by requested modes if specified
   const seeds = options.seedModes
-    ? allSeeds.filter(seed => options.seedModes?.includes(seed.scanMode))
+    ? allSeeds.filter((seed) => options.seedModes?.includes(seed.scanMode))
     : allSeeds;
 
-  console.log(`[Integrated Scan] Generated ${seeds.length} seeds across ${new Set(seeds.map(s => s.scanMode)).size} modes`);
+  console.log(
+    `[Integrated Scan] Generated ${seeds.length} seeds across ${new Set(seeds.map((s) => s.scanMode)).size} modes`
+  );
 
   if (seeds.length === 0) {
     return {
@@ -134,14 +143,21 @@ async function runIntegratedOptimization(
 
       storedCount++;
       explanationsGenerated++; // Explanation comes from optimization
-      console.log(`[Integrated Scan] Stored opportunity #${ranked.rank}: ${opp.suggestion.keyword} (score: ${opp.priorityScore})`);
+      console.log(
+        `[Integrated Scan] Stored opportunity #${ranked.rank}: ${opp.suggestion.keyword} (score: ${opp.priorityScore})`
+      );
     } catch (dbError) {
-      console.error(`[Integrated Scan] Failed to store opportunity ${opp.suggestion.keyword}:`, dbError);
+      console.error(
+        `[Integrated Scan] Failed to store opportunity ${opp.suggestion.keyword}:`,
+        dbError
+      );
     }
   }
 
   console.log(`[Integrated Scan] Complete: ${result.summary}`);
-  console.log(`[Integrated Scan] Stored ${storedCount} opportunities, generated ${explanationsGenerated} explanations`);
+  console.log(
+    `[Integrated Scan] Stored ${storedCount} opportunities, generated ${explanationsGenerated} explanations`
+  );
 
   // Auto-action high-priority opportunities
   await autoActionOpportunities();
@@ -153,7 +169,7 @@ async function runIntegratedOptimization(
       mode: 'integrated',
       iterations: result.iterations.length,
       seedsGenerated: seeds.length,
-      seedModes: Array.from(new Set(seeds.map(s => s.scanMode))),
+      seedModes: Array.from(new Set(seeds.map((s) => s.scanMode))),
       opportunitiesFound: result.finalOpportunities.length,
       stored: storedCount,
       explanationsGenerated,
@@ -237,7 +253,9 @@ export async function handleOpportunityScan(
     // Default to integrated mode (multi-mode + recursive optimization)
     // Only use direct scan if explicitly disabled
     if (useRecursiveOptimization !== false) {
-      console.log('[Opportunity Scan] Using INTEGRATED mode (multi-mode seeds + recursive optimization)');
+      console.log(
+        '[Opportunity Scan] Using INTEGRATED mode (multi-mode seeds + recursive optimization)'
+      );
 
       return await runIntegratedOptimization(holibobClient, {
         siteId,
@@ -253,14 +271,24 @@ export async function handleOpportunityScan(
     console.log('[Opportunity Scan] Using DIRECT SCAN mode (legacy AI suggestions)');
 
     // Phase 1: AI-Powered Niche Discovery (if no specific destinations/categories provided)
-    let aiSuggestedNiches: Array<{ destination: string; category: string; niche: string; rationale: string }> = [];
+    let aiSuggestedNiches: Array<{
+      destination: string;
+      category: string;
+      niche: string;
+      rationale: string;
+    }> = [];
     if (!destinations && !categories) {
       console.log('[Opportunity Scan] Generating AI-powered niche suggestions...');
       try {
         aiSuggestedNiches = await generateAINicheSuggestions(holibobClient);
-        console.log(`[Opportunity Scan] AI suggested ${aiSuggestedNiches.length} niche opportunities`);
+        console.log(
+          `[Opportunity Scan] AI suggested ${aiSuggestedNiches.length} niche opportunities`
+        );
       } catch (aiError) {
-        console.error('[Opportunity Scan] AI niche generation failed, falling back to defaults:', aiError);
+        console.error(
+          '[Opportunity Scan] AI niche generation failed, falling back to defaults:',
+          aiError
+        );
       }
     }
 
@@ -338,15 +366,23 @@ export async function handleOpportunityScan(
             console.log(`[Opportunity] Generated explanation for "${opp.keyword}"`);
           } catch (explanationError) {
             // Don't fail the entire scan if explanation generation fails
-            const errorMessage = explanationError instanceof Error ? explanationError.message : String(explanationError);
-            console.error(`[Opportunity] Failed to generate explanation for "${opp.keyword}":`, errorMessage);
+            const errorMessage =
+              explanationError instanceof Error
+                ? explanationError.message
+                : String(explanationError);
+            console.error(
+              `[Opportunity] Failed to generate explanation for "${opp.keyword}":`,
+              errorMessage
+            );
           }
         }
       }
     }
 
     console.log(`[Opportunity Scan] Stored ${stored} opportunities with score >= 50`);
-    console.log(`[Opportunity Scan] Generated ${explanationsGenerated} AI explanations for high-priority opportunities`);
+    console.log(
+      `[Opportunity Scan] Generated ${explanationsGenerated} AI explanations for high-priority opportunities`
+    );
 
     // Auto-action high-priority opportunities (score > 75)
     await autoActionOpportunities();
@@ -588,7 +624,12 @@ async function scanForOpportunities(
   destinations?: string[],
   categories?: string[],
   forceRescan?: boolean,
-  aiSuggestedNiches?: Array<{ destination: string; category: string; niche: string; rationale: string }>
+  aiSuggestedNiches?: Array<{
+    destination: string;
+    category: string;
+    niche: string;
+    rationale: string;
+  }>
 ): Promise<
   Array<{
     keyword: string;
@@ -617,7 +658,7 @@ async function scanForOpportunities(
 
   if (aiSuggestedNiches && aiSuggestedNiches.length > 0) {
     // Use AI suggestions
-    searchCombinations = aiSuggestedNiches.map(suggestion => ({
+    searchCombinations = aiSuggestedNiches.map((suggestion) => ({
       destination: suggestion.destination,
       category: suggestion.category,
       niche: suggestion.niche,
@@ -662,85 +703,85 @@ async function scanForOpportunities(
     const keyword = `${destinationCity.toLowerCase()} ${category}`;
 
     try {
-        // Check Holibob inventory for this destination + category
-        const holibobBreaker = circuitBreakers.getBreaker('holibob-api');
+      // Check Holibob inventory for this destination + category
+      const holibobBreaker = circuitBreakers.getBreaker('holibob-api');
 
-        const inventory = await holibobBreaker.execute(async () => {
-          return await holibobClient.discoverProducts(
-            {
-              freeText: destination,
-              searchTerm: category,
-              currency: 'GBP',
-            },
-            { pageSize: 10 }
-          );
-        });
+      const inventory = await holibobBreaker.execute(async () => {
+        return await holibobClient.discoverProducts(
+          {
+            freeText: destination,
+            searchTerm: category,
+            currency: 'GBP',
+          },
+          { pageSize: 10 }
+        );
+      });
 
-        const inventoryCount = inventory.products.length;
+      const inventoryCount = inventory.products.length;
 
-        // Only create opportunity if we have inventory
-        if (inventoryCount > 0) {
-          // Get real keyword data from DataForSEO
-          const keywordService = new KeywordResearchService();
-          const dataForSeoBreaker = circuitBreakers.getBreaker('dataforseo-api');
-          let keywordData;
+      // Only create opportunity if we have inventory
+      if (inventoryCount > 0) {
+        // Get real keyword data from DataForSEO
+        const keywordService = new KeywordResearchService();
+        const dataForSeoBreaker = circuitBreakers.getBreaker('dataforseo-api');
+        let keywordData;
 
-          try {
-            keywordData = await dataForSeoBreaker.execute(async () => {
-              return await keywordService.getKeywordData(
-                keyword,
-                destination.split(',')[1]?.trim() || 'United States'
-              );
-            });
-
-            console.log(`[Opportunity] Real keyword data for "${keyword}":`, {
-              searchVolume: keywordData.searchVolume,
-              difficulty: keywordData.keywordDifficulty,
-              cpc: keywordData.cpc,
-              trend: keywordData.trend,
-            });
-          } catch (keywordError) {
-            const jobError = toJobError(keywordError);
-            console.error(
-              `[Opportunity] Error getting keyword data for "${keyword}":`,
-              jobError.toJSON()
+        try {
+          keywordData = await dataForSeoBreaker.execute(async () => {
+            return await keywordService.getKeywordData(
+              keyword,
+              destination.split(',')[1]?.trim() || 'United States'
             );
+          });
 
-            // Fallback to estimates if API fails
-            keywordData = {
-              searchVolume: estimateSearchVolume(destination, category),
-              keywordDifficulty: estimateDifficulty(destination, category),
-              cpc: estimateCpc(category),
-              trend: 'stable' as const,
-              competition: 0.5,
-            };
-          }
-
-          opportunities.push({
-            keyword,
+          console.log(`[Opportunity] Real keyword data for "${keyword}":`, {
             searchVolume: keywordData.searchVolume,
             difficulty: keywordData.keywordDifficulty,
             cpc: keywordData.cpc,
-            intent: 'TRANSACTIONAL',
-            niche: niche, // Use the niche from combination (may be AI-generated or default category)
-            location: destination,
-            sourceData: {
-              inventoryCount,
-              destination,
-              category,
-              niche, // Store the niche for reference
-              scannedAt: new Date().toISOString(),
-              keywordTrend: keywordData.trend,
-              competition: keywordData.competition,
-              seasonality: keywordData.seasonality,
-            },
+            trend: keywordData.trend,
           });
+        } catch (keywordError) {
+          const jobError = toJobError(keywordError);
+          console.error(
+            `[Opportunity] Error getting keyword data for "${keyword}":`,
+            jobError.toJSON()
+          );
+
+          // Fallback to estimates if API fails
+          keywordData = {
+            searchVolume: estimateSearchVolume(destination, category),
+            keywordDifficulty: estimateDifficulty(destination, category),
+            cpc: estimateCpc(category),
+            trend: 'stable' as const,
+            competition: 0.5,
+          };
         }
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        console.error(`[Opportunity Scan] Error checking inventory for ${keyword}:`, errorMessage);
+
+        opportunities.push({
+          keyword,
+          searchVolume: keywordData.searchVolume,
+          difficulty: keywordData.keywordDifficulty,
+          cpc: keywordData.cpc,
+          intent: 'TRANSACTIONAL',
+          niche: niche, // Use the niche from combination (may be AI-generated or default category)
+          location: destination,
+          sourceData: {
+            inventoryCount,
+            destination,
+            category,
+            niche, // Store the niche for reference
+            scannedAt: new Date().toISOString(),
+            keywordTrend: keywordData.trend,
+            competition: keywordData.competition,
+            seasonality: keywordData.seasonality,
+          },
+        });
       }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(`[Opportunity Scan] Error checking inventory for ${keyword}:`, errorMessage);
     }
+  }
 
   return opportunities;
 }
@@ -872,7 +913,9 @@ async function autoActionOpportunities(): Promise<void> {
     take: 10, // Process top 10 highest-value opportunities per scan
   });
 
-  console.log(`[Opportunity] Found ${highPriorityOpps.length} high-priority opportunities to auto-action`);
+  console.log(
+    `[Opportunity] Found ${highPriorityOpps.length} high-priority opportunities to auto-action`
+  );
 
   for (const opp of highPriorityOpps) {
     console.log(
@@ -909,7 +952,10 @@ async function autoActionOpportunities(): Promise<void> {
       console.log(`[Opportunity] Marked opportunity ${opp.id} as ASSIGNED`);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`[Opportunity] Failed to queue SITE_CREATE for opportunity ${opp.id}:`, errorMessage);
+      console.error(
+        `[Opportunity] Failed to queue SITE_CREATE for opportunity ${opp.id}:`,
+        errorMessage
+      );
 
       // Mark as evaluated so we don't retry immediately, but can be manually actioned
       await prisma.sEOOpportunity.update({
@@ -1038,7 +1084,13 @@ async function generateHyperLocalSeeds(
     'Amsterdam, Netherlands',
     'New York, USA',
   ];
-  const categories = ['food tours', 'walking tours', 'museum tickets', 'wine tasting', 'cooking classes'];
+  const categories = [
+    'food tours',
+    'walking tours',
+    'museum tickets',
+    'wine tasting',
+    'cooking classes',
+  ];
 
   const seeds: OpportunitySeed[] = [];
 
@@ -1160,7 +1212,11 @@ async function generateOccasionSeeds(
 ): Promise<OpportunitySeed[]> {
   const occasions = [
     { keyword: 'bachelor party experiences', category: 'activities', niche: 'bachelor parties' },
-    { keyword: 'bachelorette party activities', category: 'activities', niche: 'bachelorette parties' },
+    {
+      keyword: 'bachelorette party activities',
+      category: 'activities',
+      niche: 'bachelorette parties',
+    },
     { keyword: 'corporate team building', category: 'activities', niche: 'corporate events' },
     { keyword: 'anniversary experiences', category: 'activities', niche: 'anniversaries' },
     { keyword: 'birthday activities', category: 'activities', niche: 'birthday celebrations' },
@@ -1198,7 +1254,11 @@ async function generateExperienceLevelSeeds(
   client: ReturnType<typeof createHolibobClient>
 ): Promise<OpportunitySeed[]> {
   const experienceLevels = [
-    { keyword: 'beginner cooking classes', category: 'cooking classes', niche: 'beginner experiences' },
+    {
+      keyword: 'beginner cooking classes',
+      category: 'cooking classes',
+      niche: 'beginner experiences',
+    },
     { keyword: 'luxury wine tours', category: 'wine tasting', niche: 'luxury experiences' },
     { keyword: 'budget-friendly activities', category: 'activities', niche: 'budget travel' },
     { keyword: 'expert photography workshops', category: 'photography', niche: 'expert workshops' },
@@ -1236,9 +1296,21 @@ async function generateRegionalSeeds(
   client: ReturnType<typeof createHolibobClient>
 ): Promise<OpportunitySeed[]> {
   const regions = [
-    { keyword: 'european city breaks', destinations: ['London', 'Paris', 'Rome', 'Barcelona', 'Amsterdam'], category: 'tours' },
-    { keyword: 'mediterranean cruises', destinations: ['Barcelona', 'Rome', 'Athens'], category: 'boat tours' },
-    { keyword: 'ski resort activities', destinations: ['Chamonix', 'Innsbruck', 'Zermatt'], category: 'activities' },
+    {
+      keyword: 'european city breaks',
+      destinations: ['London', 'Paris', 'Rome', 'Barcelona', 'Amsterdam'],
+      category: 'tours',
+    },
+    {
+      keyword: 'mediterranean cruises',
+      destinations: ['Barcelona', 'Rome', 'Athens'],
+      category: 'boat tours',
+    },
+    {
+      keyword: 'ski resort activities',
+      destinations: ['Chamonix', 'Innsbruck', 'Zermatt'],
+      category: 'activities',
+    },
   ];
 
   const seeds: OpportunitySeed[] = [];
@@ -1336,9 +1408,7 @@ async function checkGlobalInventory(
   return {
     totalCount,
     destinationCount: withInventory.length,
-    topDestinations: withInventory
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5),
+    topDestinations: withInventory.sort((a, b) => b.count - a.count).slice(0, 5),
   };
 }
 
@@ -1450,9 +1520,14 @@ export async function handleOpportunityOptimize(
         });
 
         storedCount++;
-        console.log(`[Opportunity Optimize] Stored opportunity #${ranked.rank}: ${opp.suggestion.keyword} (score: ${opp.priorityScore})`);
+        console.log(
+          `[Opportunity Optimize] Stored opportunity #${ranked.rank}: ${opp.suggestion.keyword} (score: ${opp.priorityScore})`
+        );
       } catch (dbError) {
-        console.error(`[Opportunity Optimize] Failed to store opportunity ${opp.suggestion.keyword}:`, dbError);
+        console.error(
+          `[Opportunity Optimize] Failed to store opportunity ${opp.suggestion.keyword}:`,
+          dbError
+        );
       }
     }
 

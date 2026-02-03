@@ -217,13 +217,19 @@ const JOB_TYPE_LABELS: Record<string, { label: string; description: string }> = 
   DOMAIN_REGISTER: { label: 'Register Domain', description: 'Purchasing the domain name' },
   DOMAIN_VERIFY: { label: 'Verify Domain', description: 'Confirming domain ownership' },
   SSL_PROVISION: { label: 'Setup SSL', description: 'Installing security certificate' },
-  GSC_VERIFY: { label: 'Verify Google Search Console', description: 'Connecting to Google Search Console' },
+  GSC_VERIFY: {
+    label: 'Verify Google Search Console',
+    description: 'Connecting to Google Search Console',
+  },
   GSC_SETUP: { label: 'Setup Search Console', description: 'Configuring Google Search Console' },
   GSC_SYNC: { label: 'Sync Search Data', description: 'Fetching data from Google Search Console' },
   GA4_SETUP: { label: 'Setup Google Analytics', description: 'Creating GA4 property and tracking' },
   SITE_DEPLOY: { label: 'Deploy Site', description: 'Publishing the site to the web' },
   SEO_ANALYZE: { label: 'Analyze SEO', description: 'Checking SEO performance' },
-  SEO_OPPORTUNITY_SCAN: { label: 'Scan Opportunities', description: 'Looking for new SEO opportunities' },
+  SEO_OPPORTUNITY_SCAN: {
+    label: 'Scan Opportunities',
+    description: 'Looking for new SEO opportunities',
+  },
   METRICS_AGGREGATE: { label: 'Aggregate Metrics', description: 'Collecting performance data' },
   PERFORMANCE_REPORT: { label: 'Generate Report', description: 'Creating performance report' },
   ABTEST_ANALYZE: { label: 'Analyze A/B Test', description: 'Evaluating test results' },
@@ -322,7 +328,9 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
   const [initializingRoadmap, setInitializingRoadmap] = useState(false);
   const [executingTasks, setExecutingTasks] = useState(false);
   const [generatingHomepageConfig, setGeneratingHomepageConfig] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'roadmap' | 'seo' | 'brand' | 'homepage' | 'pages' | 'domains'>('roadmap');
+  const [activeTab, setActiveTab] = useState<
+    'overview' | 'roadmap' | 'seo' | 'brand' | 'homepage' | 'pages' | 'domains'
+  >('roadmap');
   const [seoHealth, setSeoHealth] = useState<SEOHealthData | null>(null);
   const [loadingSeoHealth, setLoadingSeoHealth] = useState(false);
   const [triggeringSeoAudit, setTriggeringSeoAudit] = useState(false);
@@ -391,9 +399,7 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
       RETRYING: 'bg-orange-100 text-orange-800',
     };
     return (
-      <span className={`${styles[status]} text-xs px-2 py-1 rounded font-medium`}>
-        {status}
-      </span>
+      <span className={`${styles[status]} text-xs px-2 py-1 rounded font-medium`}>{status}</span>
     );
   };
 
@@ -454,10 +460,7 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4">
         <div className="text-slate-500">Site not found</div>
-        <button
-          onClick={() => router.push('/sites')}
-          className="text-sky-600 hover:underline"
-        >
+        <button onClick={() => router.push('/sites')} className="text-sky-600 hover:underline">
           Back to Sites
         </button>
       </div>
@@ -496,9 +499,7 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
               {site.brand?.tagline && (
                 <p className="text-slate-600 italic">&ldquo;{site.brand.tagline}&rdquo;</p>
               )}
-              <p className="text-sm text-slate-500">
-                {site.primaryDomain || site.suggestedDomain}
-              </p>
+              <p className="text-sm text-slate-500">{site.primaryDomain || site.suggestedDomain}</p>
             </div>
           </div>
         </div>
@@ -543,19 +544,21 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
       {/* Tabs */}
       <div className="border-b border-slate-200">
         <nav className="flex gap-4">
-          {(['roadmap', 'seo', 'overview', 'brand', 'homepage', 'pages', 'domains'] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-                activeTab === tab
-                  ? 'border-sky-600 text-sky-600'
-                  : 'border-transparent text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              {tab === 'seo' ? 'SEO Health' : tab.charAt(0).toUpperCase() + tab.slice(1)}
-            </button>
-          ))}
+          {(['roadmap', 'seo', 'overview', 'brand', 'homepage', 'pages', 'domains'] as const).map(
+            (tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                  activeTab === tab
+                    ? 'border-sky-600 text-sky-600'
+                    : 'border-transparent text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                {tab === 'seo' ? 'SEO Health' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+              </button>
+            )
+          )}
         </nav>
       </div>
 
@@ -569,10 +572,14 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
                 <div className="flex items-center justify-between mb-4">
                   <div>
                     <h2 className="text-lg font-semibold text-slate-900">Site Launch Progress</h2>
-                    <p className="text-sm text-slate-500">Track all tasks needed to get your site live</p>
+                    <p className="text-sm text-slate-500">
+                      Track all tasks needed to get your site live
+                    </p>
                   </div>
                   <div className="text-right">
-                    <div className="text-3xl font-bold text-sky-600">{roadmap.overall.percentage}%</div>
+                    <div className="text-3xl font-bold text-sky-600">
+                      {roadmap.overall.percentage}%
+                    </div>
                     <div className="text-sm text-slate-500">
                       {roadmap.overall.completed} of {roadmap.overall.total} tasks
                     </div>
@@ -616,10 +623,14 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
                             // Show result with requeued info
                             const messages: string[] = [];
                             if (result.requeued?.length > 0) {
-                              messages.push(`Cleaned up ${result.requeued.length} invalid job(s) that will be re-run`);
+                              messages.push(
+                                `Cleaned up ${result.requeued.length} invalid job(s) that will be re-run`
+                              );
                             }
                             if (result.queued?.length > 0) {
-                              messages.push(`Queued ${result.queued.length} task(s): ${result.queued.join(', ')}`);
+                              messages.push(
+                                `Queued ${result.queued.length} task(s): ${result.queued.join(', ')}`
+                              );
                             }
                             if (messages.length > 0) {
                               alert(messages.join('\n\n'));
@@ -696,7 +707,9 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
                         <span className="text-2xl">{phaseStatusIcons[phase.status]}</span>
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="text-sm text-slate-400 font-medium">Phase {phaseIndex + 1}</span>
+                            <span className="text-sm text-slate-400 font-medium">
+                              Phase {phaseIndex + 1}
+                            </span>
                             <h3 className="font-semibold text-slate-900">{phase.name}</h3>
                           </div>
                           <p className="text-sm text-slate-500">{phase.description}</p>
@@ -712,8 +725,8 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
                               phase.status === 'completed'
                                 ? 'bg-green-500'
                                 : phase.status === 'failed'
-                                ? 'bg-red-500'
-                                : 'bg-sky-500'
+                                  ? 'bg-red-500'
+                                  : 'bg-sky-500'
                             }`}
                             style={{ width: `${phase.progress.percentage}%` }}
                           />
@@ -755,9 +768,12 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
                         INVALID: '⚠',
                       };
 
-                      const statusLabel = task.status === 'PLANNED' ? 'Planned'
-                        : task.status === 'INVALID' ? 'Needs Re-run'
-                        : task.status;
+                      const statusLabel =
+                        task.status === 'PLANNED'
+                          ? 'Planned'
+                          : task.status === 'INVALID'
+                            ? 'Needs Re-run'
+                            : task.status;
 
                       return (
                         <div key={task.type} className="px-4 py-3 flex items-center gap-4">
@@ -767,7 +783,9 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
                               <span className="font-medium text-slate-900">{task.label}</span>
-                              <span className={`text-xs px-2 py-0.5 rounded ${taskStatusBadges[task.status]}`}>
+                              <span
+                                className={`text-xs px-2 py-0.5 rounded ${taskStatusBadges[task.status]}`}
+                              >
                                 {statusLabel}
                               </span>
                             </div>
@@ -808,9 +826,12 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
                   onClick={async () => {
                     setInitializingRoadmap(true);
                     try {
-                      const response = await fetch(`/admin/api/sites/${siteId}/initialize-roadmap`, {
-                        method: 'POST',
-                      });
+                      const response = await fetch(
+                        `/admin/api/sites/${siteId}/initialize-roadmap`,
+                        {
+                          method: 'POST',
+                        }
+                      );
                       if (response.ok) {
                         // Refetch site data to get the new roadmap
                         const siteResponse = await fetch(`/admin/api/sites/${siteId}`);
@@ -873,7 +894,9 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
                             if (response.ok) {
                               alert(result.message || 'SEO audit queued successfully');
                               // Refresh the data
-                              const refreshResponse = await fetch(`/admin/api/sites/${siteId}/seo-health`);
+                              const refreshResponse = await fetch(
+                                `/admin/api/sites/${siteId}/seo-health`
+                              );
                               const refreshData = await refreshResponse.json();
                               if (refreshResponse.ok) {
                                 setSeoHealth(refreshData);
@@ -920,8 +943,8 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
                           seoHealth.overallScore >= 80
                             ? 'text-green-600'
                             : seoHealth.overallScore >= 60
-                            ? 'text-yellow-600'
-                            : 'text-red-600'
+                              ? 'text-yellow-600'
+                              : 'text-red-600'
                         }`}
                       >
                         {seoHealth.overallScore}
@@ -931,35 +954,56 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
 
                     {/* Individual Scores */}
                     <div className="flex flex-col items-center p-4 bg-blue-50 rounded-lg">
-                      <div className="text-2xl font-bold text-blue-600">{seoHealth.scores.technical}</div>
+                      <div className="text-2xl font-bold text-blue-600">
+                        {seoHealth.scores.technical}
+                      </div>
                       <div className="text-xs text-slate-500">Technical</div>
                     </div>
                     <div className="flex flex-col items-center p-4 bg-purple-50 rounded-lg">
-                      <div className="text-2xl font-bold text-purple-600">{seoHealth.scores.content}</div>
+                      <div className="text-2xl font-bold text-purple-600">
+                        {seoHealth.scores.content}
+                      </div>
                       <div className="text-xs text-slate-500">Content</div>
                     </div>
                     <div className="flex flex-col items-center p-4 bg-amber-50 rounded-lg">
-                      <div className="text-2xl font-bold text-amber-600">{seoHealth.scores.performance}</div>
+                      <div className="text-2xl font-bold text-amber-600">
+                        {seoHealth.scores.performance}
+                      </div>
                       <div className="text-xs text-slate-500">Performance</div>
                     </div>
                     <div className="flex flex-col items-center p-4 bg-green-50 rounded-lg">
-                      <div className="text-2xl font-bold text-green-600">{seoHealth.scores.coverage}%</div>
+                      <div className="text-2xl font-bold text-green-600">
+                        {seoHealth.scores.coverage}%
+                      </div>
                       <div className="text-xs text-slate-500">Coverage</div>
                     </div>
                   </div>
 
                   {/* Trends */}
-                  {(seoHealth.trends.scoreChange7d !== 0 || seoHealth.trends.clicksChange7d !== 0) && (
+                  {(seoHealth.trends.scoreChange7d !== 0 ||
+                    seoHealth.trends.clicksChange7d !== 0) && (
                     <div className="mt-4 pt-4 border-t border-slate-100">
                       <div className="flex gap-4 text-sm">
                         {seoHealth.trends.scoreChange7d !== 0 && (
-                          <span className={seoHealth.trends.scoreChange7d > 0 ? 'text-green-600' : 'text-red-600'}>
-                            {seoHealth.trends.scoreChange7d > 0 ? '+' : ''}{seoHealth.trends.scoreChange7d} score (7d)
+                          <span
+                            className={
+                              seoHealth.trends.scoreChange7d > 0 ? 'text-green-600' : 'text-red-600'
+                            }
+                          >
+                            {seoHealth.trends.scoreChange7d > 0 ? '+' : ''}
+                            {seoHealth.trends.scoreChange7d} score (7d)
                           </span>
                         )}
                         {seoHealth.trends.clicksChange7d !== 0 && (
-                          <span className={seoHealth.trends.clicksChange7d > 0 ? 'text-green-600' : 'text-red-600'}>
-                            {seoHealth.trends.clicksChange7d > 0 ? '+' : ''}{seoHealth.trends.clicksChange7d}% clicks (7d)
+                          <span
+                            className={
+                              seoHealth.trends.clicksChange7d > 0
+                                ? 'text-green-600'
+                                : 'text-red-600'
+                            }
+                          >
+                            {seoHealth.trends.clicksChange7d > 0 ? '+' : ''}
+                            {seoHealth.trends.clicksChange7d}% clicks (7d)
                           </span>
                         )}
                       </div>
@@ -976,15 +1020,21 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
                     <h3 className="text-md font-semibold text-slate-900 mb-4">Issues Found</h3>
                     <div className="grid grid-cols-3 gap-4 mb-4">
                       <div className="text-center p-3 bg-red-50 rounded-lg">
-                        <div className="text-2xl font-bold text-red-600">{seoHealth.issuesSummary.critical}</div>
+                        <div className="text-2xl font-bold text-red-600">
+                          {seoHealth.issuesSummary.critical}
+                        </div>
                         <div className="text-xs text-slate-500">Critical</div>
                       </div>
                       <div className="text-center p-3 bg-amber-50 rounded-lg">
-                        <div className="text-2xl font-bold text-amber-600">{seoHealth.issuesSummary.warning}</div>
+                        <div className="text-2xl font-bold text-amber-600">
+                          {seoHealth.issuesSummary.warning}
+                        </div>
                         <div className="text-xs text-slate-500">Warnings</div>
                       </div>
                       <div className="text-center p-3 bg-blue-50 rounded-lg">
-                        <div className="text-2xl font-bold text-blue-600">{seoHealth.issuesSummary.info}</div>
+                        <div className="text-2xl font-bold text-blue-600">
+                          {seoHealth.issuesSummary.info}
+                        </div>
                         <div className="text-xs text-slate-500">Info</div>
                       </div>
                     </div>
@@ -999,8 +1049,8 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
                               issue.type === 'critical'
                                 ? 'bg-red-50 border-red-200'
                                 : issue.type === 'warning'
-                                ? 'bg-amber-50 border-amber-200'
-                                : 'bg-blue-50 border-blue-200'
+                                  ? 'bg-amber-50 border-amber-200'
+                                  : 'bg-blue-50 border-blue-200'
                             }`}
                           >
                             <div className="flex items-start gap-2">
@@ -1009,14 +1059,20 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
                                   issue.type === 'critical'
                                     ? 'text-red-600'
                                     : issue.type === 'warning'
-                                    ? 'text-amber-600'
-                                    : 'text-blue-600'
+                                      ? 'text-amber-600'
+                                      : 'text-blue-600'
                                 }`}
                               >
-                                {issue.type === 'critical' ? '!' : issue.type === 'warning' ? '~' : 'i'}
+                                {issue.type === 'critical'
+                                  ? '!'
+                                  : issue.type === 'warning'
+                                    ? '~'
+                                    : 'i'}
                               </span>
                               <div className="flex-1">
-                                <div className="font-medium text-slate-900 text-sm">{issue.title}</div>
+                                <div className="font-medium text-slate-900 text-sm">
+                                  {issue.title}
+                                </div>
                                 <div className="text-xs text-slate-500">{issue.description}</div>
                               </div>
                               <div className="text-xs text-slate-400">
@@ -1033,19 +1089,29 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
                 {/* Recommendations Card */}
                 <Card>
                   <CardContent className="p-6">
-                    <h3 className="text-md font-semibold text-slate-900 mb-4">Top Recommendations</h3>
+                    <h3 className="text-md font-semibold text-slate-900 mb-4">
+                      Top Recommendations
+                    </h3>
                     {seoHealth.recommendations.length > 0 ? (
                       <div className="space-y-3">
                         {seoHealth.recommendations.map((rec, i) => (
-                          <div key={i} className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                          <div
+                            key={i}
+                            className="p-3 bg-slate-50 rounded-lg border border-slate-200"
+                          >
                             <div className="flex items-start justify-between gap-2">
                               <div className="flex-1">
-                                <div className="font-medium text-slate-900 text-sm">{rec.action}</div>
-                                <div className="text-xs text-slate-500 mt-1">{rec.expectedImpact}</div>
+                                <div className="font-medium text-slate-900 text-sm">
+                                  {rec.action}
+                                </div>
+                                <div className="text-xs text-slate-500 mt-1">
+                                  {rec.expectedImpact}
+                                </div>
                                 {rec.affectedPages.length > 0 && (
                                   <div className="text-xs text-slate-400 mt-1">
                                     Affects: {rec.affectedPages.slice(0, 3).join(', ')}
-                                    {rec.affectedPages.length > 3 && ` +${rec.affectedPages.length - 3} more`}
+                                    {rec.affectedPages.length > 3 &&
+                                      ` +${rec.affectedPages.length - 3} more`}
                                   </div>
                                 )}
                               </div>
@@ -1055,13 +1121,15 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
                                     rec.priority >= 80
                                       ? 'bg-red-100 text-red-800'
                                       : rec.priority >= 60
-                                      ? 'bg-amber-100 text-amber-800'
-                                      : 'bg-blue-100 text-blue-800'
+                                        ? 'bg-amber-100 text-amber-800'
+                                        : 'bg-blue-100 text-blue-800'
                                   }`}
                                 >
                                   Priority: {rec.priority}
                                 </span>
-                                <span className="text-xs text-green-600">+{rec.estimatedLift}% lift</span>
+                                <span className="text-xs text-green-600">
+                                  +{rec.estimatedLift}% lift
+                                </span>
                                 {rec.automatable && (
                                   <span className="text-xs text-sky-600">Auto-fixable</span>
                                 )}
@@ -1088,16 +1156,29 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
                       <thead>
                         <tr className="border-b border-slate-200">
                           <th className="text-left py-2 px-3 font-medium text-slate-700">Page</th>
-                          <th className="text-center py-2 px-3 font-medium text-slate-700">Overall</th>
-                          <th className="text-center py-2 px-3 font-medium text-slate-700">Technical</th>
-                          <th className="text-center py-2 px-3 font-medium text-slate-700">Content</th>
-                          <th className="text-center py-2 px-3 font-medium text-slate-700">Performance</th>
-                          <th className="text-center py-2 px-3 font-medium text-slate-700">Issues</th>
+                          <th className="text-center py-2 px-3 font-medium text-slate-700">
+                            Overall
+                          </th>
+                          <th className="text-center py-2 px-3 font-medium text-slate-700">
+                            Technical
+                          </th>
+                          <th className="text-center py-2 px-3 font-medium text-slate-700">
+                            Content
+                          </th>
+                          <th className="text-center py-2 px-3 font-medium text-slate-700">
+                            Performance
+                          </th>
+                          <th className="text-center py-2 px-3 font-medium text-slate-700">
+                            Issues
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
                         {seoHealth.pageScores.map((page) => (
-                          <tr key={page.pageId} className="border-b border-slate-100 hover:bg-slate-50">
+                          <tr
+                            key={page.pageId}
+                            className="border-b border-slate-100 hover:bg-slate-50"
+                          >
                             <td className="py-2 px-3">
                               <div className="font-medium text-slate-900">{page.title}</div>
                               <div className="text-xs text-slate-400">{page.url}</div>
@@ -1108,16 +1189,22 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
                                   page.scores.overall >= 80
                                     ? 'bg-green-100 text-green-800'
                                     : page.scores.overall >= 60
-                                    ? 'bg-yellow-100 text-yellow-800'
-                                    : 'bg-red-100 text-red-800'
+                                      ? 'bg-yellow-100 text-yellow-800'
+                                      : 'bg-red-100 text-red-800'
                                 }`}
                               >
                                 {page.scores.overall}
                               </span>
                             </td>
-                            <td className="text-center py-2 px-3 text-slate-600">{page.scores.technical}</td>
-                            <td className="text-center py-2 px-3 text-slate-600">{page.scores.content}</td>
-                            <td className="text-center py-2 px-3 text-slate-600">{page.scores.performance}</td>
+                            <td className="text-center py-2 px-3 text-slate-600">
+                              {page.scores.technical}
+                            </td>
+                            <td className="text-center py-2 px-3 text-slate-600">
+                              {page.scores.content}
+                            </td>
+                            <td className="text-center py-2 px-3 text-slate-600">
+                              {page.scores.performance}
+                            </td>
                             <td className="text-center py-2 px-3">
                               {page.issues.length > 0 ? (
                                 <span className="text-xs px-2 py-0.5 bg-amber-100 text-amber-800 rounded">
@@ -1142,10 +1229,12 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
                     <div className="flex items-center gap-3">
                       <span className="text-2xl">&#9888;</span>
                       <div>
-                        <h4 className="font-medium text-amber-900">Google Search Console Not Connected</h4>
+                        <h4 className="font-medium text-amber-900">
+                          Google Search Console Not Connected
+                        </h4>
                         <p className="text-sm text-amber-700">
-                          Connect GSC to get real performance data (clicks, impressions, CTR, position).
-                          Currently using estimated performance scores.
+                          Connect GSC to get real performance data (clicks, impressions, CTR,
+                          position). Currently using estimated performance scores.
                         </p>
                       </div>
                     </div>
@@ -1157,7 +1246,9 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
             <Card>
               <CardContent className="p-8 text-center">
                 <div className="text-4xl mb-4">&#128202;</div>
-                <h3 className="text-lg font-medium text-slate-900">SEO Health Data Not Available</h3>
+                <h3 className="text-lg font-medium text-slate-900">
+                  SEO Health Data Not Available
+                </h3>
                 <p className="text-slate-500 mt-1 mb-4">
                   Run an SEO audit to analyze your site&apos;s search optimization
                 </p>
@@ -1242,7 +1333,9 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
                 <dl className="space-y-3">
                   <div className="flex justify-between">
                     <dt className="text-slate-500">Measurement ID</dt>
-                    <dd className="font-mono font-medium text-green-600">{site.seoConfig.gaMeasurementId}</dd>
+                    <dd className="font-mono font-medium text-green-600">
+                      {site.seoConfig.gaMeasurementId}
+                    </dd>
                   </div>
                   {site.seoConfig.ga4PropertyId && (
                     <div className="flex justify-between">
@@ -1314,7 +1407,8 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
                     <dt className="text-slate-500">Fonts</dt>
                     <dd className="font-medium">
                       {site.brand.headingFont}
-                      {site.brand.bodyFont !== site.brand.headingFont && ` / ${site.brand.bodyFont}`}
+                      {site.brand.bodyFont !== site.brand.headingFont &&
+                        ` / ${site.brand.bodyFont}`}
                     </dd>
                   </div>
                   {site.brand.isAutoGenerated && (
@@ -1347,14 +1441,17 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
                       {site.brand.tagline && (
                         <div>
                           <dt className="text-slate-500 mb-1">Tagline</dt>
-                          <dd className="font-medium italic text-slate-700">&ldquo;{site.brand.tagline}&rdquo;</dd>
+                          <dd className="font-medium italic text-slate-700">
+                            &ldquo;{site.brand.tagline}&rdquo;
+                          </dd>
                         </div>
                       )}
                       <div className="flex justify-between">
                         <dt className="text-slate-500">Typography</dt>
                         <dd className="font-medium">
                           {site.brand.headingFont}
-                          {site.brand.bodyFont !== site.brand.headingFont && ` / ${site.brand.bodyFont}`}
+                          {site.brand.bodyFont !== site.brand.headingFont &&
+                            ` / ${site.brand.bodyFont}`}
                         </dd>
                       </div>
                     </dl>
@@ -1396,18 +1493,22 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
               <CardContent className="p-6">
                 <h3 className="text-md font-semibold text-slate-900 mb-4">Tone of Voice</h3>
                 <div className="space-y-4">
-                  {site.seoConfig.toneOfVoice.personality && site.seoConfig.toneOfVoice.personality.length > 0 && (
-                    <div>
-                      <dt className="text-slate-500 text-sm mb-2">Personality Traits</dt>
-                      <div className="flex flex-wrap gap-2">
-                        {site.seoConfig.toneOfVoice.personality.map((trait, i) => (
-                          <span key={i} className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm">
-                            {trait}
-                          </span>
-                        ))}
+                  {site.seoConfig.toneOfVoice.personality &&
+                    site.seoConfig.toneOfVoice.personality.length > 0 && (
+                      <div>
+                        <dt className="text-slate-500 text-sm mb-2">Personality Traits</dt>
+                        <div className="flex flex-wrap gap-2">
+                          {site.seoConfig.toneOfVoice.personality.map((trait, i) => (
+                            <span
+                              key={i}
+                              className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm"
+                            >
+                              {trait}
+                            </span>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
                   {site.seoConfig.toneOfVoice.writingStyle && (
                     <div>
                       <dt className="text-slate-500 text-sm mb-1">Writing Style</dt>
@@ -1415,32 +1516,34 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
                     </div>
                   )}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {site.seoConfig.toneOfVoice.doList && site.seoConfig.toneOfVoice.doList.length > 0 && (
-                      <div>
-                        <dt className="text-green-700 text-sm font-medium mb-2">Do</dt>
-                        <ul className="space-y-1">
-                          {site.seoConfig.toneOfVoice.doList.map((item, i) => (
-                            <li key={i} className="text-sm text-slate-600 flex items-start gap-2">
-                              <span className="text-green-500 mt-0.5">+</span>
-                              {item}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                    {site.seoConfig.toneOfVoice.dontList && site.seoConfig.toneOfVoice.dontList.length > 0 && (
-                      <div>
-                        <dt className="text-red-700 text-sm font-medium mb-2">Don&apos;t</dt>
-                        <ul className="space-y-1">
-                          {site.seoConfig.toneOfVoice.dontList.map((item, i) => (
-                            <li key={i} className="text-sm text-slate-600 flex items-start gap-2">
-                              <span className="text-red-500 mt-0.5">-</span>
-                              {item}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
+                    {site.seoConfig.toneOfVoice.doList &&
+                      site.seoConfig.toneOfVoice.doList.length > 0 && (
+                        <div>
+                          <dt className="text-green-700 text-sm font-medium mb-2">Do</dt>
+                          <ul className="space-y-1">
+                            {site.seoConfig.toneOfVoice.doList.map((item, i) => (
+                              <li key={i} className="text-sm text-slate-600 flex items-start gap-2">
+                                <span className="text-green-500 mt-0.5">+</span>
+                                {item}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    {site.seoConfig.toneOfVoice.dontList &&
+                      site.seoConfig.toneOfVoice.dontList.length > 0 && (
+                        <div>
+                          <dt className="text-red-700 text-sm font-medium mb-2">Don&apos;t</dt>
+                          <ul className="space-y-1">
+                            {site.seoConfig.toneOfVoice.dontList.map((item, i) => (
+                              <li key={i} className="text-sm text-slate-600 flex items-start gap-2">
+                                <span className="text-red-500 mt-0.5">-</span>
+                                {item}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                   </div>
                 </div>
               </CardContent>
@@ -1471,31 +1574,36 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
                       <dd className="text-slate-700">{site.seoConfig.brandStory.targetAudience}</dd>
                     </div>
                   )}
-                  {site.seoConfig.brandStory.values && site.seoConfig.brandStory.values.length > 0 && (
-                    <div>
-                      <dt className="text-slate-500 text-sm mb-2">Core Values</dt>
-                      <div className="flex flex-wrap gap-2">
-                        {site.seoConfig.brandStory.values.map((value, i) => (
-                          <span key={i} className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
-                            {value}
-                          </span>
-                        ))}
+                  {site.seoConfig.brandStory.values &&
+                    site.seoConfig.brandStory.values.length > 0 && (
+                      <div>
+                        <dt className="text-slate-500 text-sm mb-2">Core Values</dt>
+                        <div className="flex flex-wrap gap-2">
+                          {site.seoConfig.brandStory.values.map((value, i) => (
+                            <span
+                              key={i}
+                              className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm"
+                            >
+                              {value}
+                            </span>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
-                  {site.seoConfig.brandStory.uniqueSellingPoints && site.seoConfig.brandStory.uniqueSellingPoints.length > 0 && (
-                    <div>
-                      <dt className="text-slate-500 text-sm mb-2">Unique Selling Points</dt>
-                      <ul className="space-y-1">
-                        {site.seoConfig.brandStory.uniqueSellingPoints.map((usp, i) => (
-                          <li key={i} className="text-sm text-slate-700 flex items-start gap-2">
-                            <span className="text-sky-500 mt-0.5">*</span>
-                            {usp}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
+                    )}
+                  {site.seoConfig.brandStory.uniqueSellingPoints &&
+                    site.seoConfig.brandStory.uniqueSellingPoints.length > 0 && (
+                      <div>
+                        <dt className="text-slate-500 text-sm mb-2">Unique Selling Points</dt>
+                        <ul className="space-y-1">
+                          {site.seoConfig.brandStory.uniqueSellingPoints.map((usp, i) => (
+                            <li key={i} className="text-sm text-slate-700 flex items-start gap-2">
+                              <span className="text-sky-500 mt-0.5">*</span>
+                              {usp}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                 </div>
               </CardContent>
             </Card>
@@ -1507,56 +1615,66 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
               <CardContent className="p-6">
                 <h3 className="text-md font-semibold text-slate-900 mb-4">Trust Signals</h3>
                 <div className="space-y-4">
-                  {site.seoConfig.trustSignals.expertise && site.seoConfig.trustSignals.expertise.length > 0 && (
-                    <div>
-                      <dt className="text-slate-500 text-sm mb-2">Areas of Expertise</dt>
-                      <div className="flex flex-wrap gap-2">
-                        {site.seoConfig.trustSignals.expertise.map((exp, i) => (
-                          <span key={i} className="px-3 py-1 bg-amber-100 text-amber-800 rounded-full text-sm">
-                            {exp}
-                          </span>
-                        ))}
+                  {site.seoConfig.trustSignals.expertise &&
+                    site.seoConfig.trustSignals.expertise.length > 0 && (
+                      <div>
+                        <dt className="text-slate-500 text-sm mb-2">Areas of Expertise</dt>
+                        <div className="flex flex-wrap gap-2">
+                          {site.seoConfig.trustSignals.expertise.map((exp, i) => (
+                            <span
+                              key={i}
+                              className="px-3 py-1 bg-amber-100 text-amber-800 rounded-full text-sm"
+                            >
+                              {exp}
+                            </span>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
-                  {site.seoConfig.trustSignals.valuePropositions && site.seoConfig.trustSignals.valuePropositions.length > 0 && (
-                    <div>
-                      <dt className="text-slate-500 text-sm mb-2">Value Propositions</dt>
-                      <ul className="space-y-1">
-                        {site.seoConfig.trustSignals.valuePropositions.map((prop, i) => (
-                          <li key={i} className="text-sm text-slate-700 flex items-start gap-2">
-                            <span className="text-green-500 mt-0.5">+</span>
-                            {prop}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  {site.seoConfig.trustSignals.guarantees && site.seoConfig.trustSignals.guarantees.length > 0 && (
-                    <div>
-                      <dt className="text-slate-500 text-sm mb-2">Guarantees</dt>
-                      <ul className="space-y-1">
-                        {site.seoConfig.trustSignals.guarantees.map((guarantee, i) => (
-                          <li key={i} className="text-sm text-slate-700 flex items-start gap-2">
-                            <span className="text-sky-500 mt-0.5">~</span>
-                            {guarantee}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  {site.seoConfig.trustSignals.certifications && site.seoConfig.trustSignals.certifications.length > 0 && (
-                    <div>
-                      <dt className="text-slate-500 text-sm mb-2">Certifications</dt>
-                      <div className="flex flex-wrap gap-2">
-                        {site.seoConfig.trustSignals.certifications.map((cert, i) => (
-                          <span key={i} className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">
-                            {cert}
-                          </span>
-                        ))}
+                    )}
+                  {site.seoConfig.trustSignals.valuePropositions &&
+                    site.seoConfig.trustSignals.valuePropositions.length > 0 && (
+                      <div>
+                        <dt className="text-slate-500 text-sm mb-2">Value Propositions</dt>
+                        <ul className="space-y-1">
+                          {site.seoConfig.trustSignals.valuePropositions.map((prop, i) => (
+                            <li key={i} className="text-sm text-slate-700 flex items-start gap-2">
+                              <span className="text-green-500 mt-0.5">+</span>
+                              {prop}
+                            </li>
+                          ))}
+                        </ul>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  {site.seoConfig.trustSignals.guarantees &&
+                    site.seoConfig.trustSignals.guarantees.length > 0 && (
+                      <div>
+                        <dt className="text-slate-500 text-sm mb-2">Guarantees</dt>
+                        <ul className="space-y-1">
+                          {site.seoConfig.trustSignals.guarantees.map((guarantee, i) => (
+                            <li key={i} className="text-sm text-slate-700 flex items-start gap-2">
+                              <span className="text-sky-500 mt-0.5">~</span>
+                              {guarantee}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  {site.seoConfig.trustSignals.certifications &&
+                    site.seoConfig.trustSignals.certifications.length > 0 && (
+                      <div>
+                        <dt className="text-slate-500 text-sm mb-2">Certifications</dt>
+                        <div className="flex flex-wrap gap-2">
+                          {site.seoConfig.trustSignals.certifications.map((cert, i) => (
+                            <span
+                              key={i}
+                              className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm"
+                            >
+                              {cert}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                 </div>
               </CardContent>
             </Card>
@@ -1568,63 +1686,79 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
               <CardContent className="p-6">
                 <h3 className="text-md font-semibold text-slate-900 mb-4">Content Guidelines</h3>
                 <div className="space-y-4">
-                  {site.seoConfig.contentGuidelines.keyThemes && site.seoConfig.contentGuidelines.keyThemes.length > 0 && (
-                    <div>
-                      <dt className="text-slate-500 text-sm mb-2">Key Themes</dt>
-                      <div className="flex flex-wrap gap-2">
-                        {site.seoConfig.contentGuidelines.keyThemes.map((theme, i) => (
-                          <span key={i} className="px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-sm">
-                            {theme}
-                          </span>
-                        ))}
+                  {site.seoConfig.contentGuidelines.keyThemes &&
+                    site.seoConfig.contentGuidelines.keyThemes.length > 0 && (
+                      <div>
+                        <dt className="text-slate-500 text-sm mb-2">Key Themes</dt>
+                        <div className="flex flex-wrap gap-2">
+                          {site.seoConfig.contentGuidelines.keyThemes.map((theme, i) => (
+                            <span
+                              key={i}
+                              className="px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-sm"
+                            >
+                              {theme}
+                            </span>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
-                  {site.seoConfig.contentGuidelines.contentPillars && site.seoConfig.contentGuidelines.contentPillars.length > 0 && (
-                    <div>
-                      <dt className="text-slate-500 text-sm mb-2">Content Pillars</dt>
-                      <ul className="space-y-1">
-                        {site.seoConfig.contentGuidelines.contentPillars.map((pillar, i) => (
-                          <li key={i} className="text-sm text-slate-700 flex items-start gap-2">
-                            <span className="text-indigo-500 mt-0.5">▸</span>
-                            {pillar}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  {site.seoConfig.contentGuidelines.semanticKeywords && site.seoConfig.contentGuidelines.semanticKeywords.length > 0 && (
-                    <div>
-                      <dt className="text-slate-500 text-sm mb-2">Semantic Keywords</dt>
-                      <div className="flex flex-wrap gap-2">
-                        {site.seoConfig.contentGuidelines.semanticKeywords.map((keyword, i) => (
-                          <span key={i} className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded text-xs">
-                            {keyword}
-                          </span>
-                        ))}
+                    )}
+                  {site.seoConfig.contentGuidelines.contentPillars &&
+                    site.seoConfig.contentGuidelines.contentPillars.length > 0 && (
+                      <div>
+                        <dt className="text-slate-500 text-sm mb-2">Content Pillars</dt>
+                        <ul className="space-y-1">
+                          {site.seoConfig.contentGuidelines.contentPillars.map((pillar, i) => (
+                            <li key={i} className="text-sm text-slate-700 flex items-start gap-2">
+                              <span className="text-indigo-500 mt-0.5">▸</span>
+                              {pillar}
+                            </li>
+                          ))}
+                        </ul>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  {site.seoConfig.contentGuidelines.semanticKeywords &&
+                    site.seoConfig.contentGuidelines.semanticKeywords.length > 0 && (
+                      <div>
+                        <dt className="text-slate-500 text-sm mb-2">Semantic Keywords</dt>
+                        <div className="flex flex-wrap gap-2">
+                          {site.seoConfig.contentGuidelines.semanticKeywords.map((keyword, i) => (
+                            <span
+                              key={i}
+                              className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded text-xs"
+                            >
+                              {keyword}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                 </div>
               </CardContent>
             </Card>
           )}
 
           {/* No brand identity message */}
-          {!site.seoConfig?.toneOfVoice && !site.seoConfig?.brandStory && !site.seoConfig?.trustSignals && !site.seoConfig?.contentGuidelines && (
-            <Card>
-              <CardContent className="p-8 text-center">
-                <div className="text-4xl mb-4">🎨</div>
-                <h3 className="text-lg font-medium text-slate-900">No Brand Identity Generated</h3>
-                <p className="text-slate-500 mt-1 mb-4">
-                  Brand identity (tone of voice, brand story, trust signals) hasn&apos;t been generated yet.
-                </p>
-                <p className="text-sm text-slate-400">
-                  Go to the Sites page and click &quot;Generate Brand Identity&quot; to create brand guidelines for content generation.
-                </p>
-              </CardContent>
-            </Card>
-          )}
+          {!site.seoConfig?.toneOfVoice &&
+            !site.seoConfig?.brandStory &&
+            !site.seoConfig?.trustSignals &&
+            !site.seoConfig?.contentGuidelines && (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <div className="text-4xl mb-4">🎨</div>
+                  <h3 className="text-lg font-medium text-slate-900">
+                    No Brand Identity Generated
+                  </h3>
+                  <p className="text-slate-500 mt-1 mb-4">
+                    Brand identity (tone of voice, brand story, trust signals) hasn&apos;t been
+                    generated yet.
+                  </p>
+                  <p className="text-sm text-slate-400">
+                    Go to the Sites page and click &quot;Generate Brand Identity&quot; to create
+                    brand guidelines for content generation.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
         </div>
       )}
 
@@ -1635,13 +1769,18 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
             <div>
               <h2 className="text-lg font-semibold text-slate-900">Homepage Configuration</h2>
               <p className="text-sm text-slate-500">
-                These settings control what appears on the site&apos;s homepage, including the hero section, popular experiences query, and featured destinations.
+                These settings control what appears on the site&apos;s homepage, including the hero
+                section, popular experiences query, and featured destinations.
               </p>
             </div>
             {site.homepageConfig && (
               <button
                 onClick={async () => {
-                  if (!confirm('This will regenerate the homepage configuration using AI. Existing configuration will be replaced. Continue?')) {
+                  if (
+                    !confirm(
+                      'This will regenerate the homepage configuration using AI. Existing configuration will be replaced. Continue?'
+                    )
+                  ) {
                     return;
                   }
                   setGeneratingHomepageConfig(true);
@@ -1699,7 +1838,9 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
                     {site.homepageConfig.hero?.title && (
                       <div>
                         <dt className="text-slate-500 text-sm">Title</dt>
-                        <dd className="font-medium text-slate-900 text-lg">{site.homepageConfig.hero.title}</dd>
+                        <dd className="font-medium text-slate-900 text-lg">
+                          {site.homepageConfig.hero.title}
+                        </dd>
                       </div>
                     )}
                     {site.homepageConfig.hero?.subtitle && (
@@ -1727,21 +1868,28 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
               {/* Popular Experiences Query */}
               <Card>
                 <CardContent className="p-6">
-                  <h3 className="text-md font-semibold text-slate-900 mb-4">Popular Experiences Query</h3>
+                  <h3 className="text-md font-semibold text-slate-900 mb-4">
+                    Popular Experiences Query
+                  </h3>
                   <p className="text-sm text-slate-500 mb-4">
-                    These parameters are passed to the Holibob API to fetch relevant experiences for this site.
+                    These parameters are passed to the Holibob API to fetch relevant experiences for
+                    this site.
                   </p>
                   <dl className="space-y-3">
                     {site.homepageConfig.popularExperiences?.title && (
                       <div className="flex justify-between">
                         <dt className="text-slate-500">Section Title</dt>
-                        <dd className="font-medium">{site.homepageConfig.popularExperiences.title}</dd>
+                        <dd className="font-medium">
+                          {site.homepageConfig.popularExperiences.title}
+                        </dd>
                       </div>
                     )}
                     {site.homepageConfig.popularExperiences?.subtitle && (
                       <div className="flex justify-between">
                         <dt className="text-slate-500">Section Subtitle</dt>
-                        <dd className="font-medium text-right max-w-[300px]">{site.homepageConfig.popularExperiences.subtitle}</dd>
+                        <dd className="font-medium text-right max-w-[300px]">
+                          {site.homepageConfig.popularExperiences.subtitle}
+                        </dd>
                       </div>
                     )}
                     {site.homepageConfig.popularExperiences?.destination && (
@@ -1764,18 +1912,22 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
                         </dd>
                       </div>
                     )}
-                    {site.homepageConfig.popularExperiences?.searchTerms && site.homepageConfig.popularExperiences.searchTerms.length > 0 && (
-                      <div>
-                        <dt className="text-slate-500 mb-2">Search Terms</dt>
-                        <dd className="flex flex-wrap gap-2">
-                          {site.homepageConfig.popularExperiences.searchTerms.map((term, i) => (
-                            <span key={i} className="px-2 py-1 bg-slate-100 text-slate-700 rounded text-sm">
-                              {term}
-                            </span>
-                          ))}
-                        </dd>
-                      </div>
-                    )}
+                    {site.homepageConfig.popularExperiences?.searchTerms &&
+                      site.homepageConfig.popularExperiences.searchTerms.length > 0 && (
+                        <div>
+                          <dt className="text-slate-500 mb-2">Search Terms</dt>
+                          <dd className="flex flex-wrap gap-2">
+                            {site.homepageConfig.popularExperiences.searchTerms.map((term, i) => (
+                              <span
+                                key={i}
+                                className="px-2 py-1 bg-slate-100 text-slate-700 rounded text-sm"
+                              >
+                                {term}
+                              </span>
+                            ))}
+                          </dd>
+                        </div>
+                      )}
                   </dl>
                 </CardContent>
               </Card>
@@ -1784,9 +1936,12 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
               {site.homepageConfig.destinations && site.homepageConfig.destinations.length > 0 && (
                 <Card>
                   <CardContent className="p-6">
-                    <h3 className="text-md font-semibold text-slate-900 mb-4">Featured Destinations</h3>
+                    <h3 className="text-md font-semibold text-slate-900 mb-4">
+                      Featured Destinations
+                    </h3>
                     <p className="text-sm text-slate-500 mb-4">
-                      Destinations shown on the homepage for users to browse experiences by location.
+                      Destinations shown on the homepage for users to browse experiences by
+                      location.
                     </p>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       {site.homepageConfig.destinations.map((dest, i) => (
@@ -1816,13 +1971,19 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
                             {[...Array(5)].map((_, starIdx) => (
                               <span
                                 key={starIdx}
-                                className={starIdx < testimonial.rating ? 'text-yellow-400' : 'text-slate-200'}
+                                className={
+                                  starIdx < testimonial.rating
+                                    ? 'text-yellow-400'
+                                    : 'text-slate-200'
+                                }
                               >
                                 *
                               </span>
                             ))}
                           </div>
-                          <p className="text-slate-700 italic mb-2">&ldquo;{testimonial.text}&rdquo;</p>
+                          <p className="text-slate-700 italic mb-2">
+                            &ldquo;{testimonial.text}&rdquo;
+                          </p>
                           <div className="flex items-center gap-2">
                             <span className="font-medium text-slate-900">{testimonial.name}</span>
                             <span className="text-slate-400">-</span>
@@ -1841,7 +2002,8 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
                 <div className="text-4xl mb-4">🏠</div>
                 <h3 className="text-lg font-medium text-slate-900">No Homepage Configuration</h3>
                 <p className="text-slate-500 mt-1 mb-4">
-                  Homepage configuration hasn&apos;t been generated yet. This will be created automatically when the site is created, or you can generate it now using AI.
+                  Homepage configuration hasn&apos;t been generated yet. This will be created
+                  automatically when the site is created, or you can generate it now using AI.
                 </p>
                 <button
                   onClick={async () => {
@@ -1934,12 +2096,16 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
                 <div>
                   <h3 className="font-medium text-slate-900">{site.suggestedDomain}</h3>
                   <p className="text-sm text-slate-500">
-                    {site.primaryDomain ? 'Primary domain' : 'Suggested domain (not yet registered)'}
+                    {site.primaryDomain
+                      ? 'Primary domain'
+                      : 'Suggested domain (not yet registered)'}
                   </p>
                 </div>
                 <span
                   className={`text-xs px-2 py-1 rounded ${
-                    site.primaryDomain ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'
+                    site.primaryDomain
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-amber-100 text-amber-800'
                   }`}
                 >
                   {site.primaryDomain ? 'Active' : 'Pending'}

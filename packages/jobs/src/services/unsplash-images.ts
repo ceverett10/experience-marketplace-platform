@@ -200,7 +200,10 @@ export class UnsplashImageService {
     const queryVariants: string[] = [];
 
     // 1. Most specific: destination + parent location + travel
-    if (context?.location && !destinationName.toLowerCase().includes(context.location.toLowerCase())) {
+    if (
+      context?.location &&
+      !destinationName.toLowerCase().includes(context.location.toLowerCase())
+    ) {
       queryVariants.push(`${destinationName} ${context.location} travel`);
     }
 
@@ -232,7 +235,9 @@ export class UnsplashImageService {
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
 
-    console.log(`[Unsplash] No images found for destination: ${destinationName} (tried ${queryVariants.length} queries)`);
+    console.log(
+      `[Unsplash] No images found for destination: ${destinationName} (tried ${queryVariants.length} queries)`
+    );
     return null;
   }
 
@@ -454,7 +459,9 @@ export async function enrichHomepageConfigWithImages(
     // Fetch hero image if not already set
     let enrichedHero = config.hero;
     if (config.hero && !config.hero.backgroundImage) {
-      console.log(`[Unsplash] Fetching hero background image for niche: ${context?.niche}, location: ${context?.location}`);
+      console.log(
+        `[Unsplash] Fetching hero background image for niche: ${context?.niche}, location: ${context?.location}`
+      );
 
       // Build a search query for the hero image based on niche and location
       const heroQuery = buildHeroImageQuery(context?.niche, context?.location);
@@ -481,7 +488,8 @@ export async function enrichHomepageConfigWithImages(
     console.log(`[Unsplash] Enriching ${items.length} items with images (with attribution)`);
 
     // Batch fetch images for destinations and categories
-    const imageResults = items.length > 0 ? await service.batchGetImages(items, context) : new Map();
+    const imageResults =
+      items.length > 0 ? await service.batchGetImages(items, context) : new Map();
 
     // Enrich destinations with images AND attribution
     const enrichedDestinations = config.destinations?.map((dest) => {
@@ -557,7 +565,7 @@ function buildHeroImageQuery(niche?: string, location?: string): string {
       'walking tours': 'city street architecture',
       'cultural tours': 'cultural heritage landmark',
       'boat tours': 'waterfront harbor boats',
-      'tours': 'travel destination scenic',
+      tours: 'travel destination scenic',
     };
     const nicheLower = niche.toLowerCase();
     const nicheQuery = nicheTerms[nicheLower] || niche;

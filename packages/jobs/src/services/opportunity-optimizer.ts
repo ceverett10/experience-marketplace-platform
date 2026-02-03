@@ -187,7 +187,14 @@ export async function runRecursiveOptimization(
   const iterations: IterationResult[] = [];
   const improvementHistory: number[] = [];
   const apiCost: ApiCostBreakdown = {
-    anthropic: { sonnetCalls: 0, sonnetTokens: 0, sonnetCost: 0, haikuCalls: 0, haikuTokens: 0, haikuCost: 0 },
+    anthropic: {
+      sonnetCalls: 0,
+      sonnetTokens: 0,
+      sonnetCost: 0,
+      haikuCalls: 0,
+      haikuTokens: 0,
+      haikuCost: 0,
+    },
     dataForSeo: { searchVolumeCalls: 0, searchVolumeCost: 0, serpCalls: 0, serpCost: 0 },
     totalCost: 0,
   };
@@ -196,7 +203,11 @@ export async function runRecursiveOptimization(
 
   // Sample Holibob inventory once (used for all iterations)
   const inventorySample = await sampleHolibobInventory(holibobClient);
-  console.log('[Optimizer] Sampled Holibob inventory:', inventorySample.destinations.length, 'destinations');
+  console.log(
+    '[Optimizer] Sampled Holibob inventory:',
+    inventorySample.destinations.length,
+    'destinations'
+  );
 
   let previousLearnings: IterationLearnings | null = null;
 
@@ -206,7 +217,9 @@ export async function runRecursiveOptimization(
       finalConfig.initialSuggestionsCount * Math.pow(finalConfig.narrowingFactor, i - 1)
     );
 
-    console.log(`[Optimizer] === ITERATION ${i}/${finalConfig.maxIterations} (${suggestionsCount} suggestions) ===`);
+    console.log(
+      `[Optimizer] === ITERATION ${i}/${finalConfig.maxIterations} (${suggestionsCount} suggestions) ===`
+    );
 
     try {
       // Step 1: Generate suggestions (with learning context for iterations 2+)
@@ -321,7 +334,7 @@ async function generateRefinedSuggestions(
     console.log(`[Optimizer] Using ${seeds.length} pre-generated seeds for iteration 1`);
 
     // Convert seeds to OpportunitySuggestion format
-    const seedSuggestions: OpportunitySuggestion[] = seeds.map(seed => ({
+    const seedSuggestions: OpportunitySuggestion[] = seeds.map((seed) => ({
       id: uuidv4(),
       destination: seed.destination || 'Global', // Generic/demographic/occasion have no specific destination
       category: seed.category,
@@ -362,12 +375,14 @@ async function generateRefinedSuggestions(
       modeIndex++;
 
       // Safety check: if all modes exhausted, break
-      if (Array.from(seedsByMode.values()).every(arr => arr.length === 0)) {
+      if (Array.from(seedsByMode.values()).every((arr) => arr.length === 0)) {
         break;
       }
     }
 
-    console.log(`[Optimizer] Selected ${selectedSeeds.length} diverse seeds across ${new Set(selectedSeeds.map(s => s.scanMode)).size} modes`);
+    console.log(
+      `[Optimizer] Selected ${selectedSeeds.length} diverse seeds across ${new Set(selectedSeeds.map((s) => s.scanMode)).size} modes`
+    );
     return selectedSeeds;
   }
 
@@ -377,7 +392,13 @@ async function generateRefinedSuggestions(
     timeout: 120000,
   });
 
-  const prompt = buildIterationPrompt(iterationNumber, previousLearnings, suggestionsCount, inventorySample, seeds);
+  const prompt = buildIterationPrompt(
+    iterationNumber,
+    previousLearnings,
+    suggestionsCount,
+    inventorySample,
+    seeds
+  );
 
   const response = await anthropicBreaker.execute(async () => {
     return await fetch('https://api.anthropic.com/v1/messages', {
@@ -400,13 +421,17 @@ async function generateRefinedSuggestions(
     throw new Error(`Anthropic API error: ${JSON.stringify(errorData)}`);
   }
 
-  const data = (await response.json()) as { content: Array<{ text: string }>; usage?: { input_tokens: number; output_tokens: number } };
+  const data = (await response.json()) as {
+    content: Array<{ text: string }>;
+    usage?: { input_tokens: number; output_tokens: number };
+  };
 
   // Track API cost
   apiCost.anthropic.sonnetCalls++;
   if (data.usage) {
     apiCost.anthropic.sonnetTokens += data.usage.input_tokens + data.usage.output_tokens;
-    apiCost.anthropic.sonnetCost += (data.usage.input_tokens * 0.003 + data.usage.output_tokens * 0.015) / 1000;
+    apiCost.anthropic.sonnetCost +=
+      (data.usage.input_tokens * 0.003 + data.usage.output_tokens * 0.015) / 1000;
   }
 
   if (!data.content?.[0]?.text) {
@@ -447,15 +472,22 @@ function buildIterationPrompt(
 ): string {
   if (iterationNumber === 1 || !previousLearnings) {
     // First iteration: Show seed context if seeds were used
-    const seedContext = seeds && seeds.length > 0 ? `
+    const seedContext =
+      seeds && seeds.length > 0
+        ? `
 ## Seed Opportunities Generated
 The initial iteration used ${seeds.length} pre-generated seeds from multi-mode scanning:
 
 ### Scan Modes Represented:
-${Array.from(new Set(seeds.map(s => s.scanMode))).map(mode => {
-  const modeSeeds = seeds.filter(s => s.scanMode === mode);
-  return `- **${mode}** (${modeSeeds.length} seeds): ${modeSeeds.slice(0, 2).map(s => s.keyword).join(', ')}${modeSeeds.length > 2 ? '...' : ''}`;
-}).join('\n')}
+${Array.from(new Set(seeds.map((s) => s.scanMode)))
+  .map((mode) => {
+    const modeSeeds = seeds.filter((s) => s.scanMode === mode);
+    return `- **${mode}** (${modeSeeds.length} seeds): ${modeSeeds
+      .slice(0, 2)
+      .map((s) => s.keyword)
+      .join(', ')}${modeSeeds.length > 2 ? '...' : ''}`;
+  })
+  .join('\n')}
 
 These seeds provide diverse starting points:
 - **hyper_local**: City-specific experiences (e.g., "london food tours")
@@ -466,7 +498,8 @@ These seeds provide diverse starting points:
 - **regional**: Multi-destination (e.g., "european city breaks")
 
 The seeds have been validated against inventory and will now be refined through recursive optimization.
-` : '';
+`
+        : '';
 
     // First iteration: Broad discovery
     return `You are a strategic advisor for an experience marketplace platform following the TravelAI micro-segmentation strategy (441% growth through 470+ niche sites).
@@ -508,11 +541,16 @@ Return ONLY valid JSON array:
 ${previousLearnings.metricsSummary}
 
 ## Top Performers from Previous Iterations
-${previousLearnings.topPerformers.slice(0, 5).map((t, i) => `
+${previousLearnings.topPerformers
+  .slice(0, 5)
+  .map(
+    (t, i) => `
 ${i + 1}. "${t.suggestion.keyword}" (Score: ${t.priorityScore})
    - Volume: ${t.dataForSeo.searchVolume}/mo | Difficulty: ${t.dataForSeo.difficulty} | CPC: $${t.dataForSeo.cpc.toFixed(2)}
    - Trend: ${t.dataForSeo.trend} | Products: ${t.holibobInventory.productCount}
-`).join('')}
+`
+  )
+  .join('')}
 
 ## Successful Patterns
 ${previousLearnings.patterns.highScorePatterns.join('\n')}
@@ -539,21 +577,31 @@ Return ONLY valid JSON array with the same structure as before, but with higher 
 
 ## Previous Results
 ### TOP PERFORMERS (learn from these)
-${previousLearnings.topPerformers.slice(0, 5).map((t) => `
+${previousLearnings.topPerformers
+  .slice(0, 5)
+  .map(
+    (t) => `
 - "${t.suggestion.keyword}" (Score: ${t.priorityScore})
   - Search Volume: ${t.dataForSeo.searchVolume}/mo
   - Difficulty: ${t.dataForSeo.difficulty}/100
   - CPC: $${t.dataForSeo.cpc.toFixed(2)}
   - Trend: ${t.dataForSeo.trend}
   - Why it worked: ${t.suggestion.rationale}
-`).join('')}
+`
+  )
+  .join('')}
 
 ### BOTTOM PERFORMERS (avoid these patterns)
-${previousLearnings.bottomPerformers.slice(0, 5).map((b) => `
+${previousLearnings.bottomPerformers
+  .slice(0, 5)
+  .map(
+    (b) => `
 - "${b.suggestion.keyword}" (Score: ${b.priorityScore})
   - Volume: ${b.dataForSeo.searchVolume}/mo | Difficulty: ${b.dataForSeo.difficulty}
   - Issue: ${b.dataForSeo.difficulty > 70 ? 'Too competitive' : b.dataForSeo.searchVolume < 500 ? 'Low volume' : 'Poor commercial fit'}
-`).join('')}
+`
+  )
+  .join('')}
 
 ### PATTERNS IDENTIFIED
 - High-scoring patterns: ${previousLearnings.patterns.highScorePatterns.join(', ')}
@@ -636,7 +684,7 @@ async function checkDomainAvailability(suggestion: OpportunitySuggestion): Promi
   }
 
   const primaryAvailable = checkedDomains[0]?.available || false;
-  const alternativesAvailable = checkedDomains.slice(1).filter(d => d.available).length;
+  const alternativesAvailable = checkedDomains.slice(1).filter((d) => d.available).length;
 
   return {
     primaryAvailable,
@@ -727,7 +775,11 @@ async function batchValidateOpportunities(
         );
         inventory = {
           productCount: holibobResult.products.length,
-          categories: [...new Set(holibobResult.products.map((p: any) => p.category as string).filter(Boolean))] as string[],
+          categories: [
+            ...new Set(
+              holibobResult.products.map((p: any) => p.category as string).filter(Boolean)
+            ),
+          ] as string[],
         };
       } catch (e) {
         // Continue with zero inventory
@@ -812,7 +864,8 @@ function calculateEnhancedScore(data: {
   const inventoryScore = Math.min((data.inventoryCount / 50) * 15, 15);
   const seasonalityScore = 10;
 
-  let baseScore = volumeScore + competitionScore + intentScore + inventoryScore + seasonalityScore;
+  const baseScore =
+    volumeScore + competitionScore + intentScore + inventoryScore + seasonalityScore;
 
   // Trend bonus
   const trendBonus = data.trend === 'rising' ? 5 : data.trend === 'declining' ? -5 : 0;
@@ -835,7 +888,9 @@ function calculateEnhancedScore(data: {
   // AI confidence factor (0.8-1.2 multiplier)
   const confidenceFactor = 0.8 + (data.confidenceScore / 100) * 0.4;
 
-  return Math.round(Math.min((baseScore + trendBonus + competitionBonus + domainBonus) * confidenceFactor, 100));
+  return Math.round(
+    Math.min((baseScore + trendBonus + competitionBonus + domainBonus) * confidenceFactor, 100)
+  );
 }
 
 // ==========================================
@@ -847,8 +902,12 @@ function extractIterationLearnings(
   config: OptimizationConfig
 ): IterationLearnings {
   const sorted = [...validated].sort((a, b) => b.priorityScore - a.priorityScore);
-  const topPerformers = sorted.filter((v) => v.priorityScore >= config.targetScoreThreshold).slice(0, 5);
-  const bottomPerformers = sorted.filter((v) => v.priorityScore < config.minScoreThreshold).slice(-5);
+  const topPerformers = sorted
+    .filter((v) => v.priorityScore >= config.targetScoreThreshold)
+    .slice(0, 5);
+  const bottomPerformers = sorted
+    .filter((v) => v.priorityScore < config.minScoreThreshold)
+    .slice(-5);
 
   // Analyze patterns
   const highScorePatterns: string[] = [];
@@ -858,8 +917,10 @@ function extractIterationLearnings(
   if (topPerformers.length > 0) {
     const topDestinations = [...new Set(topPerformers.map((t) => t.suggestion.destination))];
     const topCategories = [...new Set(topPerformers.map((t) => t.suggestion.category))];
-    const avgDifficulty = topPerformers.reduce((sum, t) => sum + t.dataForSeo.difficulty, 0) / topPerformers.length;
-    const avgVolume = topPerformers.reduce((sum, t) => sum + t.dataForSeo.searchVolume, 0) / topPerformers.length;
+    const avgDifficulty =
+      topPerformers.reduce((sum, t) => sum + t.dataForSeo.difficulty, 0) / topPerformers.length;
+    const avgVolume =
+      topPerformers.reduce((sum, t) => sum + t.dataForSeo.searchVolume, 0) / topPerformers.length;
 
     highScorePatterns.push(`Destinations that work: ${topDestinations.join(', ')}`);
     highScorePatterns.push(`Categories that work: ${topCategories.join(', ')}`);
@@ -877,8 +938,14 @@ function extractIterationLearnings(
 
     // Identify why they failed
     for (const b of bottomPerformers) {
-      if (b.dataForSeo.difficulty > 70) lowScorePatterns.push(`"${b.suggestion.keyword}" failed: too competitive (${b.dataForSeo.difficulty})`);
-      if (b.dataForSeo.searchVolume < 500) lowScorePatterns.push(`"${b.suggestion.keyword}" failed: low volume (${b.dataForSeo.searchVolume})`);
+      if (b.dataForSeo.difficulty > 70)
+        lowScorePatterns.push(
+          `"${b.suggestion.keyword}" failed: too competitive (${b.dataForSeo.difficulty})`
+        );
+      if (b.dataForSeo.searchVolume < 500)
+        lowScorePatterns.push(
+          `"${b.suggestion.keyword}" failed: low volume (${b.dataForSeo.searchVolume})`
+        );
     }
   }
 
@@ -901,7 +968,8 @@ function extractIterationLearnings(
   const destinationScores = new Map<string, number[]>();
   const categoryScores = new Map<string, number[]>();
   for (const v of validated) {
-    if (!destinationScores.has(v.suggestion.destination)) destinationScores.set(v.suggestion.destination, []);
+    if (!destinationScores.has(v.suggestion.destination))
+      destinationScores.set(v.suggestion.destination, []);
     destinationScores.get(v.suggestion.destination)!.push(v.priorityScore);
     if (!categoryScores.has(v.suggestion.category)) categoryScores.set(v.suggestion.category, []);
     categoryScores.get(v.suggestion.category)!.push(v.priorityScore);
@@ -916,20 +984,36 @@ function extractIterationLearnings(
     avgScore: scores.reduce((a, b) => a + b, 0) / scores.length,
   }));
 
-  const bestDestinations = avgDestinationScores.sort((a, b) => b.avgScore - a.avgScore).slice(0, 3).map((d) => d.destination);
-  const bestCategories = avgCategoryScores.sort((a, b) => b.avgScore - a.avgScore).slice(0, 3).map((c) => c.category);
-  const avoidDestinations = avgDestinationScores.sort((a, b) => a.avgScore - b.avgScore).slice(0, 2).map((d) => d.destination);
-  const avoidCategories = avgCategoryScores.sort((a, b) => a.avgScore - b.avgScore).slice(0, 2).map((c) => c.category);
+  const bestDestinations = avgDestinationScores
+    .sort((a, b) => b.avgScore - a.avgScore)
+    .slice(0, 3)
+    .map((d) => d.destination);
+  const bestCategories = avgCategoryScores
+    .sort((a, b) => b.avgScore - a.avgScore)
+    .slice(0, 3)
+    .map((c) => c.category);
+  const avoidDestinations = avgDestinationScores
+    .sort((a, b) => a.avgScore - b.avgScore)
+    .slice(0, 2)
+    .map((d) => d.destination);
+  const avoidCategories = avgCategoryScores
+    .sort((a, b) => a.avgScore - b.avgScore)
+    .slice(0, 2)
+    .map((c) => c.category);
 
   // Generate recommendations
   const recommendations: string[] = [];
   if (bestDestinations.length > 0) {
-    recommendations.push(`Focus on ${bestDestinations.join(', ')} - these destinations scored highest`);
+    recommendations.push(
+      `Focus on ${bestDestinations.join(', ')} - these destinations scored highest`
+    );
   }
   if (bestCategories.length > 0) {
     recommendations.push(`Prioritize ${bestCategories.join(', ')} categories`);
   }
-  recommendations.push(`Target difficulty ${optimalDifficultyRange.min}-${optimalDifficultyRange.max} for best results`);
+  recommendations.push(
+    `Target difficulty ${optimalDifficultyRange.min}-${optimalDifficultyRange.max} for best results`
+  );
   recommendations.push(`Look for keywords with ${optimalVolumeRange.min}+ monthly searches`);
   if (topPerformers.some((t) => t.dataForSeo.trend === 'rising')) {
     recommendations.push('Rising trends correlate with higher scores - look for growing niches');
@@ -1019,7 +1103,10 @@ async function generateFinalRankings(
   apiCost: ApiCostBreakdown
 ): Promise<RankedOpportunity[]> {
   // Collect all validated opportunities across iterations
-  const allOpportunities = new Map<string, { opportunity: ValidatedOpportunity; iterationScores: number[]; firstSeen: number }>();
+  const allOpportunities = new Map<
+    string,
+    { opportunity: ValidatedOpportunity; iterationScores: number[]; firstSeen: number }
+  >();
 
   for (const iteration of iterations) {
     for (const validated of iteration.validatedOpportunities) {
@@ -1063,7 +1150,8 @@ async function generateFinalRankings(
       rank: i + 1,
       opportunity: opp,
       domainSuggestions: {
-        primary: opp.suggestion.suggestedDomain || `${opp.suggestion.keyword.replace(/\s+/g, '-')}.com`,
+        primary:
+          opp.suggestion.suggestedDomain || `${opp.suggestion.keyword.replace(/\s+/g, '-')}.com`,
         alternatives: opp.suggestion.alternativeDomains || [],
       },
       journey: {
@@ -1100,22 +1188,31 @@ async function generateOpportunityExplanation(
       body: JSON.stringify({
         model: 'claude-3-5-haiku-20241022',
         max_tokens: 300,
-        messages: [{
-          role: 'user',
-          content: `In 2-3 sentences, explain why "${opp.suggestion.keyword}" is a high-value opportunity for an experience marketplace. Key metrics: ${opp.dataForSeo.searchVolume}/mo searches, ${opp.dataForSeo.difficulty} difficulty, $${opp.dataForSeo.cpc.toFixed(2)} CPC, ${opp.dataForSeo.trend} trend, ${opp.holibobInventory.productCount} available products. Focus on commercial potential and competitive positioning.`,
-        }],
+        messages: [
+          {
+            role: 'user',
+            content: `In 2-3 sentences, explain why "${opp.suggestion.keyword}" is a high-value opportunity for an experience marketplace. Key metrics: ${opp.dataForSeo.searchVolume}/mo searches, ${opp.dataForSeo.difficulty} difficulty, $${opp.dataForSeo.cpc.toFixed(2)} CPC, ${opp.dataForSeo.trend} trend, ${opp.holibobInventory.productCount} available products. Focus on commercial potential and competitive positioning.`,
+          },
+        ],
       }),
     });
 
-    const data = (await response.json()) as { content: Array<{ text: string }>; usage?: { input_tokens: number; output_tokens: number } };
+    const data = (await response.json()) as {
+      content: Array<{ text: string }>;
+      usage?: { input_tokens: number; output_tokens: number };
+    };
 
     apiCost.anthropic.haikuCalls++;
     if (data.usage) {
       apiCost.anthropic.haikuTokens += data.usage.input_tokens + data.usage.output_tokens;
-      apiCost.anthropic.haikuCost += (data.usage.input_tokens * 0.00025 + data.usage.output_tokens * 0.00125) / 1000;
+      apiCost.anthropic.haikuCost +=
+        (data.usage.input_tokens * 0.00025 + data.usage.output_tokens * 0.00125) / 1000;
     }
 
-    return data.content?.[0]?.text || `High-value opportunity with ${opp.dataForSeo.searchVolume} monthly searches.`;
+    return (
+      data.content?.[0]?.text ||
+      `High-value opportunity with ${opp.dataForSeo.searchVolume} monthly searches.`
+    );
   } catch {
     return `High-value opportunity with ${opp.dataForSeo.searchVolume} monthly searches and ${opp.dataForSeo.difficulty} difficulty score.`;
   }

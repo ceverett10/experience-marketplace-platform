@@ -118,7 +118,11 @@ class GA4Client {
         websiteUrl: params.websiteUrl,
         displayName: `${params.siteName} - Web`,
       });
-      return { success: true, propertyId: property.propertyId, measurementId: dataStream.measurementId };
+      return {
+        success: true,
+        propertyId: property.propertyId,
+        measurementId: dataStream.measurementId,
+      };
     } catch (error: any) {
       return { success: false, error: error.message };
     }
@@ -172,7 +176,9 @@ async function main() {
   }
 
   if (accounts.length === 0) {
-    console.error('\nNo GA4 accounts found. Make sure the service account has access to at least one GA4 account.');
+    console.error(
+      '\nNo GA4 accounts found. Make sure the service account has access to at least one GA4 account.'
+    );
     process.exit(1);
   }
 
@@ -205,7 +211,9 @@ async function main() {
   sites.forEach((site) => {
     const seoConfig = site.seoConfig as { gaMeasurementId?: string } | null;
     const hasGA = !!seoConfig?.gaMeasurementId;
-    console.log(`  - ${site.name} (${site.primaryDomain || site.slug}) ${hasGA ? '✓ GA configured' : '○ No GA'}`);
+    console.log(
+      `  - ${site.name} (${site.primaryDomain || site.slug}) ${hasGA ? '✓ GA configured' : '○ No GA'}`
+    );
   });
 
   // Filter sites without GA
