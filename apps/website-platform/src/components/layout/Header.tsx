@@ -1,13 +1,39 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import { useSite, useBrand } from '@/lib/site-context';
 
 export function Header() {
   const site = useSite();
   const brand = useBrand();
+  const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  const isHomepage = pathname === '/';
+
+  useEffect(() => {
+    if (!isHomepage) return;
+
+    let ticking = false;
+    const handleScroll = () => {
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          setScrolled(window.scrollY > 80);
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [isHomepage]);
+
+  // Transparent when on homepage and not scrolled
+  const isTransparent = isHomepage && !scrolled;
 
   const navigation = [
     { name: 'Experiences', href: '/experiences' },
@@ -17,17 +43,33 @@ export function Header() {
   ];
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
+    <header
+      className={`z-50 w-full transition-all duration-300 ${
+        isHomepage ? 'fixed top-0' : 'sticky top-0'
+      } ${
+        isTransparent
+          ? 'border-b border-transparent bg-transparent'
+          : 'border-b border-gray-200/80 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60'
+      }`}
+    >
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
         {/* Logo */}
         <div className="flex lg:flex-1">
           <Link href="/" className="-m-1.5 p-1.5">
             {brand?.logoUrl ? (
-              <img className="h-8 w-auto" src={brand.logoUrl} alt={site.name} />
+              <img
+                className={`h-8 w-auto transition-all duration-300 ${
+                  isTransparent ? 'brightness-0 invert drop-shadow-md' : ''
+                }`}
+                src={brand.logoUrl}
+                alt={site.name}
+              />
             ) : (
               <span
-                className="text-xl font-bold"
-                style={{ color: brand?.primaryColor ?? '#6366f1' }}
+                className={`text-xl font-bold transition-colors duration-300 ${
+                  isTransparent ? 'text-white drop-shadow-md' : ''
+                }`}
+                style={{ color: isTransparent ? undefined : (brand?.primaryColor ?? '#6366f1') }}
               >
                 {site.name}
               </span>
@@ -39,7 +81,9 @@ export function Header() {
         <div className="flex lg:hidden">
           <button
             type="button"
-            className="-m-2.5 inline-flex items-center justify-center rounded-md p-2.5 text-gray-700"
+            className={`-m-2.5 inline-flex items-center justify-center rounded-md p-2.5 transition-colors duration-300 ${
+              isTransparent ? 'text-white' : 'text-gray-700'
+            }`}
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           >
             <span className="sr-only">Open main menu</span>
@@ -69,7 +113,11 @@ export function Header() {
             <Link
               key={item.name}
               href={item.href}
-              className="text-sm font-medium text-gray-700 transition-colors hover:text-gray-900"
+              className={`text-sm font-medium transition-colors duration-300 ${
+                isTransparent
+                  ? 'text-white/90 hover:text-white'
+                  : 'text-gray-700 hover:text-gray-900'
+              }`}
             >
               {item.name}
             </Link>
@@ -80,7 +128,9 @@ export function Header() {
         <div className="hidden lg:flex lg:flex-1 lg:justify-end">
           <Link
             href="/experiences"
-            className="rounded-md px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors"
+            className={`rounded-md px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all duration-300 ${
+              isTransparent ? 'ring-1 ring-white/30' : ''
+            }`}
             style={{
               backgroundColor: brand?.primaryColor ?? '#6366f1',
             }}
@@ -92,7 +142,11 @@ export function Header() {
 
       {/* Mobile menu */}
       {mobileMenuOpen && (
-        <div className="lg:hidden">
+        <div
+          className={`lg:hidden ${
+            isTransparent ? 'bg-white/95 backdrop-blur-md rounded-b-lg shadow-lg' : ''
+          }`}
+        >
           <div className="space-y-1 px-4 pb-3 pt-2">
             {navigation.map((item) => (
               <Link

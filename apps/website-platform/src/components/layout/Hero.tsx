@@ -31,7 +31,11 @@ export function Hero({ title, subtitle, backgroundImage, backgroundImageAttribut
       {/* Background */}
       <div className="absolute inset-0">
         {backgroundImage ? (
-          <img src={backgroundImage} alt="" className="h-full w-full object-cover" />
+          <img
+            src={backgroundImage}
+            alt=""
+            className="hero-ken-burns h-full w-full object-cover"
+          />
         ) : (
           <div
             className="h-full w-full"
@@ -61,36 +65,51 @@ export function Hero({ title, subtitle, backgroundImage, backgroundImageAttribut
             photographerUrl={backgroundImageAttribution.photographerUrl}
             unsplashUrl={backgroundImageAttribution.unsplashUrl}
             variant="overlay-compact"
-            className="bottom-20 left-auto right-2"
+            className="bottom-24 left-auto right-2"
           />
         )}
       </div>
 
-      {/* Content */}
-      <div className="relative mx-auto max-w-7xl px-4 py-24 sm:px-6 sm:py-32 lg:px-8 lg:py-40">
+      {/* Content - extra top padding to account for transparent fixed header on homepage */}
+      <div className="relative mx-auto max-w-7xl px-4 pt-32 pb-24 sm:px-6 sm:pt-40 sm:pb-32 lg:px-8 lg:pt-48 lg:pb-40">
         <div className="mx-auto max-w-4xl text-center">
           <h1
-            className="font-display text-4xl font-bold tracking-tight text-white sm:text-5xl lg:text-6xl"
+            className="hero-animate-title font-display text-4xl font-bold tracking-tight text-white sm:text-5xl lg:text-6xl"
             style={{ textShadow: '0 2px 8px rgba(0,0,0,0.6)' }}
           >
             {heroTitle}
           </h1>
           <p
-            className="mx-auto mt-6 max-w-xl text-lg leading-8 text-white/90"
+            className="hero-animate-subtitle mx-auto mt-6 max-w-xl text-lg leading-8 text-white/90"
             style={{ textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}
           >
             {heroSubtitle}
           </p>
 
-          {/* Product Discovery Search - standardized across the site */}
-          <div className="mt-10">
-            <ProductDiscoverySearch variant="hero" />
+          {/* Product Discovery Search */}
+          <div className="hero-animate-search mt-10">
+            <div className="search-glow rounded-2xl md:rounded-full">
+              <ProductDiscoverySearch variant="hero" />
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Decorative elements */}
-      <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-white to-transparent" />
+      {/* Decorative wave transition */}
+      <div className="absolute -bottom-1 left-0 right-0">
+        <svg
+          viewBox="0 0 1440 80"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          className="block w-full"
+          preserveAspectRatio="none"
+        >
+          <path
+            d="M0 40C240 70 480 80 720 60C960 40 1200 10 1440 30V80H0V40Z"
+            fill="white"
+          />
+        </svg>
+      </div>
     </section>
   );
 }

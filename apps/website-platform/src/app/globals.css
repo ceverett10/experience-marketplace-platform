@@ -80,6 +80,93 @@ body {
   }
 }
 
+/* Hero entrance animations */
+@keyframes heroFadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes heroFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.hero-animate-title {
+  animation: heroFadeInUp 0.8s ease-out both;
+  animation-delay: 0.1s;
+}
+
+.hero-animate-subtitle {
+  animation: heroFadeInUp 0.8s ease-out both;
+  animation-delay: 0.3s;
+}
+
+.hero-animate-search {
+  animation: heroFadeInUp 0.8s ease-out both;
+  animation-delay: 0.5s;
+}
+
+/* Ken Burns subtle zoom on background images */
+@keyframes kenBurns {
+  0% {
+    transform: scale(1);
+  }
+  100% {
+    transform: scale(1.08);
+  }
+}
+
+.hero-ken-burns {
+  animation: kenBurns 25s ease-out forwards;
+}
+
+/* Search bar glow pulse */
+@keyframes searchGlow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(255, 255, 255, 0.15),
+                0 0 60px rgba(255, 255, 255, 0.05),
+                0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(255, 255, 255, 0.25),
+                0 0 80px rgba(255, 255, 255, 0.1),
+                0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  }
+}
+
+.search-glow {
+  animation: searchGlow 3s ease-in-out infinite;
+  animation-delay: 1.3s;
+  animation-fill-mode: both;
+}
+
+/* Accessibility: disable animations for users who prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .hero-animate-title,
+  .hero-animate-subtitle,
+  .hero-animate-search {
+    animation: none;
+    opacity: 1;
+  }
+  .hero-ken-burns {
+    animation: none;
+  }
+  .search-glow {
+    animation: none;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  }
+}
+
 @layer base {
   * {
     @apply border-border;

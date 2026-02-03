@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { screen, fireEvent } from '@testing-library/react';
 import { renderWithProviders, createMockSiteConfig } from '@/test/test-utils';
 import { Header } from './Header';
@@ -67,27 +67,19 @@ describe('Header', () => {
     expect(navLinks.length).toBeGreaterThan(0);
   });
 
-  it('should apply brand primary color to site name', () => {
-    const siteConfig = createMockSiteConfig({
-      brand: {
-        primaryColor: '#ff0000',
-        name: 'Test Brand',
-        tagline: null,
-        secondaryColor: '#8b5cf6',
-        accentColor: '#f59e0b',
-        headingFont: 'Inter',
-        bodyFont: 'Inter',
-        logoUrl: null,
-        faviconUrl: null,
-        ogImageUrl: null,
-        socialLinks: null,
-      },
-    });
-
-    renderWithProviders(<Header />, { siteConfig });
+  it('should render white text on homepage (transparent header)', () => {
+    // usePathname mock returns '/' so header is transparent
+    renderWithProviders(<Header />);
 
     const siteName = screen.getByText('Experience Marketplace');
-    expect(siteName).toHaveStyle({ color: '#ff0000' });
+    expect(siteName).toHaveClass('text-white');
+  });
+
+  it('should render transparent header on homepage', () => {
+    renderWithProviders(<Header />);
+
+    const header = screen.getByRole('banner');
+    expect(header).toHaveClass('bg-transparent');
   });
 
   it('should have correct href for logo link', () => {
