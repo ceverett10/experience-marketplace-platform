@@ -9,7 +9,7 @@
 import { KeywordResearchService, KeywordMetrics } from './keyword-research';
 import { circuitBreakers } from '../errors/circuit-breaker';
 import { v4 as uuidv4 } from 'uuid';
-import type { OpportunitySeed, ScanMode } from '../types';
+import type { OpportunitySeed, ScanMode, InventoryLandscape } from '../types';
 
 // ==========================================
 // CONFIGURATION
@@ -23,17 +23,18 @@ export interface OptimizationConfig {
   targetScoreThreshold: number;
   earlyStopImprovementThreshold: number;
   batchSize: number;
-  seeds?: OpportunitySeed[]; // NEW: Multi-mode seeds for integrated scanning
+  seeds?: OpportunitySeed[];
+  inventoryLandscape?: InventoryLandscape;
 }
 
 const DEFAULT_CONFIG: OptimizationConfig = {
   maxIterations: 5,
-  initialSuggestionsCount: 20,
-  narrowingFactor: 0.8,
-  minScoreThreshold: 50,
+  initialSuggestionsCount: 60,
+  narrowingFactor: 0.7,
+  minScoreThreshold: 40,
   targetScoreThreshold: 75,
   earlyStopImprovementThreshold: 2,
-  batchSize: 50,
+  batchSize: 100,
 };
 
 // ==========================================
@@ -201,12 +202,22 @@ export async function runRecursiveOptimization(
 
   console.log('[Optimizer] Starting recursive optimization with config:', finalConfig);
 
-  // Sample Holibob inventory once (used for all iterations)
-  const inventorySample = await sampleHolibobInventory(holibobClient);
+  // Use inventory landscape from config (populated by discoverInventoryLandscape in opportunity.ts)
+  const inventoryContext = finalConfig.inventoryLandscape
+    ? {
+        totalCities: finalConfig.inventoryLandscape.totalCities,
+        totalCountries: finalConfig.inventoryLandscape.totalCountries,
+        totalCategories: finalConfig.inventoryLandscape.totalCategories,
+        topDestinations: finalConfig.inventoryLandscape.topDestinations.slice(0, 15),
+        categories: finalConfig.inventoryLandscape.categories.slice(0, 15),
+        productSamples: finalConfig.inventoryLandscape.productSamples,
+      }
+    : null;
   console.log(
-    '[Optimizer] Sampled Holibob inventory:',
-    inventorySample.destinations.length,
-    'destinations'
+    '[Optimizer] Inventory context:',
+    inventoryContext
+      ? `${inventoryContext.totalCities} cities, ${inventoryContext.totalCategories} categories`
+      : 'none provided'
   );
 
   let previousLearnings: IterationLearnings | null = null;
@@ -222,14 +233,14 @@ export async function runRecursiveOptimization(
     );
 
     try {
-      // Step 1: Generate suggestions (with learning context for iterations 2+)
+      // Step 1: Generate suggestions (AI participates in ALL iterations)
       const suggestions = await generateRefinedSuggestions(
         i,
         previousLearnings,
         suggestionsCount,
-        inventorySample,
+        inventoryContext,
         apiCost,
-        finalConfig.seeds // Pass seeds for first iteration
+        finalConfig.seeds
       );
       console.log(`[Optimizer] Generated ${suggestions.length} suggestions`);
 
@@ -320,7 +331,7 @@ async function generateRefinedSuggestions(
   iterationNumber: number,
   previousLearnings: IterationLearnings | null,
   suggestionsCount: number,
-  inventorySample: any,
+  inventoryContext: any,
   apiCost: ApiCostBreakdown,
   seeds?: OpportunitySeed[]
 ): Promise<OpportunitySuggestion[]> {
@@ -329,64 +340,7 @@ async function generateRefinedSuggestions(
     throw new Error('ANTHROPIC_API_KEY not configured');
   }
 
-  // If seeds provided and first iteration, convert seeds to suggestions
-  if (iterationNumber === 1 && seeds && seeds.length > 0) {
-    console.log(`[Optimizer] Using ${seeds.length} pre-generated seeds for iteration 1`);
-
-    // Convert seeds to OpportunitySuggestion format
-    const seedSuggestions: OpportunitySuggestion[] = seeds.map((seed) => ({
-      id: uuidv4(),
-      destination: seed.destination || 'Global', // Generic/demographic/occasion have no specific destination
-      category: seed.category,
-      niche: seed.niche,
-      keyword: seed.keyword,
-      rationale: seed.rationale,
-      suggestedDomain: undefined, // Will be suggested by AI in later iterations
-      alternativeDomains: [],
-      confidenceScore: 70, // Default confidence for seeds
-      iterationSource: 1,
-      scanMode: seed.scanMode,
-    }));
-
-    // Take the requested number of suggestions, prioritizing diversity across scan modes
-    const selectedSeeds: OpportunitySuggestion[] = [];
-    const seedsByMode = new Map<ScanMode, OpportunitySuggestion[]>();
-
-    // Group by scan mode
-    for (const seed of seedSuggestions) {
-      if (seed.scanMode) {
-        if (!seedsByMode.has(seed.scanMode)) {
-          seedsByMode.set(seed.scanMode, []);
-        }
-        seedsByMode.get(seed.scanMode)!.push(seed);
-      }
-    }
-
-    // Round-robin selection to ensure diversity
-    const modes = Array.from(seedsByMode.keys());
-    let modeIndex = 0;
-    while (selectedSeeds.length < Math.min(suggestionsCount, seedSuggestions.length)) {
-      const mode = modes[modeIndex % modes.length];
-      const modeSeeds = seedsByMode.get(mode!);
-      if (modeSeeds && modeSeeds.length > 0) {
-        const seed = modeSeeds.shift()!;
-        selectedSeeds.push(seed);
-      }
-      modeIndex++;
-
-      // Safety check: if all modes exhausted, break
-      if (Array.from(seedsByMode.values()).every((arr) => arr.length === 0)) {
-        break;
-      }
-    }
-
-    console.log(
-      `[Optimizer] Selected ${selectedSeeds.length} diverse seeds across ${new Set(selectedSeeds.map((s) => s.scanMode)).size} modes`
-    );
-    return selectedSeeds;
-  }
-
-  // Otherwise, use AI generation as before
+  // AI participates in ALL iterations (no bypass)
   const anthropicBreaker = circuitBreakers.getBreaker('anthropic-api', {
     failureThreshold: 3,
     timeout: 120000,
@@ -396,7 +350,7 @@ async function generateRefinedSuggestions(
     iterationNumber,
     previousLearnings,
     suggestionsCount,
-    inventorySample,
+    inventoryContext,
     seeds
   );
 
@@ -467,48 +421,87 @@ function buildIterationPrompt(
   iterationNumber: number,
   previousLearnings: IterationLearnings | null,
   suggestionsCount: number,
-  inventorySample: any,
+  inventoryContext: any,
   seeds?: OpportunitySeed[]
 ): string {
   if (iterationNumber === 1 || !previousLearnings) {
-    // First iteration: Show seed context if seeds were used
-    const seedContext =
-      seeds && seeds.length > 0
-        ? `
-## Seed Opportunities Generated
-The initial iteration used ${seeds.length} pre-generated seeds from multi-mode scanning:
+    // First iteration: AI evaluates seeds, enriches them, and fills gaps
+    if (seeds && seeds.length > 0) {
+      // Seed-aware iteration 1: AI evaluates + enriches + selects best seeds + generates gap-fillers
+      const seedsByMode = new Map<string, OpportunitySeed[]>();
+      for (const seed of seeds) {
+        if (!seedsByMode.has(seed.scanMode)) seedsByMode.set(seed.scanMode, []);
+        seedsByMode.get(seed.scanMode)!.push(seed);
+      }
 
-### Scan Modes Represented:
-${Array.from(new Set(seeds.map((s) => s.scanMode)))
-  .map((mode) => {
-    const modeSeeds = seeds.filter((s) => s.scanMode === mode);
-    return `- **${mode}** (${modeSeeds.length} seeds): ${modeSeeds
-      .slice(0, 2)
-      .map((s) => s.keyword)
-      .join(', ')}${modeSeeds.length > 2 ? '...' : ''}`;
-  })
-  .join('\n')}
+      return `You are a strategic SEO advisor evaluating opportunity seeds for a travel experience marketplace.
 
-These seeds provide diverse starting points:
-- **hyper_local**: City-specific experiences (e.g., "london food tours")
-- **generic_activity**: Location-agnostic platforms (e.g., "food tours")
-- **demographic**: Target audience focus (e.g., "family travel experiences")
-- **occasion**: Event-based (e.g., "bachelor party activities")
-- **experience_level**: Skill/budget tiers (e.g., "luxury wine tours")
-- **regional**: Multi-destination (e.g., "european city breaks")
+## Context
+We have ${seeds.length} AI-generated seed opportunities from a broad discovery phase. Your job is to:
+1. EVALUATE each seed: Is this keyword actually searchable? Is the niche viable?
+2. SELECT the best ${suggestionsCount} opportunities
+3. ENRICH each selected opportunity with domain name suggestions
+4. FILL GAPS: If you notice underrepresented niches or high-potential areas not covered, add new suggestions
 
-The seeds have been validated against inventory and will now be refined through recursive optimization.
-`
-        : '';
+## Seed Opportunities by Mode
+${Array.from(seedsByMode.entries())
+  .map(
+    ([mode, modeSeeds]) => `### ${mode} (${modeSeeds.length} seeds)
+${modeSeeds
+  .slice(0, 8)
+  .map((s) => `- "${s.keyword}" [${s.destination || 'Global'}] - ${s.rationale}`)
+  .join('\n')}${modeSeeds.length > 8 ? `\n... and ${modeSeeds.length - 8} more` : ''}`
+  )
+  .join('\n\n')}
 
-    // First iteration: Broad discovery
+${
+  inventoryContext
+    ? `## Inventory Reality
+- ${inventoryContext.totalCities} cities across ${inventoryContext.totalCountries} countries
+- ${inventoryContext.totalCategories} active categories
+- Top destinations: ${inventoryContext.topDestinations
+        .slice(0, 10)
+        .map((d: any) => `${d.name} (${d.productCount})`)
+        .join(', ')}
+- Top categories: ${inventoryContext.categories
+        .slice(0, 10)
+        .map((c: any) => `${c.name} (${c.productCount})`)
+        .join(', ')}`
+    : ''
+}
+
+## Selection Criteria
+- Prefer keywords real users actually search on Google (not made-up compound phrases)
+- Favor niches with high commercial intent and low competition
+- Ensure diversity across geographies, demographics, occasions, and price tiers
+- Domain names should be short, memorable, and .com where possible
+- Include confidence score (0-100) based on your assessment of SEO viability
+
+## Output
+Return EXACTLY ${suggestionsCount} items as a JSON array:
+[
+  {
+    "destination": "London, UK",
+    "category": "food tours",
+    "niche": "family-friendly food tours",
+    "keyword": "london family food tours",
+    "rationale": "Families seek kid-friendly culinary experiences",
+    "suggestedDomain": "london-family-food-tours.com",
+    "alternativeDomains": ["familyfoodtourslondon.com", "london-family-foodie.com"],
+    "confidenceScore": 75
+  }
+]
+
+Return ONLY valid JSON, no markdown fences.`;
+    }
+
+    // No seeds: broad discovery
     return `You are a strategic advisor for an experience marketplace platform following the TravelAI micro-segmentation strategy (441% growth through 470+ niche sites).
-${seedContext}
-## Your Task
-${seeds && seeds.length > 0 ? `The system has already generated ${seeds.length} diverse seed opportunities from multiple scan modes. These seeds will be used as the starting point for this iteration.` : `Suggest ${suggestionsCount} creative niche site opportunities. Be DIVERSE and EXPLORATORY.`}
 
-## Available Holibob Inventory
-${JSON.stringify(inventorySample, null, 2)}
+## Your Task
+Suggest ${suggestionsCount} creative niche site opportunities. Be DIVERSE and EXPLORATORY.
+
+${inventoryContext ? `## Available Inventory\n${JSON.stringify(inventoryContext, null, 2)}` : ''}
 
 ## Guidelines
 - Target micro-segments (demographics, interests, geographies)
@@ -857,40 +850,54 @@ function calculateEnhancedScore(data: {
   domainAvailable?: boolean;
   alternativesAvailable?: number;
 }): number {
-  // Base scoring (same as existing)
-  const volumeScore = Math.min((data.searchVolume / 10000) * 30, 30);
+  // Search Volume (35%) - logarithmic scaling so 1K and 100K aren't linear
+  // log10(100)=2, log10(1000)=3, log10(10000)=4, log10(100000)=5
+  const logVolume = data.searchVolume > 0 ? Math.log10(data.searchVolume) : 0;
+  const volumeScore = Math.min((logVolume / 5) * 35, 35);
+
+  // Competition / Difficulty (20%) - lower difficulty = higher score
   const competitionScore = ((100 - data.difficulty) / 100) * 20;
-  const intentScore = 25; // Assume transactional for marketplace
-  const inventoryScore = Math.min((data.inventoryCount / 50) * 15, 15);
-  const seasonalityScore = 10;
 
-  const baseScore =
-    volumeScore + competitionScore + intentScore + inventoryScore + seasonalityScore;
+  // Commercial Intent via CPC (20%) - CPC is the best proxy for commercial value
+  // $0=0pts, $1=8pts, $3=14pts, $5+=20pts
+  const cpcScore = Math.min((data.cpc / 5) * 20, 20);
 
-  // Trend bonus
-  const trendBonus = data.trend === 'rising' ? 5 : data.trend === 'declining' ? -5 : 0;
+  // Inventory (10%) - signal, not a gate. Zero inventory gets 3pts minimum
+  const inventoryBase = 3; // Minimum score even with zero inventory
+  const inventoryBonus = Math.min((data.inventoryCount / 30) * 7, 7);
+  const inventoryScore = inventoryBase + inventoryBonus;
 
-  // Competition level adjustment
-  const competitionBonus = data.competition < 0.3 ? 5 : data.competition > 0.7 ? -5 : 0;
+  // Trend / Seasonality (5%)
+  const trendScore = data.trend === 'rising' ? 5 : data.trend === 'stable' ? 3 : 1;
 
-  // Domain availability bonus (NEW: significant factor for success)
-  let domainBonus = 0;
+  // Domain availability (5%)
+  let domainScore = 2.5; // neutral default
   if (data.domainAvailable !== undefined) {
     if (data.domainAvailable) {
-      domainBonus = 8; // Primary domain available = major advantage
+      domainScore = 5;
     } else if ((data.alternativesAvailable || 0) > 0) {
-      domainBonus = 4; // Alternatives available = moderate advantage
+      domainScore = 3;
     } else {
-      domainBonus = -3; // No good domains available = penalty
+      domainScore = 0;
     }
   }
 
-  // AI confidence factor (0.8-1.2 multiplier)
-  const confidenceFactor = 0.8 + (data.confidenceScore / 100) * 0.4;
+  // Competition density (5%) - low competition index = blue ocean
+  const densityScore = data.competition < 0.3 ? 5 : data.competition < 0.6 ? 3 : 1;
 
-  return Math.round(
-    Math.min((baseScore + trendBonus + competitionBonus + domainBonus) * confidenceFactor, 100)
-  );
+  const totalScore =
+    volumeScore +
+    competitionScore +
+    cpcScore +
+    inventoryScore +
+    trendScore +
+    domainScore +
+    densityScore;
+
+  // AI confidence factor (0.85-1.15 multiplier) - tighter range than before
+  const confidenceFactor = 0.85 + (data.confidenceScore / 100) * 0.3;
+
+  return Math.round(Math.min(totalScore * confidenceFactor, 100));
 }
 
 // ==========================================
@@ -1128,22 +1135,28 @@ async function generateFinalRankings(
     }
   }
 
-  // Sort by final score and take top 10
+  // Sort by final score and keep ALL opportunities above score 40
   const sorted = [...allOpportunities.values()]
     .sort((a, b) => b.opportunity.priorityScore - a.opportunity.priorityScore)
-    .slice(0, 10);
+    .filter((item) => item.opportunity.priorityScore >= 40);
 
-  // Generate explanations for top opportunities
+  console.log(
+    `[Optimizer] Final ranking: ${sorted.length} opportunities above score 40 (from ${allOpportunities.size} total)`
+  );
+
+  // Generate explanations only for top 20 (to control API costs)
   const ranked: RankedOpportunity[] = [];
   for (let i = 0; i < sorted.length; i++) {
     const item = sorted[i];
-    if (!item) continue; // TypeScript safety check
+    if (!item) continue;
     const opp = item.opportunity;
 
-    // Generate explanation
-    const explanation = await generateOpportunityExplanation(opp, apiCost);
+    // Only generate AI explanations for top 20
+    const explanation =
+      i < 20
+        ? await generateOpportunityExplanation(opp, apiCost)
+        : `Score ${opp.priorityScore}: ${opp.dataForSeo.searchVolume}/mo searches, difficulty ${opp.dataForSeo.difficulty}, CPC $${opp.dataForSeo.cpc.toFixed(2)}`;
 
-    // Calculate projected value
     const projectedValue = calculateProjectedValue(opp);
 
     ranked.push({
@@ -1252,51 +1265,6 @@ function shouldStopEarly(iterations: IterationResult[], threshold: number): bool
 
   const last2Improvements = iterations.slice(-2).map((it) => it.metrics.improvementFromPrevious);
   return last2Improvements.every((imp) => Math.abs(imp) < threshold);
-}
-
-async function sampleHolibobInventory(holibobClient: any): Promise<any> {
-  const sampleDestinations = [
-    'London, England',
-    'Paris, France',
-    'Rome, Italy',
-    'Barcelona, Spain',
-    'Amsterdam, Netherlands',
-    'New York, USA',
-    'Tokyo, Japan',
-    'Dubai, UAE',
-    'Sydney, Australia',
-  ];
-
-  const inventory: any = {
-    destinations: [],
-    totalProducts: 0,
-  };
-
-  for (const destination of sampleDestinations) {
-    try {
-      const result = await holibobClient.discoverProducts(
-        { freeText: destination, currency: 'GBP' },
-        { pageSize: 5 }
-      );
-
-      if (result.products.length > 0) {
-        inventory.destinations.push({
-          destination,
-          productCount: result.products.length,
-          sampleProducts: result.products.slice(0, 3).map((p: any) => ({
-            name: p.name,
-            category: p.category,
-            tags: p.tags,
-          })),
-        });
-        inventory.totalProducts += result.products.length;
-      }
-    } catch {
-      // Skip failed destinations
-    }
-  }
-
-  return inventory;
 }
 
 function estimateSearchVolume(destination: string, category: string): number {

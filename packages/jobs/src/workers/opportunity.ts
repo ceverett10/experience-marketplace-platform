@@ -8,6 +8,7 @@ import type {
   SiteCreatePayload,
   OpportunitySeed,
   ScanMode,
+  InventoryLandscape,
 } from '../types';
 import { runRecursiveOptimization } from '../services/opportunity-optimizer';
 import { KeywordResearchService } from '../services/keyword-research';
@@ -44,33 +45,42 @@ async function runIntegratedOptimization(
     seedModes?: ScanMode[];
   }
 ): Promise<JobResult> {
-  console.log('[Integrated Scan] Starting integrated multi-mode optimization...');
+  console.log('[Integrated Scan] Starting AI-driven opportunity discovery...');
 
-  // Phase 1: Generate diverse seeds from all modes
-  const allSeeds = await generateMultiModeSeeds(holibobClient);
+  // Phase 1: Discover inventory landscape dynamically (no hardcoded lists)
+  console.log('[Integrated Scan] Phase 1: Discovering inventory landscape...');
+  const inventoryLandscape = await discoverInventoryLandscape(holibobClient);
+  console.log(
+    `[Integrated Scan] Found ${inventoryLandscape.totalCities} cities across ${inventoryLandscape.totalCountries} countries, ${inventoryLandscape.totalCategories} categories`
+  );
+
+  // Phase 2: AI-driven broad seed generation (120+ diverse ideas)
+  console.log('[Integrated Scan] Phase 2: AI seed generation...');
+  const allSeeds = await generateAISeeds(inventoryLandscape);
+  console.log(
+    `[Integrated Scan] AI generated ${allSeeds.length} seed opportunities across ${new Set(allSeeds.map((s) => s.scanMode)).size} modes`
+  );
 
   // Filter seeds by requested modes if specified
   const seeds = options.seedModes
     ? allSeeds.filter((seed) => options.seedModes?.includes(seed.scanMode))
     : allSeeds;
 
-  console.log(
-    `[Integrated Scan] Generated ${seeds.length} seeds across ${new Set(seeds.map((s) => s.scanMode)).size} modes`
-  );
-
   if (seeds.length === 0) {
     return {
       success: false,
-      error: 'No seeds generated - unable to proceed with optimization',
+      error: 'AI seed generation produced no results',
       timestamp: new Date(),
     };
   }
 
-  // Phase 2: Run recursive optimization with seeds
+  // Phase 3: Run recursive optimization with ALL seeds
+  console.log('[Integrated Scan] Phase 3: Recursive optimization...');
   const result = await runRecursiveOptimization(holibobClient, {
     maxIterations: options.maxIterations || 5,
-    initialSuggestionsCount: options.initialSuggestionsCount || 20,
-    seeds, // Pass seeds to optimizer
+    initialSuggestionsCount: options.initialSuggestionsCount || 60,
+    seeds,
+    inventoryLandscape,
   });
 
   if (!result.success) {
@@ -561,38 +571,263 @@ Return ONLY a valid JSON array with this structure:
 }
 
 /**
- * Sample Holibob inventory to understand available experiences
- * This helps AI make informed suggestions based on actual inventory
+ * Discover the full Holibob inventory landscape dynamically
+ * Uses getPlaces() and getCategories() APIs instead of hardcoded lists
+ */
+async function discoverInventoryLandscape(
+  holibobClient: ReturnType<typeof createHolibobClient>
+): Promise<InventoryLandscape> {
+  console.log('[Inventory Discovery] Fetching places and categories from Holibob...');
+
+  // Step 1: Get all countries with inventory
+  let countries: Array<{ id: string; name: string; productCount?: number }> = [];
+  try {
+    countries = await holibobClient.getPlaces({ type: 'COUNTRY' });
+    countries = countries
+      .filter((c) => (c.productCount || 0) > 0)
+      .sort((a, b) => (b.productCount || 0) - (a.productCount || 0));
+    console.log(`[Inventory Discovery] Found ${countries.length} countries with inventory`);
+  } catch (error) {
+    console.error('[Inventory Discovery] Failed to fetch countries:', error);
+  }
+
+  // Step 2: For top countries, get their cities
+  const topCountries = countries.slice(0, 15);
+  const allCities: Array<{ name: string; country: string; productCount: number }> = [];
+
+  for (const country of topCountries) {
+    try {
+      const cities = await holibobClient.getPlaces({
+        parentId: country.id,
+        type: 'CITY',
+      });
+      for (const city of cities) {
+        if ((city.productCount || 0) > 0) {
+          allCities.push({
+            name: city.name,
+            country: country.name,
+            productCount: city.productCount || 0,
+          });
+        }
+      }
+    } catch {
+      // Skip country on error
+    }
+  }
+
+  allCities.sort((a, b) => b.productCount - a.productCount);
+  console.log(`[Inventory Discovery] Found ${allCities.length} cities with inventory`);
+
+  // Step 3: Get all categories
+  let categories: Array<{ name: string; productCount: number }> = [];
+  try {
+    const rawCategories = await holibobClient.getCategories();
+    categories = rawCategories
+      .filter((c) => (c.productCount || 0) > 0)
+      .sort((a, b) => (b.productCount || 0) - (a.productCount || 0))
+      .map((c) => ({ name: c.name, productCount: c.productCount || 0 }));
+    console.log(`[Inventory Discovery] Found ${categories.length} active categories`);
+  } catch (error) {
+    console.error('[Inventory Discovery] Failed to fetch categories:', error);
+  }
+
+  // Step 4: Sample products from top 5 diverse cities for richer AI context
+  const sampleCities = allCities.slice(0, 5);
+  const productSamples: InventoryLandscape['productSamples'] = [];
+
+  for (const city of sampleCities) {
+    try {
+      const result = await holibobClient.discoverProducts(
+        { freeText: city.name, currency: 'GBP' },
+        { pageSize: 20 }
+      );
+      if (result.products.length > 0) {
+        productSamples.push({
+          city: city.name,
+          country: city.country,
+          productCount: city.productCount,
+          sampleProducts: result.products.slice(0, 5).map((p: any) => ({
+            name: p.name,
+            category: p.category,
+            tags: p.tags,
+          })),
+        });
+      }
+    } catch {
+      // Skip on error
+    }
+  }
+
+  return {
+    totalCountries: topCountries.length,
+    totalCities: allCities.length,
+    totalCategories: categories.length,
+    topDestinations: allCities.slice(0, 30),
+    categories,
+    productSamples,
+  };
+}
+
+/**
+ * AI-driven seed generation - asks Claude for 120+ diverse opportunity ideas
+ * informed by the real inventory landscape
+ */
+async function generateAISeeds(inventoryLandscape: InventoryLandscape): Promise<OpportunitySeed[]> {
+  const anthropicApiKey = process.env['ANTHROPIC_API_KEY'];
+  if (!anthropicApiKey) {
+    throw new Error('ANTHROPIC_API_KEY not configured');
+  }
+
+  // Build prompt sections
+  const destinationsList = inventoryLandscape.topDestinations
+    .slice(0, 25)
+    .map((d) => `- ${d.name}, ${d.country} (${d.productCount} products)`)
+    .join('\n');
+
+  const categoriesList = inventoryLandscape.categories
+    .slice(0, 25)
+    .map((c) => `- ${c.name} (${c.productCount} products)`)
+    .join('\n');
+
+  const prompt = [
+    'You are a strategic SEO advisor for a travel experience marketplace. Your goal: identify the 120 BEST micro-niche website opportunities that could collectively drive millions of monthly visitors.',
+    '',
+    '## Our Inventory Reality',
+    `We sell experiences in ${inventoryLandscape.totalCities} cities across ${inventoryLandscape.totalCountries} countries, organized into ${inventoryLandscape.totalCategories} categories.`,
+    '',
+    '### Top Destinations by Inventory Volume',
+    destinationsList,
+    '',
+    '### Available Categories',
+    categoriesList,
+    '',
+    '### Sample Products (to understand what we sell)',
+    JSON.stringify(inventoryLandscape.productSamples, null, 2),
+    '',
+    '## Strategy Context',
+    "We follow TravelAI's micro-segmentation approach: 470+ niche sites achieving 441% growth. Each site is a tightly focused brand targeting a specific audience, interest, geography, or occasion.",
+    '',
+    '## RULES',
+    '1. Think GLOBALLY. Include destinations beyond the obvious tourist cities.',
+    '2. Think about WHERE search demand exists, not just where our deepest inventory is.',
+    '3. Include at least 15 destination-agnostic opportunities (category/audience platforms).',
+    '4. Mix these dimensions freely:',
+    '   - **Geographic**: City-specific, region-specific, country-specific, multi-country',
+    '   - **Demographic**: Families, seniors, solo travelers, couples, groups, disabled travelers, LGBTQ+, students, digital nomads, expats',
+    '   - **Interest**: Food, art, adventure, wellness, photography, history, architecture, music, sports, nightlife, nature, wine, craft beer',
+    '   - **Occasion**: Weddings, birthdays, corporate events, bachelor/ette parties, anniversaries, honeymoons, graduation trips, holiday activities',
+    '   - **Price/Style**: Budget, luxury, off-the-beaten-path, private, VIP, immersive, local-led',
+    '   - **Seasonal**: Summer, winter, weekend breaks, day trips, rainy-day activities',
+    '   - **Cross-cutting**: "accessible food tours", "luxury wine + art tours", "family adventure holidays"',
+    '5. Prioritize BLUE OCEAN opportunities - underserved niches where competition is low but demand exists.',
+    '6. For each, provide a realistic keyword that real people search for on Google.',
+    '',
+    '## Required Output',
+    'Return EXACTLY 120 items as a JSON array. Each must have:',
+    '- keyword: The primary SEO keyword real people search (e.g., "best cooking classes rome", "family friendly activities london")',
+    '- destination: Specific location or null for location-agnostic',
+    '- category: Primary experience category',
+    '- niche: The micro-segment description',
+    '- scanMode: One of "hyper_local", "generic_activity", "demographic", "occasion", "experience_level", "regional"',
+    '- rationale: One sentence on why this is a strong opportunity',
+    '',
+    'Aim for roughly: 40 hyper_local, 20 generic_activity, 20 demographic, 15 occasion, 15 experience_level, 10 regional.',
+    '',
+    'Return ONLY a valid JSON array, no markdown fences, no explanation.',
+  ].join('\n');
+
+  console.log('[AI Seeds] Calling Anthropic API for broad opportunity discovery...');
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': anthropicApiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-3-5-sonnet-20241022',
+      max_tokens: 8000,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(`Anthropic API error: ${JSON.stringify(errorData)}`);
+  }
+
+  const data = (await response.json()) as { content: Array<{ text: string }> };
+  const responseText = data.content?.[0]?.text;
+  if (!responseText) {
+    throw new Error('Empty AI response for seed generation');
+  }
+
+  const jsonMatch = responseText.match(/\[[\s\S]*\]/);
+  if (!jsonMatch) {
+    throw new Error('Could not extract JSON array from AI seed response');
+  }
+
+  const rawSeeds = JSON.parse(jsonMatch[0]) as Array<{
+    keyword: string;
+    destination: string | null;
+    category: string;
+    niche: string;
+    scanMode: string;
+    rationale: string;
+  }>;
+
+  console.log(`[AI Seeds] Parsed ${rawSeeds.length} seed opportunities from AI`);
+
+  // Convert to OpportunitySeed format - NO inventory gating
+  return rawSeeds.map((seed) => ({
+    keyword: seed.keyword,
+    destination: seed.destination || undefined,
+    category: seed.category,
+    niche: seed.niche,
+    scanMode: (seed.scanMode || 'generic_activity') as ScanMode,
+    rationale: seed.rationale,
+    inventoryCount: 0, // Will be populated during validation, not used as gate
+  }));
+}
+
+/**
+ * Sample Holibob inventory for AI context (legacy direct scan path)
  */
 async function sampleHolibobInventory(
   holibobClient: ReturnType<typeof createHolibobClient>
-): Promise<any> {
+): Promise<{
+  destinations: Array<{
+    destination: string;
+    productCount: number;
+    sampleProducts: Array<{ name: string; category?: string; tags?: string[] }>;
+  }>;
+  totalProducts: number;
+}> {
   const sampleDestinations = [
     'London, England',
     'Paris, France',
     'Rome, Italy',
     'Barcelona, Spain',
-    'Madrid, Spain',
+    'Amsterdam, Netherlands',
     'New York, USA',
-    'San Francisco, USA',
-    'Tokyo, Japan',
-    'Dubai, UAE',
   ];
-  const sampleCategories = ['tours', 'activities', 'food'];
 
-  const inventory: any = {
+  const inventory: {
+    destinations: Array<{
+      destination: string;
+      productCount: number;
+      sampleProducts: Array<{ name: string; category?: string; tags?: string[] }>;
+    }>;
+    totalProducts: number;
+  } = {
     destinations: [],
     totalProducts: 0,
-    categories: {},
   };
 
   for (const destination of sampleDestinations) {
     try {
       const result = await holibobClient.discoverProducts(
-        {
-          freeText: destination,
-          currency: 'GBP',
-        },
+        { freeText: destination, currency: 'GBP' },
         { pageSize: 5 }
       );
 
@@ -608,8 +843,8 @@ async function sampleHolibobInventory(
         });
         inventory.totalProducts += result.products.length;
       }
-    } catch (error) {
-      console.error(`[Inventory Sample] Error sampling ${destination}:`, error);
+    } catch {
+      // Skip failed destinations
     }
   }
 
@@ -1008,408 +1243,6 @@ function estimateCpc(category: string): number {
   }
 
   return base + Math.random();
-}
-
-/**
- * ========================================
- * MULTI-MODE SEED GENERATION
- * ========================================
- * Generate diverse seed opportunities from all scan modes
- * for use in recursive optimization
- */
-
-/**
- * Generate diverse seed opportunities from all scan modes
- * These serve as the starting point for recursive optimization
- */
-async function generateMultiModeSeeds(
-  holibobClient: ReturnType<typeof createHolibobClient>
-): Promise<OpportunitySeed[]> {
-  console.log('[Seed Generation] Starting multi-mode seed generation...');
-  const seeds: OpportunitySeed[] = [];
-
-  try {
-    // Mode 1: Hyper-Local (top cities x top categories)
-    console.log('[Seed Generation] Generating hyper-local seeds...');
-    const hyperLocalSeeds = await generateHyperLocalSeeds(holibobClient);
-    seeds.push(...hyperLocalSeeds);
-    console.log(`[Seed Generation] Generated ${hyperLocalSeeds.length} hyper-local seeds`);
-
-    // Mode 2: Generic Activities
-    console.log('[Seed Generation] Generating generic activity seeds...');
-    const genericSeeds = await generateGenericSeeds(holibobClient);
-    seeds.push(...genericSeeds);
-    console.log(`[Seed Generation] Generated ${genericSeeds.length} generic seeds`);
-
-    // Mode 3: Demographics
-    console.log('[Seed Generation] Generating demographic seeds...');
-    const demographicSeeds = await generateDemographicSeeds(holibobClient);
-    seeds.push(...demographicSeeds);
-    console.log(`[Seed Generation] Generated ${demographicSeeds.length} demographic seeds`);
-
-    // Mode 4: Occasions
-    console.log('[Seed Generation] Generating occasion-based seeds...');
-    const occasionSeeds = await generateOccasionSeeds(holibobClient);
-    seeds.push(...occasionSeeds);
-    console.log(`[Seed Generation] Generated ${occasionSeeds.length} occasion seeds`);
-
-    // Mode 5: Experience Levels
-    console.log('[Seed Generation] Generating experience-level seeds...');
-    const experienceSeeds = await generateExperienceLevelSeeds(holibobClient);
-    seeds.push(...experienceSeeds);
-    console.log(`[Seed Generation] Generated ${experienceSeeds.length} experience-level seeds`);
-
-    // Mode 6: Regional
-    console.log('[Seed Generation] Generating regional seeds...');
-    const regionalSeeds = await generateRegionalSeeds(holibobClient);
-    seeds.push(...regionalSeeds);
-    console.log(`[Seed Generation] Generated ${regionalSeeds.length} regional seeds`);
-  } catch (error) {
-    console.error('[Seed Generation] Error generating seeds:', error);
-    // Continue with whatever seeds we have
-  }
-
-  console.log(`[Seed Generation] Total seeds generated: ${seeds.length}`);
-  return seeds;
-}
-
-async function generateHyperLocalSeeds(
-  client: ReturnType<typeof createHolibobClient>
-): Promise<OpportunitySeed[]> {
-  const destinations = [
-    'London, England',
-    'Paris, France',
-    'Barcelona, Spain',
-    'Rome, Italy',
-    'Amsterdam, Netherlands',
-    'New York, USA',
-  ];
-  const categories = [
-    'food tours',
-    'walking tours',
-    'museum tickets',
-    'wine tasting',
-    'cooking classes',
-  ];
-
-  const seeds: OpportunitySeed[] = [];
-
-  for (const destination of destinations) {
-    for (const category of categories) {
-      const city = destination.split(',')[0] || destination;
-      const keyword = `${city.toLowerCase()} ${category}`;
-
-      try {
-        const inventory = await client.discoverProducts(
-          { freeText: destination, searchTerm: category, currency: 'GBP' },
-          { pageSize: 10 }
-        );
-
-        if (inventory.products.length > 0) {
-          seeds.push({
-            keyword,
-            destination,
-            category,
-            niche: category,
-            scanMode: 'hyper_local',
-            rationale: `High-demand ${category} in major tourist destination ${city}`,
-            inventoryCount: inventory.products.length,
-          });
-        }
-      } catch (error) {
-        // Skip on error
-      }
-    }
-  }
-
-  return seeds;
-}
-
-async function generateGenericSeeds(
-  client: ReturnType<typeof createHolibobClient>
-): Promise<OpportunitySeed[]> {
-  const genericKeywords = [
-    'food tours',
-    'wine tours',
-    'cooking classes',
-    'museum tickets',
-    'city tours',
-    'boat tours',
-    'bike tours',
-    'photography tours',
-    'art classes',
-  ];
-
-  const seeds: OpportunitySeed[] = [];
-
-  for (const keyword of genericKeywords) {
-    try {
-      const globalInventory = await checkGlobalInventory(client, keyword);
-
-      // Generic needs broad inventory (5+ destinations, 50+ products)
-      if (globalInventory.destinationCount >= 5 && globalInventory.totalCount >= 50) {
-        seeds.push({
-          keyword,
-          destination: undefined, // Generic - no specific location
-          category: keyword,
-          niche: keyword,
-          scanMode: 'generic_activity',
-          rationale: `Global ${keyword} platform aggregating ${globalInventory.destinationCount} destinations`,
-          inventoryCount: globalInventory.totalCount,
-          destinationCount: globalInventory.destinationCount,
-        });
-      }
-    } catch (error) {
-      // Skip on error
-    }
-  }
-
-  return seeds;
-}
-
-async function generateDemographicSeeds(
-  client: ReturnType<typeof createHolibobClient>
-): Promise<OpportunitySeed[]> {
-  const demographics = [
-    { keyword: 'family travel experiences', category: 'tours', niche: 'family travel' },
-    { keyword: 'family-friendly activities', category: 'activities', niche: 'family travel' },
-    { keyword: 'senior-friendly tours', category: 'tours', niche: 'senior travel' },
-    { keyword: 'accessible travel experiences', category: 'tours', niche: 'accessible tourism' },
-    { keyword: 'pet-friendly travel', category: 'activities', niche: 'pet travel' },
-    { keyword: 'solo travel activities', category: 'activities', niche: 'solo travelers' },
-    { keyword: 'couples activities', category: 'activities', niche: 'romantic travel' },
-  ];
-
-  const seeds: OpportunitySeed[] = [];
-
-  for (const demo of demographics) {
-    try {
-      const globalInventory = await checkGlobalInventory(client, demo.category);
-
-      // Demographics need reasonable inventory (30+ products)
-      if (globalInventory.totalCount >= 30) {
-        seeds.push({
-          keyword: demo.keyword,
-          destination: undefined,
-          category: demo.category,
-          niche: demo.niche,
-          scanMode: 'demographic',
-          rationale: `Underserved ${demo.niche} demographic with growing demand`,
-          inventoryCount: globalInventory.totalCount,
-          destinationCount: globalInventory.destinationCount,
-        });
-      }
-    } catch (error) {
-      // Skip on error
-    }
-  }
-
-  return seeds;
-}
-
-async function generateOccasionSeeds(
-  client: ReturnType<typeof createHolibobClient>
-): Promise<OpportunitySeed[]> {
-  const occasions = [
-    { keyword: 'bachelor party experiences', category: 'activities', niche: 'bachelor parties' },
-    {
-      keyword: 'bachelorette party activities',
-      category: 'activities',
-      niche: 'bachelorette parties',
-    },
-    { keyword: 'corporate team building', category: 'activities', niche: 'corporate events' },
-    { keyword: 'anniversary experiences', category: 'activities', niche: 'anniversaries' },
-    { keyword: 'birthday activities', category: 'activities', niche: 'birthday celebrations' },
-    { keyword: 'honeymoon experiences', category: 'tours', niche: 'honeymoons' },
-  ];
-
-  const seeds: OpportunitySeed[] = [];
-
-  for (const occasion of occasions) {
-    try {
-      const globalInventory = await checkGlobalInventory(client, occasion.category);
-
-      // Occasions need reasonable inventory (20+ products)
-      if (globalInventory.totalCount >= 20) {
-        seeds.push({
-          keyword: occasion.keyword,
-          destination: undefined,
-          category: occasion.category,
-          niche: occasion.niche,
-          scanMode: 'occasion',
-          rationale: `High-value ${occasion.niche} market with strong commercial intent`,
-          inventoryCount: globalInventory.totalCount,
-          destinationCount: globalInventory.destinationCount,
-        });
-      }
-    } catch (error) {
-      // Skip on error
-    }
-  }
-
-  return seeds;
-}
-
-async function generateExperienceLevelSeeds(
-  client: ReturnType<typeof createHolibobClient>
-): Promise<OpportunitySeed[]> {
-  const experienceLevels = [
-    {
-      keyword: 'beginner cooking classes',
-      category: 'cooking classes',
-      niche: 'beginner experiences',
-    },
-    { keyword: 'luxury wine tours', category: 'wine tasting', niche: 'luxury experiences' },
-    { keyword: 'budget-friendly activities', category: 'activities', niche: 'budget travel' },
-    { keyword: 'expert photography workshops', category: 'photography', niche: 'expert workshops' },
-    { keyword: 'private tours', category: 'tours', niche: 'private experiences' },
-  ];
-
-  const seeds: OpportunitySeed[] = [];
-
-  for (const level of experienceLevels) {
-    try {
-      const globalInventory = await checkGlobalInventory(client, level.category);
-
-      // Experience levels need inventory (20+ products)
-      if (globalInventory.totalCount >= 20) {
-        seeds.push({
-          keyword: level.keyword,
-          destination: undefined,
-          category: level.category,
-          niche: level.niche,
-          scanMode: 'experience_level',
-          rationale: `Specialized ${level.niche} targeting specific skill/budget segments`,
-          inventoryCount: globalInventory.totalCount,
-          destinationCount: globalInventory.destinationCount,
-        });
-      }
-    } catch (error) {
-      // Skip on error
-    }
-  }
-
-  return seeds;
-}
-
-async function generateRegionalSeeds(
-  client: ReturnType<typeof createHolibobClient>
-): Promise<OpportunitySeed[]> {
-  const regions = [
-    {
-      keyword: 'european city breaks',
-      destinations: ['London', 'Paris', 'Rome', 'Barcelona', 'Amsterdam'],
-      category: 'tours',
-    },
-    {
-      keyword: 'mediterranean cruises',
-      destinations: ['Barcelona', 'Rome', 'Athens'],
-      category: 'boat tours',
-    },
-    {
-      keyword: 'ski resort activities',
-      destinations: ['Chamonix', 'Innsbruck', 'Zermatt'],
-      category: 'activities',
-    },
-  ];
-
-  const seeds: OpportunitySeed[] = [];
-
-  for (const region of regions) {
-    try {
-      // Check inventory across multiple destinations in the region
-      let totalInventory = 0;
-      let destinationCount = 0;
-
-      for (const destination of region.destinations) {
-        try {
-          const inventory = await client.discoverProducts(
-            { freeText: destination, searchTerm: region.category, currency: 'GBP' },
-            { pageSize: 10 }
-          );
-          if (inventory.products.length > 0) {
-            totalInventory += inventory.products.length;
-            destinationCount++;
-          }
-        } catch {
-          // Skip destination on error
-        }
-      }
-
-      // Regional needs multi-destination inventory (3+ destinations, 30+ products)
-      if (destinationCount >= 3 && totalInventory >= 30) {
-        seeds.push({
-          keyword: region.keyword,
-          destination: undefined, // Regional - covers multiple destinations
-          category: region.category,
-          niche: region.keyword,
-          scanMode: 'regional',
-          rationale: `Regional ${region.keyword} aggregating ${destinationCount} destinations`,
-          inventoryCount: totalInventory,
-          destinationCount,
-        });
-      }
-    } catch (error) {
-      // Skip on error
-    }
-  }
-
-  return seeds;
-}
-
-/**
- * Check inventory across multiple destinations for generic/demographic/occasion keywords
- */
-async function checkGlobalInventory(
-  client: ReturnType<typeof createHolibobClient>,
-  searchTerm: string
-): Promise<{
-  totalCount: number;
-  destinationCount: number;
-  topDestinations: Array<{ destination: string; count: number }>;
-}> {
-  const destinations = [
-    'London, England',
-    'Paris, France',
-    'Rome, Italy',
-    'Barcelona, Spain',
-    'Amsterdam, Netherlands',
-    'New York, USA',
-    'Los Angeles, USA',
-    'Tokyo, Japan',
-    'Dubai, UAE',
-    'Berlin, Germany',
-  ];
-
-  const results = await Promise.all(
-    destinations.map(async (destination) => {
-      try {
-        const inventory = await client.discoverProducts(
-          {
-            freeText: destination,
-            searchTerm,
-            currency: 'GBP',
-          },
-          { pageSize: 50 }
-        );
-        return {
-          destination,
-          count: inventory.products.length,
-        };
-      } catch {
-        return { destination, count: 0 };
-      }
-    })
-  );
-
-  const withInventory = results.filter((r) => r.count > 0);
-  const totalCount = results.reduce((sum, r) => sum + r.count, 0);
-
-  return {
-    totalCount,
-    destinationCount: withInventory.length,
-    topDestinations: withInventory.sort((a, b) => b.count - a.count).slice(0, 5),
-  };
 }
 
 /**

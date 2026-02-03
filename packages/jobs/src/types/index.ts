@@ -80,6 +80,21 @@ export interface OpportunitySeed {
   destinationCount?: number; // For generic/regional - how many destinations have inventory
 }
 
+// Inventory landscape for AI-driven opportunity discovery
+export interface InventoryLandscape {
+  totalCountries: number;
+  totalCities: number;
+  totalCategories: number;
+  topDestinations: Array<{ name: string; country: string; productCount: number }>;
+  categories: Array<{ name: string; productCount: number }>;
+  productSamples: Array<{
+    city: string;
+    country: string;
+    productCount: number;
+    sampleProducts: Array<{ name: string; category?: string; tags?: string[] }>;
+  }>;
+}
+
 export interface SeoOpportunityOptimizePayload {
   siteId?: string;
   maxIterations?: number;
