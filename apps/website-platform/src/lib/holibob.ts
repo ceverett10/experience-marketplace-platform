@@ -324,13 +324,15 @@ export function mapProductToExperience(product: {
   const legacyImageUrls = product.images?.map((img) => img.url ?? '').filter(Boolean) ?? [];
   const allImages = imageListUrls.length > 0 ? imageListUrls : legacyImageUrls;
 
-  // Primary image URL
-  const primaryImageUrl =
+  // Primary image URL - optimize for card display (550x366px like Holibob Hub)
+  const rawPrimaryImageUrl =
     allImages[0] ??
     product.primaryImage?.url ??
     product.primaryImageUrl ??
     product.imageUrl ??
     '/placeholder-experience.jpg';
+
+  const primaryImageUrl = optimizeHolibobImageUrl(rawPrimaryImageUrl, 550, 366);
 
   // Handle categories from different API formats
   // categoryList.nodes[] or categories[]
@@ -423,7 +425,7 @@ export function mapProductToExperience(product: {
     imageUrl: primaryImageUrl,
     images:
       allImages.length > 0
-        ? allImages
+        ? allImages.map((img) => optimizeHolibobImageUrl(img, 1200, 800)) // Larger for gallery
         : primaryImageUrl === '/placeholder-experience.jpg'
           ? []
           : [primaryImageUrl],
@@ -549,4 +551,52 @@ export function formatDuration(value: number, unit: string): string {
     return value === 1 ? '1 day' : `${value} days`;
   }
   return `${value} ${unit}`;
+}
+
+/**
+ * Optimize Holibob image URL by adding resize parameters
+ * Holibob CDN (images.holibob.tech) supports base64-encoded JSON parameters
+ * for dynamic image transformation (resize, crop, format, etc.)
+ *
+ * @param url - Original image URL from Holibob API
+ * @param width - Target width in pixels
+ * @param height - Target height in pixels
+ * @returns Optimized URL with resize parameters, or original URL if transformation fails
+ */
+export function optimizeHolibobImageUrl(url: string, width: number, height: number): string {
+  // Only transform images.holibob.tech URLs
+  if (!url || !url.includes('images.holibob.tech')) {
+    return url;
+  }
+
+  try {
+    // Extract the base64 token from the URL
+    const urlParts = url.split('/');
+    const token = urlParts[urlParts.length - 1];
+
+    if (!token) {
+      return url;
+    }
+
+    // Decode the existing parameters
+    const decoded = JSON.parse(Buffer.from(token, 'base64').toString('utf-8'));
+
+    // Add resize parameters (following Holibob Hub's approach)
+    decoded.edits = {
+      ...(decoded.edits || {}),
+      resize: {
+        width,
+        height,
+        fit: 'cover',
+      },
+    };
+
+    // Re-encode and return the optimized URL
+    const newToken = Buffer.from(JSON.stringify(decoded)).toString('base64');
+    return `https://images.holibob.tech/${newToken}`;
+  } catch (error) {
+    // If transformation fails, return original URL
+    console.warn('[Holibob Image] Failed to optimize URL:', error instanceof Error ? error.message : error);
+    return url;
+  }
 }

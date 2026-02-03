@@ -6,6 +6,7 @@ import {
   getHolibobClient,
   mapProductToExperience,
   parseIsoDuration,
+  optimizeHolibobImageUrl,
   type Experience,
   type ExperienceListItem,
 } from '@/lib/holibob';
@@ -82,8 +83,9 @@ async function getRelatedExperiences(
       .filter((p) => p.id !== experience.id)
       .slice(0, 4)
       .map((product) => {
-        const primaryImage =
+        const rawImageUrl =
           product.imageList?.[0]?.url ?? product.imageUrl ?? '/placeholder-experience.jpg';
+        const primaryImage = optimizeHolibobImageUrl(rawImageUrl, 550, 366);
         const priceAmount = product.guidePrice ?? product.priceFrom ?? 0;
         const priceCurrency =
           product.guidePriceCurrency ?? product.priceCurrency ?? product.currency ?? 'GBP';

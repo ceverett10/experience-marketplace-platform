@@ -1,9 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { getSiteFromHostname } from '@/lib/tenant';
-import { getHolibobClient, parseIsoDuration } from '@/lib/holibob';
+import { getHolibobClient, parseIsoDuration, optimizeHolibobImageUrl } from '@/lib/holibob';
 
 const ITEMS_PER_PAGE = 12;
+
+// In-memory cache for Holibob API responses
+// Cache key: "destination|searchTerm|adults|children|startDate|endDate|seenIds"
+// Cache expires after 10 minutes
+const apiCache = new Map<string, { data: unknown; expiresAt: number }>();
+const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
+function getCacheKey(params: {
+  destination?: string | null;
+  searchTerm?: string | null;
+  adults?: string | null;
+  children?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  seenProductIds?: string | null;
+}): string {
+  return `${params.destination || ''}|${params.searchTerm || ''}|${params.adults || ''}|${params.children || ''}|${params.startDate || ''}|${params.endDate || ''}|${params.seenProductIds || ''}`;
+}
+
+function cleanExpiredCache(): void {
+  const now = Date.now();
+  for (const [key, value] of apiCache.entries()) {
+    if (value.expiresAt < now) {
+      apiCache.delete(key);
+    }
+  }
+}
 
 function formatPrice(amount: number, currency: string): string {
   return new Intl.NumberFormat('en-GB', {
@@ -59,6 +86,32 @@ export async function GET(request: NextRequest) {
       seenProductIdCount: seenProductIdList?.length ?? 0,
     });
 
+    // Generate cache key and check cache
+    const cacheKey = getCacheKey({
+      destination,
+      searchTerm,
+      adults,
+      children,
+      startDate,
+      endDate,
+      seenProductIds,
+    });
+
+    // Clean expired cache entries periodically
+    cleanExpiredCache();
+
+    // Check if we have cached data
+    const cached = apiCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      console.log('[API /experiences] Returning cached data');
+      const cachedResponse = cached.data as { experiences: unknown[]; hasMore: boolean; totalCount: number };
+      return NextResponse.json(cachedResponse, {
+        headers: {
+          'Cache-Control': 'public, s-maxage=600, stale-while-revalidate=300',
+        },
+      });
+    }
+
     const response = await client.discoverProducts(
       {
         currency: 'GBP',
@@ -76,8 +129,13 @@ export async function GET(request: NextRequest) {
     );
 
     const experiences = response.products.map((product) => {
-      const primaryImage =
+      const rawImageUrl =
         product.imageList?.[0]?.url ?? product.imageUrl ?? '/placeholder-experience.jpg';
+
+      // Optimize Holibob images to request card-sized versions (550x366px like Holibob Hub)
+      const primaryImage = rawImageUrl.includes('images.holibob.tech')
+        ? optimizeHolibobImageUrl(rawImageUrl, 550, 366)
+        : rawImageUrl;
 
       const priceAmount = product.guidePrice ?? product.priceFrom ?? 0;
       const priceCurrency =
@@ -146,10 +204,22 @@ export async function GET(request: NextRequest) {
       hasMoreResults
     );
 
-    return NextResponse.json({
+    const responseData = {
       experiences,
       hasMore: hasMoreResults,
       totalCount: response.totalCount ?? experiences.length,
+    };
+
+    // Store in cache
+    apiCache.set(cacheKey, {
+      data: responseData,
+      expiresAt: Date.now() + CACHE_TTL_MS,
+    });
+
+    return NextResponse.json(responseData, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=600, stale-while-revalidate=300',
+      },
     });
   } catch (error) {
     console.error('Error fetching experiences:', error);
