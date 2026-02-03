@@ -86,7 +86,7 @@ export default function ScheduledJobsPage() {
   useEffect(() => {
     const fetchSchedules = async () => {
       try {
-        const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+        const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
         const response = await fetch(`${basePath}/api/operations/schedules`);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
@@ -106,7 +106,7 @@ export default function ScheduledJobsPage() {
   const triggerJob = async (jobType: string) => {
     setTriggerLoading(jobType);
     try {
-      const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+      const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
       const response = await fetch(`${basePath}/api/operations/schedules`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

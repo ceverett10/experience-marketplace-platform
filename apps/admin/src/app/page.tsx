@@ -36,7 +36,7 @@ export default function AdminDashboardPage() {
     try {
       setIsLoading(true);
       setError(null);
-      const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+      const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
       const response = await fetch(`${basePath}/api/dashboard`);
 
       if (!response.ok) {

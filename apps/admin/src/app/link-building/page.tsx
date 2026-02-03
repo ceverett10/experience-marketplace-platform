@@ -77,7 +77,7 @@ export default function LinkBuildingPage() {
     try {
       setIsLoading(true);
       setError(null);
-      const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+      const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
       const response = await fetch(`${basePath}/api/link-building`);
       if (!response.ok) throw new Error('Failed to fetch data');
       const result = await response.json();
@@ -99,7 +99,7 @@ export default function LinkBuildingPage() {
       setActionStatus('Processing...');
       // Use first available site as default
       const siteId = data?.backlinks[0]?.siteName || data?.opportunities[0]?.siteName || '';
-      const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+      const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
       const response = await fetch(`${basePath}/api/link-building`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

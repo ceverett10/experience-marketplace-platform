@@ -37,7 +37,7 @@ export default function AdminContentPage() {
       try {
         setIsLoading(true);
         setError(null);
-        const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+        const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
         const response = await fetch(`${basePath}/api/content`);
 
         if (!response.ok) {
@@ -85,7 +85,7 @@ export default function AdminContentPage() {
 
   const updateContentStatus = async (id: string, status: ContentItem['status']) => {
     try {
-      const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+      const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
       const response = await fetch(`${basePath}/api/content`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -136,7 +136,7 @@ export default function AdminContentPage() {
 
     try {
       setIsSaving(true);
-      const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+      const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
       const response = await fetch(`${basePath}/api/content`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -200,7 +200,7 @@ export default function AdminContentPage() {
   const generateMissingContent = async () => {
     try {
       setIsGenerating(true);
-      const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+      const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
       const response = await fetch(`${basePath}/api/content`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -226,7 +226,7 @@ export default function AdminContentPage() {
   const regenerateContent = async (pageId: string, title: string) => {
     try {
       setRegeneratingIds((prev) => new Set(prev).add(pageId));
-      const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+      const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
       const response = await fetch(`${basePath}/api/content`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

@@ -29,7 +29,7 @@ export default function DebugPage() {
     setLoading(true);
 
     try {
-      const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+      const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
       const response = await fetch(`${basePath}/api/debug/fix-content-mapping`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

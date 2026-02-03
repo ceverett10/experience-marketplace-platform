@@ -65,7 +65,7 @@ export default function DomainsPage() {
       try {
         setLoading(true);
         // Use basePath in production
-        const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+        const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
         const response = await fetch(`${basePath}/api/domains?status=${statusFilter}`);
         const data = await response.json();
         setDomains(data.domains || []);
@@ -153,7 +153,7 @@ export default function DomainsPage() {
             onClick={async () => {
               setCheckingAvailability(true);
               try {
-                const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+                const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
                 const response = await fetch(`${basePath}/api/domains`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
@@ -200,7 +200,7 @@ export default function DomainsPage() {
             onClick={async () => {
               setSyncing(true);
               try {
-                const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+                const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
                 const response = await fetch(`${basePath}/api/domains`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
@@ -245,7 +245,7 @@ export default function DomainsPage() {
             onClick={async () => {
               setQueueing(true);
               try {
-                const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+                const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
                 const response = await fetch(`${basePath}/api/domains`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
@@ -493,7 +493,7 @@ export default function DomainsPage() {
                         onClick={async () => {
                           setCheckingDomainId(domain.id);
                           try {
-                            const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+                            const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
                             const response = await fetch(`${basePath}/api/domains`, {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },
@@ -549,7 +549,7 @@ export default function DomainsPage() {
                           )
                             return;
                           try {
-                            const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+                            const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
                             const response = await fetch(`${basePath}/api/domains`, {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },

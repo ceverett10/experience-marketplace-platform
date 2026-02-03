@@ -83,7 +83,7 @@ export default function TasksPage() {
       if (statusFilter !== 'all') params.set('status', statusFilter);
       if (categoryFilter !== 'all') params.set('category', categoryFilter);
 
-      const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+      const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
       const response = await fetch(`${basePath}/api/tasks?${params.toString()}`);
       const data = await response.json();
       setTasks(data.tasks || []);
@@ -101,7 +101,7 @@ export default function TasksPage() {
 
   const updateTaskStatus = async (taskId: string, newStatus: string) => {
     try {
-      const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+      const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
       const response = await fetch(`${basePath}/api/tasks`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -121,7 +121,7 @@ export default function TasksPage() {
       return;
     }
     try {
-      const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+      const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
       const response = await fetch(`${basePath}/api/tasks`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -140,7 +140,7 @@ export default function TasksPage() {
   const deleteTask = async (taskId: string) => {
     if (!confirm('Are you sure you want to delete this task?')) return;
     try {
-      const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+      const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
       const response = await fetch(`${basePath}/api/tasks?id=${taskId}`, { method: 'DELETE' });
       if (response.ok) {
         fetchTasks();

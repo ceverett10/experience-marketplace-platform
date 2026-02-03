@@ -100,7 +100,7 @@ export default function AdminSettingsPage() {
   useEffect(() => {
     const loadAutonomousSettings = async () => {
       try {
-        const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+        const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
         const response = await fetch(`${basePath}/api/settings/autonomous`);
         if (response.ok) {
           const data = await response.json();
@@ -127,7 +127,7 @@ export default function AdminSettingsPage() {
 
     const loadProcessorStatus = async () => {
       try {
-        const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+        const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
         const response = await fetch(`${basePath}/api/settings/roadmap-processor`);
         if (response.ok) {
           const data = await response.json();
@@ -164,7 +164,7 @@ export default function AdminSettingsPage() {
     setProcessorLoading(true);
     setProcessorResult(null);
     try {
-      const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+      const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
       const response = await fetch(`${basePath}/api/settings/roadmap-processor`, {
         method: 'POST',
       });
@@ -200,7 +200,7 @@ export default function AdminSettingsPage() {
   const handleEmergencyStop = async () => {
     setPauseLoading(true);
     try {
-      const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+      const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
       const endpoint = autonomousState.allProcessesPaused
         ? `${basePath}/api/settings/resume-all`
         : `${basePath}/api/settings/pause-all`;
@@ -233,7 +233,7 @@ export default function AdminSettingsPage() {
 
   const updateAutonomousSettings = async (updates: Partial<typeof autonomousState>) => {
     try {
-      const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+      const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
       const response = await fetch(`${basePath}/api/settings/autonomous`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },

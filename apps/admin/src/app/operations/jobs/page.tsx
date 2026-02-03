@@ -158,7 +158,7 @@ function JobExplorerContent() {
       params.set('page', String(page));
       params.set('limit', String(limit));
 
-      const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+      const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
       const response = await fetch(`${basePath}/api/operations/jobs?${params.toString()}`);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
@@ -195,7 +195,7 @@ function JobExplorerContent() {
   const fetchJobDetail = async (jobId: string) => {
     setDetailLoading(true);
     try {
-      const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+      const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
       const response = await fetch(`${basePath}/api/operations/jobs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -224,7 +224,7 @@ function JobExplorerContent() {
   const handleRetry = async (jobId: string) => {
     setRetryingJobId(jobId);
     try {
-      const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+      const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
       await fetch(`${basePath}/api/operations/jobs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -242,7 +242,7 @@ function JobExplorerContent() {
     if (!confirm('Retry all failed jobs matching current filters?')) return;
     setBulkRetrying(true);
     try {
-      const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+      const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
       const filter: any = {};
       if (type) filter.type = type;
       await fetch(`${basePath}/api/operations/jobs`, {

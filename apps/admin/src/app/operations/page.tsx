@@ -79,7 +79,7 @@ export default function OperationsDashboard() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+        const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
         const response = await fetch(`${basePath}/api/operations/dashboard`);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const json = await response.json();

@@ -126,7 +126,7 @@ export default function OpportunitiesPage() {
   const handleAction = async (opportunityId: string, action: 'dismiss' | 'create-site') => {
     try {
       if (action === 'dismiss') setDiscarding(opportunityId);
-      const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+      const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
       const response = await fetch(`${basePath}/api/opportunities`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -164,7 +164,7 @@ export default function OpportunitiesPage() {
   const handleGenerateExplanation = async (opportunityId: string) => {
     try {
       setGeneratingExplanation(opportunityId);
-      const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+      const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
       const response = await fetch(`${basePath}/api/opportunities`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -195,7 +195,7 @@ export default function OpportunitiesPage() {
     try {
       setScanning(true);
       setScanMessage('Starting scan...');
-      const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+      const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
       const response = await fetch(`${basePath}/api/opportunities`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
