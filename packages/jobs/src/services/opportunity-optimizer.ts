@@ -770,9 +770,17 @@ async function batchValidateOpportunities(
     // Map keyword data back to suggestions
     const keywordMap = new Map(keywordData.map((k) => [k.keyword.toLowerCase(), k]));
 
+    let skippedZeroVolume = 0;
     for (const suggestion of suggestions) {
       const metrics = keywordMap.get(suggestion.keyword.toLowerCase());
       if (!metrics) continue;
+
+      // Skip keywords with zero search volume - DataForSEO has no data for these
+      // which means they're too specific/obscure to drive meaningful traffic
+      if (metrics.searchVolume === 0) {
+        skippedZeroVolume++;
+        continue;
+      }
 
       // Get Holibob inventory for this destination/category
       let inventory = { productCount: 0, categories: [] as string[] };
@@ -833,6 +841,12 @@ async function batchValidateOpportunities(
         priorityScore,
         validatedAt: new Date(),
       });
+    }
+
+    if (skippedZeroVolume > 0) {
+      console.info(
+        `[Optimizer] Skipped ${skippedZeroVolume}/${suggestions.length} keywords with zero search volume (too specific for DataForSEO)`
+      );
     }
   } catch (error) {
     console.error('[Optimizer] Batch validation error:', error);
@@ -1154,13 +1168,16 @@ async function generateFinalRankings(
     }
   }
 
-  // Sort by final score and keep ALL opportunities above score 40
+  // Sort by final score and keep opportunities above score 40 with real search volume
+  const MIN_SEARCH_VOLUME = 10;
   const sorted = [...allOpportunities.values()]
+    .filter((item) => item.opportunity.dataForSeo.searchVolume >= MIN_SEARCH_VOLUME)
     .sort((a, b) => b.opportunity.priorityScore - a.opportunity.priorityScore)
     .filter((item) => item.opportunity.priorityScore >= 40);
 
-  console.log(
-    `[Optimizer] Final ranking: ${sorted.length} opportunities above score 40 (from ${allOpportunities.size} total)`
+  const droppedNoVolume = allOpportunities.size - sorted.length;
+  console.info(
+    `[Optimizer] Final ranking: ${sorted.length} opportunities above score 40 with volume >= ${MIN_SEARCH_VOLUME} (dropped ${droppedNoVolume} from ${allOpportunities.size} total)`
   );
 
   // Generate explanations only for top 20 (to control API costs)
