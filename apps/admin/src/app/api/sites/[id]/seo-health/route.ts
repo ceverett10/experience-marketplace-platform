@@ -135,7 +135,7 @@ export async function GET(
       const pageIssues: SEOIssue[] = [];
       let technicalScore = 100;
       let contentScore = 100;
-      let performanceScore = 50; // Default if no GSC data
+      const performanceScore = 50; // Default if no GSC data
 
       // === TECHNICAL SEO CHECKS ===
 
