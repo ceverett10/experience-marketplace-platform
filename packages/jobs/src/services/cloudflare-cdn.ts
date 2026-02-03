@@ -58,7 +58,9 @@ export class CloudflareCDNService {
   /**
    * Configure optimal CDN settings for a domain
    */
-  async optimizeZone(domain: string): Promise<{ success: boolean; zoneId?: string; error?: string }> {
+  async optimizeZone(
+    domain: string
+  ): Promise<{ success: boolean; zoneId?: string; error?: string }> {
     try {
       // 1. Find or create the zone
       const zoneId = await this.getZoneId(domain);
@@ -125,7 +127,10 @@ export class CloudflareCDNService {
   /**
    * Set minification settings
    */
-  private async setMinification(zoneId: string, minify: { css: boolean; html: boolean; js: boolean }): Promise<void> {
+  private async setMinification(
+    zoneId: string,
+    minify: { css: boolean; html: boolean; js: boolean }
+  ): Promise<void> {
     await this.updateZoneSetting(zoneId, 'minify', { value: minify });
   }
 
@@ -259,7 +264,7 @@ export class CloudflareCDNService {
    */
   private getHeaders(): Record<string, string> {
     return {
-      'Authorization': `Bearer ${this.apiToken}`,
+      Authorization: `Bearer ${this.apiToken}`,
       'Content-Type': 'application/json',
     };
   }
