@@ -148,17 +148,19 @@ export function ExperiencesGrid({
             experience={featuredExperience}
             variant="featured"
             badges={assignBadges(featuredExperience)}
+            priority
           />
         </div>
       )}
 
       {/* Grid of remaining experiences */}
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {remainingExperiences.map((experience) => (
+        {remainingExperiences.map((experience, index) => (
           <PremiumExperienceCard
             key={experience.id}
             experience={experience}
             badges={assignBadges(experience)}
+            priority={index < 4}
           />
         ))}
       </div>

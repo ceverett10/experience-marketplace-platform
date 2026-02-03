@@ -23,6 +23,7 @@ interface PremiumExperienceCardProps {
   showHeartAlways?: boolean;
   rank?: number;
   className?: string;
+  priority?: boolean;
 }
 
 const BADGE_STYLES: Record<BadgeType, { bg: string; text: string; icon?: string; label: string }> =
@@ -133,6 +134,7 @@ export function PremiumExperienceCard({
   showHeartAlways = true,
   rank,
   className = '',
+  priority = false,
 }: PremiumExperienceCardProps) {
   const brand = useBrand();
   const primaryColor = brand?.primaryColor ?? '#0F766E';
@@ -142,7 +144,7 @@ export function PremiumExperienceCard({
     return (
       <Link
         href={`/experiences/${experience.slug}`}
-        className={`group relative flex h-[500px] flex-col justify-end overflow-hidden rounded-3xl ${className}`}
+        className={`group relative flex h-[500px] flex-col justify-end overflow-hidden rounded-3xl bg-gray-200 animate-pulse ${className}`}
       >
         {/* Background Image */}
         <Image
@@ -150,6 +152,7 @@ export function PremiumExperienceCard({
           alt={experience.title}
           fill
           sizes="100vw"
+          {...(priority ? { priority: true } : { loading: 'lazy' as const })}
           className="object-cover transition-transform duration-700 group-hover:scale-105"
         />
 
@@ -254,7 +257,7 @@ export function PremiumExperienceCard({
     return (
       <Link
         href={`/experiences/${experience.slug}`}
-        className={`group relative flex h-96 flex-col justify-end overflow-hidden rounded-2xl ${className}`}
+        className={`group relative flex h-96 flex-col justify-end overflow-hidden rounded-2xl bg-gray-200 animate-pulse ${className}`}
       >
         {/* Background Image */}
         <Image
@@ -262,6 +265,7 @@ export function PremiumExperienceCard({
           alt={experience.title}
           fill
           sizes="(max-width: 768px) 100vw, 50vw"
+          {...(priority ? { priority: true } : { loading: 'lazy' as const })}
           className="object-cover transition-transform duration-500 group-hover:scale-105"
         />
 
@@ -325,12 +329,13 @@ export function PremiumExperienceCard({
         className={`group flex gap-4 overflow-hidden rounded-xl border border-gray-100 bg-white transition-all hover:border-gray-200 hover:shadow-lg ${className}`}
       >
         {/* Image */}
-        <div className="relative h-40 w-48 flex-shrink-0 overflow-hidden">
+        <div className="relative h-40 w-48 flex-shrink-0 overflow-hidden bg-gray-200 animate-pulse">
           <Image
             src={experience.imageUrl || '/placeholder-experience.jpg'}
             alt={experience.title}
             fill
             sizes="192px"
+            {...(priority ? { priority: true } : { loading: 'lazy' as const })}
             className="object-cover transition-transform duration-300 group-hover:scale-105"
           />
           {badges.length > 0 && badges[0] && (
@@ -381,12 +386,13 @@ export function PremiumExperienceCard({
       className={`group flex flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white transition-all duration-300 hover:border-gray-200 hover:shadow-xl hover:-translate-y-1 ${className}`}
     >
       {/* Image Container - 4:3 aspect ratio like competitors */}
-      <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">
+      <div className="relative aspect-[4/3] overflow-hidden bg-gray-200 animate-pulse">
         <Image
           src={experience.imageUrl || '/placeholder-experience.jpg'}
           alt={experience.title}
           fill
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+          {...(priority ? { priority: true } : { loading: 'lazy' as const })}
           className="object-cover transition-transform duration-500 group-hover:scale-105"
         />
 

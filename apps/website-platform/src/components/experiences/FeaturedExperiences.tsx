@@ -41,14 +41,14 @@ export function FeaturedExperiences({
         {/* Experiences Grid */}
         {variant === 'featured' ? (
           <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {experiences.slice(0, 6).map((experience) => (
-              <ExperienceCard key={experience.id} experience={experience} variant="featured" />
+            {experiences.slice(0, 6).map((experience, index) => (
+              <ExperienceCard key={experience.id} experience={experience} variant="featured" priority={index < 3} />
             ))}
           </div>
         ) : (
           <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {experiences.slice(0, 8).map((experience) => (
-              <ExperienceCard key={experience.id} experience={experience} variant="default" />
+            {experiences.slice(0, 8).map((experience, index) => (
+              <ExperienceCard key={experience.id} experience={experience} variant="default" priority={index < 4} />
             ))}
           </div>
         )}

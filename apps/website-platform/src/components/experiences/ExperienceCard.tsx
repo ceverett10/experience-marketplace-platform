@@ -8,9 +8,10 @@ import type { ExperienceListItem } from '@/lib/holibob';
 interface ExperienceCardProps {
   experience: ExperienceListItem;
   variant?: 'default' | 'compact' | 'featured';
+  priority?: boolean;
 }
 
-export function ExperienceCard({ experience, variant = 'default' }: ExperienceCardProps) {
+export function ExperienceCard({ experience, variant = 'default', priority = false }: ExperienceCardProps) {
   const brand = useBrand();
 
   if (variant === 'compact') {
@@ -19,12 +20,13 @@ export function ExperienceCard({ experience, variant = 'default' }: ExperienceCa
         href={`/experiences/${experience.slug}`}
         className="group flex gap-4 rounded-lg border border-gray-200 p-3 transition-shadow hover:shadow-md"
       >
-        <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg">
+        <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg bg-gray-200 animate-pulse">
           <Image
             src={experience.imageUrl || '/placeholder-experience.jpg'}
             alt={experience.title}
             width={80}
             height={80}
+            loading={priority ? 'eager' : 'lazy'}
             className="h-full w-full object-cover transition-transform group-hover:scale-105"
           />
         </div>
@@ -48,7 +50,7 @@ export function ExperienceCard({ experience, variant = 'default' }: ExperienceCa
     return (
       <Link
         href={`/experiences/${experience.slug}`}
-        className="group relative flex h-80 flex-col justify-end overflow-hidden rounded-2xl"
+        className="group relative flex h-80 flex-col justify-end overflow-hidden rounded-2xl bg-gray-200 animate-pulse"
       >
         {/* Image */}
         <Image
@@ -56,6 +58,7 @@ export function ExperienceCard({ experience, variant = 'default' }: ExperienceCa
           alt={experience.title}
           fill
           sizes="(max-width: 768px) 100vw, 50vw"
+          {...(priority ? { priority: true } : { loading: 'lazy' as const })}
           className="object-cover transition-transform duration-300 group-hover:scale-105"
         />
 
@@ -94,12 +97,13 @@ export function ExperienceCard({ experience, variant = 'default' }: ExperienceCa
       className="group flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white transition-shadow hover:shadow-lg"
     >
       {/* Image */}
-      <div className="relative aspect-[16/9] overflow-hidden sm:aspect-[4/3]">
+      <div className="relative aspect-[16/9] overflow-hidden sm:aspect-[4/3] bg-gray-200 animate-pulse">
         <Image
           src={experience.imageUrl || '/placeholder-experience.jpg'}
           alt={experience.title}
           fill
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+          {...(priority ? { priority: true } : { loading: 'lazy' as const })}
           className="object-cover transition-transform duration-300 group-hover:scale-105"
         />
         {experience.rating && (
