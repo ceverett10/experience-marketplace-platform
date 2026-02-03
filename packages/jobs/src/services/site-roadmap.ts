@@ -572,15 +572,22 @@ function getJobPayload(siteId: string, jobType: JobType): Record<string, unknown
  * Execute the next pending tasks for a site
  * Respects task dependencies and phase order
  * Also re-queues tasks that are marked COMPLETED but have no artifacts
+ *
+ * @param retryFailed - When true (manual execution), deletes FAILED jobs so they can be re-queued.
+ *   When false (autonomous processing), FAILED jobs are skipped to prevent retry storms.
  */
-export async function executeNextTasks(siteId: string): Promise<{
+export async function executeNextTasks(
+  siteId: string,
+  options?: { retryFailed?: boolean }
+): Promise<{
   queued: string[];
   skipped: string[];
   blocked: string[];
   requeued: string[];
   message: string;
 }> {
-  console.log(`[Site Roadmap] Executing next tasks for site ${siteId}`);
+  const retryFailed = options?.retryFailed ?? false;
+  console.log(`[Site Roadmap] Executing next tasks for site ${siteId} (retryFailed: ${retryFailed})`);
 
   // Get all jobs and validate artifacts
   const [jobs, artifactValidation] = await Promise.all([
@@ -600,11 +607,24 @@ export async function executeNextTasks(siteId: string): Promise<{
     (j) => j.status === 'COMPLETED' && !artifactValidation[j.type]?.valid
   );
 
-  // Include RETRYING and FAILED to prevent the roadmap from re-queuing
-  // jobs that are still being processed or have permanently failed
+  // When retryFailed is true (manual execution), delete FAILED jobs so they can be re-queued
+  const failedJobs = jobs.filter((j) => j.status === 'FAILED');
+  if (retryFailed && failedJobs.length > 0) {
+    for (const failedJob of failedJobs) {
+      console.log(`[Site Roadmap] Deleting FAILED job ${failedJob.type} (id: ${failedJob.id}) for retry`);
+      await prisma.job.delete({ where: { id: failedJob.id } });
+    }
+  }
+
+  // Jobs that are still in progress (skip these always)
+  // FAILED jobs are only skipped during autonomous processing (retryFailed=false)
+  const skipStatuses = retryFailed
+    ? ['RUNNING', 'PENDING', 'SCHEDULED', 'RETRYING']
+    : ['RUNNING', 'PENDING', 'SCHEDULED', 'RETRYING', 'FAILED'];
+
   const activeOrFailedJobs = new Set(
     jobs
-      .filter((j) => ['RUNNING', 'PENDING', 'SCHEDULED', 'RETRYING', 'FAILED'].includes(j.status))
+      .filter((j) => skipStatuses.includes(j.status))
       .map((j) => j.type)
   );
 

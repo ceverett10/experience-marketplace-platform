@@ -27,8 +27,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       );
     }
 
-    // Execute next tasks
-    const result = await executeNextTasks(id);
+    // Execute next tasks - manual execution allows retrying FAILED jobs
+    const result = await executeNextTasks(id, { retryFailed: true });
 
     return NextResponse.json({
       success: true,
