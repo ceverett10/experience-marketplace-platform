@@ -31,7 +31,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: {
       template: site.seoConfig?.titleTemplate ?? '%s | Experience Marketplace',
-      default: site.name,
+      default: site.seoConfig?.defaultTitle ?? site.name,
     },
     description: site.seoConfig?.defaultDescription ?? site.description ?? '',
     keywords: site.seoConfig?.keywords ?? [],
@@ -47,7 +47,12 @@ export async function generateMetadata(): Promise<Metadata> {
       card: 'summary_large_image',
     },
     icons: {
-      icon: site.brand?.faviconUrl ?? '/favicon.ico',
+      icon: site.brand?.faviconUrl
+        ? { url: site.brand.faviconUrl, type: 'image/svg+xml' }
+        : '/favicon.ico',
+      apple: site.brand?.faviconUrl
+        ? { url: site.brand.faviconUrl, type: 'image/svg+xml' }
+        : undefined,
     },
     robots: {
       index: true,
@@ -56,11 +61,17 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export const viewport: Viewport = {
-  width: 'device-width',
-  initialScale: 1,
-  themeColor: '#6366f1',
-};
+export async function generateViewport(): Promise<Viewport> {
+  const headersList = await headers();
+  const hostname = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
+  const site = await getSiteFromHostname(hostname);
+
+  return {
+    width: 'device-width',
+    initialScale: 1,
+    themeColor: site.brand?.primaryColor ?? '#6366f1',
+  };
+}
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const headersList = await headers();

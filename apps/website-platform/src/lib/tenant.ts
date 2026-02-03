@@ -125,6 +125,7 @@ export interface SiteConfig {
   // SEO Configuration
   seoConfig: {
     titleTemplate: string;
+    defaultTitle?: string; // SEO-optimized homepage title (e.g. "Brand - Tagline | Location Niche")
     defaultDescription: string;
     keywords: string[];
     gaMeasurementId?: string | null; // Google Analytics 4 measurement ID
@@ -262,6 +263,7 @@ export async function getSiteFromHostname(hostname: string): Promise<SiteConfig>
 function mapSiteToConfig(site: Site & { brand: Brand | null }): SiteConfig {
   const seoConfig = site.seoConfig as {
     titleTemplate?: string;
+    defaultTitle?: string;
     defaultDescription?: string;
     keywords?: string[];
     gaMeasurementId?: string | null;
@@ -295,6 +297,7 @@ function mapSiteToConfig(site: Site & { brand: Brand | null }): SiteConfig {
     seoConfig: seoConfig
       ? {
           titleTemplate: seoConfig.titleTemplate ?? '%s | ' + site.name,
+          defaultTitle: seoConfig.defaultTitle,
           defaultDescription: seoConfig.defaultDescription ?? site.description ?? '',
           keywords: seoConfig.keywords ?? [],
           gaMeasurementId: seoConfig.gaMeasurementId ?? null,

@@ -8,7 +8,9 @@ import {
   storeBrandIdentity,
   generateHomepageConfig,
   storeHomepageConfig,
+  generateSeoTitleConfig,
 } from '../services/brand-identity.js';
+import { generateAndStoreFavicon } from '../services/favicon-generator.js';
 import { initializeSiteRoadmap } from '../services/site-roadmap.js';
 import { CloudflareRegistrarService } from '../services/cloudflare-registrar.js';
 import { generateBlogTopics } from '../services/blog-topics.js';
@@ -131,11 +133,30 @@ export async function handleSiteCreate(job: Job<SiteCreatePayload>): Promise<Job
       },
     });
 
-    // 4. Store extended brand identity in seoConfig
-    await storeBrandIdentity(site.id, site.brand?.id || '', brandIdentity);
+    // 4. Store extended brand identity in seoConfig with SEO title config
+    const seoTitleConfig = generateSeoTitleConfig({
+      brandName: brandIdentity.name,
+      niche: opportunity.niche,
+      location: opportunity.location || undefined,
+      keyword: opportunity.keyword,
+      tagline: brandIdentity.tagline,
+    });
+    await storeBrandIdentity(site.id, site.brand?.id || '', brandIdentity, seoTitleConfig);
 
     console.log(`[Site Create] Created site ${site.id} with slug ${site.slug}`);
     console.log(`[Site Create] Brand stored with tone: ${brandIdentity.toneOfVoice.personality.join(', ')}`);
+    console.log(`[Site Create] SEO title: "${seoTitleConfig.defaultTitle}"`);
+
+    // 4.1 Generate and store favicon
+    try {
+      await generateAndStoreFavicon(
+        site.brand?.id || '',
+        brandIdentity.name,
+        brandIdentity.primaryColor
+      );
+    } catch (faviconError) {
+      console.warn('[Site Create] Favicon generation failed (non-critical):', faviconError);
+    }
 
     // 4.2 Generate and store homepage configuration
     console.log('[Site Create] Generating homepage configuration...');

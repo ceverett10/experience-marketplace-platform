@@ -327,16 +327,77 @@ function extractSemanticKeywords(opportunity: OpportunityContext): string[] {
 }
 
 /**
+ * Generate SEO-optimized title template and metadata for a site.
+ */
+export function generateSeoTitleConfig(params: {
+  brandName: string;
+  niche: string;
+  location?: string;
+  keyword: string;
+  tagline: string;
+}): {
+  titleTemplate: string;
+  defaultTitle: string;
+  defaultDescription: string;
+  keywords: string[];
+} {
+  const { brandName, niche, location, keyword, tagline } = params;
+  const nicheCap = capitalize(niche);
+
+  // Title template: %s | Brand Name
+  const titleTemplate = `%s | ${brandName}`;
+
+  // Homepage default title: keyword-rich, under 60 chars
+  let defaultTitle = `${brandName} - ${tagline}`;
+  if (defaultTitle.length > 60) {
+    defaultTitle = `${brandName} | ${nicheCap} in ${location || 'Your Destination'}`;
+  }
+  if (defaultTitle.length > 60) {
+    defaultTitle = brandName;
+  }
+
+  // Meta description: keyword-rich, under 155 chars
+  const locationStr = location || 'your destination';
+  let defaultDescription = `Discover the best ${niche} experiences in ${locationStr}. ${tagline}. Book online with instant confirmation and free cancellation.`;
+  if (defaultDescription.length > 155) {
+    defaultDescription = `Discover the best ${niche} experiences in ${locationStr}. Book online with instant confirmation and free cancellation.`;
+  }
+  if (defaultDescription.length > 155) {
+    defaultDescription = `Book the best ${niche} experiences in ${locationStr}. Instant confirmation & free cancellation.`;
+  }
+
+  // Keywords: niche + location combinations
+  const keywords = [
+    keyword,
+    `${niche} experiences`,
+    location ? `${location.toLowerCase()} ${niche}` : undefined,
+    `best ${niche}`,
+    `book ${niche}`,
+    location ? `things to do in ${location.toLowerCase()}` : undefined,
+    `${niche} tours`,
+    `${niche} tickets`,
+    location ? `${location.toLowerCase()} experiences` : undefined,
+    brandName.toLowerCase(),
+  ].filter((k): k is string => !!k);
+
+  return { titleTemplate, defaultTitle, defaultDescription, keywords };
+}
+
+/**
  * Store extended brand information in database
- * Stores complex data in JSON fields
+ * Stores complex data in JSON fields, merged with SEO title config
  */
 export async function storeBrandIdentity(
   siteId: string,
   brandId: string,
-  identity: ComprehensiveBrandIdentity
+  identity: ComprehensiveBrandIdentity,
+  seoTitleConfig?: {
+    titleTemplate: string;
+    defaultTitle: string;
+    defaultDescription: string;
+    keywords: string[];
+  }
 ): Promise<void> {
-  // Store extended brand data in seoConfig JSON field for now
-  // In future, could extend Brand model with dedicated fields
   await prisma.site.update({
     where: { id: siteId },
     data: {
@@ -345,6 +406,7 @@ export async function storeBrandIdentity(
         toneOfVoice: identity.toneOfVoice,
         trustSignals: identity.trustSignals,
         brandStory: identity.brandStory,
+        ...(seoTitleConfig || {}),
       },
     },
   });
