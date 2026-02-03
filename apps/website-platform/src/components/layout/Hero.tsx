@@ -28,9 +28,9 @@ export function Hero({ title, subtitle, backgroundImage, backgroundImageAttribut
     'Find and book unforgettable tours, activities, and attractions worldwide';
 
   return (
-    <section className="relative overflow-hidden">
+    <section className="relative">
       {/* Background */}
-      <div className="absolute inset-0">
+      <div className="absolute inset-0 overflow-hidden">
         {backgroundImage ? (
           <Image
             src={backgroundImage}
@@ -75,7 +75,7 @@ export function Hero({ title, subtitle, backgroundImage, backgroundImageAttribut
       </div>
 
       {/* Content - extra top padding to account for transparent fixed header on homepage */}
-      <div className="relative mx-auto max-w-7xl px-4 pt-32 pb-24 sm:px-6 sm:pt-40 sm:pb-32 lg:px-8 lg:pt-48 lg:pb-40">
+      <div className="relative z-10 mx-auto max-w-7xl px-4 pt-32 pb-24 sm:px-6 sm:pt-40 sm:pb-32 lg:px-8 lg:pt-48 lg:pb-40">
         <div className="mx-auto max-w-4xl text-center">
           <h1
             className="hero-animate-title font-display text-4xl font-bold tracking-tight text-white sm:text-5xl lg:text-6xl"
