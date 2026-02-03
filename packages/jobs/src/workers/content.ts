@@ -464,11 +464,9 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
     console.log(`[Content Generate] Sitemap priority: ${sitemapPriority} (quality: ${qualityScore})`);
 
     // Update existing page or create new one
+    // Auto-publish all generated content - quality score is tracked for admin review
     let page;
-    const newStatus =
-      result.content.qualityAssessment && result.content.qualityAssessment.overallScore >= 85
-        ? 'PUBLISHED'
-        : 'REVIEW';
+    const newStatus = 'PUBLISHED';
 
     if (pageId) {
       // Update existing page with generated content

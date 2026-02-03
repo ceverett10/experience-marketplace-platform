@@ -222,7 +222,7 @@ function mapContentStatusToPageStatus(contentStatus: string): PageStatus {
     case 'pending':
       return PageStatus.DRAFT;
     case 'approved':
-      return PageStatus.DRAFT; // Keep as draft but mark as approved
+      return PageStatus.REVIEW;
     case 'published':
       return PageStatus.PUBLISHED;
     case 'rejected':
