@@ -684,6 +684,47 @@ export async function handleAutoOptimize(job: Job<SEOAutoOptimizePayload>): Prom
   console.log(`[Auto SEO] Starting automatic optimization for site ${siteId} (scope: ${scope})`);
 
   try {
+    // Handle special "all" siteId value - queue jobs for all active sites
+    if (siteId === 'all') {
+      console.log('[Auto SEO] Processing all active sites');
+      const sites = await prisma.site.findMany({
+        where: {
+          status: 'ACTIVE',
+        },
+        select: { id: true, name: true },
+      });
+
+      const seoQueue = getJobQueue('seo');
+      let scheduled = 0;
+
+      for (const site of sites) {
+        await seoQueue.add(
+          'SEO_AUTO_OPTIMIZE',
+          {
+            siteId: site.id,
+            scope,
+          },
+          {
+            delay: scheduled * 5 * 60 * 1000, // Stagger by 5 minutes
+            priority: 10,
+          }
+        );
+        scheduled++;
+        console.log(`[Auto SEO] Scheduled optimization for ${site.name}`);
+      }
+
+      const duration = Date.now() - startTime;
+      return {
+        success: true,
+        data: {
+          sitesScheduled: scheduled,
+          sites: sites.map((s) => s.name),
+          duration,
+        },
+        timestamp: new Date(),
+      };
+    }
+
     const results: Record<string, any> = {};
 
     // 1. Fix metadata issues (meta titles, descriptions, priorities)

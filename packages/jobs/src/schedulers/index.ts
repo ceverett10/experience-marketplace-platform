@@ -59,6 +59,18 @@ export async function initializeScheduledJobs(): Promise<void> {
   );
   console.log('[Scheduler] ✓ Weekly Deep SEO Audit - Sundays at 5 AM');
 
+  // Weekly SEO Auto-Optimization - Sundays at 6 AM
+  // Automatically fixes common SEO issues (metadata, structured data, etc.)
+  await scheduleJob(
+    'SEO_AUTO_OPTIMIZE',
+    {
+      siteId: 'all',
+      scope: 'all',
+    },
+    '0 6 * * 0' // Sundays at 6 AM
+  );
+  console.log('[Scheduler] ✓ Weekly SEO Auto-Optimization - Sundays at 6 AM');
+
   // Metrics Aggregation - Daily at 1 AM
   await scheduleJob(
     'METRICS_AGGREGATE',
@@ -148,6 +160,7 @@ export async function removeAllScheduledJobs(): Promise<void> {
   await queueRegistry.removeRepeatableJob('GSC_SYNC', '0 */6 * * *');
   await queueRegistry.removeRepeatableJob('SEO_OPPORTUNITY_SCAN', '0 2 * * *');
   await queueRegistry.removeRepeatableJob('SEO_ANALYZE', '0 3 * * *');
+  await queueRegistry.removeRepeatableJob('SEO_AUTO_OPTIMIZE', '0 6 * * 0');
   await queueRegistry.removeRepeatableJob('METRICS_AGGREGATE', '0 1 * * *');
   await queueRegistry.removeRepeatableJob('PERFORMANCE_REPORT', '0 9 * * 1');
   await queueRegistry.removeRepeatableJob('ABTEST_REBALANCE', '0 * * * *');
@@ -189,6 +202,11 @@ export function getScheduledJobs(): Array<{
       jobType: 'SEO_ANALYZE (deep)',
       schedule: '0 5 * * 0',
       description: 'Comprehensive SEO audit - Sundays at 5 AM',
+    },
+    {
+      jobType: 'SEO_AUTO_OPTIMIZE',
+      schedule: '0 6 * * 0',
+      description: 'Automatic SEO fixes (metadata, structured data, etc.) - Sundays at 6 AM',
     },
     {
       jobType: 'METRICS_AGGREGATE',
