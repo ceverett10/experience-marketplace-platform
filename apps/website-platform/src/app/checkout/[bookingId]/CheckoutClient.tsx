@@ -15,6 +15,7 @@ import {
   type BookingQuestion,
   type BookingAvailability,
 } from '@/lib/booking-flow';
+import { trackBeginCheckout, trackAddPaymentInfo, trackPurchase } from '@/lib/analytics';
 
 interface CheckoutClientProps {
   booking: Booking;
@@ -39,6 +40,15 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
   const [isCommitting, setIsCommitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const paymentSectionRef = useRef<HTMLDivElement>(null);
+
+  // Track begin_checkout on mount
+  useEffect(() => {
+    trackBeginCheckout({
+      id: initialBooking.id,
+      value: initialBooking.totalPrice?.gross,
+      currency: initialBooking.totalPrice?.currency ?? 'GBP',
+    });
+  }, [initialBooking.id, initialBooking.totalPrice]);
 
   // Fetch booking questions on mount
   useEffect(() => {
@@ -89,6 +99,11 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
     if (!canCommit) return;
     setShowPayment(true);
     setError(null);
+    trackAddPaymentInfo({
+      id: initialBooking.id,
+      value: booking.totalPrice?.gross,
+      currency: booking.totalPrice?.currency ?? 'GBP',
+    });
   };
 
   // Auto-scroll to payment section when it becomes visible
@@ -106,6 +121,14 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
     setPaymentComplete(true);
     setIsCommitting(true);
     setError(null);
+
+    const firstAvail = booking.availabilityList?.nodes?.[0];
+    trackPurchase({
+      id: initialBooking.id,
+      value: booking.totalPrice?.gross,
+      currency: booking.totalPrice?.currency ?? 'GBP',
+      itemName: firstAvail?.product?.name,
+    });
 
     try {
       const result = await commitBooking(initialBooking.id, true);

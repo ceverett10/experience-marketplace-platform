@@ -8,6 +8,7 @@ import { BookingWidget } from '@/components/experiences/BookingWidget';
 import { ReviewsCarousel } from '@/components/experiences/ReviewsCarousel';
 import { AboutActivity } from '@/components/experiences/AboutActivity';
 import { MobileBookingCTA } from '@/components/experiences/MobileBookingCTA';
+import { TrackViewItem } from '@/components/analytics/TrackViewItem';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -202,6 +203,14 @@ export default async function ExperienceDetailPage({ params }: Props) {
 
   return (
     <>
+      {/* GA4 view_item tracking */}
+      <TrackViewItem
+        id={experience.id}
+        name={experience.title}
+        price={experience.price?.amount ? experience.price.amount / 100 : undefined}
+        currency={experience.price?.currency}
+      />
+
       {/* JSON-LD Structured Data - Product */}
       <script
         type="application/ld+json"

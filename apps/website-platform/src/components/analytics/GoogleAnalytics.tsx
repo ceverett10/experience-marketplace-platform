@@ -1,24 +1,37 @@
 'use client';
 
 import Script from 'next/script';
+import { usePathname, useSearchParams } from 'next/navigation';
+import { useEffect } from 'react';
 
 interface GoogleAnalyticsProps {
   measurementId: string | null | undefined;
 }
 
 /**
- * Google Analytics 4 component for tracking page views and user behavior
- * Only renders if a valid measurement ID is provided
+ * Google Analytics 4 component with SPA route change tracking.
+ * Tracks page views on both initial load and client-side navigation.
  */
 export function GoogleAnalytics({ measurementId }: GoogleAnalyticsProps) {
-  // Don't render anything if no measurement ID is provided
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  // Track page views on route changes (SPA navigation)
+  useEffect(() => {
+    if (!measurementId || !window.gtag) return;
+
+    const url = pathname + (searchParams?.toString() ? `?${searchParams.toString()}` : '');
+    window.gtag('config', measurementId, {
+      page_path: url,
+    });
+  }, [pathname, searchParams, measurementId]);
+
   if (!measurementId) {
     return null;
   }
 
   return (
     <>
-      {/* Google Analytics Script */}
       <Script
         src={`https://www.googletagmanager.com/gtag/js?id=${measurementId}`}
         strategy="afterInteractive"

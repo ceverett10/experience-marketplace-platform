@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef, type KeyboardEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useBrand } from '@/lib/site-context';
+import { trackSearch } from '@/lib/analytics';
 
 interface ProductDiscoverySearchProps {
   variant?: 'hero' | 'inline' | 'sidebar';
@@ -464,6 +465,7 @@ export function ProductDiscoverySearch({
       urlParams.set('children', childrenMatch[1]);
     }
 
+    trackSearch(what || where || 'browse', where || undefined);
     router.push(`/experiences?${urlParams.toString()}`);
   }, [where, when, who, what, router]);
 
