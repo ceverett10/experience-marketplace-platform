@@ -17,12 +17,15 @@ export function ExperienceGallery({ images, title }: ExperienceGalleryProps) {
   const touchEndX = useRef(0);
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
+    const touch = e.touches[0];
+    if (touch) touchStartX.current = touch.clientX;
   }, []);
 
   const handleTouchEnd = useCallback(
     (e: React.TouchEvent) => {
-      touchEndX.current = e.changedTouches[0].clientX;
+      const touch = e.changedTouches[0];
+      if (!touch) return;
+      touchEndX.current = touch.clientX;
       const diff = touchStartX.current - touchEndX.current;
       const threshold = 50;
       if (Math.abs(diff) > threshold) {
