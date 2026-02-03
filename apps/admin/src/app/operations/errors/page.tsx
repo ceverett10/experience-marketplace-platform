@@ -112,7 +112,7 @@ export default function ErrorLogPage() {
       if (jobType) params.set('jobType', jobType);
       params.set('page', String(page));
 
-      const response = await fetch(`/admin/api/operations/errors?${params.toString()}`);
+      const response = await fetch(`/api/operations/errors?${params.toString()}`);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
 
@@ -138,7 +138,7 @@ export default function ErrorLogPage() {
   const fetchErrorDetail = async (errorId: string) => {
     setDetailLoading(true);
     try {
-      const response = await fetch(`/admin/api/operations/errors?id=${errorId}`);
+      const response = await fetch(`/api/operations/errors?id=${errorId}`);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
       setErrorDetail(data);
@@ -163,7 +163,7 @@ export default function ErrorLogPage() {
     const loadingKey = service ? `${action}-${service}` : action;
     setActionLoading(loadingKey);
     try {
-      await fetch('/admin/api/operations/errors', {
+      await fetch('/api/operations/errors', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action, service }),
