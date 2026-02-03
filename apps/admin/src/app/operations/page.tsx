@@ -97,8 +97,38 @@ export default function OperationsDashboard() {
 
   if (loading || !data) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-slate-500">Loading operations dashboard...</div>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="h-8 w-64 bg-slate-200 rounded animate-pulse" />
+            <div className="h-4 w-48 bg-slate-100 rounded animate-pulse mt-2" />
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="h-10 w-40 bg-slate-200 rounded-lg animate-pulse" />
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-slate-300 rounded-full animate-pulse" />
+              <div className="h-4 w-8 bg-slate-100 rounded animate-pulse" />
+            </div>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Card key={i}><CardContent className="p-4"><div className="h-7 w-12 bg-slate-200 rounded animate-pulse mb-1" /><div className="h-4 w-20 bg-slate-100 rounded animate-pulse" /></CardContent></Card>
+          ))}
+        </div>
+        <div>
+          <div className="h-6 w-28 bg-slate-200 rounded animate-pulse mb-3" />
+          <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3">
+            {Array.from({ length: 7 }).map((_, i) => (
+              <Card key={i}><CardContent className="p-4"><div className="flex items-center justify-between mb-2"><div className="h-4 w-14 bg-slate-200 rounded animate-pulse" /><div className="h-4 w-14 bg-slate-100 rounded animate-pulse" /></div><div className="grid grid-cols-3 gap-1 text-center">{Array.from({ length: 3 }).map((_, j) => (<div key={j}><div className="h-4 w-5 mx-auto bg-slate-200 rounded animate-pulse mb-1" /><div className="h-3 w-6 mx-auto bg-slate-100 rounded animate-pulse" /></div>))}</div></CardContent></Card>
+            ))}
+          </div>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <Card key={i}><div className="p-6"><div className="h-6 w-36 bg-slate-200 rounded animate-pulse mb-4" /><div className="space-y-3">{Array.from({ length: 4 }).map((_, j) => (<div key={j} className="h-16 bg-slate-100 rounded-lg animate-pulse" />))}</div></div></Card>
+          ))}
+        </div>
       </div>
     );
   }

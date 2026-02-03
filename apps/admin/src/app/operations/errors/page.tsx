@@ -101,6 +101,7 @@ export default function ErrorLogPage() {
   const [expandedError, setExpandedError] = useState<string | null>(null);
   const [errorDetail, setErrorDetail] = useState<ErrorDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   const fetchErrors = useCallback(async () => {
     try {
@@ -159,6 +160,8 @@ export default function ErrorLogPage() {
   };
 
   const handleAction = async (action: string, service?: string) => {
+    const loadingKey = service ? `${action}-${service}` : action;
+    setActionLoading(loadingKey);
     try {
       await fetch('/admin/api/operations/errors', {
         method: 'POST',
@@ -168,6 +171,8 @@ export default function ErrorLogPage() {
       fetchErrors();
     } catch (error) {
       console.error('Failed to perform action:', error);
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -202,8 +207,27 @@ export default function ErrorLogPage() {
 
   if (loading && errors.length === 0) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-slate-500">Loading error log...</div>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="h-8 w-32 bg-slate-200 rounded animate-pulse" />
+            <div className="h-4 w-56 bg-slate-100 rounded animate-pulse mt-2" />
+          </div>
+          <div className="h-10 w-36 bg-slate-200 rounded-lg animate-pulse" />
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i}><CardContent className="p-4"><div className="h-7 w-12 bg-slate-200 rounded animate-pulse mb-1" /><div className="h-4 w-20 bg-slate-100 rounded animate-pulse" /></CardContent></Card>
+          ))}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <Card key={i}><div className="p-4"><div className="h-5 w-24 bg-slate-200 rounded animate-pulse mb-3" /><div className="space-y-2">{Array.from({ length: 3 }).map((_, j) => <div key={j} className="h-8 bg-slate-100 rounded animate-pulse" />)}</div></div></Card>
+          ))}
+        </div>
+        <Card><div className="divide-y divide-slate-100">{Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="p-4 flex items-start gap-3"><div className="h-6 w-16 bg-slate-200 rounded animate-pulse" /><div className="flex-1 space-y-2"><div className="h-4 w-48 bg-slate-200 rounded animate-pulse" /><div className="h-3 w-full bg-slate-100 rounded animate-pulse" /><div className="h-3 w-32 bg-slate-100 rounded animate-pulse" /></div></div>
+        ))}</div></Card>
       </div>
     );
   }
@@ -374,14 +398,23 @@ export default function ErrorLogPage() {
         )}
         <button
           onClick={() => handleAction('cleanup-old-errors')}
-          className="ml-auto px-3 py-2 text-sm bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+          disabled={actionLoading !== null}
+          className="ml-auto px-3 py-2 text-sm bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
         >
-          Cleanup Old Errors
+          {actionLoading === 'cleanup-old-errors' && (
+            <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+          )}
+          {actionLoading === 'cleanup-old-errors' ? 'Cleaning up...' : 'Cleanup Old Errors'}
         </button>
       </div>
 
       {/* Error List */}
-      <Card>
+      <Card className="relative">
+        {loading && errors.length > 0 && (
+          <div className="absolute top-0 left-0 right-0 h-0.5 bg-slate-100 overflow-hidden rounded-t-lg z-10">
+            <div className="h-full w-1/3 bg-sky-500 rounded" style={{ animation: 'shimmer 1s ease-in-out infinite', background: 'linear-gradient(90deg, transparent, rgb(14 165 233), transparent)' }} />
+          </div>
+        )}
         <div className="divide-y divide-slate-100">
           {errors.length === 0 ? (
             <div className="p-12 text-center text-slate-500">
@@ -509,9 +542,13 @@ export default function ErrorLogPage() {
             <h2 className="text-lg font-semibold text-slate-900">Circuit Breakers</h2>
             <button
               onClick={() => handleAction('reset-all-circuit-breakers')}
-              className="px-4 py-2 text-sm bg-sky-600 hover:bg-sky-700 text-white rounded-lg transition-colors"
+              disabled={actionLoading !== null}
+              className="px-4 py-2 text-sm bg-sky-600 hover:bg-sky-700 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
             >
-              Reset All
+              {actionLoading === 'reset-all-circuit-breakers' && (
+                <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+              )}
+              {actionLoading === 'reset-all-circuit-breakers' ? 'Resetting...' : 'Reset All'}
             </button>
           </div>
           <div className="space-y-3">
@@ -539,9 +576,13 @@ export default function ErrorLogPage() {
                     {status.state !== 'CLOSED' && (
                       <button
                         onClick={() => handleAction('reset-circuit-breaker', service)}
-                        className="px-3 py-1 text-xs bg-slate-100 hover:bg-slate-200 rounded transition-colors"
+                        disabled={actionLoading !== null}
+                        className="px-3 py-1 text-xs bg-slate-100 hover:bg-slate-200 rounded transition-colors disabled:opacity-50 flex items-center gap-1.5"
                       >
-                        Reset
+                        {actionLoading === `reset-circuit-breaker-${service}` && (
+                          <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                        )}
+                        {actionLoading === `reset-circuit-breaker-${service}` ? 'Resetting...' : 'Reset'}
                       </button>
                     )}
                   </div>
