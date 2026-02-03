@@ -20,7 +20,7 @@ export function ExperienceCard({ experience, variant = 'default', priority = fal
         href={`/experiences/${experience.slug}`}
         className="group flex gap-4 rounded-lg border border-gray-200 p-3 transition-shadow hover:shadow-md"
       >
-        <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg bg-gray-200 animate-pulse">
+        <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg bg-gray-200">
           <Image
             src={experience.imageUrl || '/placeholder-experience.jpg'}
             alt={experience.title}
@@ -50,7 +50,7 @@ export function ExperienceCard({ experience, variant = 'default', priority = fal
     return (
       <Link
         href={`/experiences/${experience.slug}`}
-        className="group relative flex h-80 flex-col justify-end overflow-hidden rounded-2xl bg-gray-200 animate-pulse"
+        className="group relative flex h-80 flex-col justify-end overflow-hidden rounded-2xl bg-gray-200"
       >
         {/* Image */}
         <Image
@@ -97,7 +97,7 @@ export function ExperienceCard({ experience, variant = 'default', priority = fal
       className="group flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white transition-shadow hover:shadow-lg"
     >
       {/* Image */}
-      <div className="relative aspect-[16/9] overflow-hidden sm:aspect-[4/3] bg-gray-200 animate-pulse">
+      <div className="relative aspect-[16/9] overflow-hidden sm:aspect-[4/3] bg-gray-200">
         <Image
           src={experience.imageUrl || '/placeholder-experience.jpg'}
           alt={experience.title}

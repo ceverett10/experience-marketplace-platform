@@ -144,7 +144,7 @@ export function PremiumExperienceCard({
     return (
       <Link
         href={`/experiences/${experience.slug}`}
-        className={`group relative flex h-[500px] flex-col justify-end overflow-hidden rounded-3xl bg-gray-200 animate-pulse ${className}`}
+        className={`group relative flex h-[500px] flex-col justify-end overflow-hidden rounded-3xl bg-gray-200 ${className}`}
       >
         {/* Background Image */}
         <Image
@@ -257,7 +257,7 @@ export function PremiumExperienceCard({
     return (
       <Link
         href={`/experiences/${experience.slug}`}
-        className={`group relative flex h-96 flex-col justify-end overflow-hidden rounded-2xl bg-gray-200 animate-pulse ${className}`}
+        className={`group relative flex h-96 flex-col justify-end overflow-hidden rounded-2xl bg-gray-200 ${className}`}
       >
         {/* Background Image */}
         <Image
@@ -329,7 +329,7 @@ export function PremiumExperienceCard({
         className={`group flex gap-4 overflow-hidden rounded-xl border border-gray-100 bg-white transition-all hover:border-gray-200 hover:shadow-lg ${className}`}
       >
         {/* Image */}
-        <div className="relative h-40 w-48 flex-shrink-0 overflow-hidden bg-gray-200 animate-pulse">
+        <div className="relative h-40 w-48 flex-shrink-0 overflow-hidden bg-gray-200">
           <Image
             src={experience.imageUrl || '/placeholder-experience.jpg'}
             alt={experience.title}
@@ -386,7 +386,7 @@ export function PremiumExperienceCard({
       className={`group flex flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white transition-all duration-300 hover:border-gray-200 hover:shadow-xl hover:-translate-y-1 ${className}`}
     >
       {/* Image Container - 4:3 aspect ratio like competitors */}
-      <div className="relative aspect-[4/3] overflow-hidden bg-gray-200 animate-pulse">
+      <div className="relative aspect-[4/3] overflow-hidden bg-gray-200">
         <Image
           src={experience.imageUrl || '/placeholder-experience.jpg'}
           alt={experience.title}
