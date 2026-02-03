@@ -483,11 +483,22 @@ export async function POST(
     });
 
     if (existingJob) {
-      return NextResponse.json({
-        message: 'SEO audit already in progress',
-        jobId: existingJob.id,
-        status: existingJob.status,
-      });
+      // If the job has been stuck in PENDING for over 5 minutes, it's likely stale
+      // (e.g. created before the BullMQ enqueue fix). Mark it as failed and allow a new one.
+      const ageMinutes = (Date.now() - new Date(existingJob.createdAt).getTime()) / (1000 * 60);
+      if (existingJob.status === 'PENDING' && ageMinutes > 5) {
+        await prisma.job.update({
+          where: { id: existingJob.id },
+          data: { status: 'FAILED', error: 'Stale job - never picked up by worker', completedAt: new Date() },
+        });
+        // Fall through to create a new job
+      } else {
+        return NextResponse.json({
+          message: 'SEO audit already in progress',
+          jobId: existingJob.id,
+          status: existingJob.status,
+        });
+      }
     }
 
     // Create and enqueue the SEO audit job via BullMQ
