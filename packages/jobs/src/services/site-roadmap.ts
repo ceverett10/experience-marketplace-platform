@@ -176,6 +176,18 @@ async function validateTaskArtifacts(
     ABTEST_REBALANCE: {
       valid: true,
     },
+    LINK_OPPORTUNITY_SCAN: {
+      valid: true,
+    },
+    LINK_BACKLINK_MONITOR: {
+      valid: true,
+    },
+    LINK_OUTREACH_GENERATE: {
+      valid: true,
+    },
+    LINK_ASSET_GENERATE: {
+      valid: true,
+    },
   };
 }
 
@@ -238,6 +250,10 @@ export const TASK_DESCRIPTIONS: Record<JobType, { label: string; description: st
   PERFORMANCE_REPORT: { label: 'Generate Report', description: 'Create performance summary' },
   ABTEST_ANALYZE: { label: 'Analyze Tests', description: 'Evaluate A/B test results' },
   ABTEST_REBALANCE: { label: 'Optimize Traffic', description: 'Adjust A/B test traffic allocation' },
+  LINK_OPPORTUNITY_SCAN: { label: 'Scan Link Opportunities', description: 'Analyze competitor backlinks for link building' },
+  LINK_BACKLINK_MONITOR: { label: 'Monitor Backlinks', description: 'Check existing backlinks and discover new ones' },
+  LINK_OUTREACH_GENERATE: { label: 'Generate Outreach', description: 'Create personalized outreach emails' },
+  LINK_ASSET_GENERATE: { label: 'Create Link Asset', description: 'Generate link-attracting content' },
 };
 
 /**

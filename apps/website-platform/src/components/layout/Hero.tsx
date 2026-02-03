@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useSite, useBrand } from '@/lib/site-context';
 import { ProductDiscoverySearch } from '@/components/search/ProductDiscoverySearch';
 import { UnsplashAttribution } from '@/components/common/UnsplashAttribution';
@@ -31,10 +32,13 @@ export function Hero({ title, subtitle, backgroundImage, backgroundImageAttribut
       {/* Background */}
       <div className="absolute inset-0">
         {backgroundImage ? (
-          <img
+          <Image
             src={backgroundImage}
             alt=""
-            className="hero-ken-burns h-full w-full object-cover"
+            fill
+            priority
+            sizes="100vw"
+            className="hero-ken-burns object-cover"
           />
         ) : (
           <div

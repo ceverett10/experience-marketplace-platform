@@ -191,6 +191,14 @@ export async function findRelatedPages(params: {
       });
     }
 
+    // 5. Generate experience listing page links (blog → experience search pages)
+    const experienceListingLinks = generateExperienceListingLinks({ destination, category, keywords });
+    for (const link of experienceListingLinks) {
+      if (!relatedLinks.some((l) => l.url === link.url)) {
+        relatedLinks.push(link);
+      }
+    }
+
     // Sort by relevance and limit
     return relatedLinks.sort((a, b) => b.relevanceScore - a.relevanceScore).slice(0, limit);
   } catch (error) {
@@ -355,15 +363,76 @@ function generateContextualSentence(link: InternalLink): string {
       `Explore more options in [${link.anchorText}](${link.url}).`,
     ],
     experience: [
-      `You might also like: [${link.anchorText}](${link.url}).`,
-      `Consider booking [${link.anchorText}](${link.url}) for your trip.`,
-      `Another popular option is [${link.anchorText}](${link.url}).`,
+      `Ready to book? Browse [${link.anchorText}](${link.url}) and find the perfect activity.`,
+      `Looking for something to do? Explore [${link.anchorText}](${link.url}).`,
+      `Find and book [${link.anchorText}](${link.url}) for your next trip.`,
     ],
   };
 
   const typeTemplates = templates[link.pageType] || templates.blog;
   const randomIndex = Math.floor(Math.random() * typeTemplates.length);
   return typeTemplates[randomIndex] || `Learn more about [${link.anchorText}](${link.url}).`;
+}
+
+/**
+ * Generate links to experience listing pages
+ * Creates links from blog content to filtered experience search results
+ */
+function generateExperienceListingLinks(params: {
+  destination?: string;
+  category?: string;
+  keywords: string[];
+}): InternalLink[] {
+  const { destination, category, keywords } = params;
+  const links: InternalLink[] = [];
+
+  // Link to destination experience listing
+  if (destination) {
+    links.push({
+      url: `/experiences?destination=${encodeURIComponent(destination)}`,
+      anchorText: `things to do in ${destination}`,
+      title: `Explore experiences in ${destination}`,
+      relevanceScore: 0.88,
+      pageType: 'experience',
+    });
+
+    // Combined destination + category link
+    if (category) {
+      links.push({
+        url: `/experiences?destination=${encodeURIComponent(destination)}&q=${encodeURIComponent(category)}`,
+        anchorText: `${category.toLowerCase()} in ${destination}`,
+        title: `${category} experiences in ${destination}`,
+        relevanceScore: 0.92,
+        pageType: 'experience',
+      });
+    }
+  }
+
+  // Link to category experience listing
+  if (category) {
+    links.push({
+      url: `/experiences?q=${encodeURIComponent(category)}`,
+      anchorText: `${category.toLowerCase()} experiences`,
+      title: `Browse ${category} experiences`,
+      relevanceScore: 0.85,
+      pageType: 'experience',
+    });
+  }
+
+  // Generate links from significant keywords
+  for (const keyword of keywords.slice(0, 2)) {
+    if (keyword !== destination && keyword !== category && keyword.length > 4) {
+      links.push({
+        url: `/experiences?q=${encodeURIComponent(keyword)}`,
+        anchorText: `${keyword.toLowerCase()} experiences`,
+        title: `Search ${keyword} experiences`,
+        relevanceScore: 0.75,
+        pageType: 'experience',
+      });
+    }
+  }
+
+  return links;
 }
 
 /**

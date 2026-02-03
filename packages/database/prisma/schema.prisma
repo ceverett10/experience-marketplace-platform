@@ -101,8 +101,11 @@ model Site {
   opportunities SEOOpportunity[]
   abTests       ABTest[]
   metrics       PerformanceMetric[]
-  jobs          Job[]
-  manualTasks   ManualTask[]
+  jobs              Job[]
+  manualTasks       ManualTask[]
+  backlinks         Backlink[]
+  linkOpportunities LinkOpportunity[]
+  linkableAssets    LinkableAsset[]
 
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -681,6 +684,12 @@ enum JobType {
   // A/B Testing
   ABTEST_ANALYZE
   ABTEST_REBALANCE
+
+  // Link Building
+  LINK_OPPORTUNITY_SCAN
+  LINK_BACKLINK_MONITOR
+  LINK_OUTREACH_GENERATE
+  LINK_ASSET_GENERATE
 }
 
 enum JobStatus {
@@ -691,4 +700,145 @@ enum JobStatus {
   FAILED
   CANCELLED
   RETRYING
+}
+
+// ============================================================================
+// LINK BUILDING & BACKLINK MANAGEMENT
+// ============================================================================
+
+model Backlink {
+  id            String   @id @default(cuid())
+  siteId        String
+  site          Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  sourceUrl     String   // The page linking to us
+  sourceDomain  String   // Domain of the source page
+  targetUrl     String   // Our page being linked to
+  anchorText    String?  // The clickable text of the link
+
+  // Quality metrics
+  domainAuthority  Int      @default(0)   // 0-100 DA score
+  relevanceScore   Float    @default(0)   // 0-1 topical relevance
+  spamScore        Float    @default(0)   // 0-1 spam probability
+
+  // Link attributes
+  isDoFollow    Boolean  @default(true)
+  isActive      Boolean  @default(true)
+
+  // Tracking
+  acquisitionMethod  AcquisitionMethod @default(ORGANIC)
+  firstSeenAt        DateTime          @default(now())
+  lastCheckedAt      DateTime?
+  lostAt             DateTime?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([siteId, sourceUrl, targetUrl])
+  @@index([siteId])
+  @@index([sourceDomain])
+  @@index([isActive])
+  @@index([domainAuthority])
+}
+
+enum AcquisitionMethod {
+  ORGANIC
+  GUEST_POST
+  RESOURCE_PAGE
+  BROKEN_LINK
+  CONTENT_SYNDICATION
+  MANUAL
+}
+
+model LinkOpportunity {
+  id            String   @id @default(cuid())
+  siteId        String
+  site          Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  targetDomain  String   // Domain to reach out to
+  targetUrl     String   // Specific page for the opportunity
+  contactEmail  String?  // Contact email for outreach
+
+  // Quality & scoring
+  domainAuthority  Int      @default(0)
+  relevanceScore   Float    @default(0)
+  priorityScore    Float    @default(0)  // Computed from DA + relevance
+
+  // Opportunity details
+  opportunityType  LinkOpportunityType
+  competitorUrl    String?  // Competitor page that has a link from this source
+  suggestedContent String?  // What content to pitch or use
+
+  // Outreach tracking
+  status           LinkOpportunityStatus @default(IDENTIFIED)
+  outreachTemplate String?           // Generated outreach email (stored as text)
+  outreachSentAt   DateTime?
+  responseAt       DateTime?
+  responseNotes    String?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([siteId, targetUrl])
+  @@index([siteId])
+  @@index([status])
+  @@index([priorityScore])
+  @@index([domainAuthority])
+}
+
+enum LinkOpportunityType {
+  GUEST_POST
+  RESOURCE_PAGE
+  BROKEN_LINK
+  COMPETITOR_BACKLINK
+  CONTENT_MENTION
+  DIRECTORY_LISTING
+}
+
+enum LinkOpportunityStatus {
+  IDENTIFIED
+  RESEARCHED
+  OUTREACH_DRAFTED
+  OUTREACH_SENT
+  RESPONDED
+  LINK_ACQUIRED
+  REJECTED
+  EXPIRED
+}
+
+model LinkableAsset {
+  id            String   @id @default(cuid())
+  siteId        String
+  site          Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  title         String
+  slug          String
+  assetType     LinkableAssetType
+
+  // Content
+  content       String?  // Generated markdown content
+  metaTitle     String?
+  metaDescription String?
+  targetKeywords String[] // Keywords this asset targets
+
+  // Performance tracking
+  backlinkCount  Int @default(0)
+  socialShares   Int @default(0)
+
+  // Link to published page (if deployed)
+  pageId        String?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([siteId, slug])
+  @@index([siteId])
+  @@index([assetType])
+}
+
+enum LinkableAssetType {
+  STATISTICS_ROUNDUP
+  COMPREHENSIVE_GUIDE
+  INFOGRAPHIC_DATA
+  ORIGINAL_RESEARCH
 }

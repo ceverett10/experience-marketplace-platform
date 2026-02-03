@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { useBrand } from '@/lib/site-context';
 import type { ExperienceListItem } from '@/lib/holibob';
@@ -144,10 +145,12 @@ export function PremiumExperienceCard({
         className={`group relative flex h-[500px] flex-col justify-end overflow-hidden rounded-3xl ${className}`}
       >
         {/* Background Image */}
-        <img
+        <Image
           src={experience.imageUrl || '/placeholder-experience.jpg'}
           alt={experience.title}
-          className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+          fill
+          sizes="100vw"
+          className="object-cover transition-transform duration-700 group-hover:scale-105"
         />
 
         {/* Gradient Overlay */}
@@ -254,10 +257,12 @@ export function PremiumExperienceCard({
         className={`group relative flex h-96 flex-col justify-end overflow-hidden rounded-2xl ${className}`}
       >
         {/* Background Image */}
-        <img
+        <Image
           src={experience.imageUrl || '/placeholder-experience.jpg'}
           alt={experience.title}
-          className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+          fill
+          sizes="(max-width: 768px) 100vw, 50vw"
+          className="object-cover transition-transform duration-500 group-hover:scale-105"
         />
 
         {/* Gradient Overlay */}
@@ -321,10 +326,12 @@ export function PremiumExperienceCard({
       >
         {/* Image */}
         <div className="relative h-40 w-48 flex-shrink-0 overflow-hidden">
-          <img
+          <Image
             src={experience.imageUrl || '/placeholder-experience.jpg'}
             alt={experience.title}
-            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+            fill
+            sizes="192px"
+            className="object-cover transition-transform duration-300 group-hover:scale-105"
           />
           {badges.length > 0 && badges[0] && (
             <div className="absolute left-2 top-2">
@@ -375,11 +382,12 @@ export function PremiumExperienceCard({
     >
       {/* Image Container - 4:3 aspect ratio like competitors */}
       <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">
-        <img
+        <Image
           src={experience.imageUrl || '/placeholder-experience.jpg'}
           alt={experience.title}
-          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-          loading="lazy"
+          fill
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+          className="object-cover transition-transform duration-500 group-hover:scale-105"
         />
 
         {/* Badges - Top Left */}

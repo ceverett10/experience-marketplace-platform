@@ -192,6 +192,32 @@ export interface ABTestRebalancePayload {
   algorithm: 'thompson_sampling' | 'epsilon_greedy';
 }
 
+// Link Building Jobs
+export interface LinkOpportunityScanPayload {
+  siteId: string;
+  competitorDomains?: string[];
+  maxOpportunities?: number;
+}
+
+export interface LinkBacklinkMonitorPayload {
+  siteId: string;
+  checkExisting?: boolean;
+  discoverNew?: boolean;
+}
+
+export interface LinkOutreachGeneratePayload {
+  siteId: string;
+  opportunityId: string;
+  templateType: 'guest_post' | 'resource_page' | 'broken_link';
+}
+
+export interface LinkAssetGeneratePayload {
+  siteId: string;
+  assetType: 'statistics_roundup' | 'comprehensive_guide' | 'infographic_data' | 'original_research';
+  targetKeyword: string;
+  destination?: string;
+}
+
 /**
  * Union type of all job payloads
  */
@@ -216,7 +242,11 @@ export type JobPayload =
   | MetricsAggregatePayload
   | PerformanceReportPayload
   | ABTestAnalyzePayload
-  | ABTestRebalancePayload;
+  | ABTestRebalancePayload
+  | LinkOpportunityScanPayload
+  | LinkBacklinkMonitorPayload
+  | LinkOutreachGeneratePayload
+  | LinkAssetGeneratePayload;
 
 /**
  * Job configuration options
@@ -294,4 +324,8 @@ export const JOB_TYPE_TO_QUEUE: Record<JobType, QueueName> = {
   PERFORMANCE_REPORT: QUEUE_NAMES.ANALYTICS,
   ABTEST_ANALYZE: QUEUE_NAMES.ABTEST,
   ABTEST_REBALANCE: QUEUE_NAMES.ABTEST,
+  LINK_OPPORTUNITY_SCAN: QUEUE_NAMES.SEO,
+  LINK_BACKLINK_MONITOR: QUEUE_NAMES.SEO,
+  LINK_OUTREACH_GENERATE: QUEUE_NAMES.SEO,
+  LINK_ASSET_GENERATE: QUEUE_NAMES.SEO,
 };

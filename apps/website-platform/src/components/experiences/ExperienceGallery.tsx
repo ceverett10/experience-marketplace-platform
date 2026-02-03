@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useState } from 'react';
 
 interface ExperienceGalleryProps {
@@ -21,16 +22,19 @@ export function ExperienceGallery({ images, title }: ExperienceGalleryProps) {
         <div className="grid gap-2 overflow-hidden rounded-xl sm:grid-cols-4 sm:grid-rows-2">
           {/* Main Image */}
           <div
-            className="relative cursor-pointer sm:col-span-2 sm:row-span-2"
+            className="relative h-64 cursor-pointer sm:col-span-2 sm:row-span-2 sm:h-full"
             onClick={() => {
               setSelectedIndex(0);
               setIsModalOpen(true);
             }}
           >
-            <img
-              src={displayImages[0]}
+            <Image
+              src={displayImages[0] || '/placeholder-experience.jpg'}
               alt={title}
-              className="h-64 w-full object-cover transition-opacity hover:opacity-90 sm:h-full"
+              fill
+              priority
+              sizes="(max-width: 640px) 100vw, 50vw"
+              className="object-cover transition-opacity hover:opacity-90"
             />
           </div>
 
@@ -38,16 +42,18 @@ export function ExperienceGallery({ images, title }: ExperienceGalleryProps) {
           {displayImages.slice(1, 5).map((image, idx) => (
             <div
               key={idx}
-              className="relative hidden cursor-pointer sm:block"
+              className="relative hidden h-40 cursor-pointer sm:block"
               onClick={() => {
                 setSelectedIndex(idx + 1);
                 setIsModalOpen(true);
               }}
             >
-              <img
+              <Image
                 src={image}
                 alt={`${title} - Image ${idx + 2}`}
-                className="h-40 w-full object-cover transition-opacity hover:opacity-90"
+                fill
+                sizes="25vw"
+                className="object-cover transition-opacity hover:opacity-90"
               />
               {/* Show more overlay on last image */}
               {idx === 3 && remainingCount > 0 && (

@@ -455,7 +455,8 @@ Target: ${brief.targetLength.min}-${brief.targetLength.max} words total.
 2. Brief intro paragraph (2-3 sentences)
 3. 3-5 main sections with H2 headings
 4. Practical tips or actionable advice
-5. Clear conclusion with call-to-action${brandName ? ` for ${brandName}` : ''}
+5. MANDATORY FAQ SECTION: Include a "## Frequently Asked Questions" section with 3-5 questions formatted as "### Question?" headings followed by paragraph answers. Questions should target real search queries related to "${brief.targetKeyword}".
+6. Clear conclusion with call-to-action${brandName ? ` for ${brandName}` : ''}
 
 ` : '';
 
@@ -480,6 +481,7 @@ ${aboutInstructions}${blogInstructions}
 - ENTITY OPTIMIZATION: Mention related entities (places, activities, concepts) that search engines associate with the topic
 ${brief.type !== 'about' ? `- INTERNAL LINKING CONTEXT: When mentioning related topics, use specific anchor text that could link to other pages (destinations, categories, experiences)` : '- DO NOT include any markdown links - internal links are added automatically by the platform'}
 - USER INTENT: Address the search intent - what would someone searching "${brief.targetKeyword}" want to know?
+- EXPERIENCE CROSS-LINKING: Naturally mention bookable experiences, tours, and activities related to the topic. Use phrases like "things to do in [destination]", "[activity type] experiences", or "[category] in [destination]" — these become anchor text for internal links to experience listing pages
 
 ## OUTPUT INSTRUCTIONS
 - Return markdown content only
@@ -489,7 +491,7 @@ ${brief.type !== 'about' ? `- INTERNAL LINKING CONTEXT: When mentioning related 
 - CRITICAL: Write in the brand voice specified above - this is essential for brand consistency
 ${brief.type === 'about' ? '- DO NOT include any markdown links [text](url) - links are managed by the platform' : `- Include compelling calls-to-action${brandName ? ` for ${brandName}` : ''}`}
 - Make content scannable with bullet points where appropriate
-${brief.type !== 'about' ? '- Answer common questions about the topic (FAQ-style sections help with featured snippets)' : '- Keep all claims factual and verifiable - do not fabricate statistics, dates, names, or partnerships'}
+${brief.type !== 'about' ? '- REQUIRED: Include a "## Frequently Asked Questions" section with 3-5 Q&As using "### Question?" format - this generates FAQPage schema for rich results in Google' : '- Keep all claims factual and verifiable - do not fabricate statistics, dates, names, or partnerships'}
 - Keep content focused and valuable - avoid filler content`;
   }
 

@@ -13,6 +13,7 @@ export * from './workers/site';
 export * from './workers/domain';
 export * from './workers/abtest';
 export * from './workers/seo-optimization';
+export * from './workers/link-building';
 
 // Export schedulers
 export * from './schedulers';
@@ -29,6 +30,9 @@ export * from './services/structured-data';
 export * from './services/internal-linking';
 export * from './services/opportunity-optimizer';
 export * from './services/seo-health';
+export * from './services/backlink-analysis';
+export * from './services/linkable-assets';
+export * from './services/outreach-templates';
 
 // Export error handling
 export * from './errors';

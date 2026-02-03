@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { useBrand } from '@/lib/site-context';
 import type { ExperienceListItem } from '@/lib/holibob';
@@ -19,9 +20,11 @@ export function ExperienceCard({ experience, variant = 'default' }: ExperienceCa
         className="group flex gap-4 rounded-lg border border-gray-200 p-3 transition-shadow hover:shadow-md"
       >
         <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg">
-          <img
+          <Image
             src={experience.imageUrl || '/placeholder-experience.jpg'}
             alt={experience.title}
+            width={80}
+            height={80}
             className="h-full w-full object-cover transition-transform group-hover:scale-105"
           />
         </div>
@@ -48,10 +51,12 @@ export function ExperienceCard({ experience, variant = 'default' }: ExperienceCa
         className="group relative flex h-80 flex-col justify-end overflow-hidden rounded-2xl"
       >
         {/* Image */}
-        <img
+        <Image
           src={experience.imageUrl || '/placeholder-experience.jpg'}
           alt={experience.title}
-          className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+          fill
+          sizes="(max-width: 768px) 100vw, 50vw"
+          className="object-cover transition-transform duration-300 group-hover:scale-105"
         />
 
         {/* Gradient overlay */}
@@ -90,10 +95,12 @@ export function ExperienceCard({ experience, variant = 'default' }: ExperienceCa
     >
       {/* Image */}
       <div className="relative aspect-[4/3] overflow-hidden">
-        <img
+        <Image
           src={experience.imageUrl || '/placeholder-experience.jpg'}
           alt={experience.title}
-          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+          fill
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+          className="object-cover transition-transform duration-300 group-hover:scale-105"
         />
         {experience.rating && (
           <div className="absolute left-3 top-3 flex items-center gap-1 rounded-lg bg-white/90 px-2 py-1 backdrop-blur-sm">
