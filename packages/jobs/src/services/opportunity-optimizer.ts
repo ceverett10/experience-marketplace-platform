@@ -392,10 +392,29 @@ async function generateRefinedSuggestions(
     throw new Error('Invalid response from Anthropic API');
   }
 
-  // Parse JSON response
+  // Parse JSON response - handle markdown fences and truncated output
   const responseText = data.content[0].text;
-  const jsonMatch = responseText.match(/\[[\s\S]*\]/);
+  let cleanedResponse = responseText.replace(/```(?:json)?\s*/g, '').replace(/```\s*/g, '');
+  let jsonMatch = cleanedResponse.match(/\[[\s\S]*\]/);
+
   if (!jsonMatch) {
+    const arrayStart = cleanedResponse.indexOf('[');
+    if (arrayStart !== -1) {
+      let truncated = cleanedResponse.slice(arrayStart).trim();
+      const lastBrace = truncated.lastIndexOf('}');
+      if (lastBrace !== -1) {
+        truncated = truncated.slice(0, lastBrace + 1) + ']';
+        jsonMatch = [truncated];
+        console.log('[Optimizer] Repaired truncated JSON response');
+      }
+    }
+  }
+
+  if (!jsonMatch) {
+    console.error(
+      '[Optimizer] Failed to extract JSON. Response preview:',
+      responseText.slice(0, 500)
+    );
     throw new Error('Could not extract JSON array from AI response');
   }
 

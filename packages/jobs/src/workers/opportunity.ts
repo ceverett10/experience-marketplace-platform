@@ -558,8 +558,22 @@ Return ONLY a valid JSON array with this structure:
   const responseText = data.content[0].text;
   console.log('[AI Niche Discovery] Received AI response, parsing suggestions...');
 
-  // Extract JSON from response (handle markdown code blocks)
-  const jsonMatch = responseText.match(/\[[\s\S]*\]/);
+  // Extract JSON from response (handle markdown fences and truncation)
+  let cleanedNiche = responseText.replace(/```(?:json)?\s*/g, '').replace(/```\s*/g, '');
+  let jsonMatch = cleanedNiche.match(/\[[\s\S]*\]/);
+
+  if (!jsonMatch) {
+    const arrayStart = cleanedNiche.indexOf('[');
+    if (arrayStart !== -1) {
+      let truncated = cleanedNiche.slice(arrayStart).trim();
+      const lastBrace = truncated.lastIndexOf('}');
+      if (lastBrace !== -1) {
+        truncated = truncated.slice(0, lastBrace + 1) + ']';
+        jsonMatch = [truncated];
+      }
+    }
+  }
+
   if (!jsonMatch) {
     throw new Error('Could not extract JSON array from AI response');
   }
@@ -746,7 +760,7 @@ async function generateAISeeds(inventoryLandscape: InventoryLandscape): Promise<
     },
     body: JSON.stringify({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 8000,
+      max_tokens: 16000,
       messages: [{ role: 'user', content: prompt }],
     }),
   });
@@ -762,8 +776,32 @@ async function generateAISeeds(inventoryLandscape: InventoryLandscape): Promise<
     throw new Error('Empty AI response for seed generation');
   }
 
-  const jsonMatch = responseText.match(/\[[\s\S]*\]/);
+  // Strip markdown fences if present
+  let cleaned = responseText.replace(/```(?:json)?\s*/g, '').replace(/```\s*/g, '');
+
+  // Try to extract JSON array
+  let jsonMatch = cleaned.match(/\[[\s\S]*\]/);
+
+  // If no closing bracket found, the response was likely truncated — repair it
   if (!jsonMatch) {
+    const arrayStart = cleaned.indexOf('[');
+    if (arrayStart !== -1) {
+      let truncated = cleaned.slice(arrayStart).trim();
+      // Find the last complete object (ending with })
+      const lastBrace = truncated.lastIndexOf('}');
+      if (lastBrace !== -1) {
+        truncated = truncated.slice(0, lastBrace + 1) + ']';
+        jsonMatch = [truncated];
+        console.log('[AI Seeds] Repaired truncated JSON response');
+      }
+    }
+  }
+
+  if (!jsonMatch) {
+    console.error(
+      '[AI Seeds] Failed to extract JSON. Response preview:',
+      responseText.slice(0, 500)
+    );
     throw new Error('Could not extract JSON array from AI seed response');
   }
 
