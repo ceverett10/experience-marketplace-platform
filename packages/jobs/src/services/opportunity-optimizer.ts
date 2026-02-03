@@ -905,6 +905,25 @@ async function batchValidateOpportunities(
       });
     }
 
+    // Log cluster volume stats for diagnostics
+    if (validated.length > 0) {
+      const topByCluster = [...validated]
+        .sort(
+          (a, b) =>
+            (b.clusterData?.clusterTotalVolume || b.dataForSeo.searchVolume) -
+            (a.clusterData?.clusterTotalVolume || a.dataForSeo.searchVolume)
+        )
+        .slice(0, 5);
+      console.info(
+        `[Optimizer] Top cluster volumes: ${topByCluster
+          .map(
+            (v) =>
+              `"${v.suggestion.keyword}": primary=${v.dataForSeo.searchVolume}, cluster=${v.clusterData?.clusterTotalVolume || v.dataForSeo.searchVolume} (${v.clusterData?.clusterKeywordCount || 1} kws)`
+          )
+          .join(' | ')}`
+      );
+    }
+
     if (skippedZeroCluster > 0) {
       console.info(
         `[Optimizer] Skipped ${skippedZeroCluster}/${suggestions.length} opportunities with zero cluster volume`
@@ -1234,8 +1253,27 @@ async function generateFinalRankings(
     }
   }
 
-  // Sort by final score and keep opportunities above score 40 with real cluster search volume
-  const MIN_CLUSTER_VOLUME = 20000;
+  // Log volume distribution for diagnostics
+  const allVols = [...allOpportunities.values()].map((item) => {
+    const vol =
+      item.opportunity.clusterData?.clusterTotalVolume || item.opportunity.dataForSeo.searchVolume;
+    return {
+      keyword: item.opportunity.suggestion.keyword,
+      clusterVol: vol,
+      score: item.opportunity.priorityScore,
+    };
+  });
+  allVols.sort((a, b) => b.clusterVol - a.clusterVol);
+  console.info(
+    `[Optimizer] Volume distribution (top 10): ${allVols
+      .slice(0, 10)
+      .map((v) => `"${v.keyword}": ${v.clusterVol.toLocaleString()}/mo (score ${v.score})`)
+      .join(', ')}`
+  );
+
+  // Keep opportunities with real search volume and score above 40
+  // Threshold: 1K cluster volume — niche travel keywords rarely exceed 20K individually
+  const MIN_CLUSTER_VOLUME = 1000;
   const sorted = [...allOpportunities.values()]
     .filter((item) => {
       const clusterVol =
