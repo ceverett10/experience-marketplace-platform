@@ -106,6 +106,7 @@ model Site {
   backlinks         Backlink[]
   linkOpportunities LinkOpportunity[]
   linkableAssets    LinkableAsset[]
+  errorLogs         ErrorLog[]
 
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -584,6 +585,9 @@ model Job {
   // Idempotency
   idempotencyKey String? @unique
 
+  // Error logs
+  errorLogs ErrorLog[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -591,6 +595,44 @@ model Job {
   @@index([scheduledFor])
   @@index([type])
   @@index([siteId])
+}
+
+// ============================================================================
+// ERROR LOG
+// ============================================================================
+
+model ErrorLog {
+  id String @id @default(cuid())
+
+  // Job reference
+  jobId   String
+  job     Job    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  jobType String
+
+  // Site context
+  siteId String?
+  site   Site?   @relation(fields: [siteId], references: [id])
+
+  // Error details
+  errorName     String
+  errorMessage  String  @db.Text
+  errorCategory String // EXTERNAL_API, DATABASE, CONFIGURATION, RATE_LIMIT, NETWORK, NOT_FOUND, UNKNOWN
+  errorSeverity String  @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
+  stackTrace    String? @db.Text
+  context       Json? // Arbitrary metadata from the job
+
+  // Retry context
+  attemptNumber Int     @default(1)
+  retryable     Boolean @default(true)
+
+  createdAt DateTime @default(now())
+
+  @@index([jobId])
+  @@index([jobType])
+  @@index([siteId])
+  @@index([errorCategory])
+  @@index([createdAt])
+  @@index([errorSeverity, createdAt])
 }
 
 // ============================================================================

@@ -10,6 +10,7 @@ interface NavItem {
   label: string;
   icon: string;
   badge?: string;
+  children?: NavItem[];
 }
 
 const navItems: NavItem[] = [
@@ -18,15 +19,40 @@ const navItems: NavItem[] = [
   { href: '/opportunities', label: 'Opportunities', icon: '🔍' },
   { href: '/domains', label: 'Domains', icon: '🌍' },
   { href: '/tasks', label: 'Tasks', icon: '✅' },
-  { href: '/queues', label: 'Queues', icon: '⚙️' },
-  { href: '/errors', label: 'Errors', icon: '🚨' },
+  {
+    href: '/operations',
+    label: 'Operations',
+    icon: '⚡',
+    children: [
+      { href: '/operations', label: 'Dashboard', icon: '📈' },
+      { href: '/operations/jobs', label: 'Jobs', icon: '📋' },
+      { href: '/operations/errors', label: 'Errors', icon: '🚨' },
+      { href: '/operations/schedules', label: 'Schedules', icon: '🕐' },
+    ],
+  },
   { href: '/content', label: 'Content', icon: '📝' },
+  { href: '/link-building', label: 'Link Building', icon: '🔗' },
   { href: '/settings', label: 'Settings', icon: '🛠️' },
 ];
+
+// Flat list for breadcrumb lookup
+const allNavItems = navItems.flatMap((item) =>
+  item.children ? [item, ...item.children] : [item]
+);
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [expandedGroup, setExpandedGroup] = useState<string | null>(
+    pathname?.startsWith('/operations') ? '/operations' : null
+  );
+
+  const isActive = (href: string) =>
+    pathname === href || (href !== '/' && pathname?.startsWith(href));
+
+  const toggleGroup = (href: string) => {
+    setExpandedGroup(expandedGroup === href ? null : href);
+  };
 
   return (
     <html lang="en">
@@ -64,16 +90,69 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               {/* Navigation */}
               <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
                 {navItems.map((item) => {
-                  const isActive =
-                    pathname === item.href ||
-                    (item.href !== '/' && pathname?.startsWith(item.href));
+                  if (item.children) {
+                    // Collapsible group
+                    const groupActive = isActive(item.href);
+                    const isExpanded = expandedGroup === item.href || groupActive;
+
+                    return (
+                      <div key={item.href}>
+                        <button
+                          onClick={() => toggleGroup(item.href)}
+                          className={`flex items-center justify-between w-full px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                            groupActive
+                              ? 'bg-sky-600/20 text-sky-300'
+                              : 'text-slate-300 hover:bg-white/10 hover:text-white'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <span>{item.icon}</span>
+                            {item.label}
+                          </div>
+                          <span
+                            className={`text-xs transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                          >
+                            ›
+                          </span>
+                        </button>
+
+                        {isExpanded && (
+                          <div className="ml-4 mt-1 space-y-0.5">
+                            {item.children.map((child) => {
+                              const childActive =
+                                pathname === child.href ||
+                                (child.href !== '/operations' && pathname?.startsWith(child.href));
+
+                              return (
+                                <Link
+                                  key={child.href}
+                                  href={child.href}
+                                  className={`flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-colors ${
+                                    childActive
+                                      ? 'bg-sky-600 text-white'
+                                      : 'text-slate-400 hover:bg-white/10 hover:text-white'
+                                  }`}
+                                >
+                                  <span className="text-xs">{child.icon}</span>
+                                  {child.label}
+                                </Link>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
+
+                  // Regular nav item
+                  const active = isActive(item.href);
 
                   return (
                     <Link
                       key={item.href}
                       href={item.href}
                       className={`flex items-center justify-between px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
-                        isActive
+                        active
                           ? 'bg-sky-600 text-white'
                           : 'text-slate-300 hover:bg-white/10 hover:text-white'
                       }`}
@@ -122,9 +201,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     </Link>
                     <span className="text-slate-400">›</span>
                     <span className="text-slate-900 font-medium">
-                      {navItems.find(
+                      {allNavItems.find(
                         (item) =>
-                          pathname?.startsWith(item.href) || (item.href === '/' && pathname === '/')
+                          pathname === item.href ||
+                          (item.href !== '/' && pathname?.startsWith(item.href))
                       )?.label || 'Dashboard'}
                     </span>
                   </nav>

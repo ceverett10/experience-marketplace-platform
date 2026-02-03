@@ -1,14 +1,14 @@
 /**
  * Error Tracking Service
- * Logs errors, tracks patterns, and sends notifications
+ * Logs errors to ErrorLog table, tracks patterns, and provides query methods
  */
 
 import { prisma } from '@experience-marketplace/database';
-import type { JobError } from './index';
 
 export interface ErrorLogEntry {
   jobId: string;
   jobType: string;
+  siteId?: string;
   errorName: string;
   errorMessage: string;
   errorCategory: string;
@@ -20,16 +20,93 @@ export interface ErrorLogEntry {
   timestamp: Date;
 }
 
+export interface ErrorLogFilters {
+  jobType?: string;
+  siteId?: string;
+  category?: string;
+  severity?: string;
+  from?: Date;
+  to?: Date;
+  page?: number;
+  limit?: number;
+}
+
+/**
+ * Categorize an error based on its message and name
+ */
+function categorizeError(errorName: string, errorMessage: string): string {
+  const msg = errorMessage.toLowerCase();
+  const name = errorName.toLowerCase();
+
+  if (name.includes('externalapi') || msg.includes('api') || msg.includes('external'))
+    return 'EXTERNAL_API';
+  if (msg.includes('database') || msg.includes('prisma') || name.includes('prisma'))
+    return 'DATABASE';
+  if (msg.includes('config') || msg.includes('api key') || msg.includes('missing'))
+    return 'CONFIGURATION';
+  if (msg.includes('not found') || name.includes('notfound'))
+    return 'NOT_FOUND';
+  if (msg.includes('rate limit') || msg.includes('ratelimit') || msg.includes('429'))
+    return 'RATE_LIMIT';
+  if (msg.includes('network') || msg.includes('timeout') || msg.includes('econnrefused'))
+    return 'NETWORK';
+  return 'UNKNOWN';
+}
+
+/**
+ * Determine severity based on error characteristics
+ */
+function determineSeverity(
+  errorName: string,
+  errorMessage: string,
+  retryable: boolean
+): string {
+  const msg = errorMessage.toLowerCase();
+
+  if (msg.includes('critical') || msg.includes('api key') || msg.includes('config'))
+    return 'CRITICAL';
+  if (!retryable) return 'HIGH';
+  if (msg.includes('rate limit') || msg.includes('timeout')) return 'MEDIUM';
+  return 'LOW';
+}
+
 /**
  * Error tracking service
  */
 export class ErrorTrackingService {
   /**
-   * Log error to database
+   * Log error to ErrorLog table and update Job record
    */
   async logError(entry: ErrorLogEntry): Promise<void> {
     try {
-      // Store error in job record
+      const category =
+        entry.errorCategory !== 'UNKNOWN'
+          ? entry.errorCategory
+          : categorizeError(entry.errorName, entry.errorMessage);
+
+      const severity =
+        entry.errorSeverity !== 'MEDIUM'
+          ? entry.errorSeverity
+          : determineSeverity(entry.errorName, entry.errorMessage, entry.retryable);
+
+      // Write structured error to ErrorLog table
+      await prisma.errorLog.create({
+        data: {
+          jobId: entry.jobId,
+          jobType: entry.jobType,
+          siteId: entry.siteId || null,
+          errorName: entry.errorName,
+          errorMessage: entry.errorMessage,
+          errorCategory: category,
+          errorSeverity: severity,
+          stackTrace: entry.stackTrace || null,
+          context: entry.context || undefined,
+          attemptNumber: entry.attemptsMade,
+          retryable: entry.retryable,
+        },
+      });
+
+      // Also update Job record for backward compatibility
       await prisma.job.upsert({
         where: { id: entry.jobId },
         create: {
@@ -53,8 +130,8 @@ export class ErrorTrackingService {
         jobType: entry.jobType,
         error: entry.errorName,
         message: entry.errorMessage,
-        category: entry.errorCategory,
-        severity: entry.errorSeverity,
+        category,
+        severity,
         attempts: entry.attemptsMade,
       });
     } catch (error) {
@@ -69,20 +146,17 @@ export class ErrorTrackingService {
    */
   async checkErrorPatterns(): Promise<void> {
     try {
-      // Get recent failed jobs (last hour)
-      const recentFailures = await prisma.job.findMany({
-        where: {
-          status: 'FAILED',
-          updatedAt: {
-            gte: new Date(Date.now() - 60 * 60 * 1000),
-          },
-        },
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+
+      // Query ErrorLog for recent errors
+      const recentErrors = await prisma.errorLog.findMany({
+        where: { createdAt: { gte: oneHourAgo } },
       });
 
-      // Group by job type instead of error category
-      const errorsByType = recentFailures.reduce(
-        (acc, job) => {
-          acc[job.type] = (acc[job.type] || 0) + 1;
+      // Group by job type
+      const errorsByType = recentErrors.reduce(
+        (acc, err) => {
+          acc[err.jobType] = (acc[err.jobType] || 0) + 1;
           return acc;
         },
         {} as Record<string, number>
@@ -94,28 +168,24 @@ export class ErrorTrackingService {
           await this.sendAlert({
             level: 'warning',
             title: `High failure rate for ${type}`,
-            message: `${count} ${type} jobs failed in the last hour`,
+            message: `${count} ${type} errors in the last hour`,
             context: { type, count, timeWindow: '1 hour' },
           });
         }
       }
 
-      // Check for jobs with error messages containing "config" or "critical"
-      const criticalErrors = recentFailures.filter((job) => {
-        const error = job.error?.toLowerCase() || '';
-        return error.includes('config') || error.includes('critical') || error.includes('api key');
-      });
-
+      // Check for critical severity errors
+      const criticalErrors = recentErrors.filter((e) => e.errorSeverity === 'CRITICAL');
       if (criticalErrors.length > 0) {
         await this.sendAlert({
           level: 'critical',
           title: 'Critical errors detected',
           message: `${criticalErrors.length} critical errors in the last hour`,
           context: {
-            errors: criticalErrors.map((job) => ({
-              id: job.id,
-              type: job.type,
-              error: job.error,
+            errors: criticalErrors.map((e) => ({
+              id: e.id,
+              jobType: e.jobType,
+              error: e.errorMessage,
             })),
           },
         });
@@ -126,7 +196,7 @@ export class ErrorTrackingService {
   }
 
   /**
-   * Get error statistics
+   * Get error statistics from ErrorLog table
    */
   async getErrorStats(timeWindow: number = 24 * 60 * 60 * 1000): Promise<{
     total: number;
@@ -138,52 +208,41 @@ export class ErrorTrackingService {
     try {
       const since = new Date(Date.now() - timeWindow);
 
-      const failures = await prisma.job.findMany({
-        where: {
-          status: 'FAILED',
-          updatedAt: { gte: since },
+      const errors = await prisma.errorLog.findMany({
+        where: { createdAt: { gte: since } },
+        select: {
+          errorCategory: true,
+          errorSeverity: true,
+          jobType: true,
+          retryable: true,
         },
       });
 
-      // Categorize errors by inspecting error messages
-      const byCategory = failures.reduce(
-        (acc, job) => {
-          const error = job.error?.toLowerCase() || '';
-          let category = 'UNKNOWN';
-
-          if (error.includes('api') || error.includes('external')) category = 'EXTERNAL_API';
-          else if (error.includes('database') || error.includes('prisma')) category = 'DATABASE';
-          else if (error.includes('config') || error.includes('api key'))
-            category = 'CONFIGURATION';
-          else if (error.includes('not found')) category = 'NOT_FOUND';
-          else if (error.includes('rate limit')) category = 'RATE_LIMIT';
-          else if (error.includes('network') || error.includes('timeout')) category = 'NETWORK';
-
-          acc[category] = (acc[category] || 0) + 1;
+      const byCategory = errors.reduce(
+        (acc, err) => {
+          acc[err.errorCategory] = (acc[err.errorCategory] || 0) + 1;
           return acc;
         },
         {} as Record<string, number>
       );
 
-      const byType = failures.reduce(
-        (acc, job) => {
-          acc[job.type] = (acc[job.type] || 0) + 1;
+      const byType = errors.reduce(
+        (acc, err) => {
+          acc[err.jobType] = (acc[err.jobType] || 0) + 1;
           return acc;
         },
         {} as Record<string, number>
       );
 
-      const criticalCount = failures.filter((job) => {
-        const error = job.error?.toLowerCase() || '';
-        return error.includes('config') || error.includes('critical') || error.includes('api key');
-      }).length;
+      const criticalCount = errors.filter((e) => e.errorSeverity === 'CRITICAL').length;
+      const retryableCount = errors.filter((e) => e.retryable).length;
 
       return {
-        total: failures.length,
+        total: errors.length,
         byCategory,
         byType,
         criticalCount,
-        retryableCount: failures.length - criticalCount,
+        retryableCount,
       };
     } catch (error) {
       console.error('[Error Tracking] Error getting stats:', error);
@@ -194,6 +253,119 @@ export class ErrorTrackingService {
         criticalCount: 0,
         retryableCount: 0,
       };
+    }
+  }
+
+  /**
+   * Get paginated error log entries
+   */
+  async getErrorLogs(filters: ErrorLogFilters = {}): Promise<{
+    entries: any[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
+    try {
+      const page = filters.page || 1;
+      const limit = filters.limit || 25;
+      const skip = (page - 1) * limit;
+
+      const where: any = {};
+      if (filters.jobType) where.jobType = filters.jobType;
+      if (filters.siteId) where.siteId = filters.siteId;
+      if (filters.category) where.errorCategory = filters.category;
+      if (filters.severity) where.errorSeverity = filters.severity;
+      if (filters.from || filters.to) {
+        where.createdAt = {};
+        if (filters.from) where.createdAt.gte = filters.from;
+        if (filters.to) where.createdAt.lte = filters.to;
+      }
+
+      const [entries, total] = await Promise.all([
+        prisma.errorLog.findMany({
+          where,
+          include: {
+            site: { select: { name: true } },
+          },
+          orderBy: { createdAt: 'desc' },
+          skip,
+          take: limit,
+        }),
+        prisma.errorLog.count({ where }),
+      ]);
+
+      return {
+        entries: entries.map((e) => ({
+          id: e.id,
+          jobId: e.jobId,
+          jobType: e.jobType,
+          siteId: e.siteId,
+          siteName: e.site?.name || null,
+          errorName: e.errorName,
+          errorMessage: e.errorMessage,
+          errorCategory: e.errorCategory,
+          errorSeverity: e.errorSeverity,
+          attemptNumber: e.attemptNumber,
+          retryable: e.retryable,
+          createdAt: e.createdAt.toISOString(),
+        })),
+        total,
+        page,
+        limit,
+      };
+    } catch (error) {
+      console.error('[Error Tracking] Error fetching error logs:', error);
+      return { entries: [], total: 0, page: 1, limit: 25 };
+    }
+  }
+
+  /**
+   * Get a single error log entry with full details (stack trace, context)
+   */
+  async getErrorLog(id: string): Promise<any | null> {
+    try {
+      const entry = await prisma.errorLog.findUnique({
+        where: { id },
+        include: {
+          site: { select: { name: true } },
+          job: {
+            select: {
+              id: true,
+              type: true,
+              status: true,
+              attempts: true,
+              payload: true,
+              result: true,
+              createdAt: true,
+              startedAt: true,
+              completedAt: true,
+            },
+          },
+        },
+      });
+
+      if (!entry) return null;
+
+      return {
+        id: entry.id,
+        jobId: entry.jobId,
+        jobType: entry.jobType,
+        siteId: entry.siteId,
+        siteName: entry.site?.name || null,
+        errorName: entry.errorName,
+        errorMessage: entry.errorMessage,
+        errorCategory: entry.errorCategory,
+        errorSeverity: entry.errorSeverity,
+        stackTrace: entry.stackTrace,
+        context: entry.context,
+        attemptNumber: entry.attemptNumber,
+        retryable: entry.retryable,
+        createdAt: entry.createdAt.toISOString(),
+        job: entry.job,
+      };
+    } catch (error) {
+      console.error('[Error Tracking] Error fetching error log:', error);
+      return null;
     }
   }
 
@@ -214,11 +386,6 @@ export class ErrorTrackingService {
       context: alert.context,
       timestamp: new Date().toISOString(),
     });
-
-    // For critical alerts, could also write to a special notification table
-    if (alert.level === 'critical') {
-      // TODO: Write to notification table or external alerting service
-    }
   }
 
   /**
@@ -228,18 +395,25 @@ export class ErrorTrackingService {
     try {
       const cutoffDate = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000);
 
-      const result = await prisma.job.deleteMany({
+      // Delete old error log entries
+      const errorLogResult = await prisma.errorLog.deleteMany({
+        where: { createdAt: { lt: cutoffDate } },
+      });
+
+      // Also clean up old failed jobs
+      const jobResult = await prisma.job.deleteMany({
         where: {
           status: 'FAILED',
-          updatedAt: {
-            lt: cutoffDate,
-          },
+          updatedAt: { lt: cutoffDate },
         },
       });
 
-      console.log(`[Error Tracking] Cleaned up ${result.count} old error records`);
+      const totalDeleted = errorLogResult.count + jobResult.count;
+      console.log(
+        `[Error Tracking] Cleaned up ${errorLogResult.count} error logs and ${jobResult.count} failed jobs`
+      );
 
-      return result.count;
+      return totalDeleted;
     } catch (error) {
       console.error('[Error Tracking] Error cleaning up old errors:', error);
       return 0;
