@@ -24,6 +24,18 @@ export function GoogleAnalytics({ measurementId }: GoogleAnalyticsProps) {
     window.gtag('config', measurementId, {
       page_path: url,
     });
+
+    // Track AI referral source if present (set by middleware from referer header)
+    const aiSource = document.cookie
+      .split('; ')
+      .find((c) => c.startsWith('ai_referral_source='))
+      ?.split('=')[1];
+    if (aiSource) {
+      window.gtag('event', 'ai_referral', {
+        ai_source: aiSource,
+        page_path: url,
+      });
+    }
   }, [pathname, searchParams, measurementId]);
 
   if (!measurementId) {

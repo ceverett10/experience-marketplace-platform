@@ -9,6 +9,19 @@ import type { NextRequest } from 'next/server';
 // Cookie name for site configuration
 const SITE_CONFIG_COOKIE = 'x-site-id';
 
+// AI referral source domains — used to track traffic from LLM-powered search
+const AI_REFERRAL_SOURCES: Record<string, string> = {
+  'chat.openai.com': 'chatgpt',
+  'chatgpt.com': 'chatgpt',
+  'perplexity.ai': 'perplexity',
+  'claude.ai': 'claude',
+  'gemini.google.com': 'gemini',
+  'copilot.microsoft.com': 'copilot',
+  'bing.com/chat': 'copilot',
+  'you.com': 'you',
+  'phind.com': 'phind',
+};
+
 export function middleware(request: NextRequest) {
   // On Heroku/Cloudflare, use x-forwarded-host to get the actual external domain
   const hostname =
@@ -28,6 +41,30 @@ export function middleware(request: NextRequest) {
 
   // Add site ID to headers for API routes
   response.headers.set('x-site-id', siteId);
+
+  // Track AI referral sources — set a cookie when traffic comes from an LLM platform
+  // so GA4 and analytics can attribute the session to an AI source
+  const referer = request.headers.get('referer');
+  if (referer) {
+    try {
+      const refererHost = new URL(referer).hostname;
+      for (const [domain, source] of Object.entries(AI_REFERRAL_SOURCES)) {
+        if (refererHost === domain || refererHost.endsWith(`.${domain}`)) {
+          response.cookies.set('ai_referral_source', source, {
+            httpOnly: false, // Readable by client-side analytics (GA4)
+            secure: process.env['NODE_ENV'] === 'production',
+            sameSite: 'lax',
+            path: '/',
+            maxAge: 60 * 30, // 30-minute attribution window
+          });
+          response.headers.set('x-ai-referral', source);
+          break;
+        }
+      }
+    } catch {
+      // Invalid referer URL — ignore
+    }
+  }
 
   return response;
 }

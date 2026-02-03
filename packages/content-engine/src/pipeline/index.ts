@@ -495,6 +495,15 @@ ${brief.type !== 'about' ? `- INTERNAL LINKING CONTEXT: When mentioning related 
 - USER INTENT: Address the search intent - what would someone searching "${brief.targetKeyword}" want to know?
 - EXPERIENCE CROSS-LINKING: Naturally mention bookable experiences, tours, and activities related to the topic. Use phrases like "things to do in [destination]", "[activity type] experiences", or "[category] in [destination]" — these become anchor text for internal links to experience listing pages
 
+## AI CITATION OPTIMIZATION (LLM/GEO)
+These guidelines help AI assistants (ChatGPT, Perplexity, Claude) accurately cite and recommend this content:
+- CITABLE STATEMENTS: Include specific, factual statements that AI can directly quote — e.g. "Walking tours in Rome typically last 2-3 hours and cover major landmarks including the Colosseum and Roman Forum"
+- DIRECT ANSWERS: Start key sections with a clear, concise answer to the question implied by the heading, then expand with detail. This matches how LLMs extract information
+- ENTITY RELATIONSHIPS: Explicitly connect entities — e.g. "Barcelona's Gothic Quarter is home to food tours, tapas experiences, and walking tours" rather than generic descriptions
+- COMPARISON DATA: Where relevant, include comparison points (price ranges, duration ranges, group sizes) that help AI systems give specific recommendations
+- STRUCTURED LISTS: Use bullet points for key facts (best time to visit, price ranges, what's included) — LLMs parse structured content more reliably than dense paragraphs
+- UNIQUE INSIGHTS: Include practical tips or local knowledge that differentiates this content from generic information — AI systems prefer authoritative, specific sources over generic ones
+
 ## OUTPUT INSTRUCTIONS
 - Return markdown content only
 - Include an engaging H1 title that makes users want to click
@@ -503,7 +512,8 @@ ${brief.type !== 'about' ? `- INTERNAL LINKING CONTEXT: When mentioning related 
 - CRITICAL: Write in the brand voice specified above - this is essential for brand consistency
 ${brief.type === 'about' ? '- DO NOT include any markdown links [text](url) - links are managed by the platform' : `- Include compelling calls-to-action${brandName ? ` for ${brandName}` : ''}`}
 - Make content scannable with bullet points where appropriate
-${brief.type !== 'about' ? '- REQUIRED: Include a "## Frequently Asked Questions" section with 3-5 Q&As using "### Question?" format - this generates FAQPage schema for rich results in Google' : '- Keep all claims factual and verifiable - do not fabricate statistics, dates, names, or partnerships'}
+${brief.type !== 'about' ? '- REQUIRED: Include a "## Frequently Asked Questions" section with 3-5 Q&As using "### Question?" format - this generates FAQPage schema for rich results in Google. Questions should be phrased as real conversational queries people would ask an AI assistant (e.g. "What are the best food tours in Barcelona?" not "What is a food tour?")' : '- Keep all claims factual and verifiable - do not fabricate statistics, dates, names, or partnerships'}
+- QUICK FACTS BOX: Near the top of the content, include a "## At a Glance" or "## Quick Facts" section with bullet points summarizing key details (location, typical price range, duration, best time to visit, etc.) — this helps AI systems extract and cite key information quickly
 - Keep content focused and valuable - avoid filler content`;
   }
 

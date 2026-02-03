@@ -138,6 +138,9 @@ export default async function CategoryPage({ params }: Props) {
     ...((category.content?.structuredData as Record<string, unknown>) || {}),
   };
 
+  // Extract FAQ structured data from content if FAQ section exists
+  const faqJsonLd = extractFaqSchema(category.content?.body);
+
   return (
     <>
       {/* JSON-LD Structured Data */}
@@ -145,6 +148,12 @@ export default async function CategoryPage({ params }: Props) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
+      {faqJsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+        />
+      )}
 
       {/* Breadcrumb */}
       <div className="border-b border-gray-200 bg-white">
@@ -183,6 +192,44 @@ export default async function CategoryPage({ params }: Props) {
       />
     </>
   );
+}
+
+/**
+ * Extract FAQ pairs from markdown content and return FAQPage JSON-LD schema.
+ * Looks for H3 headings ending with '?' followed by paragraph text.
+ */
+function extractFaqSchema(body?: string | null) {
+  if (!body) return null;
+
+  const faqRegex = /###\s+(.+\?)\s*\n+([\s\S]*?)(?=\n###|\n##|\n#|$)/g;
+  const items: { question: string; answer: string }[] = [];
+  let match;
+
+  while ((match = faqRegex.exec(body)) !== null) {
+    const question = match[1]?.trim();
+    const answer = match[2]
+      ?.trim()
+      .replace(/\n+/g, ' ')
+      .replace(/[#*_`]/g, '');
+    if (question && answer) {
+      items.push({ question, answer });
+    }
+  }
+
+  if (items.length === 0) return null;
+
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: items.map((item) => ({
+      '@type': 'Question',
+      name: item.question,
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: item.answer,
+      },
+    })),
+  };
 }
 
 // Dynamic rendering - pages generated on-demand
