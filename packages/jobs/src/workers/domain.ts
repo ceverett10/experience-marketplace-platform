@@ -4,6 +4,7 @@ import { CloudflareRegistrarService } from '../services/cloudflare-registrar.js'
 import { CloudflareDNSService } from '../services/cloudflare-dns.js';
 import { SSLService } from '../services/ssl-service.js';
 import { HerokuDomainsService } from '../services/heroku-domains.js';
+import { createCloudflareCDN } from '../services/cloudflare-cdn.js';
 import type {
   DomainRegisterPayload,
   DomainVerifyPayload,
@@ -220,6 +221,27 @@ export async function handleDomainVerify(job: Job<DomainVerifyPayload>): Promise
       });
 
       console.log(`[Domain Verify] DNS configured for ${domain.domain}`);
+
+      // 4a. Optimize Cloudflare CDN settings for performance
+      const cdnService = createCloudflareCDN();
+      if (cdnService) {
+        try {
+          const cdnResult = await cdnService.optimizeZone(domain.domain);
+          if (cdnResult.success && cdnResult.zoneId) {
+            // Store Cloudflare zone ID for future reference
+            await prisma.domain.update({
+              where: { id: domainId },
+              data: { cloudflareZoneId: cdnResult.zoneId },
+            });
+            console.log(`[Domain Verify] CDN optimized for ${domain.domain}`);
+          } else {
+            console.warn(`[Domain Verify] CDN optimization failed: ${cdnResult.error}`);
+          }
+        } catch (cdnError) {
+          // Don't fail the entire job if CDN optimization fails
+          console.error(`[Domain Verify] CDN optimization error:`, cdnError);
+        }
+      }
     }
 
     // 5. Queue SSL provisioning

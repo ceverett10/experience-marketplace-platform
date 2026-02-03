@@ -33,6 +33,7 @@ export * from './services/seo-health';
 export * from './services/backlink-analysis';
 export * from './services/linkable-assets';
 export * from './services/outreach-templates';
+export * from './services/cloudflare-cdn';
 
 // Export error handling
 export * from './errors';
