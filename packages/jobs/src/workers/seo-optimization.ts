@@ -212,7 +212,7 @@ async function queueOptimizations(siteId: string, report: SiteHealthReport): Pro
 
     // Queue content optimization job
     await contentQueue.add(
-      'optimize',
+      'CONTENT_OPTIMIZE',
       {
         siteId,
         contentId: page.pageId, // Will be resolved to content ID in worker

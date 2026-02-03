@@ -42,6 +42,8 @@ export interface SeoAnalyzePayload {
   siteId: string;
   pageIds?: string[];
   fullSiteAudit?: boolean;
+  triggerOptimizations?: boolean;
+  forceAudit?: boolean;
 }
 
 export interface SeoOpportunityScanPayload {

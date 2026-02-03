@@ -739,7 +739,7 @@ export async function getPagesNeedingOptimization(siteId: string, limit = 10): P
 
     // Low urgency: Stale content
     const daysSinceUpdate = page.content?.updatedAt
-      ? Math.floor((Date.now() - new Date(page.content.updatedAt).getTime()) / (1000 * 60 * 60 * 1000))
+      ? Math.floor((Date.now() - new Date(page.content.updatedAt).getTime()) / (1000 * 60 * 60 * 24))
       : 365;
     if (daysSinceUpdate > 90) {
       results.push({

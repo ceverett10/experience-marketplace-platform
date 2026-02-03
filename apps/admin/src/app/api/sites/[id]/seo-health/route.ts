@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { addJob } from '@experience-marketplace/jobs';
 
 /**
  * SEO Health API for Sites
@@ -489,27 +490,17 @@ export async function POST(
       });
     }
 
-    // Create a new SEO audit job
-    const job = await prisma.job.create({
-      data: {
-        type: 'SEO_ANALYZE',
-        queue: 'seo',
-        payload: {
-          siteId: id,
-          triggerOptimizations: true,
-          fullSiteAudit: true,
-          triggeredBy: 'admin-ui',
-        },
-        status: 'PENDING',
-        priority: 5,
-        siteId: id,
-      },
+    // Create and enqueue the SEO audit job via BullMQ
+    const jobId = await addJob('SEO_ANALYZE', {
+      siteId: id,
+      triggerOptimizations: true,
+      fullSiteAudit: true,
     });
 
     return NextResponse.json({
       success: true,
       message: 'SEO audit job queued successfully',
-      jobId: job.id,
+      jobId,
       siteId: site.id,
       siteName: site.name,
     });
