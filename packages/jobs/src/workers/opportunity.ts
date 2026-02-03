@@ -533,7 +533,7 @@ Return ONLY a valid JSON array with this structure:
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model: 'claude-3-5-sonnet-20241022', // Use Sonnet for strategic thinking
+      model: 'claude-sonnet-4-20250514', // Use Sonnet for strategic thinking
       max_tokens: 4000,
       messages: [
         {
@@ -745,7 +745,7 @@ async function generateAISeeds(inventoryLandscape: InventoryLandscape): Promise<
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model: 'claude-3-5-sonnet-20241022',
+      model: 'claude-sonnet-4-20250514',
       max_tokens: 8000,
       messages: [{ role: 'user', content: prompt }],
     }),
@@ -1069,7 +1069,7 @@ Keep it concise and business-focused.`;
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model: 'claude-3-5-haiku-20241022',
+      model: 'claude-haiku-4-5-20251001',
       max_tokens: 500,
       messages: [
         {
