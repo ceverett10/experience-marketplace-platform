@@ -104,7 +104,11 @@ export async function GET(request: NextRequest) {
     const cached = apiCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) {
       console.log('[API /experiences] Returning cached data');
-      const cachedResponse = cached.data as { experiences: unknown[]; hasMore: boolean; totalCount: number };
+      const cachedResponse = cached.data as {
+        experiences: unknown[];
+        hasMore: boolean;
+        totalCount: number;
+      };
       return NextResponse.json(cachedResponse, {
         headers: {
           'Cache-Control': 'public, s-maxage=600, stale-while-revalidate=300',

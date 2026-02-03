@@ -596,7 +596,10 @@ export function optimizeHolibobImageUrl(url: string, width: number, height: numb
     return `https://images.holibob.tech/${newToken}`;
   } catch (error) {
     // If transformation fails, return original URL
-    console.warn('[Holibob Image] Failed to optimize URL:', error instanceof Error ? error.message : error);
+    console.warn(
+      '[Holibob Image] Failed to optimize URL:',
+      error instanceof Error ? error.message : error
+    );
     return url;
   }
 }
