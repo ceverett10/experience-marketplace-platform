@@ -1,7 +1,7 @@
 import { Job } from 'bullmq';
 import { prisma } from '@experience-marketplace/database';
 import { createHolibobClient } from '@experience-marketplace/holibob-api';
-import type { SeoOpportunityScanPayload, SeoOpportunityOptimizePayload, JobResult, SiteCreatePayload } from '../types';
+import type { SeoOpportunityScanPayload, SeoOpportunityOptimizePayload, JobResult, SiteCreatePayload, OpportunitySeed, ScanMode } from '../types';
 import { runRecursiveOptimization } from '../services/opportunity-optimizer';
 import { KeywordResearchService } from '../services/keyword-research';
 import {
@@ -18,13 +18,178 @@ import { addJob } from '../queues';
 import { canExecuteAutonomousOperation } from '../services/pause-control';
 
 /**
+ * ========================================
+ * INTEGRATED OPTIMIZATION FLOW
+ * ========================================
+ * Combines multi-mode seed generation with recursive optimization
+ */
+
+/**
+ * Run integrated optimization: generate multi-mode seeds + recursive refinement
+ * This is the new default flow that combines all scan modes with AI optimization
+ */
+async function runIntegratedOptimization(
+  holibobClient: ReturnType<typeof createHolibobClient>,
+  options: {
+    siteId?: string;
+    maxIterations?: number;
+    initialSuggestionsCount?: number;
+    seedModes?: ScanMode[];
+  }
+): Promise<JobResult> {
+  console.log('[Integrated Scan] Starting integrated multi-mode optimization...');
+
+  // Phase 1: Generate diverse seeds from all modes
+  const allSeeds = await generateMultiModeSeeds(holibobClient);
+
+  // Filter seeds by requested modes if specified
+  const seeds = options.seedModes
+    ? allSeeds.filter(seed => options.seedModes?.includes(seed.scanMode))
+    : allSeeds;
+
+  console.log(`[Integrated Scan] Generated ${seeds.length} seeds across ${new Set(seeds.map(s => s.scanMode)).size} modes`);
+
+  if (seeds.length === 0) {
+    return {
+      success: false,
+      error: 'No seeds generated - unable to proceed with optimization',
+      timestamp: new Date(),
+    };
+  }
+
+  // Phase 2: Run recursive optimization with seeds
+  const result = await runRecursiveOptimization(holibobClient, {
+    maxIterations: options.maxIterations || 5,
+    initialSuggestionsCount: options.initialSuggestionsCount || 20,
+    seeds, // Pass seeds to optimizer
+  });
+
+  if (!result.success) {
+    return {
+      success: false,
+      error: 'Recursive optimization failed',
+      timestamp: new Date(),
+    };
+  }
+
+  // Phase 3: Store optimized opportunities
+  let storedCount = 0;
+  let explanationsGenerated = 0;
+
+  for (const ranked of result.finalOpportunities) {
+    const opp = ranked.opportunity;
+
+    try {
+      const opportunity = await prisma.sEOOpportunity.upsert({
+        where: {
+          keyword_location: {
+            keyword: opp.suggestion.keyword,
+            location: opp.suggestion.destination || '',
+          },
+        },
+        create: {
+          keyword: opp.suggestion.keyword,
+          searchVolume: opp.dataForSeo.searchVolume,
+          difficulty: opp.dataForSeo.difficulty,
+          cpc: opp.dataForSeo.cpc,
+          intent: 'TRANSACTIONAL',
+          niche: opp.suggestion.niche,
+          location: opp.suggestion.destination,
+          priorityScore: opp.priorityScore,
+          status: 'IDENTIFIED',
+          source: 'integrated_scan',
+          explanation: ranked.explanation,
+          sourceData: {
+            scanMode: opp.suggestion.scanMode,
+            optimizationRank: ranked.rank,
+            optimizationJourney: ranked.journey,
+            domainSuggestions: ranked.domainSuggestions,
+            projectedValue: ranked.projectedValue,
+            dataForSeo: opp.dataForSeo,
+            holibobInventory: opp.holibobInventory,
+            iterationCount: result.iterations.length,
+            totalApiCost: result.totalApiCost.totalCost,
+          },
+          siteId: options.siteId || undefined,
+        },
+        update: {
+          searchVolume: opp.dataForSeo.searchVolume,
+          difficulty: opp.dataForSeo.difficulty,
+          cpc: opp.dataForSeo.cpc,
+          priorityScore: opp.priorityScore,
+          explanation: ranked.explanation,
+          sourceData: {
+            scanMode: opp.suggestion.scanMode,
+            optimizationRank: ranked.rank,
+            optimizationJourney: ranked.journey,
+            domainSuggestions: ranked.domainSuggestions,
+            projectedValue: ranked.projectedValue,
+            dataForSeo: opp.dataForSeo,
+            holibobInventory: opp.holibobInventory,
+            iterationCount: result.iterations.length,
+            totalApiCost: result.totalApiCost.totalCost,
+          },
+        },
+      });
+
+      storedCount++;
+      explanationsGenerated++; // Explanation comes from optimization
+      console.log(`[Integrated Scan] Stored opportunity #${ranked.rank}: ${opp.suggestion.keyword} (score: ${opp.priorityScore})`);
+    } catch (dbError) {
+      console.error(`[Integrated Scan] Failed to store opportunity ${opp.suggestion.keyword}:`, dbError);
+    }
+  }
+
+  console.log(`[Integrated Scan] Complete: ${result.summary}`);
+  console.log(`[Integrated Scan] Stored ${storedCount} opportunities, generated ${explanationsGenerated} explanations`);
+
+  // Auto-action high-priority opportunities
+  await autoActionOpportunities();
+
+  return {
+    success: true,
+    message: `Integrated scan: ${result.summary}`,
+    data: {
+      mode: 'integrated',
+      iterations: result.iterations.length,
+      seedsGenerated: seeds.length,
+      seedModes: Array.from(new Set(seeds.map(s => s.scanMode))),
+      opportunitiesFound: result.finalOpportunities.length,
+      stored: storedCount,
+      explanationsGenerated,
+      topOpportunities: result.finalOpportunities.slice(0, 5).map((r) => ({
+        rank: r.rank,
+        keyword: r.opportunity.suggestion.keyword,
+        score: r.opportunity.priorityScore,
+        scanMode: r.opportunity.suggestion.scanMode,
+        domain: r.domainSuggestions.primary,
+      })),
+      totalApiCost: result.totalApiCost.totalCost,
+      executionTimeMs: result.executionTimeMs,
+    },
+    timestamp: new Date(),
+  };
+}
+
+/**
  * SEO Opportunity Scanner Worker
  * Identifies content opportunities based on keyword research and Holibob inventory
+ *
+ * MODES:
+ * 1. Integrated Mode (default): Multi-mode seed generation + recursive AI optimization
+ * 2. Direct Scan Mode: Legacy direct scanning with AI suggestions
  */
 export async function handleOpportunityScan(
   job: Job<SeoOpportunityScanPayload>
 ): Promise<JobResult> {
-  const { siteId, destinations, categories, forceRescan } = job.data;
+  const {
+    siteId,
+    destinations,
+    categories,
+    forceRescan,
+    useRecursiveOptimization,
+    optimizationConfig,
+  } = job.data;
 
   try {
     console.log('[Opportunity Scan] Starting opportunity scan');
@@ -64,6 +229,28 @@ export async function handleOpportunityScan(
       sandbox: process.env['HOLIBOB_ENV'] !== 'production',
       timeout: 30000,
     });
+
+    // ========================================
+    // ROUTING: Integrated vs Direct Scan
+    // ========================================
+
+    // Default to integrated mode (multi-mode + recursive optimization)
+    // Only use direct scan if explicitly disabled
+    if (useRecursiveOptimization !== false) {
+      console.log('[Opportunity Scan] Using INTEGRATED mode (multi-mode seeds + recursive optimization)');
+
+      return await runIntegratedOptimization(holibobClient, {
+        siteId,
+        maxIterations: optimizationConfig?.maxIterations,
+        initialSuggestionsCount: optimizationConfig?.initialSuggestionsCount,
+        seedModes: optimizationConfig?.seedModes,
+      });
+    }
+
+    // ========================================
+    // DIRECT SCAN MODE (Legacy)
+    // ========================================
+    console.log('[Opportunity Scan] Using DIRECT SCAN mode (legacy AI suggestions)');
 
     // Phase 1: AI-Powered Niche Discovery (if no specific destinations/categories provided)
     let aiSuggestedNiches: Array<{ destination: string; category: string; niche: string; rationale: string }> = [];
@@ -113,7 +300,7 @@ export async function handleOpportunityScan(
             location: opp.location,
             priorityScore,
             status: 'IDENTIFIED',
-            source: 'opportunity_scan',
+            source: 'direct_scan',
             sourceData: opp.sourceData,
             siteId: targetSites.length === 1 ? targetSites[0]?.id : undefined,
           },
@@ -166,8 +353,9 @@ export async function handleOpportunityScan(
 
     return {
       success: true,
-      message: `Scanned and found ${opportunities.length} opportunities, stored ${stored}, generated ${explanationsGenerated} explanations`,
+      message: `Direct scan: found ${opportunities.length} opportunities, stored ${stored}, generated ${explanationsGenerated} explanations`,
       data: {
+        mode: 'direct_scan',
         totalFound: opportunities.length,
         stored,
         explanationsGenerated,
@@ -774,6 +962,384 @@ function estimateCpc(category: string): number {
   }
 
   return base + Math.random();
+}
+
+/**
+ * ========================================
+ * MULTI-MODE SEED GENERATION
+ * ========================================
+ * Generate diverse seed opportunities from all scan modes
+ * for use in recursive optimization
+ */
+
+/**
+ * Generate diverse seed opportunities from all scan modes
+ * These serve as the starting point for recursive optimization
+ */
+async function generateMultiModeSeeds(
+  holibobClient: ReturnType<typeof createHolibobClient>
+): Promise<OpportunitySeed[]> {
+  console.log('[Seed Generation] Starting multi-mode seed generation...');
+  const seeds: OpportunitySeed[] = [];
+
+  try {
+    // Mode 1: Hyper-Local (top cities x top categories)
+    console.log('[Seed Generation] Generating hyper-local seeds...');
+    const hyperLocalSeeds = await generateHyperLocalSeeds(holibobClient);
+    seeds.push(...hyperLocalSeeds);
+    console.log(`[Seed Generation] Generated ${hyperLocalSeeds.length} hyper-local seeds`);
+
+    // Mode 2: Generic Activities
+    console.log('[Seed Generation] Generating generic activity seeds...');
+    const genericSeeds = await generateGenericSeeds(holibobClient);
+    seeds.push(...genericSeeds);
+    console.log(`[Seed Generation] Generated ${genericSeeds.length} generic seeds`);
+
+    // Mode 3: Demographics
+    console.log('[Seed Generation] Generating demographic seeds...');
+    const demographicSeeds = await generateDemographicSeeds(holibobClient);
+    seeds.push(...demographicSeeds);
+    console.log(`[Seed Generation] Generated ${demographicSeeds.length} demographic seeds`);
+
+    // Mode 4: Occasions
+    console.log('[Seed Generation] Generating occasion-based seeds...');
+    const occasionSeeds = await generateOccasionSeeds(holibobClient);
+    seeds.push(...occasionSeeds);
+    console.log(`[Seed Generation] Generated ${occasionSeeds.length} occasion seeds`);
+
+    // Mode 5: Experience Levels
+    console.log('[Seed Generation] Generating experience-level seeds...');
+    const experienceSeeds = await generateExperienceLevelSeeds(holibobClient);
+    seeds.push(...experienceSeeds);
+    console.log(`[Seed Generation] Generated ${experienceSeeds.length} experience-level seeds`);
+
+    // Mode 6: Regional
+    console.log('[Seed Generation] Generating regional seeds...');
+    const regionalSeeds = await generateRegionalSeeds(holibobClient);
+    seeds.push(...regionalSeeds);
+    console.log(`[Seed Generation] Generated ${regionalSeeds.length} regional seeds`);
+  } catch (error) {
+    console.error('[Seed Generation] Error generating seeds:', error);
+    // Continue with whatever seeds we have
+  }
+
+  console.log(`[Seed Generation] Total seeds generated: ${seeds.length}`);
+  return seeds;
+}
+
+async function generateHyperLocalSeeds(
+  client: ReturnType<typeof createHolibobClient>
+): Promise<OpportunitySeed[]> {
+  const destinations = [
+    'London, England',
+    'Paris, France',
+    'Barcelona, Spain',
+    'Rome, Italy',
+    'Amsterdam, Netherlands',
+    'New York, USA',
+  ];
+  const categories = ['food tours', 'walking tours', 'museum tickets', 'wine tasting', 'cooking classes'];
+
+  const seeds: OpportunitySeed[] = [];
+
+  for (const destination of destinations) {
+    for (const category of categories) {
+      const city = destination.split(',')[0] || destination;
+      const keyword = `${city.toLowerCase()} ${category}`;
+
+      try {
+        const inventory = await client.discoverProducts(
+          { freeText: destination, searchTerm: category, currency: 'GBP' },
+          { pageSize: 10 }
+        );
+
+        if (inventory.products.length > 0) {
+          seeds.push({
+            keyword,
+            destination,
+            category,
+            niche: category,
+            scanMode: 'hyper_local',
+            rationale: `High-demand ${category} in major tourist destination ${city}`,
+            inventoryCount: inventory.products.length,
+          });
+        }
+      } catch (error) {
+        // Skip on error
+      }
+    }
+  }
+
+  return seeds;
+}
+
+async function generateGenericSeeds(
+  client: ReturnType<typeof createHolibobClient>
+): Promise<OpportunitySeed[]> {
+  const genericKeywords = [
+    'food tours',
+    'wine tours',
+    'cooking classes',
+    'museum tickets',
+    'city tours',
+    'boat tours',
+    'bike tours',
+    'photography tours',
+    'art classes',
+  ];
+
+  const seeds: OpportunitySeed[] = [];
+
+  for (const keyword of genericKeywords) {
+    try {
+      const globalInventory = await checkGlobalInventory(client, keyword);
+
+      // Generic needs broad inventory (5+ destinations, 50+ products)
+      if (globalInventory.destinationCount >= 5 && globalInventory.totalCount >= 50) {
+        seeds.push({
+          keyword,
+          destination: undefined, // Generic - no specific location
+          category: keyword,
+          niche: keyword,
+          scanMode: 'generic_activity',
+          rationale: `Global ${keyword} platform aggregating ${globalInventory.destinationCount} destinations`,
+          inventoryCount: globalInventory.totalCount,
+          destinationCount: globalInventory.destinationCount,
+        });
+      }
+    } catch (error) {
+      // Skip on error
+    }
+  }
+
+  return seeds;
+}
+
+async function generateDemographicSeeds(
+  client: ReturnType<typeof createHolibobClient>
+): Promise<OpportunitySeed[]> {
+  const demographics = [
+    { keyword: 'family travel experiences', category: 'tours', niche: 'family travel' },
+    { keyword: 'family-friendly activities', category: 'activities', niche: 'family travel' },
+    { keyword: 'senior-friendly tours', category: 'tours', niche: 'senior travel' },
+    { keyword: 'accessible travel experiences', category: 'tours', niche: 'accessible tourism' },
+    { keyword: 'pet-friendly travel', category: 'activities', niche: 'pet travel' },
+    { keyword: 'solo travel activities', category: 'activities', niche: 'solo travelers' },
+    { keyword: 'couples activities', category: 'activities', niche: 'romantic travel' },
+  ];
+
+  const seeds: OpportunitySeed[] = [];
+
+  for (const demo of demographics) {
+    try {
+      const globalInventory = await checkGlobalInventory(client, demo.category);
+
+      // Demographics need reasonable inventory (30+ products)
+      if (globalInventory.totalCount >= 30) {
+        seeds.push({
+          keyword: demo.keyword,
+          destination: undefined,
+          category: demo.category,
+          niche: demo.niche,
+          scanMode: 'demographic',
+          rationale: `Underserved ${demo.niche} demographic with growing demand`,
+          inventoryCount: globalInventory.totalCount,
+          destinationCount: globalInventory.destinationCount,
+        });
+      }
+    } catch (error) {
+      // Skip on error
+    }
+  }
+
+  return seeds;
+}
+
+async function generateOccasionSeeds(
+  client: ReturnType<typeof createHolibobClient>
+): Promise<OpportunitySeed[]> {
+  const occasions = [
+    { keyword: 'bachelor party experiences', category: 'activities', niche: 'bachelor parties' },
+    { keyword: 'bachelorette party activities', category: 'activities', niche: 'bachelorette parties' },
+    { keyword: 'corporate team building', category: 'activities', niche: 'corporate events' },
+    { keyword: 'anniversary experiences', category: 'activities', niche: 'anniversaries' },
+    { keyword: 'birthday activities', category: 'activities', niche: 'birthday celebrations' },
+    { keyword: 'honeymoon experiences', category: 'tours', niche: 'honeymoons' },
+  ];
+
+  const seeds: OpportunitySeed[] = [];
+
+  for (const occasion of occasions) {
+    try {
+      const globalInventory = await checkGlobalInventory(client, occasion.category);
+
+      // Occasions need reasonable inventory (20+ products)
+      if (globalInventory.totalCount >= 20) {
+        seeds.push({
+          keyword: occasion.keyword,
+          destination: undefined,
+          category: occasion.category,
+          niche: occasion.niche,
+          scanMode: 'occasion',
+          rationale: `High-value ${occasion.niche} market with strong commercial intent`,
+          inventoryCount: globalInventory.totalCount,
+          destinationCount: globalInventory.destinationCount,
+        });
+      }
+    } catch (error) {
+      // Skip on error
+    }
+  }
+
+  return seeds;
+}
+
+async function generateExperienceLevelSeeds(
+  client: ReturnType<typeof createHolibobClient>
+): Promise<OpportunitySeed[]> {
+  const experienceLevels = [
+    { keyword: 'beginner cooking classes', category: 'cooking classes', niche: 'beginner experiences' },
+    { keyword: 'luxury wine tours', category: 'wine tasting', niche: 'luxury experiences' },
+    { keyword: 'budget-friendly activities', category: 'activities', niche: 'budget travel' },
+    { keyword: 'expert photography workshops', category: 'photography', niche: 'expert workshops' },
+    { keyword: 'private tours', category: 'tours', niche: 'private experiences' },
+  ];
+
+  const seeds: OpportunitySeed[] = [];
+
+  for (const level of experienceLevels) {
+    try {
+      const globalInventory = await checkGlobalInventory(client, level.category);
+
+      // Experience levels need inventory (20+ products)
+      if (globalInventory.totalCount >= 20) {
+        seeds.push({
+          keyword: level.keyword,
+          destination: undefined,
+          category: level.category,
+          niche: level.niche,
+          scanMode: 'experience_level',
+          rationale: `Specialized ${level.niche} targeting specific skill/budget segments`,
+          inventoryCount: globalInventory.totalCount,
+          destinationCount: globalInventory.destinationCount,
+        });
+      }
+    } catch (error) {
+      // Skip on error
+    }
+  }
+
+  return seeds;
+}
+
+async function generateRegionalSeeds(
+  client: ReturnType<typeof createHolibobClient>
+): Promise<OpportunitySeed[]> {
+  const regions = [
+    { keyword: 'european city breaks', destinations: ['London', 'Paris', 'Rome', 'Barcelona', 'Amsterdam'], category: 'tours' },
+    { keyword: 'mediterranean cruises', destinations: ['Barcelona', 'Rome', 'Athens'], category: 'boat tours' },
+    { keyword: 'ski resort activities', destinations: ['Chamonix', 'Innsbruck', 'Zermatt'], category: 'activities' },
+  ];
+
+  const seeds: OpportunitySeed[] = [];
+
+  for (const region of regions) {
+    try {
+      // Check inventory across multiple destinations in the region
+      let totalInventory = 0;
+      let destinationCount = 0;
+
+      for (const destination of region.destinations) {
+        try {
+          const inventory = await client.discoverProducts(
+            { freeText: destination, searchTerm: region.category, currency: 'GBP' },
+            { pageSize: 10 }
+          );
+          if (inventory.products.length > 0) {
+            totalInventory += inventory.products.length;
+            destinationCount++;
+          }
+        } catch {
+          // Skip destination on error
+        }
+      }
+
+      // Regional needs multi-destination inventory (3+ destinations, 30+ products)
+      if (destinationCount >= 3 && totalInventory >= 30) {
+        seeds.push({
+          keyword: region.keyword,
+          destination: undefined, // Regional - covers multiple destinations
+          category: region.category,
+          niche: region.keyword,
+          scanMode: 'regional',
+          rationale: `Regional ${region.keyword} aggregating ${destinationCount} destinations`,
+          inventoryCount: totalInventory,
+          destinationCount,
+        });
+      }
+    } catch (error) {
+      // Skip on error
+    }
+  }
+
+  return seeds;
+}
+
+/**
+ * Check inventory across multiple destinations for generic/demographic/occasion keywords
+ */
+async function checkGlobalInventory(
+  client: ReturnType<typeof createHolibobClient>,
+  searchTerm: string
+): Promise<{
+  totalCount: number;
+  destinationCount: number;
+  topDestinations: Array<{ destination: string; count: number }>;
+}> {
+  const destinations = [
+    'London, England',
+    'Paris, France',
+    'Rome, Italy',
+    'Barcelona, Spain',
+    'Amsterdam, Netherlands',
+    'New York, USA',
+    'Los Angeles, USA',
+    'Tokyo, Japan',
+    'Dubai, UAE',
+    'Berlin, Germany',
+  ];
+
+  const results = await Promise.all(
+    destinations.map(async (destination) => {
+      try {
+        const inventory = await client.discoverProducts(
+          {
+            freeText: destination,
+            searchTerm,
+            currency: 'GBP',
+          },
+          { pageSize: 50 }
+        );
+        return {
+          destination,
+          count: inventory.products.length,
+        };
+      } catch {
+        return { destination, count: 0 };
+      }
+    })
+  );
+
+  const withInventory = results.filter((r) => r.count > 0);
+  const totalCount = results.reduce((sum, r) => sum + r.count, 0);
+
+  return {
+    totalCount,
+    destinationCount: withInventory.length,
+    topDestinations: withInventory
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5),
+  };
 }
 
 /**

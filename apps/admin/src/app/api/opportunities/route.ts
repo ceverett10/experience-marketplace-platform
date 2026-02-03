@@ -56,6 +56,7 @@ export async function GET(request: Request) {
         siteId: opp.siteId,
         explanation: opp.explanation,
         createdAt: opp.createdAt.toISOString(),
+        sourceData: opp.sourceData as any, // Include domain suggestions, scan mode, projected value
       })),
       stats,
     });

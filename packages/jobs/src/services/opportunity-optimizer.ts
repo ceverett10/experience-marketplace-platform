@@ -9,6 +9,7 @@
 import { KeywordResearchService, KeywordMetrics } from './keyword-research';
 import { circuitBreakers } from '../errors/circuit-breaker';
 import { v4 as uuidv4 } from 'uuid';
+import type { OpportunitySeed, ScanMode } from '../types';
 
 // ==========================================
 // CONFIGURATION
@@ -22,6 +23,7 @@ export interface OptimizationConfig {
   targetScoreThreshold: number;
   earlyStopImprovementThreshold: number;
   batchSize: number;
+  seeds?: OpportunitySeed[]; // NEW: Multi-mode seeds for integrated scanning
 }
 
 const DEFAULT_CONFIG: OptimizationConfig = {
@@ -49,6 +51,12 @@ export interface OpportunitySuggestion {
   alternativeDomains?: string[];
   confidenceScore: number;
   iterationSource: number;
+  scanMode?: ScanMode; // NEW: Track which scan mode generated this suggestion
+  domainAvailability?: {
+    primaryAvailable: boolean;
+    alternativesAvailable: number;
+    checkedDomains: Array<{ domain: string; available: boolean }>;
+  };
 }
 
 export interface ValidatedOpportunity {
@@ -207,7 +215,8 @@ export async function runRecursiveOptimization(
         previousLearnings,
         suggestionsCount,
         inventorySample,
-        apiCost
+        apiCost,
+        finalConfig.seeds // Pass seeds for first iteration
       );
       console.log(`[Optimizer] Generated ${suggestions.length} suggestions`);
 
@@ -299,19 +308,76 @@ async function generateRefinedSuggestions(
   previousLearnings: IterationLearnings | null,
   suggestionsCount: number,
   inventorySample: any,
-  apiCost: ApiCostBreakdown
+  apiCost: ApiCostBreakdown,
+  seeds?: OpportunitySeed[]
 ): Promise<OpportunitySuggestion[]> {
   const anthropicApiKey = process.env['ANTHROPIC_API_KEY'];
   if (!anthropicApiKey) {
     throw new Error('ANTHROPIC_API_KEY not configured');
   }
 
+  // If seeds provided and first iteration, convert seeds to suggestions
+  if (iterationNumber === 1 && seeds && seeds.length > 0) {
+    console.log(`[Optimizer] Using ${seeds.length} pre-generated seeds for iteration 1`);
+
+    // Convert seeds to OpportunitySuggestion format
+    const seedSuggestions: OpportunitySuggestion[] = seeds.map(seed => ({
+      id: uuidv4(),
+      destination: seed.destination || 'Global', // Generic/demographic/occasion have no specific destination
+      category: seed.category,
+      niche: seed.niche,
+      keyword: seed.keyword,
+      rationale: seed.rationale,
+      suggestedDomain: undefined, // Will be suggested by AI in later iterations
+      alternativeDomains: [],
+      confidenceScore: 70, // Default confidence for seeds
+      iterationSource: 1,
+      scanMode: seed.scanMode,
+    }));
+
+    // Take the requested number of suggestions, prioritizing diversity across scan modes
+    const selectedSeeds: OpportunitySuggestion[] = [];
+    const seedsByMode = new Map<ScanMode, OpportunitySuggestion[]>();
+
+    // Group by scan mode
+    for (const seed of seedSuggestions) {
+      if (seed.scanMode) {
+        if (!seedsByMode.has(seed.scanMode)) {
+          seedsByMode.set(seed.scanMode, []);
+        }
+        seedsByMode.get(seed.scanMode)!.push(seed);
+      }
+    }
+
+    // Round-robin selection to ensure diversity
+    const modes = Array.from(seedsByMode.keys());
+    let modeIndex = 0;
+    while (selectedSeeds.length < Math.min(suggestionsCount, seedSuggestions.length)) {
+      const mode = modes[modeIndex % modes.length];
+      const modeSeeds = seedsByMode.get(mode!);
+      if (modeSeeds && modeSeeds.length > 0) {
+        const seed = modeSeeds.shift()!;
+        selectedSeeds.push(seed);
+      }
+      modeIndex++;
+
+      // Safety check: if all modes exhausted, break
+      if (Array.from(seedsByMode.values()).every(arr => arr.length === 0)) {
+        break;
+      }
+    }
+
+    console.log(`[Optimizer] Selected ${selectedSeeds.length} diverse seeds across ${new Set(selectedSeeds.map(s => s.scanMode)).size} modes`);
+    return selectedSeeds;
+  }
+
+  // Otherwise, use AI generation as before
   const anthropicBreaker = circuitBreakers.getBreaker('anthropic-api', {
     failureThreshold: 3,
     timeout: 120000,
   });
 
-  const prompt = buildIterationPrompt(iterationNumber, previousLearnings, suggestionsCount, inventorySample);
+  const prompt = buildIterationPrompt(iterationNumber, previousLearnings, suggestionsCount, inventorySample, seeds);
 
   const response = await anthropicBreaker.execute(async () => {
     return await fetch('https://api.anthropic.com/v1/messages', {
@@ -376,14 +442,37 @@ function buildIterationPrompt(
   iterationNumber: number,
   previousLearnings: IterationLearnings | null,
   suggestionsCount: number,
-  inventorySample: any
+  inventorySample: any,
+  seeds?: OpportunitySeed[]
 ): string {
   if (iterationNumber === 1 || !previousLearnings) {
+    // First iteration: Show seed context if seeds were used
+    const seedContext = seeds && seeds.length > 0 ? `
+## Seed Opportunities Generated
+The initial iteration used ${seeds.length} pre-generated seeds from multi-mode scanning:
+
+### Scan Modes Represented:
+${Array.from(new Set(seeds.map(s => s.scanMode))).map(mode => {
+  const modeSeeds = seeds.filter(s => s.scanMode === mode);
+  return `- **${mode}** (${modeSeeds.length} seeds): ${modeSeeds.slice(0, 2).map(s => s.keyword).join(', ')}${modeSeeds.length > 2 ? '...' : ''}`;
+}).join('\n')}
+
+These seeds provide diverse starting points:
+- **hyper_local**: City-specific experiences (e.g., "london food tours")
+- **generic_activity**: Location-agnostic platforms (e.g., "food tours")
+- **demographic**: Target audience focus (e.g., "family travel experiences")
+- **occasion**: Event-based (e.g., "bachelor party activities")
+- **experience_level**: Skill/budget tiers (e.g., "luxury wine tours")
+- **regional**: Multi-destination (e.g., "european city breaks")
+
+The seeds have been validated against inventory and will now be refined through recursive optimization.
+` : '';
+
     // First iteration: Broad discovery
     return `You are a strategic advisor for an experience marketplace platform following the TravelAI micro-segmentation strategy (441% growth through 470+ niche sites).
-
+${seedContext}
 ## Your Task
-Suggest ${suggestionsCount} creative niche site opportunities. Be DIVERSE and EXPLORATORY.
+${seeds && seeds.length > 0 ? `The system has already generated ${seeds.length} diverse seed opportunities from multiple scan modes. These seeds will be used as the starting point for this iteration.` : `Suggest ${suggestionsCount} creative niche site opportunities. Be DIVERSE and EXPLORATORY.`}
 
 ## Available Holibob Inventory
 ${JSON.stringify(inventorySample, null, 2)}
@@ -503,6 +592,94 @@ Return ONLY valid JSON array:
 }
 
 // ==========================================
+// DOMAIN AVAILABILITY CHECKING
+// ==========================================
+
+/**
+ * Check domain availability for opportunity suggestions
+ * Uses DNS lookup as a proxy for availability (not 100% accurate but fast and free)
+ */
+async function checkDomainAvailability(suggestion: OpportunitySuggestion): Promise<{
+  primaryAvailable: boolean;
+  alternativesAvailable: number;
+  checkedDomains: Array<{ domain: string; available: boolean }>;
+}> {
+  const domainsToCheck: string[] = [];
+
+  // Add suggested domain if provided
+  if (suggestion.suggestedDomain) {
+    domainsToCheck.push(suggestion.suggestedDomain);
+  }
+
+  // Add alternative domains
+  if (suggestion.alternativeDomains && suggestion.alternativeDomains.length > 0) {
+    domainsToCheck.push(...suggestion.alternativeDomains.slice(0, 3)); // Check up to 3 alternatives
+  }
+
+  // If no domains suggested, generate a basic one from keyword
+  if (domainsToCheck.length === 0) {
+    const baseDomain = suggestion.keyword.toLowerCase().replace(/\s+/g, '-') + '.com';
+    domainsToCheck.push(baseDomain);
+  }
+
+  const checkedDomains: Array<{ domain: string; available: boolean }> = [];
+
+  // Check each domain (with timeout to avoid hanging)
+  for (const domain of domainsToCheck) {
+    try {
+      const available = await isDomainAvailable(domain);
+      checkedDomains.push({ domain, available });
+    } catch (error) {
+      // If check fails, assume unavailable (conservative approach)
+      checkedDomains.push({ domain, available: false });
+    }
+  }
+
+  const primaryAvailable = checkedDomains[0]?.available || false;
+  const alternativesAvailable = checkedDomains.slice(1).filter(d => d.available).length;
+
+  return {
+    primaryAvailable,
+    alternativesAvailable,
+    checkedDomains,
+  };
+}
+
+/**
+ * Check if a single domain is likely available using DNS lookup
+ * Note: This is a heuristic - a domain with no DNS records is LIKELY available,
+ * but this is not definitive. For production, use a proper domain availability API.
+ */
+async function isDomainAvailable(domain: string): Promise<boolean> {
+  // Remove protocol if included
+  domain = domain.replace(/^https?:\/\//, '').replace(/\/$/, '');
+
+  // Simple DNS lookup using fetch with timeout
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 2000); // 2 second timeout
+
+    const response = await fetch(`https://${domain}`, {
+      method: 'HEAD',
+      signal: controller.signal,
+    }).catch(() => null);
+
+    clearTimeout(timeout);
+
+    // If site responds, domain is registered
+    if (response && response.ok) {
+      return false; // Domain is registered
+    }
+
+    // If no response or error, likely available (but not guaranteed)
+    return true;
+  } catch (error) {
+    // Timeout or network error - assume available (optimistic)
+    return true;
+  }
+}
+
+// ==========================================
 // VALIDATION
 // ==========================================
 
@@ -556,7 +733,10 @@ async function batchValidateOpportunities(
         // Continue with zero inventory
       }
 
-      // Calculate priority score
+      // Check domain availability for suggested domains
+      const domainAvailability = await checkDomainAvailability(suggestion);
+
+      // Calculate priority score with domain availability factor
       const priorityScore = calculateEnhancedScore({
         searchVolume: metrics.searchVolume,
         difficulty: metrics.keywordDifficulty,
@@ -565,10 +745,16 @@ async function batchValidateOpportunities(
         trend: metrics.trend,
         inventoryCount: inventory.productCount,
         confidenceScore: suggestion.confidenceScore,
+        domainAvailable: domainAvailability.primaryAvailable,
+        alternativesAvailable: domainAvailability.alternativesAvailable,
       });
 
       validated.push({
-        suggestion,
+        suggestion: {
+          ...suggestion,
+          // Store domain availability in suggestion for reference
+          domainAvailability: domainAvailability,
+        },
         dataForSeo: {
           searchVolume: metrics.searchVolume,
           difficulty: metrics.keywordDifficulty,
@@ -616,6 +802,8 @@ function calculateEnhancedScore(data: {
   trend: 'rising' | 'stable' | 'declining';
   inventoryCount: number;
   confidenceScore: number;
+  domainAvailable?: boolean;
+  alternativesAvailable?: number;
 }): number {
   // Base scoring (same as existing)
   const volumeScore = Math.min((data.searchVolume / 10000) * 30, 30);
@@ -632,10 +820,22 @@ function calculateEnhancedScore(data: {
   // Competition level adjustment
   const competitionBonus = data.competition < 0.3 ? 5 : data.competition > 0.7 ? -5 : 0;
 
+  // Domain availability bonus (NEW: significant factor for success)
+  let domainBonus = 0;
+  if (data.domainAvailable !== undefined) {
+    if (data.domainAvailable) {
+      domainBonus = 8; // Primary domain available = major advantage
+    } else if ((data.alternativesAvailable || 0) > 0) {
+      domainBonus = 4; // Alternatives available = moderate advantage
+    } else {
+      domainBonus = -3; // No good domains available = penalty
+    }
+  }
+
   // AI confidence factor (0.8-1.2 multiplier)
   const confidenceFactor = 0.8 + (data.confidenceScore / 100) * 0.4;
 
-  return Math.round(Math.min((baseScore + trendBonus + competitionBonus) * confidenceFactor, 100));
+  return Math.round(Math.min((baseScore + trendBonus + competitionBonus + domainBonus) * confidenceFactor, 100));
 }
 
 // ==========================================

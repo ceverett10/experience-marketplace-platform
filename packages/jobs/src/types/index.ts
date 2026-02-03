@@ -9,7 +9,7 @@ export interface ContentGeneratePayload {
   siteId: string;
   pageId?: string; // If provided, update existing page instead of creating new one
   opportunityId?: string;
-  contentType: 'destination' | 'experience' | 'category' | 'blog';
+  contentType: 'destination' | 'experience' | 'category' | 'blog' | 'about';
   targetKeyword: string;
   secondaryKeywords?: string[];
   destination?: string;
@@ -51,6 +51,33 @@ export interface SeoOpportunityScanPayload {
   destinations?: string[];
   categories?: string[];
   forceRescan?: boolean;
+  useRecursiveOptimization?: boolean; // Default: true - use integrated multi-mode + recursive optimization
+  optimizationConfig?: {
+    maxIterations?: number; // Default: 5
+    initialSuggestionsCount?: number; // Default: 20
+    seedModes?: ScanMode[]; // Which modes to include in seed generation
+  };
+}
+
+// Scan mode types for opportunity identification
+export type ScanMode =
+  | 'hyper_local'       // "london food tours"
+  | 'generic_activity'  // "food tours" (no location)
+  | 'demographic'       // "family travel experiences"
+  | 'occasion'          // "bachelor party activities"
+  | 'experience_level'  // "luxury wine tours"
+  | 'regional';         // "european city breaks"
+
+// Seed opportunity structure for multi-mode scanning
+export interface OpportunitySeed {
+  keyword: string;
+  destination?: string; // undefined for generic/demographic/occasion
+  category: string;
+  niche: string;
+  scanMode: ScanMode;
+  rationale: string;
+  inventoryCount: number;
+  destinationCount?: number; // For generic/regional - how many destinations have inventory
 }
 
 export interface SeoOpportunityOptimizePayload {
