@@ -94,7 +94,8 @@ export default function SitesPage() {
   const generateBrandIdentity = async () => {
     try {
       setGeneratingBrand(true);
-      const response = await fetch('/api/sites/brand-identity', {
+      const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+      const response = await fetch(`${basePath}/api/sites/brand-identity`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ regenerateAll: true }),

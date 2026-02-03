@@ -77,7 +77,8 @@ export default function LinkBuildingPage() {
     try {
       setIsLoading(true);
       setError(null);
-      const response = await fetch('/api/link-building');
+      const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+      const response = await fetch(`${basePath}/api/link-building`);
       if (!response.ok) throw new Error('Failed to fetch data');
       const result = await response.json();
       setData(result);
@@ -98,7 +99,8 @@ export default function LinkBuildingPage() {
       setActionStatus('Processing...');
       // Use first available site as default
       const siteId = data?.backlinks[0]?.siteName || data?.opportunities[0]?.siteName || '';
-      const response = await fetch('/api/link-building', {
+      const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+      const response = await fetch(`${basePath}/api/link-building`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action, siteId, ...params }),

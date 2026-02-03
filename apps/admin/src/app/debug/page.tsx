@@ -29,7 +29,8 @@ export default function DebugPage() {
     setLoading(true);
 
     try {
-      const response = await fetch('/api/debug/fix-content-mapping', {
+      const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+      const response = await fetch(`${basePath}/api/debug/fix-content-mapping`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ domain, dryRun }),

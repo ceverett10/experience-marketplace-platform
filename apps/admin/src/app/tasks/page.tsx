@@ -83,7 +83,8 @@ export default function TasksPage() {
       if (statusFilter !== 'all') params.set('status', statusFilter);
       if (categoryFilter !== 'all') params.set('category', categoryFilter);
 
-      const response = await fetch(`/api/tasks?${params.toString()}`);
+      const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+      const response = await fetch(`${basePath}/api/tasks?${params.toString()}`);
       const data = await response.json();
       setTasks(data.tasks || []);
       setStats(data.stats || { total: 0, pending: 0, inProgress: 0, completed: 0, urgent: 0 });
@@ -100,7 +101,8 @@ export default function TasksPage() {
 
   const updateTaskStatus = async (taskId: string, newStatus: string) => {
     try {
-      const response = await fetch('/api/tasks', {
+      const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+      const response = await fetch(`${basePath}/api/tasks`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: taskId, status: newStatus }),
@@ -119,7 +121,8 @@ export default function TasksPage() {
       return;
     }
     try {
-      const response = await fetch('/api/tasks', {
+      const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+      const response = await fetch(`${basePath}/api/tasks`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newTask),
@@ -137,7 +140,8 @@ export default function TasksPage() {
   const deleteTask = async (taskId: string) => {
     if (!confirm('Are you sure you want to delete this task?')) return;
     try {
-      const response = await fetch(`/api/tasks?id=${taskId}`, { method: 'DELETE' });
+      const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+      const response = await fetch(`${basePath}/api/tasks?id=${taskId}`, { method: 'DELETE' });
       if (response.ok) {
         fetchTasks();
       }

@@ -37,7 +37,8 @@ export default function AdminContentPage() {
       try {
         setIsLoading(true);
         setError(null);
-        const response = await fetch('/api/content');
+        const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+        const response = await fetch(`${basePath}/api/content`);
 
         if (!response.ok) {
           throw new Error('Failed to fetch content');
@@ -84,7 +85,8 @@ export default function AdminContentPage() {
 
   const updateContentStatus = async (id: string, status: ContentItem['status']) => {
     try {
-      const response = await fetch('/api/content', {
+      const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+      const response = await fetch(`${basePath}/api/content`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, status }),
@@ -134,7 +136,8 @@ export default function AdminContentPage() {
 
     try {
       setIsSaving(true);
-      const response = await fetch('/api/content', {
+      const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+      const response = await fetch(`${basePath}/api/content`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -197,7 +200,8 @@ export default function AdminContentPage() {
   const generateMissingContent = async () => {
     try {
       setIsGenerating(true);
-      const response = await fetch('/api/content', {
+      const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+      const response = await fetch(`${basePath}/api/content`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'generate' }),
@@ -222,7 +226,8 @@ export default function AdminContentPage() {
   const regenerateContent = async (pageId: string, title: string) => {
     try {
       setRegeneratingIds((prev) => new Set(prev).add(pageId));
-      const response = await fetch('/api/content', {
+      const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+      const response = await fetch(`${basePath}/api/content`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'generate', pageIds: [pageId] }),

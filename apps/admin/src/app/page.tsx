@@ -36,7 +36,8 @@ export default function AdminDashboardPage() {
     try {
       setIsLoading(true);
       setError(null);
-      const response = await fetch('/api/dashboard');
+      const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+      const response = await fetch(`${basePath}/api/dashboard`);
 
       if (!response.ok) {
         throw new Error('Failed to fetch dashboard data');

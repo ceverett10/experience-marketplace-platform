@@ -158,7 +158,8 @@ function JobExplorerContent() {
       params.set('page', String(page));
       params.set('limit', String(limit));
 
-      const response = await fetch(`/admin/api/operations/jobs?${params.toString()}`);
+      const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+      const response = await fetch(`${basePath}/api/operations/jobs?${params.toString()}`);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
       setJobs(data.jobs || []);
@@ -194,7 +195,8 @@ function JobExplorerContent() {
   const fetchJobDetail = async (jobId: string) => {
     setDetailLoading(true);
     try {
-      const response = await fetch('/api/operations/jobs', {
+      const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+      const response = await fetch(`${basePath}/api/operations/jobs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'get-detail', jobId }),
@@ -222,7 +224,8 @@ function JobExplorerContent() {
   const handleRetry = async (jobId: string) => {
     setRetryingJobId(jobId);
     try {
-      await fetch('/api/operations/jobs', {
+      const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
+      await fetch(`${basePath}/api/operations/jobs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'retry', jobId }),
@@ -239,9 +242,10 @@ function JobExplorerContent() {
     if (!confirm('Retry all failed jobs matching current filters?')) return;
     setBulkRetrying(true);
     try {
+      const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
       const filter: any = {};
       if (type) filter.type = type;
-      await fetch('/api/operations/jobs', {
+      await fetch(`${basePath}/api/operations/jobs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'bulk-retry', filter }),
