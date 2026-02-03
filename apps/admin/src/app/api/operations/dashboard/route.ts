@@ -17,24 +17,45 @@ export async function GET(): Promise<NextResponse> {
     const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const lastHour = new Date(Date.now() - 60 * 60 * 1000);
 
-    // Fetch BullMQ queue stats, DB stats, and circuit breakers in parallel
+    const emptyQueueStats = QUEUE_NAMES.map((name) => ({
+      name,
+      waiting: 0,
+      active: 0,
+      completed: 0,
+      failed: 0,
+      delayed: 0,
+      paused: false,
+    }));
+
+    // BullMQ queue stats (Redis-dependent — gracefully degrade if Redis unavailable)
+    const queueStatsPromise = Promise.all(
+      QUEUE_NAMES.map(async (name) => {
+        try {
+          const queue = getJobQueue(name as any);
+          const [waiting, active, completed, failed, delayed, isPaused] = await Promise.all([
+            queue.getWaitingCount(),
+            queue.getActiveCount(),
+            queue.getCompletedCount(),
+            queue.getFailedCount(),
+            queue.getDelayedCount(),
+            queue.isPaused(),
+          ]);
+          return { name, waiting, active, completed, failed, delayed, paused: isPaused };
+        } catch {
+          return { name, waiting: 0, active: 0, completed: 0, failed: 0, delayed: 0, paused: false };
+        }
+      })
+    ).catch(() => emptyQueueStats);
+
+    // Circuit breaker states (Redis-dependent)
+    const circuitBreakerPromise = circuitBreakers.getAllStatus().catch(
+      () => ({}) as Record<string, { state: string; metrics: { failures: number; successes: number } }>
+    );
+
+    // Fetch all data in parallel — Redis failures won't block DB queries
     const [queueStats, dbStats, recentFailures, circuitBreakerStatus, scheduledJobs] =
       await Promise.all([
-        // BullMQ live queue stats
-        Promise.all(
-          QUEUE_NAMES.map(async (name) => {
-            const queue = getJobQueue(name as any);
-            const [waiting, active, completed, failed, delayed, isPaused] = await Promise.all([
-              queue.getWaitingCount(),
-              queue.getActiveCount(),
-              queue.getCompletedCount(),
-              queue.getFailedCount(),
-              queue.getDelayedCount(),
-              queue.isPaused(),
-            ]);
-            return { name, waiting, active, completed, failed, delayed, paused: isPaused };
-          })
-        ),
+        queueStatsPromise,
 
         // Database job stats
         Promise.all([
@@ -88,10 +109,9 @@ export async function GET(): Promise<NextResponse> {
           take: 10,
         }),
 
-        // Circuit breaker states
-        circuitBreakers.getAllStatus(),
+        circuitBreakerPromise,
 
-        // Scheduled jobs info
+        // Scheduled jobs info (static data, no Redis)
         getScheduledJobs(),
       ]);
 
