@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { SiteConfig } from '@/lib/tenant';
@@ -38,6 +38,7 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCommitting, setIsCommitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const paymentSectionRef = useRef<HTMLDivElement>(null);
 
   // Fetch booking questions on mount
   useEffect(() => {
@@ -89,6 +90,16 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
     setShowPayment(true);
     setError(null);
   };
+
+  // Auto-scroll to payment section when it becomes visible
+  useEffect(() => {
+    if (showPayment && paymentSectionRef.current) {
+      // Small delay to let Stripe Elements render
+      setTimeout(() => {
+        paymentSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    }
+  }, [showPayment]);
 
   // Handle payment success - now commit the booking
   const handlePaymentSuccess = async () => {
@@ -398,7 +409,7 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
 
                 {/* Payment Section */}
                 {showPayment ? (
-                  <div className="rounded-xl bg-white p-6 shadow-lg">
+                  <div ref={paymentSectionRef} className="rounded-xl bg-white p-6 shadow-lg">
                     <h2 className="mb-4 text-lg font-semibold text-gray-900">Payment</h2>
                     {paymentComplete ? (
                       <div className="flex items-center justify-center py-8">
