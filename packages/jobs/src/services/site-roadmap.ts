@@ -618,13 +618,15 @@ export async function executeNextTasks(
 
   // Jobs that are still in progress (skip these always)
   // FAILED jobs are only skipped during autonomous processing (retryFailed=false)
+  // IMPORTANT: Exclude 'planned' queue jobs — those are placeholders, not active jobs.
+  // They get deleted and replaced with real jobs in the execution loop below.
   const skipStatuses = retryFailed
     ? ['RUNNING', 'PENDING', 'SCHEDULED', 'RETRYING']
     : ['RUNNING', 'PENDING', 'SCHEDULED', 'RETRYING', 'FAILED'];
 
   const activeOrFailedJobs = new Set(
     jobs
-      .filter((j) => skipStatuses.includes(j.status))
+      .filter((j) => skipStatuses.includes(j.status) && j.queue !== 'planned')
       .map((j) => j.type)
   );
 
@@ -640,6 +642,15 @@ export async function executeNextTasks(
     );
     await prisma.job.delete({ where: { id: invalidJob.id } });
     requeued.push(`${invalidJob.type} (${artifactValidation[invalidJob.type]?.reason})`);
+  }
+
+  // Clean up stale planned placeholders whose type already has a completed job with valid artifacts
+  const stalePlaceholders = jobs.filter(
+    (j) => j.queue === 'planned' && j.status === 'PENDING' && completedJobs.has(j.type)
+  );
+  for (const stale of stalePlaceholders) {
+    console.log(`[Site Roadmap] Removing stale planned placeholder for completed task ${stale.type}`);
+    await prisma.job.delete({ where: { id: stale.id } });
   }
 
   // Define execution order (respecting phases)
