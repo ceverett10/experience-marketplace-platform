@@ -95,6 +95,11 @@ export interface SeoHealthAuditPayload {
   forceAudit?: boolean;
 }
 
+export interface SeoAutoOptimizePayload {
+  siteId: string;
+  scope?: 'all' | 'metadata' | 'structured-data' | 'content';
+}
+
 export interface SeoRecursiveOptimizePayload {
   siteId: string;
   pageId: string;
@@ -230,6 +235,7 @@ export type JobPayload =
   | ContentOptimizePayload
   | ContentReviewPayload
   | SeoAnalyzePayload
+  | SeoAutoOptimizePayload
   | SeoOpportunityScanPayload
   | SeoOpportunityOptimizePayload
   | SeoHealthAuditPayload
@@ -313,6 +319,7 @@ export const JOB_TYPE_TO_QUEUE: Record<JobType, QueueName> = {
   CONTENT_OPTIMIZE: QUEUE_NAMES.CONTENT,
   CONTENT_REVIEW: QUEUE_NAMES.CONTENT,
   SEO_ANALYZE: QUEUE_NAMES.SEO,
+  SEO_AUTO_OPTIMIZE: QUEUE_NAMES.SEO,
   SEO_OPPORTUNITY_SCAN: QUEUE_NAMES.SEO,
   SEO_OPPORTUNITY_OPTIMIZE: QUEUE_NAMES.SEO,
   GSC_SYNC: QUEUE_NAMES.GSC,

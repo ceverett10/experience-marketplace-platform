@@ -160,6 +160,9 @@ async function validateTaskArtifacts(
     SEO_ANALYZE: {
       valid: true, // Analytics tasks don't create persistent artifacts
     },
+    SEO_AUTO_OPTIMIZE: {
+      valid: true, // Auto-optimization doesn't require validation
+    },
     SEO_OPPORTUNITY_SCAN: {
       valid: true,
     },
@@ -260,6 +263,10 @@ export const TASK_DESCRIPTIONS: Record<JobType, { label: string; description: st
   GA4_SETUP: { label: 'Setup Google Analytics', description: 'Create GA4 property and tracking' },
   GSC_SYNC: { label: 'Sync Search Data', description: 'Import search performance data' },
   SEO_ANALYZE: { label: 'Analyze SEO', description: 'Check and improve search optimization' },
+  SEO_AUTO_OPTIMIZE: {
+    label: 'Auto-Optimize SEO',
+    description: 'Fix common SEO issues automatically',
+  },
   SEO_OPPORTUNITY_SCAN: {
     label: 'Scan Opportunities',
     description: 'Find new keyword opportunities',

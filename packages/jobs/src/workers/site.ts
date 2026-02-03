@@ -391,6 +391,21 @@ export async function handleSiteCreate(job: Job<SiteCreatePayload>): Promise<Job
     );
     console.log('[Site Create] Queued GA4 setup job');
 
+    // 9.5 Queue automatic SEO optimization
+    console.log('[Site Create] Queuing automatic SEO optimization...');
+    await addJob(
+      'SEO_AUTO_OPTIMIZE',
+      {
+        siteId: site.id,
+        scope: 'all', // Optimize metadata, structured data, and flag thin content
+      },
+      {
+        priority: 6,
+        delay: 60000, // Wait 1 minute for content generation to start
+      }
+    );
+    console.log('[Site Create] Queued SEO auto-optimization job');
+
     // 10. Queue deployment if auto-publish enabled
     if (autoPublish) {
       console.log('[Site Create] Auto-publish enabled, queuing deployment...');

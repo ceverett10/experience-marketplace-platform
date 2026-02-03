@@ -35,6 +35,7 @@ import {
   processAllSiteRoadmaps,
   // SEO recursive optimization handlers
   handleSEOAudit,
+  handleAutoOptimize,
   handleRecursiveOptimize,
   handleBatchOptimize,
   handleWeeklyAuditScheduler,
@@ -169,6 +170,9 @@ const seoWorker = new Worker(
       case 'SEO_ANALYZE':
         // Use the health audit for SEO analysis
         return await handleSEOAudit(job);
+      case 'SEO_AUTO_OPTIMIZE':
+        // Auto-fix common SEO issues (metadata, structured data, etc.)
+        return await handleAutoOptimize(job);
       case 'SEO_OPPORTUNITY_SCAN':
         return await handleOpportunityScan(job);
       case 'SEO_OPPORTUNITY_OPTIMIZE':

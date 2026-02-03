@@ -71,10 +71,16 @@ async function getRelatedExperiences(
 ): Promise<ExperienceListItem[]> {
   try {
     const client = getHolibobClient(site);
+
+    // Use site's brand "What" and "Where" to keep related experiences on-brand
+    const siteSearchTerm = site.homepageConfig?.popularExperiences?.searchTerms?.[0];
+    const siteDestination = site.homepageConfig?.popularExperiences?.destination;
+
     const response = await client.discoverProducts(
       {
         currency: 'GBP',
-        freeText: experience.location.name || undefined,
+        freeText: experience.location.name || siteDestination || undefined,
+        searchTerm: siteSearchTerm || undefined,
       },
       { pageSize: 5 }
     );

@@ -24,6 +24,11 @@ import {
   storeHealthReport,
   type SiteHealthReport,
 } from '../services/seo-health';
+import {
+  autoOptimizeSiteSEO,
+  addMissingStructuredData,
+  flagThinContentForExpansion,
+} from '../services/seo-optimizer';
 import { getGA4Client } from '../services/ga4-client';
 import { getJobQueue } from '../queues';
 
@@ -655,5 +660,131 @@ export async function handleWeeklyAuditScheduler(job: Job): Promise<JobResult> {
   } catch (error) {
     console.error('[SEO Scheduler] Error scheduling audits:', error);
     throw error;
+  }
+}
+
+/**
+ * Auto SEO Optimize Worker
+ *
+ * Automatically fixes common SEO issues without manual intervention:
+ * - Missing/poor meta titles and descriptions
+ * - Missing structured data
+ * - Low sitemap priorities
+ * - Thin content flagging
+ */
+export interface SEOAutoOptimizePayload {
+  siteId: string;
+  scope?: 'all' | 'metadata' | 'structured-data' | 'content';
+}
+
+export async function handleAutoOptimize(job: Job<SEOAutoOptimizePayload>): Promise<JobResult> {
+  const { siteId, scope = 'all' } = job.data;
+  const startTime = Date.now();
+
+  console.log(`[Auto SEO] Starting automatic optimization for site ${siteId} (scope: ${scope})`);
+
+  try {
+    const results: Record<string, any> = {};
+
+    // 1. Fix metadata issues (meta titles, descriptions, priorities)
+    if (scope === 'all' || scope === 'metadata') {
+      console.log('[Auto SEO] Optimizing metadata...');
+      const metadataOptimizations = await autoOptimizeSiteSEO(siteId);
+      results['metadata'] = {
+        pagesOptimized: metadataOptimizations.length,
+        changes: metadataOptimizations.map((opt) => ({
+          pageId: opt.pageId,
+          changes: opt.changes,
+        })),
+      };
+      console.log(`[Auto SEO] Optimized metadata on ${metadataOptimizations.length} pages`);
+    }
+
+    // 2. Add missing structured data
+    if (scope === 'all' || scope === 'structured-data') {
+      console.log('[Auto SEO] Adding structured data...');
+      const structuredDataCount = await addMissingStructuredData(siteId);
+      results['structuredData'] = {
+        pagesUpdated: structuredDataCount,
+      };
+      console.log(`[Auto SEO] Added structured data to ${structuredDataCount} pages`);
+    }
+
+    // 3. Flag thin content for expansion (doesn't auto-fix, just flags)
+    if (scope === 'all' || scope === 'content') {
+      console.log('[Auto SEO] Checking for thin content...');
+      const thinPages = await flagThinContentForExpansion(siteId);
+      const thinContentResult: Record<string, any> = {
+        flaggedPages: thinPages.length,
+        pages: thinPages,
+      };
+
+      if (thinPages.length > 0) {
+        console.log(`[Auto SEO] Flagged ${thinPages.length} pages with thin content`);
+        // Queue content optimization jobs for thin pages
+        const contentQueue = getJobQueue('content');
+        for (const thinPage of thinPages.slice(0, 5)) {
+          // Limit to 5 at a time
+          await contentQueue.add(
+            'CONTENT_OPTIMIZE',
+            {
+              siteId,
+              pageId: thinPage.pageId,
+              reason: `Expand content from ${thinPage.wordCount} to ${thinPage.minWords}+ words`,
+              priority: 2,
+            },
+            {
+              priority: 5,
+              delay: Math.random() * 60000, // Random delay up to 1 minute
+            }
+          );
+        }
+        thinContentResult['jobsQueued'] = Math.min(thinPages.length, 5);
+      }
+      results['thinContent'] = thinContentResult;
+    }
+
+    const duration = Date.now() - startTime;
+    console.log(`[Auto SEO] Completed in ${duration}ms`);
+
+    return {
+      success: true,
+      data: {
+        siteId,
+        scope,
+        results,
+        duration,
+        timestamp: new Date().toISOString(),
+      },
+      timestamp: new Date(),
+    };
+  } catch (error) {
+    const jobError =
+      error instanceof JobError
+        ? error
+        : new JobError(
+            `Auto SEO optimization failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            {
+              category: ErrorCategory.UNKNOWN,
+              severity: ErrorSeverity.RECOVERABLE,
+              retryable: true,
+              context: { siteId, scope },
+            }
+          );
+
+    await errorTracking.logError({
+      jobId: job.id || 'unknown',
+      jobType: 'SEO_AUTO_OPTIMIZE',
+      errorName: jobError.name,
+      errorMessage: jobError.message,
+      errorCategory: jobError.category,
+      errorSeverity: jobError.severity,
+      retryable: jobError.retryable,
+      attemptsMade: job.attemptsMade,
+      context: { siteId, scope },
+      timestamp: new Date(),
+    });
+
+    throw jobError;
   }
 }
