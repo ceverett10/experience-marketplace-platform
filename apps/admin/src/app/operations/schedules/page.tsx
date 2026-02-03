@@ -140,19 +140,68 @@ export default function ScheduledJobsPage() {
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <Card key={i}><CardContent className="p-4"><div className="h-7 w-10 bg-slate-200 rounded animate-pulse mb-1" /><div className="h-4 w-20 bg-slate-100 rounded animate-pulse" /></CardContent></Card>
+            <Card key={i}>
+              <CardContent className="p-4">
+                <div className="h-7 w-10 bg-slate-200 rounded animate-pulse mb-1" />
+                <div className="h-4 w-20 bg-slate-100 rounded animate-pulse" />
+              </CardContent>
+            </Card>
           ))}
         </div>
-        <Card><div className="overflow-x-auto"><table className="w-full"><thead><tr className="border-b border-slate-200 bg-slate-50"><th className="px-4 py-3"><div className="h-3 w-8 bg-slate-200 rounded animate-pulse" /></th><th className="px-4 py-3"><div className="h-3 w-16 bg-slate-200 rounded animate-pulse" /></th><th className="px-4 py-3"><div className="h-3 w-16 bg-slate-200 rounded animate-pulse" /></th><th className="px-4 py-3"><div className="h-3 w-12 bg-slate-200 rounded animate-pulse" /></th><th className="px-4 py-3"><div className="h-3 w-16 bg-slate-200 rounded animate-pulse" /></th><th className="px-4 py-3"><div className="h-3 w-12 bg-slate-200 rounded animate-pulse" /></th></tr></thead><tbody className="divide-y divide-slate-100">{Array.from({ length: 6 }).map((_, i) => (
-          <tr key={i} className="animate-pulse">
-            <td className="px-4 py-4"><div className="h-4 w-32 bg-slate-200 rounded mb-1" /><div className="h-3 w-48 bg-slate-100 rounded" /></td>
-            <td className="px-4 py-4"><div className="h-4 w-24 bg-slate-200 rounded mb-1" /><div className="h-3 w-20 bg-slate-100 rounded" /></td>
-            <td className="px-4 py-4"><div className="h-4 w-16 bg-slate-200 rounded" /></td>
-            <td className="px-4 py-4"><div className="h-5 w-20 bg-slate-200 rounded" /></td>
-            <td className="px-4 py-4"><div className="h-4 w-12 bg-slate-200 rounded" /></td>
-            <td className="px-4 py-4"><div className="h-7 w-16 bg-slate-200 rounded" /></td>
-          </tr>
-        ))}</tbody></table></div></Card>
+        <Card>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50">
+                  <th className="px-4 py-3">
+                    <div className="h-3 w-8 bg-slate-200 rounded animate-pulse" />
+                  </th>
+                  <th className="px-4 py-3">
+                    <div className="h-3 w-16 bg-slate-200 rounded animate-pulse" />
+                  </th>
+                  <th className="px-4 py-3">
+                    <div className="h-3 w-16 bg-slate-200 rounded animate-pulse" />
+                  </th>
+                  <th className="px-4 py-3">
+                    <div className="h-3 w-12 bg-slate-200 rounded animate-pulse" />
+                  </th>
+                  <th className="px-4 py-3">
+                    <div className="h-3 w-16 bg-slate-200 rounded animate-pulse" />
+                  </th>
+                  <th className="px-4 py-3">
+                    <div className="h-3 w-12 bg-slate-200 rounded animate-pulse" />
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <tr key={i} className="animate-pulse">
+                    <td className="px-4 py-4">
+                      <div className="h-4 w-32 bg-slate-200 rounded mb-1" />
+                      <div className="h-3 w-48 bg-slate-100 rounded" />
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="h-4 w-24 bg-slate-200 rounded mb-1" />
+                      <div className="h-3 w-20 bg-slate-100 rounded" />
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="h-4 w-16 bg-slate-200 rounded" />
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="h-5 w-20 bg-slate-200 rounded" />
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="h-4 w-12 bg-slate-200 rounded" />
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="h-7 w-16 bg-slate-200 rounded" />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
       </div>
     );
   }
@@ -271,7 +320,21 @@ export default function ScheduledJobsPage() {
                         className="px-3 py-1.5 text-xs bg-sky-600 hover:bg-sky-700 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-1.5"
                       >
                         {triggerLoading === sj.jobType && (
-                          <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                          <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none">
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            />
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                            />
+                          </svg>
                         )}
                         {triggerLoading === sj.jobType ? 'Triggering...' : 'Run Now'}
                       </button>

@@ -548,7 +548,9 @@ export async function executeNextTasks(siteId: string): Promise<{
   // Include RETRYING and FAILED to prevent the roadmap from re-queuing
   // jobs that are still being processed or have permanently failed
   const activeOrFailedJobs = new Set(
-    jobs.filter((j) => ['RUNNING', 'PENDING', 'SCHEDULED', 'RETRYING', 'FAILED'].includes(j.status)).map((j) => j.type)
+    jobs
+      .filter((j) => ['RUNNING', 'PENDING', 'SCHEDULED', 'RETRYING', 'FAILED'].includes(j.status))
+      .map((j) => j.type)
   );
 
   const queued: string[] = [];

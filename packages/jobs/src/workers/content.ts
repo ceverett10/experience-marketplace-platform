@@ -738,7 +738,9 @@ export async function handleContentOptimize(job: Job<ContentOptimizePayload>): P
     });
 
     if (!content) {
-      console.log(`[Content Optimize] Content ${contentId} not found - skipping (content may not have been generated yet)`);
+      console.log(
+        `[Content Optimize] Content ${contentId} not found - skipping (content may not have been generated yet)`
+      );
       return {
         success: false,
         error: `Content not found: ${contentId}`,

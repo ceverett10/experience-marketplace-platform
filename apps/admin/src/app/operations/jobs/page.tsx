@@ -302,7 +302,21 @@ function JobExplorerContent() {
               className="px-4 py-2 text-sm bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
             >
               {bulkRetrying && (
-                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                  />
+                </svg>
               )}
               {bulkRetrying ? 'Retrying...' : `Retry All Failed (${stats.failed})`}
             </button>
@@ -432,7 +446,13 @@ function JobExplorerContent() {
       <Card className="relative">
         {loading && jobs.length > 0 && (
           <div className="absolute top-0 left-0 right-0 h-0.5 bg-slate-100 overflow-hidden rounded-t-lg z-10">
-            <div className="h-full w-1/3 bg-sky-500 rounded animate-[shimmer_1s_ease-in-out_infinite]" style={{ animation: 'shimmer 1s ease-in-out infinite', background: 'linear-gradient(90deg, transparent, rgb(14 165 233), transparent)' }} />
+            <div
+              className="h-full w-1/3 bg-sky-500 rounded animate-[shimmer_1s_ease-in-out_infinite]"
+              style={{
+                animation: 'shimmer 1s ease-in-out infinite',
+                background: 'linear-gradient(90deg, transparent, rgb(14 165 233), transparent)',
+              }}
+            />
           </div>
         )}
         <div className="overflow-x-auto">
@@ -469,14 +489,31 @@ function JobExplorerContent() {
               {loading && jobs.length === 0 ? (
                 Array.from({ length: 8 }).map((_, i) => (
                   <tr key={i} className="animate-pulse">
-                    <td className="px-4 py-3"><div className="h-4 w-28 bg-slate-200 rounded mb-1" /><div className="h-3 w-14 bg-slate-100 rounded" /></td>
-                    <td className="px-4 py-3"><div className="h-4 w-20 bg-slate-200 rounded" /></td>
-                    <td className="px-4 py-3"><div className="h-5 w-20 bg-slate-200 rounded" /></td>
-                    <td className="px-4 py-3"><div className="h-4 w-16 bg-slate-200 rounded" /></td>
-                    <td className="px-4 py-3"><div className="h-4 w-12 bg-slate-200 rounded" /></td>
-                    <td className="px-4 py-3"><div className="h-4 w-8 bg-slate-200 rounded" /></td>
-                    <td className="px-4 py-3"><div className="h-3 w-32 bg-slate-100 rounded" /></td>
-                    <td className="px-4 py-3"><div className="h-6 w-12 bg-slate-200 rounded" /></td>
+                    <td className="px-4 py-3">
+                      <div className="h-4 w-28 bg-slate-200 rounded mb-1" />
+                      <div className="h-3 w-14 bg-slate-100 rounded" />
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="h-4 w-20 bg-slate-200 rounded" />
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="h-5 w-20 bg-slate-200 rounded" />
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="h-4 w-16 bg-slate-200 rounded" />
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="h-4 w-12 bg-slate-200 rounded" />
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="h-4 w-8 bg-slate-200 rounded" />
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="h-3 w-32 bg-slate-100 rounded" />
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="h-6 w-12 bg-slate-200 rounded" />
+                    </td>
                   </tr>
                 ))
               ) : jobs.length === 0 ? (
@@ -533,7 +570,21 @@ function JobExplorerContent() {
                             className="px-2 py-1 text-xs bg-sky-600 hover:bg-sky-700 text-white rounded transition-colors disabled:opacity-50 flex items-center gap-1.5"
                           >
                             {retryingJobId === job.id && (
-                              <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                              <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none">
+                                <circle
+                                  className="opacity-25"
+                                  cx="12"
+                                  cy="12"
+                                  r="10"
+                                  stroke="currentColor"
+                                  strokeWidth="4"
+                                />
+                                <path
+                                  className="opacity-75"
+                                  fill="currentColor"
+                                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                                />
+                              </svg>
                             )}
                             {retryingJobId === job.id ? 'Retrying' : 'Retry'}
                           </button>
