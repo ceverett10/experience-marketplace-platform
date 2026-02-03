@@ -102,7 +102,8 @@ For the most up-to-date version of our legal documents, please check this page r
   };
 
   const contentBody = page.content?.body || getDefaultContent();
-  const showAiBadge = page.content?.isAiGenerated && page.content?.qualityScore;
+  // Never show the AI badge on public-facing pages - it undermines user trust
+  const showAiBadge = false;
 
   return (
     <article className="mx-auto max-w-4xl px-4 py-8 sm:py-12">

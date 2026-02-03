@@ -46,14 +46,24 @@ const VALID_ROUTE_PREFIXES = [
  * The AI sometimes fabricates links to non-existent pages like /tours/camden,
  * /guides/borough-market, /faq, etc. This function strips those links while
  * preserving the anchor text.
+ *
+ * For 'about' pages, ALL internal links are stripped since About pages
+ * should not contain any inline links.
  */
-function sanitizeContentLinks(content: string): { sanitized: string; removedCount: number } {
+function sanitizeContentLinks(
+  content: string,
+  contentType?: string
+): { sanitized: string; removedCount: number } {
   let removedCount = 0;
 
   // Match markdown links: [text](url)
   const sanitized = content.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, text, url) => {
-    // Allow external links (http/https)
+    // Allow external links (http/https) - but NOT for about pages
     if (url.startsWith('http://') || url.startsWith('https://')) {
+      if (contentType === 'about') {
+        removedCount++;
+        return text;
+      }
       return match;
     }
 
@@ -62,8 +72,16 @@ function sanitizeContentLinks(content: string): { sanitized: string; removedCoun
       return match;
     }
 
+    // For about pages, strip ALL internal links
+    if (contentType === 'about') {
+      removedCount++;
+      return text;
+    }
+
     // Check if internal link matches a valid route
-    const isValid = VALID_ROUTE_PREFIXES.some((prefix) => url === prefix || url.startsWith(prefix + '?') || url.startsWith(prefix + '/'));
+    const isValid = VALID_ROUTE_PREFIXES.some(
+      (prefix) => url === prefix || url.startsWith(prefix + '?') || url.startsWith(prefix + '/')
+    );
 
     if (isValid) {
       return match;
@@ -75,6 +93,40 @@ function sanitizeContentLinks(content: string): { sanitized: string; removedCoun
   });
 
   return { sanitized, removedCount };
+}
+
+/**
+ * Sanitize About Us content to remove AI-fabricated claims.
+ * The AI tends to fabricate credentials, certifications, and partnership claims
+ * that could be misleading to users or create legal liability.
+ */
+function sanitizeAboutContent(content: string): { sanitized: string; claimsRemoved: number } {
+  let claimsRemoved = 0;
+  let sanitized = content;
+
+  // Patterns that indicate fabricated credential claims (full sentences/phrases)
+  const fabricatedClaimPatterns = [
+    // Licensed/certified claims
+    /[^.]*\b(?:licensed travel provider|tourism board certified|PCI[- ]DSS compliant|ABTA[- ]bonded|ATOL[- ]protected)\b[^.]*\./gi,
+    // Specific regulatory compliance claims
+    /[^.]*\b(?:operating under|registered under|compliant with)\b[^.]*\b(?:UK|EU|US|European)\b[^.]*\b(?:travel regulations?|consumer protection|data protection)\b[^.]*\./gi,
+    // "24/7 support" claims
+    /[^.]*\b24\/7\s+(?:support|customer service|assistance|helpline)\b[^.]*\./gi,
+  ];
+
+  for (const pattern of fabricatedClaimPatterns) {
+    const before = sanitized;
+    sanitized = sanitized.replace(pattern, '');
+    if (sanitized !== before) {
+      claimsRemoved++;
+    }
+  }
+
+  // Clean up any resulting double newlines or empty list items
+  sanitized = sanitized.replace(/\n{3,}/g, '\n\n');
+  sanitized = sanitized.replace(/^-\s*$/gm, '');
+
+  return { sanitized, claimsRemoved };
 }
 
 /**
@@ -451,18 +503,32 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
     });
 
     // Sanitize AI-generated links - remove any links to non-existent pages
-    const { sanitized: sanitizedContent, removedCount } = sanitizeContentLinks(result.content.content);
+    // For about pages, strip ALL links (internal and external)
+    const { sanitized: sanitizedContent, removedCount } = sanitizeContentLinks(
+      result.content.content,
+      contentType
+    );
     if (removedCount > 0) {
       console.log(`[Content Generate] Removed ${removedCount} invalid AI-generated links from content`);
     }
 
+    // For about pages, also sanitize fabricated credential/partnership claims
+    let postSanitized = sanitizedContent;
+    if (contentType === 'about') {
+      const { sanitized: claimSanitized, claimsRemoved } = sanitizeAboutContent(sanitizedContent);
+      if (claimsRemoved > 0) {
+        console.log(`[Content Generate] Removed ${claimsRemoved} fabricated claims from about page content`);
+        postSanitized = claimSanitized;
+      }
+    }
+
     // Add internal links to improve SEO and user navigation
     // Skip for about pages - they should not have inline internal links
-    let finalContent = sanitizedContent;
+    let finalContent = postSanitized;
     if (contentType !== 'about') {
       const linkSuggestion = await suggestInternalLinks({
         siteId,
-        content: sanitizedContent,
+        content: postSanitized,
         contentType: contentType as 'blog' | 'destination' | 'category' | 'experience',
         targetKeyword,
         secondaryKeywords,
