@@ -236,7 +236,7 @@ describe('AdminSettingsPage', () => {
       fireEvent.click(featuresTab);
 
       const checkboxes = screen.getAllByRole('checkbox');
-      fireEvent.click(checkboxes[1]); // Toggle Auto-Publish
+      fireEvent.click(checkboxes[1]!); // Toggle Auto-Publish
 
       expect(checkboxes[1]).toBeChecked();
 

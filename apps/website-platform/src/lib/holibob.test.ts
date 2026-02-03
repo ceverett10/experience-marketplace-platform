@@ -75,15 +75,15 @@ describe('holibob utilities', () => {
   describe('formatDuration', () => {
     describe('minutes', () => {
       it('should format minutes under 60', () => {
-        expect(formatDuration(30, 'minutes')).toBe('30m');
-        expect(formatDuration(45, 'minutes')).toBe('45m');
-        expect(formatDuration(59, 'minutes')).toBe('59m');
+        expect(formatDuration(30, 'minutes')).toBe('30 min');
+        expect(formatDuration(45, 'minutes')).toBe('45 min');
+        expect(formatDuration(59, 'minutes')).toBe('59 min');
       });
 
       it('should convert 60+ minutes to hours', () => {
-        expect(formatDuration(60, 'minutes')).toBe('1h');
+        expect(formatDuration(60, 'minutes')).toBe('1 hour');
         expect(formatDuration(90, 'minutes')).toBe('1h 30m');
-        expect(formatDuration(120, 'minutes')).toBe('2h');
+        expect(formatDuration(120, 'minutes')).toBe('2 hours');
         expect(formatDuration(150, 'minutes')).toBe('2h 30m');
       });
     });

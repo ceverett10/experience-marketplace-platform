@@ -70,8 +70,11 @@ describe('AdminLayout', () => {
 
     expect(screen.getByRole('link', { name: /Dashboard/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Sites/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Opportunities/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Domains/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Tasks/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Content/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /SEO/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Link Building/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Settings/i })).toBeInTheDocument();
   });
 
@@ -84,8 +87,11 @@ describe('AdminLayout', () => {
 
     expect(screen.getByRole('link', { name: /Dashboard/i })).toHaveAttribute('href', '/');
     expect(screen.getByRole('link', { name: /Sites/i })).toHaveAttribute('href', '/sites');
+    expect(screen.getByRole('link', { name: /Opportunities/i })).toHaveAttribute('href', '/opportunities');
+    expect(screen.getByRole('link', { name: /Domains/i })).toHaveAttribute('href', '/domains');
+    expect(screen.getByRole('link', { name: /Tasks/i })).toHaveAttribute('href', '/tasks');
     expect(screen.getByRole('link', { name: /Content/i })).toHaveAttribute('href', '/content');
-    expect(screen.getByRole('link', { name: /SEO/i })).toHaveAttribute('href', '/seo');
+    expect(screen.getByRole('link', { name: /Link Building/i })).toHaveAttribute('href', '/link-building');
     expect(screen.getByRole('link', { name: /Settings/i })).toHaveAttribute('href', '/settings');
   });
 
@@ -251,8 +257,8 @@ describe('AdminLayout', () => {
       expect(settingsLink).toHaveClass('bg-sky-600');
     });
 
-    it('should highlight SEO when on /seo path', () => {
-      mockPathname.mockReturnValue('/seo');
+    it('should highlight Opportunities when on /opportunities path', () => {
+      mockPathname.mockReturnValue('/opportunities');
 
       render(
         <AdminLayout>
@@ -260,8 +266,8 @@ describe('AdminLayout', () => {
         </AdminLayout>
       );
 
-      const seoLink = screen.getByRole('link', { name: /SEO/i });
-      expect(seoLink).toHaveClass('bg-sky-600');
+      const opportunitiesLink = screen.getByRole('link', { name: /Opportunities/i });
+      expect(opportunitiesLink).toHaveClass('bg-sky-600');
     });
   });
 

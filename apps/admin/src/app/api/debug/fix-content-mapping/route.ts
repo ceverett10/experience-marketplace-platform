@@ -167,7 +167,7 @@ export async function POST(request: Request) {
         );
 
         // Use the most recent one
-        const contentToLink = orphanedContent[0];
+        const contentToLink = orphanedContent[0]!;
         fixes.push(
           `✓ Selected most recent: ${contentToLink.id} (created ${contentToLink.createdAt})`
         );

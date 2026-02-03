@@ -1,6 +1,14 @@
 import '@testing-library/jest-dom';
 import React from 'react';
-import { vi, beforeAll, afterAll } from 'vitest';
+import { vi, beforeAll, afterAll, beforeEach } from 'vitest';
+import { resetMockPrisma } from './mocks/prisma';
+import { resetMockJobs } from './mocks/jobs';
+
+// Reset all mocks between tests
+beforeEach(() => {
+  resetMockPrisma();
+  resetMockJobs();
+});
 
 // Mock Next.js router
 vi.mock('next/navigation', () => ({

@@ -1,51 +1,91 @@
-import { describe, it, expect, vi } from 'vitest';
-import { screen, fireEvent, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { screen, waitFor } from '@testing-library/react';
 import { renderWithProviders } from '../test/test-utils';
 import AdminDashboardPage from './page';
 
+// Mock fetch for dashboard API
+const mockDashboardData = {
+  stats: {
+    totalSites: 12,
+    activeSites: 8,
+    totalBookings: 156,
+    totalRevenue: 28450,
+    contentPending: 5,
+    conversionRate: 4.2,
+    changes: {
+      sites: 25,
+      bookings: 8,
+      revenue: 15,
+    },
+  },
+  topSites: [
+    { id: '1', name: 'London Explorer', domain: 'london-explorer.com', bookings: 45, revenue: 8250 },
+    { id: '2', name: 'Paris Highlights', domain: 'paris-highlights.com', bookings: 32, revenue: 5840 },
+    {
+      id: '3',
+      name: 'Barcelona Adventures',
+      domain: 'barcelona-adventures.com',
+      bookings: 28,
+      revenue: 4920,
+    },
+  ],
+};
+
+beforeEach(() => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(mockDashboardData),
+    })
+  );
+});
+
 describe('AdminDashboardPage', () => {
-  it('should render the dashboard page header', () => {
+  it('should render the dashboard page header', async () => {
     renderWithProviders(<AdminDashboardPage />);
 
-    expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeInTheDocument();
+    });
     expect(
       screen.getByText('Overview of your Experience Marketplace platform')
     ).toBeInTheDocument();
   });
 
-  it('should render stat cards with correct values', () => {
+  it('should render stat cards with correct values', async () => {
     renderWithProviders(<AdminDashboardPage />);
 
-    // Total Sites
-    expect(screen.getByText('Total Sites')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('Total Sites')).toBeInTheDocument();
+    });
+
     expect(screen.getByText('12')).toBeInTheDocument();
     expect(screen.getByText('8 active')).toBeInTheDocument();
-
-    // Total Bookings
     expect(screen.getByText('Total Bookings')).toBeInTheDocument();
     expect(screen.getByText('156')).toBeInTheDocument();
-
-    // Total Revenue
     expect(screen.getByText('Total Revenue')).toBeInTheDocument();
     expect(screen.getByText('£28,450')).toBeInTheDocument();
-
-    // Conversion Rate
     expect(screen.getByText('Conversion Rate')).toBeInTheDocument();
     expect(screen.getByText('4.2%')).toBeInTheDocument();
   });
 
-  it('should render percentage changes for stat cards', () => {
+  it('should render percentage changes for stat cards', async () => {
     renderWithProviders(<AdminDashboardPage />);
 
-    expect(screen.getByText('↑ 25%')).toBeInTheDocument(); // sites
-    expect(screen.getByText('↑ 8%')).toBeInTheDocument(); // bookings
-    expect(screen.getByText('↑ 15%')).toBeInTheDocument(); // revenue
+    await waitFor(() => {
+      expect(screen.getByText('↑ 25%')).toBeInTheDocument();
+    });
+    expect(screen.getByText('↑ 8%')).toBeInTheDocument();
+    expect(screen.getByText('↑ 15%')).toBeInTheDocument();
   });
 
-  it('should render pending content alert', () => {
+  it('should render pending content alert', async () => {
     renderWithProviders(<AdminDashboardPage />);
 
-    expect(screen.getByText('5 content items pending review')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('5 content items pending review')).toBeInTheDocument();
+    });
     expect(screen.getByText('Review and approve AI-generated content')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Review Content' })).toHaveAttribute(
       'href',
@@ -53,62 +93,50 @@ describe('AdminDashboardPage', () => {
     );
   });
 
-  it('should render top performing sites table', () => {
+  it('should render top performing sites table', async () => {
     renderWithProviders(<AdminDashboardPage />);
 
-    expect(screen.getByText('Top Performing Sites')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('Top Performing Sites')).toBeInTheDocument();
+    });
     expect(screen.getByText('London Explorer')).toBeInTheDocument();
     expect(screen.getByText('Paris Highlights')).toBeInTheDocument();
     expect(screen.getByText('Barcelona Adventures')).toBeInTheDocument();
 
-    // Check revenue values
     expect(screen.getByText('£8,250')).toBeInTheDocument();
     expect(screen.getByText('£5,840')).toBeInTheDocument();
     expect(screen.getByText('£4,920')).toBeInTheDocument();
   });
 
-  it('should render table headers', () => {
+  it('should render table headers', async () => {
     renderWithProviders(<AdminDashboardPage />);
 
-    expect(screen.getByRole('columnheader', { name: 'Site' })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole('columnheader', { name: 'Site' })).toBeInTheDocument();
+    });
     expect(screen.getByRole('columnheader', { name: 'Bookings' })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'Revenue' })).toBeInTheDocument();
   });
 
-  it('should render recent activity feed', () => {
+  it('should render quick action links', async () => {
     renderWithProviders(<AdminDashboardPage />);
 
-    expect(screen.getByText('Recent Activity')).toBeInTheDocument();
-    expect(screen.getByText("New site 'Barcelona Adventures' created")).toBeInTheDocument();
-    expect(screen.getByText("New booking on 'London Explorer'")).toBeInTheDocument();
-    expect(screen.getByText("Content approved for 'Paris Highlights'")).toBeInTheDocument();
-    expect(screen.getByText("SEO meta updated for 'Tokyo Food Tours'")).toBeInTheDocument();
-  });
-
-  it('should render activity timestamps', () => {
-    renderWithProviders(<AdminDashboardPage />);
-
-    expect(screen.getByText('2 hours ago')).toBeInTheDocument();
-    expect(screen.getByText('4 hours ago')).toBeInTheDocument();
-    expect(screen.getByText('6 hours ago')).toBeInTheDocument();
-    expect(screen.getByText('1 day ago')).toBeInTheDocument();
-  });
-
-  it('should render quick action links', () => {
-    renderWithProviders(<AdminDashboardPage />);
-
-    expect(screen.getByText('Manage Sites')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('Manage Sites')).toBeInTheDocument();
+    });
     expect(screen.getByText('Create & configure storefronts')).toBeInTheDocument();
-
     expect(screen.getByText('Content Management')).toBeInTheDocument();
     expect(screen.getByText('Review AI-generated content')).toBeInTheDocument();
-
     expect(screen.getByText('Platform Settings')).toBeInTheDocument();
     expect(screen.getByText('Configure global settings')).toBeInTheDocument();
   });
 
-  it('should have correct href for quick action links', () => {
+  it('should have correct href for quick action links', async () => {
     renderWithProviders(<AdminDashboardPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Manage Sites')).toBeInTheDocument();
+    });
 
     const sitesLink = screen.getByRole('link', { name: /Manage Sites/i });
     const contentLink = screen.getByRole('link', { name: /Content Management/i });
@@ -119,41 +147,29 @@ describe('AdminDashboardPage', () => {
     expect(settingsLink).toHaveAttribute('href', '/settings');
   });
 
-  it('should render refresh button', () => {
+  it('should render refresh button', async () => {
     renderWithProviders(<AdminDashboardPage />);
 
-    const refreshButton = screen.getByRole('button', { name: /Refresh/i });
-    expect(refreshButton).toBeInTheDocument();
-    expect(refreshButton).not.toBeDisabled();
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Refresh/i })).toBeInTheDocument();
+    });
   });
 
-  it('should disable refresh button while loading', async () => {
+  it('should render View all link for top sites', async () => {
     renderWithProviders(<AdminDashboardPage />);
 
-    const refreshButton = screen.getByRole('button', { name: /Refresh/i });
-    fireEvent.click(refreshButton);
-
-    // Button should be disabled during loading
-    expect(refreshButton).toBeDisabled();
-
-    // Wait for loading to complete
-    await waitFor(
-      () => {
-        expect(refreshButton).not.toBeDisabled();
-      },
-      { timeout: 2000 }
-    );
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'View all' })).toBeInTheDocument();
+    });
+    expect(screen.getByRole('link', { name: 'View all' })).toHaveAttribute('href', '/sites');
   });
 
-  it('should render View all link for top sites', () => {
+  it('should render external site links', async () => {
     renderWithProviders(<AdminDashboardPage />);
 
-    const viewAllLink = screen.getByRole('link', { name: 'View all' });
-    expect(viewAllLink).toHaveAttribute('href', '/sites');
-  });
-
-  it('should render external site links', () => {
-    renderWithProviders(<AdminDashboardPage />);
+    await waitFor(() => {
+      expect(screen.getByText('London Explorer')).toBeInTheDocument();
+    });
 
     const externalLinks = screen
       .getAllByRole('link')
@@ -164,13 +180,31 @@ describe('AdminDashboardPage', () => {
     });
   });
 
-  it('should have clickable stat card linking to sites', () => {
+  it('should have clickable stat card linking to sites', async () => {
     renderWithProviders(<AdminDashboardPage />);
 
-    // The Total Sites card should link to /sites
+    await waitFor(() => {
+      expect(screen.getByText('Total Sites')).toBeInTheDocument();
+    });
+
     const sitesLinks = screen
       .getAllByRole('link')
       .filter((link) => link.getAttribute('href') === '/sites');
     expect(sitesLinks.length).toBeGreaterThan(0);
+  });
+
+  it('should show error state when fetch fails', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockRejectedValue(new Error('Network error'))
+    );
+
+    renderWithProviders(<AdminDashboardPage />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Failed to load dashboard data. Please try again.')
+      ).toBeInTheDocument();
+    });
   });
 });

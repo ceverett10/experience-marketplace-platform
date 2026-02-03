@@ -1,55 +1,134 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { renderWithProviders } from '../../test/test-utils';
 import AdminContentPage from './page';
 
+const mockContentData = [
+  {
+    id: '1',
+    type: 'experience',
+    title: 'London Eye Sunset Experience',
+    content: 'A stunning sunset experience at the London Eye...',
+    contentId: 'c1',
+    hasContent: true,
+    siteName: 'London Explorer',
+    status: 'pending',
+    qualityScore: 92,
+    generatedAt: '2024-01-15T14:30:00Z',
+  },
+  {
+    id: '2',
+    type: 'collection',
+    title: 'Best Paris Hidden Gems',
+    content: 'Discover the hidden gems of Paris...',
+    contentId: 'c2',
+    hasContent: true,
+    siteName: 'Paris Highlights',
+    status: 'approved',
+    qualityScore: 88,
+    generatedAt: '2024-01-14T10:00:00Z',
+  },
+  {
+    id: '3',
+    type: 'seo',
+    title: 'SEO: Tokyo Food Tours',
+    content: 'Tokyo food tour SEO content...',
+    contentId: 'c3',
+    hasContent: true,
+    siteName: 'Tokyo Adventures',
+    status: 'published',
+    qualityScore: 95,
+    generatedAt: '2024-01-13T08:00:00Z',
+  },
+  {
+    id: '4',
+    type: 'blog',
+    title: 'Top 10 Adventure Activities in New Zealand',
+    content: 'New Zealand adventure activities guide...',
+    contentId: 'c4',
+    hasContent: true,
+    siteName: 'NZ Explorer',
+    status: 'pending',
+    qualityScore: 78,
+    generatedAt: '2024-01-12T12:00:00Z',
+  },
+];
+
+beforeEach(() => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockImplementation((url: string, options?: RequestInit) => {
+      // PATCH requests for status updates
+      if (options?.method === 'PATCH') {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ success: true }),
+        });
+      }
+      // GET request for content list
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve(mockContentData),
+      });
+    })
+  );
+});
+
 describe('AdminContentPage', () => {
-  it('should render the content page header', () => {
+  it('should render the content page header', async () => {
     renderWithProviders(<AdminContentPage />);
 
-    expect(screen.getByRole('heading', { name: 'Content Management' })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Content Management' })).toBeInTheDocument();
+    });
     expect(screen.getByText('Review and manage AI-generated content')).toBeInTheDocument();
   });
 
-  // Stats Cards Tests
   describe('Stats Cards', () => {
-    it('should render total content count', () => {
+    it('should render total content count', async () => {
       renderWithProviders(<AdminContentPage />);
 
-      expect(screen.getByText('Total')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByText('Total')).toBeInTheDocument();
+      });
       expect(screen.getByText('4')).toBeInTheDocument();
     });
 
-    it('should render pending content count', () => {
+    it('should render pending content count', async () => {
       renderWithProviders(<AdminContentPage />);
 
-      // "Pending" appears in multiple places (dropdown option + badges + stats card)
+      await waitFor(() => {
+        const pendingTexts = screen.getAllByText('Pending');
+        expect(pendingTexts.length).toBeGreaterThanOrEqual(1);
+      });
+    });
+
+    it('should render approved content count', async () => {
+      renderWithProviders(<AdminContentPage />);
+
+      await waitFor(() => {
+        const approvedTexts = screen.getAllByText('Approved');
+        expect(approvedTexts.length).toBeGreaterThanOrEqual(1);
+      });
+    });
+
+    it('should render published content count', async () => {
+      renderWithProviders(<AdminContentPage />);
+
+      await waitFor(() => {
+        const publishedTexts = screen.getAllByText('Published');
+        expect(publishedTexts.length).toBeGreaterThanOrEqual(1);
+      });
+    });
+
+    it('should filter by status when clicking stats cards', async () => {
+      renderWithProviders(<AdminContentPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText('London Eye Sunset Experience')).toBeInTheDocument();
+      });
+
       const pendingTexts = screen.getAllByText('Pending');
-      expect(pendingTexts.length).toBeGreaterThanOrEqual(1);
-    });
-
-    it('should render approved content count', () => {
-      renderWithProviders(<AdminContentPage />);
-
-      // "Approved" appears in multiple places
-      const approvedTexts = screen.getAllByText('Approved');
-      expect(approvedTexts.length).toBeGreaterThanOrEqual(1);
-    });
-
-    it('should render published content count', () => {
-      renderWithProviders(<AdminContentPage />);
-
-      // "Published" appears in multiple places
-      const publishedTexts = screen.getAllByText('Published');
-      expect(publishedTexts.length).toBeGreaterThanOrEqual(1);
-    });
-
-    it('should filter by status when clicking stats cards', () => {
-      renderWithProviders(<AdminContentPage />);
-
-      // Click on Pending stats card - find by the data-testid="card" with "Pending" text
-      const pendingTexts = screen.getAllByText('Pending');
-      // Find the one in the stats card (not in dropdown or badge)
       const statsCard = pendingTexts
         .find((el) => el.closest('[data-testid="card"]'))
         ?.closest('[data-testid="card"]');
@@ -57,29 +136,34 @@ describe('AdminContentPage', () => {
         fireEvent.click(statsCard);
       }
 
-      // Should show only pending items
       expect(screen.getByText('London Eye Sunset Experience')).toBeInTheDocument();
     });
   });
 
-  // Search and Filter Tests
   describe('Search and Filters', () => {
-    it('should render search input', () => {
+    it('should render search input', async () => {
       renderWithProviders(<AdminContentPage />);
 
-      expect(screen.getByPlaceholderText('Search content or sites...')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByPlaceholderText('Search content or sites...')).toBeInTheDocument();
+      });
     });
 
-    it('should render status filter dropdown', () => {
+    it('should render status filter dropdown', async () => {
       renderWithProviders(<AdminContentPage />);
 
-      const statusSelect = screen.getByRole('combobox');
-      expect(statusSelect).toBeInTheDocument();
-      expect(statusSelect).toHaveValue('all');
+      await waitFor(() => {
+        expect(screen.getByRole('combobox')).toBeInTheDocument();
+      });
+      expect(screen.getByRole('combobox')).toHaveValue('all');
     });
 
     it('should filter content by search query', async () => {
       renderWithProviders(<AdminContentPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText('London Eye Sunset Experience')).toBeInTheDocument();
+      });
 
       const searchInput = screen.getByPlaceholderText('Search content or sites...');
       fireEvent.change(searchInput, { target: { value: 'London' } });
@@ -93,6 +177,10 @@ describe('AdminContentPage', () => {
     it('should filter content by site name', async () => {
       renderWithProviders(<AdminContentPage />);
 
+      await waitFor(() => {
+        expect(screen.getByText('Best Paris Hidden Gems')).toBeInTheDocument();
+      });
+
       const searchInput = screen.getByPlaceholderText('Search content or sites...');
       fireEvent.change(searchInput, { target: { value: 'Paris' } });
 
@@ -103,6 +191,10 @@ describe('AdminContentPage', () => {
 
     it('should filter by status dropdown', async () => {
       renderWithProviders(<AdminContentPage />);
+
+      await waitFor(() => {
+        expect(screen.getByRole('combobox')).toBeInTheDocument();
+      });
 
       const statusSelect = screen.getByRole('combobox');
       fireEvent.change(statusSelect, { target: { value: 'published' } });
@@ -116,6 +208,10 @@ describe('AdminContentPage', () => {
     it('should show empty state when no results match filter', async () => {
       renderWithProviders(<AdminContentPage />);
 
+      await waitFor(() => {
+        expect(screen.getByPlaceholderText('Search content or sites...')).toBeInTheDocument();
+      });
+
       const searchInput = screen.getByPlaceholderText('Search content or sites...');
       fireEvent.change(searchInput, { target: { value: 'NonExistentContent' } });
 
@@ -126,43 +222,48 @@ describe('AdminContentPage', () => {
     });
   });
 
-  // Content List Tests
   describe('Content List', () => {
-    it('should render all content items', () => {
+    it('should render all content items', async () => {
       renderWithProviders(<AdminContentPage />);
 
-      expect(screen.getByText('London Eye Sunset Experience')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByText('London Eye Sunset Experience')).toBeInTheDocument();
+      });
       expect(screen.getByText('Best Paris Hidden Gems')).toBeInTheDocument();
       expect(screen.getByText('SEO: Tokyo Food Tours')).toBeInTheDocument();
       expect(screen.getByText('Top 10 Adventure Activities in New Zealand')).toBeInTheDocument();
     });
 
-    it('should display site names for each content item', () => {
+    it('should display site names for each content item', async () => {
       renderWithProviders(<AdminContentPage />);
 
-      expect(screen.getByText('London Explorer')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByText('London Explorer')).toBeInTheDocument();
+      });
       expect(screen.getByText('Paris Highlights')).toBeInTheDocument();
       expect(screen.getByText('Tokyo Adventures')).toBeInTheDocument();
       expect(screen.getByText('NZ Explorer')).toBeInTheDocument();
     });
 
-    it('should display quality scores for each item', () => {
+    it('should display quality scores for each item', async () => {
       renderWithProviders(<AdminContentPage />);
 
-      expect(screen.getByText('92/100')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByText('92/100')).toBeInTheDocument();
+      });
       expect(screen.getByText('88/100')).toBeInTheDocument();
       expect(screen.getByText('95/100')).toBeInTheDocument();
       expect(screen.getByText('78/100')).toBeInTheDocument();
     });
 
-    it('should display status badges', () => {
+    it('should display status badges', async () => {
       renderWithProviders(<AdminContentPage />);
 
-      // Multiple items with "Pending" status (appears in dropdown options and badges)
-      const pendingTexts = screen.getAllByText('Pending');
-      expect(pendingTexts.length).toBeGreaterThanOrEqual(1);
+      await waitFor(() => {
+        const pendingTexts = screen.getAllByText('Pending');
+        expect(pendingTexts.length).toBeGreaterThanOrEqual(1);
+      });
 
-      // "Approved" and "Published" also appear in dropdown and badges
       const approvedTexts = screen.getAllByText('Approved');
       expect(approvedTexts.length).toBeGreaterThanOrEqual(1);
 
@@ -171,41 +272,43 @@ describe('AdminContentPage', () => {
     });
   });
 
-  // Action Buttons Tests
   describe('Action Buttons', () => {
-    it('should show approve and reject buttons for pending content', () => {
+    it('should show approve and reject buttons for pending content', async () => {
       renderWithProviders(<AdminContentPage />);
 
-      // Find buttons with title attribute
-      const approveButtons = screen.getAllByTitle('Approve');
-      const rejectButtons = screen.getAllByTitle('Reject');
-
-      expect(approveButtons.length).toBeGreaterThan(0);
-      expect(rejectButtons.length).toBeGreaterThan(0);
+      await waitFor(() => {
+        expect(screen.getAllByTitle('Approve').length).toBeGreaterThan(0);
+      });
+      expect(screen.getAllByTitle('Reject').length).toBeGreaterThan(0);
     });
 
-    it('should show publish button for approved content', () => {
+    it('should show publish button for approved content', async () => {
       renderWithProviders(<AdminContentPage />);
 
-      expect(screen.getByRole('button', { name: 'Publish' })).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Publish' })).toBeInTheDocument();
+      });
     });
 
-    it('should show preview button for all content', () => {
+    it('should show view button for all content', async () => {
       renderWithProviders(<AdminContentPage />);
 
-      const previewButtons = screen.getAllByTitle('Preview');
-      expect(previewButtons.length).toBe(4); // One for each content item
+      await waitFor(() => {
+        expect(screen.getAllByTitle('View').length).toBe(4);
+      });
     });
 
     it('should approve content when approve button is clicked', async () => {
       renderWithProviders(<AdminContentPage />);
 
-      const approveButtons = screen.getAllByTitle('Approve');
-      fireEvent.click(approveButtons[0]);
-
-      // The content should now show as approved
       await waitFor(() => {
-        // Check that one item became approved (we should have more approved items now)
+        expect(screen.getAllByTitle('Approve').length).toBeGreaterThan(0);
+      });
+
+      const approveButtons = screen.getAllByTitle('Approve');
+      fireEvent.click(approveButtons[0]!);
+
+      await waitFor(() => {
         const approvedBadges = screen.getAllByText('Approved');
         expect(approvedBadges.length).toBeGreaterThanOrEqual(2);
       });
@@ -214,14 +317,16 @@ describe('AdminContentPage', () => {
     it('should reject content when reject button is clicked', async () => {
       renderWithProviders(<AdminContentPage />);
 
-      // Count initial "Rejected" texts (only in dropdown option initially)
+      await waitFor(() => {
+        expect(screen.getAllByTitle('Reject').length).toBeGreaterThan(0);
+      });
+
       const initialRejected = screen.getAllByText('Rejected');
       const initialCount = initialRejected.length;
 
       const rejectButtons = screen.getAllByTitle('Reject');
-      fireEvent.click(rejectButtons[0]);
+      fireEvent.click(rejectButtons[0]!);
 
-      // The content should now show as rejected - there should be more "Rejected" texts now
       await waitFor(() => {
         const rejectedTexts = screen.getAllByText('Rejected');
         expect(rejectedTexts.length).toBeGreaterThan(initialCount);
@@ -231,10 +336,13 @@ describe('AdminContentPage', () => {
     it('should publish content when publish button is clicked', async () => {
       renderWithProviders(<AdminContentPage />);
 
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Publish' })).toBeInTheDocument();
+      });
+
       const publishButton = screen.getByRole('button', { name: 'Publish' });
       fireEvent.click(publishButton);
 
-      // The content should now show as published
       await waitFor(() => {
         const publishedBadges = screen.getAllByText('Published');
         expect(publishedBadges.length).toBeGreaterThanOrEqual(2);
@@ -242,27 +350,32 @@ describe('AdminContentPage', () => {
     });
   });
 
-  // Preview Modal Tests
-  describe('Preview Modal', () => {
-    it('should open preview modal when preview button is clicked', async () => {
+  describe('View Modal', () => {
+    it('should open view modal when view button is clicked', async () => {
       renderWithProviders(<AdminContentPage />);
 
-      const previewButtons = screen.getAllByTitle('Preview');
-      fireEvent.click(previewButtons[0]);
+      await waitFor(() => {
+        expect(screen.getAllByTitle('View').length).toBeGreaterThan(0);
+      });
+
+      fireEvent.click(screen.getAllByTitle('View')[0]!);
 
       await waitFor(() => {
-        expect(screen.getByText('Content Preview')).toBeInTheDocument();
+        expect(screen.getByText('View Content')).toBeInTheDocument();
       });
     });
 
     it('should show content details in preview modal', async () => {
       renderWithProviders(<AdminContentPage />);
 
-      const previewButtons = screen.getAllByTitle('Preview');
-      fireEvent.click(previewButtons[0]);
+      await waitFor(() => {
+        expect(screen.getAllByTitle('View').length).toBeGreaterThan(0);
+      });
+
+      fireEvent.click(screen.getAllByTitle('View')[0]!);
 
       await waitFor(() => {
-        expect(screen.getByText('Content Preview')).toBeInTheDocument();
+        expect(screen.getByText('View Content')).toBeInTheDocument();
         expect(screen.getByText('AI Quality Score')).toBeInTheDocument();
       });
     });
@@ -270,11 +383,13 @@ describe('AdminContentPage', () => {
     it('should show quality score progress bar in modal', async () => {
       renderWithProviders(<AdminContentPage />);
 
-      const previewButtons = screen.getAllByTitle('Preview');
-      fireEvent.click(previewButtons[0]);
+      await waitFor(() => {
+        expect(screen.getAllByTitle('View').length).toBeGreaterThan(0);
+      });
+
+      fireEvent.click(screen.getAllByTitle('View')[0]!);
 
       await waitFor(() => {
-        // The quality score should be displayed
         expect(screen.getByText('AI Quality Score')).toBeInTheDocument();
       });
     });
@@ -282,29 +397,32 @@ describe('AdminContentPage', () => {
     it('should close preview modal when close button is clicked', async () => {
       renderWithProviders(<AdminContentPage />);
 
-      const previewButtons = screen.getAllByTitle('Preview');
-      fireEvent.click(previewButtons[0]);
-
       await waitFor(() => {
-        expect(screen.getByText('Content Preview')).toBeInTheDocument();
+        expect(screen.getAllByTitle('View').length).toBeGreaterThan(0);
       });
 
-      // Find the modal close button - it's the one inside the modal header
-      const closeButtons = screen.getAllByRole('button', { name: '✕' });
-      // The first "✕" button in the modal is typically the close button
-      fireEvent.click(closeButtons[0]);
+      fireEvent.click(screen.getAllByTitle('View')[0]!);
 
       await waitFor(() => {
-        expect(screen.queryByText('Content Preview')).not.toBeInTheDocument();
+        expect(screen.getByText('View Content')).toBeInTheDocument();
+      });
+
+      const closeButtons = screen.getAllByRole('button', { name: '✕' });
+      fireEvent.click(closeButtons[0]!);
+
+      await waitFor(() => {
+        expect(screen.queryByText('View Content')).not.toBeInTheDocument();
       });
     });
 
     it('should show action buttons in modal for pending content', async () => {
       renderWithProviders(<AdminContentPage />);
 
-      // Click preview on pending item (London Eye)
-      const previewButtons = screen.getAllByTitle('Preview');
-      fireEvent.click(previewButtons[0]);
+      await waitFor(() => {
+        expect(screen.getAllByTitle('View').length).toBeGreaterThan(0);
+      });
+
+      fireEvent.click(screen.getAllByTitle('View')[0]!);
 
       await waitFor(() => {
         expect(screen.getByRole('button', { name: /Approve/i })).toBeInTheDocument();
@@ -315,34 +433,43 @@ describe('AdminContentPage', () => {
     it('should approve from modal and close it', async () => {
       renderWithProviders(<AdminContentPage />);
 
-      const previewButtons = screen.getAllByTitle('Preview');
-      fireEvent.click(previewButtons[0]);
+      await waitFor(() => {
+        expect(screen.getAllByTitle('View').length).toBeGreaterThan(0);
+      });
+
+      fireEvent.click(screen.getAllByTitle('View')[0]!);
 
       await waitFor(() => {
-        expect(screen.getByText('Content Preview')).toBeInTheDocument();
+        expect(screen.getByText('View Content')).toBeInTheDocument();
       });
 
       const approveButton = screen.getByRole('button', { name: /✓ Approve/i });
       fireEvent.click(approveButton);
 
-      // Modal should close
       await waitFor(() => {
-        expect(screen.queryByText('Content Preview')).not.toBeInTheDocument();
+        expect(screen.queryByText('View Content')).not.toBeInTheDocument();
       });
     });
   });
 
-  // Quality Score Color Tests
   describe('Quality Score Colors', () => {
-    it('should show green color for high quality scores (85+)', () => {
+    it('should show green color for high quality scores (85+)', async () => {
       renderWithProviders(<AdminContentPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText('92/100')).toBeInTheDocument();
+      });
 
       const highScore = screen.getByText('92/100');
       expect(highScore).toHaveClass('text-green-600');
     });
 
-    it('should show amber color for medium quality scores (70-84)', () => {
+    it('should show amber color for medium quality scores (70-84)', async () => {
       renderWithProviders(<AdminContentPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText('78/100')).toBeInTheDocument();
+      });
 
       const mediumScore = screen.getByText('78/100');
       expect(mediumScore).toHaveClass('text-amber-600');

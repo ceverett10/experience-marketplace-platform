@@ -43,13 +43,35 @@ describe('ExperienceCard', () => {
 
     it('should render rating when provided', () => {
       renderWithProviders(<ExperienceCard experience={mockExperience} />);
-      expect(screen.getByText('4.5')).toBeInTheDocument();
+      // Rating appears in both the image badge and the text section
+      const ratings = screen.getAllByText('4.5');
+      expect(ratings.length).toBeGreaterThanOrEqual(1);
     });
 
     it('should not render rating when null', () => {
       const experience = createMockExperience({ rating: null });
       renderWithProviders(<ExperienceCard experience={experience} />);
       expect(screen.queryByText('4.5')).not.toBeInTheDocument();
+    });
+
+    it('should not render review count text when count is 0', () => {
+      const experience = createMockExperience({ rating: { average: 3.0, count: 0 } });
+      renderWithProviders(<ExperienceCard experience={experience} />);
+      // Rating value appears in badge overlay and text section
+      const ratings = screen.getAllByText('3.0');
+      expect(ratings.length).toBeGreaterThanOrEqual(1);
+      expect(screen.queryByText('reviews')).not.toBeInTheDocument();
+    });
+
+    it('should render wishlist button', () => {
+      renderWithProviders(<ExperienceCard experience={mockExperience} />);
+      expect(screen.getByLabelText('Add to wishlist')).toBeInTheDocument();
+    });
+
+    it('should format large review counts with locale string', () => {
+      const experience = createMockExperience({ rating: { average: 4.2, count: 1500 } });
+      renderWithProviders(<ExperienceCard experience={experience} />);
+      expect(screen.getByText('(1,500 reviews)')).toBeInTheDocument();
     });
 
     it('should render short description', () => {

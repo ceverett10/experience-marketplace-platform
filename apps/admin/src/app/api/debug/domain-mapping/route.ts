@@ -18,7 +18,7 @@ export async function GET(request: Request) {
     }
 
     // Clean domain (remove www prefix and port)
-    const cleanDomain = domainParam.replace(/^www\./, '').split(':')[0];
+    const cleanDomain = domainParam.replace(/^www\./, '').split(':')[0] ?? domainParam;
 
     // Step 1: Check if Domain record exists
     const domainRecord = await prisma.domain.findUnique({
@@ -61,7 +61,7 @@ export async function GET(request: Request) {
     let siteBySlug = null;
     if (!domainRecord) {
       // Try extracting site slug from domain (e.g., london-food-tours.com → london-food-tours)
-      const potentialSlug = cleanDomain.split('.')[0];
+      const potentialSlug = cleanDomain.split('.')[0] ?? cleanDomain;
       siteBySlug = await prisma.site.findUnique({
         where: { slug: potentialSlug },
         include: {

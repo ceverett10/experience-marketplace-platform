@@ -59,6 +59,10 @@ jobs:
           npm run test --workspace=@experience-marketplace/holibob-api
           npm run test --workspace=@experience-marketplace/ui-components
           npm run test --workspace=@experience-marketplace/demand-generation
+          npm run test --workspace=@experience-marketplace/admin
+          npm run test --workspace=@experience-marketplace/website-platform
+          npm run test --workspace=@experience-marketplace/content-engine
+          npm run test --workspace=@experience-marketplace/jobs
 
       - name: Build
         run: npm run build

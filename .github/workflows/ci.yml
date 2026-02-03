@@ -89,6 +89,18 @@ jobs:
       - name: Run tests - Demand Generation
         run: npm run test:coverage --workspace=@experience-marketplace/demand-generation
 
+      - name: Run tests - Admin
+        run: npm run test:coverage --workspace=@experience-marketplace/admin
+
+      - name: Run tests - Website Platform
+        run: npm run test:coverage --workspace=@experience-marketplace/website-platform
+
+      - name: Run tests - Content Engine
+        run: npm run test --workspace=@experience-marketplace/content-engine
+
+      - name: Run tests - Jobs
+        run: npm run test --workspace=@experience-marketplace/jobs
+
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
         with:
@@ -100,6 +112,8 @@ jobs:
             packages/holibob-api/coverage/lcov.info
             packages/ui-components/coverage/lcov.info
             apps/demand-generation/coverage/lcov.info
+            apps/admin/coverage/lcov.info
+            apps/website-platform/coverage/lcov.info
 
   build:
     name: Build
