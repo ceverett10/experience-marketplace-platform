@@ -1,11 +1,8 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
-import { Queue } from 'bullmq';
 import { prisma } from '@/lib/prisma';
-import { createRedisConnection, addJob } from '@experience-marketplace/jobs';
-
-const redisConnection = createRedisConnection();
+import { getJobQueue, addJob } from '@experience-marketplace/jobs';
 
 /**
  * GET /api/operations/jobs
@@ -72,16 +69,22 @@ export async function GET(request: Request): Promise<NextResponse> {
         take: limit,
       }),
       prisma.job.count({ where }),
-      // Aggregate stats for current filter
-      Promise.all([
-        prisma.job.count({ where: { ...where, status: 'PENDING' } }),
-        prisma.job.count({ where: { ...where, status: 'RUNNING' } }),
-        prisma.job.count({ where: { ...where, status: 'COMPLETED' } }),
-        prisma.job.count({ where: { ...where, status: 'FAILED' } }),
-      ]),
+      // Aggregate stats: single groupBy instead of 4 separate COUNTs
+      prisma.job.groupBy({
+        by: ['status'],
+        where,
+        _count: { _all: true },
+      }),
     ]);
 
-    const [pending, running, completed, failed] = stats;
+    const statsMap: Record<string, number> = {};
+    for (const s of stats) {
+      statsMap[s.status] = s._count._all;
+    }
+    const pending = statsMap['PENDING'] || 0;
+    const running = statsMap['RUNNING'] || 0;
+    const completed = statsMap['COMPLETED'] || 0;
+    const failed = statsMap['FAILED'] || 0;
 
     return NextResponse.json({
       jobs: jobs.map((j) => {
@@ -194,7 +197,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
       // Try to retry via BullMQ first
       try {
-        const queue = new Queue(job.queue, { connection: redisConnection });
+        const queue = getJobQueue(job.queue as any);
         if (job.idempotencyKey) {
           const bullJob = await queue.getJob(job.idempotencyKey);
           if (bullJob) {

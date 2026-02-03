@@ -142,45 +142,49 @@ export class ErrorTrackingService {
   }
 
   /**
-   * Check for error patterns and send alerts
+   * Check for error patterns and send alerts using aggregation
    */
   async checkErrorPatterns(): Promise<void> {
     try {
       const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+      const timeFilter = { createdAt: { gte: oneHourAgo } };
 
-      // Query ErrorLog for recent errors
-      const recentErrors = await prisma.errorLog.findMany({
-        where: { createdAt: { gte: oneHourAgo } },
-      });
-
-      // Group by job type
-      const errorsByType = recentErrors.reduce(
-        (acc, err) => {
-          acc[err.jobType] = (acc[err.jobType] || 0) + 1;
-          return acc;
-        },
-        {} as Record<string, number>
-      );
+      // Use groupBy instead of loading all errors into memory
+      const [errorsByType, criticalCount] = await Promise.all([
+        prisma.errorLog.groupBy({
+          by: ['jobType'],
+          where: timeFilter,
+          _count: { _all: true },
+        }),
+        prisma.errorLog.count({
+          where: { ...timeFilter, errorSeverity: 'CRITICAL' },
+        }),
+      ]);
 
       // Alert if high failure rate for any job type
-      for (const [type, count] of Object.entries(errorsByType)) {
-        if (count >= 10) {
+      for (const entry of errorsByType) {
+        if (entry._count._all >= 10) {
           await this.sendAlert({
             level: 'warning',
-            title: `High failure rate for ${type}`,
-            message: `${count} ${type} errors in the last hour`,
-            context: { type, count, timeWindow: '1 hour' },
+            title: `High failure rate for ${entry.jobType}`,
+            message: `${entry._count._all} ${entry.jobType} errors in the last hour`,
+            context: { type: entry.jobType, count: entry._count._all, timeWindow: '1 hour' },
           });
         }
       }
 
-      // Check for critical severity errors
-      const criticalErrors = recentErrors.filter((e) => e.errorSeverity === 'CRITICAL');
-      if (criticalErrors.length > 0) {
+      // Only fetch critical error details if there are any
+      if (criticalCount > 0) {
+        const criticalErrors = await prisma.errorLog.findMany({
+          where: { ...timeFilter, errorSeverity: 'CRITICAL' },
+          select: { id: true, jobType: true, errorMessage: true },
+          take: 20,
+        });
+
         await this.sendAlert({
           level: 'critical',
           title: 'Critical errors detected',
-          message: `${criticalErrors.length} critical errors in the last hour`,
+          message: `${criticalCount} critical errors in the last hour`,
           context: {
             errors: criticalErrors.map((e) => ({
               id: e.id,
@@ -196,7 +200,7 @@ export class ErrorTrackingService {
   }
 
   /**
-   * Get error statistics from ErrorLog table
+   * Get error statistics from ErrorLog table using database aggregation
    */
   async getErrorStats(timeWindow: number = 24 * 60 * 60 * 1000): Promise<{
     total: number;
@@ -207,43 +211,46 @@ export class ErrorTrackingService {
   }> {
     try {
       const since = new Date(Date.now() - timeWindow);
+      const timeFilter = { createdAt: { gte: since } };
 
-      const errors = await prisma.errorLog.findMany({
-        where: { createdAt: { gte: since } },
-        select: {
-          errorCategory: true,
-          errorSeverity: true,
-          jobType: true,
-          retryable: true,
-        },
-      });
+      // Use groupBy aggregations instead of loading all rows into memory
+      const [categoryStats, typeStats, severityStats, retryableCount, total] =
+        await Promise.all([
+          prisma.errorLog.groupBy({
+            by: ['errorCategory'],
+            where: timeFilter,
+            _count: { _all: true },
+          }),
+          prisma.errorLog.groupBy({
+            by: ['jobType'],
+            where: timeFilter,
+            _count: { _all: true },
+          }),
+          prisma.errorLog.groupBy({
+            by: ['errorSeverity'],
+            where: timeFilter,
+            _count: { _all: true },
+          }),
+          prisma.errorLog.count({
+            where: { ...timeFilter, retryable: true },
+          }),
+          prisma.errorLog.count({ where: timeFilter }),
+        ]);
 
-      const byCategory = errors.reduce(
-        (acc, err) => {
-          acc[err.errorCategory] = (acc[err.errorCategory] || 0) + 1;
-          return acc;
-        },
-        {} as Record<string, number>
-      );
+      const byCategory: Record<string, number> = {};
+      for (const s of categoryStats) {
+        byCategory[s.errorCategory] = s._count._all;
+      }
 
-      const byType = errors.reduce(
-        (acc, err) => {
-          acc[err.jobType] = (acc[err.jobType] || 0) + 1;
-          return acc;
-        },
-        {} as Record<string, number>
-      );
+      const byType: Record<string, number> = {};
+      for (const s of typeStats) {
+        byType[s.jobType] = s._count._all;
+      }
 
-      const criticalCount = errors.filter((e) => e.errorSeverity === 'CRITICAL').length;
-      const retryableCount = errors.filter((e) => e.retryable).length;
+      const criticalCount =
+        severityStats.find((s) => s.errorSeverity === 'CRITICAL')?._count._all || 0;
 
-      return {
-        total: errors.length,
-        byCategory,
-        byType,
-        criticalCount,
-        retryableCount,
-      };
+      return { total, byCategory, byType, criticalCount, retryableCount };
     } catch (error) {
       console.error('[Error Tracking] Error getting stats:', error);
       return {

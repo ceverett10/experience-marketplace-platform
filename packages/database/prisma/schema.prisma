@@ -595,6 +595,10 @@ model Job {
   @@index([scheduledFor])
   @@index([type])
   @@index([siteId])
+  @@index([status, completedAt])
+  @@index([status, updatedAt])
+  @@index([type, createdAt])
+  @@index([status, startedAt])
 }
 
 // ============================================================================
@@ -633,6 +637,8 @@ model ErrorLog {
   @@index([errorCategory])
   @@index([createdAt])
   @@index([errorSeverity, createdAt])
+  @@index([jobType, createdAt])
+  @@index([errorCategory, createdAt])
 }
 
 // ============================================================================

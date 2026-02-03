@@ -1,15 +1,12 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
-import { Queue } from 'bullmq';
 import { prisma } from '@/lib/prisma';
 import {
-  createRedisConnection,
+  getJobQueue,
   circuitBreakers,
   getScheduledJobs,
 } from '@experience-marketplace/jobs';
-
-const redisConnection = createRedisConnection();
 
 const QUEUE_NAMES = ['content', 'seo', 'gsc', 'site', 'domain', 'analytics', 'abtest'];
 
@@ -30,7 +27,7 @@ export async function GET(): Promise<NextResponse> {
         // BullMQ live queue stats
         Promise.all(
           QUEUE_NAMES.map(async (name) => {
-            const queue = new Queue(name, { connection: redisConnection });
+            const queue = getJobQueue(name as any);
             const [waiting, active, completed, failed, delayed, isPaused] = await Promise.all([
               queue.getWaitingCount(),
               queue.getActiveCount(),
