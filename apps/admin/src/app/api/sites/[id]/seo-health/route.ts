@@ -92,6 +92,7 @@ export async function GET(
         primaryDomain: true,
         status: true,
         gscVerified: true,
+        gscLastSyncedAt: true,
         seoConfig: true,
         pages: {
           select: {
@@ -132,11 +133,21 @@ export async function GET(
     let contentTotal = 0;
     let performanceTotal = 0;
 
+    // Pre-fetch all recent performance metrics for this site (last 7 days)
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const siteMetrics = await prisma.performanceMetric.findMany({
+      where: {
+        siteId: id,
+        date: { gte: sevenDaysAgo },
+      },
+      orderBy: { date: 'desc' },
+    });
+
     for (const page of site.pages) {
       const pageIssues: SEOIssue[] = [];
       let technicalScore = 100;
       let contentScore = 100;
-      const performanceScore = 50; // Default if no GSC data
+      let performanceScore = 50; // Default if no GSC data
 
       // === TECHNICAL SEO CHECKS ===
 
@@ -248,6 +259,61 @@ export async function GET(
           description: `"${page.title}": Content hasn't been updated in ${daysSinceUpdate} days`,
           impact: 4,
           effort: 5,
+        });
+      }
+
+      // === PERFORMANCE CHECKS (GSC DATA) ===
+      const pageMetric = siteMetrics.find((m) => m.pageUrl && page.slug && m.pageUrl.includes(page.slug));
+
+      if (pageMetric) {
+        const ctr = pageMetric.ctr || 0;
+        const position = pageMetric.position || 100;
+
+        if (position <= 10 && ctr < 0.02) {
+          performanceScore = 30;
+          pageIssues.push({
+            type: 'critical',
+            category: 'performance',
+            title: 'Low CTR in top 10',
+            description: `"${page.title}": Ranks #${Math.round(position)} but has only ${(ctr * 100).toFixed(1)}% CTR`,
+            impact: 9,
+            effort: 4,
+          });
+        } else if (position <= 20 && ctr < 0.01) {
+          performanceScore = 50;
+          pageIssues.push({
+            type: 'warning',
+            category: 'performance',
+            title: 'Below average CTR',
+            description: `"${page.title}": CTR of ${(ctr * 100).toFixed(1)}% is below average for position ${Math.round(position)}`,
+            impact: 6,
+            effort: 4,
+          });
+        } else if (ctr >= 0.05) {
+          performanceScore = 90;
+        } else {
+          performanceScore = Math.round(60 + ctr * 600);
+        }
+
+        if (position > 50) {
+          performanceScore = Math.min(performanceScore, 40);
+          pageIssues.push({
+            type: 'warning',
+            category: 'performance',
+            title: 'Poor ranking position',
+            description: `"${page.title}": Average position is ${Math.round(position)} - needs improvement`,
+            impact: 8,
+            effort: 7,
+          });
+        }
+      } else if (site.gscVerified) {
+        pageIssues.push({
+          type: 'info',
+          category: 'performance',
+          title: 'No performance data yet',
+          description: `"${page.title}": GSC is connected but no data available yet — data typically appears 2-3 days after verification`,
+          impact: 2,
+          effort: 1,
         });
       }
 
@@ -370,13 +436,37 @@ export async function GET(
     // Sort recommendations by priority
     recommendations.sort((a, b) => b.priority - a.priority);
 
-    // Get historical data from stored report if available
-    const trends = storedReport?.trends || {
-      scoreChange7d: 0,
-      scoreChange30d: 0,
-      clicksChange7d: 0,
-      impressionsChange7d: 0,
-    };
+    // Calculate real trends from PerformanceMetric data
+    const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+
+    const [current7d, previous7d] = await Promise.all([
+      prisma.performanceMetric.aggregate({
+        where: { siteId: id, date: { gte: sevenDaysAgo } },
+        _sum: { clicks: true, impressions: true },
+      }),
+      prisma.performanceMetric.aggregate({
+        where: { siteId: id, date: { gte: fourteenDaysAgo, lt: sevenDaysAgo } },
+        _sum: { clicks: true, impressions: true },
+      }),
+    ]);
+
+    const clicksCurrent = current7d._sum.clicks || 0;
+    const clicksPrevious = previous7d._sum.clicks || 0;
+    const impressionsCurrent = current7d._sum.impressions || 0;
+    const impressionsPrevious = previous7d._sum.impressions || 0;
+
+    const trends = storedReport?.trends && (clicksCurrent === 0 && impressionsCurrent === 0)
+      ? storedReport.trends
+      : {
+          scoreChange7d: 0,
+          scoreChange30d: 0,
+          clicksChange7d: clicksPrevious > 0
+            ? Math.round(((clicksCurrent - clicksPrevious) / clicksPrevious) * 100)
+            : 0,
+          impressionsChange7d: impressionsPrevious > 0
+            ? Math.round(((impressionsCurrent - impressionsPrevious) / impressionsPrevious) * 100)
+            : 0,
+        };
 
     // Get last audit info from jobs
     const lastAuditJob = await prisma.job.findFirst({
@@ -414,6 +504,8 @@ export async function GET(
       domain: site.primaryDomain || `${site.slug}.example.com`,
       auditDate: new Date().toISOString(),
       gscVerified: site.gscVerified,
+      gscLastSyncedAt: site.gscLastSyncedAt,
+      hasPerformanceData: siteMetrics.length > 0,
       overallScore,
       scores: {
         technical: avgTechnical,
