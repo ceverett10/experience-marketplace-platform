@@ -42,7 +42,7 @@ export async function GET(request: Request) {
             domain: true,
             status: true,
             cloudflareZoneId: true,
-            sslStatus: true,
+            sslEnabled: true,
           },
         },
         jobs: {
@@ -74,7 +74,7 @@ export async function GET(request: Request) {
         hasDomain: !!domain,
         domainActive: domain?.status === 'ACTIVE',
         hasCloudflareZone: !!domain?.cloudflareZoneId,
-        sslReady: domain?.sslStatus === 'ACTIVE' || domain?.sslStatus === 'PROVISIONED',
+        sslReady: !!domain?.sslEnabled,
         hasPrimaryDomain: !!site.primaryDomain,
         hasVerificationCode: !!site.gscVerificationCode,
         gscVerified: !!site.gscVerified,
@@ -102,7 +102,7 @@ export async function GET(request: Request) {
       } else if (!checks.hasCloudflareZone) {
         blocker = `Domain ${domain?.domain} has no cloudflareZoneId — DNS setup incomplete`;
       } else if (!checks.sslReady) {
-        blocker = `SSL status is "${domain?.sslStatus || 'null'}" — SSL_PROVISION needs to complete`;
+        blocker = `SSL not enabled on domain — SSL_PROVISION needs to complete`;
       } else if (!checks.hasVerificationCode) {
         blocker = 'No GSC verification code — GSC_SETUP has not run or failed before getting token';
       } else if (!checks.gscVerified) {
@@ -135,7 +135,7 @@ export async function GET(request: Request) {
               domain: domain.domain,
               status: domain.status,
               hasCloudflareZone: !!domain.cloudflareZoneId,
-              sslStatus: domain.sslStatus,
+              sslEnabled: domain.sslEnabled,
             }
           : null,
         gsc: {
