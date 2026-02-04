@@ -281,7 +281,7 @@ function generateOptimizedMetaDescription(params: {
   }
 
   // Ensure keyword is included if not already present
-  if (!baseDescription.toLowerCase().includes(targetKeyword.toLowerCase())) {
+  if (targetKeyword && !baseDescription.toLowerCase().includes(targetKeyword.toLowerCase())) {
     // Add CTA-style prefix with keyword
     const ctaTemplates = {
       blog: `Discover ${targetKeyword}. `,
@@ -319,8 +319,8 @@ function generateOptimizedMetaTitle(params: {
   const { aiTitle, targetKeyword, siteName, contentType } = params;
 
   // If AI title is good length and contains keyword, use it
-  const keywordFirstWord = targetKeyword.toLowerCase().split(' ')[0] || targetKeyword.toLowerCase();
-  if (aiTitle.length <= 60 && aiTitle.toLowerCase().includes(keywordFirstWord)) {
+  const keywordFirstWord = targetKeyword?.toLowerCase().split(' ')[0] || '';
+  if (keywordFirstWord && aiTitle.length <= 60 && aiTitle.toLowerCase().includes(keywordFirstWord)) {
     // Append site name if there's room
     const withBrand = `${aiTitle} | ${siteName}`;
     if (withBrand.length <= 60) {
@@ -767,7 +767,7 @@ async function handleContentOptimizeBatch(siteId: string): Promise<JobResult> {
 
   for (const page of pagesWithContent) {
     const content = page.content!;
-    const contentType = page.type.toLowerCase();
+    const contentType = (page.type || 'blog').toLowerCase();
     const targetKeyword = content.opportunity?.keyword || page.title || '';
 
     try {
@@ -933,7 +933,7 @@ export async function handleContentOptimize(job: Job<ContentOptimizePayload>): P
     });
 
     const brief = {
-      type: (content.page?.type.toLowerCase() as any) || 'blog',
+      type: (content.page?.type?.toLowerCase() as any) || 'blog',
       siteId,
       targetKeyword: content.opportunity?.keyword || content.page?.title || 'unknown',
       secondaryKeywords: [],

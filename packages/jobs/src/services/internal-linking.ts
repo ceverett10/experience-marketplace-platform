@@ -76,7 +76,7 @@ export async function findRelatedPages(params: {
       for (const blog of relatedBlogs) {
         const matchedKeywords = keywords.filter(
           (kw) =>
-            blog.title.toLowerCase().includes(kw.toLowerCase()) ||
+            blog.title?.toLowerCase().includes(kw.toLowerCase()) ||
             blog.metaDescription?.toLowerCase().includes(kw.toLowerCase())
         );
 
@@ -180,7 +180,7 @@ export async function findRelatedPages(params: {
       // Skip if already added
       if (relatedLinks.some((l) => l.url.includes(page.slug))) continue;
 
-      const pageType = page.type.toLowerCase() as InternalLink['pageType'];
+      const pageType = (page.type || 'blog').toLowerCase() as InternalLink['pageType'];
       const urlPrefix =
         pageType === 'destination'
           ? '/destinations/'
@@ -525,7 +525,7 @@ export async function analyzeInternalLinkOpportunities(siteId: string): Promise<
         const keywords = extractKeywordsFromContent(content, page.title);
         const suggestedLinks = await findRelatedPages({
           siteId,
-          contentType: page.type.toLowerCase() as
+          contentType: (page.type || 'blog').toLowerCase() as
             | 'blog'
             | 'destination'
             | 'category'
