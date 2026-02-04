@@ -99,10 +99,11 @@ class QueueRegistry {
     const rawSiteId = (payload as { siteId?: string }).siteId;
     const siteId = rawSiteId && rawSiteId !== 'all' ? rawSiteId : null;
 
-    // Payload validation: most jobs require a siteId
-    // Only scheduled aggregate jobs (siteId='all') and domain-specific jobs (domainId) may omit it
+    // Payload validation: most jobs require a siteId.
+    // Skip validation when rawSiteId is 'all' (fan-out sentinel handled by the worker),
+    // for domain-specific jobs that use domainId instead, or for known site-optional types.
     const siteOptionalTypes: string[] = ['DOMAIN_VERIFY', 'SSL_PROVISION'];
-    if (!siteId && !siteOptionalTypes.includes(jobType)) {
+    if (!siteId && rawSiteId !== 'all' && !siteOptionalTypes.includes(jobType)) {
       const hasDomainId = !!(payload as { domainId?: string }).domainId;
       if (!hasDomainId) {
         throw new Error(
