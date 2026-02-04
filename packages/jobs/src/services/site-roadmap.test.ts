@@ -64,6 +64,19 @@ describe('executeNextTasks payload generation', () => {
 
     mockPrisma.job.findMany.mockResolvedValue(jobs);
 
+    // Domain artifacts only exist if DOMAIN_REGISTER has been completed
+    const hasDomain = completedTypes.includes('DOMAIN_REGISTER');
+    const domainObj = {
+      id: 'dom-1',
+      domain: 'example.com',
+      status: 'ACTIVE',
+      cloudflareZoneId: 'zone-abc-123',
+      registrar: 'cloudflare',
+      registeredAt: new Date('2024-01-01'),
+      verifiedAt: completedTypes.includes('DOMAIN_VERIFY') ? new Date('2024-01-02') : null,
+      sslEnabled: completedTypes.includes('SSL_PROVISION'),
+    };
+
     // All completed jobs have valid artifacts
     mockPrisma.content.count.mockResolvedValue(completedTypes.includes('CONTENT_GENERATE') ? 5 : 0);
     mockPrisma.site.findUnique.mockResolvedValue({
@@ -73,32 +86,10 @@ describe('executeNextTasks payload generation', () => {
       gscPropertyUrl: completedTypes.includes('GSC_SETUP') ? 'sc-domain:example.com' : null,
       gscLastSyncedAt: null,
       seoConfig: null,
-      domains: [
-        {
-          id: 'dom-1',
-          domain: 'example.com',
-          status: 'ACTIVE',
-          cloudflareZoneId: 'zone-abc-123',
-          registrar: 'cloudflare',
-          registeredAt: new Date('2024-01-01'),
-          verifiedAt: completedTypes.includes('DOMAIN_VERIFY') ? new Date('2024-01-02') : null,
-          sslEnabled: completedTypes.includes('SSL_PROVISION'),
-        },
-      ],
+      domains: hasDomain ? [domainObj] : [],
     });
 
-    mockPrisma.domain.findMany.mockResolvedValue([
-      {
-        id: 'dom-1',
-        domain: 'example.com',
-        status: 'ACTIVE',
-        cloudflareZoneId: 'zone-abc-123',
-        registrar: 'cloudflare',
-        registeredAt: new Date('2024-01-01'),
-        verifiedAt: completedTypes.includes('DOMAIN_VERIFY') ? new Date('2024-01-02') : null,
-        sslEnabled: completedTypes.includes('SSL_PROVISION'),
-      },
-    ]);
+    mockPrisma.domain.findMany.mockResolvedValue(hasDomain ? [domainObj] : []);
   }
 
   describe('DOMAIN_VERIFY payload', () => {
@@ -119,6 +110,7 @@ describe('executeNextTasks payload generation', () => {
       );
       expect(domainVerifyCall).toBeDefined();
       expect(domainVerifyCall![1]).toEqual({
+        siteId: 'site-1',
         domainId: 'dom-1',
         verificationMethod: 'dns',
       });
@@ -157,6 +149,7 @@ describe('executeNextTasks payload generation', () => {
       const sslCall = mockAddJob.mock.calls.find((call: unknown[]) => call[0] === 'SSL_PROVISION');
       expect(sslCall).toBeDefined();
       expect(sslCall![1]).toEqual({
+        siteId: 'site-1',
         domainId: 'dom-1',
         provider: 'cloudflare',
       });
@@ -177,6 +170,7 @@ describe('executeNextTasks payload generation', () => {
       const sslCall = mockAddJob.mock.calls.find((call: unknown[]) => call[0] === 'SSL_PROVISION');
       expect(sslCall).toBeDefined();
       expect(sslCall![1]).toEqual({
+        siteId: 'site-1',
         domainId: 'dom-1',
         provider: 'letsencrypt',
       });

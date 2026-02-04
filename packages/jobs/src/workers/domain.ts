@@ -662,11 +662,19 @@ async function provisionSslCertificate(
       );
     }
 
+    // Quick check: if this is a retry after a previous timeout, the certificate
+    // may already be active. Check before starting the long provisioning flow.
+    const sslService = new SSLService();
+    const existingCert = await sslService.getCertificateStatus(domain, zoneId);
+    if (existingCert && existingCert.status === 'active') {
+      console.log(`[Domain] SSL certificate already active for ${domain} (likely issued after previous timeout)`);
+      return existingCert.expiresAt;
+    }
+
     // Provision SSL certificate via Cloudflare with circuit breaker
     const cloudflareBreaker = circuitBreakers.getBreaker('cloudflare-api');
 
     const result = await cloudflareBreaker.execute(async () => {
-      const sslService = new SSLService();
       return await sslService.provisionCertificate(domain, {
         zoneId,
         sslMode: 'full',
@@ -676,9 +684,12 @@ async function provisionSslCertificate(
     });
 
     if (!result.success || !result.certificate) {
+      const isTimeout = result.error?.includes('timeout');
+      // Use statusCode 504 for timeouts so ExternalApiError treats it as retryable
       throw new ExternalApiError(result.error || 'SSL provisioning failed', {
         service: 'cloudflare-api',
-        context: { domain, zoneId },
+        statusCode: isTimeout ? 504 : undefined,
+        context: { domain, zoneId, isTimeout },
       });
     }
 

@@ -575,6 +575,7 @@ async function getJobPayload(siteId: string, jobType: JobType): Promise<Record<s
       return { ...basePayload, registrar: 'cloudflare', autoRenew: true };
     case 'DOMAIN_VERIFY': {
       // Handler expects { domainId, verificationMethod } — look up the domain record
+      // Include siteId so the job record is linked to the site for deduplication and tracking
       const domain = await prisma.domain.findFirst({
         where: { siteId },
         orderBy: { registeredAt: 'desc' },
@@ -582,10 +583,11 @@ async function getJobPayload(siteId: string, jobType: JobType): Promise<Record<s
       if (!domain) {
         throw new Error(`Cannot queue DOMAIN_VERIFY: no domain found for site ${siteId}`);
       }
-      return { domainId: domain.id, verificationMethod: 'dns' as const };
+      return { siteId, domainId: domain.id, verificationMethod: 'dns' as const };
     }
     case 'SSL_PROVISION': {
       // Handler expects { domainId, provider } — look up the verified domain
+      // Include siteId so the job record is linked to the site for deduplication and tracking
       const verifiedDomain = await prisma.domain.findFirst({
         where: { siteId, verifiedAt: { not: null } },
         orderBy: { verifiedAt: 'desc' },
@@ -594,6 +596,7 @@ async function getJobPayload(siteId: string, jobType: JobType): Promise<Record<s
         throw new Error(`Cannot queue SSL_PROVISION: no verified domain found for site ${siteId}`);
       }
       return {
+        siteId,
         domainId: verifiedDomain.id,
         provider: verifiedDomain.registrar === 'cloudflare' ? 'cloudflare' : 'letsencrypt',
       };
@@ -690,6 +693,17 @@ export async function executeNextTasks(
       .filter((j) => j.status === 'COMPLETED' && artifactValidation[j.type]?.valid)
       .map((j) => j.type)
   );
+
+  // For domain-related tasks, the direct handler chain (DOMAIN_REGISTER → DOMAIN_VERIFY →
+  // SSL_PROVISION) may have completed the work but created job records with siteId=null
+  // (since the handler payloads used domainId, not siteId). In those cases, the artifact
+  // is the source of truth: if the domain is verified or SSL-enabled, the task is done.
+  const artifactOnlyTaskTypes: JobType[] = ['DOMAIN_REGISTER', 'DOMAIN_VERIFY', 'SSL_PROVISION'];
+  for (const taskType of artifactOnlyTaskTypes) {
+    if (!completedJobs.has(taskType) && artifactValidation[taskType]?.valid) {
+      completedJobs.add(taskType);
+    }
+  }
 
   // Jobs marked completed but without artifacts (need re-run)
   const invalidCompletedJobs = jobs.filter(

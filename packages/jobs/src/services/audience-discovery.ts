@@ -24,12 +24,17 @@ import { v4 as uuidv4 } from 'uuid';
 
 const DEFAULT_LOCATION = 'United States';
 const DEFAULT_LANGUAGE = 'English';
-const KEYWORDS_PER_SEED = 50;
-const MIN_SEGMENT_VOLUME = 500;
+const KEYWORDS_PER_SEED = 200;
+const MIN_SEGMENT_VOLUME = 100;
 const TOP_SEGMENTS_FOR_INVENTORY = 30;
 const TOP_SEGMENTS_FOR_EVALUATION = 25;
 const DATAFORSEO_BATCH_SIZE = 10; // concurrent API calls per batch
 const DATAFORSEO_BATCH_DELAY_MS = 500; // delay between batches
+const SEED_EXPANSION_TOP_N = 3; // top keywords per segment to use as new seeds
+const DISCOVERY_MARKETS = [
+  { location: 'United States', language: 'English' },
+  { location: 'United Kingdom', language: 'English' },
+];
 
 // ==========================================
 // TYPES
@@ -105,6 +110,28 @@ export interface DiscoveryResult {
   };
   executionTimeMs: number;
   summary: string;
+}
+
+// ==========================================
+// TRAVEL INTENT FILTER
+// ==========================================
+
+const TRAVEL_SIGNAL_WORDS = [
+  'tour', 'tours', 'trip', 'trips', 'travel', 'traveling', 'travelling',
+  'holiday', 'holidays', 'vacation', 'vacations', 'getaway', 'getaways',
+  'retreat', 'retreats', 'excursion', 'excursions',
+  'adventure', 'adventures', 'experience', 'experiences',
+  'activity', 'activities', 'things to do', 'what to do',
+  'sightseeing', 'itinerary', 'guided', 'booking',
+  'visit', 'visiting', 'explore', 'exploring',
+  'destination', 'destinations', 'abroad', 'overseas',
+  'cruise', 'safari', 'trek', 'trekking', 'hike', 'hiking', 'backpacking',
+  'resort', 'spa', 'wellness',
+];
+
+function hasTravelIntent(keyword: string): boolean {
+  const lower = keyword.toLowerCase();
+  return TRAVEL_SIGNAL_WORDS.some((signal) => lower.includes(signal));
 }
 
 // ==========================================
@@ -238,13 +265,128 @@ Return ONLY a valid JSON array, no markdown fences, no explanation.`;
 }
 
 // ==========================================
+// PHASE 1B: OPTIMIZE SEGMENT SEEDS (TWO-PASS)
+// ==========================================
+
+async function optimizeSegmentSeeds(
+  segments: AudienceSegment[]
+): Promise<{ segments: AudienceSegment[]; cost: number }> {
+  const anthropicApiKey = process.env['ANTHROPIC_API_KEY'];
+  if (!anthropicApiKey) {
+    return { segments, cost: 0 };
+  }
+
+  const segmentList = segments.map((s) => ({
+    name: s.name,
+    description: s.description,
+    dimension: s.dimension,
+    currentSeeds: s.searchSeeds,
+  }));
+
+  const prompt = `You are optimizing search queries for keyword research. For each audience segment below, generate 5 specific Google search queries that someone in this audience would ACTUALLY type when looking for bookable travel experiences, tours, or activities.
+
+## Segments
+${JSON.stringify(segmentList, null, 2)}
+
+## Rules
+1. Each query should be 2-5 words long
+2. Queries must be experience/activity-focused (not flights/hotels)
+3. Include a mix of:
+   - High-volume generic queries (e.g., "honeymoon ideas")
+   - Specific activity queries (e.g., "romantic cooking class")
+   - Planning-intent queries (e.g., "honeymoon activities to book")
+4. Avoid overlapping with other segments' queries
+5. Think about what this person would ACTUALLY search in Google
+
+## Output
+Return a JSON array with one object per segment (same order), each with:
+- name: The segment name (for matching)
+- seeds: Array of exactly 5 search queries
+
+Return ONLY a valid JSON array, no markdown fences, no explanation.`;
+
+  console.log('[Audience Discovery] Calling AI to optimize segment search seeds...');
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': anthropicApiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 16000,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  });
+
+  if (!response.ok) {
+    console.warn('[Audience Discovery] AI seed optimization failed, using original seeds');
+    return { segments, cost: 0 };
+  }
+
+  const data = (await response.json()) as {
+    content: Array<{ text: string }>;
+    usage?: { input_tokens: number; output_tokens: number };
+  };
+  const responseText = data.content?.[0]?.text;
+  const inputTokens = data.usage?.input_tokens || 2000;
+  const outputTokens = data.usage?.output_tokens || 4000;
+  const cost = (inputTokens * 3 + outputTokens * 15) / 1_000_000;
+
+  if (!responseText) {
+    return { segments, cost };
+  }
+
+  const cleaned = responseText.replace(/```(?:json)?\s*/g, '').replace(/```\s*/g, '');
+  let jsonMatch = cleaned.match(/\[[\s\S]*\]/);
+
+  if (!jsonMatch) {
+    const arrayStart = cleaned.indexOf('[');
+    if (arrayStart !== -1) {
+      let truncated = cleaned.slice(arrayStart).trim();
+      const lastBrace = truncated.lastIndexOf('}');
+      if (lastBrace !== -1) {
+        truncated = truncated.slice(0, lastBrace + 1) + ']';
+        jsonMatch = [truncated];
+      }
+    }
+  }
+
+  if (!jsonMatch) {
+    console.warn('[Audience Discovery] Could not parse AI seed optimization, using original seeds');
+    return { segments, cost };
+  }
+
+  try {
+    const optimizedSeeds = JSON.parse(jsonMatch[0]) as Array<{ name: string; seeds: string[] }>;
+    let updated = 0;
+    for (let i = 0; i < segments.length && i < optimizedSeeds.length; i++) {
+      const opt = optimizedSeeds[i];
+      if (opt && Array.isArray(opt['seeds']) && opt['seeds'].length > 0) {
+        segments[i]!.searchSeeds = opt['seeds'].slice(0, 5);
+        updated++;
+      }
+    }
+
+    const avgSeeds =
+      segments.reduce((sum, s) => sum + s.searchSeeds.length, 0) / segments.length;
+    console.log(
+      `[Audience Discovery] Optimized search seeds for ${updated}/${segments.length} segments (avg ${avgSeeds.toFixed(1)} seeds per segment)`
+    );
+  } catch (e) {
+    console.warn('[Audience Discovery] Failed to parse seed optimization response:', e);
+  }
+
+  return { segments, cost };
+}
+
+// ==========================================
 // PHASE 2: KEYWORD DISCOVERY PER SEGMENT
 // ==========================================
 
 async function discoverSegmentKeywords(
-  segments: AudienceSegment[],
-  location: string,
-  language: string
+  segments: AudienceSegment[]
 ): Promise<{
   keywordMap: Map<string, KeywordData[]>;
   cost: number;
@@ -258,16 +400,28 @@ async function discoverSegmentKeywords(
   const keywordMap = new Map<string, KeywordData[]>();
   let totalCalls = 0;
 
-  // Collect all seed queries: segment ID → seed keywords
-  const seedTasks: Array<{ segmentId: string; seed: string }> = [];
+  // Collect all seed queries across all markets: segment ID → seed × market
+  const seedTasks: Array<{
+    segmentId: string;
+    seed: string;
+    location: string;
+    language: string;
+  }> = [];
   for (const segment of segments) {
     for (const seed of segment.searchSeeds) {
-      seedTasks.push({ segmentId: segment.id, seed });
+      for (const market of DISCOVERY_MARKETS) {
+        seedTasks.push({
+          segmentId: segment.id,
+          seed,
+          location: market.location,
+          language: market.language,
+        });
+      }
     }
   }
 
   console.log(
-    `[Audience Discovery] Discovering keywords for ${segments.length} segments (${seedTasks.length} seed queries)...`
+    `[Audience Discovery] Discovering keywords for ${segments.length} segments across ${DISCOVERY_MARKETS.length} markets (${seedTasks.length} seed queries)...`
   );
 
   // Process in batches to avoid rate limiting
@@ -275,7 +429,7 @@ async function discoverSegmentKeywords(
     const batch = seedTasks.slice(i, i + DATAFORSEO_BATCH_SIZE);
 
     const results = await Promise.allSettled(
-      batch.map(async ({ segmentId, seed }) => {
+      batch.map(async ({ segmentId, seed, location, language }) => {
         const keywords = await dataForSeoBreaker.execute(async () => {
           return await dataForSeo.discoverKeywords(seed, location, language, KEYWORDS_PER_SEED);
         });
@@ -299,21 +453,83 @@ async function discoverSegmentKeywords(
     }
   }
 
-  // Deduplicate keywords within each segment
+  // Seed expansion: use top discovered keywords as new seeds for compound discovery
+  console.log('[Audience Discovery] Performing seed expansion with top discovered keywords...');
+  const expansionTasks: Array<{
+    segmentId: string;
+    seed: string;
+    location: string;
+    language: string;
+  }> = [];
+
   for (const [segmentId, keywords] of keywordMap.entries()) {
-    const seen = new Set<string>();
-    const deduped = keywords.filter((k) => {
+    // Get top N keywords by volume that aren't already seeds
+    const segment = segments.find((s) => s.id === segmentId);
+    const existingSeeds = new Set(segment?.searchSeeds.map((s) => s.toLowerCase()) || []);
+
+    const topKeywords = [...keywords]
+      .sort((a, b) => b.searchVolume - a.searchVolume)
+      .filter((k) => !existingSeeds.has(k.keyword.toLowerCase()))
+      .slice(0, SEED_EXPANSION_TOP_N);
+
+    for (const kw of topKeywords) {
+      // Expand in primary market only to control cost
+      expansionTasks.push({
+        segmentId,
+        seed: kw.keyword,
+        location: DISCOVERY_MARKETS[0]!.location,
+        language: DISCOVERY_MARKETS[0]!.language,
+      });
+    }
+  }
+
+  console.log(
+    `[Audience Discovery] Expanding with ${expansionTasks.length} additional seed queries...`
+  );
+
+  for (let i = 0; i < expansionTasks.length; i += DATAFORSEO_BATCH_SIZE) {
+    const batch = expansionTasks.slice(i, i + DATAFORSEO_BATCH_SIZE);
+
+    const results = await Promise.allSettled(
+      batch.map(async ({ segmentId, seed, location, language }) => {
+        const keywords = await dataForSeoBreaker.execute(async () => {
+          return await dataForSeo.discoverKeywords(seed, location, language, KEYWORDS_PER_SEED);
+        });
+        return { segmentId, keywords };
+      })
+    );
+
+    for (const result of results) {
+      if (result.status === 'fulfilled') {
+        const { segmentId, keywords } = result.value;
+        const existing = keywordMap.get(segmentId) || [];
+        keywordMap.set(segmentId, [...existing, ...keywords]);
+        totalCalls++;
+      }
+    }
+
+    if (i + DATAFORSEO_BATCH_SIZE < expansionTasks.length) {
+      await new Promise((resolve) => setTimeout(resolve, DATAFORSEO_BATCH_DELAY_MS));
+    }
+  }
+
+  // Deduplicate keywords within each segment (merging across markets + expansion)
+  // Keep the version with highest volume when duplicates found across markets
+  for (const [segmentId, keywords] of keywordMap.entries()) {
+    const seen = new Map<string, KeywordData>();
+    for (const k of keywords) {
       const lower = k.keyword.toLowerCase();
-      if (seen.has(lower)) return false;
-      seen.add(lower);
-      return true;
-    });
-    keywordMap.set(segmentId, deduped);
+      const existing = seen.get(lower);
+      if (!existing || k.searchVolume > existing.searchVolume) {
+        seen.set(lower, k);
+      }
+    }
+    keywordMap.set(segmentId, [...seen.values()]);
   }
 
   const totalKeywords = [...keywordMap.values()].reduce((sum, kws) => sum + kws.length, 0);
   console.log(
-    `[Audience Discovery] Discovered ${totalKeywords} unique keywords across ${keywordMap.size} segments (${totalCalls} API calls)`
+    `[Audience Discovery] Discovered ${totalKeywords} unique keywords across ${keywordMap.size} segments (${totalCalls} API calls including expansion)`
   );
 
   // Cost: ~$0.003 per discoverKeywords call
@@ -340,24 +556,29 @@ function buildSegmentClusters(
 
     if (withVolume.length === 0) continue;
 
-    // Sort by volume descending
-    withVolume.sort((a, b) => b.searchVolume - a.searchVolume);
+    // Filter to travel-intent keywords (removes non-travel noise like "bachelorette party decorations")
+    const travelRelevant = withVolume.filter((k) => hasTravelIntent(k.keyword));
+    // Fall back to all keywords if travel filter removes everything (some niches use unusual terms)
+    const filtered = travelRelevant.length > 0 ? travelRelevant : withVolume;
 
-    const totalVolume = withVolume.reduce((sum, k) => sum + k.searchVolume, 0);
+    // Sort by volume descending
+    filtered.sort((a, b) => b.searchVolume - a.searchVolume);
+
+    const totalVolume = filtered.reduce((sum, k) => sum + k.searchVolume, 0);
 
     // Volume-weighted CPC
     const weightedCpc =
       totalVolume > 0
-        ? withVolume.reduce((sum, k) => sum + k.searchVolume * k.cpc, 0) / totalVolume
+        ? filtered.reduce((sum, k) => sum + k.searchVolume * k.cpc, 0) / totalVolume
         : 0;
 
     // Average competition (proxy for difficulty since we don't do SERP calls)
     const avgCompetition =
-      withVolume.length > 0
-        ? withVolume.reduce((sum, k) => sum + k.competition, 0) / withVolume.length
+      filtered.length > 0
+        ? filtered.reduce((sum, k) => sum + k.competition, 0) / filtered.length
         : 0;
 
-    const topKeywords = withVolume.slice(0, 10).map((k) => ({
+    const topKeywords = filtered.slice(0, 10).map((k) => ({
       keyword: k.keyword,
       volume: k.searchVolume,
       cpc: k.cpc,
@@ -365,13 +586,13 @@ function buildSegmentClusters(
 
     clusters.push({
       segment,
-      keywords: withVolume,
+      keywords: filtered,
       metrics: {
         totalVolume,
         weightedCpc,
         avgDifficulty: Math.round(avgCompetition * 100), // Scale 0-1 to 0-100
         avgCompetition,
-        keywordCount: withVolume.length,
+        keywordCount: filtered.length,
         topKeywords,
       },
     });
@@ -665,8 +886,9 @@ function calculateSegmentPriorityScore(
   const logVolume = vol > 0 ? Math.log10(vol) : 0;
   const volumeScore = Math.min((logVolume / 6) * 35, 35);
 
-  // Competition (20%) — lower competition = higher score
-  const competitionScore = ((1 - competition) / 1) * 20;
+  // Competition (20%) — halved penalty: high Google Ads competition indicates commercial value
+  // For a niche marketplace, we can still rank with niche authority even in competitive spaces
+  const competitionScore = (1 - competition * 0.5) * 20;
 
   // Commercial intent via CPC (20%)
   const cpcScore = Math.min((cpc / 5) * 20, 20);
@@ -708,10 +930,10 @@ export async function runAudienceFirstDiscovery(
 
   // Phase 1: Generate audience segments via AI
   console.log('[Audience Discovery] === PHASE 1: Audience Segment Generation ===');
-  const { segments, cost: segmentCost } = await generateAudienceSegments();
+  const { segments: rawSegments, cost: segmentCost } = await generateAudienceSegments();
   anthropicCost += segmentCost;
 
-  if (segments.length === 0) {
+  if (rawSegments.length === 0) {
     return {
       success: false,
       segments: [],
@@ -724,13 +946,14 @@ export async function runAudienceFirstDiscovery(
     };
   }
 
-  // Phase 2: Discover keywords per segment via DataForSEO
+  // Phase 1B: Optimize segment seeds with a second AI pass
+  console.log('[Audience Discovery] === PHASE 1B: Seed Optimization ===');
+  const { segments, cost: seedOptCost } = await optimizeSegmentSeeds(rawSegments);
+  anthropicCost += seedOptCost;
+
+  // Phase 2: Discover keywords per segment via DataForSEO (multi-market + seed expansion)
   console.log('[Audience Discovery] === PHASE 2: Keyword Discovery ===');
-  const { keywordMap, cost: discoveryCost } = await discoverSegmentKeywords(
-    segments,
-    location,
-    language
-  );
+  const { keywordMap, cost: discoveryCost } = await discoverSegmentKeywords(segments);
   dataForSeoCost += discoveryCost;
 
   // Phase 3: Build and score segment clusters
