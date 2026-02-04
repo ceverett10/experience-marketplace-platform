@@ -211,8 +211,12 @@ export default function DomainsPage() {
                   const unmatchedInfo = result.unmatched?.length
                     ? `\n\nUnmatched domains (${result.unmatched.length}):\n${result.unmatched.map((u: any) => `  ${u.domain} → slug "${u.extractedSlug}" (normalized: "${u.normalizedSlug}")`).join('\n')}`
                     : '';
+                  const slugsInfo = result.availableSlugs?.length
+                    ? `\n\nAvailable site slugs (${result.availableSlugs.length}):\n${result.availableSlugs.join(', ')}`
+                    : '\n\nNo sites found in database.';
+                  console.log('Cloudflare sync result:', JSON.stringify(result, null, 2));
                   alert(
-                    `Fetched ${result.totalFromCloudflare || '?'} domains from Cloudflare.\nSynced: ${result.synced?.length || 0}\nDNS configured: ${result.dnsConfigured?.length || 0}${unmatchedInfo}`
+                    `Fetched ${result.totalFromCloudflare || '?'} domains from Cloudflare.\nSynced: ${result.synced?.length || 0}\nDNS configured: ${result.dnsConfigured?.length || 0}${unmatchedInfo}${slugsInfo}`
                   );
                   // Refetch domains
                   const domainsResponse = await fetch(
