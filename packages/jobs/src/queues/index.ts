@@ -102,13 +102,40 @@ class QueueRegistry {
     // Payload validation: most jobs require a siteId.
     // Skip validation when rawSiteId is 'all' (fan-out sentinel handled by the worker),
     // for domain-specific jobs that use domainId instead, or for known site-optional types.
-    const siteOptionalTypes: string[] = ['DOMAIN_VERIFY', 'SSL_PROVISION'];
+    const siteOptionalTypes: string[] = [
+      'DOMAIN_VERIFY',
+      'SSL_PROVISION',
+      'SEO_OPPORTUNITY_SCAN', // Cross-site scan, no single siteId
+      'SEO_OPPORTUNITY_OPTIMIZE', // Cross-site optimization, no single siteId
+      'SITE_CREATE', // Creates a new site — siteId doesn't exist yet
+    ];
     if (!siteId && rawSiteId !== 'all' && !siteOptionalTypes.includes(jobType)) {
       const hasDomainId = !!(payload as { domainId?: string }).domainId;
       if (!hasDomainId) {
         throw new Error(
           `Payload validation failed for ${jobType}: missing siteId (and no domainId fallback)`
         );
+      }
+    }
+
+    // Deduplication: skip if a non-terminal job already exists for the same (siteId, type).
+    // This prevents the roadmap processor from creating duplicates when a previous job
+    // is still being processed or waiting in the queue.
+    if (siteId) {
+      const existing = await prisma.job.findFirst({
+        where: {
+          siteId,
+          type: jobType,
+          status: { in: ['PENDING', 'RUNNING', 'SCHEDULED', 'RETRYING'] },
+          queue: { not: 'planned' },
+        },
+        select: { id: true, status: true },
+      });
+      if (existing) {
+        console.log(
+          `[Queue] Skipping duplicate ${jobType} for site ${siteId} — existing job ${existing.id} is ${existing.status}`
+        );
+        return existing.id;
       }
     }
 
@@ -258,6 +285,29 @@ class QueueRegistry {
   }
 
   /**
+   * Remove a specific BullMQ job by queue name and BullMQ job ID.
+   * Used by the stuck-task detector to clean up orphaned queue entries.
+   * Returns true if the job was found and removed.
+   */
+  async removeJob(queueName: QueueName, bullmqJobId: string): Promise<boolean> {
+    try {
+      const queue = this.getQueue(queueName);
+      const job = await queue.getJob(bullmqJobId);
+      if (job) {
+        await job.remove();
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error(
+        `[Queue] Failed to remove BullMQ job ${bullmqJobId} from ${queueName}:`,
+        err
+      );
+      return false;
+    }
+  }
+
+  /**
    * Close all queues and Redis connection
    */
   async close(): Promise<void> {
@@ -274,6 +324,7 @@ export const addJob = queueRegistry.addJob.bind(queueRegistry);
 export const scheduleJob = queueRegistry.scheduleJob.bind(queueRegistry);
 export const getQueueMetrics = queueRegistry.getQueueMetrics.bind(queueRegistry);
 export const getAllQueueMetrics = queueRegistry.getAllQueueMetrics.bind(queueRegistry);
+export const removeJob = queueRegistry.removeJob.bind(queueRegistry);
 
 /**
  * Get a queue by name

@@ -287,7 +287,8 @@ Keep it concise and business-focused.`;
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('[API] Error updating opportunity:', error);
-    return NextResponse.json({ error: 'Failed to update opportunity' }, { status: 500 });
+    console.error('[API] Error in opportunities handler:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
