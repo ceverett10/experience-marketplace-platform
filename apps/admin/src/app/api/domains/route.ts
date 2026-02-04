@@ -276,11 +276,18 @@ export async function POST(request: Request) {
         ? `${process.env['HEROKU_APP_NAME']}.herokuapp.com`
         : 'holibob-experiences-demand-gen-c27f61accbd2.herokuapp.com';
 
+      // Normalize a string for fuzzy matching: remove hyphens, lowercase
+      const normalize = (s: string) => s.toLowerCase().replace(/-/g, '');
+
       for (const cfDomain of cloudflareDomainsData) {
         // Try to match domain to site by slug
         // e.g., london-food-tours.com -> london-food-tours
-        const domainSlug = cfDomain.name.replace(/\.(com|net|org|co|io|dev|app)$/i, '');
-        const matchingSite = sites.find((s) => s.slug === domainSlug);
+        // Also handles non-hyphenated domains like honeymoonexperiences.com -> honeymoon-experiences
+        const domainSlug = cfDomain.name.replace(/\.[a-z]{2,}$/i, '');
+        const normalizedDomainSlug = normalize(domainSlug);
+        const matchingSite =
+          sites.find((s) => s.slug === domainSlug) ||
+          sites.find((s) => normalize(s.slug) === normalizedDomainSlug);
 
         if (matchingSite) {
           // Check if domain already exists in DB
