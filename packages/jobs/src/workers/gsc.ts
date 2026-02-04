@@ -127,6 +127,123 @@ export async function handleGscSetup(job: Job<GscSetupPayload>): Promise<JobResu
 }
 
 /**
+ * Google Search Console Verify Worker
+ * Checks if a domain is verified with GSC and attempts verification if not
+ *
+ * Flow:
+ * 1. Check if site is already marked as verified in DB
+ * 2. If not, check with GSC API whether domain is verified
+ * 3. If verified externally but not in DB, update DB
+ * 4. If not verified, attempt verification (DNS TXT record should already exist from GSC_SETUP)
+ */
+export async function handleGscVerify(job: Job<GscSetupPayload>): Promise<JobResult> {
+  const { siteId, domain, cloudflareZoneId } = job.data;
+
+  try {
+    console.log(`[GSC Verify] Checking verification status for ${domain} (site: ${siteId})`);
+
+    // Check if GSC is configured
+    if (!isGSCConfigured()) {
+      console.warn('[GSC Verify] GSC not configured, skipping verification');
+      return {
+        success: false,
+        error: 'GSC not configured (missing credentials)',
+        errorCategory: 'configuration',
+        timestamp: new Date(),
+      };
+    }
+
+    // Check if already verified in database
+    const site = await prisma.site.findUnique({
+      where: { id: siteId },
+    });
+
+    if (!site) {
+      throw new Error(`Site ${siteId} not found`);
+    }
+
+    if (site.gscVerified) {
+      console.log(`[GSC Verify] Site ${siteId} already verified in database`);
+      return {
+        success: true,
+        message: `Domain ${domain} already verified in GSC`,
+        data: { domain, alreadyVerified: true },
+        timestamp: new Date(),
+      };
+    }
+
+    // Check with GSC API
+    const gscClient = getGSCClient();
+    const isAlreadyVerified = await gscClient.isVerified(domain);
+
+    if (isAlreadyVerified) {
+      // Update database
+      await prisma.site.update({
+        where: { id: siteId },
+        data: {
+          gscVerified: true,
+          gscVerifiedAt: new Date(),
+          gscPropertyUrl: `sc-domain:${domain}`,
+        },
+      });
+
+      console.log(`[GSC Verify] Domain ${domain} verified (was already verified in GSC)`);
+      return {
+        success: true,
+        message: `Domain ${domain} verified in Google Search Console`,
+        data: { domain, verifiedExternally: true },
+        timestamp: new Date(),
+      };
+    }
+
+    // Attempt verification — the DNS TXT record should already exist from GSC_SETUP
+    console.log(`[GSC Verify] Attempting verification for ${domain}`);
+    const verificationResult = await gscClient.verifySite(domain);
+
+    if (!verificationResult.verified) {
+      return {
+        success: false,
+        error: `Domain ${domain} verification failed — DNS TXT record may not have propagated yet`,
+        errorCategory: 'verification',
+        retryable: true,
+        timestamp: new Date(),
+      };
+    }
+
+    // Verification succeeded — update database and add site to GSC
+    const siteUrl = `sc-domain:${domain}`;
+    await gscClient.addSite(siteUrl);
+    await gscClient.submitSitemap(siteUrl, `https://${domain}/sitemap.xml`);
+
+    await prisma.site.update({
+      where: { id: siteId },
+      data: {
+        gscVerified: true,
+        gscVerifiedAt: new Date(),
+        gscPropertyUrl: siteUrl,
+        gscLastSyncedAt: new Date(),
+      },
+    });
+
+    console.log(`[GSC Verify] Domain ${domain} verified and added to GSC`);
+
+    return {
+      success: true,
+      message: `Domain ${domain} verified and registered in Google Search Console`,
+      data: { domain, siteUrl, sitemapSubmitted: true },
+      timestamp: new Date(),
+    };
+  } catch (error) {
+    console.error('[GSC Verify] Error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      timestamp: new Date(),
+    };
+  }
+}
+
+/**
  * Google Search Console Sync Worker
  * Fetches performance data from GSC API and stores in database
  */

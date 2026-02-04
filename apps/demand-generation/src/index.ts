@@ -20,6 +20,7 @@ import {
   handleContentReview,
   handleGscSync,
   handleGscSetup,
+  handleGscVerify,
   handleOpportunityScan,
   handleOpportunityOptimize,
   handleSiteCreate,
@@ -208,8 +209,9 @@ const gscWorker = new Worker(
       case 'GSC_SYNC':
         return await handleGscSync(job);
       case 'GSC_SETUP':
-      case 'GSC_VERIFY':
         return await handleGscSetup(job);
+      case 'GSC_VERIFY':
+        return await handleGscVerify(job);
       default:
         throw new Error(`Unknown job type: ${job.name}`);
     }

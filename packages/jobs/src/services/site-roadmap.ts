@@ -533,7 +533,7 @@ const TASK_DEPENDENCIES: Partial<Record<JobType, JobType[]>> = {
 /**
  * Get payload for a specific job type
  */
-function getJobPayload(siteId: string, jobType: JobType): Record<string, unknown> {
+async function getJobPayload(siteId: string, jobType: JobType): Promise<Record<string, unknown>> {
   const basePayload = { siteId };
 
   switch (jobType) {
@@ -545,14 +545,63 @@ function getJobPayload(siteId: string, jobType: JobType): Record<string, unknown
       return { ...basePayload, reviewType: 'quality' };
     case 'DOMAIN_REGISTER':
       return { ...basePayload, registrar: 'cloudflare', autoRenew: true };
-    case 'DOMAIN_VERIFY':
-      return { ...basePayload };
-    case 'SSL_PROVISION':
-      return { ...basePayload };
-    case 'GSC_SETUP':
-      return { ...basePayload };
-    case 'GSC_VERIFY':
-      return { ...basePayload };
+    case 'DOMAIN_VERIFY': {
+      // Handler expects { domainId, verificationMethod } — look up the domain record
+      const domain = await prisma.domain.findFirst({
+        where: { siteId },
+        orderBy: { registeredAt: 'desc' },
+      });
+      if (!domain) {
+        throw new Error(`Cannot queue DOMAIN_VERIFY: no domain found for site ${siteId}`);
+      }
+      return { domainId: domain.id, verificationMethod: 'dns' as const };
+    }
+    case 'SSL_PROVISION': {
+      // Handler expects { domainId, provider } — look up the verified domain
+      const verifiedDomain = await prisma.domain.findFirst({
+        where: { siteId, verifiedAt: { not: null } },
+        orderBy: { verifiedAt: 'desc' },
+      });
+      if (!verifiedDomain) {
+        throw new Error(`Cannot queue SSL_PROVISION: no verified domain found for site ${siteId}`);
+      }
+      return {
+        domainId: verifiedDomain.id,
+        provider: verifiedDomain.registrar === 'cloudflare' ? 'cloudflare' : 'letsencrypt',
+      };
+    }
+    case 'GSC_SETUP': {
+      // Handler expects { siteId, domain, cloudflareZoneId } — look up the active domain
+      const site = await prisma.site.findUnique({
+        where: { id: siteId },
+        include: { domains: { where: { status: DomainStatus.ACTIVE }, take: 1 } },
+      });
+      const activeDomain = site?.domains[0];
+      if (!activeDomain) {
+        throw new Error(`Cannot queue GSC_SETUP: no active domain found for site ${siteId}`);
+      }
+      return {
+        siteId,
+        domain: activeDomain.domain,
+        cloudflareZoneId: activeDomain.cloudflareZoneId || '',
+      };
+    }
+    case 'GSC_VERIFY': {
+      // Handler expects { siteId, domain, cloudflareZoneId } — same context as GSC_SETUP
+      const siteForGsc = await prisma.site.findUnique({
+        where: { id: siteId },
+        include: { domains: { where: { status: DomainStatus.ACTIVE }, take: 1 } },
+      });
+      const gscDomain = siteForGsc?.domains[0];
+      if (!gscDomain) {
+        throw new Error(`Cannot queue GSC_VERIFY: no active domain found for site ${siteId}`);
+      }
+      return {
+        siteId,
+        domain: gscDomain.domain,
+        cloudflareZoneId: gscDomain.cloudflareZoneId || '',
+      };
+    }
     case 'GSC_SYNC':
       return { ...basePayload };
     case 'GA4_SETUP':
@@ -696,7 +745,7 @@ export async function executeNextTasks(
 
     // Queue this job
     try {
-      const payload = getJobPayload(siteId, jobType);
+      const payload = await getJobPayload(siteId, jobType);
 
       // Delete the placeholder job if it exists
       const placeholderJob = jobs.find((j) => j.type === jobType && j.queue === 'planned');
