@@ -65,8 +65,10 @@ class QueueRegistry {
     const queueName = JOB_TYPE_TO_QUEUE[jobType];
     const queue = this.getQueue(queueName);
 
-    // Extract siteId from payload if available
-    const siteId = (payload as { siteId?: string }).siteId || null;
+    // Extract siteId from payload if available.
+    // 'all' is a valid payload sentinel but not a valid FK — treat it as null for the DB record.
+    const rawSiteId = (payload as { siteId?: string }).siteId;
+    const siteId = rawSiteId && rawSiteId !== 'all' ? rawSiteId : null;
 
     // Create database record for job tracking
     const dbJob = await prisma.job.create({

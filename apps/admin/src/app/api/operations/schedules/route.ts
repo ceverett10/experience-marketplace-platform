@@ -43,6 +43,9 @@ export async function GET(): Promise<NextResponse> {
         }
 
         const lastExecution = executions[0] || null;
+        const isRunning = executions.some(
+          (e) => e.status === 'RUNNING' || e.status === 'PENDING'
+        );
         const nextRun = getNextCronRun(sj.schedule);
 
         return {
@@ -50,6 +53,7 @@ export async function GET(): Promise<NextResponse> {
           schedule: sj.schedule,
           description: sj.description,
           nextRun: nextRun.toISOString(),
+          isRunning,
           lastExecution: lastExecution
             ? {
                 id: lastExecution.id,

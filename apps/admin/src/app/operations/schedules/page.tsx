@@ -17,6 +17,7 @@ interface ScheduledJob {
   schedule: string;
   description: string;
   nextRun: string;
+  isRunning: boolean;
   lastExecution: {
     id: string;
     status: string;
@@ -99,29 +100,40 @@ export default function ScheduledJobsPage() {
   const [loading, setLoading] = useState(true);
   const [expandedJob, setExpandedJob] = useState<string | null>(null);
   const [triggerLoading, setTriggerLoading] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(
+    null
+  );
+  const [pollFast, setPollFast] = useState(false);
+
+  const fetchSchedules = async () => {
+    try {
+      const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
+      const response = await fetch(`${basePath}/api/operations/schedules`);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      setSchedules(data.schedules || []);
+
+      // Stop fast-polling once no jobs are running/pending
+      if (pollFast) {
+        const anyRunning = (data.schedules || []).some((s: ScheduledJob) => s.isRunning);
+        if (!anyRunning) setPollFast(false);
+      }
+    } catch (error) {
+      console.error('Failed to fetch schedules:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchSchedules = async () => {
-      try {
-        const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
-        const response = await fetch(`${basePath}/api/operations/schedules`);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const data = await response.json();
-        setSchedules(data.schedules || []);
-      } catch (error) {
-        console.error('Failed to fetch schedules:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchSchedules();
-    const interval = setInterval(fetchSchedules, 15000);
+    const interval = setInterval(fetchSchedules, pollFast ? 3000 : 15000);
     return () => clearInterval(interval);
-  }, []);
+  }, [pollFast]);
 
   const triggerJob = async (jobType: string) => {
     setTriggerLoading(jobType);
+    setFeedback(null);
     try {
       const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
       const response = await fetch(`${basePath}/api/operations/schedules`, {
@@ -131,14 +143,21 @@ export default function ScheduledJobsPage() {
       });
       const data = await response.json();
       if (data.success) {
-        const res = await fetch(`${basePath}/api/operations/schedules`);
-        const refreshed = await res.json();
-        setSchedules(refreshed.schedules || []);
+        setFeedback({
+          type: 'success',
+          message: `${jobType.replace(/_/g, ' ')} triggered successfully`,
+        });
+        setPollFast(true);
+        await fetchSchedules();
+      } else {
+        setFeedback({ type: 'error', message: data.error || 'Failed to trigger job' });
       }
     } catch (error) {
       console.error('Failed to trigger job:', error);
+      setFeedback({ type: 'error', message: 'Failed to trigger job — network error' });
     } finally {
       setTriggerLoading(null);
+      setTimeout(() => setFeedback(null), 5000);
     }
   };
 
@@ -224,12 +243,33 @@ export default function ScheduledJobsPage() {
         </p>
       </div>
 
+      {/* Feedback banner */}
+      {feedback && (
+        <div
+          className={`px-4 py-3 rounded-lg text-sm font-medium ${
+            feedback.type === 'success'
+              ? 'bg-green-50 text-green-800 border border-green-200'
+              : 'bg-red-50 text-red-800 border border-red-200'
+          }`}
+        >
+          {feedback.message}
+        </div>
+      )}
+
       {/* Summary */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
         <Card>
           <CardContent className="p-4">
             <p className="text-2xl font-bold text-slate-700">{schedules.length}</p>
             <p className="text-sm text-slate-500">Total Schedules</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-2xl font-bold text-blue-600">
+              {schedules.filter((s) => s.isRunning).length}
+            </p>
+            <p className="text-sm text-slate-500">Running Now</p>
           </CardContent>
         </Card>
         <Card>
@@ -339,6 +379,29 @@ export default function ScheduledJobsPage() {
                       <td className="px-4 py-4">
                         {isNonTriggerable ? (
                           <span className="text-xs text-slate-400 italic">Auto</span>
+                        ) : sj.isRunning ? (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded-lg font-medium">
+                            <svg
+                              className="animate-spin h-3 w-3"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                            >
+                              <circle
+                                className="opacity-25"
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                strokeWidth="4"
+                              />
+                              <path
+                                className="opacity-75"
+                                fill="currentColor"
+                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                              />
+                            </svg>
+                            Running...
+                          </span>
                         ) : (
                           <button
                             onClick={(e) => {
