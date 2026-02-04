@@ -16,6 +16,7 @@
 
 import { DataForSEOClient } from './dataforseo-client';
 import { circuitBreakers } from '../errors/circuit-breaker';
+import { prisma } from '@experience-marketplace/database';
 import { v4 as uuidv4 } from 'uuid';
 
 // ==========================================
@@ -113,6 +114,82 @@ export interface DiscoveryResult {
 }
 
 // ==========================================
+// PORTFOLIO CONTEXT
+// ==========================================
+
+interface PortfolioSite {
+  name: string;
+  slug: string;
+  status: string;
+  segmentName: string;
+  dimension: string;
+  topKeywords: string[];
+}
+
+export interface PortfolioContext {
+  sites: PortfolioSite[];
+  existingSegmentNames: Set<string>;
+  existingKeywords: Set<string>;
+}
+
+async function buildPortfolioContext(): Promise<PortfolioContext> {
+  const sites = await prisma.site.findMany({
+    where: { status: { not: 'ARCHIVED' } },
+    select: {
+      name: true,
+      slug: true,
+      status: true,
+      opportunities: {
+        where: { source: 'audience_discovery' },
+        select: {
+          niche: true,
+          keyword: true,
+          sourceData: true,
+        },
+      },
+    },
+  });
+
+  const portfolioSites: PortfolioSite[] = [];
+  const existingSegmentNames = new Set<string>();
+  const existingKeywords = new Set<string>();
+
+  for (const site of sites) {
+    for (const opp of site.opportunities) {
+      const sourceData = opp.sourceData as Record<string, any> | null;
+      const segmentName = sourceData?.['segment']?.['name'] || opp.niche || '';
+      const dimension = sourceData?.['segment']?.['dimension'] || '';
+      const topKeywords: string[] = (
+        sourceData?.['keywordCluster']?.['topKeywords'] as Array<{ keyword: string }> || []
+      ).map((k) => k.keyword);
+
+      if (segmentName) {
+        existingSegmentNames.add(segmentName.toLowerCase());
+      }
+      existingKeywords.add(opp.keyword.toLowerCase());
+      for (const kw of topKeywords) {
+        existingKeywords.add(kw.toLowerCase());
+      }
+
+      portfolioSites.push({
+        name: site.name,
+        slug: site.slug,
+        status: site.status,
+        segmentName,
+        dimension,
+        topKeywords: topKeywords.slice(0, 5),
+      });
+    }
+  }
+
+  console.log(
+    `[Audience Discovery] Portfolio context: ${portfolioSites.length} existing sites covering ${existingSegmentNames.size} segments, ${existingKeywords.size} known keywords`
+  );
+
+  return { sites: portfolioSites, existingSegmentNames, existingKeywords };
+}
+
+// ==========================================
 // TRAVEL INTENT FILTER
 // ==========================================
 
@@ -138,13 +215,33 @@ function hasTravelIntent(keyword: string): boolean {
 // PHASE 1: AI AUDIENCE SEGMENT GENERATION
 // ==========================================
 
-async function generateAudienceSegments(): Promise<{
+async function generateAudienceSegments(
+  portfolio: PortfolioContext
+): Promise<{
   segments: AudienceSegment[];
   cost: number;
 }> {
   const anthropicApiKey = process.env['ANTHROPIC_API_KEY'];
   if (!anthropicApiKey) {
     throw new Error('ANTHROPIC_API_KEY not configured');
+  }
+
+  // Build portfolio exclusion section for the prompt
+  let portfolioSection = '';
+  if (portfolio.sites.length > 0) {
+    const siteList = portfolio.sites
+      .map(
+        (s) =>
+          `- ${s.name} (${s.status}): targeting "${s.segmentName}" audience — keywords: ${s.topKeywords.slice(0, 3).join(', ') || 'n/a'}`
+      )
+      .join('\n');
+    portfolioSection = `
+## Existing Portfolio — DO NOT DUPLICATE
+We already operate these niche marketplace sites:
+${siteList}
+
+CRITICAL: Do NOT suggest segments that overlap with the above. Find DIFFERENT, complementary audience segments that would expand our portfolio into new territory. Consider segments that are adjacent to (but distinct from) our existing sites — they could benefit from cross-linking.
+`;
   }
 
   const prompt = `You are a strategic advisor identifying underserved traveler audiences who would use a curated experience marketplace. Think about WHO travels, not WHERE they go.
@@ -154,7 +251,7 @@ We build micro-niche marketplace websites — each one serves a specific type of
 1. People actively search Google for experiences/activities related to their interest or life stage
 2. No dominant marketplace already owns that niche
 3. The audience is large enough to sustain a standalone brand
-
+${portfolioSection}
 ## Dimensions to explore
 - **Life stage**: Honeymooners, retirees, gap year travelers, new parents, empty nesters, students
 - **Passion/Interest**: Foodies, wine enthusiasts, history buffs, photography lovers, wellness seekers, adventure junkies, art lovers, music fans, sports enthusiasts, craft beer lovers, scuba divers, hikers, cyclists
@@ -248,7 +345,7 @@ Return ONLY a valid JSON array, no markdown fences, no explanation.`;
     targetAudience: string;
   }>;
 
-  const segments: AudienceSegment[] = rawSegments.map((s) => ({
+  const allSegments: AudienceSegment[] = rawSegments.map((s) => ({
     id: uuidv4(),
     name: s.name,
     description: s.description,
@@ -256,6 +353,18 @@ Return ONLY a valid JSON array, no markdown fences, no explanation.`;
     searchSeeds: Array.isArray(s.searchSeeds) ? s.searchSeeds.slice(0, 3) : [],
     targetAudience: s.targetAudience || s.description,
   }));
+
+  // Programmatic dedup: remove segments that match existing portfolio names
+  // (belt-and-suspenders — AI was told to avoid these, but enforce it)
+  const segments = allSegments.filter(
+    (s) => !portfolio.existingSegmentNames.has(s.name.toLowerCase())
+  );
+  const excluded = allSegments.length - segments.length;
+  if (excluded > 0) {
+    console.log(
+      `[Audience Discovery] Filtered out ${excluded} segments that overlap with existing portfolio`
+    );
+  }
 
   console.log(
     `[Audience Discovery] AI generated ${segments.length} audience segments across dimensions: ${[...new Set(segments.map((s) => s.dimension))].join(', ')}`
@@ -269,7 +378,8 @@ Return ONLY a valid JSON array, no markdown fences, no explanation.`;
 // ==========================================
 
 async function optimizeSegmentSeeds(
-  segments: AudienceSegment[]
+  segments: AudienceSegment[],
+  portfolio: PortfolioContext
 ): Promise<{ segments: AudienceSegment[]; cost: number }> {
   const anthropicApiKey = process.env['ANTHROPIC_API_KEY'];
   if (!anthropicApiKey) {
@@ -282,6 +392,14 @@ async function optimizeSegmentSeeds(
     dimension: s.dimension,
     currentSeeds: s.searchSeeds,
   }));
+
+  // Build avoid-keywords section from portfolio
+  let avoidSection = '';
+  if (portfolio.existingKeywords.size > 0) {
+    const sampleKeywords = [...portfolio.existingKeywords].slice(0, 30).join(', ');
+    avoidSection = `
+6. AVOID queries that overlap with these keywords already targeted by our existing sites: ${sampleKeywords}`;
+  }
 
   const prompt = `You are optimizing search queries for keyword research. For each audience segment below, generate 5 specific Google search queries that someone in this audience would ACTUALLY type when looking for bookable travel experiences, tours, or activities.
 
@@ -296,7 +414,7 @@ ${JSON.stringify(segmentList, null, 2)}
    - Specific activity queries (e.g., "romantic cooking class")
    - Planning-intent queries (e.g., "honeymoon activities to book")
 4. Avoid overlapping with other segments' queries
-5. Think about what this person would ACTUALLY search in Google
+5. Think about what this person would ACTUALLY search in Google${avoidSection}
 
 ## Output
 Return a JSON array with one object per segment (same order), each with:
@@ -544,7 +662,8 @@ async function discoverSegmentKeywords(
 
 function buildSegmentClusters(
   segments: AudienceSegment[],
-  keywordMap: Map<string, KeywordData[]>
+  keywordMap: Map<string, KeywordData[]>,
+  portfolioKeywords: Set<string>
 ): SegmentKeywordCluster[] {
   const clusters: SegmentKeywordCluster[] = [];
 
@@ -559,7 +678,15 @@ function buildSegmentClusters(
     // Filter to travel-intent keywords (removes non-travel noise like "bachelorette party decorations")
     const travelRelevant = withVolume.filter((k) => hasTravelIntent(k.keyword));
     // Fall back to all keywords if travel filter removes everything (some niches use unusual terms)
-    const filtered = travelRelevant.length > 0 ? travelRelevant : withVolume;
+    const afterTravel = travelRelevant.length > 0 ? travelRelevant : withVolume;
+
+    // Remove keywords already targeted by existing portfolio sites
+    const filtered =
+      portfolioKeywords.size > 0
+        ? afterTravel.filter((k) => !portfolioKeywords.has(k.keyword.toLowerCase()))
+        : afterTravel;
+
+    if (filtered.length === 0) continue;
 
     // Sort by volume descending
     filtered.sort((a, b) => b.searchVolume - a.searchVolume);
@@ -874,7 +1001,8 @@ function createFallbackEvaluation(cluster: SegmentKeywordCluster): SegmentEvalua
 function calculateSegmentPriorityScore(
   cluster: SegmentKeywordCluster,
   feasibility: SegmentFeasibility | undefined,
-  evaluation: SegmentEvaluation
+  evaluation: SegmentEvaluation,
+  portfolio: PortfolioContext
 ): number {
   const vol = cluster.metrics.totalVolume;
   const cpc = cluster.metrics.weightedCpc;
@@ -882,9 +1010,9 @@ function calculateSegmentPriorityScore(
   const keywordDepth = cluster.metrics.keywordCount;
   const inventoryCount = feasibility?.totalProducts || 0;
 
-  // Volume (35%) — log scale, clusters can reach 100K+
+  // Volume (30%) — log scale, clusters can reach 100K+
   const logVolume = vol > 0 ? Math.log10(vol) : 0;
-  const volumeScore = Math.min((logVolume / 6) * 35, 35);
+  const volumeScore = Math.min((logVolume / 6) * 30, 30);
 
   // Competition (20%) — halved penalty: high Google Ads competition indicates commercial value
   // For a niche marketplace, we can still rank with niche authority even in competitive spaces
@@ -904,8 +1032,32 @@ function calculateSegmentPriorityScore(
   // AI viability assessment (5%)
   const viabilityScore = (evaluation.viabilityScore / 100) * 5;
 
+  // Portfolio fit (5%) — bonus for segments in adjacent dimensions to existing sites
+  // Segments in the same dimension as existing sites can cross-link and share audiences
+  let portfolioFitScore = 0;
+  if (portfolio.sites.length > 0) {
+    const existingDimensions = new Set(portfolio.sites.map((s) => s.dimension));
+    if (existingDimensions.has(cluster.segment.dimension)) {
+      // Same dimension as an existing site — adjacent audience, cross-link potential
+      portfolioFitScore = 3;
+    }
+    // Bonus: completely new dimension adds portfolio diversity
+    if (!existingDimensions.has(cluster.segment.dimension)) {
+      portfolioFitScore = 5;
+    }
+  } else {
+    // No existing portfolio — neutral score
+    portfolioFitScore = 2.5;
+  }
+
   const totalScore =
-    volumeScore + competitionScore + cpcScore + depthScore + inventoryScore + viabilityScore;
+    volumeScore +
+    competitionScore +
+    cpcScore +
+    depthScore +
+    inventoryScore +
+    viabilityScore +
+    portfolioFitScore;
 
   return Math.round(Math.min(totalScore, 100));
 }
@@ -928,9 +1080,13 @@ export async function runAudienceFirstDiscovery(
   let anthropicCost = 0;
   let dataForSeoCost = 0;
 
+  // Phase 0: Build portfolio context from existing sites
+  console.log('[Audience Discovery] === PHASE 0: Portfolio Context ===');
+  const portfolio = await buildPortfolioContext();
+
   // Phase 1: Generate audience segments via AI
   console.log('[Audience Discovery] === PHASE 1: Audience Segment Generation ===');
-  const { segments: rawSegments, cost: segmentCost } = await generateAudienceSegments();
+  const { segments: rawSegments, cost: segmentCost } = await generateAudienceSegments(portfolio);
   anthropicCost += segmentCost;
 
   if (rawSegments.length === 0) {
@@ -948,7 +1104,7 @@ export async function runAudienceFirstDiscovery(
 
   // Phase 1B: Optimize segment seeds with a second AI pass
   console.log('[Audience Discovery] === PHASE 1B: Seed Optimization ===');
-  const { segments, cost: seedOptCost } = await optimizeSegmentSeeds(rawSegments);
+  const { segments, cost: seedOptCost } = await optimizeSegmentSeeds(rawSegments, portfolio);
   anthropicCost += seedOptCost;
 
   // Phase 2: Discover keywords per segment via DataForSEO (multi-market + seed expansion)
@@ -958,7 +1114,7 @@ export async function runAudienceFirstDiscovery(
 
   // Phase 3: Build and score segment clusters
   console.log('[Audience Discovery] === PHASE 3: Cluster Building ===');
-  const clusters = buildSegmentClusters(segments, keywordMap);
+  const clusters = buildSegmentClusters(segments, keywordMap, portfolio.existingKeywords);
 
   if (clusters.length === 0) {
     return {
@@ -999,7 +1155,7 @@ export async function runAudienceFirstDiscovery(
     const evaluation =
       evaluations.get(cluster.segment.id) || createFallbackEvaluation(cluster);
 
-    const priorityScore = calculateSegmentPriorityScore(cluster, feasibility, evaluation);
+    const priorityScore = calculateSegmentPriorityScore(cluster, feasibility, evaluation, portfolio);
 
     opportunities.push({
       segment: cluster.segment,
