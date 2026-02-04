@@ -486,14 +486,20 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
     });
 
     if (!result.success) {
-      throw new ExternalApiError(result.error || 'Content generation failed quality threshold', {
-        service: 'anthropic-api',
-        context: {
-          targetKeyword,
-          contentType,
-          qualityThreshold: 80,
-        },
-      });
+      if (result.content) {
+        // Content was generated but didn't meet the quality threshold after rewrites.
+        // Accept it anyway — CONTENT_OPTIMIZE will improve it later in the pipeline.
+        console.warn(
+          `[Content Generate] Quality threshold not met (score: ${result.content.qualityAssessment?.overallScore || 'unknown'}/80), accepting content for later optimization`
+        );
+      } else {
+        // No content generated at all — retryable since a fresh attempt may succeed
+        throw new ExternalApiError(result.error || 'Content generation failed', {
+          service: 'anthropic-api',
+          statusCode: 503,
+          context: { targetKeyword, contentType, qualityThreshold: 80 },
+        });
+      }
     }
 
     // Generate Schema.org structured data for SEO
