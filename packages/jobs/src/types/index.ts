@@ -19,9 +19,9 @@ export interface ContentGeneratePayload {
 
 export interface ContentOptimizePayload {
   siteId: string;
-  pageId: string;
-  contentId: string;
-  reason: 'low_ctr' | 'position_drop' | 'high_bounce' | 'low_time' | 'no_bookings';
+  pageId?: string; // Optional — when omitted, all content for site is optimized (batch mode)
+  contentId?: string; // Optional — when omitted, all content for site is optimized (batch mode)
+  reason?: 'low_ctr' | 'position_drop' | 'high_bounce' | 'low_time' | 'no_bookings' | 'initial_seo';
   performanceData?: {
     ctr?: number;
     position?: number;
@@ -32,9 +32,9 @@ export interface ContentOptimizePayload {
 
 export interface ContentReviewPayload {
   siteId: string;
-  contentId: string;
-  qualityScore: number;
-  issues: Array<{ type: string; severity: string; description: string }>;
+  contentId?: string; // Optional — when omitted, all content for site is reviewed (batch mode)
+  qualityScore?: number;
+  issues?: Array<{ type: string; severity: string; description: string }>;
 }
 
 // SEO Jobs

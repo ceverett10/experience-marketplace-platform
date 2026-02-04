@@ -8,6 +8,9 @@ import type {
   JobResult,
 } from '../types/index.js';
 import { getGA4Client, isGA4Configured } from '../services/ga4-client.js';
+import { circuitBreakers } from '../errors/circuit-breaker.js';
+import { toJobError } from '../errors/index.js';
+import { errorTracking } from '../errors/tracking.js';
 
 /**
  * Analytics Worker
@@ -272,14 +275,18 @@ export async function handleGA4Setup(job: Job<GA4SetupPayload>): Promise<JobResu
       };
     }
 
-    // Initialize GA4 client
+    // Initialize GA4 client with circuit breaker protection
+    const ga4Breaker = circuitBreakers.getBreaker('ga4-api', {
+      failureThreshold: 3,
+      timeout: 120_000,
+    });
     const ga4Client = getGA4Client();
 
     // Get GA4 account to use
     let targetAccountId = accountId;
     if (!targetAccountId) {
       console.log('[GA4 Setup] No account specified, fetching available accounts...');
-      const accounts = await ga4Client.listAccounts();
+      const accounts = await ga4Breaker.execute(() => ga4Client.listAccounts());
 
       if (accounts.length === 0) {
         throw new Error('No GA4 accounts available. Add service account to GA4 with Editor role.');
@@ -293,15 +300,15 @@ export async function handleGA4Setup(job: Job<GA4SetupPayload>): Promise<JobResu
     const domain = site.primaryDomain || `${site.slug}.herokuapp.com`;
     const websiteUrl = `https://${domain}`;
 
-    // Create GA4 property and data stream
+    // Create GA4 property and data stream (protected by circuit breaker)
     console.log(`[GA4 Setup] Creating GA4 property for ${site.name} (${websiteUrl})...`);
-    const result = await ga4Client.setupSiteAnalytics({
+    const result = await ga4Breaker.execute(() => ga4Client.setupSiteAnalytics({
       accountId: targetAccountId,
       siteName: site.name,
       websiteUrl,
       timeZone: 'Europe/London',
       currencyCode: 'GBP',
-    });
+    }));
 
     if (!result.success || !result.measurementId) {
       throw new Error(result.error || 'Failed to create GA4 property');
@@ -337,10 +344,31 @@ export async function handleGA4Setup(job: Job<GA4SetupPayload>): Promise<JobResu
       timestamp: new Date(),
     };
   } catch (error) {
-    console.error('[GA4 Setup] Error:', error);
+    const jobError = toJobError(error);
+    await errorTracking.logError({
+      jobId: job.id || 'unknown',
+      jobType: 'GA4_SETUP',
+      siteId,
+      errorName: jobError.name,
+      errorMessage: jobError.message,
+      errorCategory: jobError.category,
+      errorSeverity: jobError.severity,
+      retryable: jobError.retryable,
+      attemptsMade: job.attemptsMade,
+      context: { accountId },
+      stackTrace: jobError.stack,
+      timestamp: new Date(),
+    });
+    console.error('[GA4 Setup] Error:', jobError.message);
+
+    if (jobError.retryable) {
+      throw new Error(jobError.message);
+    }
+
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: jobError.message,
+      errorCategory: jobError.category,
       timestamp: new Date(),
     };
   }

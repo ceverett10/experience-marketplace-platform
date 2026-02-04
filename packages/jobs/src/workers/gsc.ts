@@ -356,8 +356,14 @@ export async function handleGscSync(job: Job<GscSyncPayload>): Promise<JobResult
       };
     }
 
-    // Fetch data from Google Search Console
-    const gscData = await fetchGscData(primaryDomain.domain, startDate, endDate, dimensions);
+    // Fetch data from Google Search Console (protected by circuit breaker)
+    const gscBreaker = circuitBreakers.getBreaker('gsc-api', {
+      failureThreshold: 3,
+      timeout: 120_000,
+    });
+    const gscData = await gscBreaker.execute(() =>
+      fetchGscData(primaryDomain.domain, startDate, endDate, dimensions)
+    );
 
     // Store performance metrics
     const metricsCreated = await Promise.all(
@@ -410,10 +416,31 @@ export async function handleGscSync(job: Job<GscSyncPayload>): Promise<JobResult
       timestamp: new Date(),
     };
   } catch (error) {
-    console.error('[GSC Sync] Error:', error);
+    const jobError = toJobError(error);
+    await errorTracking.logError({
+      jobId: job.id || 'unknown',
+      jobType: 'GSC_SYNC',
+      siteId,
+      errorName: jobError.name,
+      errorMessage: jobError.message,
+      errorCategory: jobError.category,
+      errorSeverity: jobError.severity,
+      retryable: jobError.retryable,
+      attemptsMade: job.attemptsMade,
+      context: { startDate, endDate },
+      stackTrace: jobError.stack,
+      timestamp: new Date(),
+    });
+    console.error('[GSC Sync] Error:', jobError.message);
+
+    if (jobError.retryable) {
+      throw new Error(jobError.message);
+    }
+
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: jobError.message,
+      errorCategory: jobError.category,
       timestamp: new Date(),
     };
   }

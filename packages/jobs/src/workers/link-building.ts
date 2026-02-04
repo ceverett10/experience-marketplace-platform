@@ -29,6 +29,9 @@ import {
   generateComprehensiveGuide,
   generateInfographicData,
 } from '../services/linkable-assets';
+import { circuitBreakers } from '../errors/circuit-breaker';
+import { toJobError } from '../errors';
+import { errorTracking } from '../errors/tracking';
 
 /**
  * Handle LINK_OPPORTUNITY_SCAN jobs
@@ -56,8 +59,14 @@ export async function handleLinkOpportunityScan(
       };
     }
 
-    // Get our backlink profile first
-    const profile = await getBacklinkProfile(site.primaryDomain);
+    // Get our backlink profile first (protected by circuit breaker)
+    const backlinkBreaker = circuitBreakers.getBreaker('backlink-api', {
+      failureThreshold: 3,
+      timeout: 120_000,
+    });
+    const profile = await backlinkBreaker.execute(() =>
+      getBacklinkProfile(site.primaryDomain!)
+    );
     console.log(
       `[Link Building] Our profile: ${profile.totalBacklinks} backlinks, DA: ${profile.domainAuthority}`
     );
@@ -93,6 +102,16 @@ export async function handleLinkOpportunityScan(
     });
 
     for (const opp of highPriorityOpps) {
+      // Idempotency: skip if a task already exists for this opportunity's domain
+      const existingTask = await prisma.manualTask.findFirst({
+        where: {
+          siteId,
+          category: 'SEO_OPTIMIZATION',
+          title: { contains: opp.targetDomain },
+        },
+      });
+      if (existingTask) continue;
+
       await prisma.manualTask.create({
         data: {
           siteId,
@@ -116,12 +135,32 @@ export async function handleLinkOpportunityScan(
       timestamp: new Date(),
     };
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    console.error(`[Link Building] Opportunity scan failed for site ${siteId}:`, error);
+    const jobError = toJobError(error);
+    await errorTracking.logError({
+      jobId: job.id || 'unknown',
+      jobType: 'LINK_OPPORTUNITY_SCAN',
+      siteId,
+      errorName: jobError.name,
+      errorMessage: jobError.message,
+      errorCategory: jobError.category,
+      errorSeverity: jobError.severity,
+      retryable: jobError.retryable,
+      attemptsMade: job.attemptsMade,
+      context: { competitorDomains },
+      stackTrace: jobError.stack,
+      timestamp: new Date(),
+    });
+    console.error(`[Link Building] Opportunity scan failed for site ${siteId}:`, jobError.message);
+
+    if (jobError.retryable) {
+      throw new Error(jobError.message);
+    }
+
     return {
       success: false,
-      error: message,
-      retryable: true,
+      error: jobError.message,
+      errorCategory: jobError.category,
+      retryable: jobError.retryable,
       timestamp: new Date(),
     };
   }
@@ -160,12 +199,31 @@ export async function handleLinkBacklinkMonitor(
       timestamp: new Date(),
     };
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    console.error(`[Link Building] Backlink monitor failed for site ${siteId}:`, error);
+    const jobError = toJobError(error);
+    await errorTracking.logError({
+      jobId: job.id || 'unknown',
+      jobType: 'LINK_BACKLINK_MONITOR',
+      siteId,
+      errorName: jobError.name,
+      errorMessage: jobError.message,
+      errorCategory: jobError.category,
+      errorSeverity: jobError.severity,
+      retryable: jobError.retryable,
+      attemptsMade: job.attemptsMade,
+      stackTrace: jobError.stack,
+      timestamp: new Date(),
+    });
+    console.error(`[Link Building] Backlink monitor failed for site ${siteId}:`, jobError.message);
+
+    if (jobError.retryable) {
+      throw new Error(jobError.message);
+    }
+
     return {
       success: false,
-      error: message,
-      retryable: true,
+      error: jobError.message,
+      errorCategory: jobError.category,
+      retryable: jobError.retryable,
       timestamp: new Date(),
     };
   }

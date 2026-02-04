@@ -68,8 +68,17 @@ export async function handleSiteCreate(job: Job<SiteCreatePayload>): Promise<Job
       throw new Error(`Opportunity ${opportunityId} not found`);
     }
 
+    // If opportunity already has a site (from a previous partial run), treat as idempotent success
     if (opportunity.siteId) {
-      throw new Error(`Opportunity ${opportunityId} already assigned to a site`);
+      console.log(
+        `[Site Create] Opportunity ${opportunityId} already has site ${opportunity.siteId} — recovering from previous partial run`
+      );
+      return {
+        success: true,
+        message: `Site already created for opportunity (idempotent recovery)`,
+        data: { siteId: opportunity.siteId, recovered: true },
+        timestamp: new Date(),
+      };
     }
 
     // Allow IDENTIFIED, EVALUATED, or ASSIGNED (auto-actioned opportunities get marked ASSIGNED when job is queued)
@@ -156,6 +165,17 @@ export async function handleSiteCreate(job: Job<SiteCreatePayload>): Promise<Job
     );
     console.log(`[Site Create] SEO title: "${seoTitleConfig.defaultTitle}"`);
 
+    // Link opportunity to site immediately after creation (ensures retry idempotency)
+    // If a retry occurs after this point, the siteId check above will catch it
+    await prisma.sEOOpportunity.update({
+      where: { id: opportunityId },
+      data: {
+        siteId: site.id,
+        status: 'ASSIGNED',
+      },
+    });
+    console.log(`[Site Create] Linked opportunity ${opportunityId} to site ${site.id}`);
+
     // 4.1 Generate and store favicon
     try {
       await generateAndStoreFavicon(
@@ -192,16 +212,7 @@ export async function handleSiteCreate(job: Job<SiteCreatePayload>): Promise<Job
     console.log('[Site Create] Creating initial pages...');
     const pages = await createInitialPages(site.id, opportunity);
 
-    // 6. Link opportunity to site
-    await prisma.sEOOpportunity.update({
-      where: { id: opportunityId },
-      data: {
-        siteId: site.id,
-        status: 'ASSIGNED',
-      },
-    });
-
-    console.log(`[Site Create] Linked opportunity ${opportunityId} to site ${site.id}`);
+    // 6. (Opportunity link moved to step 4 above for retry idempotency)
 
     // 7. Queue content generation jobs with brand context
     console.log('[Site Create] Queuing content generation jobs with brand guidelines...');
@@ -289,18 +300,28 @@ export async function handleSiteCreate(job: Job<SiteCreatePayload>): Promise<Job
 
       console.log(`[Site Create] Generated ${blogTopics.length} blog topics`);
 
-      // Create blog pages and queue content generation
+      // Create blog pages and queue content generation (idempotent: skip if page exists)
       for (const topic of blogTopics) {
-        const blogPage = await prisma.page.create({
-          data: {
-            siteId: site.id,
-            title: topic.title,
-            slug: `blog/${topic.slug}`,
-            type: PageType.BLOG,
-            status: PageStatus.DRAFT,
-            metaDescription: `${topic.targetKeyword} - ${brandIdentity.name}`,
-          },
+        const blogSlug = `blog/${topic.slug}`;
+        const existingBlogPage = await prisma.page.findFirst({
+          where: { siteId: site.id, slug: blogSlug },
         });
+        const blogPage =
+          existingBlogPage ||
+          (await prisma.page.create({
+            data: {
+              siteId: site.id,
+              title: topic.title,
+              slug: blogSlug,
+              type: PageType.BLOG,
+              status: PageStatus.DRAFT,
+              metaDescription: `${topic.targetKeyword} - ${brandIdentity.name}`,
+            },
+          }));
+        if (existingBlogPage) {
+          console.log(`[Site Create] Blog page "${blogSlug}" already exists, skipping creation`);
+          continue; // Don't re-queue content generation for existing pages
+        }
 
         // Queue content generation for each blog post
         await addJob('CONTENT_GENERATE', {
@@ -327,19 +348,21 @@ export async function handleSiteCreate(job: Job<SiteCreatePayload>): Promise<Job
 
     const availabilityResult = await checkDomainAvailabilityForSite(suggestedDomain);
 
-    // Create domain record with availability status
-    // Available domains get AVAILABLE status (price stored for manual approval check in admin UI)
-    // Unavailable domains get NOT_AVAILABLE status
-    // Note: Using 'as any' until Prisma client is regenerated with new enum values
-    const domainRecord = await prisma.domain.create({
-      data: {
-        domain: suggestedDomain,
-        status: (availabilityResult.available ? 'AVAILABLE' : 'NOT_AVAILABLE') as any,
-        registrar: 'cloudflare',
-        registrationCost: availabilityResult.price ?? 9.77,
-        siteId: site.id,
-      },
+    // Create domain record with availability status (idempotent: skip if domain exists)
+    const existingDomainRecord = await prisma.domain.findUnique({
+      where: { domain: suggestedDomain },
     });
+    const domainRecord =
+      existingDomainRecord ||
+      (await prisma.domain.create({
+        data: {
+          domain: suggestedDomain,
+          status: (availabilityResult.available ? 'AVAILABLE' : 'NOT_AVAILABLE') as any,
+          registrar: 'cloudflare',
+          registrationCost: availabilityResult.price ?? 9.77,
+          siteId: site.id,
+        },
+      }));
 
     const priceDisplay = availabilityResult.price?.toFixed(2) || 'unknown';
     console.log(
@@ -740,8 +763,16 @@ async function createInitialPages(siteId: string, opportunity: any) {
 
   const createdPages = [];
   for (const pageData of pages) {
-    const page = await prisma.page.create({ data: pageData });
-    createdPages.push(page);
+    // Idempotent: check if page with same siteId+slug already exists
+    const existing = await prisma.page.findFirst({
+      where: { siteId: pageData.siteId, slug: pageData.slug },
+    });
+    if (existing) {
+      createdPages.push(existing);
+    } else {
+      const page = await prisma.page.create({ data: pageData });
+      createdPages.push(page);
+    }
   }
 
   return createdPages;

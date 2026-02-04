@@ -5,12 +5,36 @@
 
 import { prisma, JobType, DomainStatus, SiteStatus } from '@experience-marketplace/database';
 import { addJob } from '../queues/index.js';
+import { acquireLock } from './distributed-lock.js';
+
+// Lock TTL for roadmap processing — 4 minutes (processor runs every 5 minutes)
+const ROADMAP_LOCK_TTL = 4 * 60 * 1000;
 
 /**
  * Process all sites' roadmaps autonomously
- * This is called on a schedule to automatically progress sites through their lifecycle
+ * This is called on a schedule to automatically progress sites through their lifecycle.
+ * Uses a distributed lock to prevent multiple worker instances from processing concurrently.
  */
 export async function processAllSiteRoadmaps(): Promise<{
+  sitesProcessed: number;
+  tasksQueued: number;
+  errors: string[];
+}> {
+  // Acquire distributed lock — only one worker instance runs at a time
+  const releaseLock = await acquireLock('roadmap-processor', ROADMAP_LOCK_TTL);
+  if (!releaseLock) {
+    console.log('[Autonomous Roadmap] Skipping — another instance holds the lock');
+    return { sitesProcessed: 0, tasksQueued: 0, errors: [] };
+  }
+
+  try {
+    return await processAllSiteRoadmapsInner();
+  } finally {
+    await releaseLock();
+  }
+}
+
+async function processAllSiteRoadmapsInner(): Promise<{
   sitesProcessed: number;
   tasksQueued: number;
   errors: string[];
@@ -582,10 +606,15 @@ async function getJobPayload(siteId: string, jobType: JobType): Promise<Record<s
       if (!activeDomain) {
         throw new Error(`Cannot queue GSC_SETUP: no active domain found for site ${siteId}`);
       }
+      if (!activeDomain.cloudflareZoneId) {
+        throw new Error(
+          `Cannot queue GSC_SETUP: domain ${activeDomain.domain} has no Cloudflare zone ID`
+        );
+      }
       return {
         siteId,
         domain: activeDomain.domain,
-        cloudflareZoneId: activeDomain.cloudflareZoneId || '',
+        cloudflareZoneId: activeDomain.cloudflareZoneId,
       };
     }
     case 'GSC_VERIFY': {
@@ -598,10 +627,15 @@ async function getJobPayload(siteId: string, jobType: JobType): Promise<Record<s
       if (!gscDomain) {
         throw new Error(`Cannot queue GSC_VERIFY: no active domain found for site ${siteId}`);
       }
+      if (!gscDomain.cloudflareZoneId) {
+        throw new Error(
+          `Cannot queue GSC_VERIFY: domain ${gscDomain.domain} has no Cloudflare zone ID`
+        );
+      }
       return {
         siteId,
         domain: gscDomain.domain,
-        cloudflareZoneId: gscDomain.cloudflareZoneId || '',
+        cloudflareZoneId: gscDomain.cloudflareZoneId,
       };
     }
     case 'GSC_SYNC':

@@ -44,6 +44,18 @@ vi.mock('../services/pause-control', () => ({
   canExecuteAutonomousOperation: vi.fn().mockResolvedValue({ allowed: true }),
 }));
 
+vi.mock('../errors/tracking', () => ({
+  errorTracking: { logError: vi.fn() },
+}));
+
+vi.mock('../errors/circuit-breaker', () => ({
+  circuitBreakers: {
+    getBreaker: () => ({
+      execute: (fn: () => Promise<unknown>) => fn(),
+    }),
+  },
+}));
+
 import { handleGscVerify, handleGscSetup } from './gsc';
 
 function createMockJob(data: GscSetupPayload): Job<GscSetupPayload> {
@@ -165,17 +177,17 @@ describe('handleGscVerify', () => {
     expect(result.error).toContain('not found');
   });
 
-  it('should handle GSC API errors gracefully', async () => {
+  it('should throw retryable API errors for BullMQ retry', async () => {
     mockPrisma.site.findUnique.mockResolvedValue({
       id: 'site-1',
       gscVerified: false,
     });
     mockGscClient.isVerified.mockRejectedValue(new Error('API rate limit exceeded'));
 
-    const result = await handleGscVerify(createMockJob(jobData));
-
-    expect(result.success).toBe(false);
-    expect(result.error).toBe('API rate limit exceeded');
+    // Retryable errors are now thrown so BullMQ can retry the job
+    await expect(handleGscVerify(createMockJob(jobData))).rejects.toThrow(
+      'Rate limit exceeded'
+    );
   });
 });
 

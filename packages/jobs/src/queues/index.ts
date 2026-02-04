@@ -89,12 +89,27 @@ class QueueRegistry {
    */
   async addJob(jobType: JobType, payload: JobPayload, options?: JobOptions): Promise<string> {
     const queueName = JOB_TYPE_TO_QUEUE[jobType];
+    if (!queueName) {
+      throw new Error(`Unknown job type: ${jobType} — no queue mapping found`);
+    }
     const queue = this.getQueue(queueName);
 
     // Extract siteId from payload if available.
     // 'all' is a valid payload sentinel but not a valid FK — treat it as null for the DB record.
     const rawSiteId = (payload as { siteId?: string }).siteId;
     const siteId = rawSiteId && rawSiteId !== 'all' ? rawSiteId : null;
+
+    // Payload validation: most jobs require a siteId
+    // Only scheduled aggregate jobs (siteId='all') and domain-specific jobs (domainId) may omit it
+    const siteOptionalTypes: string[] = ['DOMAIN_VERIFY', 'SSL_PROVISION'];
+    if (!siteId && !siteOptionalTypes.includes(jobType)) {
+      const hasDomainId = !!(payload as { domainId?: string }).domainId;
+      if (!hasDomainId) {
+        throw new Error(
+          `Payload validation failed for ${jobType}: missing siteId (and no domainId fallback)`
+        );
+      }
+    }
 
     // Create database record for job tracking
     const dbJob = await prisma.job.create({

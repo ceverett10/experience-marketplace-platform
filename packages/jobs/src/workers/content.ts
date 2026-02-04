@@ -622,21 +622,40 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
       });
       console.log(`[Content Generate] Updated existing page ${pageId} with content`);
     } else {
-      // Create new page for the content
-      page = await prisma.page.create({
-        data: {
-          siteId,
-          slug: result.content.slug,
-          type: contentType.toUpperCase() as any,
-          title: result.content.title,
-          metaTitle: optimizedMetaTitle,
-          metaDescription: optimizedMetaDescription,
-          priority: sitemapPriority,
-          contentId: content.id,
-          status: newStatus as any,
-        },
+      // Check if page with same slug already exists (idempotency on retry)
+      const existingPage = await prisma.page.findFirst({
+        where: { siteId, slug: result.content.slug },
       });
-      console.log(`[Content Generate] Created new page ${page.id}`);
+
+      if (existingPage) {
+        // Update existing page instead of creating duplicate
+        page = await prisma.page.update({
+          where: { id: existingPage.id },
+          data: {
+            contentId: content.id,
+            metaTitle: optimizedMetaTitle,
+            metaDescription: optimizedMetaDescription,
+            priority: sitemapPriority,
+            status: newStatus as any,
+          },
+        });
+        console.log(`[Content Generate] Updated existing page ${page.id} (slug: ${result.content.slug})`);
+      } else {
+        page = await prisma.page.create({
+          data: {
+            siteId,
+            slug: result.content.slug,
+            type: contentType.toUpperCase() as any,
+            title: result.content.title,
+            metaTitle: optimizedMetaTitle,
+            metaDescription: optimizedMetaDescription,
+            priority: sitemapPriority,
+            contentId: content.id,
+            status: newStatus as any,
+          },
+        });
+        console.log(`[Content Generate] Created new page ${page.id}`);
+      }
     }
 
     // Update opportunity status if provided
@@ -713,6 +732,12 @@ export async function handleContentOptimize(job: Job<ContentOptimizePayload>): P
   const { siteId, pageId, contentId, reason, performanceData } = job.data;
 
   try {
+    // Batch mode: when no contentId is provided (roadmap launch pipeline),
+    // optimize all content for the site — enhance internal links and structured data.
+    if (!contentId) {
+      return await handleContentOptimizeBatch(siteId);
+    }
+
     console.log(`[Content Optimize] Optimizing content ${contentId} for reason: ${reason}`);
 
     // Check if autonomous content optimization is allowed
@@ -841,13 +866,15 @@ export async function handleContentOptimize(job: Job<ContentOptimizePayload>): P
     });
 
     // Update page to use new content
-    await prisma.page.update({
-      where: { id: pageId },
-      data: {
-        contentId: optimizedContent.id,
-        status: 'PUBLISHED',
-      },
-    });
+    if (pageId) {
+      await prisma.page.update({
+        where: { id: pageId },
+        data: {
+          contentId: optimizedContent.id,
+          status: 'PUBLISHED',
+        },
+      });
+    }
 
     console.log(`[Content Optimize] Success! Created optimized version ${optimizedContent.id}`);
 
