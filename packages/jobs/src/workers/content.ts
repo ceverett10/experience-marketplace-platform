@@ -725,8 +725,140 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
 }
 
 /**
+ * Batch content optimization for the launch pipeline.
+ * Called when CONTENT_OPTIMIZE runs without a specific contentId (roadmap mode).
+ * Enhances ALL generated content for the site:
+ *  - Refreshes internal links (now that all pages exist, cross-linking is more effective)
+ *  - Updates structured data
+ *  - Optimizes meta titles/descriptions with full site context
+ * This is a lightweight pass — no AI regeneration. The content was already quality-checked
+ * during CONTENT_GENERATE; this step adds cross-page SEO enhancements.
+ */
+async function handleContentOptimizeBatch(siteId: string): Promise<JobResult> {
+  console.log(`[Content Optimize] Batch mode: optimizing all content for site ${siteId}`);
+
+  const site = await prisma.site.findUnique({ where: { id: siteId } });
+  if (!site) {
+    return { success: false, error: `Site ${siteId} not found`, timestamp: new Date() };
+  }
+
+  // Find all pages with AI-generated content
+  const pages = await prisma.page.findMany({
+    where: { siteId },
+    include: {
+      content: {
+        include: { opportunity: true },
+      },
+    },
+  });
+
+  const pagesWithContent = pages.filter((p) => p.content?.isAiGenerated);
+  if (pagesWithContent.length === 0) {
+    return {
+      success: false,
+      error: 'No AI-generated content found to optimize',
+      timestamp: new Date(),
+    };
+  }
+
+  const siteName = site.name;
+  const siteUrl = site.primaryDomain ? `https://${site.primaryDomain}` : '';
+  let optimizedCount = 0;
+
+  for (const page of pagesWithContent) {
+    const content = page.content!;
+    const contentType = page.type.toLowerCase();
+    const targetKeyword = content.opportunity?.keyword || page.title || '';
+
+    try {
+      // Enhance internal links now that all pages exist for the site
+      let enhancedBody = content.body;
+      if (contentType !== 'about') {
+        const linkSuggestion = await suggestInternalLinks({
+          siteId,
+          content: content.body,
+          contentType: contentType as 'blog' | 'destination' | 'category' | 'experience',
+          targetKeyword,
+          secondaryKeywords: [],
+          destination: content.opportunity?.location || undefined,
+          category: content.opportunity?.niche || undefined,
+        });
+        if (linkSuggestion.links.length > 0) {
+          enhancedBody = linkSuggestion.contentWithLinks;
+          console.log(
+            `[Content Optimize] Page "${page.slug}": added ${linkSuggestion.links.length} internal links`
+          );
+        }
+      }
+
+      // Refresh structured data with full site context
+      const structuredData = generateStructuredDataForContent({
+        contentType,
+        siteName,
+        siteUrl,
+        title: page.title,
+        description: targetKeyword,
+        content: enhancedBody,
+        destination: content.opportunity?.location || undefined,
+        datePublished: content.createdAt?.toISOString() || new Date().toISOString(),
+      });
+
+      // Update content body and structured data in place (no new version — this is enhancement, not rewrite)
+      await prisma.content.update({
+        where: { id: content.id },
+        data: {
+          body: enhancedBody,
+          structuredData: structuredData as any,
+        },
+      });
+
+      // Re-optimize meta title and description with full site context
+      const optimizedMetaDescription = generateOptimizedMetaDescription({
+        aiMetaDescription: page.metaDescription || undefined,
+        contentBody: enhancedBody,
+        targetKeyword,
+        contentType,
+        siteName,
+      });
+      const optimizedMetaTitle = generateOptimizedMetaTitle({
+        aiTitle: page.title,
+        targetKeyword,
+        siteName,
+        contentType,
+      });
+
+      await prisma.page.update({
+        where: { id: page.id },
+        data: {
+          metaTitle: optimizedMetaTitle,
+          metaDescription: optimizedMetaDescription,
+          status: 'PUBLISHED',
+        },
+      });
+
+      optimizedCount++;
+    } catch (pageError) {
+      console.error(`[Content Optimize] Error optimizing page "${page.slug}":`, pageError);
+      // Continue with other pages — don't fail the whole batch for one page
+    }
+  }
+
+  console.log(
+    `[Content Optimize] Batch complete: optimized ${optimizedCount}/${pagesWithContent.length} pages`
+  );
+
+  return {
+    success: true,
+    message: `Batch optimized ${optimizedCount} page(s) for SEO`,
+    data: { optimizedCount, totalPages: pagesWithContent.length },
+    timestamp: new Date(),
+  };
+}
+
+/**
  * Content Optimization Worker
- * Rewrites underperforming content based on GSC data
+ * Rewrites underperforming content based on GSC data.
+ * In batch mode (no contentId), enhances all content for the site — used by the launch pipeline.
  */
 export async function handleContentOptimize(job: Job<ContentOptimizePayload>): Promise<JobResult> {
   const { siteId, pageId, contentId, reason, performanceData } = job.data;
@@ -932,13 +1064,89 @@ export async function handleContentOptimize(job: Job<ContentOptimizePayload>): P
 }
 
 /**
+ * Batch content review for the launch pipeline.
+ * Called when CONTENT_REVIEW runs without a specific contentId (roadmap mode).
+ * Reviews ALL generated content for the site:
+ *  - Auto-approves content with quality score >= 70 (sets page status to PUBLISHED)
+ *  - Flags low-quality content for human review
+ */
+async function handleContentReviewBatch(siteId: string): Promise<JobResult> {
+  console.log(`[Content Review] Batch mode: reviewing all content for site ${siteId}`);
+
+  const pages = await prisma.page.findMany({
+    where: { siteId },
+    include: {
+      content: true,
+    },
+  });
+
+  const pagesWithContent = pages.filter((p) => p.content?.isAiGenerated);
+  if (pagesWithContent.length === 0) {
+    return {
+      success: false,
+      error: 'No AI-generated content found to review',
+      timestamp: new Date(),
+    };
+  }
+
+  let approvedCount = 0;
+  let flaggedCount = 0;
+  const QUALITY_THRESHOLD = 70;
+
+  for (const page of pagesWithContent) {
+    const content = page.content!;
+    const score = content.qualityScore || 0;
+
+    if (score >= QUALITY_THRESHOLD) {
+      // Auto-approve — content meets quality threshold
+      await prisma.page.update({
+        where: { id: page.id },
+        data: { status: 'PUBLISHED' },
+      });
+      approvedCount++;
+      console.log(
+        `[Content Review] Page "${page.slug}" auto-approved (score: ${score})`
+      );
+    } else {
+      // Flag for human review
+      await prisma.page.update({
+        where: { id: page.id },
+        data: { status: 'REVIEW' },
+      });
+      flaggedCount++;
+      console.log(
+        `[Content Review] Page "${page.slug}" flagged for review (score: ${score})`
+      );
+    }
+  }
+
+  console.log(
+    `[Content Review] Batch complete: ${approvedCount} approved, ${flaggedCount} flagged`
+  );
+
+  return {
+    success: true,
+    message: `Reviewed ${pagesWithContent.length} page(s): ${approvedCount} approved, ${flaggedCount} flagged`,
+    data: { approvedCount, flaggedCount, totalPages: pagesWithContent.length },
+    timestamp: new Date(),
+  };
+}
+
+/**
  * Content Review Worker
- * Handles content that failed quality gate multiple times
+ * Handles content that failed quality gate multiple times.
+ * In batch mode (no contentId), reviews all content for the site — used by the launch pipeline.
  */
 export async function handleContentReview(job: Job<ContentReviewPayload>): Promise<JobResult> {
   const { siteId, contentId, qualityScore, issues } = job.data;
 
   try {
+    // Batch mode: when no contentId is provided (roadmap launch pipeline),
+    // review all content for the site.
+    if (!contentId) {
+      return await handleContentReviewBatch(siteId);
+    }
+
     console.log(`[Content Review] Flagging content ${contentId} for human review`);
 
     // Update content status to review
@@ -957,7 +1165,7 @@ export async function handleContentReview(job: Job<ContentReviewPayload>): Promi
 
     // TODO: Send notification to admin (Slack, email, etc.)
     console.log(
-      `[Content Review] Flagged for review - Score: ${qualityScore}, Issues: ${issues.length}`
+      `[Content Review] Flagged for review - Score: ${qualityScore}, Issues: ${issues?.length || 0}`
     );
 
     return {
@@ -966,7 +1174,7 @@ export async function handleContentReview(job: Job<ContentReviewPayload>): Promi
       data: {
         contentId,
         qualityScore,
-        issueCount: issues.length,
+        issueCount: issues?.length || 0,
       },
       timestamp: new Date(),
     };

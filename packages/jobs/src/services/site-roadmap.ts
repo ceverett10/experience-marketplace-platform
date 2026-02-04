@@ -566,9 +566,11 @@ async function getJobPayload(siteId: string, jobType: JobType): Promise<Record<s
     case 'CONTENT_GENERATE':
       return { ...basePayload, contentType: 'destination' };
     case 'CONTENT_OPTIMIZE':
-      return { ...basePayload, optimizationType: 'seo' };
+      // No contentId → handler runs in batch mode (optimizes all content for site)
+      return basePayload;
     case 'CONTENT_REVIEW':
-      return { ...basePayload, reviewType: 'quality' };
+      // No contentId → handler runs in batch mode (reviews all content for site)
+      return basePayload;
     case 'DOMAIN_REGISTER':
       return { ...basePayload, registrar: 'cloudflare', autoRenew: true };
     case 'DOMAIN_VERIFY': {
