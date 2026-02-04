@@ -35,6 +35,15 @@ export class DataForSEOClient {
   private readonly baseUrl = 'https://api.dataforseo.com/v3';
   private readonly auth: string;
 
+  /**
+   * Rate limiter for Google Ads API endpoints (12 requests/minute limit from Google).
+   * We use 10/min to leave a safety margin.
+   * Tracks timestamps of recent requests in a sliding window.
+   */
+  private static googleAdsRequestTimestamps: number[] = [];
+  private static readonly GOOGLE_ADS_RATE_LIMIT = 10; // requests per minute (2 below the 12/min hard limit)
+  private static readonly GOOGLE_ADS_WINDOW_MS = 60_000; // 1 minute
+
   constructor(credentials?: DataForSEOCredentials) {
     const login = credentials?.login || process.env['DATAFORSEO_API_LOGIN'];
     const password = credentials?.password || process.env['DATAFORSEO_API_PASSWORD'];
@@ -379,6 +388,41 @@ export class DataForSEOClient {
   }
 
   /**
+   * Enforce rate limit for Google Ads API endpoints.
+   * Waits if necessary to stay under 10 requests/minute.
+   */
+  private async enforceGoogleAdsRateLimit(endpoint: string): Promise<void> {
+    if (!endpoint.includes('/google_ads/')) return;
+
+    const now = Date.now();
+    const windowStart = now - DataForSEOClient.GOOGLE_ADS_WINDOW_MS;
+
+    // Prune timestamps outside the sliding window
+    DataForSEOClient.googleAdsRequestTimestamps =
+      DataForSEOClient.googleAdsRequestTimestamps.filter((t) => t > windowStart);
+
+    // If at the limit, wait until the oldest request falls out of the window
+    if (
+      DataForSEOClient.googleAdsRequestTimestamps.length >= DataForSEOClient.GOOGLE_ADS_RATE_LIMIT
+    ) {
+      const oldestInWindow = DataForSEOClient.googleAdsRequestTimestamps[0] ?? now;
+      const waitMs = oldestInWindow + DataForSEOClient.GOOGLE_ADS_WINDOW_MS - now + 100; // +100ms buffer
+      if (waitMs > 0) {
+        console.log(`[DataForSEO] Rate limit: waiting ${(waitMs / 1000).toFixed(1)}s before next Google Ads request`);
+        await new Promise((resolve) => setTimeout(resolve, waitMs));
+      }
+      // Prune again after waiting
+      DataForSEOClient.googleAdsRequestTimestamps =
+        DataForSEOClient.googleAdsRequestTimestamps.filter(
+          (t) => t > Date.now() - DataForSEOClient.GOOGLE_ADS_WINDOW_MS
+        );
+    }
+
+    // Record this request
+    DataForSEOClient.googleAdsRequestTimestamps.push(Date.now());
+  }
+
+  /**
    * Make authenticated request to DataForSEO API
    */
   private async makeRequest(
@@ -388,6 +432,9 @@ export class DataForSEOClient {
       body?: string;
     }
   ): Promise<any> {
+    // Enforce Google Ads rate limit (12 req/min hard limit from Google)
+    await this.enforceGoogleAdsRateLimit(endpoint);
+
     const url = `${this.baseUrl}${endpoint}`;
 
     const response = await fetch(url, {
