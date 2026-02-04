@@ -561,7 +561,7 @@ Return ONLY a valid JSON array with this structure:
   console.log('[AI Niche Discovery] Received AI response, parsing suggestions...');
 
   // Extract JSON from response (handle markdown fences and truncation)
-  let cleanedNiche = responseText.replace(/```(?:json)?\s*/g, '').replace(/```\s*/g, '');
+  const cleanedNiche = responseText.replace(/```(?:json)?\s*/g, '').replace(/```\s*/g, '');
   let jsonMatch = cleanedNiche.match(/\[[\s\S]*\]/);
 
   if (!jsonMatch) {
@@ -811,7 +811,7 @@ async function generateAISeeds(inventoryLandscape: InventoryLandscape): Promise<
   }
 
   // Strip markdown fences if present
-  let cleaned = responseText.replace(/```(?:json)?\s*/g, '').replace(/```\s*/g, '');
+  const cleaned = responseText.replace(/```(?:json)?\s*/g, '').replace(/```\s*/g, '');
 
   // Try to extract JSON array
   let jsonMatch = cleaned.match(/\[[\s\S]*\]/);

@@ -405,7 +405,7 @@ async function generateRefinedSuggestions(
 
   // Parse JSON response - handle markdown fences and truncated output
   const responseText = data.content[0].text;
-  let cleanedResponse = responseText.replace(/```(?:json)?\s*/g, '').replace(/```\s*/g, '');
+  const cleanedResponse = responseText.replace(/```(?:json)?\s*/g, '').replace(/```\s*/g, '');
   let jsonMatch = cleanedResponse.match(/\[[\s\S]*\]/);
 
   if (!jsonMatch) {
