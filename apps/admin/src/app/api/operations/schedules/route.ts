@@ -2,11 +2,11 @@ export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getScheduledJobs, addJob } from '@experience-marketplace/jobs';
+import { getScheduledJobs, getNextCronRun, addJob } from '@experience-marketplace/jobs';
 
 /**
  * GET /api/operations/schedules
- * Returns all scheduled jobs with execution history
+ * Returns all scheduled jobs with execution history and next run times
  */
 export async function GET(): Promise<NextResponse> {
   try {
@@ -15,32 +15,41 @@ export async function GET(): Promise<NextResponse> {
     // For each scheduled job, get execution history
     const jobsWithHistory = await Promise.all(
       scheduledJobs.map(async (sj) => {
-        // Handle "SEO_ANALYZE (deep)" style names
+        // Handle "SEO_ANALYZE (deep)" style names and non-DB types
         const jobType = sj.jobType.replace(' (deep)', '');
+        const isDbTracked = jobType !== 'AUTONOMOUS_ROADMAP' && jobType !== 'WEEKLY_BLOG_GENERATE';
 
-        // Get last 10 executions of this job type
-        const executions = await prisma.job.findMany({
-          where: { type: jobType as any },
-          select: {
-            id: true,
-            status: true,
-            error: true,
-            attempts: true,
-            createdAt: true,
-            startedAt: true,
-            completedAt: true,
-            site: { select: { name: true } },
-          },
-          orderBy: { createdAt: 'desc' },
-          take: 10,
-        });
+        let executions: any[] = [];
+        if (isDbTracked) {
+          try {
+            executions = await prisma.job.findMany({
+              where: { type: jobType as any },
+              select: {
+                id: true,
+                status: true,
+                error: true,
+                attempts: true,
+                createdAt: true,
+                startedAt: true,
+                completedAt: true,
+                site: { select: { name: true } },
+              },
+              orderBy: { createdAt: 'desc' },
+              take: 10,
+            });
+          } catch {
+            // Job type may not exist in DB yet, that's ok
+          }
+        }
 
         const lastExecution = executions[0] || null;
+        const nextRun = getNextCronRun(sj.schedule);
 
         return {
           jobType: sj.jobType,
           schedule: sj.schedule,
           description: sj.description,
+          nextRun: nextRun.toISOString(),
           lastExecution: lastExecution
             ? {
                 id: lastExecution.id,
@@ -95,13 +104,24 @@ export async function POST(request: Request): Promise<NextResponse> {
       GSC_SYNC: { siteId: 'all', dimensions: ['query', 'page', 'country', 'device'] },
       SEO_OPPORTUNITY_SCAN: { forceRescan: false },
       SEO_ANALYZE: { siteId: 'all', fullSiteAudit: false, triggerOptimizations: true },
+      SEO_AUTO_OPTIMIZE: { siteId: 'all', scope: 'all' },
       METRICS_AGGREGATE: { aggregationType: 'daily' },
       PERFORMANCE_REPORT: { reportType: 'weekly' },
       ABTEST_REBALANCE: { abTestId: 'all', algorithm: 'thompson_sampling' },
+      LINK_OPPORTUNITY_SCAN: { siteId: 'all' },
+      LINK_BACKLINK_MONITOR: { siteId: 'all' },
     };
 
     // Clean job type name (remove " (deep)" suffix)
     const cleanType = jobType.replace(' (deep)', '');
+
+    // Non-triggerable types
+    if (cleanType === 'AUTONOMOUS_ROADMAP' || cleanType === 'WEEKLY_BLOG_GENERATE') {
+      return NextResponse.json(
+        { error: `${jobType} runs automatically and cannot be manually triggered from here` },
+        { status: 400 }
+      );
+    }
 
     const payload = defaultPayloads[cleanType];
     if (!payload) {

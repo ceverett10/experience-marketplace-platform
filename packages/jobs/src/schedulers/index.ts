@@ -5,6 +5,50 @@ import { generateWeeklyBlogPostsForAllSites } from '../services/weekly-blog-gene
 let weeklyBlogInterval: NodeJS.Timeout | null = null;
 
 /**
+ * Calculate the next run time for a cron expression.
+ * Supports standard 5-field cron: minute hour dayOfMonth month dayOfWeek
+ */
+export function getNextCronRun(cron: string): Date {
+  const parts = cron.split(' ');
+  if (parts.length !== 5) return new Date();
+
+  const [minuteExpr, hourExpr, , , dowExpr] = parts;
+  const now = new Date();
+
+  // Parse which minutes are valid
+  function parseField(expr: string, max: number): number[] {
+    if (expr === '*') return Array.from({ length: max }, (_, i) => i);
+    if (expr!.startsWith('*/')) {
+      const step = parseInt(expr!.slice(2));
+      return Array.from({ length: Math.ceil(max / step) }, (_, i) => i * step);
+    }
+    return expr!.split(',').map((v) => parseInt(v));
+  }
+
+  const validMinutes = parseField(minuteExpr!, 60);
+  const validHours = parseField(hourExpr!, 24);
+  const validDows = dowExpr === '*' ? [0, 1, 2, 3, 4, 5, 6] : parseField(dowExpr!, 7);
+
+  // Start from next minute and scan forward (max 8 days)
+  const candidate = new Date(now);
+  candidate.setSeconds(0, 0);
+  candidate.setMinutes(candidate.getMinutes() + 1);
+
+  for (let i = 0; i < 8 * 24 * 60; i++) {
+    if (
+      validDows.includes(candidate.getDay()) &&
+      validHours.includes(candidate.getHours()) &&
+      validMinutes.includes(candidate.getMinutes())
+    ) {
+      return candidate;
+    }
+    candidate.setMinutes(candidate.getMinutes() + 1);
+  }
+
+  return now; // fallback
+}
+
+/**
  * Initialize scheduled/recurring jobs
  * These jobs run automatically on a schedule
  */
@@ -102,6 +146,26 @@ export async function initializeScheduledJobs(): Promise<void> {
   );
   console.log('[Scheduler] ✓ A/B Test Rebalancing - Every hour');
 
+  // Link Building - Backlink Monitor - Weekly on Wednesdays at 3 AM
+  await scheduleJob(
+    'LINK_BACKLINK_MONITOR' as any,
+    {
+      siteId: 'all',
+    },
+    '0 3 * * 3' // Wednesdays at 3 AM
+  );
+  console.log('[Scheduler] ✓ Backlink Monitor - Wednesdays at 3 AM');
+
+  // Link Building - Opportunity Scan - Weekly on Tuesdays at 2 AM
+  await scheduleJob(
+    'LINK_OPPORTUNITY_SCAN' as any,
+    {
+      siteId: 'all',
+    },
+    '0 2 * * 2' // Tuesdays at 2 AM
+  );
+  console.log('[Scheduler] ✓ Link Opportunity Scan - Tuesdays at 2 AM');
+
   // Weekly Blog Generation - Mondays and Thursdays at 4 AM
   // Uses setInterval with cron-like scheduling since it doesn't need job queue tracking
   initializeWeeklyBlogSchedule();
@@ -164,6 +228,8 @@ export async function removeAllScheduledJobs(): Promise<void> {
   await queueRegistry.removeRepeatableJob('METRICS_AGGREGATE', '0 1 * * *');
   await queueRegistry.removeRepeatableJob('PERFORMANCE_REPORT', '0 9 * * 1');
   await queueRegistry.removeRepeatableJob('ABTEST_REBALANCE', '0 * * * *');
+  await queueRegistry.removeRepeatableJob('LINK_BACKLINK_MONITOR' as any, '0 3 * * 3');
+  await queueRegistry.removeRepeatableJob('LINK_OPPORTUNITY_SCAN' as any, '0 2 * * 2');
 
   // Clear weekly blog interval
   if (weeklyBlogInterval) {
@@ -184,49 +250,64 @@ export function getScheduledJobs(): Array<{
 }> {
   return [
     {
-      jobType: 'GSC_SYNC',
-      schedule: '0 */6 * * *',
-      description: 'Google Search Console data sync - Every 6 hours',
+      jobType: 'METRICS_AGGREGATE',
+      schedule: '0 1 * * *',
+      description: 'Aggregate daily performance metrics and detect issues',
     },
     {
       jobType: 'SEO_OPPORTUNITY_SCAN',
       schedule: '0 2 * * *',
-      description: 'SEO opportunity identification - Daily at 2 AM',
+      description: 'Scan for new SEO opportunities across all sites',
     },
     {
       jobType: 'SEO_ANALYZE',
       schedule: '0 3 * * *',
-      description: 'SEO health audit with auto-optimization - Daily at 3 AM',
-    },
-    {
-      jobType: 'SEO_ANALYZE (deep)',
-      schedule: '0 5 * * 0',
-      description: 'Comprehensive SEO audit - Sundays at 5 AM',
-    },
-    {
-      jobType: 'SEO_AUTO_OPTIMIZE',
-      schedule: '0 6 * * 0',
-      description: 'Automatic SEO fixes (metadata, structured data, etc.) - Sundays at 6 AM',
-    },
-    {
-      jobType: 'METRICS_AGGREGATE',
-      schedule: '0 1 * * *',
-      description: 'Daily metrics aggregation - Daily at 1 AM',
-    },
-    {
-      jobType: 'PERFORMANCE_REPORT',
-      schedule: '0 9 * * 1',
-      description: 'Weekly performance report - Mondays at 9 AM',
-    },
-    {
-      jobType: 'ABTEST_REBALANCE',
-      schedule: '0 * * * *',
-      description: 'A/B test traffic rebalancing - Every hour',
+      description: 'Daily SEO health audit with auto-optimization',
     },
     {
       jobType: 'WEEKLY_BLOG_GENERATE',
       schedule: '0 4 * * 1,4',
-      description: 'Weekly blog post generation - Mondays and Thursdays at 4 AM',
+      description: 'Generate 3-4 blog posts per site for authority building',
+    },
+    {
+      jobType: 'SEO_ANALYZE (deep)',
+      schedule: '0 5 * * 0',
+      description: 'Comprehensive full-site SEO audit',
+    },
+    {
+      jobType: 'SEO_AUTO_OPTIMIZE',
+      schedule: '0 6 * * 0',
+      description: 'Auto-fix metadata, structured data, and thin content',
+    },
+    {
+      jobType: 'GSC_SYNC',
+      schedule: '0 */6 * * *',
+      description: 'Sync Google Search Console data for all sites',
+    },
+    {
+      jobType: 'PERFORMANCE_REPORT',
+      schedule: '0 9 * * 1',
+      description: 'Generate weekly performance report',
+    },
+    {
+      jobType: 'LINK_OPPORTUNITY_SCAN',
+      schedule: '0 2 * * 2',
+      description: 'Scan competitor backlinks for link building opportunities',
+    },
+    {
+      jobType: 'LINK_BACKLINK_MONITOR',
+      schedule: '0 3 * * 3',
+      description: 'Monitor existing backlinks for lost or broken links',
+    },
+    {
+      jobType: 'ABTEST_REBALANCE',
+      schedule: '0 * * * *',
+      description: 'Rebalance A/B test traffic using Thompson sampling',
+    },
+    {
+      jobType: 'AUTONOMOUS_ROADMAP',
+      schedule: '*/5 * * * *',
+      description: 'Process site roadmaps and queue next lifecycle tasks',
     },
   ];
 }

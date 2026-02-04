@@ -16,6 +16,7 @@ interface ScheduledJob {
   jobType: string;
   schedule: string;
   description: string;
+  nextRun: string;
   lastExecution: {
     id: string;
     status: string;
@@ -43,6 +44,15 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(diff / 86400000)}d ago`;
 }
 
+function timeUntil(dateStr: string): string {
+  const diff = new Date(dateStr).getTime() - Date.now();
+  if (diff < 0) return 'now';
+  if (diff < 60000) return 'in <1m';
+  if (diff < 3600000) return `in ${Math.floor(diff / 60000)}m`;
+  if (diff < 86400000) return `in ${Math.floor(diff / 3600000)}h`;
+  return `in ${Math.floor(diff / 86400000)}d`;
+}
+
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleString();
 }
@@ -55,13 +65,18 @@ function cronToHuman(cron: string): string {
   if (parts.length !== 5) return cron;
   const [minute, hour, dayOfMonth, , dayOfWeek] = parts;
 
+  if (minute?.startsWith('*/')) return `Every ${minute.replace('*/', '')} minutes`;
   if (hour === '*' && minute === '0') return 'Every hour';
   if (hour?.startsWith('*/')) return `Every ${hour.replace('*/', '')} hours`;
 
   const dayNames: Record<string, string> = {
     '0': 'Sundays',
     '1': 'Mondays',
+    '2': 'Tuesdays',
+    '3': 'Wednesdays',
     '4': 'Thursdays',
+    '5': 'Fridays',
+    '6': 'Saturdays',
     '1,4': 'Mon & Thu',
   };
 
@@ -76,6 +91,8 @@ function cronToHuman(cron: string): string {
 
   return `Daily at ${timeStr}`;
 }
+
+const NON_TRIGGERABLE = ['AUTONOMOUS_ROADMAP', 'WEEKLY_BLOG_GENERATE'];
 
 export default function ScheduledJobsPage() {
   const [schedules, setSchedules] = useState<ScheduledJob[]>([]);
@@ -114,7 +131,6 @@ export default function ScheduledJobsPage() {
       });
       const data = await response.json();
       if (data.success) {
-        // Refresh to show the new job
         const res = await fetch(`${basePath}/api/operations/schedules`);
         const refreshed = await res.json();
         setSchedules(refreshed.schedules || []);
@@ -155,28 +171,15 @@ export default function ScheduledJobsPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50">
-                  <th className="px-4 py-3">
-                    <div className="h-3 w-8 bg-slate-200 rounded animate-pulse" />
-                  </th>
-                  <th className="px-4 py-3">
-                    <div className="h-3 w-16 bg-slate-200 rounded animate-pulse" />
-                  </th>
-                  <th className="px-4 py-3">
-                    <div className="h-3 w-16 bg-slate-200 rounded animate-pulse" />
-                  </th>
-                  <th className="px-4 py-3">
-                    <div className="h-3 w-12 bg-slate-200 rounded animate-pulse" />
-                  </th>
-                  <th className="px-4 py-3">
-                    <div className="h-3 w-16 bg-slate-200 rounded animate-pulse" />
-                  </th>
-                  <th className="px-4 py-3">
-                    <div className="h-3 w-12 bg-slate-200 rounded animate-pulse" />
-                  </th>
+                  {Array.from({ length: 7 }).map((_, i) => (
+                    <th key={i} className="px-4 py-3">
+                      <div className="h-3 w-16 bg-slate-200 rounded animate-pulse" />
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {Array.from({ length: 6 }).map((_, i) => (
+                {Array.from({ length: 12 }).map((_, i) => (
                   <tr key={i} className="animate-pulse">
                     <td className="px-4 py-4">
                       <div className="h-4 w-32 bg-slate-200 rounded mb-1" />
@@ -185,6 +188,9 @@ export default function ScheduledJobsPage() {
                     <td className="px-4 py-4">
                       <div className="h-4 w-24 bg-slate-200 rounded mb-1" />
                       <div className="h-3 w-20 bg-slate-100 rounded" />
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="h-4 w-16 bg-slate-200 rounded" />
                     </td>
                     <td className="px-4 py-4">
                       <div className="h-4 w-16 bg-slate-200 rounded" />
@@ -214,7 +220,7 @@ export default function ScheduledJobsPage() {
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Scheduled Jobs</h1>
         <p className="text-slate-500 mt-1">
-          Monitor automated cron jobs and trigger manual executions
+          All autonomous processes that keep the platform running
         </p>
       </div>
 
@@ -265,6 +271,9 @@ export default function ScheduledJobsPage() {
                   Schedule
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                  Next Run
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">
                   Last Run
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">
@@ -279,125 +288,154 @@ export default function ScheduledJobsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {schedules.map((sj) => (
-                <React.Fragment key={sj.jobType}>
-                  <tr
-                    className={`hover:bg-slate-50 cursor-pointer transition-colors ${expandedJob === sj.jobType ? 'bg-sky-50' : ''}`}
-                    onClick={() => setExpandedJob(expandedJob === sj.jobType ? null : sj.jobType)}
-                  >
-                    <td className="px-4 py-4">
-                      <div className="text-sm font-medium text-slate-900">
-                        {sj.jobType.replace(/_/g, ' ')}
-                      </div>
-                      <div className="text-xs text-slate-500 mt-0.5">{sj.description}</div>
-                    </td>
-                    <td className="px-4 py-4">
-                      <div className="text-sm text-slate-900">{cronToHuman(sj.schedule)}</div>
-                      <div className="text-xs text-slate-400 font-mono">{sj.schedule}</div>
-                    </td>
-                    <td className="px-4 py-4 text-sm text-slate-600">
-                      {sj.lastExecution ? timeAgo(sj.lastExecution.createdAt) : 'Never'}
-                    </td>
-                    <td className="px-4 py-4">
-                      {sj.lastExecution ? (
-                        <span
-                          className={`text-xs px-2 py-1 rounded font-medium ${statusColors[sj.lastExecution.status] || ''}`}
-                        >
-                          {sj.lastExecution.status}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-slate-400">-</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-4 text-sm text-slate-600">
-                      {formatDuration(sj.lastExecution?.durationMs ?? null)}
-                    </td>
-                    <td className="px-4 py-4">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          triggerJob(sj.jobType);
-                        }}
-                        disabled={triggerLoading !== null}
-                        className="px-3 py-1.5 text-xs bg-sky-600 hover:bg-sky-700 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-1.5"
-                      >
-                        {triggerLoading === sj.jobType && (
-                          <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none">
-                            <circle
-                              className="opacity-25"
-                              cx="12"
-                              cy="12"
-                              r="10"
-                              stroke="currentColor"
-                              strokeWidth="4"
-                            />
-                            <path
-                              className="opacity-75"
-                              fill="currentColor"
-                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                            />
-                          </svg>
-                        )}
-                        {triggerLoading === sj.jobType ? 'Triggering...' : 'Run Now'}
-                      </button>
-                    </td>
-                  </tr>
-
-                  {/* Expanded: Execution History */}
-                  {expandedJob === sj.jobType && sj.recentHistory.length > 0 && (
-                    <tr>
-                      <td colSpan={6} className="px-4 py-4 bg-slate-50 border-t border-slate-200">
-                        <h4 className="text-sm font-medium text-slate-700 mb-3">
-                          Recent Executions ({sj.recentHistory.length})
-                        </h4>
-                        <div className="space-y-2">
-                          {sj.recentHistory.map((exec) => (
-                            <div
-                              key={exec.id}
-                              className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-lg"
-                            >
-                              <div className="flex items-center gap-3">
-                                <span
-                                  className={`text-xs px-2 py-0.5 rounded font-medium ${statusColors[exec.status] || ''}`}
-                                >
-                                  {exec.status}
-                                </span>
-                                <span className="text-sm text-slate-600">
-                                  {formatDate(exec.createdAt)}
-                                </span>
-                                {exec.siteName && (
-                                  <span className="text-xs text-slate-400">{exec.siteName}</span>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-4 text-sm">
-                                <span className="text-slate-600">
-                                  {formatDuration(exec.durationMs)}
-                                </span>
-                                {exec.error && (
-                                  <span className="text-xs text-red-600 max-w-[200px] truncate">
-                                    {exec.error}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          ))}
+              {schedules.map((sj) => {
+                const isNonTriggerable = NON_TRIGGERABLE.includes(sj.jobType);
+                return (
+                  <React.Fragment key={sj.jobType}>
+                    <tr
+                      className={`hover:bg-slate-50 cursor-pointer transition-colors ${expandedJob === sj.jobType ? 'bg-sky-50' : ''}`}
+                      onClick={() =>
+                        setExpandedJob(expandedJob === sj.jobType ? null : sj.jobType)
+                      }
+                    >
+                      <td className="px-4 py-4">
+                        <div className="text-sm font-medium text-slate-900">
+                          {sj.jobType.replace(/_/g, ' ')}
+                        </div>
+                        <div className="text-xs text-slate-500 mt-0.5">{sj.description}</div>
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="text-sm text-slate-900">{cronToHuman(sj.schedule)}</div>
+                        <div className="text-xs text-slate-400 font-mono">{sj.schedule}</div>
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="text-sm font-medium text-sky-700">
+                          {timeUntil(sj.nextRun)}
+                        </div>
+                        <div className="text-xs text-slate-400">
+                          {new Date(sj.nextRun).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
                         </div>
                       </td>
-                    </tr>
-                  )}
-
-                  {expandedJob === sj.jobType && sj.recentHistory.length === 0 && (
-                    <tr>
-                      <td
-                        colSpan={6}
-                        className="px-4 py-4 bg-slate-50 border-t border-slate-200 text-center text-sm text-slate-500"
-                      >
-                        No execution history available
+                      <td className="px-4 py-4 text-sm text-slate-600">
+                        {sj.lastExecution ? timeAgo(sj.lastExecution.createdAt) : 'Never'}
+                      </td>
+                      <td className="px-4 py-4">
+                        {sj.lastExecution ? (
+                          <span
+                            className={`text-xs px-2 py-1 rounded font-medium ${statusColors[sj.lastExecution.status] || ''}`}
+                          >
+                            {sj.lastExecution.status}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-slate-400">-</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-4 text-sm text-slate-600">
+                        {formatDuration(sj.lastExecution?.durationMs ?? null)}
+                      </td>
+                      <td className="px-4 py-4">
+                        {isNonTriggerable ? (
+                          <span className="text-xs text-slate-400 italic">Auto</span>
+                        ) : (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              triggerJob(sj.jobType);
+                            }}
+                            disabled={triggerLoading !== null}
+                            className="px-3 py-1.5 text-xs bg-sky-600 hover:bg-sky-700 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                          >
+                            {triggerLoading === sj.jobType && (
+                              <svg
+                                className="animate-spin h-3 w-3"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                              >
+                                <circle
+                                  className="opacity-25"
+                                  cx="12"
+                                  cy="12"
+                                  r="10"
+                                  stroke="currentColor"
+                                  strokeWidth="4"
+                                />
+                                <path
+                                  className="opacity-75"
+                                  fill="currentColor"
+                                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                                />
+                              </svg>
+                            )}
+                            {triggerLoading === sj.jobType ? 'Triggering...' : 'Run Now'}
+                          </button>
+                        )}
                       </td>
                     </tr>
-                  )}
-                </React.Fragment>
-              ))}
+
+                    {/* Expanded: Execution History */}
+                    {expandedJob === sj.jobType && sj.recentHistory.length > 0 && (
+                      <tr>
+                        <td
+                          colSpan={7}
+                          className="px-4 py-4 bg-slate-50 border-t border-slate-200"
+                        >
+                          <h4 className="text-sm font-medium text-slate-700 mb-3">
+                            Recent Executions ({sj.recentHistory.length})
+                          </h4>
+                          <div className="space-y-2">
+                            {sj.recentHistory.map((exec) => (
+                              <div
+                                key={exec.id}
+                                className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-lg"
+                              >
+                                <div className="flex items-center gap-3">
+                                  <span
+                                    className={`text-xs px-2 py-0.5 rounded font-medium ${statusColors[exec.status] || ''}`}
+                                  >
+                                    {exec.status}
+                                  </span>
+                                  <span className="text-sm text-slate-600">
+                                    {formatDate(exec.createdAt)}
+                                  </span>
+                                  {exec.siteName && (
+                                    <span className="text-xs text-slate-400">
+                                      {exec.siteName}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-4 text-sm">
+                                  <span className="text-slate-600">
+                                    {formatDuration(exec.durationMs)}
+                                  </span>
+                                  {exec.error && (
+                                    <span className="text-xs text-red-600 max-w-[200px] truncate">
+                                      {exec.error}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+
+                    {expandedJob === sj.jobType && sj.recentHistory.length === 0 && (
+                      <tr>
+                        <td
+                          colSpan={7}
+                          className="px-4 py-4 bg-slate-50 border-t border-slate-200 text-center text-sm text-slate-500"
+                        >
+                          No execution history available
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>
