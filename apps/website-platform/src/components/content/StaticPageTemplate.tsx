@@ -106,8 +106,6 @@ For the most up-to-date version of our legal documents, please check this page r
   };
 
   const contentBody = page.content?.body || getDefaultContent();
-  // Never show the AI badge on public-facing pages - it undermines user trust
-  const showAiBadge = false;
 
   return (
     <article className="mx-auto max-w-4xl px-4 py-8 sm:py-12">
@@ -122,11 +120,6 @@ For the most up-to-date version of our legal documents, please check this page r
 
         {/* Metadata badges */}
         <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-gray-500">
-          {showAiBadge && (
-            <span className="inline-flex items-center rounded-full bg-purple-50 px-2.5 py-0.5 text-xs font-medium text-purple-700">
-              AI Generated • Quality: {page.content?.qualityScore}/100
-            </span>
-          )}
           <span>
             Last updated:{' '}
             {page.updatedAt.toLocaleDateString('en-GB', {

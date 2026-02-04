@@ -70,12 +70,6 @@ export function BlogPostTemplate({ post, siteName }: BlogPostTemplateProps) {
         <div className="flex items-center gap-4 text-sm text-gray-500">
           <time dateTime={post.createdAt.toISOString()}>{formattedDate}</time>
 
-          {post.content.isAiGenerated && post.content.aiModel && (
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-              AI-Generated
-            </span>
-          )}
-
           {post.content.qualityScore && post.content.qualityScore >= 80 && (
             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
               High Quality
