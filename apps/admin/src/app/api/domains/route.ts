@@ -428,16 +428,25 @@ export async function POST(request: Request) {
             },
           });
         } else {
-          unmatched.push({ domain: cfDomain.name, suggestedSlug: domainSlug });
+          unmatched.push({
+            domain: cfDomain.name,
+            extractedSlug: domainSlug,
+            normalizedSlug: normalizedDomainSlug,
+          });
         }
       }
+
+      // Include available site slugs for debugging unmatched domains
+      const availableSlugs = sites.map((s) => s.slug);
 
       return NextResponse.json({
         success: true,
         message: `Synced ${synced.length} domains from Cloudflare, configured DNS for ${dnsConfigured.length}`,
+        totalFromCloudflare: cloudflareDomainsData.length,
         synced,
         dnsConfigured,
         unmatched,
+        availableSlugs,
       });
     }
 

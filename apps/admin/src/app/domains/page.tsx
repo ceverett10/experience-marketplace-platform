@@ -208,7 +208,10 @@ export default function DomainsPage() {
                 });
                 const result = await response.json();
                 if (response.ok) {
-                  alert(`Synced ${result.synced?.length || 0} domains from Cloudflare`);
+                  const unmatchedInfo = result.unmatched?.length
+                    ? `\n\nUnmatched domains (${result.unmatched.length}):\n${result.unmatched.map((u: any) => `  ${u.domain} → slug "${u.extractedSlug}" (normalized: "${u.normalizedSlug}")`).join('\n')}`
+                    : '';
+                  alert(`Fetched ${result.totalFromCloudflare || '?'} domains from Cloudflare.\nSynced: ${result.synced?.length || 0}\nDNS configured: ${result.dnsConfigured?.length || 0}${unmatchedInfo}`);
                   // Refetch domains
                   const domainsResponse = await fetch(
                     `${basePath}/api/domains?status=${statusFilter}`
