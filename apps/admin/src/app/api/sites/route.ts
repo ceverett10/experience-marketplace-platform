@@ -8,8 +8,13 @@ export async function GET(request: Request) {
 
     // Build query filters
     const where: any = {};
-    if (status && status !== 'all') {
+    if (status === 'ARCHIVED') {
+      where.status = 'ARCHIVED';
+    } else if (status && status !== 'all') {
       where.status = status;
+    } else {
+      // Default "all" excludes ARCHIVED so archived sites are hidden
+      where.status = { not: 'ARCHIVED' };
     }
 
     // Fetch sites from database
@@ -106,5 +111,31 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('[API] Error creating site:', error);
     return NextResponse.json({ error: 'Failed to create site' }, { status: 500 });
+  }
+}
+
+export async function PATCH(request: Request) {
+  try {
+    const body = await request.json();
+    const { siteId, action } = body;
+
+    if (!siteId) {
+      return NextResponse.json({ error: 'siteId is required' }, { status: 400 });
+    }
+
+    if (action === 'archive') {
+      const site = await prisma.site.update({
+        where: { id: siteId },
+        data: { status: 'ARCHIVED' },
+      });
+
+      return NextResponse.json({ success: true, site: { id: site.id, status: site.status } });
+    }
+
+    return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });
+  } catch (error) {
+    console.error('[API] Error updating site:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

@@ -55,6 +55,7 @@ export default function SitesPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [loading, setLoading] = useState(true);
   const [generatingBrand, setGeneratingBrand] = useState(false);
+  const [archiving, setArchiving] = useState<string | null>(null);
 
   // Fetch sites from API
   useEffect(() => {
@@ -114,6 +115,33 @@ export default function SitesPage() {
       alert('Failed to generate brand identity. Please try again.');
     } finally {
       setGeneratingBrand(false);
+    }
+  };
+
+  const handleArchive = async (siteId: string, siteName: string) => {
+    if (!confirm(`Archive "${siteName}"? This will remove it from the active sites list.`)) return;
+    try {
+      setArchiving(siteId);
+      const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
+      const response = await fetch(`${basePath}/api/sites`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ siteId, action: 'archive' }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        alert(`Failed to archive site: ${errorData.error || 'Unknown error'}`);
+        return;
+      }
+
+      // Remove from local state immediately for snappy UX
+      setSites((prev) => prev.filter((s) => s.id !== siteId));
+    } catch (error) {
+      console.error('Failed to archive site:', error);
+      alert('Failed to archive site. Please try again.');
+    } finally {
+      setArchiving(null);
     }
   };
 
@@ -363,6 +391,15 @@ export default function SitesPage() {
 
               {/* Actions */}
               <div className="flex items-center gap-2">
+                {site.status === 'DRAFT' && (
+                  <button
+                    onClick={() => handleArchive(site.id, site.name)}
+                    disabled={archiving === site.id}
+                    className="px-3 py-2 border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-sm font-medium transition-colors"
+                  >
+                    {archiving === site.id ? 'Archiving...' : 'Archive'}
+                  </button>
+                )}
                 <button
                   onClick={() => router.push(`/sites/${site.id}`)}
                   className="flex-1 px-3 py-2 border border-slate-200 hover:bg-slate-50 rounded-lg text-sm font-medium transition-colors"
