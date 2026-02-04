@@ -11,7 +11,11 @@ interface ExperienceCardProps {
   priority?: boolean;
 }
 
-export function ExperienceCard({ experience, variant = 'default', priority = false }: ExperienceCardProps) {
+export function ExperienceCard({
+  experience,
+  variant = 'default',
+  priority = false,
+}: ExperienceCardProps) {
   const brand = useBrand();
 
   if (variant === 'compact') {

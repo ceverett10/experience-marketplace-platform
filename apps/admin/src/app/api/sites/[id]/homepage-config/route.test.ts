@@ -244,7 +244,7 @@ describe('POST /api/sites/[id]/homepage-config (AI generation)', () => {
     expect(mockGenerateHomepageConfig).toHaveBeenCalledWith(
       expect.objectContaining({
         keyword: 'Adventure Tours Co', // Falls back to site name
-        niche: 'tours',                // Default niche
+        niche: 'tours', // Default niche
       }),
       expect.objectContaining({
         toneOfVoice: expect.objectContaining({

@@ -56,7 +56,11 @@ export const mockErrorTracking = {
 
 export const mockGetScheduledJobs = vi.fn().mockReturnValue([
   { jobType: 'SEO_ANALYZE', schedule: '0 3 * * *', description: 'Daily SEO analysis' },
-  { jobType: 'CONTENT_OPTIMIZE', schedule: '0 4 * * 0', description: 'Weekly content optimization' },
+  {
+    jobType: 'CONTENT_OPTIMIZE',
+    schedule: '0 4 * * 0',
+    description: 'Weekly content optimization',
+  },
 ]);
 
 export const mockGetSiteRoadmap = vi.fn().mockResolvedValue([]);
@@ -112,7 +116,11 @@ export function resetMockJobs() {
   mockErrorTracking.cleanupOldErrors.mockClear().mockResolvedValue(0);
   mockGetScheduledJobs.mockClear().mockReturnValue([
     { jobType: 'SEO_ANALYZE', schedule: '0 3 * * *', description: 'Daily SEO analysis' },
-    { jobType: 'CONTENT_OPTIMIZE', schedule: '0 4 * * 0', description: 'Weekly content optimization' },
+    {
+      jobType: 'CONTENT_OPTIMIZE',
+      schedule: '0 4 * * 0',
+      description: 'Weekly content optimization',
+    },
   ]);
   mockGetSiteRoadmap.mockClear().mockResolvedValue([]);
   mockInitializeSiteRoadmap.mockClear().mockResolvedValue({ success: true });

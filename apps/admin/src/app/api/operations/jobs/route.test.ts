@@ -106,9 +106,7 @@ describe('GET /api/operations/jobs', () => {
 
     await GET(createRequest('http://localhost/api/operations/jobs?limit=500'));
 
-    expect(mockPrisma.job.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ take: 100 })
-    );
+    expect(mockPrisma.job.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 100 }));
   });
 
   it('truncates error messages to 200 chars', async () => {

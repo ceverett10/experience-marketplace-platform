@@ -203,7 +203,8 @@ describe('PUT /api/content (update content)', () => {
 
     mockPrisma.page.findUnique
       .mockResolvedValueOnce(page) // first lookup
-      .mockResolvedValueOnce({     // after update lookup
+      .mockResolvedValueOnce({
+        // after update lookup
         ...page,
         content: { body: 'Updated body', qualityScore: 75, createdAt: new Date() },
         site: { name: 'Test Site' },
@@ -230,13 +231,11 @@ describe('PUT /api/content (update content)', () => {
   it('creates new content when page has no content', async () => {
     const page = createMockPage({ id: 'page-1', contentId: null, content: null, siteId: 'site-1' });
 
-    mockPrisma.page.findUnique
-      .mockResolvedValueOnce(page)
-      .mockResolvedValueOnce({
-        ...page,
-        content: { body: 'New content', qualityScore: 0, createdAt: new Date() },
-        site: { name: 'Test Site' },
-      });
+    mockPrisma.page.findUnique.mockResolvedValueOnce(page).mockResolvedValueOnce({
+      ...page,
+      content: { body: 'New content', qualityScore: 0, createdAt: new Date() },
+      site: { name: 'Test Site' },
+    });
     mockPrisma.content.create.mockResolvedValue({ id: 'new-content-1' });
     mockPrisma.page.update.mockResolvedValue({ ...page, contentId: 'new-content-1' });
 
@@ -294,14 +293,12 @@ describe('PUT /api/content (update content)', () => {
   it('updates title without touching content', async () => {
     const page = createMockPage({ id: 'page-1', contentId: null, content: null });
 
-    mockPrisma.page.findUnique
-      .mockResolvedValueOnce(page)
-      .mockResolvedValueOnce({
-        ...page,
-        title: 'New Title',
-        content: null,
-        site: { name: 'Test Site' },
-      });
+    mockPrisma.page.findUnique.mockResolvedValueOnce(page).mockResolvedValueOnce({
+      ...page,
+      title: 'New Title',
+      content: null,
+      site: { name: 'Test Site' },
+    });
     mockPrisma.page.update.mockResolvedValue({ ...page, title: 'New Title' });
 
     const response = await PUT(
@@ -363,17 +360,23 @@ describe('POST /api/content (generate)', () => {
 
     // Verify addJob called for each page
     expect(mockAddJob).toHaveBeenCalledTimes(2);
-    expect(mockAddJob).toHaveBeenCalledWith('CONTENT_GENERATE', expect.objectContaining({
-      siteId: 'site-1',
-      pageId: 'page-1',
-      contentType: 'experience', // PRODUCT → experience
-      targetKeyword: 'London Tours',
-    }));
-    expect(mockAddJob).toHaveBeenCalledWith('CONTENT_GENERATE', expect.objectContaining({
-      pageId: 'page-2',
-      contentType: 'blog',
-      targetKeyword: 'Adventure Blog',
-    }));
+    expect(mockAddJob).toHaveBeenCalledWith(
+      'CONTENT_GENERATE',
+      expect.objectContaining({
+        siteId: 'site-1',
+        pageId: 'page-1',
+        contentType: 'experience', // PRODUCT → experience
+        targetKeyword: 'London Tours',
+      })
+    );
+    expect(mockAddJob).toHaveBeenCalledWith(
+      'CONTENT_GENERATE',
+      expect.objectContaining({
+        pageId: 'page-2',
+        contentType: 'blog',
+        targetKeyword: 'Adventure Blog',
+      })
+    );
   });
 
   it('generates content for specific page IDs', async () => {
@@ -439,9 +442,18 @@ describe('POST /api/content (generate)', () => {
 
   it('continues queuing when individual addJob fails', async () => {
     const pages = [
-      { ...createMockPage({ id: 'page-1', title: 'Page 1', type: 'BLOG' }), site: { id: 'site-1', name: 'Site' } },
-      { ...createMockPage({ id: 'page-2', title: 'Page 2', type: 'BLOG' }), site: { id: 'site-1', name: 'Site' } },
-      { ...createMockPage({ id: 'page-3', title: 'Page 3', type: 'BLOG' }), site: { id: 'site-1', name: 'Site' } },
+      {
+        ...createMockPage({ id: 'page-1', title: 'Page 1', type: 'BLOG' }),
+        site: { id: 'site-1', name: 'Site' },
+      },
+      {
+        ...createMockPage({ id: 'page-2', title: 'Page 2', type: 'BLOG' }),
+        site: { id: 'site-1', name: 'Site' },
+      },
+      {
+        ...createMockPage({ id: 'page-3', title: 'Page 3', type: 'BLOG' }),
+        site: { id: 'site-1', name: 'Site' },
+      },
     ];
     mockPrisma.page.findMany.mockResolvedValue(pages);
 

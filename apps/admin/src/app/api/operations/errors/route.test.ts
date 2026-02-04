@@ -48,9 +48,7 @@ describe('GET /api/operations/errors', () => {
     };
     mockErrorTracking.getErrorLog.mockResolvedValue(errorEntry);
 
-    const response = await GET(
-      createRequest('http://localhost/api/operations/errors?id=err-1')
-    );
+    const response = await GET(createRequest('http://localhost/api/operations/errors?id=err-1'));
     const data = await response.json();
 
     expect(response.status).toBe(200);
@@ -71,7 +69,10 @@ describe('GET /api/operations/errors', () => {
 
   it('reports critical health when critical errors exist', async () => {
     mockErrorTracking.getErrorLogs.mockResolvedValue({
-      entries: [], page: 1, limit: 25, total: 0,
+      entries: [],
+      page: 1,
+      limit: 25,
+      total: 0,
     });
     mockErrorTracking.getErrorStats.mockResolvedValue({
       total: 10,
@@ -90,7 +91,10 @@ describe('GET /api/operations/errors', () => {
 
   it('reports degraded health when circuit breakers are open', async () => {
     mockErrorTracking.getErrorLogs.mockResolvedValue({
-      entries: [], page: 1, limit: 25, total: 0,
+      entries: [],
+      page: 1,
+      limit: 25,
+      total: 0,
     });
     mockErrorTracking.getErrorStats.mockResolvedValue({
       total: 3,
@@ -111,16 +115,25 @@ describe('GET /api/operations/errors', () => {
 
   it('passes filter parameters correctly', async () => {
     mockErrorTracking.getErrorLogs.mockResolvedValue({
-      entries: [], page: 1, limit: 25, total: 0,
+      entries: [],
+      page: 1,
+      limit: 25,
+      total: 0,
     });
     mockErrorTracking.getErrorStats.mockResolvedValue({
-      total: 0, criticalCount: 0, retryableCount: 0, byCategory: {}, byType: {},
+      total: 0,
+      criticalCount: 0,
+      retryableCount: 0,
+      byCategory: {},
+      byType: {},
     });
     mockCircuitBreakers.getAllStatus.mockResolvedValue({});
 
-    await GET(createRequest(
-      'http://localhost/api/operations/errors?jobType=CONTENT_GENERATE&severity=HIGH&page=2&limit=10'
-    ));
+    await GET(
+      createRequest(
+        'http://localhost/api/operations/errors?jobType=CONTENT_GENERATE&severity=HIGH&page=2&limit=10'
+      )
+    );
 
     expect(mockErrorTracking.getErrorLogs).toHaveBeenCalledWith(
       expect.objectContaining({

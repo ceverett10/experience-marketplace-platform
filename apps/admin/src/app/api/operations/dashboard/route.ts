@@ -42,15 +42,29 @@ export async function GET(): Promise<NextResponse> {
           ]);
           return { name, waiting, active, completed, failed, delayed, paused: isPaused };
         } catch {
-          return { name, waiting: 0, active: 0, completed: 0, failed: 0, delayed: 0, paused: false };
+          return {
+            name,
+            waiting: 0,
+            active: 0,
+            completed: 0,
+            failed: 0,
+            delayed: 0,
+            paused: false,
+          };
         }
       })
     ).catch(() => emptyQueueStats);
 
     // Circuit breaker states (Redis-dependent)
-    const circuitBreakerPromise = circuitBreakers.getAllStatus().catch(
-      () => ({}) as Record<string, { state: string; metrics: { failures: number; successes: number } }>
-    );
+    const circuitBreakerPromise = circuitBreakers
+      .getAllStatus()
+      .catch(
+        () =>
+          ({}) as Record<
+            string,
+            { state: string; metrics: { failures: number; successes: number } }
+          >
+      );
 
     // Fetch all data in parallel — Redis failures won't block DB queries
     const [queueStats, dbStats, recentFailures, circuitBreakerStatus, scheduledJobs] =

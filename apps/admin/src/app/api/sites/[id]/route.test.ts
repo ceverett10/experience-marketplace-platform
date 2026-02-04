@@ -249,9 +249,7 @@ describe('GET /api/sites/[id]', () => {
           status: 'PENDING',
         }),
       ],
-      domains: [
-        createMockDomain({ verifiedAt: null }),
-      ],
+      domains: [createMockDomain({ verifiedAt: null })],
     });
     mockPrisma.site.findUnique.mockResolvedValue(site);
 

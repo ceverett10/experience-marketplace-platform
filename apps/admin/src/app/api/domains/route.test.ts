@@ -109,7 +109,7 @@ describe('GET /api/domains', () => {
 
   it('uses domain from job payload when available', async () => {
     mockPrisma.domain.findMany
-      .mockResolvedValueOnce([])  // no registered domains
+      .mockResolvedValueOnce([]) // no registered domains
       .mockResolvedValueOnce([]); // all domains for stats
 
     mockPrisma.site.findMany.mockResolvedValue([
@@ -183,10 +183,13 @@ describe('POST /api/domains', () => {
     expect(data.success).toBe(true);
     expect(data.queued.length).toBe(2);
     expect(mockAddJob).toHaveBeenCalledTimes(2);
-    expect(mockAddJob).toHaveBeenCalledWith('DOMAIN_REGISTER', expect.objectContaining({
-      siteId: 'site-1',
-      domain: 'site-a.com',
-    }));
+    expect(mockAddJob).toHaveBeenCalledWith(
+      'DOMAIN_REGISTER',
+      expect.objectContaining({
+        siteId: 'site-1',
+        domain: 'site-a.com',
+      })
+    );
   });
 
   it('returns 400 when domain and siteId missing for default action', async () => {
@@ -200,9 +203,7 @@ describe('POST /api/domains', () => {
   it('returns 500 when registration fails', async () => {
     mockAddJob.mockRejectedValue(new Error('Queue error'));
 
-    const response = await POST(
-      createPostRequest({ domain: 'test.com', siteId: 'site-1' })
-    );
+    const response = await POST(createPostRequest({ domain: 'test.com', siteId: 'site-1' }));
     const data = await response.json();
 
     expect(response.status).toBe(500);

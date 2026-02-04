@@ -1,10 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { mockPrisma } from '@/test/mocks/prisma';
-import {
-  mockGetJobQueue,
-  mockCircuitBreakers,
-  mockGetScheduledJobs,
-} from '@/test/mocks/jobs';
+import { mockGetJobQueue, mockCircuitBreakers, mockGetScheduledJobs } from '@/test/mocks/jobs';
 import { createMockFailedJob, createMockDurationJobs } from '@/test/factories';
 
 // Mock modules before importing the route
@@ -32,17 +28,17 @@ describe('GET /api/operations/dashboard', () => {
   it('returns dashboard data when all services are healthy', async () => {
     // DB stats: 2 active, 15 completed today, 1 failed today
     mockPrisma.job.count
-      .mockResolvedValueOnce(2)   // RUNNING count
-      .mockResolvedValueOnce(15)  // completed today
-      .mockResolvedValueOnce(1)   // failed today
-      .mockResolvedValueOnce(50)  // completed 24h
-      .mockResolvedValueOnce(2)   // failed 24h
-      .mockResolvedValueOnce(8);  // completed last hour (throughput)
+      .mockResolvedValueOnce(2) // RUNNING count
+      .mockResolvedValueOnce(15) // completed today
+      .mockResolvedValueOnce(1) // failed today
+      .mockResolvedValueOnce(50) // completed 24h
+      .mockResolvedValueOnce(2) // failed 24h
+      .mockResolvedValueOnce(8); // completed last hour (throughput)
 
     // Duration jobs
     mockPrisma.job.findMany
       .mockResolvedValueOnce(createMockDurationJobs(3)) // duration data
-      .mockResolvedValueOnce([]);                        // recent failures
+      .mockResolvedValueOnce([]); // recent failures
 
     const response = await GET();
     const data = await response.json();
@@ -81,11 +77,11 @@ describe('GET /api/operations/dashboard', () => {
 
     // DB stats still work
     mockPrisma.job.count
-      .mockResolvedValueOnce(0)  // RUNNING
-      .mockResolvedValueOnce(5)  // completed today
-      .mockResolvedValueOnce(0)  // failed today
-      .mockResolvedValueOnce(5)  // completed 24h
-      .mockResolvedValueOnce(0)  // failed 24h
+      .mockResolvedValueOnce(0) // RUNNING
+      .mockResolvedValueOnce(5) // completed today
+      .mockResolvedValueOnce(0) // failed today
+      .mockResolvedValueOnce(5) // completed 24h
+      .mockResolvedValueOnce(0) // failed 24h
       .mockResolvedValueOnce(2); // throughput
 
     mockPrisma.job.findMany
@@ -119,11 +115,11 @@ describe('GET /api/operations/dashboard', () => {
   it('reports degraded health when failures exceed threshold', async () => {
     // 15 failures today — should trigger degraded
     mockPrisma.job.count
-      .mockResolvedValueOnce(0)   // RUNNING
+      .mockResolvedValueOnce(0) // RUNNING
       .mockResolvedValueOnce(100) // completed today
-      .mockResolvedValueOnce(15)  // failed today (>10 = degraded)
+      .mockResolvedValueOnce(15) // failed today (>10 = degraded)
       .mockResolvedValueOnce(100) // completed 24h
-      .mockResolvedValueOnce(15)  // failed 24h
+      .mockResolvedValueOnce(15) // failed 24h
       .mockResolvedValueOnce(10); // throughput
 
     mockPrisma.job.findMany
@@ -140,12 +136,12 @@ describe('GET /api/operations/dashboard', () => {
   it('reports critical health when failures are extreme', async () => {
     // 55 failures today — should trigger critical
     mockPrisma.job.count
-      .mockResolvedValueOnce(0)   // RUNNING
+      .mockResolvedValueOnce(0) // RUNNING
       .mockResolvedValueOnce(100) // completed today
-      .mockResolvedValueOnce(55)  // failed today (>50 = critical)
+      .mockResolvedValueOnce(55) // failed today (>50 = critical)
       .mockResolvedValueOnce(100) // completed 24h
-      .mockResolvedValueOnce(55)  // failed 24h
-      .mockResolvedValueOnce(5);  // throughput
+      .mockResolvedValueOnce(55) // failed 24h
+      .mockResolvedValueOnce(5); // throughput
 
     mockPrisma.job.findMany
       .mockResolvedValueOnce([]) // duration data
@@ -165,11 +161,11 @@ describe('GET /api/operations/dashboard', () => {
     });
 
     mockPrisma.job.count
-      .mockResolvedValueOnce(0)  // RUNNING
-      .mockResolvedValueOnce(0)  // completed today
-      .mockResolvedValueOnce(0)  // failed today
-      .mockResolvedValueOnce(0)  // completed 24h
-      .mockResolvedValueOnce(0)  // failed 24h
+      .mockResolvedValueOnce(0) // RUNNING
+      .mockResolvedValueOnce(0) // completed today
+      .mockResolvedValueOnce(0) // failed today
+      .mockResolvedValueOnce(0) // completed 24h
+      .mockResolvedValueOnce(0) // failed 24h
       .mockResolvedValueOnce(0); // throughput
 
     mockPrisma.job.findMany
@@ -187,7 +183,8 @@ describe('GET /api/operations/dashboard', () => {
       createMockFailedJob({
         id: 'fail-1',
         type: 'CONTENT_GENERATE',
-        error: 'API timeout after 30000ms - this is a very long error message that should be truncated',
+        error:
+          'API timeout after 30000ms - this is a very long error message that should be truncated',
         attempts: 3,
         updatedAt: new Date('2024-01-20T10:30:00Z'),
         site: { name: 'My Tourism Site' },
@@ -196,7 +193,7 @@ describe('GET /api/operations/dashboard', () => {
 
     mockPrisma.job.count.mockResolvedValue(0);
     mockPrisma.job.findMany
-      .mockResolvedValueOnce([])         // duration data
+      .mockResolvedValueOnce([]) // duration data
       .mockResolvedValueOnce(failedJobs); // recent failures
 
     const response = await GET();
@@ -222,7 +219,7 @@ describe('GET /api/operations/dashboard', () => {
     mockPrisma.job.count.mockResolvedValue(0);
     mockPrisma.job.findMany
       .mockResolvedValueOnce(durationJobs) // duration data
-      .mockResolvedValueOnce([]);          // recent failures
+      .mockResolvedValueOnce([]); // recent failures
 
     const response = await GET();
     const data = await response.json();

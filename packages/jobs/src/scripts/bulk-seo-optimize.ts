@@ -73,9 +73,7 @@ async function runBulkSEOOptimization() {
         });
 
         const delayMinutes = delay / 60000;
-        console.log(
-          `✓ Queued job for ${site.name} (Job ID: ${jobId}, Delay: ${delayMinutes}m)`
-        );
+        console.log(`✓ Queued job for ${site.name} (Job ID: ${jobId}, Delay: ${delayMinutes}m)`);
       } catch (error) {
         console.error(`✗ Failed to queue job for ${site.name}:`, error);
       }
@@ -89,7 +87,9 @@ async function runBulkSEOOptimization() {
     console.log(`  - Sites found: ${sites.length}`);
     console.log(`  - Jobs queued: ${results.length}`);
     console.log(`  - Jobs failed: ${sites.length - results.length}`);
-    console.log(`  - Total processing time: ~${(sites.length * 3).toFixed(0)} minutes (staggered)\n`);
+    console.log(
+      `  - Total processing time: ~${(sites.length * 3).toFixed(0)} minutes (staggered)\n`
+    );
 
     console.log('Jobs have been queued and will be processed by the demand-generation worker.');
     console.log('Monitor progress in the admin dashboard under Jobs > SEO Queue.\n');

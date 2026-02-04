@@ -95,17 +95,13 @@ describe('PremiumExperienceCard', () => {
 
   describe('large variant', () => {
     it('renders title and price', () => {
-      renderWithProviders(
-        <PremiumExperienceCard experience={mockExperience} variant="large" />
-      );
+      renderWithProviders(<PremiumExperienceCard experience={mockExperience} variant="large" />);
       expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent('Test Experience');
       expect(screen.getByText(/£25\.00/)).toBeInTheDocument();
     });
 
     it('renders rating', () => {
-      renderWithProviders(
-        <PremiumExperienceCard experience={mockExperience} variant="large" />
-      );
+      renderWithProviders(<PremiumExperienceCard experience={mockExperience} variant="large" />);
       expect(screen.getByText('4.5')).toBeInTheDocument();
     });
 
@@ -160,33 +156,25 @@ describe('PremiumExperienceCard', () => {
 
   describe('featured variant', () => {
     it('renders title as h2', () => {
-      renderWithProviders(
-        <PremiumExperienceCard experience={mockExperience} variant="featured" />
-      );
+      renderWithProviders(<PremiumExperienceCard experience={mockExperience} variant="featured" />);
       expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('Test Experience');
     });
 
     it('renders location, duration, and price', () => {
-      renderWithProviders(
-        <PremiumExperienceCard experience={mockExperience} variant="featured" />
-      );
+      renderWithProviders(<PremiumExperienceCard experience={mockExperience} variant="featured" />);
       expect(screen.getByText('London, UK')).toBeInTheDocument();
       expect(screen.getByText('2 hours')).toBeInTheDocument();
       expect(screen.getByText('£25.00')).toBeInTheDocument();
     });
 
     it('renders rating with review count text', () => {
-      renderWithProviders(
-        <PremiumExperienceCard experience={mockExperience} variant="featured" />
-      );
+      renderWithProviders(<PremiumExperienceCard experience={mockExperience} variant="featured" />);
       expect(screen.getByText('4.5')).toBeInTheDocument();
       expect(screen.getByText('(100 reviews)')).toBeInTheDocument();
     });
 
     it('renders quick action buttons in featured variant', () => {
-      renderWithProviders(
-        <PremiumExperienceCard experience={mockExperience} variant="featured" />
-      );
+      renderWithProviders(<PremiumExperienceCard experience={mockExperience} variant="featured" />);
       expect(screen.getByLabelText('Add to favorites')).toBeInTheDocument();
       expect(screen.getByLabelText('Share')).toBeInTheDocument();
     });

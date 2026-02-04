@@ -154,9 +154,7 @@ describe('executeNextTasks payload generation', () => {
 
       await executeNextTasks('site-1');
 
-      const sslCall = mockAddJob.mock.calls.find(
-        (call: unknown[]) => call[0] === 'SSL_PROVISION'
-      );
+      const sslCall = mockAddJob.mock.calls.find((call: unknown[]) => call[0] === 'SSL_PROVISION');
       expect(sslCall).toBeDefined();
       expect(sslCall![1]).toEqual({
         domainId: 'dom-1',
@@ -176,9 +174,7 @@ describe('executeNextTasks payload generation', () => {
 
       await executeNextTasks('site-1');
 
-      const sslCall = mockAddJob.mock.calls.find(
-        (call: unknown[]) => call[0] === 'SSL_PROVISION'
-      );
+      const sslCall = mockAddJob.mock.calls.find((call: unknown[]) => call[0] === 'SSL_PROVISION');
       expect(sslCall).toBeDefined();
       expect(sslCall![1]).toEqual({
         domainId: 'dom-1',
@@ -192,9 +188,7 @@ describe('executeNextTasks payload generation', () => {
 
       const result = await executeNextTasks('site-1');
 
-      const sslCall = mockAddJob.mock.calls.find(
-        (call: unknown[]) => call[0] === 'SSL_PROVISION'
-      );
+      const sslCall = mockAddJob.mock.calls.find((call: unknown[]) => call[0] === 'SSL_PROVISION');
       expect(sslCall).toBeUndefined();
 
       const blockedSsl = result.blocked.find((b) => b.includes('SSL_PROVISION'));
@@ -216,9 +210,7 @@ describe('executeNextTasks payload generation', () => {
 
       await executeNextTasks('site-1');
 
-      const gscSetupCall = mockAddJob.mock.calls.find(
-        (call: unknown[]) => call[0] === 'GSC_SETUP'
-      );
+      const gscSetupCall = mockAddJob.mock.calls.find((call: unknown[]) => call[0] === 'GSC_SETUP');
       expect(gscSetupCall).toBeDefined();
       expect(gscSetupCall![1]).toEqual({
         siteId: 'site-1',
@@ -250,9 +242,7 @@ describe('executeNextTasks payload generation', () => {
 
       const result = await executeNextTasks('site-1');
 
-      const gscSetupCall = mockAddJob.mock.calls.find(
-        (call: unknown[]) => call[0] === 'GSC_SETUP'
-      );
+      const gscSetupCall = mockAddJob.mock.calls.find((call: unknown[]) => call[0] === 'GSC_SETUP');
       expect(gscSetupCall).toBeUndefined();
 
       const blockedGsc = result.blocked.find((b) => b.includes('GSC_SETUP'));

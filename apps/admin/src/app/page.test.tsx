@@ -19,8 +19,20 @@ const mockDashboardData = {
     },
   },
   topSites: [
-    { id: '1', name: 'London Explorer', domain: 'london-explorer.com', bookings: 45, revenue: 8250 },
-    { id: '2', name: 'Paris Highlights', domain: 'paris-highlights.com', bookings: 32, revenue: 5840 },
+    {
+      id: '1',
+      name: 'London Explorer',
+      domain: 'london-explorer.com',
+      bookings: 45,
+      revenue: 8250,
+    },
+    {
+      id: '2',
+      name: 'Paris Highlights',
+      domain: 'paris-highlights.com',
+      bookings: 32,
+      revenue: 5840,
+    },
     {
       id: '3',
       name: 'Barcelona Adventures',
@@ -194,10 +206,7 @@ describe('AdminDashboardPage', () => {
   });
 
   it('should show error state when fetch fails', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockRejectedValue(new Error('Network error'))
-    );
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Network error')));
 
     renderWithProviders(<AdminDashboardPage />);
 

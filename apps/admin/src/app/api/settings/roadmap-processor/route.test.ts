@@ -15,9 +15,9 @@ import { GET, POST } from './route';
 describe('GET /api/settings/roadmap-processor', () => {
   it('returns processor status with site counts and job stats', async () => {
     mockPrisma.site.count
-      .mockResolvedValueOnce(10)  // totalSites
-      .mockResolvedValueOnce(2)   // pausedSites
-      .mockResolvedValueOnce(8);  // activeSites
+      .mockResolvedValueOnce(10) // totalSites
+      .mockResolvedValueOnce(2) // pausedSites
+      .mockResolvedValueOnce(8); // activeSites
 
     mockPrisma.job.groupBy.mockResolvedValue([
       { status: 'COMPLETED', _count: 15 },

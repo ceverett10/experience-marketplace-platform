@@ -34,7 +34,11 @@ describe('ExperienceGallery', () => {
     });
 
     it('renders "+N more" overlay when more than 5 images', () => {
-      const manyImages = [...mockImages, 'https://example.com/img6.jpg', 'https://example.com/img7.jpg'];
+      const manyImages = [
+        ...mockImages,
+        'https://example.com/img6.jpg',
+        'https://example.com/img7.jpg',
+      ];
       renderWithProviders(<ExperienceGallery images={manyImages} title="Test Tour" />);
       expect(screen.getByText('+2 more')).toBeInTheDocument();
     });
@@ -80,9 +84,9 @@ describe('ExperienceGallery', () => {
       expect(screen.getByText('1 / 5')).toBeInTheDocument();
 
       // Find and click the right navigation arrow (second nav button)
-      const navButtons = screen.getAllByRole('button').filter(
-        (btn) => !btn.textContent?.includes('Show all')
-      );
+      const navButtons = screen
+        .getAllByRole('button')
+        .filter((btn) => !btn.textContent?.includes('Show all'));
       // Right arrow is the last navigation button in the lightbox
       const rightArrow = navButtons.find((btn) => {
         const svg = btn.querySelector('svg path');
@@ -101,9 +105,9 @@ describe('ExperienceGallery', () => {
       fireEvent.click(screen.getByText('Show all photos'));
 
       // Find and click left arrow to wrap to last image
-      const navButtons = screen.getAllByRole('button').filter(
-        (btn) => !btn.textContent?.includes('Show all')
-      );
+      const navButtons = screen
+        .getAllByRole('button')
+        .filter((btn) => !btn.textContent?.includes('Show all'));
       const leftArrow = navButtons.find((btn) => {
         const svg = btn.querySelector('svg path');
         return svg?.getAttribute('d')?.includes('15.75 19.5');
@@ -166,7 +170,10 @@ describe('ExperienceGallery', () => {
 
     it('wraps around when navigating past last image', () => {
       renderWithProviders(
-        <ExperienceGallery images={['https://example.com/a.jpg', 'https://example.com/b.jpg']} title="Test" />
+        <ExperienceGallery
+          images={['https://example.com/a.jpg', 'https://example.com/b.jpg']}
+          title="Test"
+        />
       );
 
       // Open lightbox on second image would start at index 0 by default

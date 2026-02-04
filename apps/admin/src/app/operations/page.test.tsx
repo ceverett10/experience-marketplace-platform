@@ -70,12 +70,8 @@ describe('OperationsDashboard', () => {
       expect(screen.getByText('Dashboard Unavailable')).toBeInTheDocument();
     });
 
-    expect(
-      screen.getByText('Failed to fetch operations dashboard')
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText('Retrying automatically every 5 seconds...')
-    ).toBeInTheDocument();
+    expect(screen.getByText('Failed to fetch operations dashboard')).toBeInTheDocument();
+    expect(screen.getByText('Retrying automatically every 5 seconds...')).toBeInTheDocument();
   });
 
   it('displays error state when fetch throws (network error)', async () => {

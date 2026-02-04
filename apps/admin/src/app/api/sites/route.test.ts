@@ -41,8 +41,9 @@ describe('GET /api/sites', () => {
     ];
 
     mockPrisma.site.findMany
-      .mockResolvedValueOnce(sites)     // filtered query
-      .mockResolvedValueOnce([           // stats query (all sites)
+      .mockResolvedValueOnce(sites) // filtered query
+      .mockResolvedValueOnce([
+        // stats query (all sites)
         { status: 'ACTIVE' },
         { status: 'DRAFT' },
       ]);
@@ -69,9 +70,7 @@ describe('GET /api/sites', () => {
   });
 
   it('filters sites by status', async () => {
-    mockPrisma.site.findMany
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([]);
+    mockPrisma.site.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
 
     await GET(createRequest('http://localhost/api/sites?status=ACTIVE'));
 
@@ -83,9 +82,7 @@ describe('GET /api/sites', () => {
   });
 
   it('does not filter when status is "all"', async () => {
-    mockPrisma.site.findMany
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([]);
+    mockPrisma.site.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
 
     await GET(createRequest('http://localhost/api/sites?status=all'));
 
@@ -106,9 +103,7 @@ describe('GET /api/sites', () => {
       createdAt: new Date(),
     });
 
-    mockPrisma.site.findMany
-      .mockResolvedValueOnce([site])
-      .mockResolvedValueOnce([]);
+    mockPrisma.site.findMany.mockResolvedValueOnce([site]).mockResolvedValueOnce([]);
 
     const response = await GET(createRequest('http://localhost/api/sites'));
     const data = await response.json();
@@ -126,9 +121,7 @@ describe('GET /api/sites', () => {
       createdAt: new Date(),
     });
 
-    mockPrisma.site.findMany
-      .mockResolvedValueOnce([site])
-      .mockResolvedValueOnce([]);
+    mockPrisma.site.findMany.mockResolvedValueOnce([site]).mockResolvedValueOnce([]);
 
     const response = await GET(createRequest('http://localhost/api/sites'));
     const data = await response.json();

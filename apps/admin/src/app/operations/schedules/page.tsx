@@ -334,9 +334,7 @@ export default function ScheduledJobsPage() {
                   <React.Fragment key={sj.jobType}>
                     <tr
                       className={`hover:bg-slate-50 cursor-pointer transition-colors ${expandedJob === sj.jobType ? 'bg-sky-50' : ''}`}
-                      onClick={() =>
-                        setExpandedJob(expandedJob === sj.jobType ? null : sj.jobType)
-                      }
+                      onClick={() => setExpandedJob(expandedJob === sj.jobType ? null : sj.jobType)}
                     >
                       <td className="px-4 py-4">
                         <div className="text-sm font-medium text-slate-900">
@@ -381,11 +379,7 @@ export default function ScheduledJobsPage() {
                           <span className="text-xs text-slate-400 italic">Auto</span>
                         ) : sj.isRunning ? (
                           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded-lg font-medium">
-                            <svg
-                              className="animate-spin h-3 w-3"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                            >
+                            <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none">
                               <circle
                                 className="opacity-25"
                                 cx="12"
@@ -412,11 +406,7 @@ export default function ScheduledJobsPage() {
                             className="px-3 py-1.5 text-xs bg-sky-600 hover:bg-sky-700 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-1.5"
                           >
                             {triggerLoading === sj.jobType && (
-                              <svg
-                                className="animate-spin h-3 w-3"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                              >
+                              <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none">
                                 <circle
                                   className="opacity-25"
                                   cx="12"
@@ -441,10 +431,7 @@ export default function ScheduledJobsPage() {
                     {/* Expanded: Execution History */}
                     {expandedJob === sj.jobType && sj.recentHistory.length > 0 && (
                       <tr>
-                        <td
-                          colSpan={7}
-                          className="px-4 py-4 bg-slate-50 border-t border-slate-200"
-                        >
+                        <td colSpan={7} className="px-4 py-4 bg-slate-50 border-t border-slate-200">
                           <h4 className="text-sm font-medium text-slate-700 mb-3">
                             Recent Executions ({sj.recentHistory.length})
                           </h4>
@@ -464,9 +451,7 @@ export default function ScheduledJobsPage() {
                                     {formatDate(exec.createdAt)}
                                   </span>
                                   {exec.siteName && (
-                                    <span className="text-xs text-slate-400">
-                                      {exec.siteName}
-                                    </span>
+                                    <span className="text-xs text-slate-400">{exec.siteName}</span>
                                   )}
                                 </div>
                                 <div className="flex items-center gap-4 text-sm">

@@ -204,7 +204,8 @@ export const SITE_LIFECYCLE_PHASES = {
     name: 'Site Setup',
     description: 'Creating site structure and brand identity',
     estimatedMinutes: 2,
-    autonomousExplanation: 'System creates site structure, brand identity, and initial configuration',
+    autonomousExplanation:
+      'System creates site structure, brand identity, and initial configuration',
     tasks: ['SITE_CREATE'] as JobType[],
   },
   content: {
@@ -239,7 +240,8 @@ export const SITE_LIFECYCLE_PHASES = {
     name: 'Ongoing Optimization',
     description: 'Continuous content and performance optimization',
     estimatedMinutes: null, // Ongoing
-    autonomousExplanation: 'System continuously monitors and optimizes SEO, content, and performance',
+    autonomousExplanation:
+      'System continuously monitors and optimizes SEO, content, and performance',
     tasks: [
       'SEO_ANALYZE',
       'SEO_AUTO_OPTIMIZE',
@@ -636,7 +638,9 @@ export async function executeNextTasks(
   message: string;
 }> {
   const retryFailed = options?.retryFailed ?? false;
-  console.log(`[Site Roadmap] Executing next tasks for site ${siteId} (retryFailed: ${retryFailed})`);
+  console.log(
+    `[Site Roadmap] Executing next tasks for site ${siteId} (retryFailed: ${retryFailed})`
+  );
 
   // Get all jobs and validate artifacts
   const [jobs, artifactValidation] = await Promise.all([
@@ -660,7 +664,9 @@ export async function executeNextTasks(
   const failedJobs = jobs.filter((j) => j.status === 'FAILED');
   if (retryFailed && failedJobs.length > 0) {
     for (const failedJob of failedJobs) {
-      console.log(`[Site Roadmap] Deleting FAILED job ${failedJob.type} (id: ${failedJob.id}) for retry`);
+      console.log(
+        `[Site Roadmap] Deleting FAILED job ${failedJob.type} (id: ${failedJob.id}) for retry`
+      );
       await prisma.job.delete({ where: { id: failedJob.id } });
     }
   }
@@ -674,9 +680,7 @@ export async function executeNextTasks(
     : ['RUNNING', 'PENDING', 'SCHEDULED', 'RETRYING', 'FAILED'];
 
   const activeOrFailedJobs = new Set(
-    jobs
-      .filter((j) => skipStatuses.includes(j.status) && j.queue !== 'planned')
-      .map((j) => j.type)
+    jobs.filter((j) => skipStatuses.includes(j.status) && j.queue !== 'planned').map((j) => j.type)
   );
 
   const queued: string[] = [];
@@ -698,7 +702,9 @@ export async function executeNextTasks(
     (j) => j.queue === 'planned' && j.status === 'PENDING' && completedJobs.has(j.type)
   );
   for (const stale of stalePlaceholders) {
-    console.log(`[Site Roadmap] Removing stale planned placeholder for completed task ${stale.type}`);
+    console.log(
+      `[Site Roadmap] Removing stale planned placeholder for completed task ${stale.type}`
+    );
     await prisma.job.delete({ where: { id: stale.id } });
   }
 

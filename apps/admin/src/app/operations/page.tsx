@@ -205,7 +205,9 @@ export default function OperationsDashboard() {
             <Card className="hover:shadow-md transition-shadow cursor-pointer">
               <CardContent className="p-6 text-center">
                 <h3 className="font-medium text-slate-900">Scheduled Jobs</h3>
-                <p className="text-sm text-slate-500 mt-1">Monitor cron jobs and trigger manually</p>
+                <p className="text-sm text-slate-500 mt-1">
+                  Monitor cron jobs and trigger manually
+                </p>
               </CardContent>
             </Card>
           </Link>

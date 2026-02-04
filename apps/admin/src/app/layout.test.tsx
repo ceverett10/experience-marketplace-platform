@@ -87,11 +87,17 @@ describe('AdminLayout', () => {
 
     expect(screen.getByRole('link', { name: /Dashboard/i })).toHaveAttribute('href', '/');
     expect(screen.getByRole('link', { name: /Sites/i })).toHaveAttribute('href', '/sites');
-    expect(screen.getByRole('link', { name: /Opportunities/i })).toHaveAttribute('href', '/opportunities');
+    expect(screen.getByRole('link', { name: /Opportunities/i })).toHaveAttribute(
+      'href',
+      '/opportunities'
+    );
     expect(screen.getByRole('link', { name: /Domains/i })).toHaveAttribute('href', '/domains');
     expect(screen.getByRole('link', { name: /Tasks/i })).toHaveAttribute('href', '/tasks');
     expect(screen.getByRole('link', { name: /Content/i })).toHaveAttribute('href', '/content');
-    expect(screen.getByRole('link', { name: /Link Building/i })).toHaveAttribute('href', '/link-building');
+    expect(screen.getByRole('link', { name: /Link Building/i })).toHaveAttribute(
+      'href',
+      '/link-building'
+    );
     expect(screen.getByRole('link', { name: /Settings/i })).toHaveAttribute('href', '/settings');
   });
 
