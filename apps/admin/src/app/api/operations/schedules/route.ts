@@ -43,8 +43,11 @@ export async function GET(): Promise<NextResponse> {
         }
 
         const lastExecution = executions[0] || null;
+        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
         const isRunning = executions.some(
-          (e) => e.status === 'RUNNING' || e.status === 'PENDING'
+          (e) =>
+            e.status === 'RUNNING' ||
+            (e.status === 'PENDING' && e.createdAt > fiveMinutesAgo)
         );
         const nextRun = getNextCronRun(sj.schedule);
 
