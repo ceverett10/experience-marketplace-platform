@@ -162,11 +162,17 @@ export async function GET(): Promise<NextResponse> {
     else if (failedToday > 10 || openCircuits > 0 || successRate < 90) health = 'degraded';
 
     // Get last run times for scheduled jobs
-    // Wrap each query in try/catch because some scheduled job types (e.g. WEEKLY_BLOG_GENERATE)
-    // may not exist in the Prisma JobType enum, which would crash the entire endpoint.
+    // Skip types that don't exist in the Prisma JobType enum (AUTONOMOUS_ROADMAP, WEEKLY_BLOG_GENERATE)
+    // to avoid Prisma validation errors that can crash the endpoint.
+    const NON_DB_TYPES = ['AUTONOMOUS_ROADMAP', 'WEEKLY_BLOG_GENERATE'];
     const scheduledJobsWithHistory = await Promise.all(
       scheduledJobs.map(async (sj) => {
         const jobType = sj.jobType.replace(' (deep)', '');
+
+        if (NON_DB_TYPES.includes(jobType)) {
+          return { ...sj, lastRun: null };
+        }
+
         try {
           const lastRun = await prisma.job.findFirst({
             where: { type: jobType as any },

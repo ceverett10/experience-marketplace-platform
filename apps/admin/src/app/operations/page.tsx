@@ -75,17 +75,23 @@ function timeAgo(dateStr: string): string {
 export default function OperationsDashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
         const response = await fetch(`${basePath}/api/operations/dashboard`);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({}));
+          throw new Error(body.error || `HTTP ${response.status}`);
+        }
         const json = await response.json();
         setData(json);
-      } catch (error) {
-        console.error('Failed to fetch dashboard:', error);
+        setError(null);
+      } catch (err) {
+        console.error('Failed to fetch dashboard:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load dashboard');
       } finally {
         setLoading(false);
       }
@@ -96,7 +102,7 @@ export default function OperationsDashboard() {
     return () => clearInterval(interval);
   }, []);
 
-  if (loading || !data) {
+  if (loading && !data) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -162,6 +168,53 @@ export default function OperationsDashboard() {
       </div>
     );
   }
+
+  if (error && !data) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Operations Dashboard</h1>
+          <p className="text-slate-500 mt-1">System health and job pipeline overview</p>
+        </div>
+        <Card>
+          <div className="p-8 text-center">
+            <div className="text-4xl mb-4">&#9888;&#65039;</div>
+            <h2 className="text-lg font-semibold text-slate-900 mb-2">Dashboard Unavailable</h2>
+            <p className="text-sm text-slate-600 mb-4">{error}</p>
+            <p className="text-xs text-slate-400">Retrying automatically every 5 seconds...</p>
+          </div>
+        </Card>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <Link href="/operations/jobs">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer">
+              <CardContent className="p-6 text-center">
+                <h3 className="font-medium text-slate-900">Job Explorer</h3>
+                <p className="text-sm text-slate-500 mt-1">Search, filter, and inspect all jobs</p>
+              </CardContent>
+            </Card>
+          </Link>
+          <Link href="/operations/errors">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer">
+              <CardContent className="p-6 text-center">
+                <h3 className="font-medium text-slate-900">Error Log</h3>
+                <p className="text-sm text-slate-500 mt-1">Investigate errors with stack traces</p>
+              </CardContent>
+            </Card>
+          </Link>
+          <Link href="/operations/schedules">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer">
+              <CardContent className="p-6 text-center">
+                <h3 className="font-medium text-slate-900">Scheduled Jobs</h3>
+                <p className="text-sm text-slate-500 mt-1">Monitor cron jobs and trigger manually</p>
+              </CardContent>
+            </Card>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (!data) return null;
 
   const healthColors = {
     healthy: 'bg-green-100 text-green-800 border-green-200',
