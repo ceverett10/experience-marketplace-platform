@@ -300,15 +300,60 @@ export async function handleGA4Setup(job: Job<GA4SetupPayload>): Promise<JobResu
     const domain = site.primaryDomain || `${site.slug}.herokuapp.com`;
     const websiteUrl = `https://${domain}`;
 
-    // Create GA4 property and data stream (protected by circuit breaker)
-    console.log(`[GA4 Setup] Creating GA4 property for ${site.name} (${websiteUrl})...`);
-    const result = await ga4Breaker.execute(() => ga4Client.setupSiteAnalytics({
-      accountId: targetAccountId,
-      siteName: site.name,
-      websiteUrl,
-      timeZone: 'Europe/London',
-      currencyCode: 'GBP',
-    }));
+    // Check if a GA4 property already exists for this site name (prevents duplicates on retry)
+    console.log(`[GA4 Setup] Checking for existing GA4 property named "${site.name}"...`);
+    const existingProperties = await ga4Breaker.execute(() =>
+      ga4Client.listProperties(targetAccountId)
+    );
+    const existingProp = existingProperties.find(
+      (p) => p.displayName === site.name
+    );
+
+    let result: { success: boolean; propertyId?: string; measurementId?: string; error?: string };
+
+    if (existingProp) {
+      // Property already exists — fetch its data stream instead of creating a duplicate
+      console.log(
+        `[GA4 Setup] Found existing property ${existingProp.propertyId} for "${site.name}", reusing it`
+      );
+      const streams = await ga4Breaker.execute(() =>
+        ga4Client.listDataStreams(existingProp.propertyId)
+      );
+      const webStream = streams.find((s) => s.measurementId);
+
+      if (webStream) {
+        result = {
+          success: true,
+          propertyId: existingProp.propertyId,
+          measurementId: webStream.measurementId,
+        };
+      } else {
+        // Property exists but no data stream — create one
+        console.log(`[GA4 Setup] Property exists but has no data stream, creating one...`);
+        const stream = await ga4Breaker.execute(() =>
+          ga4Client.createWebDataStream({
+            propertyId: existingProp.propertyId,
+            websiteUrl,
+            displayName: `${site.name} - Web`,
+          })
+        );
+        result = {
+          success: true,
+          propertyId: existingProp.propertyId,
+          measurementId: stream.measurementId,
+        };
+      }
+    } else {
+      // No existing property — create new one
+      console.log(`[GA4 Setup] Creating GA4 property for ${site.name} (${websiteUrl})...`);
+      result = await ga4Breaker.execute(() => ga4Client.setupSiteAnalytics({
+        accountId: targetAccountId,
+        siteName: site.name,
+        websiteUrl,
+        timeZone: 'Europe/London',
+        currencyCode: 'GBP',
+      }));
+    }
 
     if (!result.success || !result.measurementId) {
       throw new Error(result.error || 'Failed to create GA4 property');
