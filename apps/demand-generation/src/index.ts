@@ -13,6 +13,7 @@ import { Worker, Job } from 'bullmq';
 import {
   createRedisConnection,
   QUEUE_NAMES,
+  getQueueTimeout,
   initializeScheduledJobs,
   getScheduledJobs,
   handleContentGenerate,
@@ -34,6 +35,7 @@ import {
   handleABTestAnalyze,
   handleABTestRebalance,
   processAllSiteRoadmaps,
+  detectStuckTasks,
   // SEO recursive optimization handlers
   handleSEOAudit,
   handleAutoOptimize,
@@ -111,26 +113,23 @@ console.log(`Port: ${PORT}`);
 // Initialize Redis connection
 const connection = createRedisConnection();
 
-// Worker configuration
-const workerOptions = {
-  connection,
-  concurrency: 5,
-  limiter: {
-    max: 10,
-    duration: 1000,
-  },
-};
-
-// Content worker needs lower concurrency to avoid Anthropic API rate limits
-// (4,000 output tokens/minute limit on basic tier)
-const contentWorkerOptions = {
-  connection,
-  concurrency: 1, // Process one content job at a time to stay within rate limits
-  limiter: {
-    max: 2,
-    duration: 60000, // Max 2 jobs per minute
-  },
-};
+/**
+ * Per-queue worker configuration.
+ * Concurrency is set per queue to prevent external API saturation.
+ * lockDuration must exceed the queue timeout so jobs aren't marked stalled while still running.
+ * stalledInterval is how often BullMQ checks for stalled jobs.
+ */
+function makeWorkerOptions(queueName: string, concurrency: number) {
+  const timeout = getQueueTimeout(queueName as any);
+  return {
+    connection,
+    concurrency,
+    // Lock must be longer than the job timeout so BullMQ doesn't reclaim active jobs
+    lockDuration: timeout + 60_000,
+    // Check for stalled jobs every 30 seconds
+    stalledInterval: 30_000,
+  };
+}
 
 /**
  * Content Queue Worker
@@ -153,7 +152,7 @@ const contentWorker = new Worker(
         throw new Error(`Unknown job type: ${job.name}`);
     }
   },
-  contentWorkerOptions // Use lower concurrency to respect Anthropic API rate limits
+  makeWorkerOptions(QUEUE_NAMES.CONTENT, 1) // Low concurrency: Anthropic API rate limits
 );
 
 /**
@@ -192,7 +191,7 @@ const seoWorker = new Worker(
         throw new Error(`Unknown job type: ${job.name}`);
     }
   },
-  workerOptions
+  makeWorkerOptions(QUEUE_NAMES.SEO, 3) // Moderate: external API + DB
 );
 
 /**
@@ -216,7 +215,7 @@ const gscWorker = new Worker(
         throw new Error(`Unknown job type: ${job.name}`);
     }
   },
-  workerOptions
+  makeWorkerOptions(QUEUE_NAMES.GSC, 2) // Low: Google API rate limits
 );
 
 /**
@@ -238,7 +237,7 @@ const siteWorker = new Worker(
         throw new Error(`Unknown job type: ${job.name}`);
     }
   },
-  workerOptions
+  makeWorkerOptions(QUEUE_NAMES.SITE, 2) // Low: heavy multi-step with external APIs
 );
 
 /**
@@ -262,12 +261,12 @@ const domainWorker = new Worker(
         throw new Error(`Unknown job type: ${job.name}`);
     }
   },
-  workerOptions
+  makeWorkerOptions(QUEUE_NAMES.DOMAIN, 2) // Low: Cloudflare API rate limits
 );
 
 /**
  * Analytics Queue Worker
- * Handles: METRICS_AGGREGATE, PERFORMANCE_REPORT
+ * Handles: METRICS_AGGREGATE, PERFORMANCE_REPORT, GA4_SETUP
  */
 const analyticsWorker = new Worker(
   QUEUE_NAMES.ANALYTICS,
@@ -286,7 +285,7 @@ const analyticsWorker = new Worker(
         throw new Error(`Unknown job type: ${job.name}`);
     }
   },
-  workerOptions
+  makeWorkerOptions(QUEUE_NAMES.ANALYTICS, 3) // Moderate: mix of DB and external API
 );
 
 /**
@@ -308,7 +307,7 @@ const abtestWorker = new Worker(
         throw new Error(`Unknown job type: ${job.name}`);
     }
   },
-  workerOptions
+  makeWorkerOptions(QUEUE_NAMES.ABTEST, 5) // Higher: mostly DB operations
 );
 
 // Worker event handlers
@@ -392,6 +391,18 @@ async function startAutonomousRoadmapProcessor() {
       }
     } catch (error) {
       console.error('[Autonomous] Roadmap processing error:', error);
+    }
+
+    // Run stuck-task detector alongside each roadmap pass
+    try {
+      const stuckResult = await detectStuckTasks();
+      if (stuckResult.markedFailed > 0) {
+        console.log(
+          `[Stuck Detector] Marked ${stuckResult.markedFailed} stuck tasks as FAILED`
+        );
+      }
+    } catch (error) {
+      console.error('[Stuck Detector] Error:', error);
     }
   }, ROADMAP_PROCESS_INTERVAL);
 

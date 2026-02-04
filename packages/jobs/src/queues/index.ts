@@ -5,6 +5,31 @@ import { prisma } from '@experience-marketplace/database';
 import { QUEUE_NAMES, QueueName, JobPayload, JobOptions, JOB_TYPE_TO_QUEUE } from '../types';
 
 /**
+ * Per-queue configuration for timeouts, retries, and backoff.
+ * Timeouts prevent jobs from hanging indefinitely (e.g., unresponsive external APIs).
+ * External-API-heavy queues get more retries with longer backoff.
+ */
+const QUEUE_CONFIG: Record<
+  QueueName,
+  { timeout: number; attempts: number; backoffDelay: number }
+> = {
+  // Content: AI generation via Anthropic — can be slow, needs generous timeout
+  [QUEUE_NAMES.CONTENT]: { timeout: 300_000, attempts: 3, backoffDelay: 10_000 },
+  // SEO: Mix of DB queries and external API calls
+  [QUEUE_NAMES.SEO]: { timeout: 180_000, attempts: 5, backoffDelay: 15_000 },
+  // GSC: Google API calls — moderate timeout, retry for transient auth issues
+  [QUEUE_NAMES.GSC]: { timeout: 120_000, attempts: 5, backoffDelay: 30_000 },
+  // Site: Brand generation + multiple API calls — longest timeout
+  [QUEUE_NAMES.SITE]: { timeout: 600_000, attempts: 3, backoffDelay: 10_000 },
+  // Domain: Cloudflare registrar API — moderate timeout, extra retries for DNS propagation
+  [QUEUE_NAMES.DOMAIN]: { timeout: 180_000, attempts: 5, backoffDelay: 30_000 },
+  // Analytics: GA4 API + DB aggregation
+  [QUEUE_NAMES.ANALYTICS]: { timeout: 120_000, attempts: 3, backoffDelay: 10_000 },
+  // A/B Test: Mostly DB operations — short timeout
+  [QUEUE_NAMES.ABTEST]: { timeout: 60_000, attempts: 3, backoffDelay: 5_000 },
+};
+
+/**
  * Redis connection configuration
  */
 export function createRedisConnection(): IORedis {
@@ -37,16 +62,17 @@ class QueueRegistry {
    */
   getQueue(queueName: QueueName): Queue {
     if (!this.queues.has(queueName)) {
+      const config = QUEUE_CONFIG[queueName];
       const queueOptions: QueueOptions = {
         connection: this.connection,
         defaultJobOptions: {
-          attempts: 3,
+          attempts: config.attempts,
           backoff: {
             type: 'exponential',
-            delay: 2000,
+            delay: config.backoffDelay,
           },
-          removeOnComplete: 100, // Keep last 100 completed jobs
-          removeOnFail: 500, // Keep last 500 failed jobs
+          removeOnComplete: 100,
+          removeOnFail: 500,
         },
       };
 
@@ -84,19 +110,33 @@ class QueueRegistry {
       },
     });
 
-    // Add to BullMQ queue with database job ID as reference
-    const job = await queue.add(
-      jobType,
-      { ...payload, dbJobId: dbJob.id },
-      {
-        priority: options?.priority,
-        delay: options?.delay,
-        attempts: options?.attempts,
-        backoff: options?.backoff,
-        removeOnComplete: options?.removeOnComplete,
-        removeOnFail: options?.removeOnFail,
-      }
-    );
+    // Add to BullMQ queue with database job ID as reference.
+    // If BullMQ/Redis fails, clean up the orphaned DB record to prevent zombie PENDING jobs.
+    let job;
+    try {
+      job = await queue.add(
+        jobType,
+        { ...payload, dbJobId: dbJob.id },
+        {
+          priority: options?.priority,
+          delay: options?.delay,
+          attempts: options?.attempts,
+          backoff: options?.backoff,
+          removeOnComplete: options?.removeOnComplete,
+          removeOnFail: options?.removeOnFail,
+        }
+      );
+    } catch (redisError) {
+      // BullMQ failed (likely Redis connection issue) — delete the orphaned DB record
+      console.error(
+        `[Queue] BullMQ add failed for ${jobType} (dbJob: ${dbJob.id}), cleaning up DB record:`,
+        redisError
+      );
+      await prisma.job.delete({ where: { id: dbJob.id } }).catch((deleteErr) => {
+        console.error(`[Queue] Failed to clean up orphaned DB job ${dbJob.id}:`, deleteErr);
+      });
+      throw redisError;
+    }
 
     // Update database record with BullMQ job ID
     // Prefix with queue name since BullMQ IDs are only unique per queue, not globally
@@ -225,4 +265,12 @@ export const getAllQueueMetrics = queueRegistry.getAllQueueMetrics.bind(queueReg
  */
 export function getJobQueue(queueName: QueueName): Queue {
   return queueRegistry.getQueue(queueName);
+}
+
+/**
+ * Get per-queue timeout configuration.
+ * Used by worker process to set lockDuration appropriately.
+ */
+export function getQueueTimeout(queueName: QueueName): number {
+  return QUEUE_CONFIG[queueName].timeout;
 }

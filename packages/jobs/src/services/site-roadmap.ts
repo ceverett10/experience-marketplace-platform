@@ -675,20 +675,38 @@ export async function executeNextTasks(
     }
   }
 
-  // When retryFailed is true (manual execution), also clean up stale PENDING jobs
-  // that have been stuck for more than 10 minutes (not in 'planned' queue).
-  // These are jobs that were queued but never picked up by a worker.
+  // When retryFailed is true (manual execution), also clean up PENDING jobs
+  // from non-planned queues. These are either:
+  // - Jobs that were queued but never picked up by a worker (stale)
+  // - Zombie DB records from addJob calls where BullMQ failed after DB insert
+  // Cleaning ALL of them (not just stale) ensures a fresh start on manual retry.
   if (retryFailed) {
-    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
     const stalePendingJobs = jobs.filter(
-      (j) =>
-        j.status === 'PENDING' &&
-        j.queue !== 'planned' &&
-        j.createdAt < tenMinutesAgo
+      (j) => j.status === 'PENDING' && j.queue !== 'planned'
     );
     for (const staleJob of stalePendingJobs) {
       console.log(
-        `[Site Roadmap] Deleting stale PENDING job ${staleJob.type} (id: ${staleJob.id}, created: ${staleJob.createdAt.toISOString()}) for retry`
+        `[Site Roadmap] Deleting PENDING job ${staleJob.type} (id: ${staleJob.id}, queue: ${staleJob.queue}) for retry`
+      );
+      await prisma.job.delete({ where: { id: staleJob.id } });
+      deletedJobIds.add(staleJob.id);
+    }
+  }
+
+  // When retryFailed is true, also clean up RUNNING jobs stuck for more than 30 minutes.
+  // These are jobs where the worker crashed or timed out.
+  if (retryFailed) {
+    const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+    const staleRunningJobs = jobs.filter(
+      (j) =>
+        j.status === 'RUNNING' &&
+        j.startedAt &&
+        j.startedAt < thirtyMinutesAgo &&
+        !deletedJobIds.has(j.id)
+    );
+    for (const staleJob of staleRunningJobs) {
+      console.log(
+        `[Site Roadmap] Deleting stale RUNNING job ${staleJob.type} (id: ${staleJob.id}, started: ${staleJob.startedAt?.toISOString()}) for retry`
       );
       await prisma.job.delete({ where: { id: staleJob.id } });
       deletedJobIds.add(staleJob.id);

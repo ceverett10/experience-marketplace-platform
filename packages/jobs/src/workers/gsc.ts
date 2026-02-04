@@ -5,6 +5,9 @@ import { CloudflareDNSService } from '../services/cloudflare-dns';
 import type { GscSyncPayload, GscSetupPayload, JobResult, ContentOptimizePayload } from '../types';
 import { addJob } from '../queues';
 import { canExecuteAutonomousOperation } from '../services/pause-control';
+import { circuitBreakers } from '../errors/circuit-breaker';
+import { toJobError } from '../errors';
+import { errorTracking } from '../errors/tracking';
 
 /**
  * Google Search Console Setup Worker
@@ -45,12 +48,16 @@ export async function handleGscSetup(job: Job<GscSetupPayload>): Promise<JobResu
       throw new Error(`Site ${siteId} not found`);
     }
 
-    // Initialize services
+    // Initialize services with circuit breaker protection
+    const gscBreaker = circuitBreakers.getBreaker('gsc-api', {
+      failureThreshold: 3,
+      timeout: 120_000,
+    });
     const gscClient = getGSCClient();
     const cloudflareDns = new CloudflareDNSService();
 
-    // Register site with GSC using the helper method
-    const result = await gscClient.registerSite(domain, async (token) => {
+    // Register site with GSC using the helper method (protected by circuit breaker)
+    const result = await gscBreaker.execute(() => gscClient.registerSite(domain, async (token) => {
       // This callback is called after getting the verification token
       // Add TXT record to Cloudflare DNS
       console.log(`[GSC Setup] Adding verification TXT record for ${domain}`);
@@ -67,7 +74,7 @@ export async function handleGscSetup(job: Job<GscSetupPayload>): Promise<JobResu
       // Wait for DNS propagation (Cloudflare is usually fast, but give it some time)
       console.log(`[GSC Setup] Waiting 10s for DNS propagation...`);
       await new Promise((resolve) => setTimeout(resolve, 10000));
-    });
+    }));
 
     if (!result.success) {
       console.error(`[GSC Setup] Failed to register ${domain}: ${result.error}`);
@@ -117,10 +124,31 @@ export async function handleGscSetup(job: Job<GscSetupPayload>): Promise<JobResu
       timestamp: new Date(),
     };
   } catch (error) {
-    console.error('[GSC Setup] Error:', error);
+    const jobError = toJobError(error);
+    await errorTracking.logError({
+      jobId: job.id || 'unknown',
+      jobType: 'GSC_SETUP',
+      siteId,
+      errorName: jobError.name,
+      errorMessage: jobError.message,
+      errorCategory: jobError.category,
+      errorSeverity: jobError.severity,
+      retryable: jobError.retryable,
+      attemptsMade: job.attemptsMade,
+      context: { domain, cloudflareZoneId },
+      stackTrace: jobError.stack,
+      timestamp: new Date(),
+    });
+    console.error('[GSC Setup] Error:', jobError.message);
+
+    if (jobError.retryable) {
+      throw new Error(jobError.message);
+    }
+
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: jobError.message,
+      errorCategory: jobError.category,
       timestamp: new Date(),
     };
   }
@@ -172,9 +200,13 @@ export async function handleGscVerify(job: Job<GscSetupPayload>): Promise<JobRes
       };
     }
 
-    // Check with GSC API
+    // Check with GSC API (protected by circuit breaker)
+    const gscBreaker = circuitBreakers.getBreaker('gsc-api', {
+      failureThreshold: 3,
+      timeout: 120_000,
+    });
     const gscClient = getGSCClient();
-    const isAlreadyVerified = await gscClient.isVerified(domain);
+    const isAlreadyVerified = await gscBreaker.execute(() => gscClient.isVerified(domain));
 
     if (isAlreadyVerified) {
       // Update database
@@ -198,7 +230,7 @@ export async function handleGscVerify(job: Job<GscSetupPayload>): Promise<JobRes
 
     // Attempt verification — the DNS TXT record should already exist from GSC_SETUP
     console.log(`[GSC Verify] Attempting verification for ${domain}`);
-    const verificationResult = await gscClient.verifySite(domain);
+    const verificationResult = await gscBreaker.execute(() => gscClient.verifySite(domain));
 
     if (!verificationResult.verified) {
       return {
@@ -234,10 +266,31 @@ export async function handleGscVerify(job: Job<GscSetupPayload>): Promise<JobRes
       timestamp: new Date(),
     };
   } catch (error) {
-    console.error('[GSC Verify] Error:', error);
+    const jobError = toJobError(error);
+    await errorTracking.logError({
+      jobId: job.id || 'unknown',
+      jobType: 'GSC_VERIFY',
+      siteId,
+      errorName: jobError.name,
+      errorMessage: jobError.message,
+      errorCategory: jobError.category,
+      errorSeverity: jobError.severity,
+      retryable: jobError.retryable,
+      attemptsMade: job.attemptsMade,
+      context: { domain },
+      stackTrace: jobError.stack,
+      timestamp: new Date(),
+    });
+    console.error('[GSC Verify] Error:', jobError.message);
+
+    if (jobError.retryable) {
+      throw new Error(jobError.message);
+    }
+
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: jobError.message,
+      errorCategory: jobError.category,
       timestamp: new Date(),
     };
   }

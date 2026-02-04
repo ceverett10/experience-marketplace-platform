@@ -34,6 +34,7 @@ export * from './services/backlink-analysis';
 export * from './services/linkable-assets';
 export * from './services/outreach-templates';
 export * from './services/cloudflare-cdn';
+export { detectStuckTasks } from './services/stuck-task-detector';
 
 // Export error handling
 export * from './errors';

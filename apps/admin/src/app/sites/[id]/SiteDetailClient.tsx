@@ -624,7 +624,7 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
                           const result = await response.json();
 
                           if (response.ok) {
-                            // Show result with requeued info
+                            // Show result with full diagnostic info
                             const messages: string[] = [];
                             if (result.requeued?.length > 0) {
                               messages.push(
@@ -634,6 +634,16 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
                             if (result.queued?.length > 0) {
                               messages.push(
                                 `Queued ${result.queued.length} task(s): ${result.queued.join(', ')}`
+                              );
+                            }
+                            if (result.blocked?.length > 0) {
+                              messages.push(
+                                `Blocked (${result.blocked.length}):\n${result.blocked.join('\n')}`
+                              );
+                            }
+                            if (result.skipped?.length > 0) {
+                              messages.push(
+                                `Skipped (${result.skipped.length}): ${result.skipped.join(', ')}`
                               );
                             }
                             if (messages.length > 0) {
