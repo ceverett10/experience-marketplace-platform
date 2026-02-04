@@ -21,6 +21,9 @@ export async function generateMetadata(): Promise<Metadata> {
       description: `Explore amazing destinations and discover unique experiences with ${site.name}.`,
       type: 'website',
     },
+    alternates: {
+      canonical: `https://${site.primaryDomain || hostname}/destinations`,
+    },
   };
 }
 

@@ -33,6 +33,9 @@ export async function generateMetadata(): Promise<Metadata> {
       description: `Explore travel tips, destination guides, and insider knowledge from ${site.name}.`,
       type: 'website',
     },
+    alternates: {
+      canonical: `https://${site.primaryDomain || hostname}/blog`,
+    },
   };
 }
 

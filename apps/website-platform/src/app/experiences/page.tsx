@@ -61,7 +61,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
       description: description,
     },
     alternates: {
-      canonical: `https://${hostname}/experiences`,
+      canonical: `https://${site.primaryDomain || hostname}/experiences`,
     },
   };
 }

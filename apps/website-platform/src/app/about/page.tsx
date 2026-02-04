@@ -44,6 +44,9 @@ export async function generateMetadata(): Promise<Metadata> {
       description,
       type: 'website',
     },
+    alternates: {
+      canonical: `https://${site.primaryDomain || hostname}/about`,
+    },
     robots: {
       index: page ? !page.noIndex : true,
       follow: page ? !page.noIndex : true,
