@@ -641,11 +641,19 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
         });
         console.log(`[Content Generate] Updated existing page ${page.id} (slug: ${result.content.slug})`);
       } else {
+        // Map content type to PageType enum — destination content uses LANDING
+        const pageTypeMap: Record<string, string> = {
+          destination: 'LANDING',
+          experience: 'PRODUCT',
+          category: 'CATEGORY',
+          blog: 'BLOG',
+          about: 'ABOUT',
+        };
         page = await prisma.page.create({
           data: {
             siteId,
             slug: result.content.slug,
-            type: contentType.toUpperCase() as any,
+            type: (pageTypeMap[contentType] || contentType.toUpperCase()) as any,
             title: result.content.title,
             metaTitle: optimizedMetaTitle,
             metaDescription: optimizedMetaDescription,
