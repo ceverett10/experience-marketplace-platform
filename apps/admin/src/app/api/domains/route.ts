@@ -408,6 +408,7 @@ export async function POST(request: Request) {
                     cloudflareZoneId: zone.id,
                     dnsConfigured: true,
                     sslEnabled: true, // Cloudflare proxy provides free SSL
+                    verifiedAt: new Date(), // Mark as verified so roadmap DOMAIN_VERIFY passes
                     status: 'ACTIVE',
                   },
                 });
@@ -536,6 +537,7 @@ export async function POST(request: Request) {
                     cloudflareZoneId: zone.id,
                     dnsConfigured: true,
                     sslEnabled: true,
+                    verifiedAt: new Date(), // Mark as verified so roadmap DOMAIN_VERIFY passes
                     status: 'ACTIVE',
                   },
                 });
@@ -639,11 +641,28 @@ export async function POST(request: Request) {
         data: { siteId: site.id },
       });
 
+      // Auto-initialize roadmap and kick off first tasks so the pipeline starts immediately
+      let roadmapResult = null;
+      try {
+        const { initializeSiteRoadmap, executeNextTasks } = await import(
+          '@experience-marketplace/jobs'
+        );
+        await initializeSiteRoadmap(site.id);
+        roadmapResult = await executeNextTasks(site.id, { retryFailed: true });
+        console.log(`[CreateSite] Roadmap initialized and tasks queued for ${site.name}:`, roadmapResult);
+      } catch (roadmapError) {
+        console.error(`[CreateSite] Error initializing roadmap for ${site.name}:`, roadmapError);
+        // Non-fatal — site is created, roadmap can be initialized manually
+      }
+
       return NextResponse.json({
         success: true,
         site: { id: site.id, name: site.name, slug: site.slug },
         domain: domainRecord.domain,
         action: 'created',
+        roadmap: roadmapResult
+          ? { queued: roadmapResult.queued, blocked: roadmapResult.blocked }
+          : null,
       });
     }
 

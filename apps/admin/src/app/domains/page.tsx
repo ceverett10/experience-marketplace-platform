@@ -639,8 +639,11 @@ export default function DomainsPage() {
                             });
                             const result = await response.json();
                             if (response.ok) {
+                              const roadmapInfo = result.roadmap?.queued?.length
+                                ? `\nPipeline started: ${result.roadmap.queued.length} task(s) queued.`
+                                : '';
                               alert(
-                                `Site "${result.site.name}" ${result.action === 'linked' ? 'linked' : 'created'} for ${result.domain}`
+                                `Site "${result.site.name}" ${result.action === 'linked' ? 'linked' : 'created'} for ${result.domain}${roadmapInfo}`
                               );
                               // Refetch domains
                               const domainsResponse = await fetch(
