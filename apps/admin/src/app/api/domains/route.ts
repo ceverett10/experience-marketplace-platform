@@ -179,6 +179,7 @@ export async function GET(request: Request) {
           ['PENDING', 'REGISTERING', 'DNS_PENDING', 'SSL_PENDING'].includes(d.status)
         ).length +
         suggestedDomains.filter((d) => d.status === 'PENDING' || d.status === 'REGISTERING').length,
+      orphan: allDomains.filter((d) => !d.siteId).length,
       sslEnabled: allDomains.filter((d) => d.sslEnabled).length,
       expiringBoon: allDomains.filter((d) => {
         if (!d.expiresAt) return false;
@@ -206,6 +207,7 @@ export async function GET(request: Request) {
         siteName: domain.site?.name || domain.siteName || null,
         siteId: domain.site?.id || domain.siteId || null,
         isSuggested: 'isSuggested' in domain ? domain.isSuggested : false,
+        isOrphan: !('isSuggested' in domain) && !domain.site?.id && !domain.siteId,
       })),
       stats,
     });
@@ -428,10 +430,128 @@ export async function POST(request: Request) {
             },
           });
         } else {
+          // Persist unmatched domain (no site yet) so it appears in the Domains tab
+          const existingDomain = await prisma.domain.findFirst({
+            where: { domain: cfDomain.name },
+          });
+
+          let orphanRecord;
+          if (existingDomain) {
+            orphanRecord = await prisma.domain.update({
+              where: { id: existingDomain.id },
+              data: {
+                registeredAt: new Date(cfDomain.registered_at),
+                expiresAt: new Date(cfDomain.expires_at),
+                autoRenew: cfDomain.auto_renew,
+                registrar: 'cloudflare',
+              },
+            });
+          } else {
+            orphanRecord = await prisma.domain.create({
+              data: {
+                domain: cfDomain.name,
+                status: 'DNS_PENDING',
+                registrar: 'cloudflare',
+                registeredAt: new Date(cfDomain.registered_at),
+                expiresAt: new Date(cfDomain.expires_at),
+                autoRenew: cfDomain.auto_renew,
+                registrationCost: 9.77,
+                // siteId intentionally null — orphan domain
+              },
+            });
+          }
+
+          // Auto-configure DNS for orphan domains too, so they're ready when a site is created
+          if (orphanRecord.status !== 'ACTIVE') {
+            try {
+              const zoneResponse = await fetch(
+                `https://api.cloudflare.com/client/v4/zones?name=${cfDomain.name}`,
+                {
+                  headers: {
+                    'X-Auth-Email': email,
+                    'X-Auth-Key': apiKey,
+                  },
+                }
+              );
+              const zoneData = await zoneResponse.json();
+
+              if (zoneData.success && zoneData.result.length > 0) {
+                const zone = zoneData.result[0];
+
+                const recordsResponse = await fetch(
+                  `https://api.cloudflare.com/client/v4/zones/${zone.id}/dns_records`,
+                  {
+                    headers: {
+                      'X-Auth-Email': email,
+                      'X-Auth-Key': apiKey,
+                    },
+                  }
+                );
+                const recordsData = await recordsResponse.json();
+                const existingRecords = recordsData.success ? recordsData.result : [];
+
+                const hasRootRecord = existingRecords.some(
+                  (r: any) => (r.type === 'CNAME' || r.type === 'A') && r.name === cfDomain.name
+                );
+
+                if (!hasRootRecord) {
+                  await fetch(`https://api.cloudflare.com/client/v4/zones/${zone.id}/dns_records`, {
+                    method: 'POST',
+                    headers: {
+                      'X-Auth-Email': email,
+                      'X-Auth-Key': apiKey,
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                      type: 'CNAME',
+                      name: '@',
+                      content: herokuHostname,
+                      ttl: 1,
+                      proxied: true,
+                    }),
+                  });
+
+                  await fetch(`https://api.cloudflare.com/client/v4/zones/${zone.id}/dns_records`, {
+                    method: 'POST',
+                    headers: {
+                      'X-Auth-Email': email,
+                      'X-Auth-Key': apiKey,
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                      type: 'CNAME',
+                      name: 'www',
+                      content: herokuHostname,
+                      ttl: 1,
+                      proxied: true,
+                    }),
+                  });
+
+                  dnsConfigured.push(cfDomain.name);
+                }
+
+                await prisma.domain.update({
+                  where: { id: orphanRecord.id },
+                  data: {
+                    cloudflareZoneId: zone.id,
+                    dnsConfigured: true,
+                    sslEnabled: true,
+                    status: 'ACTIVE',
+                  },
+                });
+
+                await addDomainToHeroku(cfDomain.name);
+              }
+            } catch (dnsError) {
+              console.error(`[DNS] Error configuring DNS for orphan ${cfDomain.name}:`, dnsError);
+            }
+          }
+
           unmatched.push({
             domain: cfDomain.name,
             extractedSlug: domainSlug,
             normalizedSlug: normalizedDomainSlug,
+            persisted: true,
           });
         }
       }
@@ -447,6 +567,83 @@ export async function POST(request: Request) {
         dnsConfigured,
         unmatched,
         availableSlugs,
+      });
+    }
+
+    // Action: Create a new site from an orphan domain (domain with no linked site)
+    if (action === 'createSiteFromDomain') {
+      const { domainId } = body;
+
+      if (!domainId) {
+        return NextResponse.json({ error: 'domainId is required' }, { status: 400 });
+      }
+
+      const domainRecord = await prisma.domain.findUnique({
+        where: { id: domainId },
+      });
+
+      if (!domainRecord) {
+        return NextResponse.json({ error: 'Domain not found' }, { status: 404 });
+      }
+
+      if (domainRecord.siteId) {
+        return NextResponse.json({ error: 'Domain already linked to a site' }, { status: 400 });
+      }
+
+      // Derive site name and slug from domain
+      // e.g. "honeymoonexperiences.com" -> slug "honeymoonexperiences", name "Honeymoonexperiences"
+      // e.g. "london-food-tours.com" -> slug "london-food-tours", name "London Food Tours"
+      const slug = domainRecord.domain.replace(/\.[a-z]{2,}$/i, '');
+      const name = slug
+        .split('-')
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+
+      // Check if a site with this slug already exists
+      const existingSite = await prisma.site.findUnique({
+        where: { slug },
+      });
+
+      if (existingSite) {
+        // Link the domain to the existing site instead of creating a new one
+        await prisma.domain.update({
+          where: { id: domainId },
+          data: { siteId: existingSite.id },
+        });
+        await prisma.site.update({
+          where: { id: existingSite.id },
+          data: { primaryDomain: domainRecord.domain, status: 'ACTIVE' },
+        });
+        return NextResponse.json({
+          success: true,
+          site: { id: existingSite.id, name: existingSite.name, slug: existingSite.slug },
+          domain: domainRecord.domain,
+          action: 'linked',
+        });
+      }
+
+      // Create new site
+      const site = await prisma.site.create({
+        data: {
+          name,
+          slug,
+          status: 'DRAFT',
+          primaryDomain: domainRecord.domain,
+          holibobPartnerId: 'default',
+        },
+      });
+
+      // Link domain to the new site
+      await prisma.domain.update({
+        where: { id: domainId },
+        data: { siteId: site.id },
+      });
+
+      return NextResponse.json({
+        success: true,
+        site: { id: site.id, name: site.name, slug: site.slug },
+        domain: domainRecord.domain,
+        action: 'created',
       });
     }
 

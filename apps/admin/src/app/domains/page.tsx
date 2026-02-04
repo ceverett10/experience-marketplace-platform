@@ -29,6 +29,7 @@ interface Domain {
   siteName: string | null;
   siteId: string | null;
   isSuggested?: boolean;
+  isOrphan?: boolean;
 }
 
 interface Stats {
@@ -37,6 +38,7 @@ interface Stats {
   pending: number;
   available: number;
   notAvailable: number;
+  orphan: number;
   sslEnabled: number;
   expiringBoon: number;
 }
@@ -49,6 +51,7 @@ export default function DomainsPage() {
     pending: 0,
     available: 0,
     notAvailable: 0,
+    orphan: 0,
     sslEnabled: 0,
     expiringBoon: 0,
   });
@@ -58,6 +61,7 @@ export default function DomainsPage() {
   const [queueing, setQueueing] = useState(false);
   const [checkingAvailability, setCheckingAvailability] = useState(false);
   const [checkingDomainId, setCheckingDomainId] = useState<string | null>(null);
+  const [creatingSiteForDomainId, setCreatingSiteForDomainId] = useState<string | null>(null);
 
   // Fetch domains from API
   useEffect(() => {
@@ -299,7 +303,7 @@ export default function DomainsPage() {
       </div>
 
       {/* Stats cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-4">
         <Card
           className="cursor-pointer hover:shadow-md transition-shadow"
           onClick={() => setStatusFilter('all')}
@@ -343,6 +347,12 @@ export default function DomainsPage() {
           <CardContent className="p-4">
             <p className="text-2xl font-bold text-amber-600">{stats.pending}</p>
             <p className="text-sm text-slate-500">Pending</p>
+          </CardContent>
+        </Card>
+        <Card className="cursor-pointer hover:shadow-md transition-shadow">
+          <CardContent className="p-4">
+            <p className="text-2xl font-bold text-orange-600">{stats.orphan}</p>
+            <p className="text-sm text-slate-500">No Site</p>
           </CardContent>
         </Card>
         <Card className="cursor-pointer hover:shadow-md transition-shadow">
@@ -396,6 +406,11 @@ export default function DomainsPage() {
                       {domain.isSuggested && (
                         <span className="text-xs px-2 py-1 bg-amber-100 text-amber-800 rounded font-medium">
                           Suggested
+                        </span>
+                      )}
+                      {domain.isOrphan && (
+                        <span className="text-xs px-2 py-1 bg-orange-100 text-orange-800 rounded font-medium">
+                          No Site
                         </span>
                       )}
                     </div>
@@ -607,8 +622,62 @@ export default function DomainsPage() {
                         Domain taken
                       </span>
                     )}
+                    {/* Create Site button for orphan domains */}
+                    {domain.isOrphan && (
+                      <button
+                        onClick={async () => {
+                          setCreatingSiteForDomainId(domain.id);
+                          try {
+                            const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
+                            const response = await fetch(`${basePath}/api/domains`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                action: 'createSiteFromDomain',
+                                domainId: domain.id,
+                              }),
+                            });
+                            const result = await response.json();
+                            if (response.ok) {
+                              alert(
+                                `Site "${result.site.name}" ${result.action === 'linked' ? 'linked' : 'created'} for ${result.domain}`
+                              );
+                              // Refetch domains
+                              const domainsResponse = await fetch(
+                                `${basePath}/api/domains?status=${statusFilter}`
+                              );
+                              const data = await domainsResponse.json();
+                              setDomains(data.domains || []);
+                              setStats(
+                                data.stats || {
+                                  total: 0,
+                                  active: 0,
+                                  pending: 0,
+                                  available: 0,
+                                  notAvailable: 0,
+                                  orphan: 0,
+                                  sslEnabled: 0,
+                                  expiringBoon: 0,
+                                }
+                              );
+                            } else {
+                              alert(result.error || 'Failed to create site');
+                            }
+                          } catch (error) {
+                            console.error('Failed to create site:', error);
+                            alert('Failed to create site');
+                          } finally {
+                            setCreatingSiteForDomainId(null);
+                          }
+                        }}
+                        disabled={creatingSiteForDomainId === domain.id}
+                        className="px-3 py-1.5 text-sm bg-orange-600 text-white hover:bg-orange-700 rounded-lg transition-colors disabled:opacity-50"
+                      >
+                        {creatingSiteForDomainId === domain.id ? 'Creating...' : 'Create Site'}
+                      </button>
+                    )}
                     {/* Active domain actions */}
-                    {domain.status === 'ACTIVE' && (
+                    {domain.status === 'ACTIVE' && !domain.isOrphan && (
                       <>
                         <button className="px-3 py-1.5 text-sm border border-slate-200 hover:bg-slate-50 rounded-lg transition-colors">
                           View DNS
