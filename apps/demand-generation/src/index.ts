@@ -36,6 +36,7 @@ import {
   handleABTestRebalance,
   processAllSiteRoadmaps,
   detectStuckTasks,
+  resetStuckCount,
   // SEO recursive optimization handlers
   handleSEOAudit,
   handleAutoOptimize,
@@ -325,6 +326,9 @@ workers.forEach((worker) => {
   worker.on('completed', async (job, result) => {
     console.log(`✓ Job ${job.id} (${job.name}) completed successfully`);
     await updateJobStatus(job, 'COMPLETED', result as object);
+    // Reset stuck counter on success so the task gets full retries next time
+    const siteId = (job.data as { siteId?: string }).siteId || null;
+    resetStuckCount(siteId, job.name);
   });
 
   worker.on('failed', async (job, err) => {
@@ -393,12 +397,12 @@ async function startAutonomousRoadmapProcessor() {
       console.error('[Autonomous] Roadmap processing error:', error);
     }
 
-    // Run stuck-task detector alongside each roadmap pass
+    // Run self-healing stuck-task detector alongside each roadmap pass
     try {
       const stuckResult = await detectStuckTasks();
-      if (stuckResult.markedFailed > 0) {
+      if (stuckResult.healed > 0 || stuckResult.permanentlyFailed > 0) {
         console.log(
-          `[Stuck Detector] Marked ${stuckResult.markedFailed} stuck tasks as FAILED`
+          `[Stuck Detector] Healed ${stuckResult.healed}, permanently failed ${stuckResult.permanentlyFailed}`
         );
       }
     } catch (error) {
