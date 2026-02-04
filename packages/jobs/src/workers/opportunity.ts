@@ -12,6 +12,7 @@ import type {
 } from '../types';
 import { runRecursiveOptimization } from '../services/opportunity-optimizer';
 import { KeywordResearchService } from '../services/keyword-research';
+import { runAudienceFirstDiscovery } from '../services/audience-discovery';
 import {
   toJobError,
   ExternalApiError,
@@ -259,22 +260,162 @@ export async function handleOpportunityScan(
     });
 
     // ========================================
-    // ROUTING: Integrated vs Direct Scan
+    // ROUTING: Audience-First vs Legacy
     // ========================================
 
-    // Default to integrated mode (multi-mode + recursive optimization)
-    // Only use direct scan if explicitly disabled
+    // Default to audience-first discovery (data-driven, not inventory-driven)
+    // Falls back to legacy direct scan if explicitly disabled
     if (useRecursiveOptimization !== false) {
       console.log(
-        '[Opportunity Scan] Using INTEGRATED mode (multi-mode seeds + recursive optimization)'
+        '[Opportunity Scan] Using AUDIENCE-FIRST mode (segment discovery + keyword validation)'
       );
 
-      return await runIntegratedOptimization(holibobClient, {
-        siteId,
-        maxIterations: optimizationConfig?.maxIterations,
-        initialSuggestionsCount: optimizationConfig?.initialSuggestionsCount,
-        seedModes: optimizationConfig?.seedModes,
-      });
+      const discoveryResult = await runAudienceFirstDiscovery(holibobClient);
+
+      if (!discoveryResult.success) {
+        return {
+          success: false,
+          error: discoveryResult.summary || 'Audience-first discovery failed',
+          timestamp: new Date(),
+        };
+      }
+
+      // Store discovered opportunities as SEOOpportunity records
+      let storedCount = 0;
+      for (const evaluated of discoveryResult.opportunities) {
+        // Use the highest-volume keyword as the primary keyword
+        const primaryKeyword =
+          evaluated.cluster.metrics.topKeywords[0]?.keyword || evaluated.segment.name;
+
+        try {
+          await prisma.sEOOpportunity.upsert({
+            where: {
+              keyword_location: {
+                keyword: primaryKeyword,
+                location: '', // Audience segments are location-agnostic
+              },
+            },
+            create: {
+              keyword: primaryKeyword,
+              searchVolume: evaluated.cluster.metrics.totalVolume,
+              difficulty: evaluated.cluster.metrics.avgDifficulty,
+              cpc: evaluated.cluster.metrics.weightedCpc,
+              intent: 'TRANSACTIONAL',
+              niche: evaluated.segment.name,
+              location: '',
+              priorityScore: evaluated.priorityScore,
+              status: 'IDENTIFIED',
+              source: 'audience_discovery',
+              explanation: evaluated.evaluation.positioning,
+              sourceData: {
+                discoveryMode: 'audience_first',
+                segment: {
+                  name: evaluated.segment.name,
+                  dimension: evaluated.segment.dimension,
+                  description: evaluated.segment.description,
+                  targetAudience: evaluated.segment.targetAudience,
+                },
+                keywordCluster: {
+                  totalVolume: evaluated.cluster.metrics.totalVolume,
+                  keywordCount: evaluated.cluster.metrics.keywordCount,
+                  weightedCpc: evaluated.cluster.metrics.weightedCpc,
+                  topKeywords: evaluated.cluster.metrics.topKeywords,
+                },
+                evaluation: {
+                  brandName: evaluated.evaluation.brandName,
+                  suggestedDomain: evaluated.evaluation.suggestedDomain,
+                  alternativeDomains: evaluated.evaluation.alternativeDomains,
+                  positioning: evaluated.evaluation.positioning,
+                  contentStrategy: evaluated.evaluation.contentStrategy,
+                  competitiveAdvantage: evaluated.evaluation.competitiveAdvantage,
+                  monthlyTrafficEstimate: evaluated.evaluation.monthlyTrafficEstimate,
+                  revenueEstimate: evaluated.evaluation.revenueEstimate,
+                  viabilityScore: evaluated.evaluation.viabilityScore,
+                },
+                inventory: {
+                  totalProducts: evaluated.feasibility.totalProducts,
+                  sampleProducts: evaluated.feasibility.sampleProducts,
+                },
+              },
+              siteId: siteId || undefined,
+            },
+            update: {
+              searchVolume: evaluated.cluster.metrics.totalVolume,
+              difficulty: evaluated.cluster.metrics.avgDifficulty,
+              cpc: evaluated.cluster.metrics.weightedCpc,
+              priorityScore: evaluated.priorityScore,
+              explanation: evaluated.evaluation.positioning,
+              sourceData: {
+                discoveryMode: 'audience_first',
+                segment: {
+                  name: evaluated.segment.name,
+                  dimension: evaluated.segment.dimension,
+                  description: evaluated.segment.description,
+                  targetAudience: evaluated.segment.targetAudience,
+                },
+                keywordCluster: {
+                  totalVolume: evaluated.cluster.metrics.totalVolume,
+                  keywordCount: evaluated.cluster.metrics.keywordCount,
+                  weightedCpc: evaluated.cluster.metrics.weightedCpc,
+                  topKeywords: evaluated.cluster.metrics.topKeywords,
+                },
+                evaluation: {
+                  brandName: evaluated.evaluation.brandName,
+                  suggestedDomain: evaluated.evaluation.suggestedDomain,
+                  alternativeDomains: evaluated.evaluation.alternativeDomains,
+                  positioning: evaluated.evaluation.positioning,
+                  contentStrategy: evaluated.evaluation.contentStrategy,
+                  competitiveAdvantage: evaluated.evaluation.competitiveAdvantage,
+                  monthlyTrafficEstimate: evaluated.evaluation.monthlyTrafficEstimate,
+                  revenueEstimate: evaluated.evaluation.revenueEstimate,
+                  viabilityScore: evaluated.evaluation.viabilityScore,
+                },
+                inventory: {
+                  totalProducts: evaluated.feasibility.totalProducts,
+                  sampleProducts: evaluated.feasibility.sampleProducts,
+                },
+              },
+            },
+          });
+          storedCount++;
+        } catch (dbError) {
+          console.error(
+            `[Opportunity Scan] Failed to store segment opportunity "${evaluated.segment.name}":`,
+            dbError
+          );
+        }
+      }
+
+      console.log(
+        `[Opportunity Scan] Stored ${storedCount}/${discoveryResult.opportunities.length} segment opportunities`
+      );
+
+      // Auto-action high-priority opportunities
+      await autoActionOpportunities();
+
+      return {
+        success: true,
+        message: discoveryResult.summary,
+        data: {
+          mode: 'audience_first',
+          segmentsGenerated: discoveryResult.segments.length,
+          clustersViable: discoveryResult.clusters.length,
+          keywordsDiscovered: discoveryResult.totalKeywordsDiscovered,
+          opportunitiesFound: discoveryResult.opportunities.length,
+          stored: storedCount,
+          topOpportunities: discoveryResult.opportunities.slice(0, 5).map((o) => ({
+            segment: o.segment.name,
+            dimension: o.segment.dimension,
+            totalVolume: o.cluster.metrics.totalVolume,
+            keywordCount: o.cluster.metrics.keywordCount,
+            score: o.priorityScore,
+            domain: o.evaluation.suggestedDomain,
+          })),
+          totalApiCost: discoveryResult.apiCost.totalCost,
+          executionTimeMs: discoveryResult.executionTimeMs,
+        },
+        timestamp: new Date(),
+      };
     }
 
     // ========================================

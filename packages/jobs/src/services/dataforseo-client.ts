@@ -137,6 +137,61 @@ export class DataForSEOClient {
   }
 
   /**
+   * Discover keywords with full metrics from a seed keyword.
+   * Same endpoint as getRelatedKeywords but returns enriched data (volume, CPC, competition)
+   * instead of just keyword strings. This eliminates the need for a separate bulk validation call.
+   *
+   * Uses: Keywords Data > Google > Keywords For Keywords
+   * Cost: ~$0.003 per request (returns up to `limit` keywords with full metrics)
+   */
+  async discoverKeywords(
+    seedKeyword: string,
+    location: string = 'United States',
+    language: string = 'English',
+    limit: number = 50
+  ): Promise<KeywordData[]> {
+    try {
+      const locationCode = await this.getLocationCode(location);
+      const languageCode = await this.getLanguageCode(language);
+
+      const response = await this.makeRequest('/keywords_data/google/keywords_for_keywords/live', {
+        method: 'POST',
+        body: JSON.stringify([
+          {
+            keywords: [seedKeyword],
+            location_code: locationCode,
+            language_code: languageCode,
+            limit,
+          },
+        ]),
+      });
+
+      const results = response.tasks?.[0]?.result || [];
+
+      return results.map(
+        (data: {
+          keyword: string;
+          search_volume: number;
+          competition: number;
+          competition_level: string;
+          cpc: number;
+          monthly_searches?: Array<{ search_volume: number }>;
+        }) => ({
+          keyword: data.keyword,
+          searchVolume: data.search_volume || 0,
+          competition: data.competition || 0,
+          competitionLevel: data.competition_level as 'LOW' | 'MEDIUM' | 'HIGH',
+          cpc: data.cpc || 0,
+          trends: data.monthly_searches?.map((m) => m.search_volume) || [],
+        })
+      );
+    } catch (error) {
+      console.error('[DataForSEO] Error discovering keywords:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Get bulk keyword metrics for multiple keywords at once
    * More efficient than calling getSearchVolume multiple times
    *
