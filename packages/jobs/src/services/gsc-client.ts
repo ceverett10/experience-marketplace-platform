@@ -192,6 +192,48 @@ export class GSCClient {
   }
 
   /**
+   * Add a co-owner to a verified domain property.
+   * Uses the Site Verification API to grant owner-level access.
+   * @param domain - Domain name (e.g., example.com)
+   * @param ownerEmail - Email address to add as owner
+   */
+  async addOwner(domain: string, ownerEmail: string): Promise<boolean> {
+    try {
+      // The resource ID for INET_DOMAIN is dns://<domain>
+      const resourceId = `dns://${domain}`;
+
+      // Get current owners
+      const existing = await this.siteVerification.webResource.get({
+        id: resourceId,
+      });
+      const currentOwners = existing.data.owners || [];
+
+      if (currentOwners.includes(ownerEmail)) {
+        console.log(`[GSC Client] ${ownerEmail} is already an owner of ${domain}`);
+        return true;
+      }
+
+      // Update with new owner
+      await this.siteVerification.webResource.update({
+        id: resourceId,
+        requestBody: {
+          site: {
+            type: 'INET_DOMAIN',
+            identifier: domain,
+          },
+          owners: [...currentOwners, ownerEmail],
+        },
+      });
+
+      console.log(`[GSC Client] Added ${ownerEmail} as owner of ${domain}`);
+      return true;
+    } catch (error) {
+      console.error(`[GSC Client] Error adding owner ${ownerEmail} to ${domain}:`, error);
+      return false;
+    }
+  }
+
+  /**
    * Check if a domain is already verified
    * @param domain - Domain name (e.g., example.com)
    */
@@ -267,6 +309,12 @@ export class GSCClient {
       // Step 7: Submit sitemap
       const sitemapUrl = `https://${domain}/sitemap.xml`;
       await this.submitSitemap(siteUrl, sitemapUrl);
+
+      // Step 8: Add co-owner if configured (so admin can access GSC UI)
+      const ownerEmail = process.env['GSC_OWNER_EMAIL'];
+      if (ownerEmail) {
+        await this.addOwner(domain, ownerEmail);
+      }
 
       console.log(`[GSC Client] Site ${domain} fully registered in GSC`);
 

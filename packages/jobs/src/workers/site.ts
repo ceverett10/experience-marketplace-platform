@@ -18,6 +18,7 @@ import {
 import { generateAndStoreFavicon } from '../services/favicon-generator.js';
 import { initializeSiteRoadmap } from '../services/site-roadmap.js';
 import { CloudflareRegistrarService } from '../services/cloudflare-registrar.js';
+import { CloudflareDNSService } from '../services/cloudflare-dns.js';
 import { generateBlogTopics } from '../services/blog-topics.js';
 
 /**
@@ -499,24 +500,54 @@ export async function handleSiteDeploy(job: Job<SiteDeployPayload>): Promise<Job
       throw new Error(`Site ${siteId} has no brand configuration`);
     }
 
-    // 3. Determine deployment URL
+    // 3. Determine deployment URL and add domain to Heroku
     let deploymentUrl: string;
 
     if (environment === 'staging') {
-      // For staging, use Heroku-provided URL or subdomain
       deploymentUrl = `https://${site.slug}.herokuapp.com`;
     } else {
-      // For production, require custom domain
       const primaryDomain = site.domains.find((d) => site.primaryDomain === d.domain);
-      if (!primaryDomain || !primaryDomain.verifiedAt) {
-        throw new Error(`Site ${siteId} requires verified custom domain for production deployment`);
+      if (!primaryDomain) {
+        throw new Error(`Site ${siteId} requires a custom domain for production deployment`);
       }
       deploymentUrl = `https://${primaryDomain.domain}`;
+
+      // Add domain to Heroku and configure Cloudflare DNS
+      const herokuAppName = process.env['HEROKU_APP_NAME'];
+      const herokuApiKey = process.env['HEROKU_API_KEY'];
+
+      if (herokuAppName && herokuApiKey) {
+        try {
+          const herokuDnsTargets = await addDomainToHeroku(
+            herokuAppName,
+            herokuApiKey,
+            primaryDomain.domain
+          );
+
+          // Update Cloudflare DNS to point to Heroku
+          if (primaryDomain.cloudflareZoneId && herokuDnsTargets.root) {
+            const cloudflare = new CloudflareDNSService();
+            await cloudflare.setupStandardRecords(primaryDomain.cloudflareZoneId, {
+              rootTarget: herokuDnsTargets.root,
+              wwwTarget: herokuDnsTargets.www || herokuDnsTargets.root,
+              enableWWW: true,
+            });
+            console.log(
+              `[Site Deploy] Cloudflare DNS configured for ${primaryDomain.domain} -> Heroku`
+            );
+          }
+        } catch (err) {
+          // Log but don't fail the deploy — DNS can be configured manually
+          console.error(`[Site Deploy] Heroku/DNS setup error (non-fatal):`, err);
+        }
+      } else {
+        console.warn(
+          '[Site Deploy] HEROKU_APP_NAME or HEROKU_API_KEY not set, skipping automatic domain setup'
+        );
+      }
     }
 
-    // 4. For MVP, update site metadata rather than actually deploying
-    // TODO: Implement actual Heroku deployment in Phase 3
-    console.log(`[Site Deploy] Updating site metadata with deployment URL: ${deploymentUrl}`);
+    console.log(`[Site Deploy] Deployment URL: ${deploymentUrl}`);
 
     // Determine target status: production → ACTIVE, staging → keep current status.
     // Never downgrade an already-ACTIVE site to DRAFT (e.g. when Cloudflare sync
@@ -576,6 +607,75 @@ export async function handleSiteDeploy(job: Job<SiteDeployPayload>): Promise<Job
       timestamp: new Date(),
     };
   }
+}
+
+/**
+ * Add a custom domain (root + www) to a Heroku app via the Platform API.
+ * Returns the DNS targets that Cloudflare CNAME records should point to.
+ */
+async function addDomainToHeroku(
+  appName: string,
+  apiKey: string,
+  domain: string
+): Promise<{ root: string | null; www: string | null }> {
+  const targets: { root: string | null; www: string | null } = { root: null, www: null };
+
+  for (const hostname of [domain, `www.${domain}`]) {
+    try {
+      const res = await fetch(`https://api.heroku.com/apps/${appName}/domains`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          Accept: 'application/vnd.heroku+json; version=3',
+        },
+        body: JSON.stringify({ hostname }),
+      });
+
+      if (res.status === 422) {
+        // Domain already exists — fetch its DNS target
+        const existing = await fetch(
+          `https://api.heroku.com/apps/${appName}/domains/${hostname}`,
+          {
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              Accept: 'application/vnd.heroku+json; version=3',
+            },
+          }
+        );
+        if (existing.ok) {
+          const data = (await existing.json()) as { cname?: string };
+          const target = data.cname || null;
+          if (hostname.startsWith('www.')) {
+            targets.www = target;
+          } else {
+            targets.root = target;
+          }
+          console.log(`[Site Deploy] Heroku domain ${hostname} already exists (target: ${target})`);
+        }
+        continue;
+      }
+
+      if (!res.ok) {
+        const errorBody = await res.text();
+        console.error(`[Site Deploy] Heroku API error for ${hostname}: ${res.status} ${errorBody}`);
+        continue;
+      }
+
+      const data = (await res.json()) as { cname?: string };
+      const target = data.cname || null;
+      if (hostname.startsWith('www.')) {
+        targets.www = target;
+      } else {
+        targets.root = target;
+      }
+      console.log(`[Site Deploy] Added ${hostname} to Heroku (DNS target: ${target})`);
+    } catch (err) {
+      console.error(`[Site Deploy] Failed to add ${hostname} to Heroku:`, err);
+    }
+  }
+
+  return targets;
 }
 
 // Helper Functions
