@@ -1,7 +1,9 @@
 name: Deploy
 
 on:
-  push:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
     inputs:
@@ -22,12 +24,18 @@ jobs:
   deploy:
     name: Deploy to Heroku
     runs-on: ubuntu-latest
+    # Only deploy if CI passed or if manually triggered
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
     environment: ${{ github.event.inputs.environment || 'production' }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          # Use the CI workflow's commit SHA, or current SHA for manual dispatch
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
           fetch-depth: 0
 
       - name: Setup Node.js
