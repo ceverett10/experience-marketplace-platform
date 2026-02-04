@@ -270,4 +270,100 @@ describe('GET /api/operations/dashboard', () => {
 
     expect(data.metrics.successRate).toBe(100);
   });
+
+  describe('scheduled jobs with non-DB types', () => {
+    it('skips Prisma queries for AUTONOMOUS_ROADMAP and WEEKLY_BLOG_GENERATE', async () => {
+      // Return scheduled jobs that include non-DB types
+      mockGetScheduledJobs.mockReturnValue([
+        { jobType: 'SEO_ANALYZE', schedule: '0 3 * * *', description: 'Daily SEO analysis' },
+        { jobType: 'AUTONOMOUS_ROADMAP', schedule: '*/5 * * * *', description: 'Process roadmaps' },
+        { jobType: 'WEEKLY_BLOG_GENERATE', schedule: '0 4 * * 1,4', description: 'Generate blogs' },
+        { jobType: 'GSC_SYNC', schedule: '0 */6 * * *', description: 'Sync GSC data' },
+      ]);
+
+      mockPrisma.job.count.mockResolvedValue(0);
+      mockPrisma.job.findMany.mockResolvedValue([]);
+      // Return null for valid DB types (no last run found)
+      mockPrisma.job.findFirst.mockResolvedValue(null);
+
+      const response = await GET();
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+
+      // Non-DB types should have lastRun: null without querying Prisma
+      const roadmap = data.scheduledJobs.find(
+        (sj: { jobType: string }) => sj.jobType === 'AUTONOMOUS_ROADMAP'
+      );
+      const blog = data.scheduledJobs.find(
+        (sj: { jobType: string }) => sj.jobType === 'WEEKLY_BLOG_GENERATE'
+      );
+      expect(roadmap.lastRun).toBeNull();
+      expect(blog.lastRun).toBeNull();
+
+      // Only 2 DB types should have triggered findFirst calls (SEO_ANALYZE and GSC_SYNC)
+      expect(mockPrisma.job.findFirst).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not crash when Prisma throws for a scheduled job type', async () => {
+      mockGetScheduledJobs.mockReturnValue([
+        { jobType: 'SEO_ANALYZE', schedule: '0 3 * * *', description: 'Daily SEO analysis' },
+        { jobType: 'LINK_OPPORTUNITY_SCAN', schedule: '0 2 * * 2', description: 'Scan links' },
+      ]);
+
+      mockPrisma.job.count.mockResolvedValue(0);
+      mockPrisma.job.findMany.mockResolvedValue([]);
+      // First call succeeds, second throws (simulating Prisma validation error)
+      mockPrisma.job.findFirst
+        .mockResolvedValueOnce({
+          status: 'COMPLETED',
+          createdAt: new Date('2024-01-20T03:00:00Z'),
+          startedAt: new Date('2024-01-20T03:00:05Z'),
+          completedAt: new Date('2024-01-20T03:05:00Z'),
+        })
+        .mockRejectedValueOnce(new Error('Invalid enum value'));
+
+      const response = await GET();
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+
+      // First job should have last run data
+      const seo = data.scheduledJobs.find(
+        (sj: { jobType: string }) => sj.jobType === 'SEO_ANALYZE'
+      );
+      expect(seo.lastRun).not.toBeNull();
+      expect(seo.lastRun.status).toBe('COMPLETED');
+
+      // Second job should gracefully degrade to null
+      const links = data.scheduledJobs.find(
+        (sj: { jobType: string }) => sj.jobType === 'LINK_OPPORTUNITY_SCAN'
+      );
+      expect(links.lastRun).toBeNull();
+    });
+
+    it('returns all scheduled jobs including non-DB types in response', async () => {
+      mockGetScheduledJobs.mockReturnValue([
+        { jobType: 'SEO_ANALYZE', schedule: '0 3 * * *', description: 'Daily SEO analysis' },
+        { jobType: 'AUTONOMOUS_ROADMAP', schedule: '*/5 * * * *', description: 'Process roadmaps' },
+        { jobType: 'WEEKLY_BLOG_GENERATE', schedule: '0 4 * * 1,4', description: 'Generate blogs' },
+      ]);
+
+      mockPrisma.job.count.mockResolvedValue(0);
+      mockPrisma.job.findMany.mockResolvedValue([]);
+      mockPrisma.job.findFirst.mockResolvedValue(null);
+
+      const response = await GET();
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      // All 3 scheduled jobs should be in the response
+      expect(data.scheduledJobs).toHaveLength(3);
+      expect(data.scheduledJobs.map((sj: { jobType: string }) => sj.jobType)).toEqual([
+        'SEO_ANALYZE',
+        'AUTONOMOUS_ROADMAP',
+        'WEEKLY_BLOG_GENERATE',
+      ]);
+    });
+  });
 });
