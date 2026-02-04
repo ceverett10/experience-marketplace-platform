@@ -598,16 +598,24 @@ async function getJobPayload(siteId: string, jobType: JobType): Promise<Record<s
     case 'DOMAIN_REGISTER':
       return { ...basePayload, registrar: 'cloudflare', autoRenew: true };
     case 'DOMAIN_VERIFY': {
-      // Handler expects { domainId, verificationMethod } — look up the domain record
-      // Include siteId so the job record is linked to the site for deduplication and tracking
-      const domain = await prisma.domain.findFirst({
-        where: { siteId },
+      // Handler expects { domainId, verificationMethod } — look up the domain record.
+      // Prefer an unverified domain (verifiedAt is null) so we don't re-verify needlessly.
+      // Fall back to the most recently registered domain if all are already verified
+      // (the handler has an idempotency guard and will return success immediately).
+      const unverifiedDomain = await prisma.domain.findFirst({
+        where: { siteId, verifiedAt: null },
         orderBy: { registeredAt: 'desc' },
       });
-      if (!domain) {
+      const domainForVerify =
+        unverifiedDomain ||
+        (await prisma.domain.findFirst({
+          where: { siteId },
+          orderBy: { registeredAt: 'desc' },
+        }));
+      if (!domainForVerify) {
         throw new Error(`Cannot queue DOMAIN_VERIFY: no domain found for site ${siteId}`);
       }
-      return { siteId, domainId: domain.id, verificationMethod: 'dns' as const };
+      return { siteId, domainId: domainForVerify.id, verificationMethod: 'dns' as const };
     }
     case 'SSL_PROVISION': {
       // Handler expects { domainId, provider } — look up the verified domain

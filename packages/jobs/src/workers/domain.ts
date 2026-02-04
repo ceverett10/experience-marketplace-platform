@@ -190,7 +190,25 @@ export async function handleDomainVerify(job: Job<DomainVerifyPayload>): Promise
       throw new NotFoundError('Domain', domainId);
     }
 
-    // 2. Verify domain ownership
+    // 2. If domain is already verified, return success immediately (idempotency guard)
+    if (domain.verifiedAt) {
+      console.log(
+        `[Domain Verify] Domain ${domain.domain} already verified at ${domain.verifiedAt.toISOString()}, skipping`
+      );
+      return {
+        success: true,
+        message: `Domain ${domain.domain} already verified`,
+        data: {
+          domainId: domain.id,
+          domain: domain.domain,
+          verifiedAt: domain.verifiedAt.toISOString(),
+          alreadyVerified: true,
+        },
+        timestamp: new Date(),
+      };
+    }
+
+    // 3. Verify domain ownership
     const isVerified = await verifyDomainOwnership(domain.domain, verificationMethod);
 
     if (!isVerified) {
