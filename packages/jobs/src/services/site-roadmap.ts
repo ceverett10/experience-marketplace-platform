@@ -679,8 +679,16 @@ async function getJobPayload(siteId: string, jobType: JobType): Promise<Record<s
       return { ...basePayload };
     case 'GA4_SETUP':
       return { ...basePayload };
-    case 'SITE_DEPLOY':
-      return { ...basePayload, environment: 'staging' };
+    case 'SITE_DEPLOY': {
+      // Use 'production' if the site has a verified domain (ready for live traffic),
+      // otherwise default to 'staging'.
+      const siteForDeploy = await prisma.site.findUnique({
+        where: { id: siteId },
+        include: { domains: { where: { verifiedAt: { not: null } }, take: 1 } },
+      });
+      const deployEnv = siteForDeploy?.domains.length ? 'production' : 'staging';
+      return { ...basePayload, environment: deployEnv };
+    }
     case 'SEO_ANALYZE':
       return { ...basePayload };
     case 'METRICS_AGGREGATE':

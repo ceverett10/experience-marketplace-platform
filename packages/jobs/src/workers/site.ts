@@ -518,11 +518,20 @@ export async function handleSiteDeploy(job: Job<SiteDeployPayload>): Promise<Job
     // TODO: Implement actual Heroku deployment in Phase 3
     console.log(`[Site Deploy] Updating site metadata with deployment URL: ${deploymentUrl}`);
 
+    // Determine target status: production → ACTIVE, staging → keep current status.
+    // Never downgrade an already-ACTIVE site to DRAFT (e.g. when Cloudflare sync
+    // has already activated the site before the roadmap runs SITE_DEPLOY).
+    const targetStatus =
+      environment === 'production'
+        ? 'ACTIVE'
+        : site.status === 'ACTIVE'
+          ? 'ACTIVE'
+          : site.status;
+
     const updatedSite = await prisma.site.update({
       where: { id: siteId },
       data: {
-        status: environment === 'production' ? 'ACTIVE' : 'DRAFT',
-        // Store deployment info in custom JSON field if available, or just log
+        status: targetStatus,
       },
     });
 
