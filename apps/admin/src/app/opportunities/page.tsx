@@ -266,7 +266,7 @@ export default function OpportunitiesPage() {
   });
 
   const getStatusBadge = (status: Opportunity['status']) => {
-    const styles = {
+    const styles: Record<string, string> = {
       IDENTIFIED: 'bg-blue-100 text-blue-800',
       EVALUATED: 'bg-amber-100 text-amber-800',
       ASSIGNED: 'bg-green-100 text-green-800',
@@ -277,20 +277,20 @@ export default function OpportunitiesPage() {
       ARCHIVED: 'bg-gray-100 text-gray-800',
     };
     return (
-      <span className={`${styles[status]} text-xs px-2 py-1 rounded font-medium`}>
-        {status.replace(/_/g, ' ')}
+      <span className={`${styles[status] ?? 'bg-slate-100 text-slate-800'} text-xs px-2 py-1 rounded font-medium`}>
+        {status?.replace(/_/g, ' ') ?? 'UNKNOWN'}
       </span>
     );
   };
 
   const getIntentIcon = (intent: Opportunity['intent']) => {
-    const icons = {
+    const icons: Record<string, string> = {
       TRANSACTIONAL: '💰',
       COMMERCIAL: '🛍️',
       NAVIGATIONAL: '🧭',
       INFORMATIONAL: '📚',
     };
-    return icons[intent];
+    return icons[intent] ?? '📋';
   };
 
   const getScoreColor = (score: number) => {
@@ -470,7 +470,7 @@ export default function OpportunitiesPage() {
                 <div>
                   <div className="text-xs text-slate-500 mb-1">Search Volume</div>
                   <div className="text-lg font-semibold text-slate-900">
-                    {opp.searchVolume.toLocaleString()}
+                    {(opp.searchVolume ?? 0).toLocaleString()}
                     <span className="text-xs text-slate-500">/mo</span>
                   </div>
                 </div>
@@ -483,7 +483,7 @@ export default function OpportunitiesPage() {
                 </div>
                 <div>
                   <div className="text-xs text-slate-500 mb-1">CPC</div>
-                  <div className="text-lg font-semibold text-slate-900">${opp.cpc.toFixed(2)}</div>
+                  <div className="text-lg font-semibold text-slate-900">${Number(opp.cpc ?? 0).toFixed(2)}</div>
                 </div>
                 <div>
                   <div className="text-xs text-slate-500 mb-1">Products</div>
@@ -514,26 +514,26 @@ export default function OpportunitiesPage() {
                       <div className="flex items-center justify-between mb-2">
                         <h4 className="text-sm font-semibold text-purple-900">Keyword Cluster</h4>
                         <div className="text-lg font-bold text-purple-900">
-                          {opp.sourceData.keywordCluster.clusterTotalVolume.toLocaleString()}
+                          {(opp.sourceData.keywordCluster.clusterTotalVolume ?? 0).toLocaleString()}
                           <span className="text-xs text-purple-600 font-normal ml-1">
-                            /mo total ({opp.sourceData.keywordCluster.clusterKeywordCount} keywords)
+                            /mo total ({opp.sourceData.keywordCluster.clusterKeywordCount ?? 0} keywords)
                           </span>
                         </div>
                       </div>
                       <div className="flex flex-wrap gap-2">
                         <span className="inline-flex items-center gap-1 text-xs bg-purple-200 text-purple-800 px-2 py-1 rounded font-semibold">
                           {opp.keyword}:{' '}
-                          {opp.sourceData.keywordCluster.primaryVolume.toLocaleString()}/mo
+                          {(opp.sourceData.keywordCluster.primaryVolume ?? 0).toLocaleString()}/mo
                         </span>
-                        {opp.sourceData.keywordCluster.clusterKeywords
-                          .sort((a, b) => b.searchVolume - a.searchVolume)
+                        {(opp.sourceData.keywordCluster.clusterKeywords ?? [])
+                          .sort((a, b) => (b.searchVolume ?? 0) - (a.searchVolume ?? 0))
                           .slice(0, 8)
                           .map((kw, idx) => (
                             <span
                               key={idx}
                               className="inline-flex items-center gap-1 text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded"
                             >
-                              {kw.keyword}: {kw.searchVolume.toLocaleString()}/mo
+                              {kw.keyword}: {(kw.searchVolume ?? 0).toLocaleString()}/mo
                             </span>
                           ))}
                       </div>
@@ -630,7 +630,7 @@ export default function OpportunitiesPage() {
                       PROJECTED TRAFFIC
                     </div>
                     <div className="text-lg font-bold text-green-900">
-                      {opp.sourceData.projectedValue.monthlyTraffic.toLocaleString()}
+                      {(opp.sourceData.projectedValue.monthlyTraffic ?? 0).toLocaleString()}
                       <span className="text-xs text-green-600 font-normal ml-1">/month</span>
                     </div>
                   </div>
@@ -639,14 +639,14 @@ export default function OpportunitiesPage() {
                       PROJECTED REVENUE
                     </div>
                     <div className="text-lg font-bold text-green-900">
-                      £{opp.sourceData.projectedValue.monthlyRevenue.toLocaleString()}
+                      £{(opp.sourceData.projectedValue.monthlyRevenue ?? 0).toLocaleString()}
                       <span className="text-xs text-green-600 font-normal ml-1">/month</span>
                     </div>
                   </div>
                   <div>
                     <div className="text-xs text-green-600 font-semibold mb-1">PAYBACK PERIOD</div>
                     <div className="text-lg font-bold text-green-900">
-                      {opp.sourceData.projectedValue.paybackPeriod}
+                      {opp.sourceData.projectedValue.paybackPeriod ?? '—'}
                       <span className="text-xs text-green-600 font-normal ml-1">months</span>
                     </div>
                   </div>
