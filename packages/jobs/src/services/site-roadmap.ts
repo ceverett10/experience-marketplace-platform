@@ -660,6 +660,9 @@ export async function executeNextTasks(
     (j) => j.status === 'COMPLETED' && !artifactValidation[j.type]?.valid
   );
 
+  // Track deleted job IDs so we exclude them when building the active jobs set
+  const deletedJobIds = new Set<string>();
+
   // When retryFailed is true (manual execution), delete FAILED jobs so they can be re-queued
   const failedJobs = jobs.filter((j) => j.status === 'FAILED');
   if (retryFailed && failedJobs.length > 0) {
@@ -668,6 +671,27 @@ export async function executeNextTasks(
         `[Site Roadmap] Deleting FAILED job ${failedJob.type} (id: ${failedJob.id}) for retry`
       );
       await prisma.job.delete({ where: { id: failedJob.id } });
+      deletedJobIds.add(failedJob.id);
+    }
+  }
+
+  // When retryFailed is true (manual execution), also clean up stale PENDING jobs
+  // that have been stuck for more than 10 minutes (not in 'planned' queue).
+  // These are jobs that were queued but never picked up by a worker.
+  if (retryFailed) {
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+    const stalePendingJobs = jobs.filter(
+      (j) =>
+        j.status === 'PENDING' &&
+        j.queue !== 'planned' &&
+        j.createdAt < tenMinutesAgo
+    );
+    for (const staleJob of stalePendingJobs) {
+      console.log(
+        `[Site Roadmap] Deleting stale PENDING job ${staleJob.type} (id: ${staleJob.id}, created: ${staleJob.createdAt.toISOString()}) for retry`
+      );
+      await prisma.job.delete({ where: { id: staleJob.id } });
+      deletedJobIds.add(staleJob.id);
     }
   }
 
@@ -675,12 +699,20 @@ export async function executeNextTasks(
   // FAILED jobs are only skipped during autonomous processing (retryFailed=false)
   // IMPORTANT: Exclude 'planned' queue jobs — those are placeholders, not active jobs.
   // They get deleted and replaced with real jobs in the execution loop below.
+  // Also exclude jobs that were just deleted above.
   const skipStatuses = retryFailed
     ? ['RUNNING', 'PENDING', 'SCHEDULED', 'RETRYING']
     : ['RUNNING', 'PENDING', 'SCHEDULED', 'RETRYING', 'FAILED'];
 
   const activeOrFailedJobs = new Set(
-    jobs.filter((j) => skipStatuses.includes(j.status) && j.queue !== 'planned').map((j) => j.type)
+    jobs
+      .filter(
+        (j) =>
+          skipStatuses.includes(j.status) &&
+          j.queue !== 'planned' &&
+          !deletedJobIds.has(j.id)
+      )
+      .map((j) => j.type)
   );
 
   const queued: string[] = [];
