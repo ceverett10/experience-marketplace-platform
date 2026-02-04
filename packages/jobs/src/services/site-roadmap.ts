@@ -563,8 +563,32 @@ async function getJobPayload(siteId: string, jobType: JobType): Promise<Record<s
   const basePayload = { siteId };
 
   switch (jobType) {
-    case 'CONTENT_GENERATE':
-      return { ...basePayload, contentType: 'destination' };
+    case 'CONTENT_GENERATE': {
+      // Query homepageConfig to provide destination/category context for content generation.
+      // Without these, internal linking crashes on thematic sites that lack location context.
+      const siteForContent = await prisma.site.findUnique({
+        where: { id: siteId },
+        select: { name: true, homepageConfig: true },
+      });
+      const hpc = (siteForContent?.homepageConfig as Record<string, unknown>) || {};
+      const popExp = (hpc['popularExperiences'] as Record<string, unknown>) || {};
+      const destinations = (hpc['destinations'] as Array<{ name: string }>) || [];
+
+      const destination = (popExp['destination'] as string) || destinations[0]?.name || '';
+      const category = (popExp['categoryPath'] as string) || '';
+      // Derive a target keyword from destination + site name context
+      const targetKeyword = destination
+        ? `${destination} ${category || 'experiences'}`.trim()
+        : siteForContent?.name || '';
+
+      return {
+        ...basePayload,
+        contentType: 'destination',
+        destination: destination || undefined,
+        category: category || undefined,
+        targetKeyword: targetKeyword || undefined,
+      };
+    }
     case 'CONTENT_OPTIMIZE':
       // No contentId → handler runs in batch mode (optimizes all content for site)
       return basePayload;

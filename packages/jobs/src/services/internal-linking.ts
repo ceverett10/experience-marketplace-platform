@@ -38,13 +38,18 @@ export async function findRelatedPages(params: {
   excludePageId?: string;
   limit?: number;
 }): Promise<InternalLink[]> {
-  const { siteId, contentType, keywords, destination, category, excludePageId, limit = 5 } = params;
+  const { siteId, contentType, keywords: rawKeywords, destination, category, excludePageId, limit = 5 } = params;
+
+  // Ensure keywords are valid non-empty strings before using in queries
+  const keywords = rawKeywords.filter(
+    (kw): kw is string => typeof kw === 'string' && kw.length > 0
+  );
 
   const relatedLinks: InternalLink[] = [];
 
   try {
     // 1. Find related blog posts by keyword overlap
-    if (contentType !== 'blog') {
+    if (contentType !== 'blog' && keywords.length > 0) {
       const relatedBlogs = await prisma.page.findMany({
         where: {
           siteId,
@@ -146,27 +151,30 @@ export async function findRelatedPages(params: {
     }
 
     // 4. Find other related pages by keyword matching
-    const otherRelated = await prisma.page.findMany({
-      where: {
-        siteId,
-        status: 'PUBLISHED',
-        id: excludePageId ? { not: excludePageId } : undefined,
-        type: { notIn: [PageType.BLOG] }, // Already handled above
-        OR: keywords.slice(0, 3).map((kw) => ({
-          OR: [
-            { title: { contains: kw, mode: 'insensitive' as const } },
-            { metaDescription: { contains: kw, mode: 'insensitive' as const } },
-          ],
-        })),
-      },
-      select: {
-        id: true,
-        slug: true,
-        title: true,
-        type: true,
-      },
-      take: 3,
-    });
+    const keywordSlice = keywords.slice(0, 3);
+    const otherRelated = keywordSlice.length > 0
+      ? await prisma.page.findMany({
+          where: {
+            siteId,
+            status: 'PUBLISHED',
+            id: excludePageId ? { not: excludePageId } : undefined,
+            type: { notIn: [PageType.BLOG] }, // Already handled above
+            OR: keywordSlice.map((kw) => ({
+              OR: [
+                { title: { contains: kw, mode: 'insensitive' as const } },
+                { metaDescription: { contains: kw, mode: 'insensitive' as const } },
+              ],
+            })),
+          },
+          select: {
+            id: true,
+            slug: true,
+            title: true,
+            type: true,
+          },
+          take: 3,
+        })
+      : [];
 
     for (const page of otherRelated) {
       // Skip if already added
@@ -236,8 +244,10 @@ export async function suggestInternalLinks(params: {
     pageId,
   } = params;
 
-  // Combine keywords for searching
-  const keywords = [targetKeyword, ...secondaryKeywords].filter(Boolean);
+  // Combine keywords for searching — ensure all are non-empty strings
+  const keywords = [targetKeyword, ...secondaryKeywords].filter(
+    (kw): kw is string => typeof kw === 'string' && kw.length > 0
+  );
 
   // Find related pages
   const relatedPages = await findRelatedPages({
@@ -426,9 +436,12 @@ function generateExperienceListingLinks(params: {
     });
   }
 
-  // Generate links from significant keywords
-  for (const keyword of keywords.slice(0, 2)) {
-    if (keyword !== destination && keyword !== category && keyword.length > 4) {
+  // Generate links from significant keywords (filter out non-string/empty values)
+  const validKeywords = keywords.filter(
+    (kw): kw is string => typeof kw === 'string' && kw.length > 4
+  );
+  for (const keyword of validKeywords.slice(0, 2)) {
+    if (keyword !== destination && keyword !== category) {
       links.push({
         url: `/experiences?q=${encodeURIComponent(keyword)}`,
         anchorText: `${keyword.toLowerCase()} experiences`,
