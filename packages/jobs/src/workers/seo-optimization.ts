@@ -84,6 +84,46 @@ export async function handleSEOAudit(job: Job<SEOAuditPayload>): Promise<JobResu
   console.log(`[SEO Audit] Starting audit for site ${siteId}`);
 
   try {
+    // Handle special "all" siteId value - queue audits for all active sites
+    if (siteId === 'all') {
+      console.log('[SEO Audit] Processing all active sites');
+      const sites = await prisma.site.findMany({
+        where: { status: 'ACTIVE' },
+        select: { id: true, name: true },
+      });
+
+      const seoQueue = getJobQueue('seo');
+      let scheduled = 0;
+
+      for (const site of sites) {
+        await seoQueue.add(
+          'SEO_ANALYZE',
+          {
+            siteId: site.id,
+            triggerOptimizations,
+            forceAudit,
+          },
+          {
+            delay: scheduled * 2 * 60 * 1000, // Stagger by 2 minutes
+            priority: 10,
+          }
+        );
+        scheduled++;
+        console.log(`[SEO Audit] Scheduled audit for ${site.name}`);
+      }
+
+      const duration = Date.now() - startTime;
+      return {
+        success: true,
+        data: {
+          sitesScheduled: scheduled,
+          sites: sites.map((s) => s.name),
+          duration,
+        },
+        timestamp: new Date(),
+      };
+    }
+
     // Check if system is paused
     const pauseCheck = await canExecuteAutonomousOperation({ siteId });
     if (!pauseCheck.allowed) {
