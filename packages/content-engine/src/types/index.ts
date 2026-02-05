@@ -7,6 +7,7 @@ export type ContentType =
   | 'experience'
   | 'blog'
   | 'about'
+  | 'faq'
   | 'meta_description'
   | 'seo_title';
 
@@ -243,6 +244,7 @@ export const ContentBriefSchema = z.object({
     'experience',
     'blog',
     'about',
+    'faq',
     'meta_description',
     'seo_title',
   ]),

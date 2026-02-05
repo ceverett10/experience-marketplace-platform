@@ -472,6 +472,43 @@ Target: ${brief.targetLength.min}-${brief.targetLength.max} words total.
 `
         : '';
 
+    // FAQ page specific instructions
+    const faqInstructions =
+      brief.type === 'faq'
+        ? `
+## FAQ PAGE STRUCTURE
+This is a dedicated FAQ hub page. Structure it for maximum SEO value with FAQPage schema.
+
+### SOURCE QUESTIONS
+${brief.sourceData?.['questions'] ? `Use these real user questions from search data:\n${(brief.sourceData['questions'] as string[]).map((q) => `- ${q}`).join('\n')}` : 'Generate relevant questions based on the topic.'}
+
+### REQUIRED STRUCTURE
+1. **H1: Frequently Asked Questions about ${brief.targetKeyword}** (or similar engaging title)
+2. **Brief intro** (2-3 sentences explaining what users will find)
+3. **Organized Q&A sections** - Group related questions under H2 topic headings
+4. **Each question as H3** - Format: "### Question text here?"
+5. **Concise answers** - 2-4 sentences per answer, practical and helpful
+6. **Include 10-15 total Q&A pairs** organized into 3-5 topic groups
+
+### FAQ FORMATTING RULES
+- Every question MUST end with a question mark (?)
+- Use H3 (###) for all questions - this enables FAQPage schema extraction
+- Keep answers concise but complete - 50-150 words each
+- Include relevant keywords naturally in both questions and answers
+- Link to relevant pages where appropriate (destinations, experiences)
+
+### TOPIC ORGANIZATION EXAMPLE
+## Booking & Pricing
+### How much do food tours in London cost?
+### Can I cancel my booking?
+
+## Experience Details
+### How long do tours typically last?
+### What should I wear?
+
+`
+        : '';
+
     return `Create ${brief.type} content ${brandLabel}: ${brief.targetKeyword}
 
 ## CONTENT REQUIREMENTS

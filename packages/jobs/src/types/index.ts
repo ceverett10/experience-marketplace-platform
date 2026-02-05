@@ -9,12 +9,23 @@ export interface ContentGeneratePayload {
   siteId: string;
   pageId?: string; // If provided, update existing page instead of creating new one
   opportunityId?: string;
-  contentType: 'destination' | 'experience' | 'category' | 'blog' | 'about';
+  contentType: 'destination' | 'experience' | 'category' | 'blog' | 'about' | 'faq';
   targetKeyword: string;
   secondaryKeywords?: string[];
   destination?: string;
   category?: string;
   targetLength?: { min: number; max: number };
+  sourceData?: {
+    questions?: string[]; // For FAQ generation
+    contentSubtype?: string; // For comparison/seasonal/guide content
+    comparedItems?: string[]; // For comparison content
+    comparisonType?: string; // For comparison content
+    season?: string; // For seasonal content
+    year?: number; // For seasonal content
+    location?: string; // For guide content
+    event?: string; // For seasonal/event content
+    [key: string]: unknown;
+  };
 }
 
 export interface ContentOptimizePayload {

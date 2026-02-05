@@ -212,6 +212,17 @@ function generateStructuredDataForContent(params: {
       };
     }
 
+    case 'faq': {
+      // FAQPage schema - extract all Q&A pairs from content
+      const faqs = extractFAQsFromContent(content);
+      const faqSchema = faqs.length > 0 ? generateFAQSchema(faqs) : null;
+
+      return {
+        ...(faqSchema && { faq: faqSchema }),
+        breadcrumbTemplate: [...breadcrumbItems, { name: 'FAQ' }, { name: title }],
+      };
+    }
+
     default:
       // Generic article schema
       return {
@@ -654,6 +665,7 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
           category: 'CATEGORY',
           blog: 'BLOG',
           about: 'ABOUT',
+          faq: 'FAQ',
         };
         page = await prisma.page.create({
           data: {

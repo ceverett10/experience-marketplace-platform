@@ -1,8 +1,12 @@
 import { scheduleJob, queueRegistry } from '../queues';
 import { generateDailyBlogPostsForAllSites } from '../services/daily-blog-generator.js';
+import {
+  generateDailyContent,
+  ContentGenerationType,
+} from '../services/daily-content-generator.js';
 
-// Track interval for cleanup
-let dailyBlogInterval: NodeJS.Timeout | null = null;
+// Track intervals for cleanup
+let dailyContentInterval: NodeJS.Timeout | null = null;
 
 /**
  * Calculate the next run time for a cron expression.
@@ -166,49 +170,148 @@ export async function initializeScheduledJobs(): Promise<void> {
   );
   console.log('[Scheduler] ✓ Link Opportunity Scan - Tuesdays at 2 AM');
 
-  // Daily Blog Generation - Every day at 4 AM
+  // Daily Content Generation - Staggered throughout the day
   // Uses setInterval with cron-like scheduling since it doesn't need job queue tracking
-  initializeDailyBlogSchedule();
-  console.log('[Scheduler] ✓ Daily Blog Generation - Every day at 4 AM');
+  initializeDailyContentSchedule();
+  console.log('[Scheduler] ✓ Daily Content Generation Schedule:');
+  console.log('[Scheduler]   - FAQ Hubs: 1:30 AM');
+  console.log('[Scheduler]   - Content Refresh: 2:30 AM');
+  console.log('[Scheduler]   - Daily Blog: 4:00 AM');
+  console.log('[Scheduler]   - Destination Landing: 5:30 AM');
+  console.log('[Scheduler]   - Comparison Pages: 6:30 AM');
+  console.log('[Scheduler]   - Seasonal Content: 7:00 AM');
+  console.log('[Scheduler]   - Local Guides: Sundays 4:30 AM');
 
   console.log('[Scheduler] All scheduled jobs initialized successfully');
 }
 
 /**
- * Initialize daily blog generation schedule
- * Runs every day at 4 AM to generate 1 blog post per site
+ * Content generation schedule configuration
+ * Each content type runs at a specific time to spread load
+ */
+interface ContentSchedule {
+  type: ContentGenerationType | 'blog';
+  hour: number;
+  minute: number;
+  dayOfWeek?: number; // 0 = Sunday, if undefined runs daily
+  description: string;
+}
+
+const CONTENT_SCHEDULES: ContentSchedule[] = [
+  { type: 'faq_hub', hour: 1, minute: 30, description: 'FAQ Hub Pages' },
+  { type: 'content_refresh', hour: 2, minute: 30, description: 'Content Refresh' },
+  { type: 'blog', hour: 4, minute: 0, description: 'Daily Blog' },
+  { type: 'destination_landing', hour: 5, minute: 30, description: 'Destination Landing' },
+  { type: 'comparison', hour: 6, minute: 30, description: 'Comparison Pages' },
+  { type: 'seasonal_event', hour: 7, minute: 0, description: 'Seasonal Content' },
+  { type: 'local_guide', hour: 4, minute: 30, dayOfWeek: 0, description: 'Local Guides (Weekly)' },
+];
+
+// Track which schedules have run today to avoid duplicates
+const schedulesRunToday = new Map<string, string>();
+
+/**
+ * Initialize daily content generation schedule
+ * Runs different content types at staggered times throughout the day
  * This builds site authority through consistent daily content publishing
  */
-function initializeDailyBlogSchedule(): void {
-  // Check every hour if it's time to generate blog posts
-  dailyBlogInterval = setInterval(
+function initializeDailyContentSchedule(): void {
+  // Check every 30 minutes if it's time to generate content
+  dailyContentInterval = setInterval(
     async () => {
       const now = new Date();
-      const hour = now.getHours();
+      const today = now.toISOString().split('T')[0] ?? '';
+      const currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
+      const currentDow = now.getDay();
 
-      // Run every day at 4 AM
-      if (hour === 4) {
-        console.log('[Scheduler] Starting daily blog generation...');
-        try {
-          const results = await generateDailyBlogPostsForAllSites();
-          const postsQueued = results.filter((r) => r.postQueued).length;
-          console.log(
-            `[Scheduler] Daily blog generation complete: ${postsQueued} posts queued across ${results.length} sites`
-          );
-        } catch (error) {
-          console.error('[Scheduler] Daily blog generation failed:', error);
+      for (const schedule of CONTENT_SCHEDULES) {
+        // Check if this is the right time (within 30 min window)
+        const isCorrectTime =
+          currentHour === schedule.hour &&
+          currentMinute >= schedule.minute &&
+          currentMinute < schedule.minute + 30;
+
+        // Check day of week for weekly schedules
+        const isCorrectDay =
+          schedule.dayOfWeek === undefined || schedule.dayOfWeek === currentDow;
+
+        // Check if already run today
+        const scheduleKey = `${schedule.type}-${schedule.dayOfWeek ?? 'daily'}`;
+        const lastRun = schedulesRunToday.get(scheduleKey);
+        const alreadyRunToday = lastRun === today;
+
+        if (isCorrectTime && isCorrectDay && !alreadyRunToday) {
+          schedulesRunToday.set(scheduleKey, today);
+          await runContentGeneration(schedule);
         }
       }
-    },
-    60 * 60 * 1000
-  ); // Check every hour
 
-  // Also check immediately on startup if it's 4 AM
+      // Clear old entries at midnight
+      if (currentHour === 0 && currentMinute < 30) {
+        schedulesRunToday.clear();
+      }
+    },
+    30 * 60 * 1000 // Check every 30 minutes
+  );
+
+  // Also check immediately on startup
+  checkAndRunContentSchedules();
+}
+
+/**
+ * Check and run any content schedules that should have run
+ */
+async function checkAndRunContentSchedules(): Promise<void> {
   const now = new Date();
-  const hour = now.getHours();
-  if (hour === 4) {
-    console.log('[Scheduler] Running immediate daily blog check on startup...');
-    generateDailyBlogPostsForAllSites().catch(console.error);
+  const today = now.toISOString().split('T')[0] ?? '';
+  const currentHour = now.getHours();
+  const currentMinute = now.getMinutes();
+  const currentDow = now.getDay();
+
+  for (const schedule of CONTENT_SCHEDULES) {
+    // Check if this is the right time (within 30 min window)
+    const isCorrectTime =
+      currentHour === schedule.hour &&
+      currentMinute >= schedule.minute &&
+      currentMinute < schedule.minute + 30;
+
+    // Check day of week for weekly schedules
+    const isCorrectDay = schedule.dayOfWeek === undefined || schedule.dayOfWeek === currentDow;
+
+    if (isCorrectTime && isCorrectDay) {
+      const scheduleKey = `${schedule.type}-${schedule.dayOfWeek ?? 'daily'}`;
+      schedulesRunToday.set(scheduleKey, today);
+      console.log(`[Scheduler] Running immediate ${schedule.description} check on startup...`);
+      await runContentGeneration(schedule);
+    }
+  }
+}
+
+/**
+ * Run content generation for a specific schedule
+ */
+async function runContentGeneration(schedule: ContentSchedule): Promise<void> {
+  console.log(`[Scheduler] Starting ${schedule.description} generation...`);
+
+  try {
+    if (schedule.type === 'blog') {
+      // Use existing blog generator
+      const results = await generateDailyBlogPostsForAllSites();
+      const postsQueued = results.filter((r) => r.postQueued).length;
+      console.log(
+        `[Scheduler] ${schedule.description} complete: ${postsQueued} posts queued across ${results.length} sites`
+      );
+    } else {
+      // Use new daily content generator
+      const results = await generateDailyContent(schedule.type as ContentGenerationType);
+      const contentQueued = results.filter((r) => r.queued).length;
+      console.log(
+        `[Scheduler] ${schedule.description} complete: ${contentQueued} items queued across ${results.length} sites`
+      );
+    }
+  } catch (error) {
+    console.error(`[Scheduler] ${schedule.description} generation failed:`, error);
   }
 }
 
@@ -228,11 +331,14 @@ export async function removeAllScheduledJobs(): Promise<void> {
   await queueRegistry.removeRepeatableJob('LINK_BACKLINK_MONITOR' as any, '0 3 * * 3');
   await queueRegistry.removeRepeatableJob('LINK_OPPORTUNITY_SCAN' as any, '0 2 * * 2');
 
-  // Clear daily blog interval
-  if (dailyBlogInterval) {
-    clearInterval(dailyBlogInterval);
-    dailyBlogInterval = null;
+  // Clear daily content interval
+  if (dailyContentInterval) {
+    clearInterval(dailyContentInterval);
+    dailyContentInterval = null;
   }
+
+  // Clear schedule tracking
+  schedulesRunToday.clear();
 
   console.log('[Scheduler] All scheduled jobs removed');
 }
@@ -262,9 +368,39 @@ export function getScheduledJobs(): Array<{
       description: 'Daily SEO health audit with auto-optimization',
     },
     {
+      jobType: 'DAILY_FAQ_GENERATE',
+      schedule: '30 1 * * *',
+      description: 'Generate FAQ hub pages from GSC queries and content',
+    },
+    {
+      jobType: 'DAILY_CONTENT_REFRESH',
+      schedule: '30 2 * * *',
+      description: 'Refresh underperforming content based on SEO health',
+    },
+    {
       jobType: 'DAILY_BLOG_GENERATE',
       schedule: '0 4 * * *',
       description: 'Generate 1 blog post per site daily for SEO authority',
+    },
+    {
+      jobType: 'DAILY_DESTINATION_GENERATE',
+      schedule: '30 5 * * *',
+      description: 'Generate destination landing pages for key locations',
+    },
+    {
+      jobType: 'DAILY_COMPARISON_GENERATE',
+      schedule: '30 6 * * *',
+      description: 'Generate comparison pages (X vs Y content)',
+    },
+    {
+      jobType: 'DAILY_SEASONAL_GENERATE',
+      schedule: '0 7 * * *',
+      description: 'Generate seasonal and event-based content',
+    },
+    {
+      jobType: 'WEEKLY_LOCAL_GUIDE_GENERATE',
+      schedule: '30 4 * * 0',
+      description: 'Generate comprehensive local guides (Sundays)',
     },
     {
       jobType: 'SEO_ANALYZE (deep)',
