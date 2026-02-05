@@ -6,6 +6,7 @@ import { LatestBlogPosts } from '@/components/content/LatestBlogPosts';
 import { getSiteFromHostname, type HomepageConfig } from '@/lib/tenant';
 import { getHolibobClient, type ExperienceListItem, parseIsoDuration } from '@/lib/holibob';
 import { prisma } from '@/lib/prisma';
+import { optimizeUnsplashUrl } from '@/lib/image-utils';
 
 // Revalidate every 5 minutes for fresh content
 export const revalidate = 300;
@@ -286,8 +287,23 @@ export default async function HomePage() {
         : undefined,
   };
 
+  // Preload hero image URL (optimized) so browser fetches it immediately
+  const heroImageUrl = heroConfig?.backgroundImage
+    ? optimizeUnsplashUrl(heroConfig.backgroundImage, 1920, 80)
+    : null;
+
   return (
     <>
+      {/* Preload hero image - critical for LCP */}
+      {heroImageUrl && (
+        <link
+          rel="preload"
+          as="image"
+          href={heroImageUrl}
+          fetchPriority="high"
+        />
+      )}
+
       {/* JSON-LD Structured Data - LocalBusiness */}
       <script
         type="application/ld+json"
