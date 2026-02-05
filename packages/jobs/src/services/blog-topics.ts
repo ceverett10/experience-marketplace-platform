@@ -187,7 +187,89 @@ function generateFallbackTopics(context: BlogTopicContext, count: number): BlogT
 }
 
 /**
- * Generate weekly blog topics for an active site
+ * Generate a single daily blog topic for an active site
+ * Rotates focus daily: seasonal, trending, evergreen, local-insights
+ */
+export async function generateDailyBlogTopic(
+  context: BlogTopicContext,
+  dayOfYear: number = 1
+): Promise<BlogTopicSuggestion | null> {
+  // Rotate focus each day
+  const dailyFocus = ['seasonal', 'trending', 'evergreen', 'local-insights'][(dayOfYear - 1) % 4];
+
+  console.log(`[Blog Topics] Generating daily topic with focus: ${dailyFocus}`);
+
+  try {
+    const client = createClaudeClient({
+      apiKey: process.env['ANTHROPIC_API_KEY'] || process.env['CLAUDE_API_KEY'] || '',
+    });
+
+    const currentMonth = new Date().toLocaleString('en-US', { month: 'long' });
+    const currentSeason = getSeason();
+
+    const prompt = `Generate 1 highly relevant SEO-optimized blog post idea for today.
+
+SITE CONTEXT:
+- Site Name: ${context.siteName}
+- Niche: ${context.niche}
+- Location Focus: ${context.location || context.destination || 'General'}
+- Current Month: ${currentMonth}
+- Current Season: ${currentSeason}
+- Today's Focus: ${dailyFocus}
+
+EXISTING TOPICS TO AVOID (these are already published):
+${context.existingTopics?.map((t) => `- ${t}`).join('\n') || 'None yet'}
+
+FOCUS GUIDELINES:
+- seasonal: Topics relevant to current season/month (holidays, weather, events)
+- trending: Popular search topics, current travel trends
+- evergreen: Timeless content that performs year-round
+- local-insights: Deep-dive into specific locations, neighborhoods, hidden gems
+
+Generate 1 topic that will drive organic traffic. The topic should be highly relevant to the niche and location, with strong SEO potential.
+
+Return a JSON object (not an array):
+{
+  "title": "SEO title with primary keyword",
+  "slug": "url-friendly-slug",
+  "targetKeyword": "primary keyword phrase",
+  "secondaryKeywords": ["kw1", "kw2", "kw3"],
+  "contentType": "guide|listicle|how-to|comparison|tips",
+  "estimatedSearchVolume": "high|medium|low",
+  "intent": "informational|commercial",
+  "outline": ["Section 1", "Section 2", "Section 3", "Section 4"]
+}
+
+Only return valid JSON.`;
+
+    const response = await client.generate({
+      model: client.getModelId('haiku'), // Use haiku for cost efficiency
+      messages: [{ role: 'user', content: prompt }],
+      maxTokens: 1000,
+      temperature: 0.9,
+    });
+
+    const content = response.content[0]?.type === 'text' ? response.content[0].text : '';
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+
+    if (jsonMatch) {
+      const topic = JSON.parse(jsonMatch[0]) as BlogTopicSuggestion;
+      console.log(`[Blog Topics] Generated daily topic: ${topic.title}`);
+      return topic;
+    }
+
+    // Fallback to first topic from fallback generator
+    const fallbackTopics = generateFallbackTopics(context, 1);
+    return fallbackTopics[0] || null;
+  } catch (error) {
+    console.error('[Blog Topics] Error generating daily topic:', error);
+    const fallbackTopics = generateFallbackTopics(context, 1);
+    return fallbackTopics[0] || null;
+  }
+}
+
+/**
+ * Generate weekly blog topics for an active site (legacy, kept for backwards compatibility)
  * Focuses on seasonal, trending, and evergreen content mix
  */
 export async function generateWeeklyBlogTopics(

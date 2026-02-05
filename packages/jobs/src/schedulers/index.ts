@@ -1,8 +1,8 @@
 import { scheduleJob, queueRegistry } from '../queues';
-import { generateWeeklyBlogPostsForAllSites } from '../services/weekly-blog-generator.js';
+import { generateDailyBlogPostsForAllSites } from '../services/daily-blog-generator.js';
 
 // Track interval for cleanup
-let weeklyBlogInterval: NodeJS.Timeout | null = null;
+let dailyBlogInterval: NodeJS.Timeout | null = null;
 
 /**
  * Calculate the next run time for a cron expression.
@@ -166,52 +166,49 @@ export async function initializeScheduledJobs(): Promise<void> {
   );
   console.log('[Scheduler] ✓ Link Opportunity Scan - Tuesdays at 2 AM');
 
-  // Weekly Blog Generation - Mondays and Thursdays at 4 AM
+  // Daily Blog Generation - Every day at 4 AM
   // Uses setInterval with cron-like scheduling since it doesn't need job queue tracking
-  initializeWeeklyBlogSchedule();
-  console.log('[Scheduler] ✓ Weekly Blog Generation - Mon/Thu at 4 AM');
+  initializeDailyBlogSchedule();
+  console.log('[Scheduler] ✓ Daily Blog Generation - Every day at 4 AM');
 
   console.log('[Scheduler] All scheduled jobs initialized successfully');
 }
 
 /**
- * Initialize weekly blog generation schedule
- * Runs on Mondays and Thursdays at 4 AM to generate 3-4 blog posts per site
- * This builds site authority through consistent content publishing
+ * Initialize daily blog generation schedule
+ * Runs every day at 4 AM to generate 1 blog post per site
+ * This builds site authority through consistent daily content publishing
  */
-function initializeWeeklyBlogSchedule(): void {
+function initializeDailyBlogSchedule(): void {
   // Check every hour if it's time to generate blog posts
-  // Generates on Monday (1) and Thursday (4) at 4 AM
-  weeklyBlogInterval = setInterval(
+  dailyBlogInterval = setInterval(
     async () => {
       const now = new Date();
-      const day = now.getDay(); // 0 = Sunday, 1 = Monday, 4 = Thursday
       const hour = now.getHours();
 
-      // Run on Monday and Thursday at 4 AM
-      if ((day === 1 || day === 4) && hour === 4) {
-        console.log('[Scheduler] Starting weekly blog generation...');
+      // Run every day at 4 AM
+      if (hour === 4) {
+        console.log('[Scheduler] Starting daily blog generation...');
         try {
-          const results = await generateWeeklyBlogPostsForAllSites();
-          const totalPosts = results.reduce((sum, r) => sum + r.postsQueued, 0);
+          const results = await generateDailyBlogPostsForAllSites();
+          const postsQueued = results.filter((r) => r.postQueued).length;
           console.log(
-            `[Scheduler] Weekly blog generation complete: ${totalPosts} posts queued across ${results.length} sites`
+            `[Scheduler] Daily blog generation complete: ${postsQueued} posts queued across ${results.length} sites`
           );
         } catch (error) {
-          console.error('[Scheduler] Weekly blog generation failed:', error);
+          console.error('[Scheduler] Daily blog generation failed:', error);
         }
       }
     },
     60 * 60 * 1000
   ); // Check every hour
 
-  // Also check immediately on startup if it's the right time
+  // Also check immediately on startup if it's 4 AM
   const now = new Date();
-  const day = now.getDay();
   const hour = now.getHours();
-  if ((day === 1 || day === 4) && hour === 4) {
-    console.log('[Scheduler] Running immediate weekly blog check on startup...');
-    generateWeeklyBlogPostsForAllSites().catch(console.error);
+  if (hour === 4) {
+    console.log('[Scheduler] Running immediate daily blog check on startup...');
+    generateDailyBlogPostsForAllSites().catch(console.error);
   }
 }
 
@@ -231,10 +228,10 @@ export async function removeAllScheduledJobs(): Promise<void> {
   await queueRegistry.removeRepeatableJob('LINK_BACKLINK_MONITOR' as any, '0 3 * * 3');
   await queueRegistry.removeRepeatableJob('LINK_OPPORTUNITY_SCAN' as any, '0 2 * * 2');
 
-  // Clear weekly blog interval
-  if (weeklyBlogInterval) {
-    clearInterval(weeklyBlogInterval);
-    weeklyBlogInterval = null;
+  // Clear daily blog interval
+  if (dailyBlogInterval) {
+    clearInterval(dailyBlogInterval);
+    dailyBlogInterval = null;
   }
 
   console.log('[Scheduler] All scheduled jobs removed');
@@ -265,9 +262,9 @@ export function getScheduledJobs(): Array<{
       description: 'Daily SEO health audit with auto-optimization',
     },
     {
-      jobType: 'WEEKLY_BLOG_GENERATE',
-      schedule: '0 4 * * 1,4',
-      description: 'Generate 3-4 blog posts per site for authority building',
+      jobType: 'DAILY_BLOG_GENERATE',
+      schedule: '0 4 * * *',
+      description: 'Generate 1 blog post per site daily for SEO authority',
     },
     {
       jobType: 'SEO_ANALYZE (deep)',
