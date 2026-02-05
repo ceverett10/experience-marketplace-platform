@@ -34,6 +34,7 @@ interface Brand {
   headingFont: string;
   bodyFont: string;
   logoUrl: string | null;
+  logoDarkUrl: string | null; // Dark version of logo for transparent headers on hero images
   faviconUrl: string | null;
   ogImageUrl: string | null;
   socialLinks: unknown;
@@ -117,6 +118,7 @@ export interface SiteConfig {
     headingFont: string;
     bodyFont: string;
     logoUrl: string | null;
+    logoDarkUrl: string | null; // Dark version of logo for transparent headers
     faviconUrl: string | null;
     ogImageUrl: string | null;
     socialLinks: Record<string, string> | null;
@@ -153,6 +155,7 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
     headingFont: 'Inter',
     bodyFont: 'Inter',
     logoUrl: null,
+    logoDarkUrl: null,
     faviconUrl: null,
     ogImageUrl: null,
     socialLinks: null,
@@ -368,6 +371,7 @@ function mapSiteToConfig(site: Site & { brand: Brand | null }): SiteConfig {
           headingFont: site.brand.headingFont,
           bodyFont: site.brand.bodyFont,
           logoUrl: site.brand.logoUrl,
+          logoDarkUrl: site.brand.logoDarkUrl,
           faviconUrl: site.brand.faviconUrl,
           ogImageUrl: site.brand.ogImageUrl,
           socialLinks: site.brand.socialLinks as Record<string, string> | null,

@@ -107,6 +107,7 @@ model Site {
   linkOpportunities LinkOpportunity[]
   linkableAssets    LinkableAsset[]
   errorLogs         ErrorLog[]
+  seoIssues         SEOIssue[]
 
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -143,9 +144,10 @@ model Brand {
   bodyFont    String @default("Inter")
 
   // Assets
-  logoUrl    String?
-  faviconUrl String?
-  ogImageUrl String?
+  logoUrl     String?
+  logoDarkUrl String? // Dark version of logo for transparent headers on hero images
+  faviconUrl  String?
+  ogImageUrl  String?
 
   // Social
   socialLinks Json? // { facebook, instagram, twitter, tiktok }
@@ -243,6 +245,9 @@ model Page {
 
   // A/B Testing
   abTestVariants ABTestVariant[]
+
+  // SEO Issues
+  seoIssues SEOIssue[]
 
   // Analytics
   pageViews Int @default(0)
@@ -639,6 +644,53 @@ model ErrorLog {
   @@index([errorSeverity, createdAt])
   @@index([jobType, createdAt])
   @@index([errorCategory, createdAt])
+}
+
+// ============================================================================
+// SEO ISSUE TRACKING
+// ============================================================================
+
+model SEOIssue {
+  id String @id @default(cuid())
+
+  // Site/Page reference
+  siteId String
+  site   Site   @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  pageId String?
+  page   Page?  @relation(fields: [pageId], references: [id], onDelete: SetNull)
+
+  // Issue details
+  category    String // CONTENT, TECHNICAL, PERFORMANCE, COMPETITOR_GAP
+  severity    String // LOW, MEDIUM, HIGH, CRITICAL
+  title       String
+  description String @db.Text
+
+  // Recommended action
+  recommendation  String @db.Text
+  estimatedImpact String // e.g., "+5-10% traffic"
+
+  // Status tracking
+  status     String    @default("OPEN") // OPEN, IN_PROGRESS, RESOLVED, WONT_FIX
+  resolvedAt DateTime?
+  resolvedBy String?
+  resolution String?   @db.Text
+
+  // Auto-detected
+  detectedAt DateTime @default(now())
+  detectedBy String // Job type that found it
+
+  // Metadata
+  metadata Json? // Additional context (e.g., competitor URLs, CWV metrics)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([siteId])
+  @@index([pageId])
+  @@index([status])
+  @@index([severity])
+  @@index([category])
+  @@index([detectedAt])
 }
 
 // ============================================================================

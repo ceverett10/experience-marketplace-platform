@@ -59,11 +59,10 @@ export function Header() {
           <Link href="/" className="-m-1.5 p-1.5">
             {brand?.logoUrl ? (
               <div className="relative h-10 w-40">
+                {/* Use dark logo version on transparent hero, light version on white background */}
                 <Image
-                  className={`object-contain object-left transition-all duration-300 ${
-                    isTransparent ? 'brightness-0 invert drop-shadow-md' : ''
-                  }`}
-                  src={brand.logoUrl}
+                  className="object-contain object-left transition-opacity duration-300"
+                  src={isTransparent && brand.logoDarkUrl ? brand.logoDarkUrl : brand.logoUrl}
                   alt={site.name}
                   fill
                   sizes="160px"

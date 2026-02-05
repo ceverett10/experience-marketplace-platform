@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
 /**
- * Regenerate logo for a specific site
+ * Regenerate all logo versions for a specific site
  * POST /api/sites/[id]/logo
  */
 export async function POST(
@@ -13,7 +13,7 @@ export async function POST(
     const { id: siteId } = await params;
 
     // Import the logo generator functions dynamically
-    const { regenerateLogo, isLogoGenerationAvailable } = await import(
+    const { regenerateAllLogos, isLogoGenerationAvailable } = await import(
       '@experience-marketplace/jobs'
     ).then((m) => m);
 
@@ -41,6 +41,8 @@ export async function POST(
             primaryColor: true,
             secondaryColor: true,
             logoUrl: true,
+            logoDarkUrl: true,
+            faviconUrl: true,
           },
         },
         opportunities: {
@@ -71,10 +73,10 @@ export async function POST(
     const logoDescription =
       (seoConfig?.['logoDescription'] as string) || usps?.[0] || undefined;
 
-    console.log(`[Logo API] Regenerating logo for site ${siteId} (${site.name})`);
+    console.log(`[Logo API] Regenerating all logo versions for site ${siteId} (${site.name})`);
 
-    // Generate new logo
-    const logoResult = await regenerateLogo(
+    // Generate all logo versions (light, dark, favicon)
+    const logoResult = await regenerateAllLogos(
       {
         brandName: site.brand.name,
         niche: opportunity?.niche || 'travel experiences',
@@ -83,27 +85,39 @@ export async function POST(
         logoDescription,
         location: opportunity?.location || undefined,
       },
-      site.brand.logoUrl // Old logo URL for cleanup
+      {
+        logoUrl: site.brand.logoUrl,
+        logoDarkUrl: site.brand.logoDarkUrl,
+        faviconUrl: site.brand.faviconUrl,
+      }
     );
 
-    // Update brand with new logo URL
+    // Update brand with new logo URLs
     await prisma.brand.update({
       where: { id: site.brand.id },
-      data: { logoUrl: logoResult.logoUrl },
+      data: {
+        logoUrl: logoResult.logoUrl,
+        logoDarkUrl: logoResult.logoDarkUrl,
+        faviconUrl: logoResult.faviconUrl,
+      },
     });
 
-    console.log(`[Logo API] Logo regenerated for ${site.name}: ${logoResult.logoUrl}`);
+    console.log(
+      `[Logo API] All logos regenerated for ${site.name}: light=${logoResult.logoUrl}, dark=${logoResult.logoDarkUrl}, favicon=${logoResult.faviconUrl}`
+    );
 
     return NextResponse.json({
       success: true,
       logoUrl: logoResult.logoUrl,
+      logoDarkUrl: logoResult.logoDarkUrl,
+      faviconUrl: logoResult.faviconUrl,
       generatedAt: logoResult.generatedAt,
     });
   } catch (error) {
-    console.error('[Logo API] Error regenerating logo:', error);
+    console.error('[Logo API] Error regenerating logos:', error);
     return NextResponse.json(
       {
-        error: 'Failed to regenerate logo',
+        error: 'Failed to regenerate logos',
         message: error instanceof Error ? error.message : 'Unknown error',
       },
       { status: 500 }
@@ -133,6 +147,8 @@ export async function GET(
         brand: {
           select: {
             logoUrl: true,
+            logoDarkUrl: true,
+            faviconUrl: true,
             name: true,
           },
         },
@@ -147,7 +163,10 @@ export async function GET(
       siteId,
       siteName: site.name,
       logoUrl: site.brand?.logoUrl || null,
+      logoDarkUrl: site.brand?.logoDarkUrl || null,
+      faviconUrl: site.brand?.faviconUrl || null,
       hasLogo: !!site.brand?.logoUrl,
+      hasAllVersions: !!(site.brand?.logoUrl && site.brand?.logoDarkUrl && site.brand?.faviconUrl),
       canGenerateLogo: isLogoGenerationAvailable(),
     });
   } catch (error) {
