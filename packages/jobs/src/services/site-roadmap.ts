@@ -43,12 +43,13 @@ async function processAllSiteRoadmapsInner(): Promise<{
 
   // Find all sites that:
   // 1. Are not paused (autonomousProcessesPaused = false)
-  // 2. Are not in a terminal state (ACTIVE status means fully launched)
+  // 2. Are not yet launched (ACTIVE) or in a terminal state (PAUSED, ARCHIVED)
+  // Once a site is ACTIVE, the roadmap is complete and ongoing content is handled by the weekly blog generator
   const sites = await prisma.site.findMany({
     where: {
       autonomousProcessesPaused: false,
       status: {
-        notIn: [SiteStatus.PAUSED], // Allow processing for all non-paused sites
+        notIn: [SiteStatus.ACTIVE, SiteStatus.PAUSED, SiteStatus.ARCHIVED],
       },
     },
     select: {
