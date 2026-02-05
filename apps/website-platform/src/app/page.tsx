@@ -289,7 +289,7 @@ export default async function HomePage() {
 
   // Preload hero image URL (optimized) so browser fetches it immediately
   const heroImageUrl = heroConfig?.backgroundImage
-    ? optimizeUnsplashUrl(heroConfig.backgroundImage, 1920, 60)
+    ? optimizeUnsplashUrl(heroConfig.backgroundImage, 1280, 60)
     : null;
 
   return (
