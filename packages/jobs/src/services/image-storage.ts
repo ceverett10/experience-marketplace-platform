@@ -5,6 +5,8 @@
  * Used for logos, generated images, and other brand assets.
  */
 
+import crypto from 'crypto';
+
 interface R2Config {
   accountId: string;
   accessKeyId: string;
@@ -39,8 +41,6 @@ function createSignatureV4(
   body: Buffer | null,
   config: R2Config
 ): Record<string, string> {
-  const crypto = require('crypto') as typeof import('crypto');
-
   const region = 'auto';
   const service = 's3';
   const now = new Date();

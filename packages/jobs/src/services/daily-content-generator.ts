@@ -384,7 +384,7 @@ export async function generateComparisonPageForSite(
         comparisonPair = selectPairForDay(site.destinations, dayOfYear);
       }
       break;
-    case 'experience_type':
+    case 'experience_type': {
       const experienceTypes = [
         ['walking tours', 'bus tours'],
         ['private tours', 'group tours'],
@@ -393,6 +393,7 @@ export async function generateComparisonPageForSite(
       ];
       comparisonPair = experienceTypes[dayOfYear % experienceTypes.length] as [string, string];
       break;
+    }
   }
 
   if (!comparisonPair) {

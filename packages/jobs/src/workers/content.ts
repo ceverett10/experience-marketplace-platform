@@ -507,26 +507,29 @@ function getContentFormatHints(
   if (!contentSubtype) return '';
 
   switch (contentSubtype) {
-    case 'comparison':
+    case 'comparison': {
       const items = sourceData?.comparedItems;
       return items && items.length >= 2
         ? `FORMAT: This is a comparison article. Include a markdown comparison table with columns for Feature, ${items[0]}, and ${items[1]}. Structure with clear "Key Differences" and "Which is Right for You?" sections.`
         : 'FORMAT: Include a comparison table summarizing key differences.';
+    }
 
-    case 'faq_hub':
+    case 'faq_hub': {
       const questions = sourceData?.questions;
       return questions && questions.length > 0
         ? `FORMAT: This is an FAQ hub page. Use H3 headings for each question (ending with ?). Follow each H3 with a concise 40-60 word answer paragraph. Questions to answer: ${questions.slice(0, 10).join('; ')}`
         : 'FORMAT: Structure as FAQ with H3 question headings and concise answer paragraphs.';
+    }
 
     case 'beginner_guide':
       return 'FORMAT: This is a first-timers guide. Use numbered H2 sections (1. Getting There, 2. Where to Stay, etc.). Include practical tips, common mistakes to avoid, and a "Quick Start Checklist" at the end.';
 
-    case 'seasonal':
+    case 'seasonal': {
       const event = sourceData?.event;
       return event
         ? `FORMAT: This is seasonal content for "${event}". Include specific dates/timing, what to expect, booking tips, and alternatives. Add a "Planning Timeline" section.`
         : 'FORMAT: Include seasonal timing, booking recommendations, and alternative options.';
+    }
 
     default:
       return '';
