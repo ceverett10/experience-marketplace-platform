@@ -396,6 +396,81 @@ function calculateSitemapPriority(params: { qualityScore: number; contentType: s
 }
 
 /**
+ * Get content formatting hints based on content subtype
+ * These hints guide AI to format content appropriately for featured snippets
+ */
+function getContentFormatHints(
+  contentSubtype?: string,
+  sourceData?: ContentGeneratePayload['sourceData']
+): string {
+  if (!contentSubtype) return '';
+
+  switch (contentSubtype) {
+    case 'comparison':
+      const items = sourceData?.comparedItems;
+      return items && items.length >= 2
+        ? `FORMAT: This is a comparison article. Include a markdown comparison table with columns for Feature, ${items[0]}, and ${items[1]}. Structure with clear "Key Differences" and "Which is Right for You?" sections.`
+        : 'FORMAT: Include a comparison table summarizing key differences.';
+
+    case 'faq_hub':
+      const questions = sourceData?.questions;
+      return questions && questions.length > 0
+        ? `FORMAT: This is an FAQ hub page. Use H3 headings for each question (ending with ?). Follow each H3 with a concise 40-60 word answer paragraph. Questions to answer: ${questions.slice(0, 10).join('; ')}`
+        : 'FORMAT: Structure as FAQ with H3 question headings and concise answer paragraphs.';
+
+    case 'beginner_guide':
+      return 'FORMAT: This is a first-timers guide. Use numbered H2 sections (1. Getting There, 2. Where to Stay, etc.). Include practical tips, common mistakes to avoid, and a "Quick Start Checklist" at the end.';
+
+    case 'seasonal':
+      const event = sourceData?.event;
+      return event
+        ? `FORMAT: This is seasonal content for "${event}". Include specific dates/timing, what to expect, booking tips, and alternatives. Add a "Planning Timeline" section.`
+        : 'FORMAT: Include seasonal timing, booking recommendations, and alternative options.';
+
+    default:
+      return '';
+  }
+}
+
+/**
+ * Build comprehensive writing guidelines combining brand identity and format hints
+ */
+function buildWritingGuidelines(
+  brandIdentity: {
+    toneOfVoice?: { writingStyle?: string; personality?: string[] };
+    brandStory?: { mission?: string };
+    trustSignals?: { valuePropositions?: string[] };
+  },
+  formatHints: string
+): string | undefined {
+  const parts: string[] = [];
+
+  // Add brand tone guidelines
+  if (brandIdentity.toneOfVoice) {
+    const tone = brandIdentity.toneOfVoice;
+    if (tone.writingStyle) parts.push(`Tone: ${tone.writingStyle}`);
+    if (tone.personality?.length) parts.push(`Personality: ${tone.personality.join(', ')}`);
+  }
+
+  // Add mission context
+  if (brandIdentity.brandStory?.mission) {
+    parts.push(`Mission: ${brandIdentity.brandStory.mission}`);
+  }
+
+  // Add value propositions
+  if (brandIdentity.trustSignals?.valuePropositions?.length) {
+    parts.push(`Value propositions: ${brandIdentity.trustSignals.valuePropositions.join('; ')}`);
+  }
+
+  // Add content format hints for SEO/featured snippets
+  if (formatHints) {
+    parts.push(formatHints);
+  }
+
+  return parts.length > 0 ? parts.join('. ') : undefined;
+}
+
+/**
  * Content Generation Worker
  * Generates new content using AI based on opportunities or manual requests
  */
@@ -410,6 +485,7 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
     destination,
     category,
     targetLength,
+    sourceData,
   } = job.data;
 
   try {
@@ -452,6 +528,10 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
       });
     }
 
+    // Build content-subtype-specific formatting hints
+    const contentSubtype = sourceData?.contentSubtype;
+    const formatHints = getContentFormatHints(contentSubtype, sourceData);
+
     // Create content brief with brand context
     const brief = {
       type: contentType,
@@ -463,6 +543,8 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
       category: category || opportunity?.niche || '',
       targetLength: targetLength || { min: 800, max: 1500 },
       tone: 'informative' as const,
+      // Include content subtype and formatting data
+      sourceData: sourceData || undefined,
       // Include comprehensive brand guidelines for content generation
       brandContext: {
         siteName: site.name,
@@ -470,11 +552,7 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
         trustSignals: brandIdentity.trustSignals,
         brandStory: brandIdentity.brandStory,
         contentGuidelines: brandIdentity.contentGuidelines,
-        writingGuidelines: brandIdentity.toneOfVoice
-          ? `Tone: ${brandIdentity.toneOfVoice.writingStyle}. Personality: ${brandIdentity.toneOfVoice.personality?.join(', ')}.
-            Mission: ${brandIdentity.brandStory?.mission}.
-            Value propositions: ${brandIdentity.trustSignals?.valuePropositions?.join('; ')}.`
-          : undefined,
+        writingGuidelines: buildWritingGuidelines(brandIdentity, formatHints),
       },
     };
 
