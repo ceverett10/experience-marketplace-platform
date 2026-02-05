@@ -172,8 +172,9 @@ async function runIntegratedOptimization(
     `[Integrated Scan] Stored ${storedCount} opportunities, generated ${explanationsGenerated} explanations`
   );
 
-  // Auto-action high-priority opportunities
-  await autoActionOpportunities();
+  // NOTE: Auto-action disabled - opportunities stay in IDENTIFIED status
+  // Sites are created manually after domains are purchased via Cloudflare
+  // await autoActionOpportunities();
 
   return {
     success: true,
@@ -390,8 +391,9 @@ export async function handleOpportunityScan(
         `[Opportunity Scan] Stored ${storedCount}/${discoveryResult.opportunities.length} segment opportunities`
       );
 
-      // Auto-action high-priority opportunities
-      await autoActionOpportunities();
+      // NOTE: Auto-action disabled - opportunities stay in IDENTIFIED status
+      // Sites are created manually after domains are purchased via Cloudflare
+      // await autoActionOpportunities();
 
       return {
         success: true,
@@ -537,8 +539,9 @@ export async function handleOpportunityScan(
       `[Opportunity Scan] Generated ${explanationsGenerated} AI explanations for high-priority opportunities`
     );
 
-    // Auto-action high-priority opportunities (score > 75)
-    await autoActionOpportunities();
+    // NOTE: Auto-action disabled - opportunities stay in IDENTIFIED status
+    // Sites are created manually after domains are purchased via Cloudflare
+    // await autoActionOpportunities();
 
     return {
       success: true,
