@@ -4,6 +4,7 @@ import Image from 'next/image';
 import { useSite, useBrand } from '@/lib/site-context';
 import { ProductDiscoverySearch } from '@/components/search/ProductDiscoverySearch';
 import { UnsplashAttribution } from '@/components/common/UnsplashAttribution';
+import { BLUR_PLACEHOLDER, optimizeUnsplashUrl } from '@/lib/image-utils';
 
 interface HeroProps {
   title?: string;
@@ -33,12 +34,14 @@ export function Hero({ title, subtitle, backgroundImage, backgroundImageAttribut
       <div className="absolute inset-0 overflow-hidden">
         {backgroundImage ? (
           <Image
-            src={backgroundImage}
+            src={optimizeUnsplashUrl(backgroundImage, 1920, 80)}
             alt=""
             fill
             priority
             sizes="100vw"
             className="hero-ken-burns object-cover"
+            placeholder="blur"
+            blurDataURL={BLUR_PLACEHOLDER}
           />
         ) : (
           <div

@@ -65,3 +65,47 @@ export const IMAGE_SIZES = {
   // Fixed medium size for compact cards
   compact: '160px',
 } as const;
+
+/**
+ * Check if an image URL is from Unsplash
+ */
+export function isUnsplashImage(url: string | null | undefined): boolean {
+  if (!url) return false;
+  return url.includes('images.unsplash.com') || url.includes('unsplash.com/photos');
+}
+
+/**
+ * Optimize Unsplash image URL for specific dimensions
+ * Unsplash supports dynamic resizing via URL parameters, which reduces bandwidth
+ * significantly compared to fetching the full-resolution original.
+ *
+ * @param url - Original Unsplash image URL
+ * @param width - Target width (default 1920 for hero images)
+ * @param quality - Quality 1-100 (default 80)
+ */
+export function optimizeUnsplashUrl(
+  url: string,
+  width: number = 1920,
+  quality: number = 80
+): string {
+  if (!url || !isUnsplashImage(url)) return url;
+
+  try {
+    const urlObj = new URL(url);
+
+    // Set width and quality parameters
+    urlObj.searchParams.set('w', width.toString());
+    urlObj.searchParams.set('q', quality.toString());
+
+    // Request auto format (webp where supported)
+    urlObj.searchParams.set('fm', 'jpg');
+    urlObj.searchParams.set('auto', 'format');
+
+    // Fit mode - crop to exact dimensions for hero backgrounds
+    urlObj.searchParams.set('fit', 'crop');
+
+    return urlObj.toString();
+  } catch {
+    return url;
+  }
+}
