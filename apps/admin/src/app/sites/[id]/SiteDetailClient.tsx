@@ -338,6 +338,7 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
   const [seoHealth, setSeoHealth] = useState<SEOHealthData | null>(null);
   const [loadingSeoHealth, setLoadingSeoHealth] = useState(false);
   const [triggeringSeoAudit, setTriggeringSeoAudit] = useState(false);
+  const [regeneratingBrand, setRegeneratingBrand] = useState(false);
 
   useEffect(() => {
     const fetchSite = async () => {
@@ -1477,7 +1478,59 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
       {/* Brand Tab - Comprehensive Brand Identity */}
       {activeTab === 'brand' && (
         <div className="space-y-6">
-          <h2 className="text-lg font-semibold text-slate-900">Brand Identity</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-slate-900">Brand Identity</h2>
+            <button
+              onClick={async () => {
+                if (
+                  !confirm(
+                    'This will regenerate the entire brand identity including colors, fonts, tone of voice, and brand story. Continue?'
+                  )
+                ) {
+                  return;
+                }
+                setRegeneratingBrand(true);
+                try {
+                  const response = await fetch('/admin/api/sites/brand-identity', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ siteIds: [siteId], regenerateAll: true }),
+                  });
+                  const result = await response.json();
+                  if (response.ok && result.successful > 0) {
+                    alert('Brand identity regenerated successfully!');
+                    // Refresh site data
+                    const siteResponse = await fetch(`/admin/api/sites/${siteId}`);
+                    const data = await siteResponse.json();
+                    if (siteResponse.ok) {
+                      setSite(data.site);
+                    }
+                  } else {
+                    alert(result.results?.[0]?.error || result.error || 'Failed to regenerate brand');
+                  }
+                } catch (error) {
+                  console.error('Failed to regenerate brand:', error);
+                  alert('Failed to regenerate brand identity');
+                } finally {
+                  setRegeneratingBrand(false);
+                }
+              }}
+              disabled={regeneratingBrand}
+              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
+            >
+              {regeneratingBrand ? (
+                <>
+                  <span className="animate-spin">&#9696;</span>
+                  Regenerating...
+                </>
+              ) : (
+                <>
+                  <span>&#10227;</span>
+                  Regenerate Brand
+                </>
+              )}
+            </button>
+          </div>
 
           {/* Basic Brand Info */}
           {site.brand && (
