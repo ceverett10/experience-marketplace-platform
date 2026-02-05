@@ -213,13 +213,13 @@ async function main() {
   for (const site of sites) {
     siteNames.add(site.name);
     const seoConfig = site.seoConfig as Record<string, unknown> | null;
-    if (seoConfig?.ga4PropertyId) {
-      const propId = String(seoConfig.ga4PropertyId);
+    if (seoConfig?.['ga4PropertyId']) {
+      const propId = String(seoConfig['ga4PropertyId']);
       usedPropertyIds.add(propId);
       siteByPropertyId.set(propId, { name: site.name, status: site.status });
     }
-    if (seoConfig?.gaMeasurementId) {
-      const measId = String(seoConfig.gaMeasurementId);
+    if (seoConfig?.['gaMeasurementId']) {
+      const measId = String(seoConfig['gaMeasurementId']);
       usedMeasurementIds.add(measId);
       siteByMeasurementId.set(measId, { name: site.name, status: site.status });
     }
