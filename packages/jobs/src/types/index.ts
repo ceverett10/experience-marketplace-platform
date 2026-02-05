@@ -77,7 +77,8 @@ export type ScanMode =
   | 'demographic' // "family travel experiences"
   | 'occasion' // "bachelor party activities"
   | 'experience_level' // "luxury wine tours"
-  | 'regional'; // "european city breaks"
+  | 'regional' // "european city breaks"
+  | 'thematic'; // "harry potter tour", "friends experiences" - pop culture/fandom
 
 // Seed opportunity structure for multi-mode scanning
 export interface OpportunitySeed {
