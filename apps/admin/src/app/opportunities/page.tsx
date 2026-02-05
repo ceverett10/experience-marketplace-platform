@@ -65,6 +65,21 @@ interface Opportunity {
     };
     iterationCount?: number;
     totalApiCost?: number;
+    // audience_first mode stores domain info in evaluation
+    evaluation?: {
+      suggestedDomain?: string;
+      alternativeDomains?: string[];
+      brandName?: string;
+      positioning?: string;
+      viabilityScore?: number;
+      monthlyTrafficEstimate?: number;
+      revenueEstimate?: number;
+    };
+    segment?: {
+      name?: string;
+      dimension?: string;
+      description?: string;
+    };
   };
 }
 
@@ -542,56 +557,80 @@ export default function OpportunitiesPage() {
                 </div>
               )}
 
-              {/* Domain Suggestions */}
-              {opp.sourceData?.domainSuggestions && (
-                <div className="mt-4 p-4 bg-gradient-to-r from-sky-50 to-blue-50 border border-sky-200 rounded-lg">
-                  <div className="flex items-start gap-3">
-                    <span className="text-2xl mt-0.5">🌐</span>
-                    <div className="flex-1">
-                      <h4 className="text-sm font-semibold text-sky-900 mb-3">Suggested Domains</h4>
+              {/* Domain Suggestions - check both domainSuggestions and evaluation.suggestedDomain */}
+              {(() => {
+                // Get domain from either location
+                const primaryDomain =
+                  opp.sourceData?.domainSuggestions?.primary ||
+                  opp.sourceData?.evaluation?.suggestedDomain;
+                const altDomains =
+                  opp.sourceData?.domainSuggestions?.alternatives ||
+                  opp.sourceData?.evaluation?.alternativeDomains ||
+                  [];
+                const brandName = opp.sourceData?.evaluation?.brandName;
 
-                      {/* Primary Domain */}
-                      <div className="mb-3">
-                        <div className="flex items-center justify-between gap-3 mb-2">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs font-semibold text-sky-700 bg-sky-200 px-2 py-0.5 rounded">
-                                PRIMARY
-                              </span>
-                              {opp.sourceData.scanMode && (
-                                <span className="text-xs font-medium text-slate-600 bg-slate-200 px-2 py-0.5 rounded">
-                                  {opp.sourceData.scanMode.replace(/_/g, ' ').toUpperCase()}
+                if (!primaryDomain) return null;
+
+                return (
+                  <div className="mt-4 p-4 bg-gradient-to-r from-sky-50 to-blue-50 border border-sky-200 rounded-lg">
+                    <div className="flex items-start gap-3">
+                      <span className="text-2xl mt-0.5">🌐</span>
+                      <div className="flex-1">
+                        <h4 className="text-sm font-semibold text-sky-900 mb-3">
+                          Suggested Domains
+                          {brandName && (
+                            <span className="ml-2 text-xs font-normal text-sky-700">
+                              (Brand: {brandName})
+                            </span>
+                          )}
+                        </h4>
+
+                        {/* Primary Domain */}
+                        <div className="mb-3">
+                          <div className="flex items-center justify-between gap-3 mb-2">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-semibold text-sky-700 bg-sky-200 px-2 py-0.5 rounded">
+                                  PRIMARY
                                 </span>
-                              )}
+                                {opp.sourceData?.scanMode && (
+                                  <span className="text-xs font-medium text-slate-600 bg-slate-200 px-2 py-0.5 rounded">
+                                    {opp.sourceData.scanMode.replace(/_/g, ' ').toUpperCase()}
+                                  </span>
+                                )}
+                                {opp.sourceData?.segment?.dimension && (
+                                  <span className="text-xs font-medium text-purple-600 bg-purple-100 px-2 py-0.5 rounded">
+                                    {opp.sourceData.segment.dimension.toUpperCase()}
+                                  </span>
+                                )}
+                              </div>
+                              <code className="text-sm font-mono font-semibold text-slate-900 block mt-1">
+                                {primaryDomain}
+                              </code>
                             </div>
-                            <code className="text-sm font-mono font-semibold text-slate-900 block mt-1">
-                              {opp.sourceData.domainSuggestions.primary}
-                            </code>
+                            <a
+                              href={`https://dash.cloudflare.com/?to=/:account/domains/register/${primaryDomain}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2 whitespace-nowrap"
+                            >
+                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z" />
+                                <path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z" />
+                              </svg>
+                              Purchase on Cloudflare
+                            </a>
                           </div>
-                          <a
-                            href={`https://dash.cloudflare.com/?to=/:account/domains/register/${opp.sourceData.domainSuggestions.primary}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2 whitespace-nowrap"
-                          >
-                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                              <path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z" />
-                              <path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z" />
-                            </svg>
-                            Purchase on Cloudflare
-                          </a>
                         </div>
-                      </div>
 
-                      {/* Alternative Domains */}
-                      {opp.sourceData.domainSuggestions.alternatives &&
-                        opp.sourceData.domainSuggestions.alternatives.length > 0 && (
+                        {/* Alternative Domains */}
+                        {altDomains.length > 0 && (
                           <div>
                             <div className="text-xs font-semibold text-slate-600 mb-2">
                               ALTERNATIVES
                             </div>
                             <div className="space-y-1">
-                              {opp.sourceData.domainSuggestions.alternatives.map((domain, idx) => (
+                              {altDomains.map((domain, idx) => (
                                 <div
                                   key={idx}
                                   className="flex items-center justify-between gap-3 py-1"
@@ -604,11 +643,7 @@ export default function OpportunitiesPage() {
                                     className="text-xs text-sky-600 hover:text-sky-700 hover:underline flex items-center gap-1"
                                   >
                                     Purchase
-                                    <svg
-                                      className="w-3 h-3"
-                                      fill="currentColor"
-                                      viewBox="0 0 20 20"
-                                    >
+                                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                                       <path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z" />
                                     </svg>
                                   </a>
@@ -617,10 +652,11 @@ export default function OpportunitiesPage() {
                             </div>
                           </div>
                         )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* Projected Value */}
               {opp.sourceData?.projectedValue && (
