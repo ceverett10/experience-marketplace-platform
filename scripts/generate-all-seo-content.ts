@@ -318,7 +318,8 @@ async function generateComparisonContent(
 
   for (const comp of comparisons.slice(0, maxPages)) {
     const title = `${comp.item1} vs ${comp.item2}: Which is Better?`;
-    const slug = `blog/${generateSlug(comp.item1)}-vs-${generateSlug(comp.item2)}`;
+    // Note: Don't prefix with 'blog/' - the route is /blog/[slug]
+    const slug = `${generateSlug(comp.item1)}-vs-${generateSlug(comp.item2)}`;
 
     // Check if page already exists
     const existingPage = site.pages.find(
@@ -400,7 +401,8 @@ async function generateGuideContent(
   }
 
   const title = `Complete ${niche} Guide to ${primaryLocation} for First-Timers`;
-  const slug = `blog/${generateSlug(primaryLocation)}-complete-guide`;
+  // Note: Don't prefix with 'blog/' - the route is /blog/[slug]
+  const slug = `${generateSlug(primaryLocation)}-complete-guide`;
 
   // Check if guide already exists
   const existingGuide = site.pages.find(
@@ -500,7 +502,8 @@ async function generateSeasonalContent(
     const title = location
       ? `Best ${season.name} ${niche} in ${location}`
       : `Best ${season.name} ${niche}`;
-    const slug = `blog/${generateSlug(season.name.toLowerCase())}-${generateSlug(niche)}-${new Date().getFullYear()}`;
+    // Note: Don't prefix with 'blog/' - the route is /blog/[slug]
+    const slug = `${generateSlug(season.name.toLowerCase())}-${generateSlug(niche)}-${new Date().getFullYear()}`;
 
     // Check if seasonal content already exists
     const existingPage = site.pages.find(
