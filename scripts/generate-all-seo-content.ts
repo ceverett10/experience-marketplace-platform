@@ -53,7 +53,7 @@ interface SiteData {
     slug: string;
     type: string;
   }[];
-  performanceMetrics: {
+  metrics: {
     query: string;
     impressions: number;
   }[];
@@ -86,8 +86,9 @@ function parseArgs(): CLIOptions {
   return options;
 }
 
-function generateSlug(text: string): string {
-  return text
+function generateSlug(text: unknown): string {
+  const str = String(text || '');
+  return str
     .toLowerCase()
     .replace(/[^a-z0-9\s-]/g, '')
     .replace(/\s+/g, '-')
@@ -120,7 +121,7 @@ async function generateFAQContent(
   const niche = site.opportunities?.[0]?.niche || seoConfig?.primaryKeywords?.[0] || 'experiences';
   const location = site.opportunities?.[0]?.location || seoConfig?.destination;
 
-  const gscQuestions = site.performanceMetrics
+  const gscQuestions = site.metrics
     .filter((m) => m.query.includes('?') || m.query.toLowerCase().startsWith('how'))
     .filter((m) => m.impressions >= 10)
     .map((m) => m.query)
@@ -280,7 +281,11 @@ async function generateComparisonContent(
 
   const homepageConfig = site.homepageConfig || {};
   const seoConfig = site.seoConfig || {};
-  const categories = homepageConfig?.categories || [];
+  // Categories might be objects with name property or strings
+  const rawCategories = homepageConfig?.categories || [];
+  const categories = rawCategories
+    .map((c: unknown) => (typeof c === 'string' ? c : (c as { name?: string })?.name))
+    .filter((c: unknown): c is string => typeof c === 'string' && c.length > 0);
   const destinations = site.opportunities
     .filter((o) => o.location)
     .map((o) => o.location!)
@@ -626,7 +631,7 @@ async function main(): Promise<void> {
             type: true,
           },
         },
-        performanceMetrics: {
+        metrics: {
           where: {
             createdAt: {
               gte: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000), // Last 90 days
