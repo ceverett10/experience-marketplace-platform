@@ -67,9 +67,12 @@ function buildLogoPrompt(params: LogoGenerationParams): string {
     logoDescription ? `Concept guidance: ${logoDescription}` : null,
     '',
     'Technical requirements:',
-    '- Solid white or transparent background',
+    '- Pure white (#FFFFFF) background only',
+    '- The icon/symbol must be bold and clearly visible',
+    `- The main icon should prominently feature the brand color ${primaryColor}`,
     '- No text, letters, or words in the logo',
     '- No gradients or complex shadows',
+    '- High contrast between icon and white background',
     '- Simple geometric shapes preferred',
     '- Must work at small sizes (32x32 pixels)',
   ];

@@ -58,7 +58,7 @@ export function Header() {
         <div className="flex lg:flex-1">
           <Link href="/" className="-m-1.5 p-1.5">
             {brand?.logoUrl ? (
-              <div className="relative h-8 w-32">
+              <div className="relative h-10 w-40">
                 <Image
                   className={`object-contain object-left transition-all duration-300 ${
                     isTransparent ? 'brightness-0 invert drop-shadow-md' : ''
@@ -66,7 +66,7 @@ export function Header() {
                   src={brand.logoUrl}
                   alt={site.name}
                   fill
-                  sizes="128px"
+                  sizes="160px"
                   priority
                 />
               </div>
