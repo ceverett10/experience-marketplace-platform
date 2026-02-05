@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { UnsplashAttribution } from '@/components/common/UnsplashAttribution';
+import { BLUR_PLACEHOLDER, isHolibobImage } from '@/lib/image-utils';
 
 interface ImageAttribution {
   photographerName: string;
@@ -75,7 +76,7 @@ export function CategoryGrid({
 
         {/* Categories Grid - Larger cards with more image visibility */}
         <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {displayCategories.map((category) => {
+          {displayCategories.map((category, index) => {
             // Build URL with destination (if known) and category name
             const searchParams = new URLSearchParams();
             if (destination) {
@@ -93,13 +94,17 @@ export function CategoryGrid({
                 {category.imageUrl ? (
                   <>
                     {/* Image Container - Taller for better visibility */}
-                    <div className="relative h-44 w-full overflow-hidden">
+                    <div className="relative h-44 w-full overflow-hidden bg-gray-200">
                       <Image
                         src={category.imageUrl}
                         alt={category.name}
                         fill
                         className="object-cover transition-transform duration-300 group-hover:scale-105"
                         sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                        {...(index < 2 ? { priority: true } : { loading: 'lazy' as const })}
+                        placeholder="blur"
+                        blurDataURL={BLUR_PLACEHOLDER}
+                        unoptimized={isHolibobImage(category.imageUrl)}
                       />
                       {/* Gradient overlay */}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />

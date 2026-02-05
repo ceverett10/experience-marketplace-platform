@@ -8,7 +8,7 @@ import Image from 'next/image';
 import { ContentRenderer } from './ContentRenderer';
 import type { PageStatus, ContentFormat } from '@prisma/client';
 import Link from 'next/link';
-import { BLUR_PLACEHOLDER } from '@/lib/image-utils';
+import { BLUR_PLACEHOLDER, isHolibobImage } from '@/lib/image-utils';
 
 interface CategoryPageData {
   id: string;
@@ -182,6 +182,7 @@ export function CategoryPageTemplate({
                     loading="lazy"
                     placeholder="blur"
                     blurDataURL={BLUR_PLACEHOLDER}
+                    unoptimized={isHolibobImage(experience.imageUrl)}
                   />
                   <div className="absolute top-3 right-3 bg-white px-2 py-1 rounded-md shadow-sm z-10">
                     <span className="text-sm font-semibold text-gray-900">

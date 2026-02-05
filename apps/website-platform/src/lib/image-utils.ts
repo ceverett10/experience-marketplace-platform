@@ -11,6 +11,16 @@ export const BLUR_PLACEHOLDER =
   'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjI2NyIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZTVlN2ViIi8+PC9zdmc+';
 
 /**
+ * Check if an image URL is from Holibob's CDN
+ * Holibob images are already optimized server-side, so we should skip
+ * Next.js re-optimization to avoid double-processing overhead
+ */
+export function isHolibobImage(url: string | null | undefined): boolean {
+  if (!url) return false;
+  return url.includes('images.holibob.tech');
+}
+
+/**
  * Generate a brand-colored blur placeholder
  * Creates a subtle tinted placeholder using the brand's primary color
  *

@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useBrand } from '@/lib/site-context';
-import { BLUR_PLACEHOLDER } from '@/lib/image-utils';
+import { BLUR_PLACEHOLDER, isHolibobImage } from '@/lib/image-utils';
 import type { ExperienceListItem } from '@/lib/holibob';
 
 interface ExperienceCardProps {
@@ -35,6 +35,7 @@ export function ExperienceCard({
             className="h-full w-full object-cover transition-transform group-hover:scale-105"
             placeholder="blur"
             blurDataURL={BLUR_PLACEHOLDER}
+            unoptimized={isHolibobImage(experience.imageUrl)}
           />
         </div>
         <div className="flex min-w-0 flex-1 flex-col justify-center">
@@ -67,6 +68,7 @@ export function ExperienceCard({
           sizes="(max-width: 768px) 100vw, 50vw"
           {...(priority ? { priority: true } : { loading: 'lazy' as const })}
           className="object-cover transition-transform duration-300 group-hover:scale-105"
+          unoptimized={isHolibobImage(experience.imageUrl)}
         />
 
         {/* Gradient overlay */}
@@ -114,6 +116,7 @@ export function ExperienceCard({
           className="object-cover transition-transform duration-300 group-hover:scale-105"
           placeholder="blur"
           blurDataURL={BLUR_PLACEHOLDER}
+          unoptimized={isHolibobImage(experience.imageUrl)}
         />
         {experience.rating && (
           <div className="absolute left-3 top-3 flex items-center gap-1 rounded-lg bg-white/90 px-2 py-1 backdrop-blur-sm">
