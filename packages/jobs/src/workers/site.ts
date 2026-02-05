@@ -16,6 +16,7 @@ import {
   generateSeoTitleConfig,
 } from '../services/brand-identity.js';
 import { generateAndStoreFavicon } from '../services/favicon-generator.js';
+import { generateLogo, isLogoGenerationAvailable } from '../services/logo-generator.js';
 import { initializeSiteRoadmap } from '../services/site-roadmap.js';
 import { CloudflareRegistrarService } from '../services/cloudflare-registrar.js';
 import { CloudflareDNSService } from '../services/cloudflare-dns.js';
@@ -186,6 +187,34 @@ export async function handleSiteCreate(job: Job<SiteCreatePayload>): Promise<Job
       );
     } catch (faviconError) {
       console.warn('[Site Create] Favicon generation failed (non-critical):', faviconError);
+    }
+
+    // 4.1.5 Generate and store logo (if DALL-E + R2 configured)
+    if (isLogoGenerationAvailable()) {
+      try {
+        console.log('[Site Create] Generating logo with DALL-E...');
+        const logoResult = await generateLogo({
+          brandName: brandIdentity.name,
+          niche: opportunity.niche,
+          primaryColor: brandIdentity.primaryColor,
+          secondaryColor: brandIdentity.secondaryColor,
+          logoDescription: brandIdentity.logoDescription,
+          location: opportunity.location || undefined,
+        });
+
+        // Update the brand with the logo URL
+        if (site.brand?.id) {
+          await prisma.brand.update({
+            where: { id: site.brand.id },
+            data: { logoUrl: logoResult.logoUrl },
+          });
+          console.log(`[Site Create] Logo generated and stored: ${logoResult.logoUrl}`);
+        }
+      } catch (logoError) {
+        console.warn('[Site Create] Logo generation failed (non-critical):', logoError);
+      }
+    } else {
+      console.log('[Site Create] Logo generation skipped (OPENAI_API_KEY or R2 not configured)');
     }
 
     // 4.2 Generate and store homepage configuration

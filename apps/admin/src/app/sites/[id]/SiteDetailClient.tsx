@@ -339,6 +339,7 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
   const [loadingSeoHealth, setLoadingSeoHealth] = useState(false);
   const [triggeringSeoAudit, setTriggeringSeoAudit] = useState(false);
   const [regeneratingBrand, setRegeneratingBrand] = useState(false);
+  const [regeneratingLogo, setRegeneratingLogo] = useState(false);
 
   useEffect(() => {
     const fetchSite = async () => {
@@ -1589,6 +1590,90 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
                     </div>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Logo Section */}
+          {site.brand && (
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-md font-semibold text-slate-900">Logo</h3>
+                  <button
+                    onClick={async () => {
+                      setRegeneratingLogo(true);
+                      try {
+                        const response = await fetch(`/admin/api/sites/${siteId}/logo`, {
+                          method: 'POST',
+                        });
+                        const result = await response.json();
+                        if (response.ok && result.logoUrl) {
+                          alert('Logo regenerated successfully!');
+                          // Refresh site data
+                          const siteResponse = await fetch(`/admin/api/sites/${siteId}`);
+                          const data = await siteResponse.json();
+                          if (siteResponse.ok) {
+                            setSite(data.site);
+                          }
+                        } else {
+                          alert(result.error || result.message || 'Failed to regenerate logo');
+                        }
+                      } catch (error) {
+                        console.error('Failed to regenerate logo:', error);
+                        alert('Failed to regenerate logo');
+                      } finally {
+                        setRegeneratingLogo(false);
+                      }
+                    }}
+                    disabled={regeneratingLogo}
+                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {regeneratingLogo ? (
+                      <>
+                        <span className="animate-spin">&#9696;</span>
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <span>&#10227;</span>
+                        {site.brand.logoUrl ? 'Regenerate Logo' : 'Generate Logo'}
+                      </>
+                    )}
+                  </button>
+                </div>
+                {site.brand.logoUrl ? (
+                  <div className="flex items-center gap-6">
+                    <div className="bg-slate-100 rounded-lg p-4 flex items-center justify-center">
+                      <img
+                        src={site.brand.logoUrl}
+                        alt={`${site.brand.name} logo`}
+                        className="w-24 h-24 object-contain"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm text-slate-600 mb-2">
+                        AI-generated logo using DALL-E 3
+                      </p>
+                      <a
+                        href={site.brand.logoUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-sky-600 hover:underline"
+                      >
+                        View full size
+                      </a>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 bg-slate-50 rounded-lg border-2 border-dashed border-slate-200">
+                    <div className="text-4xl mb-2">&#128444;</div>
+                    <p className="text-slate-500 text-sm">No logo generated yet</p>
+                    <p className="text-slate-400 text-xs mt-1">
+                      Click &quot;Generate Logo&quot; to create one with AI
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}

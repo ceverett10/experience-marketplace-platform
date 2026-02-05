@@ -35,6 +35,8 @@ export * from './services/linkable-assets';
 export * from './services/outreach-templates';
 export * from './services/cloudflare-cdn';
 export { detectStuckTasks, resetStuckCount, clearAllStuckCounts } from './services/stuck-task-detector';
+export { generateLogo, regenerateLogo, isLogoGenerationAvailable } from './services/logo-generator';
+export { uploadToR2, deleteFromR2, isR2Configured } from './services/image-storage';
 
 // Export error handling
 export * from './errors';
