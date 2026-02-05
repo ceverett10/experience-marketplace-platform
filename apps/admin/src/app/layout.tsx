@@ -31,6 +31,7 @@ const navItems: NavItem[] = [
     ],
   },
   { href: '/content', label: 'Content', icon: '📝' },
+  { href: '/seo-issues', label: 'SEO Issues', icon: '🎯' },
   { href: '/link-building', label: 'Link Building', icon: '🔗' },
   { href: '/settings', label: 'Settings', icon: '🛠️' },
 ];

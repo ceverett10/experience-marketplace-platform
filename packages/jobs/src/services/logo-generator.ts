@@ -251,20 +251,30 @@ async function generateLogoVersion(
 }
 
 /**
- * Generate all logo versions (light, dark, favicon) in parallel
- * More cost-effective than sequential calls
+ * Generate all logo versions (light, dark, favicon)
+ * Uses SVG-based generation for consistent, professional results
  */
 export async function generateAllLogoVersions(params: LogoGenerationParams): Promise<AllLogosResult> {
-  console.log(`[Logo Generator] Generating all logo versions for "${params.brandName}"`);
+  // Use SVG-based logo generation (more consistent and professional)
+  const { generateSvgLogos, isSvgLogoGenerationAvailable } = await import('./svg-logo-generator.js');
 
-  // Generate all three versions in parallel
+  if (isSvgLogoGenerationAvailable()) {
+    console.log(`[Logo Generator] Using SVG-based generation for "${params.brandName}"`);
+    return generateSvgLogos({
+      brandName: params.brandName,
+      niche: params.niche,
+      primaryColor: params.primaryColor,
+      secondaryColor: params.secondaryColor,
+    });
+  }
+
+  // Fallback to DALL-E if SVG generation not available (shouldn't happen)
+  console.log(`[Logo Generator] Falling back to DALL-E for "${params.brandName}"`);
   const [lightResult, darkResult, faviconResult] = await Promise.all([
     generateLogoVersion(params, 'light'),
     generateLogoVersion(params, 'dark'),
     generateLogoVersion(params, 'favicon'),
   ]);
-
-  console.log(`[Logo Generator] All logo versions generated for "${params.brandName}"`);
 
   return {
     logoUrl: lightResult.url,
@@ -311,12 +321,28 @@ export async function regenerateLogo(
 
 /**
  * Regenerate all logo versions for an existing brand
- * Deletes all old logos from storage
+ * Uses SVG-based generation and deletes old logos from storage
  */
 export async function regenerateAllLogos(
   params: LogoGenerationParams,
   oldUrls?: { logoUrl?: string | null; logoDarkUrl?: string | null; faviconUrl?: string | null }
 ): Promise<AllLogosResult> {
+  // Use SVG-based regeneration
+  const { regenerateSvgLogos, isSvgLogoGenerationAvailable } = await import('./svg-logo-generator.js');
+
+  if (isSvgLogoGenerationAvailable()) {
+    return regenerateSvgLogos(
+      {
+        brandName: params.brandName,
+        niche: params.niche,
+        primaryColor: params.primaryColor,
+        secondaryColor: params.secondaryColor,
+      },
+      oldUrls
+    );
+  }
+
+  // Fallback to DALL-E approach
   const result = await generateAllLogoVersions(params);
 
   // Delete old logos from R2
@@ -338,11 +364,11 @@ export async function regenerateAllLogos(
 }
 
 /**
- * Check if logo generation is available (API key configured)
+ * Check if logo generation is available
+ * Only requires R2 storage (SVG generation doesn't need external APIs)
  */
 export function isLogoGenerationAvailable(): boolean {
   return !!(
-    process.env['OPENAI_API_KEY'] &&
     process.env['R2_ACCESS_KEY_ID'] &&
     process.env['R2_SECRET_ACCESS_KEY'] &&
     process.env['R2_BUCKET_NAME']

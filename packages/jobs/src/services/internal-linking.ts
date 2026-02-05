@@ -632,3 +632,309 @@ function extractKeywordsFromContent(content: string, title: string): string[] {
 
   return [...new Set(keywords)].filter((w) => !commonWords.has(w)).slice(0, 10);
 }
+
+// ============================================================================
+// TOPIC CLUSTER FUNCTIONS
+// ============================================================================
+
+/**
+ * Topic cluster structure for SEO
+ * Hub pages (category/landing) should link to spoke pages (blogs)
+ * Spoke pages should link back to hub pages
+ */
+export interface TopicCluster {
+  hubPageId: string;
+  hubSlug: string;
+  hubTitle: string;
+  hubTopic: string;
+  spokePages: Array<{
+    pageId: string;
+    slug: string;
+    title: string;
+    topic: string;
+    hasLinkToHub: boolean;
+    hasLinkFromHub: boolean;
+  }>;
+  clusterScore: number; // 0-100: percentage of properly linked spokes
+  totalSpokes: number;
+  linkedSpokes: number;
+}
+
+/**
+ * Build topic clusters for a site
+ * Identifies hub pages (category/landing) and their related spoke pages (blogs)
+ * Returns cluster health information
+ */
+export async function buildTopicClusters(siteId: string): Promise<TopicCluster[]> {
+  const pages = await prisma.page.findMany({
+    where: { siteId, status: 'PUBLISHED' },
+    include: { content: true },
+  });
+
+  // Identify hub pages (category and landing pages)
+  const hubPages = pages.filter(
+    (p) => p.type === PageType.CATEGORY || p.type === PageType.LANDING
+  );
+
+  // Identify potential spoke pages (blog posts)
+  const spokePages = pages.filter((p) => p.type === PageType.BLOG);
+
+  const clusters: TopicCluster[] = [];
+
+  for (const hub of hubPages) {
+    const hubTopic = extractTopicFromTitle(hub.title);
+    const hubContent = hub.content?.body || '';
+
+    // Find related spoke pages based on topic relevance
+    const relatedSpokes = spokePages.filter((spoke) => {
+      const spokeTitle = spoke.title.toLowerCase();
+      const spokeContent = spoke.content?.body || '';
+
+      // Check if spoke content relates to hub topic
+      return contentRelatesToTopic(spokeTitle, spokeContent, hubTopic);
+    });
+
+    // Analyze linking between hub and spokes
+    const spokesWithLinkInfo = relatedSpokes.map((spoke) => {
+      const spokeContent = spoke.content?.body || '';
+
+      // Check if spoke links to hub
+      const hasLinkToHub =
+        spokeContent.includes(`(/${hub.slug})`) ||
+        spokeContent.includes(`/${hub.slug})`) ||
+        spokeContent.includes(`(/categories/${hub.slug})`) ||
+        spokeContent.includes(`(/destinations/${hub.slug})`);
+
+      // Check if hub links to spoke
+      const hasLinkFromHub =
+        hubContent.includes(`(/${spoke.slug})`) ||
+        hubContent.includes(`/${spoke.slug})`) ||
+        hubContent.includes(`(/blog/${spoke.slug})`);
+
+      return {
+        pageId: spoke.id,
+        slug: spoke.slug,
+        title: spoke.title,
+        topic: extractTopicFromTitle(spoke.title),
+        hasLinkToHub,
+        hasLinkFromHub,
+      };
+    });
+
+    // Calculate cluster health score
+    const linkedSpokes = spokesWithLinkInfo.filter(
+      (s) => s.hasLinkToHub && s.hasLinkFromHub
+    ).length;
+    const clusterScore =
+      spokesWithLinkInfo.length > 0
+        ? Math.round((linkedSpokes / spokesWithLinkInfo.length) * 100)
+        : 100;
+
+    clusters.push({
+      hubPageId: hub.id,
+      hubSlug: hub.slug,
+      hubTitle: hub.title,
+      hubTopic,
+      spokePages: spokesWithLinkInfo,
+      clusterScore,
+      totalSpokes: spokesWithLinkInfo.length,
+      linkedSpokes,
+    });
+  }
+
+  return clusters;
+}
+
+/**
+ * Extract main topic from page title
+ */
+function extractTopicFromTitle(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/\s*[-|–—]\s*.+$/, '') // Remove suffixes
+    .replace(/\s*\(\d{4}\)/, '') // Remove year
+    .replace(/^(best|top|ultimate|complete|essential)\s+/i, '') // Remove power words
+    .trim();
+}
+
+/**
+ * Check if content relates to a topic
+ */
+function contentRelatesToTopic(
+  title: string,
+  content: string,
+  topic: string
+): boolean {
+  const topicWords = topic.split(/\s+/).filter((w) => w.length > 3);
+
+  // Check if any significant topic words appear in title or content
+  const matchedWords = topicWords.filter(
+    (word) =>
+      title.includes(word) || content.toLowerCase().includes(word.toLowerCase())
+  );
+
+  // Require at least 50% of topic words to match
+  return matchedWords.length >= Math.ceil(topicWords.length * 0.5);
+}
+
+/**
+ * Auto-fix cluster links by adding missing spoke → hub links
+ * Returns count of links added
+ */
+export async function autoFixClusterLinks(siteId: string): Promise<{
+  linksAdded: number;
+  details: Array<{
+    spokePageId: string;
+    spokeTitle: string;
+    hubTitle: string;
+    linkType: 'spoke-to-hub' | 'hub-to-spoke';
+  }>;
+}> {
+  const clusters = await buildTopicClusters(siteId);
+  let linksAdded = 0;
+  const details: Array<{
+    spokePageId: string;
+    spokeTitle: string;
+    hubTitle: string;
+    linkType: 'spoke-to-hub' | 'hub-to-spoke';
+  }> = [];
+
+  for (const cluster of clusters) {
+    // Get hub page with content
+    const hubPage = await prisma.page.findUnique({
+      where: { id: cluster.hubPageId },
+      include: { content: true },
+    });
+
+    if (!hubPage || !hubPage.content) continue;
+
+    // Fix spokes that don't link to hub
+    for (const spoke of cluster.spokePages) {
+      if (!spoke.hasLinkToHub) {
+        // Get spoke page content
+        const spokePage = await prisma.page.findUnique({
+          where: { id: spoke.pageId },
+          include: { content: true },
+        });
+
+        if (spokePage?.content?.id) {
+          const spokeContent = spokePage.content.body;
+
+          // Generate contextual link to hub
+          const hubUrl =
+            hubPage.type === PageType.CATEGORY
+              ? `/categories/${hubPage.slug}`
+              : `/destinations/${hubPage.slug}`;
+
+          // Add link at the end of the second-to-last paragraph
+          const updatedContent = insertHubLink(
+            spokeContent,
+            hubPage.title,
+            hubUrl
+          );
+
+          if (updatedContent !== spokeContent) {
+            await prisma.content.update({
+              where: { id: spokePage.content.id },
+              data: { body: updatedContent },
+            });
+
+            linksAdded++;
+            details.push({
+              spokePageId: spoke.pageId,
+              spokeTitle: spoke.title,
+              hubTitle: hubPage.title,
+              linkType: 'spoke-to-hub',
+            });
+          }
+        }
+      }
+    }
+  }
+
+  return { linksAdded, details };
+}
+
+/**
+ * Insert a contextual link to hub page in spoke content
+ */
+function insertHubLink(content: string, hubTitle: string, hubUrl: string): string {
+  // Find a good insertion point (after second paragraph, before conclusion)
+  const paragraphs = content.split('\n\n');
+
+  if (paragraphs.length < 3) {
+    // Content too short, add at the end before any conclusion
+    const linkSentence = `\n\nFor more options, explore our guide to [${hubTitle}](${hubUrl}).`;
+    return content + linkSentence;
+  }
+
+  // Find a good paragraph to insert after (avoid headings, code blocks, lists)
+  let insertIndex = Math.min(2, paragraphs.length - 2);
+
+  // Look for a regular paragraph (not starting with #, -, *, `, or number)
+  for (let i = insertIndex; i < paragraphs.length - 1; i++) {
+    const p = paragraphs[i] || '';
+    if (p && !p.startsWith('#') && !p.startsWith('-') && !p.startsWith('*') && !p.startsWith('`') && !p.match(/^\d+\./)) {
+      insertIndex = i;
+      break;
+    }
+  }
+
+  // Generate contextual link sentence
+  const contextSentences = [
+    `Looking for more options? Check out our complete guide to [${hubTitle}](${hubUrl}).`,
+    `Discover more experiences in our [${hubTitle}](${hubUrl}) collection.`,
+    `For a wider selection, browse [${hubTitle}](${hubUrl}).`,
+  ];
+
+  const randomSentence =
+    contextSentences[Math.floor(Math.random() * contextSentences.length)] ||
+    contextSentences[0];
+
+  // Insert after the chosen paragraph
+  paragraphs.splice(insertIndex + 1, 0, randomSentence || '');
+
+  return paragraphs.join('\n\n');
+}
+
+/**
+ * Get cluster health summary for a site
+ */
+export async function getClusterHealthSummary(siteId: string): Promise<{
+  totalClusters: number;
+  healthyClusters: number; // Score >= 80
+  needsAttention: number; // Score 50-79
+  critical: number; // Score < 50
+  averageScore: number;
+  clusters: Array<{
+    hubTitle: string;
+    score: number;
+    totalSpokes: number;
+    linkedSpokes: number;
+  }>;
+}> {
+  const clusters = await buildTopicClusters(siteId);
+
+  const healthyClusters = clusters.filter((c) => c.clusterScore >= 80).length;
+  const needsAttention = clusters.filter(
+    (c) => c.clusterScore >= 50 && c.clusterScore < 80
+  ).length;
+  const critical = clusters.filter((c) => c.clusterScore < 50).length;
+
+  const totalScore = clusters.reduce((sum, c) => sum + c.clusterScore, 0);
+  const averageScore = clusters.length > 0 ? Math.round(totalScore / clusters.length) : 100;
+
+  return {
+    totalClusters: clusters.length,
+    healthyClusters,
+    needsAttention,
+    critical,
+    averageScore,
+    clusters: clusters.map((c) => ({
+      hubTitle: c.hubTitle,
+      score: c.clusterScore,
+      totalSpokes: c.totalSpokes,
+      linkedSpokes: c.linkedSpokes,
+    })),
+  };
+}

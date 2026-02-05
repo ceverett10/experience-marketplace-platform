@@ -47,6 +47,12 @@ export {
   isLogoGenerationAvailable,
 } from './services/logo-generator';
 export type { LogoGenerationParams, LogoResult, AllLogosResult } from './services/logo-generator';
+export {
+  generateSvgLogos,
+  regenerateSvgLogos,
+  isSvgLogoGenerationAvailable,
+} from './services/svg-logo-generator';
+export type { SvgLogoParams, SvgLogoResult } from './services/svg-logo-generator';
 export { uploadToR2, deleteFromR2, isR2Configured } from './services/image-storage';
 
 // Export error handling

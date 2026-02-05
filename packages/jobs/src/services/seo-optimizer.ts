@@ -364,3 +364,331 @@ export async function flagThinContentForExpansion(
 
   return thinPages;
 }
+
+// ============================================================================
+// ENHANCED SEO OPTIMIZATIONS
+// ============================================================================
+
+/**
+ * Power words that improve click-through rates in titles
+ */
+const POWER_WORDS = ['Best', 'Top', 'Ultimate', 'Complete', 'Essential', 'Amazing'];
+
+/**
+ * Enhanced title generation with power words and current year for CTR optimization
+ */
+export function generateCTROptimizedTitle(
+  title: string,
+  pageType: PageType,
+  options: { addYear?: boolean; addPowerWord?: boolean } = {}
+): string {
+  const currentYear = new Date().getFullYear();
+  const { addYear = true, addPowerWord = true } = options;
+
+  let metaTitle = title;
+
+  // Check if title already has a power word
+  const hasPowerWord = POWER_WORDS.some((pw) =>
+    title.toLowerCase().startsWith(pw.toLowerCase())
+  );
+
+  // Add power word prefix for category/landing pages if not present
+  if (
+    addPowerWord &&
+    !hasPowerWord &&
+    (pageType === PageType.CATEGORY || pageType === PageType.LANDING)
+  ) {
+    metaTitle = `Best ${metaTitle}`;
+  }
+
+  // Add year for blog posts to signal freshness
+  const hasYear = /20\d{2}/.test(metaTitle);
+  if (addYear && pageType === PageType.BLOG && !hasYear) {
+    // Check if we have room for the year
+    if (metaTitle.length + 7 <= 60) {
+      // " (2026)" = 7 chars
+      metaTitle = `${metaTitle} (${currentYear})`;
+    }
+  }
+
+  // Add type-specific suffixes if we have room
+  if (metaTitle.length < 45) {
+    if (pageType === PageType.BLOG && !metaTitle.toLowerCase().includes('guide')) {
+      metaTitle = `${metaTitle} - Guide`;
+    } else if (pageType === PageType.CATEGORY) {
+      metaTitle = `${metaTitle} - Tours & Activities`;
+    } else if (pageType === PageType.LANDING) {
+      metaTitle = `${metaTitle} - Book Online`;
+    }
+  }
+
+  // Ensure target length 50-60 chars
+  if (metaTitle.length > 60) {
+    metaTitle = metaTitle.substring(0, 57) + '...';
+  }
+
+  return metaTitle;
+}
+
+/**
+ * Update content freshness by updating dates in content that reference outdated years
+ */
+export async function updateContentFreshness(siteId: string): Promise<{
+  updatedCount: number;
+  updates: Array<{ pageId: string; title: string; reason: string }>;
+}> {
+  const currentYear = new Date().getFullYear();
+  const updates: Array<{ pageId: string; title: string; reason: string }> = [];
+
+  const pages = await prisma.page.findMany({
+    where: {
+      siteId,
+      status: 'PUBLISHED',
+      type: PageType.BLOG,
+    },
+    include: { content: true },
+  });
+
+  for (const page of pages) {
+    const body = page.content?.body || '';
+    const title = page.metaTitle || page.title;
+
+    // Check for outdated years (2020-2024 for a 2026 current year, etc.)
+    const outdatedYears: number[] = [];
+    for (let year = 2020; year < currentYear; year++) {
+      if (body.includes(String(year)) || title.includes(String(year))) {
+        outdatedYears.push(year);
+      }
+    }
+
+    if (outdatedYears.length > 0) {
+      // Update the page's updatedAt to signal freshness to search engines
+      await prisma.page.update({
+        where: { id: page.id },
+        data: { updatedAt: new Date() },
+      });
+
+      updates.push({
+        pageId: page.id,
+        title: page.title,
+        reason: `Contains outdated year references: ${outdatedYears.join(', ')}`,
+      });
+    }
+  }
+
+  return {
+    updatedCount: updates.length,
+    updates,
+  };
+}
+
+/**
+ * Keyword optimization analysis result
+ */
+export interface KeywordOptimization {
+  pageId: string;
+  pageTitle: string;
+  keyword: string;
+  currentDensity: number;
+  targetDensity: number;
+  inFirstParagraph: boolean;
+  inH1: boolean;
+  recommendations: string[];
+}
+
+/**
+ * Analyze keyword optimization for all pages in a site
+ * Returns recommendations for pages that need keyword improvements
+ */
+export async function analyzeKeywordOptimization(
+  siteId: string
+): Promise<KeywordOptimization[]> {
+  const optimizations: KeywordOptimization[] = [];
+
+  const pages = await prisma.page.findMany({
+    where: { siteId, status: 'PUBLISHED' },
+    include: { content: true },
+  });
+
+  for (const page of pages) {
+    const content = page.content?.body || '';
+    const keyword = extractPrimaryKeyword(page.title, page.metaTitle);
+
+    if (!keyword || keyword.length < 3) continue;
+
+    const wordCount = content.split(/\s+/).filter((w) => w.length > 0).length;
+    if (wordCount < 100) continue; // Skip very short content
+
+    // Count keyword occurrences (case-insensitive, whole word)
+    const keywordRegex = new RegExp(`\\b${escapeRegex(keyword)}\\b`, 'gi');
+    const matches = content.match(keywordRegex) || [];
+    const keywordCount = matches.length;
+    const density = (keywordCount / wordCount) * 100;
+
+    // Check if keyword is in first 100 words
+    const first100Words = content.split(/\s+/).slice(0, 100).join(' ');
+    const inFirstParagraph = keywordRegex.test(first100Words);
+
+    // Check if keyword is in H1/first heading
+    const h1Match = content.match(/^#\s+(.+)$/m);
+    const inH1 = h1Match && h1Match[1] ? keywordRegex.test(h1Match[1]) : false;
+
+    const recommendations: string[] = [];
+
+    if (!inFirstParagraph) {
+      recommendations.push('Add primary keyword to first paragraph (within first 100 words)');
+    }
+
+    if (!inH1 && page.type === PageType.BLOG) {
+      recommendations.push('Include primary keyword in the main heading (H1)');
+    }
+
+    if (density < 0.5) {
+      recommendations.push(
+        `Keyword density is very low (${density.toFixed(1)}%). Consider adding more natural mentions of "${keyword}"`
+      );
+    } else if (density < 1) {
+      recommendations.push(
+        `Keyword density is slightly low (${density.toFixed(1)}%). Target 1-2% for optimal SEO`
+      );
+    } else if (density > 3) {
+      recommendations.push(
+        `Keyword density is high (${density.toFixed(1)}%). Consider reducing to avoid keyword stuffing penalty`
+      );
+    }
+
+    if (recommendations.length > 0) {
+      optimizations.push({
+        pageId: page.id,
+        pageTitle: page.title,
+        keyword,
+        currentDensity: Math.round(density * 100) / 100,
+        targetDensity: 1.5,
+        inFirstParagraph,
+        inH1,
+        recommendations,
+      });
+    }
+  }
+
+  return optimizations;
+}
+
+/**
+ * Extract primary keyword from page title
+ */
+function extractPrimaryKeyword(title: string, metaTitle?: string | null): string {
+  const source = metaTitle || title;
+
+  // Remove common suffixes and patterns
+  return source
+    .replace(/\s*[-|–—]\s*.+$/, '') // Remove " - suffix" or " | suffix"
+    .replace(/\s*\(\d{4}\)/, '') // Remove " (2024)"
+    .replace(/\s*\d{4}$/, '') // Remove trailing year
+    .replace(/^(Best|Top|Ultimate|Complete|Essential)\s+/i, '') // Remove power word prefix
+    .trim()
+    .toLowerCase();
+}
+
+/**
+ * Escape special regex characters
+ */
+function escapeRegex(string: string): string {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Fix missing image alt text in page content
+ * Returns count of pages with fixed images
+ */
+export async function fixMissingImageAltText(siteId: string): Promise<{
+  pagesFixed: number;
+  imagesFixed: number;
+  details: Array<{ pageId: string; pageTitle: string; imagesFixed: number }>;
+}> {
+  let pagesFixed = 0;
+  let totalImagesFixed = 0;
+  const details: Array<{ pageId: string; pageTitle: string; imagesFixed: number }> = [];
+
+  const pages = await prisma.page.findMany({
+    where: { siteId, status: 'PUBLISHED' },
+    include: { content: true },
+  });
+
+  for (const page of pages) {
+    const content = page.content?.body || '';
+
+    // Find markdown images with missing or empty alt text: ![](url) or ![   ](url)
+    const imgPattern = /!\[([^\]]*)\]\(([^)]+)\)/g;
+    let match;
+    let updatedContent = content;
+    let imagesFixedInPage = 0;
+
+    // Reset regex state
+    imgPattern.lastIndex = 0;
+
+    while ((match = imgPattern.exec(content)) !== null) {
+      const [fullMatch, altText, imageUrl] = match;
+
+      if ((!altText || altText.trim() === '') && imageUrl) {
+        const generatedAlt = generateAltText(imageUrl, page.title);
+        updatedContent = updatedContent.replace(
+          fullMatch,
+          `![${generatedAlt}](${imageUrl})`
+        );
+        imagesFixedInPage++;
+      }
+    }
+
+    if (imagesFixedInPage > 0 && page.content?.id) {
+      await prisma.content.update({
+        where: { id: page.content.id },
+        data: { body: updatedContent },
+      });
+
+      pagesFixed++;
+      totalImagesFixed += imagesFixedInPage;
+      details.push({
+        pageId: page.id,
+        pageTitle: page.title,
+        imagesFixed: imagesFixedInPage,
+      });
+    }
+  }
+
+  return {
+    pagesFixed,
+    imagesFixed: totalImagesFixed,
+    details,
+  };
+}
+
+/**
+ * Generate descriptive alt text for an image
+ */
+function generateAltText(imageUrl: string, pageTitle: string): string {
+  // Extract meaningful text from image filename
+  const urlParts = imageUrl.split('/');
+  const filename = urlParts[urlParts.length - 1] || '';
+  const nameWithoutExtension = filename.split('.')[0] || '';
+
+  // Clean up filename (replace dashes/underscores, remove numbers)
+  const cleanFilename = nameWithoutExtension
+    .replace(/[-_]/g, ' ')
+    .replace(/\d+/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  // Use cleaned filename if it's meaningful (more than 5 chars)
+  if (cleanFilename.length > 5) {
+    // Capitalize first letter of each word
+    const capitalized = cleanFilename
+      .split(' ')
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+    return `${capitalized} - ${pageTitle}`;
+  }
+
+  // Fall back to page title based alt
+  return `Image for ${pageTitle}`;
+}

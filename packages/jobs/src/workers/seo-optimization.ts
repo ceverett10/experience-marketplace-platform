@@ -28,7 +28,13 @@ import {
   autoOptimizeSiteSEO,
   addMissingStructuredData,
   flagThinContentForExpansion,
+  updateContentFreshness,
+  analyzeKeywordOptimization,
+  fixMissingImageAltText,
 } from '../services/seo-optimizer';
+import { autoFixClusterLinks, getClusterHealthSummary } from '../services/internal-linking';
+import { findSnippetOpportunities } from '../services/content-optimizer';
+import { createSEOIssue } from '../services/seo-issues';
 import { getGA4Client } from '../services/ga4-client';
 import { getJobQueue } from '../queues';
 
@@ -823,6 +829,136 @@ export async function handleAutoOptimize(job: Job<SEOAutoOptimizePayload>): Prom
         thinContentResult['jobsQueued'] = Math.min(thinPages.length, 5);
       }
       results['thinContent'] = thinContentResult;
+    }
+
+    // 4. Update content freshness (auto-fix: update timestamps for outdated content)
+    if (scope === 'all' || scope === 'content') {
+      console.log('[Auto SEO] Checking content freshness...');
+      const freshnessResult = await updateContentFreshness(siteId);
+      results['contentFreshness'] = {
+        pagesUpdated: freshnessResult.updatedCount,
+        details: freshnessResult.updates,
+      };
+      if (freshnessResult.updatedCount > 0) {
+        console.log(`[Auto SEO] Updated freshness signals for ${freshnessResult.updatedCount} pages`);
+      }
+    }
+
+    // 5. Fix missing image alt text (auto-fix)
+    if (scope === 'all' || scope === 'content') {
+      console.log('[Auto SEO] Fixing missing image alt text...');
+      const altTextResult = await fixMissingImageAltText(siteId);
+      results['imageAltText'] = {
+        pagesFixed: altTextResult.pagesFixed,
+        imagesFixed: altTextResult.imagesFixed,
+        details: altTextResult.details,
+      };
+      if (altTextResult.imagesFixed > 0) {
+        console.log(
+          `[Auto SEO] Fixed ${altTextResult.imagesFixed} images across ${altTextResult.pagesFixed} pages`
+        );
+      }
+    }
+
+    // 6. Fix topic cluster links (auto-fix: add missing hub links)
+    if (scope === 'all' || scope === 'content') {
+      console.log('[Auto SEO] Fixing topic cluster links...');
+      const clusterResult = await autoFixClusterLinks(siteId);
+      const clusterHealth = await getClusterHealthSummary(siteId);
+      results['topicClusters'] = {
+        linksAdded: clusterResult.linksAdded,
+        clusterHealth: {
+          totalClusters: clusterHealth.totalClusters,
+          averageScore: clusterHealth.averageScore,
+          healthy: clusterHealth.healthyClusters,
+          needsAttention: clusterHealth.needsAttention,
+          critical: clusterHealth.critical,
+        },
+      };
+      if (clusterResult.linksAdded > 0) {
+        console.log(`[Auto SEO] Added ${clusterResult.linksAdded} cluster links`);
+      }
+    }
+
+    // 7. Analyze keyword optimization (creates issues for human review)
+    if (scope === 'all' || scope === 'content') {
+      console.log('[Auto SEO] Analyzing keyword optimization...');
+      const keywordIssues = await analyzeKeywordOptimization(siteId);
+      let issuesCreated = 0;
+
+      for (const issue of keywordIssues) {
+        if (issue.recommendations.length > 0) {
+          await createSEOIssue({
+            siteId,
+            pageId: issue.pageId,
+            category: 'CONTENT',
+            severity: issue.currentDensity < 0.5 ? 'HIGH' : 'MEDIUM',
+            title: `Keyword optimization needed: "${issue.keyword}"`,
+            description: issue.recommendations.join('. '),
+            recommendation: `Review content and add primary keyword "${issue.keyword}" naturally. Current density: ${issue.currentDensity.toFixed(1)}%, target: 1-2%.`,
+            estimatedImpact: '+5-15% ranking improvement for target keyword',
+            detectedBy: 'SEO_AUTO_OPTIMIZE',
+            metadata: {
+              keyword: issue.keyword,
+              currentDensity: issue.currentDensity,
+              targetDensity: issue.targetDensity,
+              inFirstParagraph: issue.inFirstParagraph,
+              inH1: issue.inH1,
+            },
+          });
+          issuesCreated++;
+        }
+      }
+
+      results['keywordOptimization'] = {
+        pagesAnalyzed: keywordIssues.length,
+        issuesCreated,
+      };
+      if (issuesCreated > 0) {
+        console.log(`[Auto SEO] Created ${issuesCreated} keyword optimization issues`);
+      }
+    }
+
+    // 8. Find featured snippet opportunities (creates issues for human review)
+    if (scope === 'all' || scope === 'content') {
+      console.log('[Auto SEO] Finding featured snippet opportunities...');
+      const snippetOpportunities = await findSnippetOpportunities(siteId);
+      let snippetIssuesCreated = 0;
+
+      for (const opp of snippetOpportunities) {
+        await createSEOIssue({
+          siteId,
+          pageId: opp.pageId,
+          category: 'CONTENT',
+          severity: opp.priority === 'HIGH' ? 'HIGH' : 'MEDIUM',
+          title: `Featured snippet opportunity: ${opp.type}`,
+          description: `Current format: ${opp.currentFormat}. ${opp.recommendation}`,
+          recommendation: opp.suggestedFormat,
+          estimatedImpact: 'Potential position 0 ranking in search results',
+          detectedBy: 'SEO_AUTO_OPTIMIZE',
+          metadata: {
+            snippetType: opp.type,
+            targetQuery: opp.targetQuery,
+            currentFormat: opp.currentFormat,
+            suggestedFormat: opp.suggestedFormat,
+          },
+        });
+        snippetIssuesCreated++;
+      }
+
+      results['snippetOpportunities'] = {
+        opportunitiesFound: snippetOpportunities.length,
+        issuesCreated: snippetIssuesCreated,
+        byType: {
+          definition: snippetOpportunities.filter((o) => o.type === 'definition').length,
+          steps: snippetOpportunities.filter((o) => o.type === 'steps').length,
+          list: snippetOpportunities.filter((o) => o.type === 'list').length,
+          comparison: snippetOpportunities.filter((o) => o.type === 'comparison').length,
+        },
+      };
+      if (snippetIssuesCreated > 0) {
+        console.log(`[Auto SEO] Created ${snippetIssuesCreated} snippet opportunity issues`);
+      }
     }
 
     const duration = Date.now() - startTime;
