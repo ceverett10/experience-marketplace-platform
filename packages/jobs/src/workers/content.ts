@@ -30,6 +30,7 @@ import { suggestInternalLinks } from '../services/internal-linking';
 /**
  * Valid internal routes that exist on every site.
  * Links to any other paths are considered hallucinated and will be stripped.
+ * Note: /blog links are validated separately against existing page slugs.
  */
 const VALID_ROUTE_PREFIXES = [
   '/experiences',
@@ -42,49 +43,138 @@ const VALID_ROUTE_PREFIXES = [
 ];
 
 /**
+ * Placeholder/example domains that AI tends to fabricate.
+ * Links to these domains are always stripped.
+ */
+const PLACEHOLDER_DOMAINS = [
+  'example.com',
+  'example.org',
+  'example.net',
+  'test.com',
+  'placeholder.com',
+  'yoursite.com',
+  'yourdomain.com',
+  'website.com',
+  'domain.com',
+  'sample.com',
+  'demo.com',
+  'localhost',
+];
+
+/**
+ * Extract the path from a URL, handling both relative and absolute URLs.
+ * For same-domain links, extracts the path portion.
+ * For placeholder domains (example.com, etc.), marks as invalid.
+ */
+function extractPathFromUrl(
+  url: string,
+  siteDomain?: string
+): { path: string; isExternal: boolean; isPlaceholder: boolean } {
+  // Handle relative URLs
+  if (url.startsWith('/') || url.startsWith('#')) {
+    return { path: url, isExternal: false, isPlaceholder: false };
+  }
+
+  // Handle absolute URLs
+  try {
+    const parsed = new URL(url);
+    const urlDomain = parsed.hostname.toLowerCase().replace(/^www\./, '');
+
+    // Check for placeholder/example domains that AI fabricates
+    const isPlaceholder = PLACEHOLDER_DOMAINS.some(
+      (placeholder) => urlDomain === placeholder || urlDomain.endsWith('.' + placeholder)
+    );
+    if (isPlaceholder) {
+      return { path: url, isExternal: true, isPlaceholder: true };
+    }
+
+    // Check if it's a link to the same domain (including with/without www)
+    if (siteDomain) {
+      const normalizedDomain = siteDomain.toLowerCase().replace(/^www\./, '');
+
+      if (urlDomain === normalizedDomain) {
+        // Same domain - treat as internal link
+        return { path: parsed.pathname + parsed.hash, isExternal: false, isPlaceholder: false };
+      }
+    }
+
+    // External link to different domain
+    return { path: url, isExternal: true, isPlaceholder: false };
+  } catch {
+    // Invalid URL, treat as relative
+    return { path: url, isExternal: false, isPlaceholder: false };
+  }
+}
+
+/**
  * Sanitize AI-generated content by removing invalid internal links.
  * The AI sometimes fabricates links to non-existent pages like /tours/camden,
  * /guides/borough-market, /faq, etc. This function strips those links while
  * preserving the anchor text.
+ *
+ * Also handles same-domain absolute URLs (e.g., https://example.com/blog/fake-page)
+ * by extracting the path and validating it against known routes.
  *
  * For 'about' pages, ALL internal links are stripped since About pages
  * should not contain any inline links.
  */
 function sanitizeContentLinks(
   content: string,
-  contentType?: string
+  contentType?: string,
+  siteDomain?: string,
+  existingSlugs?: Set<string>
 ): { sanitized: string; removedCount: number } {
   let removedCount = 0;
 
   // Match markdown links: [text](url)
   const sanitized = content.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, text, url) => {
-    // Allow external links (http/https) - but NOT for about pages
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      if (contentType === 'about') {
-        removedCount++;
-        return text;
-      }
-      return match;
-    }
+    const { path, isExternal, isPlaceholder } = extractPathFromUrl(url, siteDomain);
 
-    // Allow anchor links
-    if (url.startsWith('#')) {
-      return match;
-    }
-
-    // For about pages, strip ALL internal links
+    // For about pages, strip ALL links (internal and external)
     if (contentType === 'about') {
       removedCount++;
       return text;
     }
 
-    // Check if internal link matches a valid route
-    const isValid = VALID_ROUTE_PREFIXES.some(
-      (prefix) => url === prefix || url.startsWith(prefix + '?') || url.startsWith(prefix + '/')
+    // Strip links to placeholder/example domains (AI fabrications)
+    if (isPlaceholder) {
+      removedCount++;
+      return text;
+    }
+
+    // Allow truly external links (different domain, not placeholder)
+    if (isExternal) {
+      return match;
+    }
+
+    // Allow pure anchor links within the same page
+    if (path.startsWith('#')) {
+      return match;
+    }
+
+    // Strip the anchor portion for path validation
+    const pathWithoutAnchor = path.split('#')[0] || path;
+
+    // Check if internal link matches a valid route prefix
+    const isValidPrefix = VALID_ROUTE_PREFIXES.some(
+      (prefix) =>
+        pathWithoutAnchor === prefix ||
+        pathWithoutAnchor.startsWith(prefix + '?') ||
+        pathWithoutAnchor.startsWith(prefix + '/')
     );
 
-    if (isValid) {
+    if (isValidPrefix) {
       return match;
+    }
+
+    // Check if it's a blog post link - validate against existing slugs
+    // Blog posts can be at /blog/[slug] or just /[slug]
+    const blogMatch = pathWithoutAnchor.match(/^\/(?:blog\/)?([a-z0-9-]+)$/);
+    if (blogMatch && existingSlugs) {
+      const slug = blogMatch[1];
+      if (slug && existingSlugs.has(slug)) {
+        return match; // Valid existing blog post
+      }
     }
 
     // Invalid link - strip the markdown link but keep the text
@@ -93,6 +183,17 @@ function sanitizeContentLinks(
   });
 
   return { sanitized, removedCount };
+}
+
+/**
+ * Get all existing page slugs for a site to validate links against
+ */
+async function getExistingPageSlugs(siteId: string): Promise<Set<string>> {
+  const pages = await prisma.page.findMany({
+    where: { siteId, status: 'PUBLISHED' },
+    select: { slug: true },
+  });
+  return new Set(pages.map((p) => p.slug));
 }
 
 /**
@@ -442,8 +543,13 @@ function buildWritingGuidelines(
     trustSignals?: { valuePropositions?: string[] };
   },
   formatHints: string
-): string | undefined {
+): string {
   const parts: string[] = [];
+
+  // CRITICAL: Instruction to prevent fabricated links
+  parts.push(
+    'IMPORTANT: Do NOT include any hyperlinks in the content. Do not link to external websites, booking pages, or any URLs. Write plain text only - links will be added separately by our system'
+  );
 
   // Add brand tone guidelines
   if (brandIdentity.toneOfVoice) {
@@ -467,7 +573,7 @@ function buildWritingGuidelines(
     parts.push(formatHints);
   }
 
-  return parts.length > 0 ? parts.join('. ') : undefined;
+  return parts.join('. ');
 }
 
 /**
@@ -603,11 +709,17 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
       datePublished: new Date().toISOString(),
     });
 
+    // Get existing page slugs to validate blog links against
+    const existingSlugs = await getExistingPageSlugs(siteId);
+
     // Sanitize AI-generated links - remove any links to non-existent pages
+    // Includes validation of same-domain links (e.g., https://site.com/blog/fake-page)
     // For about pages, strip ALL links (internal and external)
     const { sanitized: sanitizedContent, removedCount } = sanitizeContentLinks(
       result.content.content,
-      contentType
+      contentType,
+      site.primaryDomain || undefined,
+      existingSlugs
     );
     if (removedCount > 0) {
       console.log(
@@ -869,14 +981,30 @@ async function handleContentOptimizeBatch(siteId: string): Promise<JobResult> {
   const siteUrl = site.primaryDomain ? `https://${site.primaryDomain}` : '';
   let optimizedCount = 0;
 
+  // Get all existing page slugs for link validation
+  const existingSlugs = await getExistingPageSlugs(siteId);
+
   for (const page of pagesWithContent) {
     const content = page.content!;
     const contentType = (page.type || 'blog').toLowerCase();
     const targetKeyword = content.opportunity?.keyword || page.title || '';
 
     try {
+      // First, sanitize any invalid links in existing content
+      const { sanitized: sanitizedBody, removedCount } = sanitizeContentLinks(
+        content.body,
+        contentType,
+        site.primaryDomain || undefined,
+        existingSlugs
+      );
+      if (removedCount > 0) {
+        console.log(
+          `[Content Optimize] Page "${page.slug}": removed ${removedCount} invalid links`
+        );
+      }
+
       // Enhance internal links now that all pages exist for the site
-      let enhancedBody = content.body;
+      let enhancedBody = sanitizedBody;
       if (contentType !== 'about') {
         const linkSuggestion = await suggestInternalLinks({
           siteId,

@@ -411,8 +411,8 @@ export async function generateComparisonPageForSite(
     targetKeyword += ` ${site.location}`;
   }
 
-  // Note: Don't prefix with 'blog/' - the route is /blog/[slug] so the slug should not include the path prefix
-  const pageSlug = slugify(targetKeyword);
+  // Blog slugs must include 'blog/' prefix to match frontend route lookup
+  const pageSlug = `blog/${slugify(targetKeyword)}`;
 
   const existing = await prisma.page.findFirst({
     where: { siteId, slug: pageSlug },
@@ -566,7 +566,8 @@ export async function generateLocalGuideForSite(siteId: string): Promise<Content
 
   let targetDestination: string | null = null;
   for (const dest of site.destinations) {
-    const guideSlug = `first-timers-guide-${slugify(dest)}`;
+    // Blog slugs include 'blog/' prefix for frontend route lookup
+    const guideSlug = `blog/first-timers-guide-${slugify(dest)}`;
     if (!existingGuideSlugs.has(guideSlug)) {
       targetDestination = dest;
       break;
@@ -574,7 +575,7 @@ export async function generateLocalGuideForSite(siteId: string): Promise<Content
   }
 
   if (!targetDestination && site.location) {
-    const guideSlug = `first-timers-guide-${slugify(site.location)}`;
+    const guideSlug = `blog/first-timers-guide-${slugify(site.location)}`;
     if (!existingGuideSlugs.has(guideSlug)) {
       targetDestination = site.location;
     }
@@ -591,8 +592,8 @@ export async function generateLocalGuideForSite(siteId: string): Promise<Content
     };
   }
 
-  // Note: Don't prefix with 'blog/' - the route is /blog/[slug]
-  const pageSlug = `first-timers-guide-${slugify(targetDestination)}`;
+  // Blog slugs must include 'blog/' prefix to match frontend route lookup
+  const pageSlug = `blog/first-timers-guide-${slugify(targetDestination)}`;
   const title = `Complete Guide to ${targetDestination} for First-Timers`;
 
   const guidePage = await prisma.page.create({
@@ -655,7 +656,7 @@ export async function generateSeasonalContentForSite(
     where: {
       siteId,
       type: PageType.BLOG,
-      slug: { startsWith: 'seasonal-' },
+      slug: { startsWith: 'blog/seasonal-' },
     },
     select: { slug: true },
   });
@@ -665,7 +666,8 @@ export async function generateSeasonalContentForSite(
   let targetEvent: string | null = null;
 
   for (const event of allEvents) {
-    const testSlug = `seasonal-${slugify(event)}${location ? `-${slugify(location)}` : ''}`;
+    // Blog slugs include 'blog/' prefix for frontend route lookup
+    const testSlug = `blog/seasonal-${slugify(event)}${location ? `-${slugify(location)}` : ''}`;
     if (!existingSlugs.has(testSlug)) {
       targetEvent = event;
       break;
@@ -687,8 +689,8 @@ export async function generateSeasonalContentForSite(
     ? `${capitalize(targetEvent)} in ${location}: Top ${capitalize(site.niche)}`
     : `Best ${capitalize(site.niche)} for ${capitalize(targetEvent)}`;
 
-  // Note: Don't prefix with 'blog/' - the route is /blog/[slug]
-  const pageSlug = `seasonal-${slugify(targetEvent)}${location ? `-${slugify(location)}` : ''}`;
+  // Blog slugs must include 'blog/' prefix to match frontend route lookup
+  const pageSlug = `blog/seasonal-${slugify(targetEvent)}${location ? `-${slugify(location)}` : ''}`;
 
   const seasonalPage = await prisma.page.create({
     data: {

@@ -81,6 +81,7 @@ export async function findRelatedPages(params: {
         );
 
         relatedLinks.push({
+          // Slugs are stored with path prefix (e.g., 'blog/my-post'), so use directly
           url: `/${blog.slug}`,
           anchorText: blog.title,
           title: blog.title,
@@ -181,6 +182,7 @@ export async function findRelatedPages(params: {
       if (relatedLinks.some((l) => l.url.includes(page.slug))) continue;
 
       const pageType = (page.type || 'blog').toLowerCase() as InternalLink['pageType'];
+      // Slugs are stored with their path prefix (e.g., 'blog/my-post'), so use '/' for blog
       const urlPrefix =
         pageType === 'destination'
           ? '/destinations/'
@@ -546,6 +548,7 @@ export async function analyzeInternalLinkOpportunities(siteId: string): Promise<
       }
 
       // Check if any other page links to this one (orphan detection)
+      // Slugs are stored with path prefix (e.g., 'blog/my-post'), so links look like (/blog/my-post)
       let hasIncomingLinks = false;
       for (const otherPage of allPages) {
         if (otherPage.id === page.id) continue;
