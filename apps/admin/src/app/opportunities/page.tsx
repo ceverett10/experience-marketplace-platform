@@ -109,6 +109,7 @@ export default function OpportunitiesPage() {
   const [scanning, setScanning] = useState(false);
   const [scanMessage, setScanMessage] = useState<string | null>(null);
   const [generatingExplanation, setGeneratingExplanation] = useState<string | null>(null);
+  const [scanVersion, setScanVersion] = useState<'standard' | 'quick'>('standard');
 
   // Fetch opportunities from API
   useEffect(() => {
@@ -209,12 +210,13 @@ export default function OpportunitiesPage() {
   const handleRunScan = async () => {
     try {
       setScanning(true);
-      setScanMessage('Starting scan...');
+      const versionLabel = scanVersion === 'standard' ? 'Standard' : 'Quick';
+      setScanMessage(`Starting ${versionLabel} scan...`);
       const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
       const response = await fetch(`${basePath}/api/opportunities`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'start-scan' }),
+        body: JSON.stringify({ action: 'start-scan', scanVersion }),
       });
 
       if (response.ok) {
@@ -292,7 +294,9 @@ export default function OpportunitiesPage() {
       ARCHIVED: 'bg-gray-100 text-gray-800',
     };
     return (
-      <span className={`${styles[status] ?? 'bg-slate-100 text-slate-800'} text-xs px-2 py-1 rounded font-medium`}>
+      <span
+        className={`${styles[status] ?? 'bg-slate-100 text-slate-800'} text-xs px-2 py-1 rounded font-medium`}
+      >
         {status?.replace(/_/g, ' ') ?? 'UNKNOWN'}
       </span>
     );
@@ -338,13 +342,25 @@ export default function OpportunitiesPage() {
             Keyword research results from DataForSEO integration
           </p>
         </div>
-        <button
-          onClick={handleRunScan}
-          disabled={scanning}
-          className="px-4 py-2 bg-sky-600 hover:bg-sky-700 disabled:bg-sky-400 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors"
-        >
-          {scanning ? 'Scanning...' : 'Run Scan'}
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Scan Version Selector */}
+          <select
+            value={scanVersion}
+            onChange={(e) => setScanVersion(e.target.value as 'standard' | 'quick')}
+            disabled={scanning}
+            className="px-3 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 disabled:bg-slate-100 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+          >
+            <option value="standard">Standard Scan (~$2.20)</option>
+            <option value="quick">Quick Scan (~$0.50)</option>
+          </select>
+          <button
+            onClick={handleRunScan}
+            disabled={scanning}
+            className="px-4 py-2 bg-sky-600 hover:bg-sky-700 disabled:bg-sky-400 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors"
+          >
+            {scanning ? 'Scanning...' : 'Run Scan'}
+          </button>
+        </div>
       </div>
 
       {/* Scan status message */}
@@ -498,7 +514,9 @@ export default function OpportunitiesPage() {
                 </div>
                 <div>
                   <div className="text-xs text-slate-500 mb-1">CPC</div>
-                  <div className="text-lg font-semibold text-slate-900">${Number(opp.cpc ?? 0).toFixed(2)}</div>
+                  <div className="text-lg font-semibold text-slate-900">
+                    ${Number(opp.cpc ?? 0).toFixed(2)}
+                  </div>
                 </div>
                 <div>
                   <div className="text-xs text-slate-500 mb-1">Products</div>
@@ -531,7 +549,8 @@ export default function OpportunitiesPage() {
                         <div className="text-lg font-bold text-purple-900">
                           {(opp.sourceData.keywordCluster.clusterTotalVolume ?? 0).toLocaleString()}
                           <span className="text-xs text-purple-600 font-normal ml-1">
-                            /mo total ({opp.sourceData.keywordCluster.clusterKeywordCount ?? 0} keywords)
+                            /mo total ({opp.sourceData.keywordCluster.clusterKeywordCount ?? 0}{' '}
+                            keywords)
                           </span>
                         </div>
                       </div>
@@ -643,7 +662,11 @@ export default function OpportunitiesPage() {
                                     className="text-xs text-sky-600 hover:text-sky-700 hover:underline flex items-center gap-1"
                                   >
                                     Purchase
-                                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                    <svg
+                                      className="w-3 h-3"
+                                      fill="currentColor"
+                                      viewBox="0 0 20 20"
+                                    >
                                       <path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z" />
                                     </svg>
                                   </a>

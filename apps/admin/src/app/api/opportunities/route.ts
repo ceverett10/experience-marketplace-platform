@@ -168,16 +168,27 @@ Keep it concise and business-focused.`;
 
     if (action === 'start-scan') {
       // Trigger an SEO opportunity scan job
+      // scanVersion: 'standard' (default) = full 5-iteration scan (~$2.20)
+      // scanVersion: 'quick' = reduced 2-iteration scan (~$0.50)
+      const { scanVersion = 'standard' } = body;
+      const isQuickScan = scanVersion === 'quick';
+
       const jobId = await addJob('SEO_OPPORTUNITY_SCAN', {
         destinations,
         categories,
         forceRescan: true,
+        // Quick scan uses fewer iterations and suggestions
+        maxIterations: isQuickScan ? 2 : 5,
+        initialSuggestionsCount: isQuickScan ? 30 : 60,
+        scanVersion,
       });
 
+      const versionLabel = isQuickScan ? 'Quick' : 'Standard';
       return NextResponse.json({
         success: true,
         jobId,
-        message: 'Opportunity scan started',
+        message: `${versionLabel} opportunity scan started`,
+        scanVersion,
       });
     }
 
@@ -295,7 +306,8 @@ Keep it concise and business-focused.`;
       return NextResponse.json({
         success: true,
         jobId,
-        message: 'Site creation job queued - brand identity, homepage, and content will be generated',
+        message:
+          'Site creation job queued - brand identity, homepage, and content will be generated',
       });
     }
 

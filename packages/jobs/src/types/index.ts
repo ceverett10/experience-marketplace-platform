@@ -63,6 +63,11 @@ export interface SeoOpportunityScanPayload {
   categories?: string[];
   forceRescan?: boolean;
   useRecursiveOptimization?: boolean; // Default: true - use integrated multi-mode + recursive optimization
+  // Scan version: 'standard' = full scan (~$2.20), 'quick' = reduced scan (~$0.50)
+  scanVersion?: 'standard' | 'quick';
+  // Convenience fields (override optimizationConfig)
+  maxIterations?: number;
+  initialSuggestionsCount?: number;
   optimizationConfig?: {
     maxIterations?: number; // Default: 5
     initialSuggestionsCount?: number; // Default: 20

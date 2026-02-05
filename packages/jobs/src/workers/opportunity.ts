@@ -34,6 +34,33 @@ import { canExecuteAutonomousOperation } from '../services/pause-control';
  */
 
 /**
+ * Fetch existing opportunity keywords from the database for pre-filtering.
+ * Returns a Set of "keyword|location" keys to quickly check for duplicates.
+ * This saves DataForSEO API costs by not re-validating keywords we already have.
+ */
+async function getExistingOpportunityKeys(): Promise<Set<string>> {
+  console.log('[Pre-Filter] Fetching existing opportunities from database...');
+
+  const existingOpportunities = await prisma.sEOOpportunity.findMany({
+    select: {
+      keyword: true,
+      location: true,
+      status: true,
+    },
+  });
+
+  // Build a Set of "keyword|location" keys for O(1) lookup
+  const keys = new Set<string>();
+  for (const opp of existingOpportunities) {
+    const key = `${opp.keyword.toLowerCase()}|${(opp.location || '').toLowerCase()}`;
+    keys.add(key);
+  }
+
+  console.log(`[Pre-Filter] Found ${keys.size} existing opportunities to exclude`);
+  return keys;
+}
+
+/**
  * Run integrated optimization: generate multi-mode seeds + recursive refinement
  * This is the new default flow that combines all scan modes with AI optimization
  */
@@ -63,19 +90,35 @@ async function runIntegratedOptimization(
   );
 
   // Filter seeds by requested modes if specified
-  const seeds = options.seedModes
+  const modeFilteredSeeds = options.seedModes
     ? allSeeds.filter((seed) => options.seedModes?.includes(seed.scanMode))
     : allSeeds;
 
+  // Pre-filter: exclude seeds that match existing opportunities in the database
+  // This saves DataForSEO API costs by not re-validating keywords we already have
+  const existingKeys = await getExistingOpportunityKeys();
+  const seeds = modeFilteredSeeds.filter((seed) => {
+    const key = `${seed.keyword.toLowerCase()}|${(seed.destination || '').toLowerCase()}`;
+    return !existingKeys.has(key);
+  });
+
+  const filteredCount = modeFilteredSeeds.length - seeds.length;
+  if (filteredCount > 0) {
+    console.log(
+      `[Integrated Scan] Pre-filtered ${filteredCount} seeds that match existing opportunities (${seeds.length} remaining)`
+    );
+  }
+
   if (seeds.length === 0) {
     return {
-      success: false,
-      error: 'AI seed generation produced no results',
+      success: true,
+      message:
+        'All generated seeds match existing opportunities - no new opportunities to validate',
       timestamp: new Date(),
     };
   }
 
-  // Phase 3: Run recursive optimization with ALL seeds
+  // Phase 3: Run recursive optimization with filtered seeds
   console.log('[Integrated Scan] Phase 3: Recursive optimization...');
   const result = await runRecursiveOptimization(holibobClient, {
     maxIterations: options.maxIterations || 5,
@@ -219,7 +262,15 @@ export async function handleOpportunityScan(
     forceRescan,
     useRecursiveOptimization,
     optimizationConfig,
+    scanVersion = 'standard',
+    maxIterations: topLevelMaxIterations,
+    initialSuggestionsCount: topLevelSuggestionsCount,
   } = job.data;
+
+  // Merge top-level params with optimizationConfig (top-level takes precedence)
+  const effectiveMaxIterations = topLevelMaxIterations ?? optimizationConfig?.maxIterations ?? 5;
+  const effectiveSuggestionsCount =
+    topLevelSuggestionsCount ?? optimizationConfig?.initialSuggestionsCount ?? 60;
 
   try {
     console.log('[Opportunity Scan] Starting opportunity scan');
@@ -261,15 +312,29 @@ export async function handleOpportunityScan(
     });
 
     // ========================================
-    // ROUTING: Audience-First vs Legacy
+    // ROUTING: Scan Version Selection
     // ========================================
+    // - 'standard' (default): Full audience-first discovery (~$2.20)
+    // - 'quick': Integrated optimization with fewer iterations (~$0.50)
 
-    // Default to audience-first discovery (data-driven, not inventory-driven)
-    // Falls back to legacy direct scan if explicitly disabled
-    if (useRecursiveOptimization !== false) {
+    if (scanVersion === 'quick') {
       console.log(
-        '[Opportunity Scan] Using AUDIENCE-FIRST mode (segment discovery + keyword validation)'
+        `[Opportunity Scan] Using QUICK mode (integrated optimization, ${effectiveMaxIterations} iterations)`
       );
+
+      const integratedResult = await runIntegratedOptimization(holibobClient, {
+        siteId,
+        maxIterations: effectiveMaxIterations,
+        initialSuggestionsCount: effectiveSuggestionsCount,
+        seedModes: optimizationConfig?.seedModes,
+      });
+
+      return integratedResult;
+    }
+
+    // Standard scan: Full audience-first discovery
+    if (useRecursiveOptimization !== false) {
+      console.log('[Opportunity Scan] Using STANDARD mode (audience-first segment discovery)');
 
       const discoveryResult = await runAudienceFirstDiscovery(holibobClient);
 

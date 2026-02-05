@@ -10,6 +10,10 @@ import { KeywordResearchService, KeywordMetrics } from './keyword-research';
 import { circuitBreakers } from '../errors/circuit-breaker';
 import { v4 as uuidv4 } from 'uuid';
 import type { OpportunitySeed, ScanMode, InventoryLandscape } from '../types';
+import { prisma } from '@experience-marketplace/database';
+
+// Cache for existing opportunity keys - populated once per optimization run
+let existingOpportunityKeysCache: Set<string> | null = null;
 
 // ==========================================
 // CONFIGURATION
@@ -195,6 +199,10 @@ export async function runRecursiveOptimization(
   config?: Partial<OptimizationConfig>
 ): Promise<OptimizationResult> {
   const startTime = Date.now();
+
+  // Clear the existing opportunity keys cache at the start of each optimization run
+  clearExistingOpportunityKeysCache();
+
   const finalConfig = { ...DEFAULT_CONFIG, ...config };
   const iterations: IterationResult[] = [];
   const improvementHistory: number[] = [];
@@ -245,7 +253,7 @@ export async function runRecursiveOptimization(
 
     try {
       // Step 1: Generate suggestions (AI participates in ALL iterations)
-      const suggestions = await generateRefinedSuggestions(
+      const rawSuggestions = await generateRefinedSuggestions(
         i,
         previousLearnings,
         suggestionsCount,
@@ -253,7 +261,16 @@ export async function runRecursiveOptimization(
         apiCost,
         finalConfig.seeds
       );
-      console.log(`[Optimizer] Generated ${suggestions.length} suggestions`);
+      console.log(`[Optimizer] Generated ${rawSuggestions.length} suggestions`);
+
+      // Step 1.5: Pre-filter suggestions that already exist in the database
+      // This saves DataForSEO API costs by not re-validating existing keywords
+      const suggestions = await filterExistingSuggestions(rawSuggestions);
+
+      if (suggestions.length === 0) {
+        console.log('[Optimizer] All suggestions already exist - skipping validation');
+        continue;
+      }
 
       // Step 2: Validate with DataForSEO
       const validated = await batchValidateOpportunities(
@@ -756,6 +773,72 @@ async function isDomainAvailable(domain: string): Promise<boolean> {
     // Timeout or network error - assume available (optimistic)
     return true;
   }
+}
+
+// ==========================================
+// PRE-FILTERING
+// ==========================================
+
+/**
+ * Get existing opportunity keys from the database.
+ * Caches the result for the duration of an optimization run.
+ * This saves DataForSEO API costs by not re-validating keywords we already have.
+ */
+async function getExistingOpportunityKeys(): Promise<Set<string>> {
+  if (existingOpportunityKeysCache !== null) {
+    return existingOpportunityKeysCache;
+  }
+
+  console.log('[Optimizer Pre-Filter] Fetching existing opportunities from database...');
+
+  const existingOpportunities = await prisma.sEOOpportunity.findMany({
+    select: {
+      keyword: true,
+      location: true,
+    },
+  });
+
+  // Build a Set of "keyword|location" keys for O(1) lookup
+  const keys = new Set<string>();
+  for (const opp of existingOpportunities) {
+    const key = `${opp.keyword.toLowerCase()}|${(opp.location || '').toLowerCase()}`;
+    keys.add(key);
+  }
+
+  console.log(`[Optimizer Pre-Filter] Found ${keys.size} existing opportunities to exclude`);
+  existingOpportunityKeysCache = keys;
+  return keys;
+}
+
+/**
+ * Clear the existing opportunity keys cache.
+ * Call this at the start of a new optimization run.
+ */
+export function clearExistingOpportunityKeysCache(): void {
+  existingOpportunityKeysCache = null;
+}
+
+/**
+ * Filter suggestions to exclude those that already exist in the database.
+ */
+async function filterExistingSuggestions(
+  suggestions: OpportunitySuggestion[]
+): Promise<OpportunitySuggestion[]> {
+  const existingKeys = await getExistingOpportunityKeys();
+
+  const filtered = suggestions.filter((suggestion) => {
+    const key = `${suggestion.keyword.toLowerCase()}|${(suggestion.destination || '').toLowerCase()}`;
+    return !existingKeys.has(key);
+  });
+
+  const skipped = suggestions.length - filtered.length;
+  if (skipped > 0) {
+    console.log(
+      `[Optimizer Pre-Filter] Skipped ${skipped} suggestions that match existing opportunities (${filtered.length} remaining)`
+    );
+  }
+
+  return filtered;
 }
 
 // ==========================================
