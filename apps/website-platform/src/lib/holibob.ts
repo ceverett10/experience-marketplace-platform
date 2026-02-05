@@ -10,6 +10,27 @@ import type { SiteConfig } from './tenant';
 const clientCache = new Map<string, HolibobClient>();
 
 /**
+ * Image size presets for different contexts
+ * Optimized for actual display sizes to reduce bandwidth
+ */
+export const IMAGE_PRESETS = {
+  // Cards on listing pages - optimized for typical card display
+  card: { width: 400, height: 267, quality: 75 },
+
+  // Gallery images - main image in detail page gallery
+  galleryMain: { width: 800, height: 533, quality: 80 },
+
+  // Gallery thumbnails - secondary images in gallery grid
+  galleryThumbnail: { width: 300, height: 200, quality: 70 },
+
+  // Lightbox/modal - full resolution for zoom
+  lightbox: { width: 1200, height: 800, quality: 85 },
+
+  // Compact cards (sidebars, related items)
+  compact: { width: 160, height: 107, quality: 70 },
+} as const;
+
+/**
  * Get or create Holibob client for a site
  */
 export function getHolibobClient(site: SiteConfig): HolibobClient {
@@ -324,7 +345,7 @@ export function mapProductToExperience(product: {
   const legacyImageUrls = product.images?.map((img) => img.url ?? '').filter(Boolean) ?? [];
   const allImages = imageListUrls.length > 0 ? imageListUrls : legacyImageUrls;
 
-  // Primary image URL - optimize for card display (550x366px like Holibob Hub)
+  // Primary image URL - optimize for card display (400x267px, quality 75)
   const rawPrimaryImageUrl =
     allImages[0] ??
     product.primaryImage?.url ??
@@ -332,7 +353,7 @@ export function mapProductToExperience(product: {
     product.imageUrl ??
     '/placeholder-experience.jpg';
 
-  const primaryImageUrl = optimizeHolibobImageUrl(rawPrimaryImageUrl, 550, 366);
+  const primaryImageUrl = optimizeHolibobImageWithPreset(rawPrimaryImageUrl, 'card');
 
   // Handle categories from different API formats
   // categoryList.nodes[] or categories[]
@@ -425,7 +446,7 @@ export function mapProductToExperience(product: {
     imageUrl: primaryImageUrl,
     images:
       allImages.length > 0
-        ? allImages.map((img) => optimizeHolibobImageUrl(img, 1200, 800)) // Larger for gallery
+        ? allImages.map((img) => optimizeHolibobImageWithPreset(img, 'lightbox')) // Lightbox quality for gallery
         : primaryImageUrl === '/placeholder-experience.jpg'
           ? []
           : [primaryImageUrl],
@@ -554,16 +575,22 @@ export function formatDuration(value: number, unit: string): string {
 }
 
 /**
- * Optimize Holibob image URL by adding resize parameters
+ * Optimize Holibob image URL by adding resize and quality parameters
  * Holibob CDN (images.holibob.tech) supports base64-encoded JSON parameters
- * for dynamic image transformation (resize, crop, format, etc.)
+ * for dynamic image transformation (resize, crop, format, quality, etc.)
  *
  * @param url - Original image URL from Holibob API
  * @param width - Target width in pixels
  * @param height - Target height in pixels
+ * @param quality - JPEG/WebP quality (1-100), default 80
  * @returns Optimized URL with resize parameters, or original URL if transformation fails
  */
-export function optimizeHolibobImageUrl(url: string, width: number, height: number): string {
+export function optimizeHolibobImageUrl(
+  url: string,
+  width: number,
+  height: number,
+  quality: number = 80
+): string {
   // Only transform images.holibob.tech URLs
   if (!url || !url.includes('images.holibob.tech')) {
     return url;
@@ -581,7 +608,7 @@ export function optimizeHolibobImageUrl(url: string, width: number, height: numb
     // Decode the existing parameters
     const decoded = JSON.parse(Buffer.from(token, 'base64').toString('utf-8'));
 
-    // Add resize parameters (following Holibob Hub's approach)
+    // Add resize and quality parameters (following Holibob Hub's approach)
     decoded.edits = {
       ...(decoded.edits || {}),
       resize: {
@@ -589,6 +616,9 @@ export function optimizeHolibobImageUrl(url: string, width: number, height: numb
         height,
         fit: 'cover',
       },
+      // Quality parameter for JPEG/WebP compression
+      jpeg: { quality },
+      webp: { quality },
     };
 
     // Re-encode and return the optimized URL
@@ -602,4 +632,16 @@ export function optimizeHolibobImageUrl(url: string, width: number, height: numb
     );
     return url;
   }
+}
+
+/**
+ * Optimize Holibob image URL using a preset
+ * Convenience wrapper that uses predefined size/quality combinations
+ */
+export function optimizeHolibobImageWithPreset(
+  url: string,
+  preset: keyof typeof IMAGE_PRESETS
+): string {
+  const { width, height, quality } = IMAGE_PRESETS[preset];
+  return optimizeHolibobImageUrl(url, width, height, quality);
 }

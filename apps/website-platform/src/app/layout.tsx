@@ -91,11 +91,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <link rel="preconnect" href="https://api.sandbox.holibob.tech" />
         <link rel="dns-prefetch" href="https://api.sandbox.holibob.tech" />
         {/* Preconnect to image CDNs for faster image loading */}
-        <link rel="preconnect" href="https://images.holibob.tech" />
+        <link rel="preconnect" href="https://images.holibob.tech" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://images.holibob.tech" />
-        <link rel="preconnect" href="https://images.unsplash.com" />
+        <link rel="preconnect" href="https://images.unsplash.com" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://images.unsplash.com" />
-        <link rel="preconnect" href="https://res.cloudinary.com" />
+        <link rel="preconnect" href="https://res.cloudinary.com" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://res.cloudinary.com" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />

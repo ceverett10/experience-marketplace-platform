@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { getSiteFromHostname } from '@/lib/tenant';
-import { getHolibobClient, parseIsoDuration, optimizeHolibobImageUrl } from '@/lib/holibob';
+import { getHolibobClient, parseIsoDuration, optimizeHolibobImageWithPreset } from '@/lib/holibob';
 
 const ITEMS_PER_PAGE = 12;
 
@@ -136,9 +136,9 @@ export async function GET(request: NextRequest) {
       const rawImageUrl =
         product.imageList?.[0]?.url ?? product.imageUrl ?? '/placeholder-experience.jpg';
 
-      // Optimize Holibob images to request card-sized versions (550x366px like Holibob Hub)
+      // Optimize Holibob images to request card-sized versions (400x267px, quality 75)
       const primaryImage = rawImageUrl.includes('images.holibob.tech')
-        ? optimizeHolibobImageUrl(rawImageUrl, 550, 366)
+        ? optimizeHolibobImageWithPreset(rawImageUrl, 'card')
         : rawImageUrl;
 
       const priceAmount = product.guidePrice ?? product.priceFrom ?? 0;

@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import { useState, useCallback, useRef } from 'react';
+import { BLUR_PLACEHOLDER } from '@/lib/image-utils';
 
 interface ExperienceGalleryProps {
   images: string[];
@@ -64,6 +65,8 @@ export function ExperienceGallery({ images, title }: ExperienceGalleryProps) {
               priority
               sizes="(max-width: 640px) 100vw, 50vw"
               className="object-cover transition-opacity hover:opacity-90"
+              placeholder="blur"
+              blurDataURL={BLUR_PLACEHOLDER}
             />
           </div>
 
@@ -84,6 +87,8 @@ export function ExperienceGallery({ images, title }: ExperienceGalleryProps) {
                 loading="lazy"
                 sizes="25vw"
                 className="object-cover transition-opacity hover:opacity-90"
+                placeholder="blur"
+                blurDataURL={BLUR_PLACEHOLDER}
               />
               {/* Show more overlay on last image */}
               {idx === 3 && remainingCount > 0 && (

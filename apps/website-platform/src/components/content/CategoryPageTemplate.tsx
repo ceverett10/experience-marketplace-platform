@@ -4,9 +4,11 @@
  */
 
 import React from 'react';
+import Image from 'next/image';
 import { ContentRenderer } from './ContentRenderer';
 import type { PageStatus, ContentFormat } from '@prisma/client';
 import Link from 'next/link';
+import { BLUR_PLACEHOLDER } from '@/lib/image-utils';
 
 interface CategoryPageData {
   id: string;
@@ -170,13 +172,18 @@ export function CategoryPageTemplate({
                 href={`/experiences/${experience.slug}`}
                 className="group bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow"
               >
-                <div className="relative h-48 overflow-hidden">
-                  <img
+                <div className="relative h-48 overflow-hidden bg-gray-200">
+                  <Image
                     src={experience.imageUrl}
                     alt={experience.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    fill
+                    sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                    loading="lazy"
+                    placeholder="blur"
+                    blurDataURL={BLUR_PLACEHOLDER}
                   />
-                  <div className="absolute top-3 right-3 bg-white px-2 py-1 rounded-md shadow-sm">
+                  <div className="absolute top-3 right-3 bg-white px-2 py-1 rounded-md shadow-sm z-10">
                     <span className="text-sm font-semibold text-gray-900">
                       {experience.price.formatted}
                     </span>

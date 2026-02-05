@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useBrand } from '@/lib/site-context';
+import { BLUR_PLACEHOLDER } from '@/lib/image-utils';
 import type { ExperienceListItem } from '@/lib/holibob';
 
 type BadgeType =
@@ -154,6 +155,8 @@ export function PremiumExperienceCard({
           sizes="100vw"
           {...(priority ? { priority: true } : { loading: 'lazy' as const })}
           className="object-cover transition-transform duration-700 group-hover:scale-105"
+          placeholder="blur"
+          blurDataURL={BLUR_PLACEHOLDER}
         />
 
         {/* Gradient Overlay */}
@@ -267,6 +270,8 @@ export function PremiumExperienceCard({
           sizes="(max-width: 768px) 100vw, 50vw"
           {...(priority ? { priority: true } : { loading: 'lazy' as const })}
           className="object-cover transition-transform duration-500 group-hover:scale-105"
+          placeholder="blur"
+          blurDataURL={BLUR_PLACEHOLDER}
         />
 
         {/* Gradient Overlay */}
@@ -337,6 +342,8 @@ export function PremiumExperienceCard({
             sizes="192px"
             {...(priority ? { priority: true } : { loading: 'lazy' as const })}
             className="object-cover transition-transform duration-300 group-hover:scale-105"
+            placeholder="blur"
+            blurDataURL={BLUR_PLACEHOLDER}
           />
           {badges.length > 0 && badges[0] && (
             <div className="absolute left-2 top-2">
@@ -394,6 +401,8 @@ export function PremiumExperienceCard({
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
           {...(priority ? { priority: true } : { loading: 'lazy' as const })}
           className="object-cover transition-transform duration-500 group-hover:scale-105"
+          placeholder="blur"
+          blurDataURL={BLUR_PLACEHOLDER}
         />
 
         {/* Badges - Top Left */}
