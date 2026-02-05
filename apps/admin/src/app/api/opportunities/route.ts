@@ -249,7 +249,13 @@ Keep it concise and business-focused.`;
         data: { status: 'ARCHIVED' },
       });
     } else if (action === 'create-site') {
-      // Create a new site from the opportunity
+      // Queue the full SITE_CREATE job which handles:
+      // - Brand identity generation (name, tagline, colors, typography)
+      // - Favicon generation
+      // - Logo generation
+      // - Homepage configuration
+      // - Site roadmap initialization
+      // - Blog topic generation
       const opportunity = await prisma.sEOOpportunity.findUnique({
         where: { id: opportunityId },
       });
@@ -258,31 +264,39 @@ Keep it concise and business-focused.`;
         return NextResponse.json({ error: 'Opportunity not found' }, { status: 404 });
       }
 
-      // Create site with slug generation
-      const siteName = opportunity.keyword
-        .split(' ')
-        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-        .join(' ');
+      // Extract domain suggestion from sourceData if available
+      const sourceData = opportunity.sourceData as Record<string, unknown> | null;
+      const domainSuggestions = sourceData?.['domainSuggestions'] as {
+        primary?: string;
+        alternatives?: string[];
+      } | null;
 
-      const site = await prisma.site.create({
-        data: {
-          name: siteName,
-          slug: opportunity.keyword.toLowerCase().replace(/\s+/g, '-'),
-          status: 'DRAFT',
-          holibobPartnerId: 'default', // TODO: Set proper partner ID
+      // Generate brand config from opportunity data
+      const destination = opportunity.location?.split(',')[0] || 'Experiences';
+      const niche = opportunity.niche || 'experiences';
+
+      // Queue the SITE_CREATE job
+      const jobId = await addJob('SITE_CREATE', {
+        opportunityId: opportunity.id,
+        domain: domainSuggestions?.primary,
+        brandConfig: {
+          name: `${destination} ${niche.charAt(0).toUpperCase() + niche.slice(1)}`,
+          tagline: `Discover the best ${niche} in ${destination}`,
         },
+        autoPublish: false,
       });
 
-      // Update opportunity
+      // Mark opportunity as ASSIGNED (the job will link the site once created)
       await prisma.sEOOpportunity.update({
         where: { id: opportunityId },
-        data: {
-          status: 'ASSIGNED',
-          siteId: site.id,
-        },
+        data: { status: 'ASSIGNED' },
       });
 
-      return NextResponse.json({ site });
+      return NextResponse.json({
+        success: true,
+        jobId,
+        message: 'Site creation job queued - brand identity, homepage, and content will be generated',
+      });
     }
 
     return NextResponse.json({ success: true });
