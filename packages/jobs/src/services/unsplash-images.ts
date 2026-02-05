@@ -9,7 +9,10 @@
  * Usage notes:
  * - Attribution is required when using Unsplash images
  * - Use download endpoint to track downloads (required by Unsplash guidelines)
+ * - Images are downloaded and cached in R2 for fast delivery
  */
+
+import { uploadToR2, isR2Configured } from './image-storage.js';
 
 interface UnsplashCredentials {
   accessKey?: string;
@@ -414,13 +417,75 @@ interface HeroConfig {
 }
 
 /**
+ * Download an image from a URL and cache it to R2 for fast delivery
+ * Returns the R2 URL if successful, or the original URL if R2 is not configured
+ */
+async function cacheImageToR2(
+  imageUrl: string,
+  cacheKey: string,
+  width: number = 1280,
+  quality: number = 80
+): Promise<string> {
+  // If R2 is not configured, return original URL
+  if (!isR2Configured()) {
+    console.log('[Image Cache] R2 not configured, using original URL');
+    return imageUrl;
+  }
+
+  try {
+    // Build optimized Unsplash URL
+    const url = new URL(imageUrl);
+    url.searchParams.set('w', width.toString());
+    url.searchParams.set('q', quality.toString());
+    url.searchParams.set('fm', 'jpg');
+    url.searchParams.set('auto', 'format');
+    url.searchParams.set('fit', 'crop');
+
+    console.log(`[Image Cache] Downloading image: ${cacheKey}`);
+
+    // Download the image
+    const response = await fetch(url.toString());
+    if (!response.ok) {
+      console.error(`[Image Cache] Failed to download: ${response.status}`);
+      return imageUrl;
+    }
+
+    const buffer = Buffer.from(await response.arrayBuffer());
+    const contentType = response.headers.get('content-type') || 'image/jpeg';
+
+    // Upload to R2
+    const r2Key = `images/${cacheKey}.jpg`;
+    const r2Url = await uploadToR2(buffer, r2Key, contentType);
+
+    console.log(`[Image Cache] Cached to R2: ${r2Url} (${buffer.length} bytes)`);
+    return r2Url;
+  } catch (error) {
+    console.error('[Image Cache] Error caching image:', error);
+    return imageUrl;
+  }
+}
+
+/**
+ * Generate a cache key for an image based on context
+ */
+function generateImageCacheKey(type: 'hero' | 'category' | 'destination', identifier: string): string {
+  // Sanitize the identifier for use as a filename
+  const sanitized = identifier
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .substring(0, 50);
+
+  const timestamp = Date.now();
+  return `${type}-${sanitized}-${timestamp}`;
+}
+
+/**
  * Helper to enrich homepage config destinations/categories/hero with images
  * Includes full attribution data as REQUIRED by Unsplash API Guidelines
  *
- * COMPLIANCE NOTES:
- * - Images are hotlinked from Unsplash CDN (required)
- * - Attribution data is stored for display (required)
- * - UTM parameters are included in all links (required)
+ * Images are downloaded and cached in R2 for fast delivery.
+ * Attribution data is stored for display (required by Unsplash guidelines).
  */
 export async function enrichHomepageConfigWithImages(
   config: {
@@ -468,16 +533,20 @@ export async function enrichHomepageConfigWithImages(
       const heroImage = await service.getRandomImage(heroQuery, { orientation: 'landscape' });
 
       if (heroImage) {
+        // Cache hero image to R2 for fast delivery
+        const cacheKey = generateImageCacheKey('hero', context?.niche || context?.location || 'default');
+        const cachedUrl = await cacheImageToR2(heroImage.url, cacheKey, 1920, 80);
+
         enrichedHero = {
           ...config.hero,
-          backgroundImage: heroImage.url,
+          backgroundImage: cachedUrl,
           backgroundImageAttribution: {
             photographerName: heroImage.attribution.photographerName,
             photographerUrl: heroImage.attribution.photographerUrl,
             unsplashUrl: heroImage.attribution.unsplashUrl,
           },
         };
-        console.log(`[Unsplash] Hero image found: ${heroImage.alt}`);
+        console.log(`[Unsplash] Hero image cached: ${cachedUrl}`);
       }
     }
 
@@ -491,41 +560,57 @@ export async function enrichHomepageConfigWithImages(
     const imageResults =
       items.length > 0 ? await service.batchGetImages(items, context) : new Map();
 
-    // Enrich destinations with images AND attribution
-    const enrichedDestinations = config.destinations?.map((dest) => {
-      if (dest.imageUrl) return dest;
-      const image = imageResults.get(dest.name);
-      if (!image) return dest;
+    // Enrich destinations with images AND attribution (with R2 caching)
+    const enrichedDestinations = config.destinations
+      ? await Promise.all(
+          config.destinations.map(async (dest) => {
+            if (dest.imageUrl) return dest;
+            const image = imageResults.get(dest.name);
+            if (!image) return dest;
 
-      return {
-        ...dest,
-        imageUrl: image.url,
-        // REQUIRED: Store attribution for display
-        imageAttribution: {
-          photographerName: image.attribution.photographerName,
-          photographerUrl: image.attribution.photographerUrl,
-          unsplashUrl: image.attribution.unsplashUrl,
-        },
-      };
-    });
+            // Cache destination image to R2 (smaller size for cards)
+            const cacheKey = generateImageCacheKey('destination', dest.name);
+            const cachedUrl = await cacheImageToR2(image.url, cacheKey, 800, 75);
 
-    // Enrich categories with images AND attribution
-    const enrichedCategories = config.categories?.map((cat) => {
-      if (cat.imageUrl) return cat;
-      const image = imageResults.get(cat.name);
-      if (!image) return cat;
+            return {
+              ...dest,
+              imageUrl: cachedUrl,
+              // REQUIRED: Store attribution for display
+              imageAttribution: {
+                photographerName: image.attribution.photographerName,
+                photographerUrl: image.attribution.photographerUrl,
+                unsplashUrl: image.attribution.unsplashUrl,
+              },
+            };
+          })
+        )
+      : undefined;
 
-      return {
-        ...cat,
-        imageUrl: image.url,
-        // REQUIRED: Store attribution for display
-        imageAttribution: {
-          photographerName: image.attribution.photographerName,
-          photographerUrl: image.attribution.photographerUrl,
-          unsplashUrl: image.attribution.unsplashUrl,
-        },
-      };
-    });
+    // Enrich categories with images AND attribution (with R2 caching)
+    const enrichedCategories = config.categories
+      ? await Promise.all(
+          config.categories.map(async (cat) => {
+            if (cat.imageUrl) return cat;
+            const image = imageResults.get(cat.name);
+            if (!image) return cat;
+
+            // Cache category image to R2 (smaller size for cards)
+            const cacheKey = generateImageCacheKey('category', cat.name);
+            const cachedUrl = await cacheImageToR2(image.url, cacheKey, 800, 75);
+
+            return {
+              ...cat,
+              imageUrl: cachedUrl,
+              // REQUIRED: Store attribution for display
+              imageAttribution: {
+                photographerName: image.attribution.photographerName,
+                photographerUrl: image.attribution.photographerUrl,
+                unsplashUrl: image.attribution.unsplashUrl,
+              },
+            };
+          })
+        )
+      : undefined;
 
     return {
       hero: enrichedHero,

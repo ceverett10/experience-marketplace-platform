@@ -21,6 +21,23 @@ export function isHolibobImage(url: string | null | undefined): boolean {
 }
 
 /**
+ * Check if an image URL is from our R2 CDN
+ * R2 images are pre-optimized during upload, so skip Next.js re-processing
+ */
+export function isR2Image(url: string | null | undefined): boolean {
+  if (!url) return false;
+  return url.includes('.r2.dev/') || url.includes('r2.cloudflarestorage.com');
+}
+
+/**
+ * Check if an image should skip Next.js optimization
+ * Returns true for images that are already optimized at source
+ */
+export function shouldSkipOptimization(url: string | null | undefined): boolean {
+  return isHolibobImage(url) || isR2Image(url);
+}
+
+/**
  * Generate a brand-colored blur placeholder
  * Creates a subtle tinted placeholder using the brand's primary color
  *

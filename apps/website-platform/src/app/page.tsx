@@ -6,7 +6,7 @@ import { LatestBlogPosts } from '@/components/content/LatestBlogPosts';
 import { getSiteFromHostname, type HomepageConfig } from '@/lib/tenant';
 import { getHolibobClient, type ExperienceListItem, parseIsoDuration } from '@/lib/holibob';
 import { prisma } from '@/lib/prisma';
-import { optimizeUnsplashUrl } from '@/lib/image-utils';
+import { optimizeUnsplashUrl, shouldSkipOptimization } from '@/lib/image-utils';
 
 // Revalidate every 5 minutes for fresh content
 export const revalidate = 300;
@@ -287,9 +287,12 @@ export default async function HomePage() {
         : undefined,
   };
 
-  // Preload hero image URL (optimized) so browser fetches it immediately
+  // Preload hero image URL so browser fetches it immediately
+  // R2 images are pre-optimized, Unsplash images need URL optimization
   const heroImageUrl = heroConfig?.backgroundImage
-    ? optimizeUnsplashUrl(heroConfig.backgroundImage, 1280, 40)
+    ? shouldSkipOptimization(heroConfig.backgroundImage)
+      ? heroConfig.backgroundImage
+      : optimizeUnsplashUrl(heroConfig.backgroundImage, 1280, 40)
     : null;
 
   return (

@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { UnsplashAttribution } from '@/components/common/UnsplashAttribution';
-import { BLUR_PLACEHOLDER, isHolibobImage } from '@/lib/image-utils';
+import { BLUR_PLACEHOLDER, shouldSkipOptimization } from '@/lib/image-utils';
 
 interface ImageAttribution {
   photographerName: string;
@@ -104,7 +104,7 @@ export function CategoryGrid({
                         {...(index < 2 ? { priority: true } : { loading: 'lazy' as const })}
                         placeholder="blur"
                         blurDataURL={BLUR_PLACEHOLDER}
-                        unoptimized={isHolibobImage(category.imageUrl)}
+                        unoptimized={shouldSkipOptimization(category.imageUrl)}
                       />
                       {/* Gradient overlay */}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
