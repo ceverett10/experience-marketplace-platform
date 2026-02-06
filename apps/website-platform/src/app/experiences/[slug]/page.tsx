@@ -194,6 +194,14 @@ export default async function ExperienceDetailPage({ params }: Props) {
   // Fetch related experiences in parallel (non-blocking)
   const relatedExperiences = await getRelatedExperiences(site, experience);
 
+  // Base URL for the site
+  const baseUrl = `https://${site.primaryDomain || hostname}`;
+
+  // Check for free cancellation (needed for structured data and UI)
+  const hasFreeCancellation =
+    experience.cancellationPolicy?.toLowerCase().includes('free') ||
+    experience.cancellationPolicy?.toLowerCase().includes('full refund');
+
   // Generate JSON-LD structured data with enhanced Product schema
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -210,8 +218,48 @@ export default async function ExperienceDetailPage({ params }: Props) {
       price: experience.price.amount / 100,
       priceCurrency: experience.price.currency,
       availability: 'https://schema.org/InStock',
-      url: `https://${site.primaryDomain || hostname}/experiences/${slug}`,
+      url: `${baseUrl}/experiences/${slug}`,
       priceValidUntil: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(), // 90 days from now
+      // Shipping details - this is a service/experience, not a physical product
+      // Using OfferShippingDetails with "ships to" the location where the experience takes place
+      shippingDetails: {
+        '@type': 'OfferShippingDetails',
+        shippingRate: {
+          '@type': 'MonetaryAmount',
+          value: 0,
+          currency: experience.price.currency,
+        },
+        shippingDestination: {
+          '@type': 'DefinedRegion',
+          addressCountry: 'GB', // Default to GB, could be made dynamic
+        },
+        deliveryTime: {
+          '@type': 'ShippingDeliveryTime',
+          handlingTime: {
+            '@type': 'QuantitativeValue',
+            minValue: 0,
+            maxValue: 0,
+            unitCode: 'DAY',
+          },
+          transitTime: {
+            '@type': 'QuantitativeValue',
+            minValue: 0,
+            maxValue: 0,
+            unitCode: 'DAY',
+          },
+        },
+      },
+      // Return/cancellation policy for the experience
+      hasMerchantReturnPolicy: {
+        '@type': 'MerchantReturnPolicy',
+        applicableCountry: 'GB',
+        returnPolicyCategory: hasFreeCancellation
+          ? 'https://schema.org/MerchantReturnFiniteReturnWindow'
+          : 'https://schema.org/MerchantReturnNotPermitted',
+        merchantReturnDays: hasFreeCancellation ? 1 : 0, // 24 hours = 1 day before activity
+        returnMethod: 'https://schema.org/ReturnByMail', // Not applicable but required
+        returnFees: 'https://schema.org/FreeReturn',
+      },
     },
     aggregateRating: experience.rating
       ? {
@@ -250,11 +298,6 @@ export default async function ExperienceDetailPage({ params }: Props) {
     category: experience.categories.map((cat) => cat.name).join(', '),
     duration: experience.duration.formatted,
   };
-
-  // Check for free cancellation
-  const hasFreeCancellation =
-    experience.cancellationPolicy?.toLowerCase().includes('free') ||
-    experience.cancellationPolicy?.toLowerCase().includes('full refund');
 
   // FAQ structured data for SEO
   const faqLd = {
