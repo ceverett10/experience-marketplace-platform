@@ -9,6 +9,7 @@ import { runMetaTitleMaintenance } from '../services/meta-title-maintenance.js';
 // Track intervals for cleanup
 let dailyContentInterval: NodeJS.Timeout | null = null;
 let metaTitleMaintenanceInterval: NodeJS.Timeout | null = null;
+let micrositeContentRefreshInterval: NodeJS.Timeout | null = null;
 
 /**
  * Calculate the next run time for a cron expression.
@@ -189,6 +190,43 @@ export async function initializeScheduledJobs(): Promise<void> {
   console.log('[Scheduler]   - Seasonal Content: 7:00 AM');
   console.log('[Scheduler]   - Local Guides: Sundays 4:30 AM');
 
+  // =========================================================================
+  // MICROSITE SYSTEM SCHEDULES
+  // =========================================================================
+
+  // Holibob Supplier Sync - Daily at 2 AM (before product sync)
+  await scheduleJob(
+    'SUPPLIER_SYNC' as any,
+    {
+      forceSync: false, // Only sync stale suppliers
+    },
+    '0 2 * * *' // Daily at 2 AM
+  );
+  console.log('[Scheduler] ✓ Supplier Sync - Daily at 2 AM');
+
+  // Holibob Product Sync - Daily at 3:30 AM (after supplier sync)
+  await scheduleJob(
+    'PRODUCT_SYNC' as any,
+    {
+      forceSync: false, // Only sync stale products
+    },
+    '30 3 * * *' // Daily at 3:30 AM
+  );
+  console.log('[Scheduler] ✓ Product Sync - Daily at 3:30 AM');
+
+  // Microsite Content Refresh - Daily at 6 AM (after syncs complete)
+  // Refreshes 1% of microsites per day (rotating)
+  initializeMicrositeContentRefreshSchedule();
+  console.log('[Scheduler] ✓ Microsite Content Refresh - Daily at 6 AM (1% rotation)');
+
+  // Microsite Health Check - Sundays at 8:30 AM
+  await scheduleJob(
+    'MICROSITE_HEALTH_CHECK' as any,
+    {},
+    '30 8 * * 0' // Sundays at 8:30 AM
+  );
+  console.log('[Scheduler] ✓ Microsite Health Check - Sundays at 8:30 AM');
+
   console.log('[Scheduler] All scheduled jobs initialized successfully');
 }
 
@@ -358,6 +396,72 @@ function initializeMetaTitleMaintenanceSchedule(): void {
 }
 
 /**
+ * Initialize microsite content refresh schedule
+ * Refreshes 1% of active microsites per day (rotating)
+ */
+function initializeMicrositeContentRefreshSchedule(): void {
+  micrositeContentRefreshInterval = setInterval(
+    async () => {
+      const now = new Date();
+      const currentHour = now.getHours();
+      const today = now.toISOString().split('T')[0] ?? '';
+
+      // Run at 6 AM
+      if (currentHour === 6) {
+        const lastRun = schedulesRunToday.get('microsite-content-refresh');
+        if (lastRun !== today) {
+          schedulesRunToday.set('microsite-content-refresh', today);
+          console.log('[Scheduler] Running microsite content refresh...');
+          try {
+            await refreshMicrositeContent();
+          } catch (error) {
+            console.error('[Scheduler] Microsite content refresh failed:', error);
+          }
+        }
+      }
+    },
+    60 * 60 * 1000 // Check every hour
+  );
+}
+
+/**
+ * Refresh content for a rotating subset of microsites (1% per day)
+ */
+async function refreshMicrositeContent(): Promise<void> {
+  const { prisma } = await import('@experience-marketplace/database');
+  const { addJob } = await import('../queues/index.js');
+
+  // Get count of active microsites
+  const totalActive = await prisma.micrositeConfig.count({
+    where: { status: 'ACTIVE' },
+  });
+
+  // Calculate 1% (minimum 1)
+  const refreshCount = Math.max(1, Math.floor(totalActive * 0.01));
+
+  // Get microsites ordered by last content update (oldest first)
+  const micrositesToRefresh = await prisma.micrositeConfig.findMany({
+    where: { status: 'ACTIVE' },
+    orderBy: { lastContentUpdate: 'asc' },
+    take: refreshCount,
+    select: { id: true, fullDomain: true },
+  });
+
+  console.log(
+    `[Scheduler] Refreshing ${micrositesToRefresh.length} of ${totalActive} active microsites`
+  );
+
+  for (const ms of micrositesToRefresh) {
+    await addJob('MICROSITE_CONTENT_GENERATE' as any, {
+      micrositeId: ms.id,
+      contentTypes: ['homepage'],
+      isRefresh: true,
+    });
+    console.log(`[Scheduler] Queued content refresh for ${ms.fullDomain}`);
+  }
+}
+
+/**
  * Remove all scheduled jobs (useful for cleanup or reconfiguration)
  */
 export async function removeAllScheduledJobs(): Promise<void> {
@@ -383,6 +487,12 @@ export async function removeAllScheduledJobs(): Promise<void> {
   if (metaTitleMaintenanceInterval) {
     clearInterval(metaTitleMaintenanceInterval);
     metaTitleMaintenanceInterval = null;
+  }
+
+  // Clear microsite content refresh interval
+  if (micrositeContentRefreshInterval) {
+    clearInterval(micrositeContentRefreshInterval);
+    micrositeContentRefreshInterval = null;
   }
 
   // Clear schedule tracking
@@ -494,6 +604,27 @@ export function getScheduledJobs(): Array<{
       jobType: 'AUTONOMOUS_ROADMAP',
       schedule: '*/5 * * * *',
       description: 'Process site roadmaps and queue next lifecycle tasks',
+    },
+    // Microsite System
+    {
+      jobType: 'SUPPLIER_SYNC',
+      schedule: '0 2 * * *',
+      description: 'Sync suppliers from Holibob API (discovered via products)',
+    },
+    {
+      jobType: 'PRODUCT_SYNC',
+      schedule: '30 3 * * *',
+      description: 'Sync products from Holibob API to local cache',
+    },
+    {
+      jobType: 'MICROSITE_CONTENT_REFRESH',
+      schedule: '0 6 * * *',
+      description: 'Refresh 1% of microsite content daily (rotating)',
+    },
+    {
+      jobType: 'MICROSITE_HEALTH_CHECK',
+      schedule: '30 8 * * 0',
+      description: 'Check microsites for issues (missing content, deleted suppliers)',
     },
   ];
 }

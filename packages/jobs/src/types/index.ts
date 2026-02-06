@@ -270,6 +270,57 @@ export interface LinkAssetGeneratePayload {
   destination?: string;
 }
 
+// Microsite Management Jobs
+export interface MicrositeCreatePayload {
+  supplierId?: string;
+  productId?: string;
+  parentDomain: string; // e.g., 'experiencess.com'
+}
+
+export interface MicrositeBrandGeneratePayload {
+  micrositeId: string;
+}
+
+export interface MicrositeContentGeneratePayload {
+  micrositeId: string;
+  contentTypes: ('homepage' | 'about' | 'experiences' | 'blog')[];
+  isRefresh?: boolean;
+}
+
+export interface MicrositePublishPayload {
+  micrositeId: string;
+}
+
+export interface MicrositeArchivePayload {
+  micrositeId: string;
+  reason?: string;
+}
+
+export interface MicrositeHealthCheckPayload {
+  micrositeId?: string; // If omitted, check all microsites
+}
+
+// Holibob Sync Jobs
+export interface SupplierSyncPayload {
+  /** Force sync even if recently synced */
+  forceSync?: boolean;
+  /** Maximum cities to scan for suppliers */
+  maxCities?: number;
+  /** Maximum products per city to scan */
+  maxProductsPerCity?: number;
+}
+
+export interface ProductSyncPayload {
+  /** Specific supplier IDs to sync (if not provided, syncs all) */
+  supplierIds?: string[];
+  /** Maximum products per supplier to sync */
+  maxProductsPerSupplier?: number;
+  /** Force sync even if recently synced */
+  forceSync?: boolean;
+  /** Only sync products older than this many hours */
+  staleSyncThresholdHours?: number;
+}
+
 /**
  * Union type of all job payloads
  */
@@ -299,7 +350,15 @@ export type JobPayload =
   | LinkOpportunityScanPayload
   | LinkBacklinkMonitorPayload
   | LinkOutreachGeneratePayload
-  | LinkAssetGeneratePayload;
+  | LinkAssetGeneratePayload
+  | MicrositeCreatePayload
+  | MicrositeBrandGeneratePayload
+  | MicrositeContentGeneratePayload
+  | MicrositePublishPayload
+  | MicrositeArchivePayload
+  | MicrositeHealthCheckPayload
+  | SupplierSyncPayload
+  | ProductSyncPayload;
 
 /**
  * Job configuration options
@@ -350,6 +409,10 @@ export const QUEUE_NAMES = {
 
   // A/B Testing
   ABTEST: 'abtest',
+
+  // Microsite & Sync (long-running jobs)
+  SYNC: 'sync',
+  MICROSITE: 'microsite',
 } as const;
 
 export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];
@@ -382,4 +445,18 @@ export const JOB_TYPE_TO_QUEUE: Record<JobType, QueueName> = {
   LINK_BACKLINK_MONITOR: QUEUE_NAMES.SEO,
   LINK_OUTREACH_GENERATE: QUEUE_NAMES.SEO,
   LINK_ASSET_GENERATE: QUEUE_NAMES.SEO,
+
+  // Microsite Management
+  MICROSITE_CREATE: QUEUE_NAMES.MICROSITE,
+  MICROSITE_BRAND_GENERATE: QUEUE_NAMES.MICROSITE,
+  MICROSITE_CONTENT_GENERATE: QUEUE_NAMES.CONTENT, // Uses content queue for AI generation
+  MICROSITE_PUBLISH: QUEUE_NAMES.MICROSITE,
+  MICROSITE_ARCHIVE: QUEUE_NAMES.MICROSITE,
+  MICROSITE_HEALTH_CHECK: QUEUE_NAMES.MICROSITE,
+
+  // Holibob Sync (long-running)
+  SUPPLIER_SYNC: QUEUE_NAMES.SYNC,
+  SUPPLIER_SYNC_INCREMENTAL: QUEUE_NAMES.SYNC,
+  PRODUCT_SYNC: QUEUE_NAMES.SYNC,
+  PRODUCT_SYNC_INCREMENTAL: QUEUE_NAMES.SYNC,
 };

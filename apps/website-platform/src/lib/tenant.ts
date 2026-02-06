@@ -3,6 +3,8 @@
  * Handles site identification, configuration loading, and theming
  */
 
+import { parseMicrositeHostname, type MicrositeParentDomain } from './microsite';
+
 // Local type declarations matching Prisma schema
 // (to avoid dependency on @prisma/client generation)
 interface Site {
@@ -43,6 +45,37 @@ interface Brand {
   createdAt: Date;
   updatedAt: Date;
 }
+
+// MicrositeConfig local type (matching Prisma schema)
+interface MicrositeConfig {
+  id: string;
+  subdomain: string;
+  parentDomain: string;
+  fullDomain: string;
+  entityType: 'SUPPLIER' | 'PRODUCT';
+  supplierId: string | null;
+  productId: string | null;
+  brandId: string;
+  siteName: string;
+  tagline: string | null;
+  seoConfig: unknown;
+  homepageConfig: unknown;
+  status: 'DRAFT' | 'GENERATING' | 'REVIEW' | 'ACTIVE' | 'PAUSED' | 'ARCHIVED';
+  autonomousProcessesPaused: boolean;
+  pausedAt: Date | null;
+  pausedBy: string | null;
+  pauseReason: string | null;
+  pageViews: number;
+  lastContentUpdate: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Simple in-memory cache for microsite configs (short TTL)
+// In production, this would be replaced with Redis caching
+// Uses MicrositeConfigWithEntity to include supplier/product Holibob IDs
+const micrositeCache = new Map<string, { config: unknown | null; expiresAt: number }>();
+const MICROSITE_CACHE_TTL_MS = 60 * 1000; // 1 minute in-memory cache
 
 // Homepage configuration for site-specific customization
 export interface HomepageConfig {
@@ -98,6 +131,15 @@ export interface HomepageConfig {
   }>;
 }
 
+// Microsite-specific context (only present for microsites)
+export interface MicrositeContext {
+  entityType: 'SUPPLIER' | 'PRODUCT';
+  supplierId: string | null;
+  productId: string | null;
+  holibobSupplierId?: string | null; // For filtering Holibob API calls
+  holibobProductId?: string | null; // For single product microsites
+}
+
 // Site configuration with brand info
 export interface SiteConfig {
   id: string;
@@ -135,6 +177,9 @@ export interface SiteConfig {
 
   // Homepage Configuration (AI-generated)
   homepageConfig: HomepageConfig | null;
+
+  // Microsite context (only present for microsites on *.experiencess.com)
+  micrositeContext?: MicrositeContext;
 }
 
 // Default site configuration for development/fallback
@@ -274,13 +319,33 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
 
 /**
  * Get site configuration from hostname
- * In production, this would query the database
+ * Supports both traditional sites (custom domains) and microsites (*.experiencess.com subdomains)
  */
 export async function getSiteFromHostname(hostname: string): Promise<SiteConfig> {
   // Remove port and www prefix for matching
   const cleanHostname = hostname.split(':')[0]?.replace(/^www\./, '') ?? hostname;
 
   console.log('[Tenant] Looking up site for hostname:', hostname, 'cleaned:', cleanHostname);
+
+  // === MICROSITE CHECK (EARLY EXIT) ===
+  // Check if this is a microsite subdomain (e.g., adventure-co.experiencess.com)
+  // This must happen BEFORE the development/preview check to allow testing microsites locally
+  const micrositeInfo = parseMicrositeHostname(cleanHostname);
+  if (micrositeInfo.isMicrositeSubdomain && micrositeInfo.subdomain && micrositeInfo.parentDomain) {
+    console.log('[Tenant] Detected microsite subdomain:', micrositeInfo.subdomain, 'on', micrositeInfo.parentDomain);
+    const micrositeConfig = await checkMicrositeSubdomain(
+      micrositeInfo.subdomain,
+      micrositeInfo.parentDomain
+    );
+    if (micrositeConfig) {
+      console.log('[Tenant] Found microsite config for:', micrositeInfo.subdomain);
+      return micrositeConfig;
+    }
+    // If microsite not found in DB, fall through to default config
+    console.log('[Tenant] Microsite subdomain not found in database, returning default config');
+    return DEFAULT_SITE_CONFIG;
+  }
+  // === END MICROSITE CHECK ===
 
   // Development: localhost or preview deployments
   if (
@@ -337,6 +402,164 @@ export async function getSiteFromHostname(hostname: string): Promise<SiteConfig>
   }
 
   return DEFAULT_SITE_CONFIG;
+}
+
+/**
+ * Check if a hostname is a microsite subdomain and return its config
+ * This is an early-exit check for *.experiencess.com subdomains
+ */
+async function checkMicrositeSubdomain(
+  subdomain: string,
+  parentDomain: MicrositeParentDomain
+): Promise<SiteConfig | null> {
+  try {
+    const config = await getMicrositeConfig(subdomain, parentDomain);
+    if (config) {
+      return mapMicrositeToSiteConfig(config);
+    }
+  } catch (error) {
+    console.error('[Tenant] Error checking microsite subdomain:', error);
+  }
+  return null;
+}
+
+// Extended microsite config with entity data for filtering
+interface MicrositeConfigWithEntity extends MicrositeConfig {
+  brand: Brand;
+  supplier?: { holibobSupplierId: string } | null;
+  product?: { holibobProductId: string } | null;
+}
+
+/**
+ * Get microsite configuration from database with caching
+ * Uses in-memory cache with short TTL, can be extended to use Redis for production
+ */
+async function getMicrositeConfig(
+  subdomain: string,
+  parentDomain: string
+): Promise<MicrositeConfigWithEntity | null> {
+  const cacheKey = `microsite:${subdomain}:${parentDomain}`;
+  const now = Date.now();
+
+  // Check in-memory cache
+  const cached = micrositeCache.get(cacheKey);
+  if (cached && cached.expiresAt > now) {
+    console.log('[Tenant] Microsite cache hit for:', cacheKey);
+    return cached.config as MicrositeConfigWithEntity | null;
+  }
+
+  // Cache miss or expired - fetch from database
+  console.log('[Tenant] Microsite cache miss, fetching from DB:', cacheKey);
+
+  try {
+    const { prisma } = await import('@experience-marketplace/database');
+
+    const config = await prisma.micrositeConfig.findUnique({
+      where: {
+        subdomain_parentDomain: {
+          subdomain,
+          parentDomain,
+        },
+      },
+      include: {
+        brand: true,
+        // Include supplier/product to get their Holibob IDs for API filtering
+        supplier: {
+          select: { holibobSupplierId: true },
+        },
+        product: {
+          select: { holibobProductId: true },
+        },
+      },
+    });
+
+    // Only return ACTIVE microsites for public access
+    if (config && config.status === 'ACTIVE') {
+      // Cache the result
+      micrositeCache.set(cacheKey, {
+        config: config as MicrositeConfigWithEntity,
+        expiresAt: now + MICROSITE_CACHE_TTL_MS,
+      });
+      return config as MicrositeConfigWithEntity;
+    }
+
+    // Cache negative result to avoid repeated DB lookups
+    micrositeCache.set(cacheKey, {
+      config: null,
+      expiresAt: now + MICROSITE_CACHE_TTL_MS,
+    });
+    return null;
+  } catch (error) {
+    console.error('[Tenant] Error fetching microsite config:', error);
+    return null;
+  }
+}
+
+/**
+ * Map MicrositeConfig to the standard SiteConfig interface
+ * This allows the rest of the app to work unchanged with microsites
+ */
+function mapMicrositeToSiteConfig(microsite: MicrositeConfigWithEntity): SiteConfig {
+  const seoConfig = microsite.seoConfig as {
+    titleTemplate?: string;
+    defaultTitle?: string;
+    defaultDescription?: string;
+    keywords?: string[];
+    gaMeasurementId?: string | null;
+  } | null;
+
+  const homepageConfig = microsite.homepageConfig as HomepageConfig | null;
+
+  // Use default Holibob partner ID for microsites
+  // Microsites are supplier/product-specific but use the platform's Holibob integration
+  const holibobPartnerId = process.env['HOLIBOB_PARTNER_ID'] ?? 'demo';
+
+  return {
+    id: microsite.id,
+    slug: microsite.subdomain, // Use subdomain as slug for microsites
+    name: microsite.siteName,
+    description: microsite.tagline,
+    primaryDomain: microsite.fullDomain,
+    holibobPartnerId,
+    gscVerificationCode: null, // Microsites use domain-level GSC verification
+    brand: {
+      name: microsite.brand.name,
+      tagline: microsite.brand.tagline,
+      primaryColor: microsite.brand.primaryColor,
+      secondaryColor: microsite.brand.secondaryColor,
+      accentColor: microsite.brand.accentColor,
+      headingFont: microsite.brand.headingFont,
+      bodyFont: microsite.brand.bodyFont,
+      logoUrl: microsite.brand.logoUrl,
+      logoDarkUrl: microsite.brand.logoDarkUrl,
+      faviconUrl: microsite.brand.faviconUrl,
+      ogImageUrl: microsite.brand.ogImageUrl,
+      socialLinks: microsite.brand.socialLinks as Record<string, string> | null,
+    },
+    seoConfig: seoConfig
+      ? {
+          titleTemplate: seoConfig.titleTemplate ?? '%s | ' + microsite.siteName,
+          defaultTitle: seoConfig.defaultTitle,
+          defaultDescription: seoConfig.defaultDescription ?? microsite.tagline ?? '',
+          keywords: seoConfig.keywords ?? [],
+          gaMeasurementId: seoConfig.gaMeasurementId ?? null,
+        }
+      : {
+          titleTemplate: '%s | ' + microsite.siteName,
+          defaultDescription: microsite.tagline ?? '',
+          keywords: [],
+          gaMeasurementId: null,
+        },
+    homepageConfig: homepageConfig,
+    // Include microsite context for supplier/product filtering
+    micrositeContext: {
+      entityType: microsite.entityType,
+      supplierId: microsite.supplierId,
+      productId: microsite.productId,
+      holibobSupplierId: microsite.supplier?.holibobSupplierId ?? null,
+      holibobProductId: microsite.product?.holibobProductId ?? null,
+    },
+  };
 }
 
 /**

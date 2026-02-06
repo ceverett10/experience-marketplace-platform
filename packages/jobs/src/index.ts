@@ -14,6 +14,7 @@ export * from './workers/domain';
 export * from './workers/abtest';
 export * from './workers/seo-optimization';
 export * from './workers/link-building';
+export * from './workers/sync';
 
 // Export schedulers
 export * from './schedulers';
@@ -54,6 +55,14 @@ export {
 } from './services/svg-logo-generator';
 export type { SvgLogoParams, SvgLogoResult } from './services/svg-logo-generator';
 export { uploadToR2, deleteFromR2, isR2Configured } from './services/image-storage';
+
+// Holibob Sync Services
+export { syncSuppliersFromHolibob, getSupplierSyncStatus } from './services/supplier-sync';
+export type { SupplierSyncResult } from './services/supplier-sync';
+export { syncProductsFromHolibob, syncProductsForSupplier, getProductSyncStatus } from './services/product-sync';
+export type { ProductSyncResult, ProductSyncOptions } from './services/product-sync';
+export { RateLimiter, createHolibobRateLimiter, createBulkSyncRateLimiter } from './utils/rate-limiter';
+export type { RateLimiterConfig } from './utils/rate-limiter';
 
 // Export error handling
 export * from './errors';

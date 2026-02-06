@@ -27,6 +27,10 @@ const QUEUE_CONFIG: Record<
   [QUEUE_NAMES.ANALYTICS]: { timeout: 120_000, attempts: 3, backoffDelay: 10_000 },
   // A/B Test: Mostly DB operations — short timeout
   [QUEUE_NAMES.ABTEST]: { timeout: 60_000, attempts: 3, backoffDelay: 5_000 },
+  // Sync: Holibob API sync — very long timeout for full catalog sync (4 hours max)
+  [QUEUE_NAMES.SYNC]: { timeout: 14_400_000, attempts: 2, backoffDelay: 60_000 },
+  // Microsite: Brand generation + content setup — moderate timeout
+  [QUEUE_NAMES.MICROSITE]: { timeout: 300_000, attempts: 3, backoffDelay: 15_000 },
 };
 
 /**

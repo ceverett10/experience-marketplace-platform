@@ -7,6 +7,19 @@ import { getSiteFromHostname, type HomepageConfig } from '@/lib/tenant';
 import { getHolibobClient, type ExperienceListItem, parseIsoDuration } from '@/lib/holibob';
 import { prisma } from '@/lib/prisma';
 import { optimizeUnsplashUrl, shouldSkipOptimization } from '@/lib/image-utils';
+import {
+  getMicrositeHomepageProducts,
+  isMicrosite,
+  localProductToExperienceListItem,
+} from '@/lib/microsite-experiences';
+import {
+  isParentDomain,
+  getFeaturedSuppliers,
+  getSupplierCategories,
+  getSupplierCities,
+  getPlatformStats,
+} from '@/lib/parent-domain';
+import { ParentDomainHomepage } from '@/components/parent-domain/ParentDomainHomepage';
 
 // Revalidate every 5 minutes for fresh content
 export const revalidate = 300;
@@ -27,6 +40,27 @@ async function getFeaturedExperiences(
   siteConfig: Awaited<ReturnType<typeof getSiteFromHostname>>,
   popularExperiencesConfig?: HomepageConfig['popularExperiences']
 ): Promise<ExperienceListItem[]> {
+  // === MICROSITE HANDLING ===
+  // For microsites, use our synced local data for faster, more reliable SEO pages
+  if (isMicrosite(siteConfig.micrositeContext)) {
+    try {
+      const localProducts = await getMicrositeHomepageProducts(
+        siteConfig.micrositeContext,
+        8 // Limit to 8 featured experiences
+      );
+      console.log(
+        `[Homepage] Microsite mode: Fetched ${localProducts.length} local products for`,
+        siteConfig.micrositeContext.entityType,
+        siteConfig.micrositeContext.supplierId || siteConfig.micrositeContext.productId
+      );
+      return localProducts.map(localProductToExperienceListItem);
+    } catch (error) {
+      console.error('[Homepage] Error fetching microsite products:', error);
+      // Fall through to Holibob API as fallback
+    }
+  }
+  // === END MICROSITE HANDLING ===
+
   try {
     const client = getHolibobClient(siteConfig);
 
@@ -221,6 +255,29 @@ export default async function HomePage() {
   const headersList = await headers();
   // On Heroku/Cloudflare, use x-forwarded-host to get the actual external domain
   const hostname = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
+
+  // === PARENT DOMAIN HANDLING ===
+  // For experiencess.com (the marketplace root), render the directory/homepage
+  if (isParentDomain(hostname)) {
+    console.log('[Homepage] Parent domain detected:', hostname);
+    const [suppliers, categories, cities, stats] = await Promise.all([
+      getFeaturedSuppliers(12),
+      getSupplierCategories(),
+      getSupplierCities(16),
+      getPlatformStats(),
+    ]);
+
+    return (
+      <ParentDomainHomepage
+        suppliers={suppliers}
+        categories={categories}
+        cities={cities}
+        stats={stats}
+      />
+    );
+  }
+  // === END PARENT DOMAIN HANDLING ===
+
   const site = await getSiteFromHostname(hostname);
 
   // Get homepage configuration (AI-generated or default)

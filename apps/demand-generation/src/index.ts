@@ -43,6 +43,11 @@ import {
   handleRecursiveOptimize,
   handleBatchOptimize,
   handleWeeklyAuditScheduler,
+  // Holibob sync handlers
+  handleSupplierSync,
+  handleSupplierSyncIncremental,
+  handleProductSync,
+  handleProductSyncIncremental,
 } from '@experience-marketplace/jobs';
 import { prisma, JobStatus } from '@experience-marketplace/database';
 import type { JobType } from '@experience-marketplace/database';
@@ -311,6 +316,32 @@ const abtestWorker = new Worker(
   makeWorkerOptions(QUEUE_NAMES.ABTEST, 5) // Higher: mostly DB operations
 );
 
+/**
+ * Holibob Sync Queue Worker
+ * Handles: SUPPLIER_SYNC, SUPPLIER_SYNC_INCREMENTAL, PRODUCT_SYNC, PRODUCT_SYNC_INCREMENTAL
+ */
+const syncWorker = new Worker(
+  QUEUE_NAMES.SYNC,
+  async (job: Job) => {
+    console.log(`[Sync Worker] Processing ${job.name} job ${job.id}`);
+    await updateJobStatus(job, 'RUNNING');
+
+    switch (job.name as JobType) {
+      case 'SUPPLIER_SYNC':
+        return await handleSupplierSync(job);
+      case 'SUPPLIER_SYNC_INCREMENTAL':
+        return await handleSupplierSyncIncremental(job);
+      case 'PRODUCT_SYNC':
+        return await handleProductSync(job);
+      case 'PRODUCT_SYNC_INCREMENTAL':
+        return await handleProductSyncIncremental(job);
+      default:
+        throw new Error(`Unknown job type: ${job.name}`);
+    }
+  },
+  makeWorkerOptions(QUEUE_NAMES.SYNC, 1) // Low: long-running Holibob API sync jobs
+);
+
 // Worker event handlers
 const workers = [
   contentWorker,
@@ -320,6 +351,7 @@ const workers = [
   domainWorker,
   analyticsWorker,
   abtestWorker,
+  syncWorker,
 ];
 
 workers.forEach((worker) => {
@@ -446,6 +478,7 @@ console.log('  ✓ Site Worker (site creation, deployment)');
 console.log('  ✓ Domain Worker (domain registration, verification, SSL)');
 console.log('  ✓ Analytics Worker (metrics aggregation, reports)');
 console.log('  ✓ A/B Test Worker (test analysis, rebalancing)');
+console.log('  ✓ Sync Worker (Holibob supplier and product sync)');
 console.log('');
 
 // Set up scheduled jobs and autonomous processor after a short delay to ensure workers are ready
@@ -467,4 +500,5 @@ export {
   domainWorker,
   analyticsWorker,
   abtestWorker,
+  syncWorker,
 };
