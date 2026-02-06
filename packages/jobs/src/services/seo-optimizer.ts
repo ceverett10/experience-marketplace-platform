@@ -332,11 +332,19 @@ export async function addMissingStructuredData(siteId: string): Promise<number> 
 
 /**
  * Improve thin content by expanding it
+ * Returns pages with thin content including contentId for proper job queuing
  */
 export async function flagThinContentForExpansion(
   siteId: string
-): Promise<Array<{ pageId: string; wordCount: number; minWords: number }>> {
-  const thinPages: Array<{ pageId: string; wordCount: number; minWords: number }> = [];
+): Promise<
+  Array<{ pageId: string; contentId: string | null; wordCount: number; minWords: number }>
+> {
+  const thinPages: Array<{
+    pageId: string;
+    contentId: string | null;
+    wordCount: number;
+    minWords: number;
+  }> = [];
 
   const pages = await prisma.page.findMany({
     where: {
@@ -356,6 +364,7 @@ export async function flagThinContentForExpansion(
     if (wordCount < minWords) {
       thinPages.push({
         pageId: page.id,
+        contentId: page.content?.id || null,
         wordCount,
         minWords,
       });
@@ -388,9 +397,7 @@ export function generateCTROptimizedTitle(
   let metaTitle = title;
 
   // Check if title already has a power word
-  const hasPowerWord = POWER_WORDS.some((pw) =>
-    title.toLowerCase().startsWith(pw.toLowerCase())
-  );
+  const hasPowerWord = POWER_WORDS.some((pw) => title.toLowerCase().startsWith(pw.toLowerCase()));
 
   // Add power word prefix for category/landing pages if not present
   if (
@@ -500,9 +507,7 @@ export interface KeywordOptimization {
  * Analyze keyword optimization for all pages in a site
  * Returns recommendations for pages that need keyword improvements
  */
-export async function analyzeKeywordOptimization(
-  siteId: string
-): Promise<KeywordOptimization[]> {
+export async function analyzeKeywordOptimization(siteId: string): Promise<KeywordOptimization[]> {
   const optimizations: KeywordOptimization[] = [];
 
   const pages = await prisma.page.findMany({
@@ -632,10 +637,7 @@ export async function fixMissingImageAltText(siteId: string): Promise<{
 
       if ((!altText || altText.trim() === '') && imageUrl) {
         const generatedAlt = generateAltText(imageUrl, page.title);
-        updatedContent = updatedContent.replace(
-          fullMatch,
-          `![${generatedAlt}](${imageUrl})`
-        );
+        updatedContent = updatedContent.replace(fullMatch, `![${generatedAlt}](${imageUrl})`);
         imagesFixedInPage++;
       }
     }

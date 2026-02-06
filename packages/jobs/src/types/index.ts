@@ -32,12 +32,22 @@ export interface ContentOptimizePayload {
   siteId: string;
   pageId?: string; // Optional — when omitted, all content for site is optimized (batch mode)
   contentId?: string; // Optional — when omitted, all content for site is optimized (batch mode)
-  reason?: 'low_ctr' | 'position_drop' | 'high_bounce' | 'low_time' | 'no_bookings' | 'initial_seo';
+  reason?:
+    | 'low_ctr'
+    | 'position_drop'
+    | 'high_bounce'
+    | 'low_time'
+    | 'no_bookings'
+    | 'initial_seo'
+    | 'thin_content';
   performanceData?: {
     ctr?: number;
     position?: number;
     bounceRate?: number;
     timeOnPage?: number;
+    // For thin_content expansion
+    currentWordCount?: number;
+    targetWordCount?: number;
   };
 }
 

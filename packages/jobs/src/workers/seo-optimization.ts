@@ -808,25 +808,36 @@ export async function handleAutoOptimize(job: Job<SEOAutoOptimizePayload>): Prom
 
       if (thinPages.length > 0) {
         console.log(`[Auto SEO] Flagged ${thinPages.length} pages with thin content`);
-        // Queue content optimization jobs for thin pages
+        // Queue content optimization jobs for thin pages (only those with existing content)
         const contentQueue = getJobQueue('content');
-        for (const thinPage of thinPages.slice(0, 5)) {
+        const pagesWithContent = thinPages.filter((p) => p.contentId !== null);
+        let jobsQueued = 0;
+
+        for (const thinPage of pagesWithContent.slice(0, 5)) {
           // Limit to 5 at a time
           await contentQueue.add(
             'CONTENT_OPTIMIZE',
             {
               siteId,
               pageId: thinPage.pageId,
-              reason: `Expand content from ${thinPage.wordCount} to ${thinPage.minWords}+ words`,
-              priority: 2,
+              contentId: thinPage.contentId, // Include contentId for proper expansion
+              reason: 'thin_content',
+              performanceData: {
+                currentWordCount: thinPage.wordCount,
+                targetWordCount: thinPage.minWords,
+              },
             },
             {
               priority: 5,
               delay: Math.random() * 60000, // Random delay up to 1 minute
             }
           );
+          jobsQueued++;
         }
-        thinContentResult['jobsQueued'] = Math.min(thinPages.length, 5);
+        thinContentResult['jobsQueued'] = jobsQueued;
+        if (pagesWithContent.length < thinPages.length) {
+          thinContentResult['pagesWithoutContent'] = thinPages.length - pagesWithContent.length;
+        }
       }
       results['thinContent'] = thinContentResult;
     }
@@ -840,7 +851,9 @@ export async function handleAutoOptimize(job: Job<SEOAutoOptimizePayload>): Prom
         details: freshnessResult.updates,
       };
       if (freshnessResult.updatedCount > 0) {
-        console.log(`[Auto SEO] Updated freshness signals for ${freshnessResult.updatedCount} pages`);
+        console.log(
+          `[Auto SEO] Updated freshness signals for ${freshnessResult.updatedCount} pages`
+        );
       }
     }
 

@@ -432,7 +432,11 @@ function generateOptimizedMetaTitle(params: {
 
   // If AI title is good length and contains keyword, use it
   const keywordFirstWord = targetKeyword?.toLowerCase().split(' ')[0] || '';
-  if (keywordFirstWord && aiTitle.length <= 60 && aiTitle.toLowerCase().includes(keywordFirstWord)) {
+  if (
+    keywordFirstWord &&
+    aiTitle.length <= 60 &&
+    aiTitle.toLowerCase().includes(keywordFirstWord)
+  ) {
     // Append site name if there's room
     const withBrand = `${aiTitle} | ${siteName}`;
     if (withBrand.length <= 60) {
@@ -650,7 +654,7 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
       secondaryKeywords: secondaryKeywords || (opportunity?.keyword ? [opportunity.keyword] : []),
       destination: destination || opportunity?.location || '',
       category: category || opportunity?.niche || '',
-      targetLength: targetLength || { min: 800, max: 1500 },
+      targetLength: targetLength || { min: 1000, max: 1800 }, // 1000+ to stay above 800-word SEO threshold
       tone: 'informative' as const,
       // Include content subtype and formatting data
       sourceData: sourceData || undefined,
@@ -849,7 +853,9 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
             status: newStatus as any,
           },
         });
-        console.log(`[Content Generate] Updated existing page ${page.id} (slug: ${result.content.slug})`);
+        console.log(
+          `[Content Generate] Updated existing page ${page.id} (slug: ${result.content.slug})`
+        );
       } else {
         // Map content type to PageType enum — destination content uses LANDING
         const pageTypeMap: Record<string, string> = {
@@ -1143,7 +1149,16 @@ export async function handleContentOptimize(job: Job<ContentOptimizePayload>): P
 
     // Determine optimization strategy based on reason
     let optimizationPrompt = '';
+    let targetWordCount = { min: 1000, max: 2000 };
+
     switch (reason) {
+      case 'thin_content':
+        // Expand thin content to meet SEO requirements
+        const currentWords = performanceData?.currentWordCount || 0;
+        const targetWords = performanceData?.targetWordCount || 800;
+        targetWordCount = { min: Math.max(targetWords + 200, 1000), max: 2000 }; // At least 200 words above threshold
+        optimizationPrompt = `IMPORTANT: This content is too short (${currentWords} words). Expand it to at least ${targetWordCount.min} words while maintaining quality. Add more detailed information, examples, and helpful context for readers.`;
+        break;
       case 'low_ctr':
         optimizationPrompt = `Improve headline and meta description to increase click-through rate. Current CTR: ${performanceData?.ctr?.toFixed(2)}%`;
         break;
@@ -1174,8 +1189,9 @@ export async function handleContentOptimize(job: Job<ContentOptimizePayload>): P
       secondaryKeywords: [],
       destination: content.opportunity?.location || '',
       category: content.opportunity?.niche || '',
-      targetLength: { min: 1000, max: 2000 },
+      targetLength: targetWordCount,
       tone: 'informative' as const,
+      optimizationHint: optimizationPrompt || undefined,
     };
 
     const result = await anthropicBreaker.execute(async () => {
@@ -1339,9 +1355,7 @@ async function handleContentReviewBatch(siteId: string): Promise<JobResult> {
         data: { status: 'PUBLISHED' },
       });
       approvedCount++;
-      console.log(
-        `[Content Review] Page "${page.slug}" auto-approved (score: ${score})`
-      );
+      console.log(`[Content Review] Page "${page.slug}" auto-approved (score: ${score})`);
     } else {
       // Flag for human review
       await prisma.page.update({
@@ -1349,9 +1363,7 @@ async function handleContentReviewBatch(siteId: string): Promise<JobResult> {
         data: { status: 'REVIEW' },
       });
       flaggedCount++;
-      console.log(
-        `[Content Review] Page "${page.slug}" flagged for review (score: ${score})`
-      );
+      console.log(`[Content Review] Page "${page.slug}" flagged for review (score: ${score})`);
     }
   }
 
