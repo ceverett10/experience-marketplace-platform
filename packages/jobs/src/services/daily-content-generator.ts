@@ -42,14 +42,14 @@ interface SiteContext {
 }
 
 interface HomepageConfig {
-  categories?: string[];
-  destinations?: string[];
+  categories?: Array<{ name: string; slug?: string; [key: string]: unknown }>;
+  destinations?: Array<{ name: string; slug?: string; [key: string]: unknown }>;
 }
 
 interface SeoConfig {
   primaryKeywords?: string[];
   destination?: string;
-  destinations?: string[];
+  destinations?: Array<string | { name: string; [key: string]: unknown }>;
 }
 
 // Seasonal events calendar
@@ -782,13 +782,24 @@ async function getSiteWithContext(siteId: string): Promise<SiteContext | null> {
   const seoConfig = site.seoConfig as SeoConfig | null;
   const homepageConfig = site.homepageConfig as HomepageConfig | null;
 
+  // Extract category/destination names from objects (homepageConfig stores objects with name, slug, etc.)
+  // or use strings directly if from seoConfig
+  const categoryNames: string[] = (homepageConfig?.categories || []).map((c) =>
+    typeof c === 'string' ? c : c.name
+  );
+  const destinationNames: string[] = (
+    seoConfig?.destinations ||
+    homepageConfig?.destinations ||
+    []
+  ).map((d) => (typeof d === 'string' ? d : d.name));
+
   return {
     id: site.id,
     name: site.name,
     niche: opportunity?.niche || seoConfig?.primaryKeywords?.[0] || 'travel experiences',
     location: opportunity?.location || seoConfig?.destination,
-    categories: homepageConfig?.categories || [],
-    destinations: seoConfig?.destinations || homepageConfig?.destinations || [],
+    categories: categoryNames,
+    destinations: destinationNames,
   };
 }
 
