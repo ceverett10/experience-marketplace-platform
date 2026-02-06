@@ -45,7 +45,7 @@ export async function GET(): Promise<NextResponse> {
         content: page.content?.body || '',
         contentId: page.contentId, // Include for debugging - null means no content record exists
         hasContent: !!page.content?.body,
-        siteName: page.site.name,
+        siteName: page.site?.name || 'Microsite',
         status: mapPageStatusToContentStatus(page.status),
         qualityScore: page.content?.qualityScore ?? 0,
         generatedAt,
@@ -130,6 +130,13 @@ export async function PUT(request: Request): Promise<NextResponse> {
         });
       } else {
         // Create new content and link to page
+        // Content requires a siteId - microsite pages are not supported here
+        if (!page.siteId) {
+          return NextResponse.json(
+            { error: 'Cannot create content for microsite pages through this endpoint' },
+            { status: 400 }
+          );
+        }
         const newContent = await prisma.content.create({
           data: {
             siteId: page.siteId,
@@ -168,7 +175,7 @@ export async function PUT(request: Request): Promise<NextResponse> {
       content: updatedPage.content?.body || '',
       contentId: updatedPage.contentId,
       hasContent: !!updatedPage.content?.body,
-      siteName: updatedPage.site.name,
+      siteName: updatedPage.site?.name || 'Microsite',
       status: mapPageStatusToContentStatus(updatedPage.status),
       qualityScore: updatedPage.content?.qualityScore ?? 0,
       generatedAt:
@@ -294,6 +301,12 @@ export async function POST(request: Request): Promise<NextResponse> {
       const queuedJobs = [];
       for (const page of pagesToGenerate) {
         try {
+          // Skip microsite pages (they don't have siteId)
+          if (!page.siteId) {
+            console.log(`[API] Skipping microsite page ${page.id} - not supported for batch regeneration`);
+            continue;
+          }
+
           // Ensure we have a valid targetKeyword - use title, slug, or generate from page type
           const targetKeyword = page.title || page.slug || `${page.type.toLowerCase()} content`;
 
@@ -307,7 +320,7 @@ export async function POST(request: Request): Promise<NextResponse> {
           queuedJobs.push({
             pageId: page.id,
             title: page.title,
-            siteName: page.site.name,
+            siteName: page.site?.name || 'Unknown',
           });
         } catch (err) {
           console.error(`[API] Failed to queue job for page ${page.id}:`, err);

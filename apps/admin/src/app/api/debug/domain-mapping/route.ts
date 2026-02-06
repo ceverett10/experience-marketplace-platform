@@ -151,15 +151,17 @@ export async function GET(request: Request) {
         status: site.status,
         domains: site.domains.map((d) => d.domain),
       })),
-      allPrivacyPages: allPrivacyPages.map((page) => ({
-        pageId: page.id,
-        siteName: page.site.name,
-        siteSlug: page.site.slug,
-        siteDomains: page.site.domains.map((d) => d.domain),
-        hasContent: !!page.contentId,
-        contentPreview: page.content?.body?.substring(0, 100),
-        pageStatus: page.status,
-      })),
+      allPrivacyPages: allPrivacyPages
+        .filter((page) => page.site) // Only include pages with sites
+        .map((page) => ({
+          pageId: page.id,
+          siteName: page.site!.name,
+          siteSlug: page.site!.slug,
+          siteDomains: page.site!.domains.map((d) => d.domain),
+          hasContent: !!page.contentId,
+          contentPreview: page.content?.body?.substring(0, 100),
+          pageStatus: page.status,
+        })),
     });
   } catch (error) {
     console.error('[Debug API] Error:', error);
