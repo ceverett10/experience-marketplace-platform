@@ -27,6 +27,97 @@ import { generateBlogTopics } from '../services/blog-topics.js';
  * Handles autonomous site creation and deployment
  */
 
+/**
+ * Domain-to-niche mapping for validation
+ * Ensures brand identity matches domain name intent
+ */
+const DOMAIN_NICHE_MAP: Record<string, { niche: string; keywords: string[] }> = {
+  honeymoon: {
+    niche: 'romantic honeymoon experiences',
+    keywords: ['honeymoon activities', 'romantic getaways', 'couples experiences'],
+  },
+  wedding: {
+    niche: 'wedding experiences',
+    keywords: ['wedding venues', 'destination weddings', 'wedding planning'],
+  },
+  adventure: {
+    niche: 'adventure experiences',
+    keywords: ['adventure tours', 'outdoor activities', 'extreme sports'],
+  },
+  food: {
+    niche: 'food tours',
+    keywords: ['food tours', 'culinary experiences', 'cooking classes'],
+  },
+  wine: {
+    niche: 'wine tours',
+    keywords: ['wine tasting', 'vineyard tours', 'wine experiences'],
+  },
+  spa: {
+    niche: 'spa and wellness',
+    keywords: ['spa experiences', 'wellness retreats', 'relaxation'],
+  },
+  corporate: {
+    niche: 'corporate team building',
+    keywords: ['team building', 'corporate events', 'company retreats'],
+  },
+  solo: {
+    niche: 'solo travel experiences',
+    keywords: ['solo travel', 'solo adventures', 'independent travel'],
+  },
+  family: {
+    niche: 'family experiences',
+    keywords: ['family activities', 'kids tours', 'family-friendly'],
+  },
+  luxury: {
+    niche: 'luxury experiences',
+    keywords: ['luxury travel', 'premium experiences', 'exclusive tours'],
+  },
+};
+
+/**
+ * Extract expected niche from domain name
+ * Returns null if no clear niche indicator found
+ */
+function extractNicheFromDomain(domain: string): { niche: string; keywords: string[] } | null {
+  const domainBase = domain.replace(/\.(com|co\.uk|net|io|org)$/i, '').toLowerCase();
+
+  for (const [keyword, config] of Object.entries(DOMAIN_NICHE_MAP)) {
+    if (domainBase.includes(keyword)) {
+      return config;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Check if opportunity niche matches domain niche
+ * Returns true if compatible, false if mismatched
+ */
+function isNicheCompatible(opportunityNiche: string, domainNiche: string): boolean {
+  const normalizedOpportunity = opportunityNiche.toLowerCase();
+  const normalizedDomain = domainNiche.toLowerCase();
+
+  // Check for overlap in key terms
+  const domainTerms = normalizedDomain.split(/\s+/);
+  const opportunityTerms = normalizedOpportunity.split(/\s+/);
+
+  // If any significant term overlaps, consider compatible
+  const significantTerms = ['honeymoon', 'wedding', 'adventure', 'food', 'wine', 'spa', 'corporate', 'solo', 'family', 'luxury'];
+
+  for (const term of significantTerms) {
+    const inDomain = domainTerms.some(t => t.includes(term));
+    const inOpportunity = opportunityTerms.some(t => t.includes(term));
+
+    // If domain has a specific term but opportunity doesn't, it's a mismatch
+    if (inDomain && !inOpportunity) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 interface BrandConfig {
   primaryColor?: string;
   secondaryColor?: string;
@@ -88,13 +179,40 @@ export async function handleSiteCreate(job: Job<SiteCreatePayload>): Promise<Job
       throw new Error(`Opportunity ${opportunityId} not in correct status for site creation`);
     }
 
+    // 1.5 Validate domain-niche compatibility (prevent mismatched brand generation)
+    let effectiveNiche = opportunity.niche;
+    let effectiveKeyword = opportunity.keyword;
+
+    if (domain) {
+      const domainNiche = extractNicheFromDomain(domain);
+
+      if (domainNiche) {
+        const isCompatible = isNicheCompatible(opportunity.niche, domainNiche.niche);
+
+        if (!isCompatible) {
+          console.warn(
+            `[Site Create] NICHE MISMATCH DETECTED - Domain "${domain}" implies "${domainNiche.niche}" but opportunity has "${opportunity.niche}"`
+          );
+          console.log(`[Site Create] Overriding niche to match domain: "${domainNiche.niche}"`);
+
+          // Override with domain-derived niche to ensure brand matches domain
+          effectiveNiche = domainNiche.niche;
+          effectiveKeyword = domainNiche.keywords[0] || effectiveKeyword;
+        } else {
+          console.log(
+            `[Site Create] Domain-niche validation passed: "${domain}" compatible with "${opportunity.niche}"`
+          );
+        }
+      }
+    }
+
     // 2. Generate comprehensive brand identity
     console.log('[Site Create] Generating comprehensive brand identity...');
     const brandIdentity = await generateComprehensiveBrandIdentity(
       {
-        keyword: opportunity.keyword,
+        keyword: effectiveKeyword,
         location: opportunity.location || undefined,
-        niche: opportunity.niche,
+        niche: effectiveNiche,
         searchVolume: opportunity.searchVolume,
         intent: opportunity.intent,
       },
@@ -142,7 +260,7 @@ export async function handleSiteCreate(job: Job<SiteCreatePayload>): Promise<Job
             bodyFont: brandIdentity.bodyFont,
             logoUrl: brandIdentity.logoUrl,
             isAutoGenerated: true,
-            generationPrompt: `Comprehensive brand identity for ${opportunity.niche} in ${opportunity.location}`,
+            generationPrompt: `Comprehensive brand identity for ${effectiveNiche} in ${opportunity.location}`,
           },
         },
       },
@@ -154,9 +272,9 @@ export async function handleSiteCreate(job: Job<SiteCreatePayload>): Promise<Job
     // 4. Store extended brand identity in seoConfig with SEO title config
     const seoTitleConfig = generateSeoTitleConfig({
       brandName: brandIdentity.name,
-      niche: opportunity.niche,
+      niche: effectiveNiche,
       location: opportunity.location || undefined,
-      keyword: opportunity.keyword,
+      keyword: effectiveKeyword,
       tagline: brandIdentity.tagline,
     });
     await storeBrandIdentity(site.id, site.brand?.id || '', brandIdentity, seoTitleConfig);
@@ -195,7 +313,7 @@ export async function handleSiteCreate(job: Job<SiteCreatePayload>): Promise<Job
         console.log('[Site Create] Generating logo with DALL-E...');
         const logoResult = await generateLogo({
           brandName: brandIdentity.name,
-          niche: opportunity.niche,
+          niche: effectiveNiche,
           primaryColor: brandIdentity.primaryColor,
           secondaryColor: brandIdentity.secondaryColor,
           logoDescription: brandIdentity.logoDescription,
@@ -221,9 +339,9 @@ export async function handleSiteCreate(job: Job<SiteCreatePayload>): Promise<Job
     console.log('[Site Create] Generating homepage configuration...');
     const homepageConfig = await generateHomepageConfig(
       {
-        keyword: opportunity.keyword,
+        keyword: effectiveKeyword,
         location: opportunity.location || undefined,
-        niche: opportunity.niche,
+        niche: effectiveNiche,
         searchVolume: opportunity.searchVolume,
         intent: opportunity.intent,
       },
@@ -268,7 +386,7 @@ export async function handleSiteCreate(job: Job<SiteCreatePayload>): Promise<Job
         contentType: 'about', // Dedicated about type with strict factual guardrails
         targetKeyword: `About ${brandIdentity.name}`,
         secondaryKeywords: [
-          opportunity.niche,
+          effectiveNiche,
           'travel experiences',
           opportunity.location || '',
         ].filter(Boolean),
@@ -321,7 +439,7 @@ export async function handleSiteCreate(job: Job<SiteCreatePayload>): Promise<Job
       const blogTopics = await generateBlogTopics(
         {
           siteName: brandIdentity.name,
-          niche: opportunity.niche,
+          niche: effectiveNiche,
           location: opportunity.location || undefined,
           destination: opportunity.location || undefined,
         },
