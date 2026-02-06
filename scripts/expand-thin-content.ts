@@ -35,7 +35,7 @@ async function main() {
   const siteArg = args.find((arg) => arg.startsWith('--site='));
   const limitArg = args.find((arg) => arg.startsWith('--limit='));
   const targetSiteId = siteArg?.split('=')[1];
-  const limit = limitArg ? parseInt(limitArg.split('=')[1], 10) : undefined;
+  const limit = limitArg ? parseInt(limitArg.split('=')[1] || '0', 10) : undefined;
 
   console.log('='.repeat(60));
   console.log('Thin Content Expansion Tool');
