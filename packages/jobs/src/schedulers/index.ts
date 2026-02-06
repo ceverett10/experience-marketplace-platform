@@ -4,9 +4,11 @@ import {
   generateDailyContent,
   ContentGenerationType,
 } from '../services/daily-content-generator.js';
+import { runMetaTitleMaintenance } from '../services/meta-title-maintenance.js';
 
 // Track intervals for cleanup
 let dailyContentInterval: NodeJS.Timeout | null = null;
+let metaTitleMaintenanceInterval: NodeJS.Timeout | null = null;
 
 /**
  * Calculate the next run time for a cron expression.
@@ -118,6 +120,11 @@ export async function initializeScheduledJobs(): Promise<void> {
     '0 6 * * 0' // Sundays at 6 AM
   );
   console.log('[Scheduler] ✓ Weekly SEO Auto-Optimization - Sundays at 6 AM');
+
+  // Weekly Meta Title Maintenance - Sundays at 8 AM
+  // Ensures all pages have SEO-optimized meta titles
+  initializeMetaTitleMaintenanceSchedule();
+  console.log('[Scheduler] ✓ Weekly Meta Title Maintenance - Sundays at 8 AM');
 
   // Metrics Aggregation - Daily at 1 AM
   await scheduleJob(
@@ -316,6 +323,41 @@ async function runContentGeneration(schedule: ContentSchedule): Promise<void> {
 }
 
 /**
+ * Initialize weekly meta title maintenance schedule
+ * Runs on Sundays at 8 AM to ensure all pages have proper meta titles
+ */
+function initializeMetaTitleMaintenanceSchedule(): void {
+  // Check every hour if it's time to run maintenance
+  metaTitleMaintenanceInterval = setInterval(
+    async () => {
+      const now = new Date();
+      const currentHour = now.getHours();
+      const currentDow = now.getDay();
+
+      // Run on Sundays at 8 AM
+      if (currentDow === 0 && currentHour === 8) {
+        const today = now.toISOString().split('T')[0] ?? '';
+        const lastRun = schedulesRunToday.get('meta-title-maintenance');
+
+        if (lastRun !== today) {
+          schedulesRunToday.set('meta-title-maintenance', today);
+          console.log('[Scheduler] Running weekly meta title maintenance...');
+          try {
+            const result = await runMetaTitleMaintenance();
+            console.log(
+              `[Scheduler] Meta title maintenance complete: ${result.pagesFixed}/${result.totalPages} pages fixed`
+            );
+          } catch (error) {
+            console.error('[Scheduler] Meta title maintenance failed:', error);
+          }
+        }
+      }
+    },
+    60 * 60 * 1000 // Check every hour
+  );
+}
+
+/**
  * Remove all scheduled jobs (useful for cleanup or reconfiguration)
  */
 export async function removeAllScheduledJobs(): Promise<void> {
@@ -335,6 +377,12 @@ export async function removeAllScheduledJobs(): Promise<void> {
   if (dailyContentInterval) {
     clearInterval(dailyContentInterval);
     dailyContentInterval = null;
+  }
+
+  // Clear meta title maintenance interval
+  if (metaTitleMaintenanceInterval) {
+    clearInterval(metaTitleMaintenanceInterval);
+    metaTitleMaintenanceInterval = null;
   }
 
   // Clear schedule tracking
@@ -411,6 +459,11 @@ export function getScheduledJobs(): Array<{
       jobType: 'SEO_AUTO_OPTIMIZE',
       schedule: '0 6 * * 0',
       description: 'Auto-fix metadata, structured data, and thin content',
+    },
+    {
+      jobType: 'META_TITLE_MAINTENANCE',
+      schedule: '0 8 * * 0',
+      description: 'Ensure all pages have SEO-optimized meta titles',
     },
     {
       jobType: 'GSC_SYNC',
