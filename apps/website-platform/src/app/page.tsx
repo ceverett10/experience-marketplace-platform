@@ -250,10 +250,25 @@ export default async function HomePage() {
     },
   ];
 
-  // Get user-friendly category label for the search (e.g., "Food & Drink" for London Food Tours)
-  const categoryLabel = popularExperiencesConfig?.categoryPath
-    ? CATEGORY_LABELS[popularExperiencesConfig.categoryPath]
-    : undefined;
+  // Get the search term for destination links
+  // Priority: 1. Site's specific searchTerms (e.g., "harry potter tours")
+  //           2. SEO primary keywords (e.g., "harry potter experiences")
+  //           3. Generic category label (e.g., "Sightseeing Tours") - fallback only
+  const searchTermForLinks = (() => {
+    // Use site's specific search terms if configured (most specific)
+    if (popularExperiencesConfig?.searchTerms?.length) {
+      return popularExperiencesConfig.searchTerms[0];
+    }
+    // Fall back to SEO primary keywords
+    if (site.seoConfig?.keywords?.length) {
+      return site.seoConfig.keywords[0];
+    }
+    // Last resort: generic category label
+    if (popularExperiencesConfig?.categoryPath) {
+      return CATEGORY_LABELS[popularExperiencesConfig.categoryPath];
+    }
+    return undefined;
+  })();
 
   const experiences = await getFeaturedExperiences(site, popularExperiencesConfig);
 
@@ -461,11 +476,11 @@ export default async function HomePage() {
           </div>
           <div className="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 lg:gap-6">
             {destinations.map((dest) => {
-              // Build URL with destination and category (if configured)
+              // Build URL with destination and niche-specific search term
               const params = new URLSearchParams();
               params.set('destination', dest.slug);
-              if (categoryLabel) {
-                params.set('q', categoryLabel);
+              if (searchTermForLinks) {
+                params.set('q', searchTermForLinks);
               }
               return (
                 <a
