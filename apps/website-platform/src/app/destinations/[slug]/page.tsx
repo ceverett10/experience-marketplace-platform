@@ -1,10 +1,23 @@
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import { getSiteFromHostname } from '@/lib/tenant';
+import { getSiteFromHostname, type HomepageConfig } from '@/lib/tenant';
 import { getHolibobClient } from '@/lib/holibob';
 import { prisma } from '@/lib/prisma';
 import { DestinationPageTemplate } from '@/components/content/DestinationPageTemplate';
+
+/**
+ * Get a default image for structured data from site configuration
+ */
+function getDefaultImage(site: {
+  brand?: { ogImageUrl?: string | null; logoUrl?: string | null } | null;
+  homepageConfig?: HomepageConfig | null;
+}, hostname: string): string {
+  if (site.brand?.ogImageUrl) return site.brand.ogImageUrl;
+  if (site.homepageConfig?.hero?.backgroundImage) return site.homepageConfig.hero.backgroundImage;
+  if (site.brand?.logoUrl) return site.brand.logoUrl;
+  return `https://${hostname}/og-image.png`;
+}
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -133,13 +146,47 @@ export default async function DestinationPage({ params }: Props) {
   // Fetch top experiences from Holibob API
   const topExperiences = await getTopExperiences(site, destination.holibobLocationId);
 
+  // Get URLs and image for structured data
+  const baseUrl = `https://${site.primaryDomain || hostname}`;
+  const pageUrl = `${baseUrl}/destinations/${slug}`;
+  const defaultImage = getDefaultImage(site, site.primaryDomain || hostname);
+
   // Generate JSON-LD structured data for destination
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'TouristDestination',
     name: destination.title,
-    description: destination.metaDescription || undefined,
+    description: destination.metaDescription || destination.content?.body?.substring(0, 200) || undefined,
+    url: pageUrl,
+    image: defaultImage,
+    // Include tourist attraction type for better categorization
+    touristType: 'Leisure',
     ...((destination.content?.structuredData as Record<string, unknown>) || {}),
+  };
+
+  // BreadcrumbList structured data
+  const breadcrumbLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      {
+        '@type': 'ListItem',
+        position: 1,
+        name: 'Home',
+        item: baseUrl,
+      },
+      {
+        '@type': 'ListItem',
+        position: 2,
+        name: 'Destinations',
+        item: `${baseUrl}/destinations`,
+      },
+      {
+        '@type': 'ListItem',
+        position: 3,
+        name: destination.title,
+      },
+    ],
   };
 
   // Extract FAQ structured data from content if FAQ section exists
@@ -147,10 +194,15 @@ export default async function DestinationPage({ params }: Props) {
 
   return (
     <>
-      {/* JSON-LD Structured Data */}
+      {/* JSON-LD Structured Data - TouristDestination */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      {/* JSON-LD Structured Data - BreadcrumbList */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }}
       />
       {faqJsonLd && (
         <script

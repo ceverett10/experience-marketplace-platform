@@ -1,7 +1,7 @@
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import { getSiteFromHostname } from '@/lib/tenant';
+import { getSiteFromHostname, type HomepageConfig } from '@/lib/tenant';
 import { prisma } from '@/lib/prisma';
 import { BlogPostTemplate } from '@/components/content/BlogPostTemplate';
 
@@ -31,6 +31,33 @@ async function getBlogPost(siteId: string, slug: string) {
       content: true,
     },
   });
+}
+
+/**
+ * Get a default image for structured data from site configuration
+ * Falls back through: ogImage -> hero background -> logo -> generic placeholder
+ */
+function getDefaultImage(site: {
+  brand?: { ogImageUrl?: string | null; logoUrl?: string | null } | null;
+  homepageConfig?: HomepageConfig | null;
+}, hostname: string): string {
+  // Try OG image first (usually best for articles)
+  if (site.brand?.ogImageUrl) {
+    return site.brand.ogImageUrl;
+  }
+
+  // Try hero background image
+  if (site.homepageConfig?.hero?.backgroundImage) {
+    return site.homepageConfig.hero.backgroundImage;
+  }
+
+  // Try logo
+  if (site.brand?.logoUrl) {
+    return site.brand.logoUrl;
+  }
+
+  // Fallback to a generic placeholder
+  return `https://${hostname}/og-image.png`;
 }
 
 /**
@@ -90,23 +117,46 @@ export default async function BlogPostPage({ params }: Props) {
     notFound();
   }
 
-  // Generate JSON-LD structured data
+  // Get page URL and image for structured data
+  const baseUrl = `https://${site.primaryDomain || hostname}`;
+  const pageUrl = `${baseUrl}/blog/${slug}`;
+  const defaultImage = getDefaultImage(site, site.primaryDomain || hostname);
+
+  // Get logo URL for publisher
+  const publisherLogo = site.brand?.faviconUrl || site.brand?.logoUrl;
+
+  // Generate JSON-LD structured data with all required fields for rich snippets
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'BlogPosting',
-    headline: post.title,
-    description: post.metaDescription || undefined,
+    headline: post.title.substring(0, 110), // Google truncates at 110 chars
+    description: post.metaDescription || post.content?.body?.substring(0, 160) || undefined,
     datePublished: post.createdAt.toISOString(),
     dateModified: post.updatedAt.toISOString(),
+    // Image is REQUIRED for BlogPosting rich results
+    image: [defaultImage],
+    // mainEntityOfPage helps Google understand this is the main content
+    mainEntityOfPage: {
+      '@type': 'WebPage',
+      '@id': pageUrl,
+    },
     author: {
       '@type': 'Organization',
       name: site.name,
+      url: baseUrl,
     },
     publisher: {
       '@type': 'Organization',
       name: site.name,
+      ...(publisherLogo && {
+        logo: {
+          '@type': 'ImageObject',
+          url: publisherLogo,
+        },
+      }),
     },
-    ...((post.content?.structuredData as Record<string, unknown>) || {}),
+    // Word count helps search engines understand content depth
+    wordCount: post.content?.body ? post.content.body.split(/\s+/).length : undefined,
   };
 
   // BreadcrumbList structured data
