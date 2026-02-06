@@ -626,7 +626,13 @@ export async function enrichHomepageConfigWithImages(
 
 /**
  * Build a search query for hero images based on niche and location
- * Creates evocative, high-quality image queries
+ * Creates evocative, high-quality image queries optimized for stunning hero backgrounds
+ *
+ * Best practices for Unsplash hero image queries:
+ * - Use atmospheric/mood terms: "cinematic", "dramatic", "golden hour", "aerial"
+ * - Be specific but not too narrow
+ * - Include quality indicators: "beautiful", "stunning", "professional"
+ * - Avoid overly generic terms like just "travel" or "tour"
  */
 function buildHeroImageQuery(niche?: string, location?: string): string {
   const queryParts: string[] = [];
@@ -640,24 +646,96 @@ function buildHeroImageQuery(niche?: string, location?: string): string {
     }
   }
 
-  // Add niche-specific terms
+  // Comprehensive niche-to-visual mapping for evocative hero images
+  // Each mapping uses atmospheric terms that photograph well
   if (niche) {
     const nicheTerms: Record<string, string> = {
-      'food tours': 'food market culinary',
-      'food-tours': 'food market culinary',
-      'wine tours': 'vineyard wine',
-      'adventure tours': 'adventure nature scenic',
-      'walking tours': 'city street architecture',
-      'cultural tours': 'cultural heritage landmark',
-      'boat tours': 'waterfront harbor boats',
-      tours: 'travel destination scenic',
+      // Food & Culinary
+      'food tours': 'street food market atmosphere vibrant',
+      'food-tours': 'street food market atmosphere vibrant',
+      food: 'culinary market fresh ingredients beautiful',
+      culinary: 'gourmet dining restaurant ambiance',
+
+      // Wine & Beverages
+      'wine tours': 'vineyard sunset golden hour rolling hills',
+      wine: 'vineyard landscape scenic winery',
+      beer: 'craft brewery atmospheric',
+
+      // Adventure & Outdoor
+      'adventure tours': 'epic mountain landscape dramatic sky',
+      adventure: 'dramatic landscape wilderness explorer',
+      hiking: 'mountain trail sunrise scenic vista',
+      outdoor: 'nature landscape breathtaking view',
+
+      // Walking & City
+      'walking tours': 'beautiful historic street golden hour architecture',
+      walking: 'cobblestone street charming old town',
+      'city tours': 'iconic cityscape skyline dramatic',
+      city: 'urban skyline sunset dramatic',
+
+      // Cultural & Historical
+      'cultural tours': 'ancient architecture heritage landmark stunning',
+      cultural: 'historic landmark beautiful architecture',
+      museum: 'grand architecture interior stunning',
+      historical: 'ancient ruins atmospheric dramatic',
+      'harry potter': 'magical castle gothic architecture misty',
+
+      // Water & Boats
+      'boat tours': 'sailboat sunset ocean golden hour',
+      boat: 'yacht ocean sunset peaceful',
+      cruise: 'luxury cruise ship ocean sunset',
+      sailing: 'sailboat dramatic sky ocean',
+
+      // Romance & Special Occasions
+      honeymoon: 'romantic sunset beach couple silhouette',
+      romantic: 'sunset romantic destination beautiful',
+      anniversary: 'romantic golden hour waterfront elegant',
+      wedding: 'romantic venue elegant beautiful',
+
+      // Party & Celebration
+      bachelorette: 'celebration nightlife glamorous city',
+      bachelor: 'adventure celebration group friends',
+      party: 'celebration vibrant nightlife',
+
+      // Corporate & Team
+      corporate: 'modern business team professional',
+      'team building': 'team collaboration outdoor adventure',
+      business: 'professional meeting modern elegant',
+
+      // Solo & Individual
+      solo: 'solo traveler scenic landscape peaceful',
+      individual: 'peaceful journey scenic destination',
+
+      // Tickets & Events
+      tickets: 'entertainment venue lights spectacular',
+      events: 'spectacular show lights performance',
+      concert: 'concert lights dramatic atmosphere',
+      theater: 'theater elegant interior dramatic',
+
+      // Default fallback - still evocative
+      tours: 'travel destination scenic beautiful landscape',
     };
+
     const nicheLower = niche.toLowerCase();
-    const nicheQuery = nicheTerms[nicheLower] || niche;
-    queryParts.push(nicheQuery);
+
+    // Try exact match first
+    let nicheQuery = nicheTerms[nicheLower];
+
+    // If no exact match, try partial matching
+    if (!nicheQuery) {
+      for (const [key, value] of Object.entries(nicheTerms)) {
+        if (nicheLower.includes(key) || key.includes(nicheLower)) {
+          nicheQuery = value;
+          break;
+        }
+      }
+    }
+
+    // Use matched query or the original niche with enhancement
+    queryParts.push(nicheQuery || `${niche} beautiful scenic`);
   } else {
-    // Default travel-related terms
-    queryParts.push('travel destination');
+    // Default - use evocative travel terms
+    queryParts.push('travel destination beautiful landscape golden hour');
   }
 
   return queryParts.join(' ');

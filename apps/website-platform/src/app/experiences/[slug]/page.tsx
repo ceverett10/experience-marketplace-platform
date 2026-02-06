@@ -155,6 +155,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: `${experience.title} | ${site.name}`,
     description: experience.shortDescription,
+    // Prevent product pages from being indexed - they're thin content from external API
+    robots: {
+      index: false,
+      follow: true, // Still follow links to other pages
+    },
     openGraph: {
       title: experience.title,
       description: experience.shortDescription,
