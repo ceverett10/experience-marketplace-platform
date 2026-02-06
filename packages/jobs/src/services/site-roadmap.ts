@@ -41,6 +41,23 @@ async function processAllSiteRoadmapsInner(): Promise<{
 }> {
   console.log('[Autonomous Roadmap] Starting automatic roadmap processing...');
 
+  // First, clean up orphaned 'planned' queue jobs for ACTIVE/ARCHIVED sites
+  // These sites no longer run autonomous processing, so planned jobs would be stuck forever
+  const cleanedUp = await prisma.job.deleteMany({
+    where: {
+      queue: 'planned',
+      status: 'PENDING',
+      site: {
+        status: { in: [SiteStatus.ACTIVE, SiteStatus.PAUSED, SiteStatus.ARCHIVED] },
+      },
+    },
+  });
+  if (cleanedUp.count > 0) {
+    console.log(
+      `[Autonomous Roadmap] Cleaned up ${cleanedUp.count} orphaned planned jobs for ACTIVE/PAUSED/ARCHIVED sites`
+    );
+  }
+
   // Find all sites that:
   // 1. Are not paused (autonomousProcessesPaused = false)
   // 2. Are not yet launched (ACTIVE) or in a terminal state (PAUSED, ARCHIVED)

@@ -597,6 +597,22 @@ export async function handleSiteDeploy(job: Job<SiteDeployPayload>): Promise<Job
 
     console.log(`[Site Deploy] Site ${siteId} status updated to ${updatedSite.status}`);
 
+    // Clean up orphaned 'planned' queue jobs since autonomous processing stops for ACTIVE sites
+    if (targetStatus === 'ACTIVE') {
+      const deletedPlanned = await prisma.job.deleteMany({
+        where: {
+          siteId,
+          queue: 'planned',
+          status: 'PENDING',
+        },
+      });
+      if (deletedPlanned.count > 0) {
+        console.log(
+          `[Site Deploy] Cleaned up ${deletedPlanned.count} orphaned planned jobs for now-ACTIVE site`
+        );
+      }
+    }
+
     // 5. Post-deployment tasks
     if (environment === 'production') {
       console.log('[Site Deploy] Queuing post-deployment tasks...');
