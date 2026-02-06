@@ -452,7 +452,8 @@ async function getMicrositeConfig(
   console.log('[Tenant] Microsite cache miss, fetching from DB:', cacheKey);
 
   try {
-    const { prisma } = await import('@experience-marketplace/database');
+    // Use dynamic import with type assertion for proper model access
+    const { prisma } = (await import('@experience-marketplace/database')) as any;
 
     const config = await prisma.micrositeConfig.findUnique({
       where: {

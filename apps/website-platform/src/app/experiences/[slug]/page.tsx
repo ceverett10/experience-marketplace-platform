@@ -194,6 +194,11 @@ export default async function ExperienceDetailPage({ params }: Props) {
   // Fetch related experiences in parallel (non-blocking)
   const relatedExperiences = await getRelatedExperiences(site, experience);
 
+  // Check if experience has free cancellation
+  const hasFreeCancellation =
+    experience.cancellationPolicy?.toLowerCase().includes('free') ||
+    experience.cancellationPolicy?.toLowerCase().includes('full refund');
+
   // Generate JSON-LD structured data with enhanced Product schema
   const jsonLd = {
     '@context': 'https://schema.org',
