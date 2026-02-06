@@ -1,10 +1,23 @@
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import { getSiteFromHostname } from '@/lib/tenant';
+import { getSiteFromHostname, type HomepageConfig } from '@/lib/tenant';
 import { getHolibobClient } from '@/lib/holibob';
 import { prisma } from '@/lib/prisma';
 import { CategoryPageTemplate } from '@/components/content/CategoryPageTemplate';
+
+/**
+ * Get a default image for structured data from site configuration
+ */
+function getDefaultImage(site: {
+  brand?: { ogImageUrl?: string | null; logoUrl?: string | null } | null;
+  homepageConfig?: HomepageConfig | null;
+}, hostname: string): string {
+  if (site.brand?.ogImageUrl) return site.brand.ogImageUrl;
+  if (site.homepageConfig?.hero?.backgroundImage) return site.homepageConfig.hero.backgroundImage;
+  if (site.brand?.logoUrl) return site.brand.logoUrl;
+  return `https://${hostname}/og-image.png`;
+}
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -129,13 +142,45 @@ export default async function CategoryPage({ params }: Props) {
   // Fetch related experiences from Holibob API
   const relatedExperiences = await getRelatedExperiences(site, category.holibobCategoryId);
 
+  // Get URLs and image for structured data
+  const baseUrl = `https://${site.primaryDomain || hostname}`;
+  const pageUrl = `${baseUrl}/categories/${slug}`;
+  const defaultImage = getDefaultImage(site, site.primaryDomain || hostname);
+
   // Generate JSON-LD structured data
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'CollectionPage',
     name: category.title,
-    description: category.metaDescription || undefined,
+    description: category.metaDescription || category.content?.body?.substring(0, 200) || undefined,
+    url: pageUrl,
+    image: defaultImage,
     ...((category.content?.structuredData as Record<string, unknown>) || {}),
+  };
+
+  // BreadcrumbList structured data
+  const breadcrumbLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      {
+        '@type': 'ListItem',
+        position: 1,
+        name: 'Home',
+        item: baseUrl,
+      },
+      {
+        '@type': 'ListItem',
+        position: 2,
+        name: 'Categories',
+        item: `${baseUrl}/categories`,
+      },
+      {
+        '@type': 'ListItem',
+        position: 3,
+        name: category.title,
+      },
+    ],
   };
 
   // Extract FAQ structured data from content if FAQ section exists
@@ -143,10 +188,15 @@ export default async function CategoryPage({ params }: Props) {
 
   return (
     <>
-      {/* JSON-LD Structured Data */}
+      {/* JSON-LD Structured Data - CollectionPage */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      {/* JSON-LD Structured Data - BreadcrumbList */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }}
       />
       {faqJsonLd && (
         <script
