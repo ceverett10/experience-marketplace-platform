@@ -235,6 +235,20 @@ async function validateTaskArtifacts(
     LINK_ASSET_GENERATE: {
       valid: true,
     },
+
+    // Microsite Management (not part of standard site roadmap)
+    MICROSITE_CREATE: { valid: true },
+    MICROSITE_BRAND_GENERATE: { valid: true },
+    MICROSITE_CONTENT_GENERATE: { valid: true },
+    MICROSITE_PUBLISH: { valid: true },
+    MICROSITE_ARCHIVE: { valid: true },
+    MICROSITE_HEALTH_CHECK: { valid: true },
+
+    // Holibob Sync (not part of standard site roadmap)
+    SUPPLIER_SYNC: { valid: true },
+    SUPPLIER_SYNC_INCREMENTAL: { valid: true },
+    PRODUCT_SYNC: { valid: true },
+    PRODUCT_SYNC_INCREMENTAL: { valid: true },
   };
 }
 
@@ -355,6 +369,50 @@ export const TASK_DESCRIPTIONS: Record<JobType, { label: string; description: st
   LINK_ASSET_GENERATE: {
     label: 'Create Link Asset',
     description: 'Generate link-attracting content',
+  },
+
+  // Microsite Management
+  MICROSITE_CREATE: {
+    label: 'Create Microsite',
+    description: 'Set up supplier/product microsite',
+  },
+  MICROSITE_BRAND_GENERATE: {
+    label: 'Generate Brand',
+    description: 'Create microsite brand identity',
+  },
+  MICROSITE_CONTENT_GENERATE: {
+    label: 'Generate Microsite Content',
+    description: 'Create content for microsite pages',
+  },
+  MICROSITE_PUBLISH: {
+    label: 'Publish Microsite',
+    description: 'Make microsite publicly accessible',
+  },
+  MICROSITE_ARCHIVE: {
+    label: 'Archive Microsite',
+    description: 'Deactivate and archive microsite',
+  },
+  MICROSITE_HEALTH_CHECK: {
+    label: 'Health Check',
+    description: 'Verify microsite health and status',
+  },
+
+  // Holibob Sync
+  SUPPLIER_SYNC: {
+    label: 'Sync Suppliers',
+    description: 'Import suppliers from Holibob API',
+  },
+  SUPPLIER_SYNC_INCREMENTAL: {
+    label: 'Incremental Supplier Sync',
+    description: 'Update changed suppliers',
+  },
+  PRODUCT_SYNC: {
+    label: 'Sync Products',
+    description: 'Import products from Holibob API',
+  },
+  PRODUCT_SYNC_INCREMENTAL: {
+    label: 'Incremental Product Sync',
+    description: 'Update changed products',
   },
 };
 

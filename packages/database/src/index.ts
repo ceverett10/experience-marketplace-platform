@@ -32,6 +32,8 @@ export {
   BookingStatus,
   JobType,
   JobStatus,
+  MicrositeStatus,
+  MicrositeEntityType,
 } from '@prisma/client';
 
 // Re-export Prisma namespace for advanced typing

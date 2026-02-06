@@ -191,13 +191,16 @@ export async function runMetaTitleMaintenance(): Promise<MaintenanceResult> {
 
     result.totalPages = pages.length;
 
-    // Filter pages that need improvement
-    const pagesToFix = pages.filter((p) => needsImprovement(p.metaTitle));
+    // Filter pages that need improvement and have a site (not microsite)
+    const pagesToFix = pages.filter((p) => p.site && needsImprovement(p.metaTitle));
 
     console.log(`[Meta Title Maintenance] Found ${pagesToFix.length} pages needing meta title fixes`);
 
     for (const page of pagesToFix) {
       try {
+        // Skip pages without a site (microsite pages)
+        if (!page.site) continue;
+
         const newMetaTitle = generateMetaTitle({
           title: page.title,
           type: page.type,

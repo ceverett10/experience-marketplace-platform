@@ -254,15 +254,17 @@ export async function auditPageSEO(pageId: string): Promise<PageSEOScore> {
 
   // === PERFORMANCE CHECKS (GSC DATA) ===
 
-  // Get recent performance metrics
-  const recentMetrics = await prisma.performanceMetric.findFirst({
-    where: {
-      siteId: page.siteId,
-      pageUrl: { contains: page.slug },
-      date: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
-    },
-    orderBy: { date: 'desc' },
-  });
+  // Get recent performance metrics (only if page has a siteId)
+  const recentMetrics = page.siteId
+    ? await prisma.performanceMetric.findFirst({
+        where: {
+          siteId: page.siteId,
+          pageUrl: { contains: page.slug },
+          date: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+        },
+        orderBy: { date: 'desc' },
+      })
+    : null;
 
   if (recentMetrics) {
     // CTR analysis

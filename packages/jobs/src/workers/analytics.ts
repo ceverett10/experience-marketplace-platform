@@ -644,7 +644,7 @@ async function identifyPerformanceIssues(
 
     // Find matching page record
     const page = pages.find((p) => pageUrl.includes(p.slug) || p.slug === pageUrl);
-    if (!page || !page.contentId) continue;
+    if (!page || !page.contentId || !page.siteId) continue;
 
     // Check CTR drop
     const ctrDrop = ((previous.ctr - current.ctr) / previous.ctr) * 100;

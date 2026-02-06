@@ -86,7 +86,7 @@ export async function handleMicrositeCreate(
 
     // Check if autonomous microsite creation is allowed
     const canProceed = await canExecuteAutonomousOperation({
-      feature: 'enableMicrosites',
+      feature: 'enableSiteCreation',
     });
 
     if (!canProceed.allowed) {
@@ -463,7 +463,12 @@ export async function handleMicrositeContentGenerate(
       await addJob('CONTENT_GENERATE', {
         siteId: micrositeId, // MicrositeConfig uses same pattern
         pageId: page.id,
-        contentType: contentType === 'experiences' ? 'category' : contentType,
+        contentType:
+          contentType === 'experiences'
+            ? 'category'
+            : contentType === 'homepage'
+              ? 'destination'
+              : contentType,
         targetKeyword: `${microsite.siteName} ${title}`,
         secondaryKeywords: microsite.supplier?.categories || microsite.product?.categories || [],
       });
