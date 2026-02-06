@@ -214,13 +214,21 @@ export async function generateFAQHubForSite(siteId: string): Promise<ContentGene
   }
 
   // Create FAQ hub page
+  const faqTitle = `Frequently Asked Questions | ${site.name}`;
   const faqPage = await prisma.page.create({
     data: {
       siteId,
-      title: `Frequently Asked Questions | ${site.name}`,
+      title: faqTitle,
       slug: 'faq',
       type: PageType.FAQ,
       status: PageStatus.DRAFT,
+      metaTitle: generateMetaTitle({
+        title: faqTitle,
+        siteName: site.name,
+        niche: site.niche,
+        location: site.location,
+        type: 'faq',
+      }),
       metaDescription: `Find answers to common questions about ${site.niche}${site.location ? ` in ${site.location}` : ''}`,
       priority: 0.7,
     },
@@ -318,14 +326,22 @@ export async function generateDestinationLandingForSite(
   }
 
   const pageSlug = `destinations/${slugify(targetLocation)}`;
+  const destinationTitle = `${capitalize(site.niche)} in ${targetLocation}`;
 
   const destinationPage = await prisma.page.create({
     data: {
       siteId,
-      title: `${capitalize(site.niche)} in ${targetLocation}`,
+      title: destinationTitle,
       slug: pageSlug,
       type: PageType.LANDING,
       status: PageStatus.DRAFT,
+      metaTitle: generateMetaTitle({
+        title: destinationTitle,
+        siteName: site.name,
+        niche: site.niche,
+        location: targetLocation,
+        type: 'landing',
+      }),
       metaDescription: `Discover the best ${site.niche} in ${targetLocation}. Expert guides, insider tips, and top experiences.`,
       priority: 0.8,
     },
@@ -430,13 +446,20 @@ export async function generateComparisonPageForSite(
     };
   }
 
+  const comparisonTitle = `${comparisonPair[0]} vs ${comparisonPair[1]}: Which is Right for You?`;
   const comparisonPage = await prisma.page.create({
     data: {
       siteId,
-      title: `${comparisonPair[0]} vs ${comparisonPair[1]}: Which is Right for You?`,
+      title: comparisonTitle,
       slug: pageSlug,
       type: PageType.BLOG,
       status: PageStatus.DRAFT,
+      metaTitle: generateMetaTitle({
+        title: comparisonTitle,
+        siteName: site.name,
+        niche: site.niche,
+        type: 'comparison',
+      }),
       metaDescription: `Compare ${comparisonPair[0]} and ${comparisonPair[1]} to find the perfect experience for you.`,
       priority: 0.6,
     },
@@ -595,15 +618,22 @@ export async function generateLocalGuideForSite(siteId: string): Promise<Content
 
   // Blog slugs must include 'blog/' prefix to match frontend route lookup
   const pageSlug = `blog/first-timers-guide-${slugify(targetDestination)}`;
-  const title = `Complete Guide to ${targetDestination} for First-Timers`;
+  const guideTitle = `Complete Guide to ${targetDestination} for First-Timers`;
 
   const guidePage = await prisma.page.create({
     data: {
       siteId,
-      title,
+      title: guideTitle,
       slug: pageSlug,
       type: PageType.BLOG,
       status: PageStatus.DRAFT,
+      metaTitle: generateMetaTitle({
+        title: guideTitle,
+        siteName: site.name,
+        niche: site.niche,
+        location: targetDestination,
+        type: 'guide',
+      }),
       metaDescription: `Everything you need to know about ${site.niche} in ${targetDestination}. Expert tips for first-time visitors.`,
       priority: 0.7,
     },
@@ -619,7 +649,7 @@ export async function generateLocalGuideForSite(siteId: string): Promise<Content
     sourceData: { contentSubtype: 'beginner_guide' },
   });
 
-  console.log(`[Local Guide] Created "${title}" for ${site.name}`);
+  console.log(`[Local Guide] Created "${guideTitle}" for ${site.name}`);
 
   return {
     siteId,
@@ -686,7 +716,7 @@ export async function generateSeasonalContentForSite(
     };
   }
 
-  const title = location
+  const seasonalTitle = location
     ? `${capitalize(targetEvent)} in ${location}: Top ${capitalize(site.niche)}`
     : `Best ${capitalize(site.niche)} for ${capitalize(targetEvent)}`;
 
@@ -696,10 +726,17 @@ export async function generateSeasonalContentForSite(
   const seasonalPage = await prisma.page.create({
     data: {
       siteId,
-      title,
+      title: seasonalTitle,
       slug: pageSlug,
       type: PageType.BLOG,
       status: PageStatus.DRAFT,
+      metaTitle: generateMetaTitle({
+        title: seasonalTitle,
+        siteName: site.name,
+        niche: site.niche,
+        location: location || undefined,
+        type: 'seasonal',
+      }),
       metaDescription: `Discover the best ${site.niche} for ${targetEvent}${location ? ` in ${location}` : ''}. Seasonal recommendations and tips.`,
       priority: 0.6,
     },
@@ -714,7 +751,7 @@ export async function generateSeasonalContentForSite(
     sourceData: { contentSubtype: 'seasonal', event: targetEvent },
   });
 
-  console.log(`[Seasonal] Created "${title}" for ${site.name}`);
+  console.log(`[Seasonal] Created "${seasonalTitle}" for ${site.name}`);
 
   return {
     siteId,
@@ -846,6 +883,93 @@ function mapReasonToOptimizeType(reason: string): OptimizeReasonType {
     missing_structured_data: 'initial_seo',
   };
   return mapping[reason] || 'initial_seo';
+}
+
+/**
+ * Generate an SEO-optimized meta title for a page
+ * Ensures meta title is never null and follows SEO best practices:
+ * - Under 60 characters for full display in search results
+ * - Includes primary keyword/topic
+ * - Includes brand name when space allows
+ */
+function generateMetaTitle(params: {
+  title: string;
+  siteName: string;
+  niche?: string;
+  location?: string;
+  type: 'faq' | 'landing' | 'blog' | 'comparison' | 'guide' | 'seasonal';
+}): string {
+  const { title, siteName, niche, location, type } = params;
+  const MAX_LENGTH = 60;
+
+  // Type-specific title generation
+  switch (type) {
+    case 'faq':
+      if (location && niche) {
+        const faqTitle = `${capitalize(niche)} FAQ - ${location} | ${siteName}`;
+        if (faqTitle.length <= MAX_LENGTH) return faqTitle;
+      }
+      return truncateWithBrand(`${niche || 'Experience'} FAQ`, siteName, MAX_LENGTH);
+
+    case 'landing':
+      if (location && niche) {
+        const landingTitle = `Best ${capitalize(niche)} in ${location} | ${siteName}`;
+        if (landingTitle.length <= MAX_LENGTH) return landingTitle;
+        return `${capitalize(niche)} in ${location}`;
+      }
+      return truncateWithBrand(title, siteName, MAX_LENGTH);
+
+    case 'comparison':
+      // Comparisons already have descriptive titles
+      return truncateWithBrand(title, siteName, MAX_LENGTH);
+
+    case 'guide':
+      if (location) {
+        const guideTitle = `${location} Guide for First-Timers | ${siteName}`;
+        if (guideTitle.length <= MAX_LENGTH) return guideTitle;
+        return `First-Timers Guide to ${location}`;
+      }
+      return truncateWithBrand(title, siteName, MAX_LENGTH);
+
+    case 'seasonal':
+      return truncateWithBrand(title, siteName, MAX_LENGTH);
+
+    default:
+      return truncateWithBrand(title, siteName, MAX_LENGTH);
+  }
+}
+
+function truncateWithBrand(title: string, siteName: string, maxLength: number): string {
+  const withBrand = `${title} | ${siteName}`;
+  if (withBrand.length <= maxLength) {
+    return withBrand;
+  }
+
+  // Title too long, truncate at word boundary
+  const availableLength = maxLength - siteName.length - 3; // " | " = 3 chars
+  if (availableLength < 20) {
+    // Not enough room for brand, just truncate title
+    return truncateAtWord(title, maxLength - 3) + '...';
+  }
+
+  return truncateAtWord(title, availableLength) + ` | ${siteName}`;
+}
+
+function truncateAtWord(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text;
+
+  const words = text.split(' ');
+  let result = '';
+
+  for (const word of words) {
+    if ((result + ' ' + word).trim().length <= maxLength) {
+      result = (result + ' ' + word).trim();
+    } else {
+      break;
+    }
+  }
+
+  return result || text.substring(0, maxLength);
 }
 
 function errorResult(

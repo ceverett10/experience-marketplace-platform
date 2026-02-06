@@ -97,6 +97,37 @@ function generateSlug(text: unknown): string {
 }
 
 /**
+ * Generate SEO-optimized meta title (under 60 chars)
+ */
+function generateMetaTitle(title: string, siteName: string): string {
+  const MAX_LENGTH = 60;
+  const withBrand = `${title} | ${siteName}`;
+
+  if (withBrand.length <= MAX_LENGTH) {
+    return withBrand;
+  }
+
+  // Truncate title at word boundary
+  const availableLength = MAX_LENGTH - siteName.length - 3; // " | " = 3 chars
+  if (availableLength < 20) {
+    // Not enough room for brand, just use truncated title
+    return title.substring(0, MAX_LENGTH - 3) + '...';
+  }
+
+  const words = title.split(' ');
+  let truncated = '';
+  for (const word of words) {
+    if ((truncated + ' ' + word).trim().length <= availableLength) {
+      truncated = (truncated + ' ' + word).trim();
+    } else {
+      break;
+    }
+  }
+
+  return `${truncated || title.substring(0, availableLength)} | ${siteName}`;
+}
+
+/**
  * Generate FAQ Hub Pages
  * Creates FAQ pages from GSC queries + AI-generated questions
  */
@@ -150,6 +181,7 @@ async function generateFAQContent(
         slug,
         type: PageType.FAQ,
         status: PageStatus.DRAFT,
+        metaTitle: generateMetaTitle(title, site.name),
         metaDescription: `Find answers to common questions about ${niche}${location ? ` in ${location}` : ''}. Get helpful information about booking, experiences, and more.`,
       },
     });
@@ -238,6 +270,7 @@ async function generateDestinationContent(
           slug,
           type: PageType.LANDING,
           status: PageStatus.DRAFT,
+          metaTitle: generateMetaTitle(title, site.name),
           metaDescription: `Discover the best ${niche.toLowerCase()} in ${location}. Book unique experiences, read reviews, and find insider tips.`,
         },
       });
@@ -346,6 +379,7 @@ async function generateComparisonContent(
           slug,
           type: PageType.BLOG,
           status: PageStatus.DRAFT,
+          metaTitle: generateMetaTitle(title, site.name),
           metaDescription: `Compare ${comp.item1} and ${comp.item2}. Find out which option is best for your needs with our detailed comparison guide.`,
         },
       });
@@ -429,6 +463,7 @@ async function generateGuideContent(
         slug,
         type: PageType.BLOG,
         status: PageStatus.DRAFT,
+        metaTitle: generateMetaTitle(title, site.name),
         metaDescription: `Your ultimate guide to ${niche.toLowerCase()} in ${primaryLocation}. Everything first-time visitors need to know for an amazing experience.`,
       },
     });
@@ -530,6 +565,7 @@ async function generateSeasonalContent(
           slug,
           type: PageType.BLOG,
           status: PageStatus.DRAFT,
+          metaTitle: generateMetaTitle(title, site.name),
           metaDescription: `Discover the best ${niche.toLowerCase()} for ${season.name.toLowerCase()}${location ? ` in ${location}` : ''}. Seasonal recommendations and insider tips.`,
         },
       });
