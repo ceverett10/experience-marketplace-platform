@@ -90,12 +90,13 @@ export const PRODUCT_LIST_QUERY = gql`
  * Retrieve detailed product information
  *
  * NOTE: Holibob API uses String! for product ID (not ID!)
+ * NOTE: The query endpoint is `productDetail` (not `product`)
  * Content is retrieved via contentList which returns nodes with type/name/description.
  * Types include: INCLUSION, EXCLUSION, HIGHLIGHT, NOTE (additional info), ITINERARY, etc.
  */
 export const PRODUCT_DETAIL_QUERY = gql`
-  query Product($id: String!) {
-    product(id: $id) {
+  query ProductDetail($id: String!) {
+    productDetail(id: $id) {
       id
       name
       description
@@ -154,6 +155,10 @@ export const PRODUCT_DETAIL_QUERY = gql`
             }
           }
         }
+      }
+      provider {
+        id
+        name
       }
     }
   }

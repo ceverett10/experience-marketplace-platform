@@ -150,9 +150,18 @@ export const ProductSchema = z.object({
   hasInstantConfirmation: z.boolean().optional(),
   isBestSeller: z.boolean().optional(),
 
-  // Holibob-specific
+  // Holibob-specific (legacy fields - use provider instead)
   supplierId: z.string().optional(),
   supplierName: z.string().optional(),
+
+  // Provider (Operator) - the company that provides/operates the experience
+  // Note: Holibob Provider type only exposes id and name
+  provider: z
+    .object({
+      id: z.string(),
+      name: z.string(),
+    })
+    .optional(),
 
   // Content list from Product Detail API - contains typed content items
   // Types: INCLUSION, EXCLUSION, HIGHLIGHT, NOTE (additional info), ITINERARY, etc.

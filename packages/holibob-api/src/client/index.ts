@@ -288,23 +288,27 @@ export class HolibobClient {
 
   /**
    * Get a single product by ID with full details
+   * Uses the productDetail query endpoint (not product)
    */
   async getProduct(productId: string): Promise<Product | null> {
     console.log('[HolibobClient] getProduct called with ID:', productId);
     try {
-      const response = await this.executeQuery<{ product: Product | null }>(PRODUCT_DETAIL_QUERY, {
+      const response = await this.executeQuery<{ productDetail: Product | null }>(PRODUCT_DETAIL_QUERY, {
         id: productId,
       });
 
-      if (response.product) {
-        const product = response.product as Record<string, unknown>;
+      if (response.productDetail) {
+        const product = response.productDetail as Record<string, unknown>;
         console.log('[HolibobClient] getProduct success:', {
-          id: response.product.id,
-          name: response.product.name,
-          hasImages: !!response.product.imageList,
-          hasGuidePrice: !!response.product.guidePrice,
-          reviewRating: response.product.reviewRating,
-          reviewCount: response.product.reviewCount,
+          id: response.productDetail.id,
+          name: response.productDetail.name,
+          hasImages: !!response.productDetail.imageList,
+          hasGuidePrice: !!response.productDetail.guidePrice,
+          reviewRating: response.productDetail.reviewRating,
+          reviewCount: response.productDetail.reviewCount,
+          hasProvider: !!response.productDetail.provider,
+          providerId: response.productDetail.provider?.id,
+          providerName: response.productDetail.provider?.name,
           hasReviewList: !!product['reviewList'],
           reviewListRecordCount: (product['reviewList'] as { recordCount?: number })?.recordCount,
           reviewListNodes: (product['reviewList'] as { nodes?: unknown[] })?.nodes?.length ?? 0,
@@ -320,7 +324,7 @@ export class HolibobClient {
         console.log('[HolibobClient] getProduct returned null for ID:', productId);
       }
 
-      return response.product;
+      return response.productDetail;
     } catch (error) {
       console.error('[HolibobClient] getProduct error:', {
         productId,

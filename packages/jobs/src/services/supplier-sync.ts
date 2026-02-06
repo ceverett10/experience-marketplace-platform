@@ -273,19 +273,24 @@ export async function syncSuppliersFromHolibob(): Promise<SupplierSyncResult> {
 
 /**
  * Aggregate supplier data from a product
- * Products contain supplierId and supplierName fields
+ * Products contain provider field with id/name (Holibob's term for operator/supplier)
+ * Falls back to legacy supplierId/supplierName if provider is not available
  */
 function aggregateSupplierFromProduct(
   supplierMap: Map<string, DiscoveredSupplier>,
   product: Product,
   cityName?: string
 ): void {
-  // Skip products without supplier information
-  if (!product.supplierId || !product.supplierName) {
+  // Get provider info - prefer provider field, fall back to legacy fields
+  const providerId = product.provider?.id || product.supplierId;
+  const providerName = product.provider?.name || product.supplierName;
+
+  // Skip products without provider/supplier information
+  if (!providerId || !providerName) {
     return;
   }
 
-  const supplierId = product.supplierId;
+  const supplierId = providerId;
   const existing = supplierMap.get(supplierId);
 
   if (existing) {
@@ -348,7 +353,7 @@ function aggregateSupplierFromProduct(
 
     supplierMap.set(supplierId, {
       holibobSupplierId: supplierId,
-      name: product.supplierName,
+      name: providerName,
       cities,
       categories,
       productCount: 1,

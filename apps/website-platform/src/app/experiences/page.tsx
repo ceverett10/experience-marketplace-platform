@@ -1,11 +1,12 @@
 import { headers } from 'next/headers';
 import type { Metadata } from 'next';
-import { getSiteFromHostname } from '@/lib/tenant';
+import { getSiteFromHostname, type SiteConfig } from '@/lib/tenant';
 import { getHolibobClient, type ExperienceListItem, parseIsoDuration } from '@/lib/holibob';
 import { ExperiencesGrid } from '@/components/experiences/ExperiencesGrid';
 import { ProductDiscoverySearch } from '@/components/search/ProductDiscoverySearch';
 import { TrustBadges } from '@/components/ui/TrustSignals';
 import { ExperienceListSchema, BreadcrumbSchema } from '@/components/seo/StructuredData';
+import { prisma } from '@/lib/prisma';
 
 interface SearchParams {
   [key: string]: string | undefined;
@@ -33,16 +34,21 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 
   const destination = resolvedParams.destination || resolvedParams.location;
   const searchQuery = resolvedParams.q;
+  const isMicrosite = !!site.micrositeContext?.supplierId;
 
   let title = 'Experiences & Tours';
   let description = `Browse and book unique experiences, tours, and activities.`;
 
-  if (destination) {
+  // For microsites, show operator-specific messaging
+  if (isMicrosite) {
+    title = 'Our Experiences';
+    description = `Explore our curated collection of tours and activities. Book online with instant confirmation.`;
+  } else if (destination) {
     title = `Things to Do in ${destination}`;
     description = `Discover the best tours, activities, and experiences in ${destination}. Book online with instant confirmation and free cancellation.`;
   }
 
-  if (searchQuery) {
+  if (searchQuery && !isMicrosite) {
     title = `${searchQuery} - ${destination || 'Experiences'}`;
     description = `Find the best ${searchQuery.toLowerCase()} experiences. ${destination ? `Tours and activities in ${destination}.` : ''} Book online with instant confirmation.`;
   }
@@ -72,7 +78,7 @@ export const revalidate = 300;
 const ITEMS_PER_PAGE = 12;
 
 async function getExperiences(
-  site: Awaited<ReturnType<typeof getSiteFromHostname>>,
+  site: SiteConfig,
   searchParams: SearchParams
 ): Promise<{
   experiences: ExperienceListItem[];
@@ -84,7 +90,14 @@ async function getExperiences(
   recommendedSearchTerms?: string[];
 }> {
   const page = parseInt(searchParams.page ?? '1', 10);
+  const offset = (page - 1) * ITEMS_PER_PAGE;
 
+  // For microsites (operator-specific), fetch from local database
+  if (site.micrositeContext?.supplierId) {
+    return getExperiencesFromLocalDB(site.micrositeContext.supplierId, { offset });
+  }
+
+  // For main site, use Holibob Product Discovery API
   try {
     const client = getHolibobClient(site);
 
@@ -205,6 +218,91 @@ async function getExperiences(
   }
 }
 
+/**
+ * Fetch experiences from local database for operator microsites
+ * Only shows products from the specific operator (supplier)
+ */
+async function getExperiencesFromLocalDB(
+  supplierId: string,
+  options: { offset: number }
+): Promise<{
+  experiences: ExperienceListItem[];
+  totalCount: number;
+  hasMore: boolean;
+  isUsingMockData: boolean;
+  apiError?: string;
+}> {
+  try {
+    const [products, totalCount] = await Promise.all([
+      prisma.product.findMany({
+        where: { supplierId },
+        take: ITEMS_PER_PAGE,
+        skip: options.offset,
+        orderBy: [{ rating: 'desc' }, { reviewCount: 'desc' }],
+        select: {
+          id: true,
+          holibobProductId: true,
+          slug: true,
+          title: true,
+          shortDescription: true,
+          primaryImageUrl: true,
+          priceFrom: true,
+          currency: true,
+          duration: true,
+          rating: true,
+          reviewCount: true,
+          city: true,
+        },
+      }),
+      prisma.product.count({ where: { supplierId } }),
+    ]);
+
+    const experiences: ExperienceListItem[] = products.map((product) => ({
+      id: product.holibobProductId, // Use Holibob ID for booking links
+      title: product.title,
+      slug: product.slug,
+      shortDescription: product.shortDescription ?? '',
+      imageUrl: product.primaryImageUrl ?? '/placeholder-experience.jpg',
+      price: {
+        amount: product.priceFrom ? Number(product.priceFrom) : 0,
+        currency: product.currency,
+        formatted: formatPrice(
+          product.priceFrom ? Number(product.priceFrom) : 0,
+          product.currency
+        ),
+      },
+      duration: {
+        formatted: product.duration ?? 'Duration varies',
+      },
+      rating: product.rating
+        ? {
+            average: product.rating,
+            count: product.reviewCount,
+          }
+        : null,
+      location: {
+        name: product.city ?? '',
+      },
+    }));
+
+    return {
+      experiences,
+      totalCount,
+      hasMore: options.offset + ITEMS_PER_PAGE < totalCount,
+      isUsingMockData: false,
+    };
+  } catch (error) {
+    console.error('Error fetching experiences from local DB:', error);
+    return {
+      experiences: [],
+      totalCount: 0,
+      hasMore: false,
+      isUsingMockData: false,
+      apiError: error instanceof Error ? error.message : 'Database error',
+    };
+  }
+}
+
 function formatPrice(amount: number, currency: string): string {
   return new Intl.NumberFormat('en-GB', {
     style: 'currency',
@@ -244,18 +342,22 @@ export default async function ExperiencesPage({ searchParams }: Props) {
   );
 
   const destination = resolvedSearchParams.destination || resolvedSearchParams.location;
+  const isMicrosite = !!site.micrositeContext?.supplierId;
 
-  // Build page title based on search context
-  // Note: Don't show specific counts - Product Discovery provides access to thousands of experiences
+  // Build page title based on context
   let pageTitle = 'Discover Experiences';
   let pageSubtitle = 'Browse tours, activities, and unique experiences';
 
-  if (destination) {
+  // For microsites, show operator-specific messaging
+  if (isMicrosite) {
+    pageTitle = 'Our Experiences';
+    pageSubtitle = `Explore our curated collection of tours and activities`;
+  } else if (destination) {
     pageTitle = `Things to Do in ${destination}`;
     pageSubtitle = `Explore tours, activities, and unique experiences in ${destination}`;
   }
 
-  if (resolvedSearchParams.q) {
+  if (resolvedSearchParams.q && !isMicrosite) {
     pageTitle = `${resolvedSearchParams.q}`;
     pageSubtitle = destination
       ? `Explore ${resolvedSearchParams.q.toLowerCase()} experiences in ${destination}`
@@ -353,18 +455,20 @@ export default async function ExperiencesPage({ searchParams }: Props) {
             </h1>
             <p className="mt-2 text-lg text-gray-600">{pageSubtitle}</p>
 
-            {/* Search Bar - Same hero variant as homepage */}
-            <div className="mt-6">
-              <ProductDiscoverySearch
-                variant="hero"
-                defaultDestination={destination}
-                defaultWhat={resolvedSearchParams.q}
-                defaultDates={{
-                  startDate: resolvedSearchParams.startDate,
-                  endDate: resolvedSearchParams.endDate,
-                }}
-              />
-            </div>
+            {/* Search Bar - Only show on main site, not on operator microsites */}
+            {!site.micrositeContext?.supplierId && (
+              <div className="mt-6">
+                <ProductDiscoverySearch
+                  variant="hero"
+                  defaultDestination={destination}
+                  defaultWhat={resolvedSearchParams.q}
+                  defaultDates={{
+                    startDate: resolvedSearchParams.startDate,
+                    endDate: resolvedSearchParams.endDate,
+                  }}
+                />
+              </div>
+            )}
 
             {/* Trust Badges */}
             <div className="mt-6">
