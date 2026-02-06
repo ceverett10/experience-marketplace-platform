@@ -13,7 +13,12 @@
  *   npx ts-node scripts/fix-site-brand.ts --domain=honeymoonexperiences.com --fix
  */
 
-import 'dotenv/config';
+// Load dotenv only if available (development)
+try {
+  require('dotenv/config');
+} catch {
+  // In production, env vars are set by the platform
+}
 import { PrismaClient } from '@prisma/client';
 import { createClaudeClient } from '@experience-marketplace/content-engine';
 
