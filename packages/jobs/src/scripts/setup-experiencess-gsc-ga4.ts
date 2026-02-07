@@ -9,7 +9,8 @@
  * Run with: npx tsx packages/jobs/src/scripts/setup-experiencess-gsc-ga4.ts
  */
 
-import 'dotenv/config';
+// Note: On Heroku, env vars are already configured - no dotenv needed
+// For local development, run: source .env && npx tsx ...
 import { prisma } from '@experience-marketplace/database';
 import { getGSCClient, isGSCConfigured } from '../services/gsc-client.js';
 import { GA4Client } from '../services/ga4-client.js';
