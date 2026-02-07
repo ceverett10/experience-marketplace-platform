@@ -77,12 +77,12 @@ async function main() {
       );
 
       if (result.success) {
-        if (result.data?.recovered) {
+        if (result.data?.['recovered']) {
           console.log(`  SKIPPED: Microsite already exists`);
           skipped++;
         } else {
-          console.log(`  CREATED: ${result.data?.fullDomain}`);
-          console.log(`  Brand: ${result.data?.micrositeId}`);
+          console.log(`  CREATED: ${result.data?.['fullDomain']}`);
+          console.log(`  Brand: ${result.data?.['micrositeId']}`);
           created++;
         }
       } else {
