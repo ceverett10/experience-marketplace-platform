@@ -122,22 +122,22 @@ async function main() {
 
       if (existingProperty) {
         console.log(`✓ GA4 property exists: ${existingProperty.displayName}`);
-        console.log(`  Property ID: ${existingProperty.name?.split('/').pop()}`);
+        console.log(`  Property ID: ${existingProperty.propertyId}`);
 
         // Get measurement ID
-        const dataStreams = await ga4.listDataStreams(existingProperty.name!);
+        const dataStreams = await ga4.listDataStreams(existingProperty.propertyId);
         const webStream = dataStreams.find(s => s.type === 'WEB_DATA_STREAM');
-        if (webStream) {
-          console.log(`  Measurement ID: ${webStream.webStreamData?.measurementId}`);
+        if (webStream?.measurementId) {
+          console.log(`  Measurement ID: ${webStream.measurementId}`);
 
           // Store measurement ID in platform settings or database
-          await storeMeasurementId(webStream.webStreamData?.measurementId!);
+          await storeMeasurementId(webStream.measurementId);
         }
       } else {
         console.log(`Creating GA4 property for ${PARENT_DOMAIN}...`);
 
         const property = await ga4.createProperty({
-          parent: `accounts/${GA4_ACCOUNT_ID}`,
+          accountId: `accounts/${GA4_ACCOUNT_ID}`,
           displayName: `Experiencess Microsites`,
           timeZone: 'Europe/London',
           currencyCode: 'GBP',
@@ -147,16 +147,17 @@ async function main() {
         console.log(`✓ Created property: ${property.displayName}`);
 
         // Create web data stream
-        const stream = await ga4.createWebDataStream(property.name!, {
+        const stream = await ga4.createWebDataStream({
+          propertyId: property.propertyId,
           displayName: `${PARENT_DOMAIN} - All Subdomains`,
-          defaultUri: `https://${PARENT_DOMAIN}`,
+          websiteUrl: `https://${PARENT_DOMAIN}`,
         });
 
         console.log(`✓ Created data stream: ${stream.displayName}`);
-        console.log(`  Measurement ID: ${stream.webStreamData?.measurementId}`);
+        console.log(`  Measurement ID: ${stream.measurementId}`);
 
         // Store measurement ID
-        await storeMeasurementId(stream.webStreamData?.measurementId!);
+        await storeMeasurementId(stream.measurementId);
       }
     } catch (error) {
       console.error('GA4 setup error:', error);
@@ -189,7 +190,7 @@ async function main() {
     for (const ms of microsites) {
       const currentSeoConfig = (ms.seoConfig as Record<string, any>) || {};
 
-      if (currentSeoConfig.gaMeasurementId !== measurementId) {
+      if (currentSeoConfig['gaMeasurementId'] !== measurementId) {
         await prisma.micrositeConfig.update({
           where: { id: ms.id },
           data: {
