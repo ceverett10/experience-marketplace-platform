@@ -1152,13 +1152,14 @@ export async function handleContentOptimize(job: Job<ContentOptimizePayload>): P
     let targetWordCount = { min: 1000, max: 2000 };
 
     switch (reason) {
-      case 'thin_content':
+      case 'thin_content': {
         // Expand thin content to meet SEO requirements
         const currentWords = performanceData?.currentWordCount || 0;
         const targetWords = performanceData?.targetWordCount || 800;
         targetWordCount = { min: Math.max(targetWords + 200, 1000), max: 2000 }; // At least 200 words above threshold
         optimizationPrompt = `IMPORTANT: This content is too short (${currentWords} words). Expand it to at least ${targetWordCount.min} words while maintaining quality. Add more detailed information, examples, and helpful context for readers.`;
         break;
+      }
       case 'low_ctr':
         optimizationPrompt = `Improve headline and meta description to increase click-through rate. Current CTR: ${performanceData?.ctr?.toFixed(2)}%`;
         break;
