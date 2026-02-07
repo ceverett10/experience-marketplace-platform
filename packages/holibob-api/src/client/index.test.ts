@@ -69,7 +69,7 @@ describe('HolibobClient', () => {
 
       // Mock Product Detail returns full product info
       const productDetailResponse = {
-        product: {
+        productDetail: {
           id: 'prod-1',
           name: 'Test Experience',
           shortDescription: 'A great experience',
@@ -155,7 +155,7 @@ describe('HolibobClient', () => {
       // Mock product detail responses for all 10 products
       for (let i = 0; i < 10; i++) {
         mockRequest.mockResolvedValueOnce({
-          product: { id: `prod-${i}`, name: `Test ${i}` },
+          productDetail: { id: `prod-${i}`, name: `Test ${i}` },
         });
       }
 
@@ -178,7 +178,7 @@ describe('HolibobClient', () => {
         price: { amount: 99.99, currency: 'GBP' },
       };
 
-      mockRequest.mockResolvedValueOnce({ product: mockProduct });
+      mockRequest.mockResolvedValueOnce({ productDetail: mockProduct });
 
       const result = await client.getProduct('prod-123');
 
@@ -187,7 +187,7 @@ describe('HolibobClient', () => {
     });
 
     it('should return null for non-existent product', async () => {
-      mockRequest.mockResolvedValueOnce({ product: null });
+      mockRequest.mockResolvedValueOnce({ productDetail: null });
 
       const result = await client.getProduct('non-existent');
 
@@ -290,7 +290,7 @@ describe('HolibobClient', () => {
       mockRequest
         .mockRejectedValueOnce(serverError)
         .mockRejectedValueOnce(serverError)
-        .mockResolvedValueOnce({ product: { id: 'prod-1' } });
+        .mockResolvedValueOnce({ productDetail: { id: 'prod-1' } });
 
       const result = await client.getProduct('prod-1');
 
