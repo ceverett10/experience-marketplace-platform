@@ -112,6 +112,7 @@ class QueueRegistry {
       'SEO_OPPORTUNITY_SCAN', // Cross-site scan, no single siteId
       'SEO_OPPORTUNITY_OPTIMIZE', // Cross-site optimization, no single siteId
       'SITE_CREATE', // Creates a new site — siteId doesn't exist yet
+      'MICROSITE_CONTENT_GENERATE', // Microsites use micrositeId, not siteId
     ];
     if (!siteId && rawSiteId !== 'all' && !siteOptionalTypes.includes(jobType)) {
       const hasDomainId = !!(payload as { domainId?: string }).domainId;

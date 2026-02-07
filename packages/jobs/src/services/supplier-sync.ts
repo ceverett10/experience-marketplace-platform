@@ -126,48 +126,42 @@ export async function syncSuppliersFromHolibob(): Promise<SupplierSyncResult> {
   const supplierMap = new Map<string, DiscoveredSupplier>();
 
   try {
-    // Step 1: Get inventory landscape (cities and categories)
-    console.log('[Supplier Sync] Fetching inventory landscape...');
+    // Use a hardcoded list of major cities since Places API is unreliable
+    // These cover the main markets for Holibob's inventory
+    const majorCities = [
+      'London', 'Paris', 'Barcelona', 'Rome', 'Amsterdam',
+      'Berlin', 'Madrid', 'Lisbon', 'Prague', 'Vienna',
+      'Edinburgh', 'Dublin', 'Athens', 'Florence', 'Venice',
+      'Munich', 'Brussels', 'Copenhagen', 'Stockholm', 'Budapest',
+      'New York', 'Los Angeles', 'Miami', 'San Francisco', 'Las Vegas',
+      'Sydney', 'Melbourne', 'Tokyo', 'Singapore', 'Hong Kong',
+      'Dubai', 'Bangkok', 'Bali', 'Cape Town', 'Reykjavik',
+    ];
 
-    await rateLimiter.wait();
-    const places = await client.getPlaces({ type: 'CITY' });
-    console.log(`[Supplier Sync] Found ${places.length} cities`);
+    console.log(`[Supplier Sync] Scanning ${majorCities.length} cities for products...`);
 
-    await rateLimiter.wait();
-    const categories = await client.getCategories();
-    console.log(`[Supplier Sync] Found ${categories.length} categories`);
-
-    // Step 2: Discover products across city/category combinations
-    // Limit to top cities by product count to avoid excessive API calls
-    const topCities = places
-      .filter((p) => p.productCount && p.productCount > 0)
-      .sort((a, b) => (b.productCount || 0) - (a.productCount || 0))
-      .slice(0, 50); // Top 50 cities
-
-    console.log(`[Supplier Sync] Scanning top ${topCities.length} cities for products...`);
-
-    for (const city of topCities) {
+    for (const city of majorCities) {
       try {
         await rateLimiter.wait();
 
-        // Discover products for this city
+        // Discover products for this city (Holibob max is 20 per request)
         const response = await client.discoverProducts(
-          { freeText: city.name, currency: 'GBP' },
-          { pageSize: 50 }
+          { freeText: city, currency: 'GBP' },
+          { pageSize: 20 }
         );
 
         console.log(
-          `[Supplier Sync] City "${city.name}": found ${response.products.length} products`
+          `[Supplier Sync] City "${city}": found ${response.products.length} products`
         );
 
         // Extract supplier information from products
         for (const product of response.products) {
-          aggregateSupplierFromProduct(supplierMap, product, city.name);
+          aggregateSupplierFromProduct(supplierMap, product, city);
         }
 
         await rateLimiter.waitBetweenBatches();
       } catch (cityError) {
-        const errorMsg = `Error scanning city "${city.name}": ${
+        const errorMsg = `Error scanning city "${city}": ${
           cityError instanceof Error ? cityError.message : String(cityError)
         }`;
         console.error(`[Supplier Sync] ${errorMsg}`);
