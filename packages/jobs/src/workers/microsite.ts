@@ -225,6 +225,8 @@ export async function handleMicrositeCreate(
           defaultTitle: seoTitleConfig.defaultTitle,
           defaultDescription: description || brandIdentity.tagline,
           keywords: categories,
+          // Use shared GA4 property for all microsites
+          gaMeasurementId: process.env['MICROSITE_GA4_MEASUREMENT_ID'] || null,
         },
         homepageConfig: {
           hero: {
