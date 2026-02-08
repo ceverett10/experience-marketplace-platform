@@ -82,9 +82,9 @@ async function getFeaturedExperiences(
               { pageSize: 50, seenProductIdList: seenProductIds }
             );
 
-            // Filter products by supplier ID
+            // Filter products by provider ID (Holibob uses provider.id, not supplierId)
             for (const product of response.products) {
-              if (product.supplierId === micrositeContext.holibobSupplierId) {
+              if (product.provider?.id === micrositeContext.holibobSupplierId) {
                 // Map to ExperienceListItem format
                 const primaryImage =
                   product.imageList?.[0]?.url ?? product.imageUrl ?? '/placeholder-experience.jpg';
