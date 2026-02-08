@@ -357,7 +357,8 @@ export default async function HomePage() {
   const site = await getSiteFromHostname(hostname);
 
   // === MICROSITE LAYOUT ROUTING ===
-  // For microsites, use the appropriate layout based on product count
+  // For ALL microsites, use Product List by Provider (not Product Discovery)
+  // Microsites are single-operator sites with a specific set of products
   if (isMicrosite(site.micrositeContext)) {
     const layoutConfig = site.micrositeContext.layoutConfig;
     console.log(
@@ -390,23 +391,20 @@ export default async function HomePage() {
       // Fall through to catalog if product fetch fails
     }
 
-    // CATALOG: Supplier with 2-50 products
-    if (layoutConfig.resolvedType === 'CATALOG' || layoutConfig.resolvedType === 'PRODUCT_SPOTLIGHT') {
-      // Get all products for the catalog
-      const experiences = await getFeaturedExperiences(site, site.homepageConfig?.popularExperiences);
+    // ALL microsites (CATALOG, MARKETPLACE, or PRODUCT_SPOTLIGHT fallback) use CatalogHomepage
+    // This ensures we use Product List by Provider and don't show irrelevant destinations/categories
+    // getFeaturedExperiences() uses getProductsByProvider() for microsites
+    const experiences = await getFeaturedExperiences(site, site.homepageConfig?.popularExperiences);
 
-      return (
-        <CatalogHomepage
-          site={site}
-          layoutConfig={layoutConfig}
-          experiences={experiences}
-          heroConfig={site.homepageConfig?.hero}
-          testimonials={site.homepageConfig?.testimonials}
-        />
-      );
-    }
-
-    // MARKETPLACE: Fall through to regular marketplace layout below
+    return (
+      <CatalogHomepage
+        site={site}
+        layoutConfig={layoutConfig}
+        experiences={experiences}
+        heroConfig={site.homepageConfig?.hero}
+        testimonials={site.homepageConfig?.testimonials}
+      />
+    );
   }
   // === END MICROSITE LAYOUT ROUTING ===
 
