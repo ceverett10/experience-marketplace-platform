@@ -18,6 +18,7 @@ import {
   getMicrositeHomepageProducts,
   isMicrosite,
   localProductToExperienceListItem,
+  getRelatedMicrosites,
 } from '@/lib/microsite-experiences';
 import {
   isParentDomain,
@@ -424,6 +425,18 @@ export default async function HomePage() {
     // getFeaturedExperiences() uses getProductsByProvider() for microsites
     const experiences = await getFeaturedExperiences(site, site.homepageConfig?.popularExperiences);
 
+    // Fetch related microsites for cross-linking (SEO benefit)
+    // This finds other microsites that share cities or categories with this one
+    let relatedMicrosites: Awaited<ReturnType<typeof getRelatedMicrosites>> = [];
+    if (site.micrositeContext.micrositeId) {
+      relatedMicrosites = await getRelatedMicrosites(
+        site.micrositeContext.micrositeId,
+        site.micrositeContext.supplierCities || [],
+        site.micrositeContext.supplierCategories || [],
+        6
+      );
+    }
+
     return (
       <CatalogHomepage
         site={site}
@@ -431,6 +444,7 @@ export default async function HomePage() {
         experiences={experiences}
         heroConfig={site.homepageConfig?.hero}
         testimonials={site.homepageConfig?.testimonials}
+        relatedMicrosites={relatedMicrosites}
       />
     );
   }

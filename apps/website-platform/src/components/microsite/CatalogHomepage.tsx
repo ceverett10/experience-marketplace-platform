@@ -18,6 +18,8 @@ import { BLUR_PLACEHOLDER, isHolibobImage } from '@/lib/image-utils';
 import type { SiteConfig, HomepageConfig } from '@/lib/tenant';
 import type { MicrositeLayoutConfig } from '@/lib/microsite-layout';
 import type { ExperienceListItem } from '@/lib/holibob';
+import type { RelatedMicrosite } from '@/lib/microsite-experiences';
+import { RelatedMicrosites } from '@/components/microsites/RelatedMicrosites';
 
 interface CatalogHomepageProps {
   site: SiteConfig;
@@ -25,6 +27,7 @@ interface CatalogHomepageProps {
   experiences: ExperienceListItem[];
   heroConfig?: HomepageConfig['hero'];
   testimonials?: HomepageConfig['testimonials'];
+  relatedMicrosites?: RelatedMicrosite[];
 }
 
 export function CatalogHomepage({
@@ -33,6 +36,7 @@ export function CatalogHomepage({
   experiences,
   heroConfig,
   testimonials,
+  relatedMicrosites,
 }: CatalogHomepageProps) {
   const primaryColor = site.brand?.primaryColor ?? '#6366f1';
   const gridColumns = layoutConfig.gridColumns;
@@ -281,6 +285,11 @@ export function CatalogHomepage({
             </div>
           </div>
         </section>
+      )}
+
+      {/* Related Microsites - Cross-linking for SEO */}
+      {relatedMicrosites && relatedMicrosites.length > 0 && (
+        <RelatedMicrosites microsites={relatedMicrosites} />
       )}
     </>
   );
