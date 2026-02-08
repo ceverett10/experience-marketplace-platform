@@ -81,14 +81,14 @@ describe('GET /api/sites', () => {
     );
   });
 
-  it('does not filter when status is "all"', async () => {
+  it('excludes archived sites when status is "all"', async () => {
     mockPrisma.site.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
 
     await GET(createRequest('http://localhost/api/sites?status=all'));
 
     expect(mockPrisma.site.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: {},
+        where: { status: { not: 'ARCHIVED' } },
       })
     );
   });
