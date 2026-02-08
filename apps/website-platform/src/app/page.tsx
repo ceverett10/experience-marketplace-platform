@@ -18,10 +18,7 @@ import {
   getMicrositeHomepageProducts,
   isMicrosite,
   localProductToExperienceListItem,
-  getRelatedMicrosites,
-  type RelatedMicrosite,
 } from '@/lib/microsite-experiences';
-import { RelatedMicrosites } from '@/components/microsites/RelatedMicrosites';
 import {
   isParentDomain,
   getFeaturedSuppliers,
@@ -327,6 +324,37 @@ async function getLatestBlogPosts(siteId: string) {
   }
 }
 
+/**
+ * Generate metadata for homepage including canonical URL
+ * Handles regular sites, microsites, and parent domain
+ */
+export async function generateMetadata() {
+  const headersList = await headers();
+  const hostname = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
+
+  // Parent domain has its own metadata
+  if (isParentDomain(hostname)) {
+    return {
+      title: 'Experiencess - Discover Amazing Experiences',
+      description: 'Find and book unique experiences, tours, and activities worldwide.',
+      alternates: {
+        canonical: `https://${hostname}`,
+      },
+    };
+  }
+
+  const site = await getSiteFromHostname(hostname);
+  const baseUrl = `https://${site.primaryDomain || hostname}`;
+
+  return {
+    title: site.seoConfig?.defaultTitle || site.name,
+    description: site.seoConfig?.defaultDescription || site.description,
+    alternates: {
+      canonical: baseUrl,
+    },
+  };
+}
+
 export default async function HomePage() {
   const headersList = await headers();
   // On Heroku/Cloudflare, use x-forwarded-host to get the actual external domain
@@ -460,27 +488,8 @@ export default async function HomePage() {
   // Fetch latest blog posts
   const blogPosts = await getLatestBlogPosts(site.id);
 
-  // Fetch related microsites for cross-linking (only for microsites)
-  let relatedMicrosites: RelatedMicrosite[] = [];
-  if (isMicrosite(site.micrositeContext) && site.micrositeContext.micrositeId) {
-    try {
-      // Get cities and categories from the microsite's supplier/product
-      const microsite = await prisma.micrositeConfig.findUnique({
-        where: { id: site.micrositeContext.micrositeId },
-        include: { supplier: { select: { cities: true, categories: true } } },
-      });
-      if (microsite?.supplier) {
-        relatedMicrosites = await getRelatedMicrosites(
-          site.micrositeContext.micrositeId,
-          microsite.supplier.cities,
-          microsite.supplier.categories,
-          6
-        );
-      }
-    } catch (error) {
-      console.error('[Homepage] Error fetching related microsites:', error);
-    }
-  }
+  // Note: Related microsites cross-linking is handled in CatalogHomepage for microsites
+  // Regular marketplace sites don't need cross-linking to microsites
 
   // Build structured data for SEO
   const siteUrl = `https://${site.primaryDomain || hostname}`;
@@ -756,9 +765,6 @@ export default async function HomePage() {
 
       {/* Latest Blog Posts - SEO Content */}
       <LatestBlogPosts posts={blogPosts} siteName={site.name} />
-
-      {/* Related Microsites - Cross-linking for SEO (only on microsites) */}
-      {relatedMicrosites.length > 0 && <RelatedMicrosites microsites={relatedMicrosites} />}
     </>
   );
 }
