@@ -111,6 +111,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const title = destination.metaTitle || destination.title;
   const description = destination.metaDescription || destination.content?.body.substring(0, 160);
 
+  // Generate canonical URL - use custom if set, otherwise default to page URL
+  const canonicalUrl = destination.canonicalUrl || `https://${site.primaryDomain || hostname}/destinations/${slug}`;
+
   return {
     title: `${title} | ${site.name}`,
     description,
@@ -119,11 +122,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description: description || undefined,
       type: 'website',
     },
-    alternates: destination.canonicalUrl
-      ? {
-          canonical: destination.canonicalUrl,
-        }
-      : undefined,
+    alternates: {
+      canonical: canonicalUrl,
+    },
     robots: {
       index: !destination.noIndex,
       follow: !destination.noIndex,

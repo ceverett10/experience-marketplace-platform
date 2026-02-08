@@ -83,6 +83,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const title = post.metaTitle || post.title;
   const description = post.metaDescription || post.content?.body.substring(0, 160);
 
+  // Generate canonical URL - use custom if set, otherwise default to page URL
+  // Note: blog posts are stored with 'blog/' prefix in slug
+  const canonicalUrl = post.canonicalUrl || `https://${site.primaryDomain || hostname}/blog/${slug}`;
+
   return {
     title: `${title} | ${site.name}`,
     description,
@@ -93,11 +97,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       publishedTime: post.createdAt.toISOString(),
       modifiedTime: post.updatedAt.toISOString(),
     },
-    alternates: post.canonicalUrl
-      ? {
-          canonical: post.canonicalUrl,
-        }
-      : undefined,
+    alternates: {
+      canonical: canonicalUrl,
+    },
     robots: {
       index: !post.noIndex,
       follow: !post.noIndex,

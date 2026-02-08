@@ -153,13 +153,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     };
   }
 
+  // Check if this is a Viator product - contractually cannot be indexed
+  const isViatorProduct = experience.provider?.name?.toLowerCase().includes('viator');
+
   return {
     title: `${experience.title} | ${site.name}`,
     description: experience.shortDescription,
-    // Prevent product pages from being indexed - they're thin content from external API
+    // Viator products cannot be indexed (contractual requirement)
+    // Other suppliers' products can be indexed for SEO
     robots: {
-      index: false,
-      follow: true, // Still follow links to other pages
+      index: !isViatorProduct,
+      follow: true,
     },
     openGraph: {
       title: experience.title,

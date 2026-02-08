@@ -115,6 +115,11 @@ export interface Experience {
   }[];
   additionalInfo: string[];
   languages: string[];
+  /** Provider/supplier info - used for dynamic indexing rules */
+  provider?: {
+    id: string;
+    name: string;
+  };
 }
 
 export interface ExperienceListItem {
@@ -258,6 +263,13 @@ export function mapProductToExperience(product: {
     formattedAddress?: string;
     mapImageUrl?: string;
   };
+  // Provider/supplier info
+  provider?: {
+    id?: string;
+    name?: string;
+  };
+  supplierId?: string;
+  supplierName?: string;
   // Review list from Product Detail API
   reviewList?: {
     recordCount?: number;
@@ -511,6 +523,18 @@ export function mapProductToExperience(product: {
     itinerary,
     additionalInfo,
     languages,
+    // Provider/supplier info - used for dynamic indexing rules
+    provider: product.provider?.id
+      ? {
+          id: product.provider.id,
+          name: product.provider.name ?? product.supplierName ?? '',
+        }
+      : product.supplierId
+        ? {
+            id: product.supplierId,
+            name: product.supplierName ?? '',
+          }
+        : undefined,
   };
 }
 
