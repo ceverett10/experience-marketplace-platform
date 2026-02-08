@@ -73,8 +73,15 @@ async function getFeaturedExperiences(
           // Map to ExperienceListItem format
           const primaryImage =
             product.imageList?.[0]?.url ?? product.imageUrl ?? '/placeholder-experience.jpg';
+          // ProductList API returns guidePrice in MAJOR units (e.g., 71 EUR, not 7100 cents)
           const priceAmount = product.guidePrice ?? product.priceFrom ?? 0;
           const priceCurrency = product.guidePriceCurrency ?? product.priceCurrency ?? 'GBP';
+          // Use pre-formatted text if available, otherwise format directly (no /100 division)
+          const priceFormatted =
+            product.guidePriceFormattedText ??
+            new Intl.NumberFormat('en-GB', { style: 'currency', currency: priceCurrency }).format(
+              priceAmount
+            );
 
           let durationFormatted = 'Duration varies';
           if (product.durationText) {
@@ -94,7 +101,7 @@ async function getFeaturedExperiences(
             price: {
               amount: priceAmount,
               currency: priceCurrency,
-              formatted: formatPrice(priceAmount, priceCurrency),
+              formatted: priceFormatted,
             },
             duration: { formatted: durationFormatted },
             rating: product.reviewRating
