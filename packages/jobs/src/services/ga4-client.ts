@@ -187,8 +187,13 @@ export class GA4Client {
     }>
   > {
     try {
+      // Ensure accountId is in the correct format: accounts/123456
+      const formattedAccountId = accountId.startsWith('accounts/')
+        ? accountId
+        : `accounts/${accountId}`;
+
       const response = await this.analyticsAdmin.properties.list({
-        filter: `parent:${accountId}`,
+        filter: `parent:${formattedAccountId}`,
       });
 
       return (response.data.properties || []).map((property) => {
