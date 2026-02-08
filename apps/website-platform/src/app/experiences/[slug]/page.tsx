@@ -203,10 +203,11 @@ export default async function ExperienceDetailPage({ params }: Props) {
     experience.cancellationPolicy?.toLowerCase().includes('free') ||
     experience.cancellationPolicy?.toLowerCase().includes('full refund');
 
-  // Generate JSON-LD structured data with enhanced Product schema
+  // Generate JSON-LD structured data - use Product type for review/rating support
+  // Note: TouristAttraction doesn't support aggregateRating/review per Schema.org spec
   const jsonLd = {
     '@context': 'https://schema.org',
-    '@type': ['Product', 'TouristAttraction'],
+    '@type': 'Product',
     name: experience.title,
     description: experience.description,
     image: experience.images.length > 0 ? experience.images : [experience.imageUrl],
@@ -222,17 +223,21 @@ export default async function ExperienceDetailPage({ params }: Props) {
       url: `https://${site.primaryDomain || hostname}/experiences/${slug}`,
       priceValidUntil: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(), // 90 days from now
     },
-    aggregateRating: experience.rating
-      ? {
+    // Only include aggregateRating if we have valid rating data
+    ...(experience.rating &&
+      experience.rating.count > 0 && {
+        aggregateRating: {
           '@type': 'AggregateRating',
           ratingValue: experience.rating.average,
           reviewCount: experience.rating.count,
           bestRating: 5,
           worstRating: 1,
-        }
-      : undefined,
-    review: experience.reviews
-      ? experience.reviews.map((review) => ({
+        },
+      }),
+    // Only include reviews if we have them
+    ...(experience.reviews &&
+      experience.reviews.length > 0 && {
+        review: experience.reviews.map((review) => ({
           '@type': 'Review',
           reviewRating: {
             '@type': 'Rating',
@@ -244,20 +249,32 @@ export default async function ExperienceDetailPage({ params }: Props) {
             name: review.authorName,
           },
           reviewBody: review.content,
-        }))
-      : undefined,
+        })),
+      }),
+    category: experience.categories.map((cat) => cat.name).join(', '),
+  };
+
+  // Separate TouristAttraction schema for location data (without reviews - not supported)
+  const touristAttractionLd = {
+    '@context': 'https://schema.org',
+    '@type': 'TouristAttraction',
+    name: experience.title,
+    description: experience.shortDescription,
+    image: experience.images.length > 0 ? experience.images[0] : experience.imageUrl,
     address: {
       '@type': 'PostalAddress',
       streetAddress: experience.location.address,
       addressLocality: experience.location.name,
     },
-    geo: {
-      '@type': 'GeoCoordinates',
-      latitude: experience.location.lat,
-      longitude: experience.location.lng,
-    },
-    category: experience.categories.map((cat) => cat.name).join(', '),
-    duration: experience.duration.formatted,
+    ...(experience.location.lat &&
+      experience.location.lng && {
+        geo: {
+          '@type': 'GeoCoordinates',
+          latitude: experience.location.lat,
+          longitude: experience.location.lng,
+        },
+      }),
+    touristType: experience.categories.map((cat) => cat.name),
   };
 
   // FAQ structured data for SEO
@@ -349,10 +366,15 @@ export default async function ExperienceDetailPage({ params }: Props) {
         currency={experience.price?.currency}
       />
 
-      {/* JSON-LD Structured Data - Product */}
+      {/* JSON-LD Structured Data - Product (with reviews/ratings) */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      {/* JSON-LD Structured Data - TouristAttraction (location info) */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(touristAttractionLd) }}
       />
       {/* JSON-LD Structured Data - Breadcrumbs */}
       <script

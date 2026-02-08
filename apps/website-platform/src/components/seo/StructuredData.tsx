@@ -62,6 +62,7 @@ interface TourOperatorSchemaProps {
 /**
  * Schema.org TouristTrip markup for individual experience pages
  * Helps search engines understand the experience content for rich results
+ * Note: TouristTrip doesn't support aggregateRating - use ProductSchema for reviews
  */
 export function TouristTripSchema({ experience, url, siteName }: TouristTripSchemaProps) {
   const schema = {
@@ -85,15 +86,8 @@ export function TouristTripSchema({ experience, url, siteName }: TouristTripSche
       validFrom: new Date().toISOString(),
       url: url,
     },
-    ...(experience.rating && {
-      aggregateRating: {
-        '@type': 'AggregateRating',
-        ratingValue: experience.rating.average.toFixed(1),
-        reviewCount: experience.rating.count,
-        bestRating: '5',
-        worstRating: '1',
-      },
-    }),
+    // Note: aggregateRating is NOT a valid property for TouristTrip
+    // Reviews should be on Product schema instead
     ...(experience.location && {
       touristDestination: {
         '@type': 'TouristDestination',
@@ -175,7 +169,8 @@ export function ExperienceListSchema({
       '@type': 'ListItem',
       position: index + 1,
       item: {
-        '@type': 'TouristTrip',
+        // Use Product type for ItemList items to enable aggregateRating support
+        '@type': 'Product',
         name: exp.title,
         description: exp.shortDescription,
         image: exp.imageUrl,
