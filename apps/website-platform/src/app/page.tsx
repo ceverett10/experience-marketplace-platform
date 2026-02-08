@@ -100,7 +100,8 @@ async function getFeaturedExperiences(
             rating: product.reviewRating
               ? { average: product.reviewRating, count: product.reviewCount ?? 0 }
               : null,
-            location: { name: product.place?.name ?? '' },
+            // ProductListItem place field has different schema - use empty for now
+            location: { name: '' },
           };
         });
 
