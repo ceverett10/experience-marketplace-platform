@@ -11,11 +11,13 @@ describe('Jobs Package', () => {
       expect(QUEUE_NAMES.DOMAIN).toBe('domain');
       expect(QUEUE_NAMES.ANALYTICS).toBe('analytics');
       expect(QUEUE_NAMES.ABTEST).toBe('abtest');
+      expect(QUEUE_NAMES.SYNC).toBe('sync');
+      expect(QUEUE_NAMES.MICROSITE).toBe('microsite');
     });
 
-    it('should have 7 queue names', () => {
+    it('should have 9 queue names', () => {
       const queueNames = Object.keys(QUEUE_NAMES);
-      expect(queueNames).toHaveLength(7);
+      expect(queueNames).toHaveLength(9);
     });
   });
 });
