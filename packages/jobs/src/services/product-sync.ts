@@ -1,7 +1,17 @@
 /**
  * Product Sync Service
  * Syncs product data from Holibob API for suppliers in the database
- * Fetches full product details and caches them locally
+ *
+ * NEW APPROACH (correct):
+ * Uses the Product List endpoint filtered by Provider ID to get ALL products
+ * for each provider directly. This is the correct approach for microsites.
+ *
+ * OLD APPROACH (deprecated):
+ * Used Product Discovery with city search and filtered by supplierId - this was
+ * unreliable and missed many products.
+ *
+ * NOTE: Marketplaces still use Product Discovery for search (location/date/activity based).
+ * This sync is specifically for populating microsite product catalogs.
  */
 
 import { prisma, Prisma } from '@experience-marketplace/database';
@@ -9,7 +19,6 @@ import {
   createHolibobClient,
   type Product as HolibobProduct,
 } from '@experience-marketplace/holibob-api';
-import { createBulkSyncRateLimiter, RateLimiter } from '../utils/rate-limiter.js';
 
 export interface ProductSyncResult {
   success: boolean;
@@ -24,7 +33,7 @@ export interface ProductSyncResult {
 export interface ProductSyncOptions {
   /** Specific supplier IDs to sync (if not provided, syncs all) */
   supplierIds?: string[];
-  /** Maximum products per supplier to sync */
+  /** Maximum products per supplier to sync (default: no limit) */
   maxProductsPerSupplier?: number;
   /** Force sync even if recently synced */
   forceSync?: boolean;
@@ -110,8 +119,12 @@ function getHolibobClient() {
 }
 
 /**
- * Sync products from Holibob API
- * Iterates through suppliers in database and fetches all their products
+ * Sync products from Holibob API using Product List by Provider endpoint
+ *
+ * This is the CORRECT approach for microsites:
+ * - Uses Product List filtered by Provider ID to get ALL products directly
+ * - Much simpler and more reliable than Product Discovery approach
+ * - Gets complete product list for each provider
  */
 export async function syncProductsFromHolibob(
   options: ProductSyncOptions = {}
@@ -121,15 +134,14 @@ export async function syncProductsFromHolibob(
 
   const {
     supplierIds,
-    maxProductsPerSupplier = 100,
+    maxProductsPerSupplier,
     forceSync = false,
     staleSyncThresholdHours = 24,
   } = options;
 
-  console.log('[Product Sync] Starting product sync from Holibob...');
+  console.log('[Product Sync] Starting product sync from Holibob using Product List by Provider...');
 
   const client = getHolibobClient();
-  const rateLimiter = createBulkSyncRateLimiter();
 
   let suppliersProcessed = 0;
   let productsDiscovered = 0;
@@ -155,7 +167,6 @@ export async function syncProductsFromHolibob(
         id: true,
         holibobSupplierId: true,
         name: true,
-        cities: true,
       },
     });
 
@@ -170,24 +181,31 @@ export async function syncProductsFromHolibob(
     for (const supplier of suppliers) {
       try {
         console.log(
-          `[Product Sync] Processing supplier "${supplier.name}" (${supplier.holibobSupplierId})...`
+          `[Product Sync] Fetching products for supplier "${supplier.name}" (${supplier.holibobSupplierId})...`
         );
 
-        const supplierProducts = await fetchProductsForSupplier(
-          client,
-          rateLimiter,
-          supplier,
-          maxProductsPerSupplier
-        );
+        // Use Product List by Provider endpoint - the CORRECT approach
+        const products = await client.getAllProductsByProvider(supplier.holibobSupplierId);
+
+        // Apply max products limit if specified
+        const productsToSync = maxProductsPerSupplier
+          ? products.slice(0, maxProductsPerSupplier)
+          : products;
 
         console.log(
-          `[Product Sync] Fetched ${supplierProducts.length} products for "${supplier.name}"`
+          `[Product Sync] Fetched ${products.length} products for "${supplier.name}" (syncing ${productsToSync.length})`
         );
 
-        productsDiscovered += supplierProducts.length;
+        productsDiscovered += productsToSync.length;
+
+        // Track cities and categories for this supplier
+        const supplierCities = new Set<string>();
+        const supplierCategories = new Set<string>();
+        let minPrice: number | null = null;
+        let maxPrice: number | null = null;
 
         // Upsert products
-        for (const product of supplierProducts) {
+        for (const product of productsToSync) {
           try {
             const result = await upsertProduct(product, supplier.id, existingSlugs);
 
@@ -195,6 +213,23 @@ export async function syncProductsFromHolibob(
               productsCreated++;
             } else {
               productsUpdated++;
+            }
+
+            // Aggregate supplier data from products
+            if (product.place?.name) {
+              supplierCities.add(product.place.name);
+            }
+            if (product.categoryList?.nodes) {
+              for (const cat of product.categoryList.nodes) {
+                if (cat.name) {
+                  supplierCategories.add(cat.name);
+                }
+              }
+            }
+            const price = product.guidePrice ?? product.priceFrom;
+            if (price != null) {
+              if (minPrice === null || price < minPrice) minPrice = price;
+              if (maxPrice === null || price > maxPrice) maxPrice = price;
             }
           } catch (productError) {
             const errorMsg = `Error upserting product "${product.name}": ${
@@ -205,17 +240,20 @@ export async function syncProductsFromHolibob(
           }
         }
 
-        // Update supplier's last sync timestamp
+        // Update supplier with aggregated data from products
         await prisma.supplier.update({
           where: { id: supplier.id },
           data: {
             lastSyncedAt: new Date(),
-            productCount: supplierProducts.length,
+            productCount: productsToSync.length,
+            cities: Array.from(supplierCities),
+            categories: Array.from(supplierCategories),
+            priceRangeMin: minPrice,
+            priceRangeMax: maxPrice,
           },
         });
 
         suppliersProcessed++;
-        await rateLimiter.waitBetweenBatches();
       } catch (supplierError) {
         const errorMsg = `Error processing supplier "${supplier.name}": ${
           supplierError instanceof Error ? supplierError.message : String(supplierError)
@@ -256,73 +294,6 @@ export async function syncProductsFromHolibob(
       duration: Date.now() - startTime,
     };
   }
-}
-
-/**
- * Fetch products for a specific supplier
- * Uses the supplier's cities to discover products and filters by supplierId
- */
-async function fetchProductsForSupplier(
-  client: ReturnType<typeof getHolibobClient>,
-  rateLimiter: RateLimiter,
-  supplier: { holibobSupplierId: string; name: string; cities: string[] },
-  maxProducts: number
-): Promise<HolibobProduct[]> {
-  const productMap = new Map<string, HolibobProduct>();
-  const seenProductIds: string[] = [];
-
-  // Search across supplier's known cities
-  const citiesToSearch = supplier.cities.length > 0 ? supplier.cities : ['London'];
-
-  for (const city of citiesToSearch.slice(0, 5)) {
-    // Limit cities to avoid excessive API calls
-    if (productMap.size >= maxProducts) {
-      break;
-    }
-
-    try {
-      await rateLimiter.wait();
-
-      // Search for products in this city
-      const response = await client.discoverProducts(
-        { freeText: city, currency: 'GBP' },
-        { pageSize: 50, seenProductIdList: seenProductIds }
-      );
-
-      // Filter products by supplier and get full details
-      for (const product of response.products) {
-        if (productMap.size >= maxProducts) {
-          break;
-        }
-
-        // Only include products from this supplier
-        if (product.supplierId === supplier.holibobSupplierId) {
-          if (!productMap.has(product.id)) {
-            // Get full product details if we don't already have them
-            await rateLimiter.wait();
-            try {
-              const fullProduct = await client.getProduct(product.id);
-              if (fullProduct) {
-                productMap.set(product.id, fullProduct);
-              }
-            } catch (detailError) {
-              // Fall back to basic product info
-              productMap.set(product.id, product);
-            }
-          }
-        }
-
-        seenProductIds.push(product.id);
-      }
-    } catch (error) {
-      console.warn(
-        `[Product Sync] Error searching city "${city}" for supplier "${supplier.name}":`,
-        error
-      );
-    }
-  }
-
-  return Array.from(productMap.values());
 }
 
 /**

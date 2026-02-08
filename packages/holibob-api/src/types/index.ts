@@ -776,6 +776,91 @@ export const BookingListResponseSchema = z.object({
 export type BookingListResponse = z.infer<typeof BookingListResponseSchema>;
 
 // ============================================================================
+// PROVIDER (OPERATOR) TYPES - For Microsite System
+// ============================================================================
+
+/**
+ * Provider represents an operator/supplier that provides experiences
+ *
+ * NOTE: Holibob API's Provider type only exposes id and name fields.
+ * Additional provider info (productCount, rating, etc.) must be derived
+ * from product data or other sources.
+ *
+ * NOTE: providerList endpoint requires elevated permissions most partners
+ * don't have. Discover providers via productList instead.
+ */
+export const ProviderSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+});
+
+export type Provider = z.infer<typeof ProviderSchema>;
+
+/**
+ * Response from providerList query
+ * NOTE: No pagination support - returns all providers if accessible
+ * NOTE: Most partners don't have access to this endpoint
+ */
+export const ProviderListResponseSchema = z.object({
+  recordCount: z.number(),
+  nodes: z.array(ProviderSchema),
+});
+
+export type ProviderListResponse = z.infer<typeof ProviderListResponseSchema>;
+
+/**
+ * Response from productList query
+ * Different from ProductListResponse (which is from Product Discovery)
+ * NOTE: productList doesn't support pagination - returns all matching products
+ */
+export const ProductListByProviderResponseSchema = z.object({
+  recordCount: z.number(),
+  nodes: z.array(ProductSchema),
+});
+
+export type ProductListByProviderResponse = z.infer<typeof ProductListByProviderResponseSchema>;
+
+/**
+ * Provider node from providerTree in productList
+ * This is the RECOMMENDED approach for discovering all providers.
+ *
+ * providerTree returns:
+ * - id: Provider ID
+ * - label: Provider name
+ * - count: Number of products for this provider
+ */
+export const ProviderTreeNodeSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  count: z.number(),
+});
+
+export type ProviderTreeNode = z.infer<typeof ProviderTreeNodeSchema>;
+
+/**
+ * Provider with product count
+ * Extended version of Provider that includes productCount from providerTree
+ */
+export const ProviderWithCountSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  productCount: z.number(),
+});
+
+export type ProviderWithCount = z.infer<typeof ProviderWithCountSchema>;
+
+/**
+ * Response from providerTree query
+ * Returns all providers with their product counts in a single query
+ */
+export const ProviderTreeResponseSchema = z.object({
+  recordCount: z.number(),
+  nodes: z.array(ProviderTreeNodeSchema),
+});
+
+export type ProviderTreeResponse = z.infer<typeof ProviderTreeResponseSchema>;
+
+// ============================================================================
 // CATEGORY & PLACE TYPES
 // ============================================================================
 

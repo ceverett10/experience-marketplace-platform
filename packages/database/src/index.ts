@@ -34,6 +34,7 @@ export {
   JobStatus,
   MicrositeStatus,
   MicrositeEntityType,
+  MicrositeLayoutType,
 } from '@prisma/client';
 
 // Re-export Prisma namespace for advanced typing

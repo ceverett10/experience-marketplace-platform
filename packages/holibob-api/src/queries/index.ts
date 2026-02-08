@@ -667,6 +667,158 @@ export const BOOKING_CANCEL_MUTATION = gql`
 `;
 
 // ============================================================================
+// PROVIDER (OPERATOR) QUERIES - For Microsite System
+// ============================================================================
+
+/**
+ * Get list of all providers (operators/suppliers)
+ *
+ * NOTE: This endpoint requires elevated permissions that most partners don't have.
+ * As an alternative, discover providers via productList which includes provider info.
+ *
+ * Provider type only has id and name fields (no description, productCount, etc.)
+ */
+export const PROVIDER_LIST_QUERY = gql`
+  query ProviderList {
+    providerList {
+      recordCount
+      nodes {
+        id
+        name
+      }
+    }
+  }
+`;
+
+/**
+ * Get all providers using providerTree from productList
+ *
+ * This is the RECOMMENDED approach for discovering all providers.
+ * Returns all providers with their product counts in a single query.
+ *
+ * providerTree returns:
+ * - id: Provider ID
+ * - label: Provider name
+ * - count: Number of products for this provider
+ */
+export const PROVIDER_TREE_QUERY = gql`
+  query GetAllProvidersWithProductCounts {
+    productList {
+      recordCount
+      providerTree {
+        recordCount
+        nodes {
+          id
+          label
+          count
+        }
+      }
+    }
+  }
+`;
+
+/**
+ * Get a single provider by ID
+ *
+ * NOTE: This endpoint may require elevated permissions.
+ * Provider type only has id and name fields.
+ */
+export const PROVIDER_DETAIL_QUERY = gql`
+  query ProviderDetail($id: String!) {
+    provider(id: $id) {
+      id
+      name
+    }
+  }
+`;
+
+// ============================================================================
+// PRODUCT LIST QUERIES - For Microsite System
+// ============================================================================
+
+/**
+ * Get products filtered by provider ID
+ * This is the correct endpoint for microsites - NOT Product Discovery
+ * Product Discovery is for marketplace search (location/date/activity based)
+ * Product List is for getting all products for a specific provider
+ *
+ * NOTE: Holibob API uses String type for providerId, not ID type
+ * NOTE: place field in productList uses different schema than productDetail
+ */
+export const PRODUCT_LIST_BY_PROVIDER_QUERY = gql`
+  query ProductListByProvider($providerId: String!) {
+    productList(filter: { providerId: $providerId }) {
+      recordCount
+      nodes {
+        id
+        name
+        description
+        shortDescription
+        guidePrice
+        guidePriceFormattedText
+        guidePriceCurrency
+        imageList {
+          id
+          url
+        }
+        maxDuration
+        reviewRating
+        reviewCount
+        provider {
+          id
+          name
+        }
+        categoryList {
+          nodes {
+            id
+            name
+          }
+        }
+      }
+    }
+  }
+`;
+
+/**
+ * Get all products - for bulk sync operations
+ * NOTE: productList does not support pagination (no first/after args)
+ * NOTE: place field in productList uses different schema than productDetail
+ */
+export const PRODUCT_LIST_ALL_QUERY = gql`
+  query ProductListAll {
+    productList {
+      recordCount
+      nodes {
+        id
+        name
+        description
+        shortDescription
+        guidePrice
+        guidePriceFormattedText
+        guidePriceCurrency
+        imageList {
+          id
+          url
+        }
+        maxDuration
+        reviewRating
+        reviewCount
+        provider {
+          id
+          name
+        }
+        categoryList {
+          nodes {
+            id
+            name
+          }
+        }
+      }
+    }
+  }
+`;
+
+// ============================================================================
 // CATEGORY & PLACE QUERIES
 // ============================================================================
 

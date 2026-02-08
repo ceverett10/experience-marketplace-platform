@@ -18,6 +18,11 @@ import {
   type Category,
   type Place,
   type PlaceType,
+  type Provider,
+  type ProviderListResponse,
+  type ProductListByProviderResponse,
+  type ProviderWithCount,
+  type ProviderTreeResponse,
 } from '../types/index.js';
 import {
   PRODUCT_LIST_QUERY,
@@ -40,6 +45,11 @@ import {
   BOOKING_CANCEL_MUTATION,
   CATEGORIES_QUERY,
   PLACES_QUERY,
+  PROVIDER_LIST_QUERY,
+  PROVIDER_DETAIL_QUERY,
+  PRODUCT_LIST_BY_PROVIDER_QUERY,
+  PRODUCT_LIST_ALL_QUERY,
+  PROVIDER_TREE_QUERY,
 } from '../queries/index.js';
 
 export class HolibobClient {
@@ -699,6 +709,152 @@ export class HolibobClient {
     }>(PLACES_QUERY, options);
 
     return response.placeList.nodes;
+  }
+
+  // ==========================================================================
+  // PROVIDER (OPERATOR) QUERIES - For Microsite System
+  // ==========================================================================
+
+  /**
+   * Get all providers (operators/suppliers)
+   *
+   * NOTE: This endpoint requires elevated permissions that most partners don't have.
+   * Will return FORBIDDEN error for standard partner accounts.
+   * Use discoverProvidersFromProducts() as an alternative.
+   */
+  async getProviders(): Promise<ProviderListResponse> {
+    const response = await this.executeQuery<{
+      providerList: ProviderListResponse;
+    }>(PROVIDER_LIST_QUERY, {});
+
+    return response.providerList;
+  }
+
+  /**
+   * Discover providers from the product list using providerTree
+   * This is the RECOMMENDED approach - uses a single query to get all providers
+   * with their product counts, much more efficient than iterating products.
+   *
+   * Note: Returns Provider[] for backwards compatibility. Use getAllProvidersWithCounts()
+   * to get full data including product counts.
+   */
+  async discoverProvidersFromProducts(): Promise<Provider[]> {
+    console.log('[HolibobClient] Discovering providers using providerTree...');
+
+    const providersWithCounts = await this.getAllProvidersWithCounts();
+
+    // Convert to simple Provider array for backwards compatibility
+    const providers: Provider[] = providersWithCounts.map((p) => ({
+      id: p.id,
+      name: p.name,
+    }));
+
+    console.log(`[HolibobClient] Discovered ${providers.length} unique providers`);
+
+    return providers;
+  }
+
+  /**
+   * Get all providers with their product counts using providerTree
+   * This is the most efficient way to discover all providers.
+   *
+   * Returns providers sorted by product count (descending).
+   */
+  async getAllProvidersWithCounts(): Promise<ProviderWithCount[]> {
+    console.log('[HolibobClient] Fetching all providers with product counts...');
+
+    const response = await this.executeQuery<{
+      productList: {
+        recordCount: number;
+        providerTree: {
+          recordCount: number;
+          nodes: Array<{ id: string; label: string; count: number }>;
+        };
+      };
+    }>(PROVIDER_TREE_QUERY, {});
+
+    const providers: ProviderWithCount[] = response.productList.providerTree.nodes.map((node) => ({
+      id: node.id,
+      name: node.label,
+      productCount: node.count,
+    }));
+
+    // Sort by product count descending
+    providers.sort((a, b) => b.productCount - a.productCount);
+
+    console.log(
+      `[HolibobClient] Found ${providers.length} providers across ${response.productList.recordCount} total products`
+    );
+
+    return providers;
+  }
+
+  /**
+   * Get a single provider by ID
+   * NOTE: This endpoint may require elevated permissions.
+   */
+  async getProvider(providerId: string): Promise<Provider | null> {
+    try {
+      const response = await this.executeQuery<{
+        provider: Provider | null;
+      }>(PROVIDER_DETAIL_QUERY, { id: providerId });
+
+      return response.provider;
+    } catch (error) {
+      console.error('[HolibobClient] getProvider error:', {
+        providerId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
+  }
+
+  // ==========================================================================
+  // PRODUCT LIST QUERIES - For Microsite System
+  // ==========================================================================
+
+  /**
+   * Get products filtered by provider ID
+   *
+   * This is the CORRECT endpoint for microsites - NOT Product Discovery.
+   * Product Discovery is for marketplace search (location/date/activity based).
+   * Product List is for getting ALL products for a specific provider.
+   *
+   * NOTE: productList doesn't support pagination - returns all matching products
+   */
+  async getProductsByProvider(providerId: string): Promise<ProductListByProviderResponse> {
+    const response = await this.executeQuery<{
+      productList: ProductListByProviderResponse;
+    }>(PRODUCT_LIST_BY_PROVIDER_QUERY, {
+      providerId,
+    });
+
+    return response.productList;
+  }
+
+  /**
+   * Get ALL products for a provider
+   * Since productList doesn't support pagination, this just calls getProductsByProvider
+   */
+  async getAllProductsByProvider(providerId: string): Promise<Product[]> {
+    const response = await this.getProductsByProvider(providerId);
+    console.log(
+      `[HolibobClient] getAllProductsByProvider(${providerId}): fetched ${response.nodes.length} products`
+    );
+    return response.nodes;
+  }
+
+  /**
+   * Get all products (for bulk sync operations)
+   * Returns products across all providers
+   * NOTE: productList doesn't support pagination - returns all products
+   */
+  async getAllProducts(): Promise<ProductListByProviderResponse> {
+    const response = await this.executeQuery<{
+      productList: ProductListByProviderResponse;
+    }>(PRODUCT_LIST_ALL_QUERY, {});
+
+    return response.productList;
   }
 
   // ==========================================================================

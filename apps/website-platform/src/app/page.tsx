@@ -52,89 +52,70 @@ async function getFeaturedExperiences(
   popularExperiencesConfig?: HomepageConfig['popularExperiences']
 ): Promise<ExperienceListItem[]> {
   // === MICROSITE HANDLING ===
-  // For microsites, call Holibob API directly with supplier-specific filtering
+  // For microsites, use Product List by Provider endpoint (NOT Product Discovery)
+  // This is the CORRECT approach - Product Discovery is for marketplace search
   if (isMicrosite(siteConfig.micrositeContext)) {
     const micrositeContext = siteConfig.micrositeContext;
 
-    // For SUPPLIER microsites, search by supplier's cities and filter by supplier ID
+    // For SUPPLIER microsites, use Product List filtered by Provider ID
     if (micrositeContext.entityType === 'SUPPLIER' && micrositeContext.holibobSupplierId) {
       try {
         const client = getHolibobClient(siteConfig);
-        const supplierProducts: ExperienceListItem[] = [];
-        const seenProductIds: string[] = [];
-
-        // Search using supplier's known cities
-        const citiesToSearch = micrositeContext.supplierCities?.length
-          ? micrositeContext.supplierCities.slice(0, 5) // Limit to 5 cities
-          : [micrositeContext.supplierName ?? 'London']; // Fall back to supplier name or London
 
         console.log(
-          `[Homepage] Microsite SUPPLIER mode: Searching ${citiesToSearch.length} cities for supplier`,
+          `[Homepage] Microsite SUPPLIER mode: Fetching products via Product List for provider`,
           micrositeContext.holibobSupplierId
         );
 
-        for (const city of citiesToSearch) {
-          if (supplierProducts.length >= 20) break; // Enough products found
+        // Use Product List by Provider endpoint - the CORRECT approach for microsites
+        // NOTE: productList returns all products for the provider (no pagination needed)
+        const response = await client.getProductsByProvider(micrositeContext.holibobSupplierId);
 
-          try {
-            const response = await client.discoverProducts(
-              { freeText: city, currency: 'GBP' },
-              { pageSize: 50, seenProductIdList: seenProductIds }
-            );
+        const supplierProducts: ExperienceListItem[] = response.nodes.map((product) => {
+          // Map to ExperienceListItem format
+          const primaryImage =
+            product.imageList?.[0]?.url ?? product.imageUrl ?? '/placeholder-experience.jpg';
+          const priceAmount = product.guidePrice ?? product.priceFrom ?? 0;
+          const priceCurrency = product.guidePriceCurrency ?? product.priceCurrency ?? 'GBP';
 
-            // Filter products by provider ID (Holibob uses provider.id, not supplierId)
-            for (const product of response.products) {
-              if (product.provider?.id === micrositeContext.holibobSupplierId) {
-                // Map to ExperienceListItem format
-                const primaryImage =
-                  product.imageList?.[0]?.url ?? product.imageUrl ?? '/placeholder-experience.jpg';
-                const priceAmount = product.guidePrice ?? product.priceFrom ?? 0;
-                const priceCurrency = product.guidePriceCurrency ?? product.priceCurrency ?? 'GBP';
-
-                let durationFormatted = 'Duration varies';
-                if (product.durationText) {
-                  durationFormatted = product.durationText;
-                } else if (product.maxDuration != null) {
-                  const minutes = parseIsoDuration(product.maxDuration);
-                  if (minutes > 0) durationFormatted = formatDuration(minutes, 'minutes');
-                }
-
-                supplierProducts.push({
-                  id: product.id,
-                  title: product.name ?? 'Experience',
-                  slug: product.id,
-                  shortDescription: product.shortDescription ?? '',
-                  imageUrl: primaryImage,
-                  price: {
-                    amount: priceAmount,
-                    currency: priceCurrency,
-                    formatted: formatPrice(priceAmount, priceCurrency),
-                  },
-                  duration: { formatted: durationFormatted },
-                  rating: product.reviewRating
-                    ? { average: product.reviewRating, count: product.reviewCount ?? 0 }
-                    : null,
-                  location: { name: product.location?.name ?? city },
-                });
-              }
-              seenProductIds.push(product.id);
-            }
-          } catch (cityError) {
-            console.warn(`[Homepage] Error searching city "${city}":`, cityError);
+          let durationFormatted = 'Duration varies';
+          if (product.durationText) {
+            durationFormatted = product.durationText;
+          } else if (product.maxDuration != null) {
+            const minutes = parseIsoDuration(product.maxDuration);
+            if (minutes > 0) durationFormatted = formatDuration(minutes, 'minutes');
           }
-        }
+
+          return {
+            id: product.id,
+            title: product.name ?? 'Experience',
+            slug: product.id,
+            shortDescription: product.shortDescription ?? '',
+            imageUrl: primaryImage,
+            price: {
+              amount: priceAmount,
+              currency: priceCurrency,
+              formatted: formatPrice(priceAmount, priceCurrency),
+            },
+            duration: { formatted: durationFormatted },
+            rating: product.reviewRating
+              ? { average: product.reviewRating, count: product.reviewCount ?? 0 }
+              : null,
+            location: { name: product.place?.name ?? '' },
+          };
+        });
 
         console.log(
-          `[Homepage] Microsite: Found ${supplierProducts.length} products for supplier`,
+          `[Homepage] Microsite: Found ${supplierProducts.length} products for provider`,
           micrositeContext.holibobSupplierId
         );
 
         if (supplierProducts.length > 0) {
-          return supplierProducts.slice(0, 8); // Return up to 8 products
+          return supplierProducts.slice(0, 20); // Return up to 20 products for catalog layout
         }
-        // Fall through to generic search if no supplier products found
+        // Fall through to cache if API returns no products
       } catch (error) {
-        console.error('[Homepage] Error fetching microsite supplier products:', error);
+        console.error('[Homepage] Error fetching microsite supplier products via Product List:', error);
       }
     }
 

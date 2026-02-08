@@ -1,12 +1,18 @@
 /**
  * Supplier Sync Service
- * Syncs supplier data from Holibob API to local database
- * Suppliers are discovered via products - each product has supplierId/supplierName
+ * Syncs supplier/provider data from Holibob API to local database
+ *
+ * APPROACH:
+ * Since we don't have access to the Provider List endpoint (FORBIDDEN),
+ * we discover providers by fetching all products and extracting unique providers.
+ * This gives us provider id and name, which we can then sync to our database.
+ *
+ * NOTE: Holibob's Provider type only exposes id and name fields.
+ * Additional data (productCount, rating, etc.) is populated by Product Sync.
  */
 
 import { prisma } from '@experience-marketplace/database';
-import { createHolibobClient, type Product } from '@experience-marketplace/holibob-api';
-import { createBulkSyncRateLimiter } from '../utils/rate-limiter.js';
+import { createHolibobClient, type ProviderWithCount } from '@experience-marketplace/holibob-api';
 
 export interface SupplierSyncResult {
   success: boolean;
@@ -15,20 +21,6 @@ export interface SupplierSyncResult {
   suppliersUpdated: number;
   errors: string[];
   duration: number;
-}
-
-interface DiscoveredSupplier {
-  holibobSupplierId: string;
-  name: string;
-  cities: Set<string>;
-  categories: Set<string>;
-  productCount: number;
-  totalRating: number;
-  ratedProductCount: number;
-  totalReviews: number;
-  minPrice?: number;
-  maxPrice?: number;
-  currency?: string;
 }
 
 /**
@@ -111,94 +103,27 @@ function getHolibobClient() {
 
 /**
  * Sync suppliers from Holibob API
- * Discovers suppliers by scanning products across city/category combinations
+ *
+ * Uses the efficient providerTree approach to discover all providers
+ * with their product counts in a single API call.
  */
 export async function syncSuppliersFromHolibob(): Promise<SupplierSyncResult> {
   const startTime = Date.now();
   const errors: string[] = [];
 
-  console.log('[Supplier Sync] Starting supplier discovery from Holibob...');
+  console.log('[Supplier Sync] Starting provider discovery from Holibob...');
 
   const client = getHolibobClient();
-  const rateLimiter = createBulkSyncRateLimiter();
-
-  // Track discovered suppliers
-  const supplierMap = new Map<string, DiscoveredSupplier>();
 
   try {
-    // Use a hardcoded list of major cities since Places API is unreliable
-    // These cover the main markets for Holibob's inventory
-    const majorCities = [
-      'London',
-      'Paris',
-      'Barcelona',
-      'Rome',
-      'Amsterdam',
-      'Berlin',
-      'Madrid',
-      'Lisbon',
-      'Prague',
-      'Vienna',
-      'Edinburgh',
-      'Dublin',
-      'Athens',
-      'Florence',
-      'Venice',
-      'Munich',
-      'Brussels',
-      'Copenhagen',
-      'Stockholm',
-      'Budapest',
-      'New York',
-      'Los Angeles',
-      'Miami',
-      'San Francisco',
-      'Las Vegas',
-      'Sydney',
-      'Melbourne',
-      'Tokyo',
-      'Singapore',
-      'Hong Kong',
-      'Dubai',
-      'Bangkok',
-      'Bali',
-      'Cape Town',
-      'Reykjavik',
-    ];
+    // Step 1: Get all providers with product counts using providerTree
+    console.log('[Supplier Sync] Fetching providers with product counts...');
+    const providers = await client.getAllProvidersWithCounts();
 
-    console.log(`[Supplier Sync] Scanning ${majorCities.length} cities for products...`);
+    console.log(`[Supplier Sync] Discovered ${providers.length} providers`);
 
-    for (const city of majorCities) {
-      try {
-        await rateLimiter.wait();
-
-        // Discover products for this city (Holibob max is 20 per request)
-        const response = await client.discoverProducts(
-          { freeText: city, currency: 'GBP' },
-          { pageSize: 20 }
-        );
-
-        console.log(`[Supplier Sync] City "${city}": found ${response.products.length} products`);
-
-        // Extract supplier information from products
-        for (const product of response.products) {
-          aggregateSupplierFromProduct(supplierMap, product, city);
-        }
-
-        await rateLimiter.waitBetweenBatches();
-      } catch (cityError) {
-        const errorMsg = `Error scanning city "${city}": ${
-          cityError instanceof Error ? cityError.message : String(cityError)
-        }`;
-        console.error(`[Supplier Sync] ${errorMsg}`);
-        errors.push(errorMsg);
-      }
-    }
-
-    console.log(`[Supplier Sync] Discovered ${supplierMap.size} unique suppliers`);
-
-    // Step 3: Upsert suppliers to database
-    console.log('[Supplier Sync] Upserting suppliers to database...');
+    // Step 2: Upsert providers to database as suppliers
+    console.log('[Supplier Sync] Upserting providers to database...');
 
     let created = 0;
     let updated = 0;
@@ -210,46 +135,26 @@ export async function syncSuppliersFromHolibob(): Promise<SupplierSyncResult> {
     });
     existingSuppliers.forEach((s) => existingSlugs.add(s.slug));
 
-    for (const [holibobId, supplier] of supplierMap) {
+    for (const provider of providers) {
       try {
-        const slug = await generateUniqueSlug(supplier.name, holibobId, existingSlugs);
-        existingSlugs.add(slug);
+        await upsertProvider(provider, existingSlugs);
 
-        const averageRating =
-          supplier.ratedProductCount > 0 ? supplier.totalRating / supplier.ratedProductCount : null;
-
-        const supplierData = {
-          name: supplier.name,
-          slug,
-          productCount: supplier.productCount,
-          cities: Array.from(supplier.cities),
-          categories: Array.from(supplier.categories),
-          rating: averageRating,
-          reviewCount: supplier.totalReviews,
-          priceRangeMin: supplier.minPrice ?? null,
-          priceRangeMax: supplier.maxPrice ?? null,
-          priceCurrency: supplier.currency ?? 'GBP',
-          lastSyncedAt: new Date(),
-        };
-
-        const result = await prisma.supplier.upsert({
-          where: { holibobSupplierId: holibobId },
-          create: {
-            holibobSupplierId: holibobId,
-            ...supplierData,
-          },
-          update: supplierData,
+        // Check if it was created or updated by checking timestamps after upsert
+        const dbSupplier = await prisma.supplier.findUnique({
+          where: { holibobSupplierId: provider.id },
+          select: { createdAt: true, updatedAt: true },
         });
 
-        // Check if it was created or updated
-        const wasCreated = result.createdAt.getTime() === result.updatedAt.getTime();
-        if (wasCreated) {
-          created++;
-        } else {
-          updated++;
+        if (dbSupplier) {
+          const wasCreated = dbSupplier.createdAt.getTime() === dbSupplier.updatedAt.getTime();
+          if (wasCreated) {
+            created++;
+          } else {
+            updated++;
+          }
         }
       } catch (upsertError) {
-        const errorMsg = `Error upserting supplier "${supplier.name}": ${
+        const errorMsg = `Error upserting provider "${provider.name}": ${
           upsertError instanceof Error ? upsertError.message : String(upsertError)
         }`;
         console.error(`[Supplier Sync] ${errorMsg}`);
@@ -259,12 +164,12 @@ export async function syncSuppliersFromHolibob(): Promise<SupplierSyncResult> {
 
     const duration = Date.now() - startTime;
     console.log(
-      `[Supplier Sync] Complete. Discovered: ${supplierMap.size}, Created: ${created}, Updated: ${updated}, Errors: ${errors.length}, Duration: ${duration}ms`
+      `[Supplier Sync] Complete. Discovered: ${providers.length}, Created: ${created}, Updated: ${updated}, Errors: ${errors.length}, Duration: ${duration}ms`
     );
 
     return {
       success: errors.length === 0,
-      suppliersDiscovered: supplierMap.size,
+      suppliersDiscovered: providers.length,
       suppliersCreated: created,
       suppliersUpdated: updated,
       errors,
@@ -279,7 +184,7 @@ export async function syncSuppliersFromHolibob(): Promise<SupplierSyncResult> {
 
     return {
       success: false,
-      suppliersDiscovered: supplierMap.size,
+      suppliersDiscovered: 0,
       suppliersCreated: 0,
       suppliersUpdated: 0,
       errors,
@@ -289,99 +194,39 @@ export async function syncSuppliersFromHolibob(): Promise<SupplierSyncResult> {
 }
 
 /**
- * Aggregate supplier data from a product
- * Products contain provider field with id/name (Holibob's term for operator/supplier)
- * Falls back to legacy supplierId/supplierName if provider is not available
+ * Upsert a single provider to the database
+ *
+ * Uses ProviderWithCount which includes productCount from providerTree.
+ * Additional fields (rating, cities, categories, etc.) are populated by Product Sync.
  */
-function aggregateSupplierFromProduct(
-  supplierMap: Map<string, DiscoveredSupplier>,
-  product: Product,
-  cityName?: string
-): void {
-  // Get provider info - prefer provider field, fall back to legacy fields
-  const providerId = product.provider?.id || product.supplierId;
-  const providerName = product.provider?.name || product.supplierName;
+async function upsertProvider(provider: ProviderWithCount, existingSlugs: Set<string>): Promise<void> {
+  const slug = await generateUniqueSlug(provider.name, provider.id, existingSlugs);
+  existingSlugs.add(slug);
 
-  // Skip products without provider/supplier information
-  if (!providerId || !providerName) {
-    return;
-  }
+  // Update name, productCount (from providerTree), and lastSyncedAt
+  const supplierData = {
+    name: provider.name,
+    slug,
+    productCount: provider.productCount, // Now available from providerTree!
+    lastSyncedAt: new Date(),
+  };
 
-  const supplierId = providerId;
-  const existing = supplierMap.get(supplierId);
-
-  if (existing) {
-    // Update existing supplier aggregate
-    existing.productCount++;
-
-    if (cityName) {
-      existing.cities.add(cityName);
-    }
-
-    // Extract category from product
-    const categories = product.categoryList?.nodes || product.categories || [];
-    for (const cat of categories) {
-      if (cat.name) {
-        existing.categories.add(cat.name);
-      }
-    }
-
-    // Update rating aggregate
-    if (product.reviewRating || product.rating) {
-      const rating = product.reviewRating ?? product.rating ?? 0;
-      if (rating > 0) {
-        existing.totalRating += rating;
-        existing.ratedProductCount++;
-      }
-    }
-
-    // Update review count
-    if (product.reviewCount) {
-      existing.totalReviews += product.reviewCount;
-    }
-
-    // Update price range
-    const price = product.guidePrice ?? product.priceFrom;
-    if (price != null) {
-      if (existing.minPrice == null || price < existing.minPrice) {
-        existing.minPrice = price;
-      }
-      if (existing.maxPrice == null || price > existing.maxPrice) {
-        existing.maxPrice = price;
-      }
-    }
-  } else {
-    // Create new supplier entry
-    const cities = new Set<string>();
-    if (cityName) {
-      cities.add(cityName);
-    }
-
-    const categories = new Set<string>();
-    const productCategories = product.categoryList?.nodes || product.categories || [];
-    for (const cat of productCategories) {
-      if (cat.name) {
-        categories.add(cat.name);
-      }
-    }
-
-    const rating = product.reviewRating ?? product.rating ?? 0;
-    const price = product.guidePrice ?? product.priceFrom;
-
-    supplierMap.set(supplierId, {
-      holibobSupplierId: supplierId,
-      name: providerName,
-      cities,
-      categories,
-      productCount: 1,
-      totalRating: rating > 0 ? rating : 0,
-      ratedProductCount: rating > 0 ? 1 : 0,
-      totalReviews: product.reviewCount || 0,
-      minPrice: price ?? undefined,
-      maxPrice: price ?? undefined,
-      currency: product.guidePriceCurrency ?? product.priceCurrency ?? 'GBP',
-    });
-  }
+  await prisma.supplier.upsert({
+    where: { holibobSupplierId: provider.id },
+    create: {
+      holibobSupplierId: provider.id,
+      ...supplierData,
+      // Initialize with empty arrays/nulls - Product Sync will populate
+      cities: [],
+      categories: [],
+      rating: null,
+      reviewCount: 0,
+      priceRangeMin: null,
+      priceRangeMax: null,
+      priceCurrency: 'GBP',
+    },
+    update: supplierData,
+  });
 }
 
 /**

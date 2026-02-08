@@ -1,5 +1,5 @@
 import { Job } from 'bullmq';
-import { prisma, MicrositeStatus, PageType, PageStatus } from '@experience-marketplace/database';
+import { prisma, MicrositeStatus, MicrositeLayoutType, PageType, PageStatus } from '@experience-marketplace/database';
 import type {
   MicrositeCreatePayload,
   MicrositeBrandGeneratePayload,
@@ -50,6 +50,18 @@ async function submitMicrositeSitemapToGSC(fullDomain: string): Promise<void> {
     // Non-critical - log but don't fail the operation
     console.warn('[Microsite GSC] Sitemap submission failed (non-critical):', error);
   }
+}
+
+/**
+ * Determine the appropriate layout type based on product count
+ * - MARKETPLACE: 51+ products (large catalogs)
+ * - CATALOG: 2-50 products (small to medium catalogs)
+ * - PRODUCT_SPOTLIGHT: 1 product (single product focus)
+ */
+function determineLayoutType(productCount: number): MicrositeLayoutType {
+  if (productCount >= 51) return 'MARKETPLACE';
+  if (productCount >= 2) return 'CATALOG';
+  return 'PRODUCT_SPOTLIGHT';
 }
 
 /**
@@ -140,6 +152,7 @@ export async function handleMicrositeCreate(job: Job<MicrositeCreatePayload>): P
     let categories: string[] = [];
     let cities: string[] = [];
     let description: string | null = null;
+    let productCount = 0; // For determining layout type
 
     if (supplierId) {
       const supplier = await prisma.supplier.findUnique({ where: { id: supplierId } });
@@ -165,6 +178,7 @@ export async function handleMicrositeCreate(job: Job<MicrositeCreatePayload>): P
       categories = supplier.categories || [];
       cities = supplier.cities || [];
       description = supplier.description;
+      productCount = supplier.productCount;
     } else {
       const product = await prisma.product.findUnique({
         where: { id: productId },
@@ -192,7 +206,12 @@ export async function handleMicrositeCreate(job: Job<MicrositeCreatePayload>): P
       categories = product.categories || [];
       cities = product.city ? [product.city] : [];
       description = product.shortDescription || product.description;
+      productCount = 1; // Single product microsite = PRODUCT_SPOTLIGHT
     }
+
+    // Determine layout type based on product count
+    const layoutType = determineLayoutType(productCount);
+    console.log(`[Microsite Create] Layout type: ${layoutType} (${productCount} products)`);
 
     // Generate subdomain (use entity slug, ensure uniqueness)
     const subdomain = await generateUniqueSlug(entitySlug, 'micrositeConfig');
@@ -251,6 +270,10 @@ export async function handleMicrositeCreate(job: Job<MicrositeCreatePayload>): P
         brandId: brand.id,
         siteName: brandIdentity.name,
         tagline: brandIdentity.tagline,
+        // Layout type determines homepage structure
+        layoutType,
+        cachedProductCount: productCount,
+        productCountUpdatedAt: new Date(),
         seoConfig: {
           titleTemplate: seoTitleConfig.titleTemplate,
           defaultTitle: seoTitleConfig.defaultTitle,
