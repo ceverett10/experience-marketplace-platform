@@ -753,7 +753,6 @@ export const PRODUCT_LIST_BY_PROVIDER_QUERY = gql`
         id
         name
         description
-        shortDescription
         guidePrice
         guidePriceFormattedText
         guidePriceCurrency
@@ -766,6 +765,9 @@ export const PRODUCT_LIST_BY_PROVIDER_QUERY = gql`
         reviewCount
         provider {
           id
+          name
+        }
+        place {
           name
         }
         categoryList {

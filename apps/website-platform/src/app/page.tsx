@@ -88,7 +88,8 @@ async function getFeaturedExperiences(
             id: product.id,
             title: product.name ?? 'Experience',
             slug: product.id,
-            shortDescription: product.shortDescription ?? '',
+            // ProductListItem only has 'description', not 'shortDescription'
+            shortDescription: product.description?.slice(0, 200) ?? '',
             imageUrl: primaryImage,
             price: {
               amount: priceAmount,
