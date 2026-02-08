@@ -52,22 +52,106 @@ async function getFeaturedExperiences(
   popularExperiencesConfig?: HomepageConfig['popularExperiences']
 ): Promise<ExperienceListItem[]> {
   // === MICROSITE HANDLING ===
-  // For microsites, use our synced local data for faster, more reliable SEO pages
+  // For microsites, call Holibob API directly with supplier-specific filtering
   if (isMicrosite(siteConfig.micrositeContext)) {
+    const micrositeContext = siteConfig.micrositeContext;
+
+    // For SUPPLIER microsites, search by supplier's cities and filter by supplier ID
+    if (micrositeContext.entityType === 'SUPPLIER' && micrositeContext.holibobSupplierId) {
+      try {
+        const client = getHolibobClient(siteConfig);
+        const supplierProducts: ExperienceListItem[] = [];
+        const seenProductIds: string[] = [];
+
+        // Search using supplier's known cities
+        const citiesToSearch = micrositeContext.supplierCities?.length
+          ? micrositeContext.supplierCities.slice(0, 5) // Limit to 5 cities
+          : [micrositeContext.supplierName ?? 'London']; // Fall back to supplier name or London
+
+        console.log(
+          `[Homepage] Microsite SUPPLIER mode: Searching ${citiesToSearch.length} cities for supplier`,
+          micrositeContext.holibobSupplierId
+        );
+
+        for (const city of citiesToSearch) {
+          if (supplierProducts.length >= 20) break; // Enough products found
+
+          try {
+            const response = await client.discoverProducts(
+              { freeText: city, currency: 'GBP' },
+              { pageSize: 50, seenProductIdList: seenProductIds }
+            );
+
+            // Filter products by supplier ID
+            for (const product of response.products) {
+              if (product.supplierId === micrositeContext.holibobSupplierId) {
+                // Map to ExperienceListItem format
+                const primaryImage =
+                  product.imageList?.[0]?.url ?? product.imageUrl ?? '/placeholder-experience.jpg';
+                const priceAmount = product.guidePrice ?? product.priceFrom ?? 0;
+                const priceCurrency = product.guidePriceCurrency ?? product.priceCurrency ?? 'GBP';
+
+                let durationFormatted = 'Duration varies';
+                if (product.durationText) {
+                  durationFormatted = product.durationText;
+                } else if (product.maxDuration != null) {
+                  const minutes = parseIsoDuration(product.maxDuration);
+                  if (minutes > 0) durationFormatted = formatDuration(minutes, 'minutes');
+                }
+
+                supplierProducts.push({
+                  id: product.id,
+                  title: product.name ?? 'Experience',
+                  slug: product.id,
+                  shortDescription: product.shortDescription ?? '',
+                  imageUrl: primaryImage,
+                  price: {
+                    amount: priceAmount,
+                    currency: priceCurrency,
+                    formatted: formatPrice(priceAmount, priceCurrency),
+                  },
+                  duration: { formatted: durationFormatted },
+                  rating: product.reviewRating
+                    ? { average: product.reviewRating, count: product.reviewCount ?? 0 }
+                    : null,
+                  location: { name: product.location?.name ?? city },
+                });
+              }
+              seenProductIds.push(product.id);
+            }
+          } catch (cityError) {
+            console.warn(`[Homepage] Error searching city "${city}":`, cityError);
+          }
+        }
+
+        console.log(
+          `[Homepage] Microsite: Found ${supplierProducts.length} products for supplier`,
+          micrositeContext.holibobSupplierId
+        );
+
+        if (supplierProducts.length > 0) {
+          return supplierProducts.slice(0, 8); // Return up to 8 products
+        }
+        // Fall through to generic search if no supplier products found
+      } catch (error) {
+        console.error('[Homepage] Error fetching microsite supplier products:', error);
+      }
+    }
+
+    // For PRODUCT microsites or as fallback, try local cache
     try {
       const localProducts = await getMicrositeHomepageProducts(
         siteConfig.micrositeContext,
-        8 // Limit to 8 featured experiences
+        8
       );
-      console.log(
-        `[Homepage] Microsite mode: Fetched ${localProducts.length} local products for`,
-        siteConfig.micrositeContext.entityType,
-        siteConfig.micrositeContext.supplierId || siteConfig.micrositeContext.productId
-      );
-      return localProducts.map(localProductToExperienceListItem);
+      if (localProducts.length > 0) {
+        console.log(
+          `[Homepage] Microsite fallback: Using ${localProducts.length} cached products`
+        );
+        return localProducts.map(localProductToExperienceListItem);
+      }
     } catch (error) {
-      console.error('[Homepage] Error fetching microsite products:', error);
-      // Fall through to Holibob API as fallback
+      console.error('[Homepage] Error fetching cached microsite products:', error);
     }
   }
   // === END MICROSITE HANDLING ===

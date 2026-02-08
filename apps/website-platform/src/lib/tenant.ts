@@ -148,6 +148,8 @@ export interface MicrositeContext {
   productId: string | null;
   holibobSupplierId?: string | null; // For filtering Holibob API calls
   holibobProductId?: string | null; // For single product microsites
+  supplierCities?: string[]; // Cities where supplier operates (for Holibob API search)
+  supplierName?: string | null; // Supplier name for search fallback
   // Layout configuration for microsite homepage
   layoutConfig: MicrositeLayoutConfig;
 }
@@ -443,7 +445,11 @@ async function checkMicrositeSubdomain(
 // Extended microsite config with entity data for filtering
 interface MicrositeConfigWithEntity extends MicrositeConfig {
   brand: Brand;
-  supplier?: { holibobSupplierId: string } | null;
+  supplier?: {
+    holibobSupplierId: string;
+    cities: string[];
+    name: string;
+  } | null;
   product?: { holibobProductId: string } | null;
 }
 
@@ -481,9 +487,13 @@ async function getMicrositeConfig(
       },
       include: {
         brand: true,
-        // Include supplier/product to get their Holibob IDs for API filtering
+        // Include supplier/product to get their Holibob IDs and cities for API filtering
         supplier: {
-          select: { holibobSupplierId: true },
+          select: {
+            holibobSupplierId: true,
+            cities: true,
+            name: true,
+          },
         },
         product: {
           select: { holibobProductId: true },
@@ -577,6 +587,8 @@ function mapMicrositeToSiteConfig(microsite: MicrositeConfigWithEntity): SiteCon
       productId: microsite.productId,
       holibobSupplierId: microsite.supplier?.holibobSupplierId ?? null,
       holibobProductId: microsite.product?.holibobProductId ?? null,
+      supplierCities: microsite.supplier?.cities ?? [],
+      supplierName: microsite.supplier?.name ?? null,
       // Layout configuration based on product count
       layoutConfig: getLayoutConfig(
         microsite.layoutType ?? 'AUTO',
