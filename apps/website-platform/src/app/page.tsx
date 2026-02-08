@@ -370,14 +370,7 @@ export default async function HomePage() {
   return (
     <>
       {/* Preload hero image - critical for LCP */}
-      {heroImageUrl && (
-        <link
-          rel="preload"
-          as="image"
-          href={heroImageUrl}
-          fetchPriority="high"
-        />
-      )}
+      {heroImageUrl && <link rel="preload" as="image" href={heroImageUrl} fetchPriority="high" />}
 
       {/* JSON-LD Structured Data - LocalBusiness */}
       <script

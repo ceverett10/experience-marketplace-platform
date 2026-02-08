@@ -70,7 +70,16 @@ async function main() {
   const citySuppliers = new Map<string, CitySupplier>();
 
   // Cities to scan
-  const CITIES = ['London', 'Paris', 'Barcelona', 'Rome', 'Amsterdam', 'New York', 'Tokyo', 'Sydney'];
+  const CITIES = [
+    'London',
+    'Paris',
+    'Barcelona',
+    'Rome',
+    'Amsterdam',
+    'New York',
+    'Tokyo',
+    'Sydney',
+  ];
   const citiesToScan = CITIES.slice(0, MAX_CITIES_TO_SCAN);
 
   try {
@@ -157,9 +166,8 @@ async function main() {
       }
       existingSlugs.add(finalSlug);
 
-      const averageRating = cityData.ratedProductCount > 0
-        ? cityData.totalRating / cityData.ratedProductCount
-        : null;
+      const averageRating =
+        cityData.ratedProductCount > 0 ? cityData.totalRating / cityData.ratedProductCount : null;
 
       const existingRecord = await prisma.supplier.findUnique({
         where: { holibobSupplierId },
@@ -263,7 +271,8 @@ async function main() {
           }
         }
 
-        const primaryImageUrl = product.primaryImageUrl ?? product.imageUrl ?? product.imageList?.[0]?.url ?? null;
+        const primaryImageUrl =
+          product.primaryImageUrl ?? product.imageUrl ?? product.imageList?.[0]?.url ?? null;
 
         let duration: string | null = null;
         if (product.maxDuration) {
@@ -319,14 +328,20 @@ async function main() {
       }
     }
 
-    console.log(`\nProducts: ${productsCreated} created, ${productsUpdated} updated (${totalProducts} total)`);
+    console.log(
+      `\nProducts: ${productsCreated} created, ${productsUpdated} updated (${totalProducts} total)`
+    );
 
     // Summary
     console.log('\n' + '='.repeat(60));
     console.log('Sync Complete!');
     console.log('='.repeat(60));
-    console.log(`Suppliers: ${citySuppliers.size} total (${suppliersCreated} new, ${suppliersUpdated} updated)`);
-    console.log(`Products: ${totalProducts} total (${productsCreated} new, ${productsUpdated} updated)`);
+    console.log(
+      `Suppliers: ${citySuppliers.size} total (${suppliersCreated} new, ${suppliersUpdated} updated)`
+    );
+    console.log(
+      `Products: ${totalProducts} total (${productsCreated} new, ${productsUpdated} updated)`
+    );
 
     // List suppliers for microsite testing
     console.log('\nSuppliers available for microsite testing:');
@@ -342,7 +357,6 @@ async function main() {
 
     console.log('\nTo create a test microsite, run:');
     console.log('  npx tsx scripts/create-test-microsite.ts <supplier-slug>');
-
   } catch (error) {
     console.error('\nFatal error:', error);
     process.exit(1);

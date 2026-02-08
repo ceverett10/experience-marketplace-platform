@@ -64,7 +64,9 @@ export function clearAllStuckCounts(): void {
  * Parse idempotencyKey into queue name and BullMQ job ID.
  * Format: "{queueName}:{bullmqJobId}"
  */
-function parseIdempotencyKey(key: string | null): { queueName: string; bullmqJobId: string } | null {
+function parseIdempotencyKey(
+  key: string | null
+): { queueName: string; bullmqJobId: string } | null {
   if (!key) return null;
   const colonIdx = key.indexOf(':');
   if (colonIdx === -1) return null;
@@ -78,13 +80,17 @@ function parseIdempotencyKey(key: string | null): { queueName: string; bullmqJob
  * Clean up a stuck job: remove BullMQ entry + delete DB record.
  * Returns true if the job was cleaned up, false if it hit the retry limit.
  */
-async function healStuckJob(job: {
-  id: string;
-  type: string;
-  siteId: string | null;
-  queue: string;
-  idempotencyKey: string | null;
-}, state: 'PENDING' | 'RUNNING', ageMinutes: number): Promise<'healed' | 'permanently_failed'> {
+async function healStuckJob(
+  job: {
+    id: string;
+    type: string;
+    siteId: string | null;
+    queue: string;
+    idempotencyKey: string | null;
+  },
+  state: 'PENDING' | 'RUNNING',
+  ageMinutes: number
+): Promise<'healed' | 'permanently_failed'> {
   const count = incrementStuckCount(job.siteId, job.type);
 
   if (count > MAX_STUCK_RETRIES) {

@@ -131,10 +131,7 @@ function generateMetaTitle(title: string, siteName: string): string {
  * Generate FAQ Hub Pages
  * Creates FAQ pages from GSC queries + AI-generated questions
  */
-async function generateFAQContent(
-  site: SiteData,
-  dryRun: boolean
-): Promise<GenerationResult> {
+async function generateFAQContent(site: SiteData, dryRun: boolean): Promise<GenerationResult> {
   const result: GenerationResult = { type: 'FAQ', created: 0, skipped: 0, errors: [] };
 
   console.log(`\n   📝 Generating FAQ Hub Page`);
@@ -417,10 +414,7 @@ async function generateComparisonContent(
  * Generate Local Guide Content
  * Creates "Complete Guide to [Destination] for First-Timers"
  */
-async function generateGuideContent(
-  site: SiteData,
-  dryRun: boolean
-): Promise<GenerationResult> {
+async function generateGuideContent(site: SiteData, dryRun: boolean): Promise<GenerationResult> {
   const result: GenerationResult = { type: 'Local Guide', created: 0, skipped: 0, errors: [] };
 
   console.log(`\n   📝 Generating Local Guide`);
@@ -440,7 +434,10 @@ async function generateGuideContent(
 
   // Check if guide already exists
   const existingGuide = site.pages.find(
-    (p) => p.slug === slug || (p.title.toLowerCase().includes('guide') && p.title.toLowerCase().includes(primaryLocation.toLowerCase()))
+    (p) =>
+      p.slug === slug ||
+      (p.title.toLowerCase().includes('guide') &&
+        p.title.toLowerCase().includes(primaryLocation.toLowerCase()))
   );
 
   if (existingGuide) {
@@ -542,7 +539,9 @@ async function generateSeasonalContent(
 
     // Check if seasonal content already exists
     const existingPage = site.pages.find(
-      (p) => p.slug === slug || p.title.toLowerCase().includes(`${season.name.toLowerCase()} ${niche.toLowerCase()}`)
+      (p) =>
+        p.slug === slug ||
+        p.title.toLowerCase().includes(`${season.name.toLowerCase()} ${niche.toLowerCase()}`)
     );
 
     if (existingPage) {
@@ -742,7 +741,9 @@ async function main(): Promise<void> {
     for (const { site, results } of allResults) {
       console.log(`${site}:`);
       for (const r of results) {
-        console.log(`  ${r.type}: ${r.created} created, ${r.skipped} skipped, ${r.errors.length} errors`);
+        console.log(
+          `  ${r.type}: ${r.created} created, ${r.skipped} skipped, ${r.errors.length} errors`
+        );
         totalCreated += r.created;
         totalSkipped += r.skipped;
         totalErrors += r.errors.length;

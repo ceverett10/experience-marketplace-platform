@@ -266,10 +266,7 @@ async function getExperiencesFromLocalDB(
       price: {
         amount: product.priceFrom ? Number(product.priceFrom) : 0,
         currency: product.currency,
-        formatted: formatPrice(
-          product.priceFrom ? Number(product.priceFrom) : 0,
-          product.currency
-        ),
+        formatted: formatPrice(product.priceFrom ? Number(product.priceFrom) : 0, product.currency),
       },
       duration: {
         formatted: product.duration ?? 'Duration varies',

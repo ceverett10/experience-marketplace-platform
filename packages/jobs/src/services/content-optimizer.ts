@@ -34,9 +34,7 @@ export interface SnippetOpportunity {
  * Find featured snippet opportunities in site content
  * Analyzes content structure and suggests formatting improvements
  */
-export async function findSnippetOpportunities(
-  siteId: string
-): Promise<SnippetOpportunity[]> {
+export async function findSnippetOpportunities(siteId: string): Promise<SnippetOpportunity[]> {
   const opportunities: SnippetOpportunity[] = [];
 
   const pages = await prisma.page.findMany({
@@ -48,21 +46,13 @@ export async function findSnippetOpportunities(
     const content = page.content?.body || '';
 
     // Check for "What is" definitions that could be snippets
-    const whatIsOpportunity = checkDefinitionOpportunity(
-      page.id,
-      page.title,
-      content
-    );
+    const whatIsOpportunity = checkDefinitionOpportunity(page.id, page.title, content);
     if (whatIsOpportunity) {
       opportunities.push(whatIsOpportunity);
     }
 
     // Check for "How to" content that could be step snippets
-    const howToOpportunity = checkStepsOpportunity(
-      page.id,
-      page.title,
-      content
-    );
+    const howToOpportunity = checkStepsOpportunity(page.id, page.title, content);
     if (howToOpportunity) {
       opportunities.push(howToOpportunity);
     }
@@ -74,11 +64,7 @@ export async function findSnippetOpportunities(
     }
 
     // Check for comparison content that could be table snippets
-    const comparisonOpportunity = checkComparisonOpportunity(
-      page.id,
-      page.title,
-      content
-    );
+    const comparisonOpportunity = checkComparisonOpportunity(page.id, page.title, content);
     if (comparisonOpportunity) {
       opportunities.push(comparisonOpportunity);
     }
@@ -86,9 +72,7 @@ export async function findSnippetOpportunities(
 
   // Sort by priority
   const priorityOrder = { HIGH: 0, MEDIUM: 1, LOW: 2 };
-  return opportunities.sort(
-    (a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]
-  );
+  return opportunities.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
 }
 
 /**
@@ -290,8 +274,8 @@ function checkComparisonOpportunity(
     /comparison/i,
   ];
 
-  const hasComparison = comparisonIndicators.some((pattern) =>
-    pattern.test(pageTitle) || pattern.test(content.substring(0, 500))
+  const hasComparison = comparisonIndicators.some(
+    (pattern) => pattern.test(pageTitle) || pattern.test(content.substring(0, 500))
   );
 
   if (!hasComparison) return null;
@@ -301,9 +285,7 @@ function checkComparisonOpportunity(
 
   if (!hasTable) {
     // Look for content that could be tabularized
-    const hasPairedInfo =
-      content.includes(':') &&
-      (content.match(/:\s*\$?\d/g) || []).length >= 3;
+    const hasPairedInfo = content.includes(':') && (content.match(/:\s*\$?\d/g) || []).length >= 3;
 
     if (hasPairedInfo) {
       return {

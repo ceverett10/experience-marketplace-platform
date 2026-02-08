@@ -129,13 +129,41 @@ export async function syncSuppliersFromHolibob(): Promise<SupplierSyncResult> {
     // Use a hardcoded list of major cities since Places API is unreliable
     // These cover the main markets for Holibob's inventory
     const majorCities = [
-      'London', 'Paris', 'Barcelona', 'Rome', 'Amsterdam',
-      'Berlin', 'Madrid', 'Lisbon', 'Prague', 'Vienna',
-      'Edinburgh', 'Dublin', 'Athens', 'Florence', 'Venice',
-      'Munich', 'Brussels', 'Copenhagen', 'Stockholm', 'Budapest',
-      'New York', 'Los Angeles', 'Miami', 'San Francisco', 'Las Vegas',
-      'Sydney', 'Melbourne', 'Tokyo', 'Singapore', 'Hong Kong',
-      'Dubai', 'Bangkok', 'Bali', 'Cape Town', 'Reykjavik',
+      'London',
+      'Paris',
+      'Barcelona',
+      'Rome',
+      'Amsterdam',
+      'Berlin',
+      'Madrid',
+      'Lisbon',
+      'Prague',
+      'Vienna',
+      'Edinburgh',
+      'Dublin',
+      'Athens',
+      'Florence',
+      'Venice',
+      'Munich',
+      'Brussels',
+      'Copenhagen',
+      'Stockholm',
+      'Budapest',
+      'New York',
+      'Los Angeles',
+      'Miami',
+      'San Francisco',
+      'Las Vegas',
+      'Sydney',
+      'Melbourne',
+      'Tokyo',
+      'Singapore',
+      'Hong Kong',
+      'Dubai',
+      'Bangkok',
+      'Bali',
+      'Cape Town',
+      'Reykjavik',
     ];
 
     console.log(`[Supplier Sync] Scanning ${majorCities.length} cities for products...`);
@@ -150,9 +178,7 @@ export async function syncSuppliersFromHolibob(): Promise<SupplierSyncResult> {
           { pageSize: 20 }
         );
 
-        console.log(
-          `[Supplier Sync] City "${city}": found ${response.products.length} products`
-        );
+        console.log(`[Supplier Sync] City "${city}": found ${response.products.length} products`);
 
         // Extract supplier information from products
         for (const product of response.products) {
@@ -190,9 +216,7 @@ export async function syncSuppliersFromHolibob(): Promise<SupplierSyncResult> {
         existingSlugs.add(slug);
 
         const averageRating =
-          supplier.ratedProductCount > 0
-            ? supplier.totalRating / supplier.ratedProductCount
-            : null;
+          supplier.ratedProductCount > 0 ? supplier.totalRating / supplier.ratedProductCount : null;
 
         const supplierData = {
           name: supplier.name,
@@ -218,8 +242,7 @@ export async function syncSuppliersFromHolibob(): Promise<SupplierSyncResult> {
         });
 
         // Check if it was created or updated
-        const wasCreated =
-          result.createdAt.getTime() === result.updatedAt.getTime();
+        const wasCreated = result.createdAt.getTime() === result.updatedAt.getTime();
         if (wasCreated) {
           created++;
         } else {

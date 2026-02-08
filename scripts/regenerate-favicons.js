@@ -3,31 +3,32 @@
  * Creates simple icon-based favicons without full logos
  */
 
-const { PrismaClient } = require("@prisma/client");
+const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 async function main() {
   // Import the SVG favicon generator
-  const { generateSvgLogos, isSvgLogoGenerationAvailable } = await import("@experience-marketplace/jobs");
+  const { generateSvgLogos, isSvgLogoGenerationAvailable } =
+    await import('@experience-marketplace/jobs');
 
   if (!isSvgLogoGenerationAvailable()) {
-    console.error("Favicon generation not available. Check R2 storage config.");
+    console.error('Favicon generation not available. Check R2 storage config.');
     process.exit(1);
   }
 
-  console.log("Regenerating favicons for all active sites...\n");
+  console.log('Regenerating favicons for all active sites...\n');
 
   const sites = await prisma.site.findMany({
-    where: { status: "ACTIVE" },
+    where: { status: 'ACTIVE' },
     include: {
       brand: true,
       opportunities: {
         take: 1,
         select: {
           niche: true,
-        }
-      }
-    }
+        },
+      },
+    },
   });
 
   console.log(`Found ${sites.length} active sites\n`);
@@ -39,7 +40,7 @@ async function main() {
     console.log(`[${i + 1}/${sites.length}] ${site.name}`);
 
     if (!site.brand) {
-      console.log("  Skipping - no brand record");
+      console.log('  Skipping - no brand record');
       continue;
     }
 
@@ -47,7 +48,7 @@ async function main() {
       // Generate only the favicon (we'll extract just the favicon from the result)
       const result = await generateSvgLogos({
         brandName: site.brand.name,
-        niche: opportunity?.niche || "travel experiences",
+        niche: opportunity?.niche || 'travel experiences',
         primaryColor: site.brand.primaryColor,
         secondaryColor: site.brand.secondaryColor,
       });
@@ -56,8 +57,8 @@ async function main() {
       await prisma.brand.update({
         where: { id: site.brand.id },
         data: {
-          faviconUrl: result.faviconUrl
-        }
+          faviconUrl: result.faviconUrl,
+        },
       });
 
       console.log(`  ✓ Favicon: ${result.faviconUrl}`);
@@ -66,7 +67,7 @@ async function main() {
     }
   }
 
-  console.log("\nDone!");
+  console.log('\nDone!');
 }
 
 main()

@@ -3,13 +3,16 @@
 import { useState } from 'react';
 import { useBrand } from '@/lib/site-context';
 import type { Experience } from '@/lib/holibob';
+import type { BookingStats } from '@/lib/booking-analytics';
 import { AvailabilityModal } from './AvailabilityModal';
 
 interface BookingWidgetProps {
   experience: Experience;
+  /** Booking statistics for urgency messaging */
+  bookingStats?: BookingStats;
 }
 
-export function BookingWidget({ experience }: BookingWidgetProps) {
+export function BookingWidget({ experience, bookingStats }: BookingWidgetProps) {
   const brand = useBrand();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -18,8 +21,14 @@ export function BookingWidget({ experience }: BookingWidgetProps) {
     experience.cancellationPolicy?.toLowerCase().includes('free') ||
     experience.cancellationPolicy?.toLowerCase().includes('full refund');
 
-  // Show "likely to sell out" for experiences with decent engagement
-  const isPopular = experience.rating && experience.rating.count > 10;
+  // Show urgency badge based on real booking data or review count
+  const isPopular =
+    bookingStats?.isHighDemand ||
+    bookingStats?.isTrending ||
+    (experience.rating && experience.rating.count > 10);
+
+  // Show booking count if significant (3+ bookings this week)
+  const showBookingCount = bookingStats && bookingStats.bookingsThisWeek >= 3;
 
   const primaryColor = brand?.primaryColor ?? '#0d9488'; // teal-600
 
@@ -44,6 +53,15 @@ export function BookingWidget({ experience }: BookingWidgetProps) {
             </span>
             <span className="text-gray-500">per person</span>
           </div>
+          {/* Social proof: Booking count */}
+          {showBookingCount && (
+            <p className="mt-2 flex items-center gap-1.5 text-sm text-gray-600">
+              <svg className="h-4 w-4 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" />
+              </svg>
+              Booked {bookingStats!.bookingsThisWeek} times this week
+            </p>
+          )}
         </div>
 
         {/* Book Button */}

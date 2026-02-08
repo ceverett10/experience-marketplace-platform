@@ -43,8 +43,9 @@ async function uploadToR2(buffer, key, contentType) {
   };
 
   const sortedHeaderKeys = Object.keys(headers).sort();
-  const canonicalHeaders = sortedHeaderKeys.map(k => `${k.toLowerCase()}:${headers[k]}`).join('\n') + '\n';
-  const signedHeadersList = sortedHeaderKeys.map(k => k.toLowerCase()).join(';');
+  const canonicalHeaders =
+    sortedHeaderKeys.map((k) => `${k.toLowerCase()}:${headers[k]}`).join('\n') + '\n';
+  const signedHeadersList = sortedHeaderKeys.map((k) => k.toLowerCase()).join(';');
 
   const canonicalRequest = [
     'PUT',
@@ -221,7 +222,7 @@ async function main() {
     }
 
     // Small delay between sites
-    await new Promise(r => setTimeout(r, 500));
+    await new Promise((r) => setTimeout(r, 500));
   }
 
   console.log(`\n=== Done! Cached ${totalCached} images ===`);

@@ -114,7 +114,9 @@ export default function SitesPage() {
         const data = await fetch(`/admin/api/sites?status=${statusFilter}`).then((r) => r.json());
         setSites(data.sites || []);
       } else {
-        const failedResult = result.results?.find((r: { success: boolean; error?: string }) => !r.success);
+        const failedResult = result.results?.find(
+          (r: { success: boolean; error?: string }) => !r.success
+        );
         alert(`Brand generation failed: ${failedResult?.error || 'Unknown error'}`);
       }
     } catch (error) {

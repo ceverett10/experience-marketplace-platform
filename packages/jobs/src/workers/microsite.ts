@@ -75,9 +75,7 @@ async function generateUniqueSlug(
  * Microsite Creation Handler
  * Creates a new microsite for a supplier or product
  */
-export async function handleMicrositeCreate(
-  job: Job<MicrositeCreatePayload>
-): Promise<JobResult> {
+export async function handleMicrositeCreate(job: Job<MicrositeCreatePayload>): Promise<JobResult> {
   const { supplierId, productId, parentDomain } = job.data;
 
   try {
@@ -182,7 +180,9 @@ export async function handleMicrositeCreate(
       intent: 'TRANSACTIONAL',
     });
 
-    console.log(`[Microsite Create] Generated brand: "${brandIdentity.name}" - ${brandIdentity.tagline}`);
+    console.log(
+      `[Microsite Create] Generated brand: "${brandIdentity.name}" - ${brandIdentity.tagline}`
+    );
 
     // Create brand record
     const brand = await prisma.brand.create({
@@ -324,11 +324,9 @@ export async function handleMicrositeBrandGenerate(
     const entity = microsite.supplier || microsite.product;
     if (!entity) throw new Error(`Microsite ${micrositeId} has no linked entity`);
 
-    const categories =
-      microsite.supplier?.categories || microsite.product?.categories || [];
+    const categories = microsite.supplier?.categories || microsite.product?.categories || [];
     const cities =
-      microsite.supplier?.cities ||
-      (microsite.product?.city ? [microsite.product.city] : []);
+      microsite.supplier?.cities || (microsite.product?.city ? [microsite.product.city] : []);
 
     // Generate new brand identity
     const brandIdentity = await generateComprehensiveBrandIdentity({
@@ -570,7 +568,9 @@ export async function handleMicrositeArchive(
   const { micrositeId, reason } = job.data;
 
   try {
-    console.log(`[Microsite Archive] Archiving microsite ${micrositeId}: ${reason || 'No reason provided'}`);
+    console.log(
+      `[Microsite Archive] Archiving microsite ${micrositeId}: ${reason || 'No reason provided'}`
+    );
 
     const microsite = await prisma.micrositeConfig.update({
       where: { id: micrositeId },
@@ -648,7 +648,9 @@ export async function handleMicrositeHealthCheck(
       }
     }
 
-    console.log(`[Microsite Health] Found ${issues.length} issues across ${microsites.length} microsites`);
+    console.log(
+      `[Microsite Health] Found ${issues.length} issues across ${microsites.length} microsites`
+    );
 
     return {
       success: true,

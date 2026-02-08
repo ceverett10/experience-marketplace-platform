@@ -13,8 +13,12 @@ export async function POST(request: Request): Promise<NextResponse> {
     const { siteIds, regenerateAll = false } = body;
 
     // Import the brand identity functions dynamically
-    const { generateComprehensiveBrandIdentity, storeBrandIdentity, generateAllLogoVersions, isLogoGenerationAvailable } =
-      await import('@experience-marketplace/jobs').then((m) => m);
+    const {
+      generateComprehensiveBrandIdentity,
+      storeBrandIdentity,
+      generateAllLogoVersions,
+      isLogoGenerationAvailable,
+    } = await import('@experience-marketplace/jobs').then((m) => m);
 
     // Common include for all queries
     const includeRelations = {
@@ -109,7 +113,9 @@ export async function POST(request: Request): Promise<NextResponse> {
             logoUrl = logoResult.logoUrl;
             logoDarkUrl = logoResult.logoDarkUrl;
             faviconUrl = logoResult.faviconUrl;
-            console.log(`[Brand Identity] All logos generated: light=${logoUrl}, dark=${logoDarkUrl}, favicon=${faviconUrl}`);
+            console.log(
+              `[Brand Identity] All logos generated: light=${logoUrl}, dark=${logoDarkUrl}, favicon=${faviconUrl}`
+            );
           } catch (logoErr) {
             console.warn(`[Brand Identity] Logo generation failed for ${site.name}:`, logoErr);
           }

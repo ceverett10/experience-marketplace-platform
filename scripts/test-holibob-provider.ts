@@ -77,7 +77,9 @@ async function testProviderField() {
 
       // Also check legacy fields for comparison
       if (product.supplierId || product.supplierName) {
-        console.log(`  Legacy fields: supplierId=${product.supplierId}, supplierName=${product.supplierName}`);
+        console.log(
+          `  Legacy fields: supplierId=${product.supplierId}, supplierName=${product.supplierName}`
+        );
       }
     }
 

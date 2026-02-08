@@ -12,16 +12,17 @@ Holibob has ~300,000 experiences from suppliers, many with minimal digital prese
 
 ### What's Already Built
 
-| Component | Current State | 300k Ready? |
-|-----------|---------------|-------------|
-| Multi-tenant routing | Domain → Site lookup via DB | ❌ 2 queries/request |
-| Content generation | 7 content types, AI-powered | ⚠️ Needs quotas |
-| SEO automation | GSC, GA4, sitemaps, structured data | ⚠️ API limits |
-| Domain management | Cloudflare registrar integration | ❌ Cost prohibitive |
-| Job queue | BullMQ on single Redis | ❌ Needs clustering |
-| Database | Single PostgreSQL | ❌ Needs read replicas |
+| Component            | Current State                       | 300k Ready?            |
+| -------------------- | ----------------------------------- | ---------------------- |
+| Multi-tenant routing | Domain → Site lookup via DB         | ❌ 2 queries/request   |
+| Content generation   | 7 content types, AI-powered         | ⚠️ Needs quotas        |
+| SEO automation       | GSC, GA4, sitemaps, structured data | ⚠️ API limits          |
+| Domain management    | Cloudflare registrar integration    | ❌ Cost prohibitive    |
+| Job queue            | BullMQ on single Redis              | ❌ Needs clustering    |
+| Database             | Single PostgreSQL                   | ❌ Needs read replicas |
 
 ### Current Platform Limits
+
 ```
 maxTotalSites: 200
 maxSitesPerHour: 10
@@ -34,7 +35,9 @@ maxGSCRequestsPerHour: 200
 ## 2. Domain Strategy Options
 
 ### The Core Problem
+
 Registering 300k domains is:
+
 - **Cost prohibitive**: ~$10/domain × 300k = $3M/year in renewals
 - **Operationally impossible**: DNS management, SSL certificates, monitoring
 - **SEO risky**: Google may see this as a link scheme or PBN
@@ -50,6 +53,7 @@ products.holibob.com/london-walking-tour-123 → Product page
 ```
 
 **Pros**:
+
 - Single parent domain to manage
 - Inherits domain authority from holibob.com
 - No registration costs
@@ -57,11 +61,13 @@ products.holibob.com/london-walking-tour-123 → Product page
 - Easy DNS management (single wildcard A record)
 
 **Cons**:
+
 - Subdomains treated as separate sites by Google (less authority inheritance than subdirectories)
 - GSC requires each subdomain to be verified separately (or use domain-level property)
 - Branding is tied to holibob.com
 
 **SEO Considerations**:
+
 - Google treats subdomains as "somewhat" related to the main domain
 - Internal linking between subdomains is less powerful than within a domain
 - Can still build domain authority through quality content and backlinks
@@ -77,12 +83,14 @@ holibob.com/products/london-walking-tour-123/
 ```
 
 **Pros**:
+
 - **Maximum SEO benefit**: All content shares domain authority
 - Single GSC property for the entire site
 - Simpler technical implementation
 - Unified sitemap strategy
 
 **Cons**:
+
 - Not truly "separate sites" - no independent branding
 - Harder to isolate supplier-specific analytics
 - Single point of failure (if holibob.com penalized, all content affected)
@@ -90,6 +98,7 @@ holibob.com/products/london-walking-tour-123/
 ### Option C: Hybrid Approach (Recommended for Scale)
 
 **Structure**:
+
 - Top suppliers (by revenue/volume): `{supplier}.holibob.com` (subdomain)
 - Long-tail suppliers: `holibob.com/s/{supplier-slug}` (subdirectory)
 - Products: Always subdirectory under supplier or products path
@@ -108,6 +117,7 @@ holibob.com/p/london-walking-tour-123
 ```
 
 **Benefits**:
+
 - Premium suppliers get dedicated presence (partnership value)
 - Long-tail suppliers benefit from main domain authority
 - Products are always accessible at consistent URLs
@@ -118,6 +128,7 @@ holibob.com/p/london-walking-tour-123
 ## 3. Recommended Architecture: Subdirectory-First
 
 ### URL Structure
+
 ```
 holibob.com/
 ├── /suppliers/                          # Supplier directory
@@ -247,6 +258,7 @@ model Product {
 ### Content Types Per Entity
 
 **Supplier Pages** (5-7 pages per supplier):
+
 1. **Homepage**: Hero, featured experiences, about snippet, reviews
 2. **About**: AI-generated supplier story, team (if available), values
 3. **Experiences listing**: Filterable/sortable product grid
@@ -255,6 +267,7 @@ model Product {
 6. **FAQ**: AI-generated from common questions
 
 **Product Pages** (2-3 pages per product):
+
 1. **Main page**: Full product details, booking widget, reviews, related products
 2. **Reviews page**: Expanded reviews with filters
 3. **Blog/Guide**: "Complete Guide to {Experience}" (generated on demand)
@@ -264,6 +277,7 @@ model Product {
 **Current**: 7 content types × 1/day × 200 sites = 1,400 content pieces/day
 
 **At 300k Scale** (with quotas):
+
 ```
 Supplier pages:  300,000 suppliers × 5 pages = 1.5M pages (one-time generation)
 Product pages:   300,000 products × 2 pages  = 600k pages (one-time generation)
@@ -272,25 +286,27 @@ New products:    ~100/day estimated          = 200 pages/day
 ```
 
 **Content Generation Prioritization**:
+
 1. **High-traffic pages first**: Products/suppliers with GSC impressions
 2. **Booking potential**: Products with high conversion rates
 3. **Competitive keywords**: Where we're ranked #4-10 (within striking distance)
 4. **Freshness signals**: Pages older than 90 days
 
 ### AI Generation Quotas
+
 ```typescript
 const CONTENT_QUOTAS = {
   supplier: {
-    homepage: 1,        // One homepage, refreshed quarterly
-    about: 1,           // One about page
-    faq: 1,             // One FAQ page
-    blogPosts: 4,       // Max 4 blog posts per supplier per year
+    homepage: 1, // One homepage, refreshed quarterly
+    about: 1, // One about page
+    faq: 1, // One FAQ page
+    blogPosts: 4, // Max 4 blog posts per supplier per year
   },
   product: {
-    mainPage: 1,        // One main page, refreshed monthly
-    guide: 1,           // One comprehensive guide
-    blogMentions: 12,   // Featured in up to 12 blog posts per year
-  }
+    mainPage: 1, // One main page, refreshed monthly
+    guide: 1, // One comprehensive guide
+    blogMentions: 12, // Featured in up to 12 blog posts per year
+  },
 };
 ```
 
@@ -301,12 +317,14 @@ const CONTENT_QUOTAS = {
 ### Google's View of Large-Scale Content
 
 **Risks**:
+
 1. **Thin content penalty**: Pages with minimal unique value
 2. **Duplicate content**: Similar products/suppliers with near-identical pages
 3. **Spam signals**: Rapid publication of AI-generated content
 4. **Crawl budget**: Google may not crawl all 2M+ pages efficiently
 
 **Mitigations**:
+
 1. **Quality over quantity**: Only publish pages scoring >70 on quality gate
 2. **Unique content signals**: Include supplier-specific details, reviews, images
 3. **Gradual rollout**: Publish 1,000-5,000 pages/week, not all at once
@@ -316,6 +334,7 @@ const CONTENT_QUOTAS = {
 ### Structured Data Strategy
 
 **Supplier Pages**:
+
 ```json
 {
   "@type": "TouristTrip",
@@ -328,6 +347,7 @@ const CONTENT_QUOTAS = {
 ```
 
 **Product Pages**:
+
 ```json
 {
   "@type": ["Product", "TouristTrip"],
@@ -355,6 +375,7 @@ sitemap_index.xml
 ```
 
 **Implementation**:
+
 ```typescript
 // /app/sitemap.ts - becomes sitemap index
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
@@ -371,7 +392,7 @@ export async function GET() {
   const suppliers = await prisma.supplier.findMany({
     take: 50000,
     orderBy: { pageViews: 'desc' },
-    select: { slug: true, updatedAt: true }
+    select: { slug: true, updatedAt: true },
   });
   // Generate XML...
 }
@@ -380,14 +401,17 @@ export async function GET() {
 ### Google Search Console at Scale
 
 **Challenge**: GSC has limits
+
 - 1,000 properties per account
 - 25,000 rows per analytics query
 - Rate limits on API calls
 
 **Solution**: Domain-level property
+
 ```
 Property: sc-domain:holibob.com
 ```
+
 - Covers all subdomains and paths
 - Single verification
 - Unified search analytics
@@ -402,6 +426,7 @@ Property: sc-domain:holibob.com
 **Current**: Single PostgreSQL instance
 
 **Required for 300k**:
+
 ```
 Primary DB (Write)
 ├── Connection pooling (PgBouncer)
@@ -425,10 +450,10 @@ Redis Cluster
 ```typescript
 // Site/Supplier config caching
 const CACHE_CONFIG = {
-  siteConfig: { ttl: 300 },      // 5 minutes
-  supplierData: { ttl: 3600 },   // 1 hour
-  productData: { ttl: 1800 },    // 30 minutes
-  searchResults: { ttl: 60 },    // 1 minute
+  siteConfig: { ttl: 300 }, // 5 minutes
+  supplierData: { ttl: 3600 }, // 1 hour
+  productData: { ttl: 1800 }, // 30 minutes
+  searchResults: { ttl: 60 }, // 1 minute
 };
 
 // Implementation: Redis + in-memory
@@ -460,6 +485,7 @@ Origin
 **Current**: Single BullMQ instance, ~100 pages/hour capacity
 
 **Required for 300k**:
+
 ```
 Job Queue Cluster
 ├── Redis Cluster (3+ nodes)
@@ -555,27 +581,27 @@ AI API Management
 
 ### High Risk
 
-| Risk | Impact | Mitigation |
-|------|--------|------------|
+| Risk                            | Impact               | Mitigation                                        |
+| ------------------------------- | -------------------- | ------------------------------------------------- |
 | Google penalty for thin content | Loss of all rankings | Quality gates, gradual rollout, noindex low-value |
-| Holibob API changes | Data sync breaks | API versioning, local caching, error handling |
-| Cost overrun (AI generation) | Budget exceeded | Quotas, model selection, caching |
-| Database performance | Site slowdown | Read replicas, caching, query optimization |
+| Holibob API changes             | Data sync breaks     | API versioning, local caching, error handling     |
+| Cost overrun (AI generation)    | Budget exceeded      | Quotas, model selection, caching                  |
+| Database performance            | Site slowdown        | Read replicas, caching, query optimization        |
 
 ### Medium Risk
 
-| Risk | Impact | Mitigation |
-|------|--------|------------|
-| Competitor replication | Reduced advantage | Speed to market, quality differentiation |
-| Supplier data quality | Poor page quality | Data validation, enrichment |
+| Risk                    | Impact            | Mitigation                               |
+| ----------------------- | ----------------- | ---------------------------------------- |
+| Competitor replication  | Reduced advantage | Speed to market, quality differentiation |
+| Supplier data quality   | Poor page quality | Data validation, enrichment              |
 | Crawl budget exhaustion | Pages not indexed | Sitemap prioritization, internal linking |
 
 ### Low Risk
 
-| Risk | Impact | Mitigation |
-|------|--------|------------|
-| GSC rate limits | Delayed verification | Batch processing, domain-level property |
-| Image optimization | Slow pages | CDN, lazy loading, WebP |
+| Risk               | Impact               | Mitigation                              |
+| ------------------ | -------------------- | --------------------------------------- |
+| GSC rate limits    | Delayed verification | Batch processing, domain-level property |
+| Image optimization | Slow pages           | CDN, lazy loading, WebP                 |
 
 ---
 
@@ -583,31 +609,31 @@ AI API Management
 
 ### One-Time Costs
 
-| Item | Estimate |
-|------|----------|
-| Development (4 months, 2 engineers) | $80,000-120,000 |
-| Initial content generation (2M pages × $0.02 avg) | $40,000 |
-| Database migration & scaling | $5,000-10,000 |
-| **Total One-Time** | **$125,000-170,000** |
+| Item                                              | Estimate             |
+| ------------------------------------------------- | -------------------- |
+| Development (4 months, 2 engineers)               | $80,000-120,000      |
+| Initial content generation (2M pages × $0.02 avg) | $40,000              |
+| Database migration & scaling                      | $5,000-10,000        |
+| **Total One-Time**                                | **$125,000-170,000** |
 
 ### Monthly Recurring
 
-| Item | Estimate |
-|------|----------|
-| Database (scaled PostgreSQL) | $500-1,000 |
-| Redis Cluster | $200-400 |
-| AI API (content refresh, new content) | $2,000-5,000 |
-| CDN/Edge (Cloudflare Pro) | $200 |
-| Monitoring & logging | $100-200 |
-| **Total Monthly** | **$3,000-7,000** |
+| Item                                  | Estimate         |
+| ------------------------------------- | ---------------- |
+| Database (scaled PostgreSQL)          | $500-1,000       |
+| Redis Cluster                         | $200-400         |
+| AI API (content refresh, new content) | $2,000-5,000     |
+| CDN/Edge (Cloudflare Pro)             | $200             |
+| Monitoring & logging                  | $100-200         |
+| **Total Monthly**                     | **$3,000-7,000** |
 
 ### Avoided Costs (vs. Domain Registration)
 
-| Item | Saved |
-|------|-------|
-| Domain registration (300k × $10) | $3,000,000/year |
-| SSL certificates (if not Cloudflare) | $100,000+/year |
-| DNS management overhead | Significant |
+| Item                                 | Saved           |
+| ------------------------------------ | --------------- |
+| Domain registration (300k × $10)     | $3,000,000/year |
+| SSL certificates (if not Cloudflare) | $100,000+/year  |
+| DNS management overhead              | Significant     |
 
 ---
 
@@ -640,6 +666,7 @@ AI API Management
 5. **Risk mitigation**: Gradual rollout allows quality monitoring
 
 **Key success factors**:
+
 - Quality over quantity in content generation
 - Gradual rollout with monitoring
 - Strong internal linking strategy
@@ -684,9 +711,9 @@ export async function generateStaticParams() {
   const topProducts = await prisma.product.findMany({
     take: 10000,
     orderBy: { pageViews: 'desc' },
-    select: { slug: true }
+    select: { slug: true },
   });
-  return topProducts.map(p => ({ slug: p.slug }));
+  return topProducts.map((p) => ({ slug: p.slug }));
 }
 ```
 
@@ -708,19 +735,23 @@ async function syncHolibobData() {
 ## Appendix B: Alternative Approaches Considered
 
 ### 1. Programmatic SEO Platform (e.g., Webflow + Airtable)
+
 - **Rejected**: Limited customization, doesn't scale to 300k pages, expensive
 
 ### 2. Static Site Generator (Next.js Export)
+
 - **Rejected**: Build times for 2M pages impractical, no ISR support
 
 ### 3. Separate Domains per Supplier Category
+
 - **Rejected**: Dilutes SEO value, complex management
 
 ### 4. White-label Platform for Suppliers
+
 - **Rejected**: Requires supplier engagement, slower rollout
 
 ---
 
-*Document Version: 1.0*
-*Last Updated: 2026-02-06*
-*Author: Planning Session*
+_Document Version: 1.0_
+_Last Updated: 2026-02-06_
+_Author: Planning Session_

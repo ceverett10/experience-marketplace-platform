@@ -527,6 +527,7 @@ model Booking {
   // Holibob Reference
   holibobBookingId String  @unique
   holibobBasketId  String?
+  holibobProductId String? // Track which product was booked (for analytics)
 
   // Booking Status
   status BookingStatus @default(PENDING)
@@ -559,6 +560,7 @@ model Booking {
   @@index([siteId])
   @@index([status])
   @@index([createdAt])
+  @@index([siteId, holibobProductId, createdAt]) // For booking analytics queries
 }
 
 enum BookingStatus {

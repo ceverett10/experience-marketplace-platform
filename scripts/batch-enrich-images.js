@@ -272,10 +272,8 @@ async function main() {
     if (!hc) return false;
 
     const needsHero = hc.hero && !hc.hero.backgroundImage;
-    const needsDestImages =
-      hc.destinations && hc.destinations.some((d) => !d.imageUrl);
-    const needsCatImages =
-      hc.categories && hc.categories.some((c) => !c.imageUrl);
+    const needsDestImages = hc.destinations && hc.destinations.some((d) => !d.imageUrl);
+    const needsCatImages = hc.categories && hc.categories.some((c) => !c.imageUrl);
 
     return needsHero || needsDestImages || needsCatImages;
   });

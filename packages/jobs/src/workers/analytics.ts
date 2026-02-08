@@ -305,9 +305,7 @@ export async function handleGA4Setup(job: Job<GA4SetupPayload>): Promise<JobResu
     const existingProperties = await ga4Breaker.execute(() =>
       ga4Client.listProperties(targetAccountId)
     );
-    const existingProp = existingProperties.find(
-      (p) => p.displayName === site.name
-    );
+    const existingProp = existingProperties.find((p) => p.displayName === site.name);
 
     let result: { success: boolean; propertyId?: string; measurementId?: string; error?: string };
 
@@ -346,13 +344,15 @@ export async function handleGA4Setup(job: Job<GA4SetupPayload>): Promise<JobResu
     } else {
       // No existing property — create new one
       console.log(`[GA4 Setup] Creating GA4 property for ${site.name} (${websiteUrl})...`);
-      result = await ga4Breaker.execute(() => ga4Client.setupSiteAnalytics({
-        accountId: targetAccountId,
-        siteName: site.name,
-        websiteUrl,
-        timeZone: 'Europe/London',
-        currencyCode: 'GBP',
-      }));
+      result = await ga4Breaker.execute(() =>
+        ga4Client.setupSiteAnalytics({
+          accountId: targetAccountId,
+          siteName: site.name,
+          websiteUrl,
+          timeZone: 'Europe/London',
+          currencyCode: 'GBP',
+        })
+      );
     }
 
     if (!result.success || !result.measurementId) {

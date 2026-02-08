@@ -43,17 +43,15 @@ function needsImprovement(metaTitle: string | null): boolean {
   return false;
 }
 
-function generateMetaTitle(
-  page: {
-    title: string;
-    type: PageType;
-    site: {
-      name: string;
-      seoConfig: any;
-      homepageConfig: any;
-    };
-  }
-): string {
+function generateMetaTitle(page: {
+  title: string;
+  type: PageType;
+  site: {
+    name: string;
+    seoConfig: any;
+    homepageConfig: any;
+  };
+}): string {
   const { type, title, site } = page;
   const siteName = site.name;
   const seoConfig = site.seoConfig || {};
@@ -79,9 +77,15 @@ function generateMetaTitle(
 
     case 'ABOUT':
       if (destination) {
-        return truncateWithBrand(`About ${siteName} - ${capitalize(niche)} Experts in ${destination}`, siteName);
+        return truncateWithBrand(
+          `About ${siteName} - ${capitalize(niche)} Experts in ${destination}`,
+          siteName
+        );
       }
-      return truncateWithBrand(`About ${siteName} - Your Trusted ${capitalize(niche)} Guide`, siteName);
+      return truncateWithBrand(
+        `About ${siteName} - Your Trusted ${capitalize(niche)} Guide`,
+        siteName
+      );
 
     case 'CONTACT':
       return truncateWithBrand(`Contact ${siteName} - Get in Touch`, siteName);
@@ -194,7 +198,9 @@ export async function runMetaTitleMaintenance(): Promise<MaintenanceResult> {
     // Filter pages that need improvement and have a site (not microsite)
     const pagesToFix = pages.filter((p) => p.site && needsImprovement(p.metaTitle));
 
-    console.log(`[Meta Title Maintenance] Found ${pagesToFix.length} pages needing meta title fixes`);
+    console.log(
+      `[Meta Title Maintenance] Found ${pagesToFix.length} pages needing meta title fixes`
+    );
 
     for (const page of pagesToFix) {
       try {

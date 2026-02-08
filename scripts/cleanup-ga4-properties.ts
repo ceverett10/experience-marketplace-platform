@@ -290,10 +290,8 @@ async function main() {
 
   console.log(`\nACTIVE — kept (${kept.length} properties):`);
   for (const prop of kept) {
-    const site =
-      siteByPropertyId.get(prop.propertyId) ||
-      siteByMeasurementId.get(prop.measurementId) ||
-      { name: prop.displayName, status: '?' };
+    const site = siteByPropertyId.get(prop.propertyId) ||
+      siteByMeasurementId.get(prop.measurementId) || { name: prop.displayName, status: '?' };
     console.log(
       `  [KEEP] ${prop.displayName} (${prop.propertyId}) -> ${site.name} [${site.status}]`
     );

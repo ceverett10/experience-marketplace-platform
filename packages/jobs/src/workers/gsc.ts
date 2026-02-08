@@ -57,24 +57,26 @@ export async function handleGscSetup(job: Job<GscSetupPayload>): Promise<JobResu
     const cloudflareDns = new CloudflareDNSService();
 
     // Register site with GSC using the helper method (protected by circuit breaker)
-    const result = await gscBreaker.execute(() => gscClient.registerSite(domain, async (token) => {
-      // This callback is called after getting the verification token
-      // Add TXT record to Cloudflare DNS
-      console.log(`[GSC Setup] Adding verification TXT record for ${domain}`);
-      await cloudflareDns.addGoogleVerificationRecord(cloudflareZoneId, token);
+    const result = await gscBreaker.execute(() =>
+      gscClient.registerSite(domain, async (token) => {
+        // This callback is called after getting the verification token
+        // Add TXT record to Cloudflare DNS
+        console.log(`[GSC Setup] Adding verification TXT record for ${domain}`);
+        await cloudflareDns.addGoogleVerificationRecord(cloudflareZoneId, token);
 
-      // Store the verification code in the database
-      await prisma.site.update({
-        where: { id: siteId },
-        data: {
-          gscVerificationCode: token,
-        },
-      });
+        // Store the verification code in the database
+        await prisma.site.update({
+          where: { id: siteId },
+          data: {
+            gscVerificationCode: token,
+          },
+        });
 
-      // Wait for DNS propagation (Cloudflare is usually fast, but give it some time)
-      console.log(`[GSC Setup] Waiting 10s for DNS propagation...`);
-      await new Promise((resolve) => setTimeout(resolve, 10000));
-    }));
+        // Wait for DNS propagation (Cloudflare is usually fast, but give it some time)
+        console.log(`[GSC Setup] Waiting 10s for DNS propagation...`);
+        await new Promise((resolve) => setTimeout(resolve, 10000));
+      })
+    );
 
     if (!result.success) {
       console.error(`[GSC Setup] Failed to register ${domain}: ${result.error}`);

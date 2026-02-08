@@ -9,10 +9,13 @@ import { DestinationPageTemplate } from '@/components/content/DestinationPageTem
 /**
  * Get a default image for structured data from site configuration
  */
-function getDefaultImage(site: {
-  brand?: { ogImageUrl?: string | null; logoUrl?: string | null } | null;
-  homepageConfig?: HomepageConfig | null;
-}, hostname: string): string {
+function getDefaultImage(
+  site: {
+    brand?: { ogImageUrl?: string | null; logoUrl?: string | null } | null;
+    homepageConfig?: HomepageConfig | null;
+  },
+  hostname: string
+): string {
   if (site.brand?.ogImageUrl) return site.brand.ogImageUrl;
   if (site.homepageConfig?.hero?.backgroundImage) return site.homepageConfig.hero.backgroundImage;
   if (site.brand?.logoUrl) return site.brand.logoUrl;
@@ -156,7 +159,8 @@ export default async function DestinationPage({ params }: Props) {
     '@context': 'https://schema.org',
     '@type': 'TouristDestination',
     name: destination.title,
-    description: destination.metaDescription || destination.content?.body?.substring(0, 200) || undefined,
+    description:
+      destination.metaDescription || destination.content?.body?.substring(0, 200) || undefined,
     url: pageUrl,
     image: defaultImage,
     // Include tourist attraction type for better categorization

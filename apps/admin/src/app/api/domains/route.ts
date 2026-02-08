@@ -644,12 +644,14 @@ export async function POST(request: Request) {
       // Auto-initialize roadmap and kick off first tasks so the pipeline starts immediately
       let roadmapResult = null;
       try {
-        const { initializeSiteRoadmap, executeNextTasks } = await import(
-          '@experience-marketplace/jobs'
-        );
+        const { initializeSiteRoadmap, executeNextTasks } =
+          await import('@experience-marketplace/jobs');
         await initializeSiteRoadmap(site.id);
         roadmapResult = await executeNextTasks(site.id, { retryFailed: true });
-        console.log(`[CreateSite] Roadmap initialized and tasks queued for ${site.name}:`, roadmapResult);
+        console.log(
+          `[CreateSite] Roadmap initialized and tasks queued for ${site.name}:`,
+          roadmapResult
+        );
       } catch (roadmapError) {
         console.error(`[CreateSite] Error initializing roadmap for ${site.name}:`, roadmapError);
         // Non-fatal — site is created, roadmap can be initialized manually

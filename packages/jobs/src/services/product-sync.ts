@@ -5,7 +5,10 @@
  */
 
 import { prisma, Prisma } from '@experience-marketplace/database';
-import { createHolibobClient, type Product as HolibobProduct } from '@experience-marketplace/holibob-api';
+import {
+  createHolibobClient,
+  type Product as HolibobProduct,
+} from '@experience-marketplace/holibob-api';
 import { createBulkSyncRateLimiter, RateLimiter } from '../utils/rate-limiter.js';
 
 export interface ProductSyncResult {
@@ -135,19 +138,14 @@ export async function syncProductsFromHolibob(
 
   try {
     // Get suppliers to sync
-    const staleThreshold = new Date(
-      Date.now() - staleSyncThresholdHours * 60 * 60 * 1000
-    );
+    const staleThreshold = new Date(Date.now() - staleSyncThresholdHours * 60 * 60 * 1000);
 
     const whereClause = supplierIds?.length
       ? { id: { in: supplierIds } }
       : forceSync
         ? {}
         : {
-            OR: [
-              { lastSyncedAt: null },
-              { lastSyncedAt: { lt: staleThreshold } },
-            ],
+            OR: [{ lastSyncedAt: null }, { lastSyncedAt: { lt: staleThreshold } }],
           };
 
     const suppliers = await prisma.supplier.findMany({
@@ -191,11 +189,7 @@ export async function syncProductsFromHolibob(
         // Upsert products
         for (const product of supplierProducts) {
           try {
-            const result = await upsertProduct(
-              product,
-              supplier.id,
-              existingSlugs
-            );
+            const result = await upsertProduct(product, supplier.id, existingSlugs);
 
             if (result.created) {
               productsCreated++;
@@ -204,9 +198,7 @@ export async function syncProductsFromHolibob(
             }
           } catch (productError) {
             const errorMsg = `Error upserting product "${product.name}": ${
-              productError instanceof Error
-                ? productError.message
-                : String(productError)
+              productError instanceof Error ? productError.message : String(productError)
             }`;
             console.error(`[Product Sync] ${errorMsg}`);
             errors.push(errorMsg);
@@ -226,9 +218,7 @@ export async function syncProductsFromHolibob(
         await rateLimiter.waitBetweenBatches();
       } catch (supplierError) {
         const errorMsg = `Error processing supplier "${supplier.name}": ${
-          supplierError instanceof Error
-            ? supplierError.message
-            : String(supplierError)
+          supplierError instanceof Error ? supplierError.message : String(supplierError)
         }`;
         console.error(`[Product Sync] ${errorMsg}`);
         errors.push(errorMsg);
@@ -454,9 +444,7 @@ async function upsertProduct(
 /**
  * Sync products for a single supplier
  */
-export async function syncProductsForSupplier(
-  supplierId: string
-): Promise<ProductSyncResult> {
+export async function syncProductsForSupplier(supplierId: string): Promise<ProductSyncResult> {
   return syncProductsFromHolibob({
     supplierIds: [supplierId],
     forceSync: true,

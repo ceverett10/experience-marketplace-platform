@@ -1509,7 +1509,9 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
                       setSite(data.site);
                     }
                   } else {
-                    alert(result.results?.[0]?.error || result.error || 'Failed to regenerate brand');
+                    alert(
+                      result.results?.[0]?.error || result.error || 'Failed to regenerate brand'
+                    );
                   }
                 } catch (error) {
                   console.error('Failed to regenerate brand:', error);
@@ -1708,7 +1710,8 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
                     <div className="text-4xl mb-2">&#128444;</div>
                     <p className="text-slate-500 text-sm">No logos generated yet</p>
                     <p className="text-slate-400 text-xs mt-1">
-                      Click &quot;Generate Logos&quot; to create light, dark, and favicon versions with AI
+                      Click &quot;Generate Logos&quot; to create light, dark, and favicon versions
+                      with AI
                     </p>
                   </div>
                 )}

@@ -29,12 +29,12 @@ async function triggerSEOOptimize() {
       id: true,
       name: true,
       _count: {
-        select: { pages: { where: { status: 'PUBLISHED' } } }
-      }
-    }
+        select: { pages: { where: { status: 'PUBLISHED' } } },
+      },
+    },
   });
 
-  const sitesWithContent = sites.filter(s => s._count.pages > 0);
+  const sitesWithContent = sites.filter((s) => s._count.pages > 0);
   console.log(`Found ${sitesWithContent.length} sites with published content:\n`);
 
   for (const site of sitesWithContent) {
@@ -50,8 +50,8 @@ async function triggerSEOOptimize() {
       where: {
         siteId: site.id,
         type: 'SEO_AUTO_OPTIMIZE',
-        status: { in: ['PENDING', 'RUNNING'] }
-      }
+        status: { in: ['PENDING', 'RUNNING'] },
+      },
     });
 
     if (existingJob) {
@@ -66,8 +66,8 @@ async function triggerSEOOptimize() {
         siteId: site.id,
         status: 'PENDING',
         priority: 5,
-        payload: { siteId: site.id, scope: 'all' }
-      }
+        payload: { siteId: site.id, scope: 'all' },
+      },
     });
 
     // Add to BullMQ queue
@@ -76,7 +76,7 @@ async function triggerSEOOptimize() {
       { siteId: site.id, scope: 'all', jobId: job.id },
       {
         priority: 5,
-        delay: queued * 30000 // Stagger by 30 seconds
+        delay: queued * 30000, // Stagger by 30 seconds
       }
     );
 

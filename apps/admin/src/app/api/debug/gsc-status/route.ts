@@ -106,7 +106,8 @@ export async function GET(request: Request) {
       } else if (!checks.hasVerificationCode) {
         blocker = 'No GSC verification code — GSC_SETUP has not run or failed before getting token';
       } else if (!checks.gscVerified) {
-        blocker = 'GSC verification code exists but verification failed — DNS TXT record may not have propagated';
+        blocker =
+          'GSC verification code exists but verification failed — DNS TXT record may not have propagated';
       } else if (!checks.hasPrimaryDomain) {
         blocker = 'No primaryDomain set on site — sitemaps and canonicals will use wrong hostname';
       }

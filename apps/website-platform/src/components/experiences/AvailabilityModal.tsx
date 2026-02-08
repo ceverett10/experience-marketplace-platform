@@ -15,6 +15,7 @@ import {
   type PricingCategory,
   type AvailabilityDetail,
 } from '@/lib/booking-flow';
+import { SessionTimer } from '@/components/booking/SessionTimer';
 
 interface AvailabilityModalProps {
   isOpen: boolean;
@@ -71,6 +72,9 @@ export function AvailabilityModal({
   const [error, setError] = useState<string | null>(null);
   const [isBooking, setIsBooking] = useState(false);
 
+  // Session timer state - starts when user moves past date selection
+  const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
+
   // Portal mounting state (for SSR safety)
   const [mounted, setMounted] = useState(false);
 
@@ -100,6 +104,8 @@ export function AvailabilityModal({
 
   // Load options when a slot is selected
   const loadOptions = useCallback(async (slotId: string) => {
+    // Start the session timer when user moves past date selection
+    setSessionStartTime(new Date());
     setIsLoading(true);
     setError(null);
     try {
@@ -252,6 +258,7 @@ export function AvailabilityModal({
       setTotalPrice(null);
       setIsValid(false);
       setError(null);
+      setSessionStartTime(null);
     }
   }, [isOpen]);
 
@@ -322,6 +329,23 @@ export function AvailabilityModal({
               />
             ))}
           </div>
+
+          {/* Session timer - shows after date selection */}
+          {sessionStartTime && step !== 'dates' && (
+            <div className="mt-3">
+              <SessionTimer
+                startTime={sessionStartTime}
+                durationMinutes={15}
+                variant="banner"
+                onExpire={() => {
+                  setError('Your session has expired. Please select a date again.');
+                  setStep('dates');
+                  setSessionStartTime(null);
+                  setSelectedSlot(null);
+                }}
+              />
+            </div>
+          )}
         </div>
 
         {/* Content */}

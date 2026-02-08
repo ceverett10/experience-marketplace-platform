@@ -64,9 +64,7 @@ export async function handleLinkOpportunityScan(
       failureThreshold: 3,
       timeout: 120_000,
     });
-    const profile = await backlinkBreaker.execute(() =>
-      getBacklinkProfile(site.primaryDomain!)
-    );
+    const profile = await backlinkBreaker.execute(() => getBacklinkProfile(site.primaryDomain!));
     console.log(
       `[Link Building] Our profile: ${profile.totalBacklinks} backlinks, DA: ${profile.domainAuthority}`
     );

@@ -94,10 +94,7 @@ export async function getSEOIssues(filters: SEOIssueFilters) {
         site: { select: { name: true, primaryDomain: true } },
         page: { select: { title: true, slug: true } },
       },
-      orderBy: [
-        { severity: 'desc' },
-        { detectedAt: 'desc' },
-      ],
+      orderBy: [{ severity: 'desc' }, { detectedAt: 'desc' }],
       take: filters.limit || 50,
       skip: filters.offset || 0,
     }),
@@ -123,10 +120,7 @@ export async function getSEOIssue(issueId: string) {
 /**
  * Update issue status
  */
-export async function updateSEOIssueStatus(
-  issueId: string,
-  status: IssueStatus
-): Promise<void> {
+export async function updateSEOIssueStatus(issueId: string, status: IssueStatus): Promise<void> {
   await prisma.sEOIssue.update({
     where: { id: issueId },
     data: { status },
@@ -206,15 +200,9 @@ export async function getSEOIssueSummary(siteId?: string) {
   ]);
 
   // Convert to more usable format
-  const categoryMap = Object.fromEntries(
-    byCategory.map((c) => [c.category, c._count])
-  );
-  const severityMap = Object.fromEntries(
-    bySeverity.map((s) => [s.severity, s._count])
-  );
-  const statusMap = Object.fromEntries(
-    byStatus.map((s) => [s.status, s._count])
-  );
+  const categoryMap = Object.fromEntries(byCategory.map((c) => [c.category, c._count]));
+  const severityMap = Object.fromEntries(bySeverity.map((s) => [s.severity, s._count]));
+  const statusMap = Object.fromEntries(byStatus.map((s) => [s.status, s._count]));
 
   return {
     total: Object.values(statusMap).reduce((a, b) => a + b, 0),

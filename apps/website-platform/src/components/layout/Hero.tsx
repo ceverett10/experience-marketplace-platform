@@ -34,7 +34,11 @@ export function Hero({ title, subtitle, backgroundImage, backgroundImageAttribut
       <div className="absolute inset-0 overflow-hidden">
         {backgroundImage ? (
           <Image
-            src={shouldSkipOptimization(backgroundImage) ? backgroundImage : optimizeUnsplashUrl(backgroundImage, 1280, 40)}
+            src={
+              shouldSkipOptimization(backgroundImage)
+                ? backgroundImage
+                : optimizeUnsplashUrl(backgroundImage, 1280, 40)
+            }
             alt=""
             fill
             priority

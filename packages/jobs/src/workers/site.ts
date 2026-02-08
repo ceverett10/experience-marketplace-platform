@@ -103,11 +103,22 @@ function isNicheCompatible(opportunityNiche: string, domainNiche: string): boole
   const opportunityTerms = normalizedOpportunity.split(/\s+/);
 
   // If any significant term overlaps, consider compatible
-  const significantTerms = ['honeymoon', 'wedding', 'adventure', 'food', 'wine', 'spa', 'corporate', 'solo', 'family', 'luxury'];
+  const significantTerms = [
+    'honeymoon',
+    'wedding',
+    'adventure',
+    'food',
+    'wine',
+    'spa',
+    'corporate',
+    'solo',
+    'family',
+    'luxury',
+  ];
 
   for (const term of significantTerms) {
-    const inDomain = domainTerms.some(t => t.includes(term));
-    const inOpportunity = opportunityTerms.some(t => t.includes(term));
+    const inDomain = domainTerms.some((t) => t.includes(term));
+    const inOpportunity = opportunityTerms.some((t) => t.includes(term));
 
     // If domain has a specific term but opportunity doesn't, it's a mismatch
     if (inDomain && !inOpportunity) {
@@ -700,11 +711,7 @@ export async function handleSiteDeploy(job: Job<SiteDeployPayload>): Promise<Job
     // Never downgrade an already-ACTIVE site to DRAFT (e.g. when Cloudflare sync
     // has already activated the site before the roadmap runs SITE_DEPLOY).
     const targetStatus =
-      environment === 'production'
-        ? 'ACTIVE'
-        : site.status === 'ACTIVE'
-          ? 'ACTIVE'
-          : site.status;
+      environment === 'production' ? 'ACTIVE' : site.status === 'ACTIVE' ? 'ACTIVE' : site.status;
 
     const updatedSite = await prisma.site.update({
       where: { id: siteId },
@@ -797,15 +804,12 @@ async function addDomainToHeroku(
 
       if (res.status === 422) {
         // Domain already exists — fetch its DNS target
-        const existing = await fetch(
-          `https://api.heroku.com/apps/${appName}/domains/${hostname}`,
-          {
-            headers: {
-              Authorization: `Bearer ${apiKey}`,
-              Accept: 'application/vnd.heroku+json; version=3',
-            },
-          }
-        );
+        const existing = await fetch(`https://api.heroku.com/apps/${appName}/domains/${hostname}`, {
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            Accept: 'application/vnd.heroku+json; version=3',
+          },
+        });
         if (existing.ok) {
           const data = (await existing.json()) as { cname?: string };
           const target = data.cname || null;

@@ -39,7 +39,11 @@ export * from './services/backlink-analysis';
 export * from './services/linkable-assets';
 export * from './services/outreach-templates';
 export * from './services/cloudflare-cdn';
-export { detectStuckTasks, resetStuckCount, clearAllStuckCounts } from './services/stuck-task-detector';
+export {
+  detectStuckTasks,
+  resetStuckCount,
+  clearAllStuckCounts,
+} from './services/stuck-task-detector';
 export {
   generateLogo,
   regenerateLogo,
@@ -59,9 +63,17 @@ export { uploadToR2, deleteFromR2, isR2Configured } from './services/image-stora
 // Holibob Sync Services
 export { syncSuppliersFromHolibob, getSupplierSyncStatus } from './services/supplier-sync';
 export type { SupplierSyncResult } from './services/supplier-sync';
-export { syncProductsFromHolibob, syncProductsForSupplier, getProductSyncStatus } from './services/product-sync';
+export {
+  syncProductsFromHolibob,
+  syncProductsForSupplier,
+  getProductSyncStatus,
+} from './services/product-sync';
 export type { ProductSyncResult, ProductSyncOptions } from './services/product-sync';
-export { RateLimiter, createHolibobRateLimiter, createBulkSyncRateLimiter } from './utils/rate-limiter';
+export {
+  RateLimiter,
+  createHolibobRateLimiter,
+  createBulkSyncRateLimiter,
+} from './utils/rate-limiter';
 export type { RateLimiterConfig } from './utils/rate-limiter';
 
 // Export error handling

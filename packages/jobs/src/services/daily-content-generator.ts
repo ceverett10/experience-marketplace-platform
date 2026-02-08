@@ -65,7 +65,12 @@ const SEASONAL_EVENTS: Record<number, string[]> = {
   9: ['autumn activities', 'harvest season', 'cultural events'],
   10: ['Halloween experiences', 'autumn adventures', 'half-term activities'],
   11: ['bonfire night', 'Christmas market previews', 'winter preparation'],
-  12: ['Christmas markets', 'New Year Eve celebrations', 'winter wonderland', 'festive experiences'],
+  12: [
+    'Christmas markets',
+    'New Year Eve celebrations',
+    'winter wonderland',
+    'festive experiences',
+  ],
 };
 
 // ============================================================================

@@ -468,7 +468,10 @@ async function cacheImageToR2(
 /**
  * Generate a cache key for an image based on context
  */
-function generateImageCacheKey(type: 'hero' | 'category' | 'destination', identifier: string): string {
+function generateImageCacheKey(
+  type: 'hero' | 'category' | 'destination',
+  identifier: string
+): string {
   // Sanitize the identifier for use as a filename
   const sanitized = identifier
     .toLowerCase()
@@ -534,7 +537,10 @@ export async function enrichHomepageConfigWithImages(
 
       if (heroImage) {
         // Cache hero image to R2 for fast delivery
-        const cacheKey = generateImageCacheKey('hero', context?.niche || context?.location || 'default');
+        const cacheKey = generateImageCacheKey(
+          'hero',
+          context?.niche || context?.location || 'default'
+        );
         const cachedUrl = await cacheImageToR2(heroImage.url, cacheKey, 1920, 80);
 
         enrichedHero = {

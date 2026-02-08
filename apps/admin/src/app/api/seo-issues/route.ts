@@ -103,7 +103,10 @@ export async function POST(request: Request): Promise<NextResponse> {
 
       if (!siteId || !category || !severity || !title || !description || !recommendation) {
         return NextResponse.json(
-          { error: 'Missing required fields: siteId, category, severity, title, description, recommendation' },
+          {
+            error:
+              'Missing required fields: siteId, category, severity, title, description, recommendation',
+          },
           { status: 400 }
         );
       }

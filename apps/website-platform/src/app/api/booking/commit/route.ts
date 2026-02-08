@@ -13,12 +13,15 @@ import { headers } from 'next/headers';
 import { z } from 'zod';
 import { getSiteFromHostname } from '@/lib/tenant';
 import { getHolibobClient } from '@/lib/holibob';
+import { prisma } from '@/lib/prisma';
 
 const CommitBookingSchema = z.object({
   bookingId: z.string().optional(),
   bookingCode: z.string().optional(),
   waitForConfirmation: z.boolean().optional().default(false),
   maxWaitSeconds: z.number().optional().default(60),
+  // Product ID for booking analytics (urgency messaging)
+  productId: z.string().optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -38,7 +41,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { bookingId, bookingCode, waitForConfirmation, maxWaitSeconds } = validationResult.data;
+    const { bookingId, bookingCode, waitForConfirmation, maxWaitSeconds, productId } =
+      validationResult.data;
 
     // Ensure at least one identifier is provided
     if (!bookingId && !bookingCode) {
@@ -146,6 +150,33 @@ export async function POST(request: NextRequest) {
         if (latestBooking) {
           booking = latestBooking;
         }
+      }
+    }
+
+    // Save booking to local database for analytics (urgency messaging)
+    // This enables "Booked X times this week" social proof
+    if (booking.state === 'CONFIRMED' || booking.state === 'PENDING') {
+      try {
+        await prisma.booking.upsert({
+          where: { holibobBookingId: booking.id },
+          create: {
+            holibobBookingId: booking.id,
+            holibobBasketId: booking.code || null,
+            holibobProductId: productId || null,
+            status: booking.state === 'CONFIRMED' ? 'CONFIRMED' : 'PENDING',
+            totalAmount: booking.totalPrice?.gross || 0,
+            currency: booking.currency || 'GBP',
+            siteId: site.id,
+          },
+          update: {
+            status: booking.state === 'CONFIRMED' ? 'CONFIRMED' : 'PENDING',
+            holibobProductId: productId || undefined,
+          },
+        });
+        console.log('[Commit API] Saved booking to local database:', booking.id);
+      } catch (dbError) {
+        // Log but don't fail the request if DB save fails
+        console.error('[Commit API] Failed to save booking to local DB:', dbError);
       }
     }
 

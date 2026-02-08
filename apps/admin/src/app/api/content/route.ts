@@ -303,7 +303,9 @@ export async function POST(request: Request): Promise<NextResponse> {
         try {
           // Skip microsite pages (they don't have siteId)
           if (!page.siteId) {
-            console.log(`[API] Skipping microsite page ${page.id} - not supported for batch regeneration`);
+            console.log(
+              `[API] Skipping microsite page ${page.id} - not supported for batch regeneration`
+            );
             continue;
           }
 

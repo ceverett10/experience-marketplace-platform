@@ -33,10 +33,7 @@ async function main() {
         },
       },
     },
-    orderBy: [
-      { rating: 'desc' },
-      { productCount: 'desc' },
-    ],
+    orderBy: [{ rating: 'desc' }, { productCount: 'desc' }],
     take: 10,
     select: {
       id: true,

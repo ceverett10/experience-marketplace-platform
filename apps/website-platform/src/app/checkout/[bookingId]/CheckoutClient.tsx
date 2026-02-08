@@ -131,7 +131,9 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
     });
 
     try {
-      const result = await commitBooking(initialBooking.id, true);
+      // Pass productId for booking analytics (urgency messaging)
+      const productId = firstAvail?.product?.id;
+      const result = await commitBooking(initialBooking.id, true, productId);
 
       if (result.isConfirmed) {
         router.push(`/booking/confirmation/${initialBooking.id}`);

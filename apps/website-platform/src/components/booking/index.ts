@@ -12,3 +12,4 @@ export {
   type GuestDetails,
 } from './GuestSelector';
 export { BookingForm } from './BookingForm';
+export { SessionTimer } from './SessionTimer';

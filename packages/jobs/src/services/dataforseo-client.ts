@@ -408,7 +408,9 @@ export class DataForSEOClient {
       const oldestInWindow = DataForSEOClient.googleAdsRequestTimestamps[0] ?? now;
       const waitMs = oldestInWindow + DataForSEOClient.GOOGLE_ADS_WINDOW_MS - now + 100; // +100ms buffer
       if (waitMs > 0) {
-        console.log(`[DataForSEO] Rate limit: waiting ${(waitMs / 1000).toFixed(1)}s before next Google Ads request`);
+        console.log(
+          `[DataForSEO] Rate limit: waiting ${(waitMs / 1000).toFixed(1)}s before next Google Ads request`
+        );
         await new Promise((resolve) => setTimeout(resolve, waitMs));
       }
       // Prune again after waiting

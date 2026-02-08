@@ -25,9 +25,7 @@ async function main() {
   console.log('='.repeat(60));
 
   // Dynamic import to avoid issues with module resolution
-  const { CloudflareDNSService } = await import(
-    '../packages/jobs/src/services/cloudflare-dns'
-  );
+  const { CloudflareDNSService } = await import('../packages/jobs/src/services/cloudflare-dns');
 
   const DOMAIN = 'experiencess.com';
   const HEROKU_APP = process.env['HEROKU_APP_NAME'];
@@ -96,9 +94,7 @@ async function main() {
 
     // Step 4: Create www subdomain record
     console.log(`\n[4/6] Setting up www subdomain...`);
-    const wwwRecord = existingRecords.find(
-      (r) => r.name === `www.${DOMAIN}` || r.name === 'www'
-    );
+    const wwwRecord = existingRecords.find((r) => r.name === `www.${DOMAIN}` || r.name === 'www');
 
     if (wwwRecord) {
       console.log(`WWW record exists: ${wwwRecord.type} -> ${wwwRecord.content}`);
@@ -115,9 +111,7 @@ async function main() {
 
     // Step 5: Create wildcard subdomain record (*.experiencess.com)
     console.log(`\n[5/6] Setting up wildcard subdomain (*.${DOMAIN})...`);
-    const wildcardRecord = existingRecords.find(
-      (r) => r.name === `*.${DOMAIN}` || r.name === '*'
-    );
+    const wildcardRecord = existingRecords.find((r) => r.name === `*.${DOMAIN}` || r.name === '*');
 
     if (wildcardRecord) {
       console.log(`Wildcard record exists: ${wildcardRecord.type} -> ${wildcardRecord.content}`);

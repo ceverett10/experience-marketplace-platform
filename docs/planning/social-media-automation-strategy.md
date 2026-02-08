@@ -7,7 +7,7 @@ Automated social media content generation and posting system to publish **2 post
 ### Scale Analysis
 
 | Sites | Posts/Day/Site | Platforms | Total Posts/Day | Posts/Month |
-|-------|----------------|-----------|-----------------|-------------|
+| ----- | -------------- | --------- | --------------- | ----------- |
 | 10    | 2              | 5         | 100             | 3,000       |
 | 50    | 2              | 5         | 500             | 15,000      |
 | 100   | 2              | 5         | 1,000           | 30,000      |
@@ -19,25 +19,25 @@ Automated social media content generation and posting system to publish **2 post
 
 ### Content Types by Platform
 
-| Platform | Primary Content | Secondary Content | Automation Feasibility |
-|----------|-----------------|-------------------|------------------------|
-| **Instagram** | Images, Carousels | Reels, Stories | High (images), Medium (video) |
-| **Facebook** | Images, Links | Videos, Stories | High |
-| **YouTube** | Shorts (60s) | Community Posts | Medium (shorts expensive) |
-| **TikTok** | Short Videos | - | Medium (requires video) |
-| **Pinterest** | Images, Pins | Idea Pins | High |
-| **X/Twitter** | Text, Images | Threads | High |
+| Platform      | Primary Content   | Secondary Content | Automation Feasibility        |
+| ------------- | ----------------- | ----------------- | ----------------------------- |
+| **Instagram** | Images, Carousels | Reels, Stories    | High (images), Medium (video) |
+| **Facebook**  | Images, Links     | Videos, Stories   | High                          |
+| **YouTube**   | Shorts (60s)      | Community Posts   | Medium (shorts expensive)     |
+| **TikTok**    | Short Videos      | -                 | Medium (requires video)       |
+| **Pinterest** | Images, Pins      | Idea Pins         | High                          |
+| **X/Twitter** | Text, Images      | Threads           | High                          |
 
 ### API Access Requirements
 
-| Platform | API Type | Rate Limits | Auth Method | Notes |
-|----------|----------|-------------|-------------|-------|
-| **Instagram** | Meta Graph API | 200 calls/user/hour | OAuth 2.0 | Requires Facebook Business |
-| **Facebook** | Meta Graph API | 200 calls/user/hour | OAuth 2.0 | Page tokens needed |
-| **YouTube** | Data API v3 | 10,000 units/day | OAuth 2.0 | Shorts via upload API |
-| **TikTok** | Content Posting API | 10 videos/day | OAuth 2.0 | Limited access program |
-| **Pinterest** | Marketing API | 1,000 calls/min | OAuth 2.0 | Business account required |
-| **X/Twitter** | API v2 | 1,500 tweets/month (free) | OAuth 2.0 | Paid tiers: 100K+/month |
+| Platform      | API Type            | Rate Limits               | Auth Method | Notes                      |
+| ------------- | ------------------- | ------------------------- | ----------- | -------------------------- |
+| **Instagram** | Meta Graph API      | 200 calls/user/hour       | OAuth 2.0   | Requires Facebook Business |
+| **Facebook**  | Meta Graph API      | 200 calls/user/hour       | OAuth 2.0   | Page tokens needed         |
+| **YouTube**   | Data API v3         | 10,000 units/day          | OAuth 2.0   | Shorts via upload API      |
+| **TikTok**    | Content Posting API | 10 videos/day             | OAuth 2.0   | Limited access program     |
+| **Pinterest** | Marketing API       | 1,000 calls/min           | OAuth 2.0   | Business account required  |
+| **X/Twitter** | API v2              | 1,500 tweets/month (free) | OAuth 2.0   | Paid tiers: 100K+/month    |
 
 ---
 
@@ -118,15 +118,15 @@ Each site generates content around these themes, rotated to ensure variety:
 
 ### Weekly Content Calendar Template
 
-| Day | Post 1 (Morning) | Post 2 (Evening) |
-|-----|------------------|------------------|
-| Mon | Destination Highlight | Travel Tip |
-| Tue | Experience Spotlight | User Story |
-| Wed | Educational | Seasonal/Trending |
-| Thu | Behind the Scenes | Destination Highlight |
-| Fri | Experience Spotlight | Promotional |
-| Sat | Travel Tip | User Story |
-| Sun | Destination Highlight | Educational |
+| Day | Post 1 (Morning)      | Post 2 (Evening)      |
+| --- | --------------------- | --------------------- |
+| Mon | Destination Highlight | Travel Tip            |
+| Tue | Experience Spotlight  | User Story            |
+| Wed | Educational           | Seasonal/Trending     |
+| Thu | Behind the Scenes     | Destination Highlight |
+| Fri | Experience Spotlight  | Promotional           |
+| Sat | Travel Tip            | User Story            |
+| Sun | Destination Highlight | Educational           |
 
 ---
 
@@ -285,9 +285,11 @@ enum MediaAssetType {
 ## Implementation Phases
 
 ### Phase 1: Foundation (Week 1-2)
+
 **Goal**: Basic infrastructure and single-platform posting
 
 #### Tasks:
+
 1. **Database Schema** - Add social media models to Prisma
 2. **OAuth Integration** - Meta (Instagram/Facebook) OAuth flow
 3. **Asset Storage** - R2 bucket for social media assets
@@ -295,14 +297,17 @@ enum MediaAssetType {
 5. **Manual Caption Generation** - Claude-based caption writer
 
 #### Deliverables:
+
 - Can manually create a post and have it auto-publish to Instagram
 - Caption generation from experience/destination data
 - Basic admin UI for viewing scheduled posts
 
 ### Phase 2: Image Automation (Week 3-4)
+
 **Goal**: Automated image generation and Instagram/Facebook posting
 
 #### Tasks:
+
 1. **Image Generation Pipeline**
    - DALL-E 3 integration for destination/experience imagery
    - Template-based image generation (text overlays, branding)
@@ -319,14 +324,17 @@ enum MediaAssetType {
    - Rate limit handling
 
 #### Deliverables:
+
 - Fully automated Instagram/Facebook posting
 - AI-generated images with brand consistency
 - Content calendar with 7-day lookahead
 
 ### Phase 3: Multi-Platform Expansion (Week 5-6)
+
 **Goal**: Add Pinterest, X/Twitter, expand content types
 
 #### Tasks:
+
 1. **Pinterest Integration**
    - Pin creation API
    - Board management
@@ -341,14 +349,17 @@ enum MediaAssetType {
    - Swipe-through educational content
 
 #### Deliverables:
+
 - 4 platforms automated (IG, FB, Pinterest, X)
 - Carousel content type support
 - Platform-specific content optimization
 
 ### Phase 4: Video Content (Week 7-10)
+
 **Goal**: Short-form video generation for Reels/Shorts/TikTok
 
 #### Tasks:
+
 1. **Video Generation Pipeline**
    - Runway ML / Pika Labs integration for AI video
    - Template-based video assembly (images + motion + text)
@@ -363,14 +374,17 @@ enum MediaAssetType {
    - Sound/music library management
 
 #### Deliverables:
+
 - AI-generated short-form videos
 - YouTube Shorts automation
 - TikTok posting (pending API access)
 
 ### Phase 5: Analytics & Optimization (Week 11-12)
+
 **Goal**: Performance tracking and content optimization
 
 #### Tasks:
+
 1. **Analytics Collection**
    - Fetch engagement metrics from each platform
    - Store historical performance data
@@ -385,6 +399,7 @@ enum MediaAssetType {
    - Auto-adjust content strategy
 
 #### Deliverables:
+
 - Performance dashboard per site
 - Automated content optimization
 - ROI tracking (traffic to bookings)
@@ -449,20 +464,28 @@ Tagline: ${input.site.brand.tagline}
 
 Generate a ${input.platform} post for the "${input.contentPillar}" content pillar.
 
-${input.experience ? `
+${
+  input.experience
+    ? `
 Experience to feature:
 - Title: ${input.experience.title}
 - Location: ${input.experience.location}
 - Description: ${input.experience.description}
 ${input.experience.price ? `- Price: £${input.experience.price}` : ''}
-` : ''}
+`
+    : ''
+}
 
-${input.destination ? `
+${
+  input.destination
+    ? `
 Destination to feature:
 - Name: ${input.destination.name}
 - Description: ${input.destination.description}
 - Highlights: ${input.destination.highlights.join(', ')}
-` : ''}
+`
+    : ''
+}
 
 Requirements:
 1. Caption must be under ${limit.caption} characters
@@ -508,7 +531,7 @@ interface ImageGenerationInput {
   contentPillar: ContentPillar;
   platform: SocialPlatform;
   subject: string; // What the image should show
-  style?: string;  // Art style override
+  style?: string; // Art style override
 }
 
 const PLATFORM_DIMENSIONS = {
@@ -543,9 +566,7 @@ No text overlays.`;
   const imageBuffer = await downloadImage(baseImageUrl);
 
   // Resize to platform dimensions
-  const resized = await sharp(imageBuffer)
-    .resize(size[0], size[1], { fit: 'cover' })
-    .toBuffer();
+  const resized = await sharp(imageBuffer).resize(size[0], size[1], { fit: 'cover' }).toBuffer();
 
   // Optional: Add brand watermark/logo
   const branded = await addBrandOverlay(resized, {
@@ -587,8 +608,8 @@ async function publishPost(post: SocialPost): Promise<PublishResult> {
   if (!account) throw new Error('Account not found');
 
   // Check rate limit
-  const limiterKey = account.platform === 'INSTAGRAM' || account.platform === 'FACEBOOK'
-    ? 'META' : account.platform;
+  const limiterKey =
+    account.platform === 'INSTAGRAM' || account.platform === 'FACEBOOK' ? 'META' : account.platform;
 
   await rateLimiters[limiterKey].acquire();
 
@@ -616,7 +637,10 @@ async function publishPost(post: SocialPost): Promise<PublishResult> {
   }
 }
 
-async function publishToInstagram(account: SocialAccount, post: SocialPost): Promise<PublishResult> {
+async function publishToInstagram(
+  account: SocialAccount,
+  post: SocialPost
+): Promise<PublishResult> {
   const accessToken = decrypt(account.accessToken);
 
   if (post.contentType === 'IMAGE' || post.contentType === 'CAROUSEL') {
@@ -624,10 +648,10 @@ async function publishToInstagram(account: SocialAccount, post: SocialPost): Pro
     const containerId = await createInstagramMediaContainer({
       accessToken,
       imageUrl: post.mediaUrls[0],
-      caption: `${post.caption}\n\n${post.hashtags.map(h => `#${h}`).join(' ')}`,
+      caption: `${post.caption}\n\n${post.hashtags.map((h) => `#${h}`).join(' ')}`,
       ...(post.contentType === 'CAROUSEL' && {
         mediaType: 'CAROUSEL',
-        children: post.mediaUrls.map(url => ({ media_type: 'IMAGE', image_url: url })),
+        children: post.mediaUrls.map((url) => ({ media_type: 'IMAGE', image_url: url })),
       }),
     });
 
@@ -772,23 +796,23 @@ export async function handleSocialPostPublish(job: Job<SocialPostPublishPayload>
 
 ### Per-Site Monthly Costs (2 posts/day)
 
-| Component | Service | Unit Cost | Volume/Month | Monthly Cost |
-|-----------|---------|-----------|--------------|--------------|
-| **Image Generation** | DALL-E 3 HD | $0.080/image | 60 images | $4.80 |
-| **Caption Generation** | Claude Sonnet | ~$0.003/caption | 300 captions | $0.90 |
-| **Video Generation** | Runway Gen-2 | $0.05/second | 120 seconds | $6.00 |
-| **Storage** | Cloudflare R2 | $0.015/GB | 5 GB | $0.08 |
-| **API Costs** | Various | - | - | ~$0.50 |
-| | | | **Total/Site** | **~$12.28** |
+| Component              | Service       | Unit Cost       | Volume/Month   | Monthly Cost |
+| ---------------------- | ------------- | --------------- | -------------- | ------------ |
+| **Image Generation**   | DALL-E 3 HD   | $0.080/image    | 60 images      | $4.80        |
+| **Caption Generation** | Claude Sonnet | ~$0.003/caption | 300 captions   | $0.90        |
+| **Video Generation**   | Runway Gen-2  | $0.05/second    | 120 seconds    | $6.00        |
+| **Storage**            | Cloudflare R2 | $0.015/GB       | 5 GB           | $0.08        |
+| **API Costs**          | Various       | -               | -              | ~$0.50       |
+|                        |               |                 | **Total/Site** | **~$12.28**  |
 
 ### Scale Cost Projections
 
 | Sites | Monthly Content Cost | Platform API Fees | Total Monthly |
-|-------|---------------------|-------------------|---------------|
-| 10    | $123                | ~$50              | ~$173         |
-| 50    | $614                | ~$200             | ~$814         |
-| 100   | $1,228              | ~$400             | ~$1,628       |
-| 300   | $3,684              | ~$1,000           | ~$4,684       |
+| ----- | -------------------- | ----------------- | ------------- |
+| 10    | $123                 | ~$50              | ~$173         |
+| 50    | $614                 | ~$200             | ~$814         |
+| 100   | $1,228               | ~$400             | ~$1,628       |
+| 300   | $3,684               | ~$1,000           | ~$4,684       |
 
 ### Cost Optimization Strategies
 
@@ -804,15 +828,17 @@ export async function handleSocialPostPublish(job: Job<SocialPostPublishPayload>
 
 ### All-in-One Platforms
 
-| Tool | Pricing | Pros | Cons |
-|------|---------|------|------|
-| **Buffer** | $6-120/mo per channel | Easy scheduling, analytics | Limited automation |
-| **Hootsuite** | $99-739/mo | Enterprise features | Expensive at scale |
-| **Later** | $25-80/mo | Visual planning | Instagram-focused |
-| **Sprout Social** | $249+/mo | Advanced analytics | Very expensive |
+| Tool              | Pricing               | Pros                       | Cons               |
+| ----------------- | --------------------- | -------------------------- | ------------------ |
+| **Buffer**        | $6-120/mo per channel | Easy scheduling, analytics | Limited automation |
+| **Hootsuite**     | $99-739/mo            | Enterprise features        | Expensive at scale |
+| **Later**         | $25-80/mo             | Visual planning            | Instagram-focused  |
+| **Sprout Social** | $249+/mo              | Advanced analytics         | Very expensive     |
 
 ### Recommendation
+
 Build custom for these reasons:
+
 1. **Scale** - Platform pricing doesn't scale for 100+ sites
 2. **AI Integration** - Need deep integration with our content generation
 3. **Data Ownership** - Keep all content and analytics in our system
@@ -824,39 +850,42 @@ Build custom for these reasons:
 
 ### Platform Risks
 
-| Risk | Likelihood | Impact | Mitigation |
-|------|------------|--------|------------|
-| API access revoked | Medium | High | Multi-platform strategy, manual posting fallback |
-| Rate limits hit | High | Medium | Distributed scheduling, rate limit monitoring |
-| Content policy violation | Medium | High | Content review layer, brand guidelines |
-| Account suspension | Low | High | Separate accounts per site, policy compliance |
+| Risk                     | Likelihood | Impact | Mitigation                                       |
+| ------------------------ | ---------- | ------ | ------------------------------------------------ |
+| API access revoked       | Medium     | High   | Multi-platform strategy, manual posting fallback |
+| Rate limits hit          | High       | Medium | Distributed scheduling, rate limit monitoring    |
+| Content policy violation | Medium     | High   | Content review layer, brand guidelines           |
+| Account suspension       | Low        | High   | Separate accounts per site, policy compliance    |
 
 ### Technical Risks
 
-| Risk | Likelihood | Impact | Mitigation |
-|------|------------|--------|------------|
-| AI generates poor content | Medium | Medium | Human review queue, quality scoring |
-| Token expiration | High | Low | Proactive token refresh, alerting |
-| Storage costs spike | Low | Medium | Asset cleanup jobs, compression |
-| Posting failures | Medium | Low | Retry logic, failure alerting |
+| Risk                      | Likelihood | Impact | Mitigation                          |
+| ------------------------- | ---------- | ------ | ----------------------------------- |
+| AI generates poor content | Medium     | Medium | Human review queue, quality scoring |
+| Token expiration          | High       | Low    | Proactive token refresh, alerting   |
+| Storage costs spike       | Low        | Medium | Asset cleanup jobs, compression     |
+| Posting failures          | Medium     | Low    | Retry logic, failure alerting       |
 
 ---
 
 ## Success Metrics
 
 ### Engagement KPIs
+
 - **Engagement Rate**: Likes + Comments + Shares / Followers
 - **Reach Growth**: Month-over-month follower growth
 - **Click-through Rate**: Link clicks / Impressions
 - **Conversion Rate**: Bookings from social traffic
 
 ### Operational KPIs
+
 - **Post Success Rate**: Published / Scheduled posts
 - **Content Generation Time**: Avg time to generate post
 - **Cost per Engagement**: Total cost / Total engagements
 - **Platform Distribution**: Even spread across platforms
 
 ### Targets (After 3 Months)
+
 - 95% post success rate
 - 2% average engagement rate
 - 0.5% CTR on link posts

@@ -138,7 +138,6 @@ async function main() {
     console.log(`  curl: curl -I https://${fullDomain}`);
     console.log('');
     console.log('Note: DNS propagation may take 1-5 minutes.');
-
   } catch (error) {
     console.error('\nError:', error);
     process.exit(1);

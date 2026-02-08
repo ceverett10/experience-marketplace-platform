@@ -9,29 +9,27 @@ import { QUEUE_NAMES, QueueName, JobPayload, JobOptions, JOB_TYPE_TO_QUEUE } fro
  * Timeouts prevent jobs from hanging indefinitely (e.g., unresponsive external APIs).
  * External-API-heavy queues get more retries with longer backoff.
  */
-const QUEUE_CONFIG: Record<
-  QueueName,
-  { timeout: number; attempts: number; backoffDelay: number }
-> = {
-  // Content: AI generation via Anthropic — can be slow, needs generous timeout
-  [QUEUE_NAMES.CONTENT]: { timeout: 300_000, attempts: 3, backoffDelay: 10_000 },
-  // SEO: Mix of DB queries and external API calls
-  [QUEUE_NAMES.SEO]: { timeout: 180_000, attempts: 5, backoffDelay: 15_000 },
-  // GSC: Google API calls — moderate timeout, retry for transient auth issues
-  [QUEUE_NAMES.GSC]: { timeout: 120_000, attempts: 5, backoffDelay: 30_000 },
-  // Site: Brand generation + multiple API calls — longest timeout
-  [QUEUE_NAMES.SITE]: { timeout: 600_000, attempts: 3, backoffDelay: 10_000 },
-  // Domain: Cloudflare registrar API — moderate timeout, extra retries for DNS propagation
-  [QUEUE_NAMES.DOMAIN]: { timeout: 180_000, attempts: 5, backoffDelay: 30_000 },
-  // Analytics: GA4 API + DB aggregation
-  [QUEUE_NAMES.ANALYTICS]: { timeout: 120_000, attempts: 3, backoffDelay: 10_000 },
-  // A/B Test: Mostly DB operations — short timeout
-  [QUEUE_NAMES.ABTEST]: { timeout: 60_000, attempts: 3, backoffDelay: 5_000 },
-  // Sync: Holibob API sync — very long timeout for full catalog sync (4 hours max)
-  [QUEUE_NAMES.SYNC]: { timeout: 14_400_000, attempts: 2, backoffDelay: 60_000 },
-  // Microsite: Brand generation + content setup — moderate timeout
-  [QUEUE_NAMES.MICROSITE]: { timeout: 300_000, attempts: 3, backoffDelay: 15_000 },
-};
+const QUEUE_CONFIG: Record<QueueName, { timeout: number; attempts: number; backoffDelay: number }> =
+  {
+    // Content: AI generation via Anthropic — can be slow, needs generous timeout
+    [QUEUE_NAMES.CONTENT]: { timeout: 300_000, attempts: 3, backoffDelay: 10_000 },
+    // SEO: Mix of DB queries and external API calls
+    [QUEUE_NAMES.SEO]: { timeout: 180_000, attempts: 5, backoffDelay: 15_000 },
+    // GSC: Google API calls — moderate timeout, retry for transient auth issues
+    [QUEUE_NAMES.GSC]: { timeout: 120_000, attempts: 5, backoffDelay: 30_000 },
+    // Site: Brand generation + multiple API calls — longest timeout
+    [QUEUE_NAMES.SITE]: { timeout: 600_000, attempts: 3, backoffDelay: 10_000 },
+    // Domain: Cloudflare registrar API — moderate timeout, extra retries for DNS propagation
+    [QUEUE_NAMES.DOMAIN]: { timeout: 180_000, attempts: 5, backoffDelay: 30_000 },
+    // Analytics: GA4 API + DB aggregation
+    [QUEUE_NAMES.ANALYTICS]: { timeout: 120_000, attempts: 3, backoffDelay: 10_000 },
+    // A/B Test: Mostly DB operations — short timeout
+    [QUEUE_NAMES.ABTEST]: { timeout: 60_000, attempts: 3, backoffDelay: 5_000 },
+    // Sync: Holibob API sync — very long timeout for full catalog sync (4 hours max)
+    [QUEUE_NAMES.SYNC]: { timeout: 14_400_000, attempts: 2, backoffDelay: 60_000 },
+    // Microsite: Brand generation + content setup — moderate timeout
+    [QUEUE_NAMES.MICROSITE]: { timeout: 300_000, attempts: 3, backoffDelay: 15_000 },
+  };
 
 /**
  * Redis connection configuration
@@ -304,10 +302,7 @@ class QueueRegistry {
       }
       return false;
     } catch (err) {
-      console.error(
-        `[Queue] Failed to remove BullMQ job ${bullmqJobId} from ${queueName}:`,
-        err
-      );
+      console.error(`[Queue] Failed to remove BullMQ job ${bullmqJobId} from ${queueName}:`, err);
       return false;
     }
   }

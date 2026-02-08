@@ -378,7 +378,10 @@ async function main() {
   const newBrandIdentity = await generateBrandIdentity(domain, nicheConfig);
   console.log('New Tagline:', newBrandIdentity.tagline);
   console.log('New Mission:', newBrandIdentity.brandStory.mission);
-  console.log('New Target Audience:', newBrandIdentity.brandStory.targetAudience.substring(0, 80) + '...');
+  console.log(
+    'New Target Audience:',
+    newBrandIdentity.brandStory.targetAudience.substring(0, 80) + '...'
+  );
 
   // Generate new homepage config
   console.log('\n[4/4] Generating New Homepage Config...');

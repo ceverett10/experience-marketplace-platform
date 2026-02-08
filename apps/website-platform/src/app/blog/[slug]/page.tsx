@@ -37,10 +37,13 @@ async function getBlogPost(siteId: string, slug: string) {
  * Get a default image for structured data from site configuration
  * Falls back through: ogImage -> hero background -> logo -> generic placeholder
  */
-function getDefaultImage(site: {
-  brand?: { ogImageUrl?: string | null; logoUrl?: string | null } | null;
-  homepageConfig?: HomepageConfig | null;
-}, hostname: string): string {
+function getDefaultImage(
+  site: {
+    brand?: { ogImageUrl?: string | null; logoUrl?: string | null } | null;
+    homepageConfig?: HomepageConfig | null;
+  },
+  hostname: string
+): string {
   // Try OG image first (usually best for articles)
   if (site.brand?.ogImageUrl) {
     return site.brand.ogImageUrl;

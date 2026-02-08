@@ -27,7 +27,9 @@ async function main() {
   console.log(`  GSC_CLIENT_EMAIL: ${process.env['GSC_CLIENT_EMAIL'] ? 'set' : 'NOT SET'}`);
   console.log(`  GSC_PRIVATE_KEY: ${process.env['GSC_PRIVATE_KEY'] ? 'set' : 'NOT SET'}`);
   console.log(`  CLOUDFLARE_API_TOKEN: ${process.env['CLOUDFLARE_API_TOKEN'] ? 'set' : 'NOT SET'}`);
-  console.log(`  CLOUDFLARE_ACCOUNT_ID: ${process.env['CLOUDFLARE_ACCOUNT_ID'] ? 'set' : 'NOT SET'}`);
+  console.log(
+    `  CLOUDFLARE_ACCOUNT_ID: ${process.env['CLOUDFLARE_ACCOUNT_ID'] ? 'set' : 'NOT SET'}`
+  );
   console.log(`  GA4_ACCOUNT_ID: ${GA4_ACCOUNT_ID ?? 'NOT SET'}`);
   console.log('');
 
@@ -50,9 +52,7 @@ async function main() {
       console.log(`\nChecking if sc-domain:${PARENT_DOMAIN} exists...`);
 
       const sites = await gscClient.listSites();
-      const domainProperty = sites.find(
-        s => s.siteUrl === `sc-domain:${PARENT_DOMAIN}`
-      );
+      const domainProperty = sites.find((s) => s.siteUrl === `sc-domain:${PARENT_DOMAIN}`);
 
       if (domainProperty) {
         console.log(`✓ Domain property already exists: sc-domain:${PARENT_DOMAIN}`);
@@ -73,7 +73,7 @@ async function main() {
             console.log(`Adding TXT record: google-site-verification=${token}`);
             await cloudflare.addGoogleVerificationRecord(zoneId, token);
             console.log('Waiting 10s for DNS propagation...');
-            await new Promise(r => setTimeout(r, 10000));
+            await new Promise((r) => setTimeout(r, 10000));
           });
 
           if (result.success) {
@@ -87,12 +87,14 @@ async function main() {
       // Submit sitemap for parent domain
       console.log('\nSubmitting sitemaps...');
       try {
-        await gscClient.submitSitemap(`sc-domain:${PARENT_DOMAIN}`, `https://${PARENT_DOMAIN}/sitemap.xml`);
+        await gscClient.submitSitemap(
+          `sc-domain:${PARENT_DOMAIN}`,
+          `https://${PARENT_DOMAIN}/sitemap.xml`
+        );
         console.log(`✓ Submitted: https://${PARENT_DOMAIN}/sitemap.xml`);
       } catch (e) {
         console.log(`  Sitemap submission: ${e instanceof Error ? e.message : 'error'}`);
       }
-
     } catch (error) {
       console.error('GSC setup error:', error);
     }
@@ -117,8 +119,7 @@ async function main() {
       // List existing properties
       const properties = await ga4.listProperties(GA4_ACCOUNT_ID);
       const existingProperty = properties.find(
-        p => p.displayName?.includes('Experiencess') ||
-             p.displayName?.includes(PARENT_DOMAIN)
+        (p) => p.displayName?.includes('Experiencess') || p.displayName?.includes(PARENT_DOMAIN)
       );
 
       if (existingProperty) {
@@ -127,7 +128,7 @@ async function main() {
 
         // Get measurement ID
         const dataStreams = await ga4.listDataStreams(existingProperty.propertyId);
-        const webStream = dataStreams.find(s => s.type === 'WEB_DATA_STREAM');
+        const webStream = dataStreams.find((s) => s.type === 'WEB_DATA_STREAM');
         if (webStream?.measurementId) {
           console.log(`  Measurement ID: ${webStream.measurementId}`);
 

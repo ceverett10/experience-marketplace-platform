@@ -38,7 +38,15 @@ export async function findRelatedPages(params: {
   excludePageId?: string;
   limit?: number;
 }): Promise<InternalLink[]> {
-  const { siteId, contentType, keywords: rawKeywords, destination, category, excludePageId, limit = 5 } = params;
+  const {
+    siteId,
+    contentType,
+    keywords: rawKeywords,
+    destination,
+    category,
+    excludePageId,
+    limit = 5,
+  } = params;
 
   // Ensure keywords are valid non-empty strings before using in queries
   const keywords = rawKeywords.filter(
@@ -153,29 +161,30 @@ export async function findRelatedPages(params: {
 
     // 4. Find other related pages by keyword matching
     const keywordSlice = keywords.slice(0, 3);
-    const otherRelated = keywordSlice.length > 0
-      ? await prisma.page.findMany({
-          where: {
-            siteId,
-            status: 'PUBLISHED',
-            id: excludePageId ? { not: excludePageId } : undefined,
-            type: { notIn: [PageType.BLOG] }, // Already handled above
-            OR: keywordSlice.map((kw) => ({
-              OR: [
-                { title: { contains: kw, mode: 'insensitive' as const } },
-                { metaDescription: { contains: kw, mode: 'insensitive' as const } },
-              ],
-            })),
-          },
-          select: {
-            id: true,
-            slug: true,
-            title: true,
-            type: true,
-          },
-          take: 3,
-        })
-      : [];
+    const otherRelated =
+      keywordSlice.length > 0
+        ? await prisma.page.findMany({
+            where: {
+              siteId,
+              status: 'PUBLISHED',
+              id: excludePageId ? { not: excludePageId } : undefined,
+              type: { notIn: [PageType.BLOG] }, // Already handled above
+              OR: keywordSlice.map((kw) => ({
+                OR: [
+                  { title: { contains: kw, mode: 'insensitive' as const } },
+                  { metaDescription: { contains: kw, mode: 'insensitive' as const } },
+                ],
+              })),
+            },
+            select: {
+              id: true,
+              slug: true,
+              title: true,
+              type: true,
+            },
+            take: 3,
+          })
+        : [];
 
     for (const page of otherRelated) {
       // Skip if already added
@@ -675,9 +684,7 @@ export async function buildTopicClusters(siteId: string): Promise<TopicCluster[]
   });
 
   // Identify hub pages (category and landing pages)
-  const hubPages = pages.filter(
-    (p) => p.type === PageType.CATEGORY || p.type === PageType.LANDING
-  );
+  const hubPages = pages.filter((p) => p.type === PageType.CATEGORY || p.type === PageType.LANDING);
 
   // Identify potential spoke pages (blog posts)
   const spokePages = pages.filter((p) => p.type === PageType.BLOG);
@@ -763,17 +770,12 @@ function extractTopicFromTitle(title: string): string {
 /**
  * Check if content relates to a topic
  */
-function contentRelatesToTopic(
-  title: string,
-  content: string,
-  topic: string
-): boolean {
+function contentRelatesToTopic(title: string, content: string, topic: string): boolean {
   const topicWords = topic.split(/\s+/).filter((w) => w.length > 3);
 
   // Check if any significant topic words appear in title or content
   const matchedWords = topicWords.filter(
-    (word) =>
-      title.includes(word) || content.toLowerCase().includes(word.toLowerCase())
+    (word) => title.includes(word) || content.toLowerCase().includes(word.toLowerCase())
   );
 
   // Require at least 50% of topic words to match
@@ -830,11 +832,7 @@ export async function autoFixClusterLinks(siteId: string): Promise<{
               : `/destinations/${hubPage.slug}`;
 
           // Add link at the end of the second-to-last paragraph
-          const updatedContent = insertHubLink(
-            spokeContent,
-            hubPage.title,
-            hubUrl
-          );
+          const updatedContent = insertHubLink(spokeContent, hubPage.title, hubUrl);
 
           if (updatedContent !== spokeContent) {
             await prisma.content.update({
@@ -877,7 +875,14 @@ function insertHubLink(content: string, hubTitle: string, hubUrl: string): strin
   // Look for a regular paragraph (not starting with #, -, *, `, or number)
   for (let i = insertIndex; i < paragraphs.length - 1; i++) {
     const p = paragraphs[i] || '';
-    if (p && !p.startsWith('#') && !p.startsWith('-') && !p.startsWith('*') && !p.startsWith('`') && !p.match(/^\d+\./)) {
+    if (
+      p &&
+      !p.startsWith('#') &&
+      !p.startsWith('-') &&
+      !p.startsWith('*') &&
+      !p.startsWith('`') &&
+      !p.match(/^\d+\./)
+    ) {
       insertIndex = i;
       break;
     }
@@ -891,8 +896,7 @@ function insertHubLink(content: string, hubTitle: string, hubUrl: string): strin
   ];
 
   const randomSentence =
-    contextSentences[Math.floor(Math.random() * contextSentences.length)] ||
-    contextSentences[0];
+    contextSentences[Math.floor(Math.random() * contextSentences.length)] || contextSentences[0];
 
   // Insert after the chosen paragraph
   paragraphs.splice(insertIndex + 1, 0, randomSentence || '');
@@ -919,9 +923,7 @@ export async function getClusterHealthSummary(siteId: string): Promise<{
   const clusters = await buildTopicClusters(siteId);
 
   const healthyClusters = clusters.filter((c) => c.clusterScore >= 80).length;
-  const needsAttention = clusters.filter(
-    (c) => c.clusterScore >= 50 && c.clusterScore < 80
-  ).length;
+  const needsAttention = clusters.filter((c) => c.clusterScore >= 50 && c.clusterScore < 80).length;
   const critical = clusters.filter((c) => c.clusterScore < 50).length;
 
   const totalScore = clusters.reduce((sum, c) => sum + c.clusterScore, 0);

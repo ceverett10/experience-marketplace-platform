@@ -341,7 +341,9 @@ export async function getMicrositeHomepageProducts(
 /**
  * Check if the current site is a microsite
  */
-export function isMicrosite(micrositeContext?: MicrositeContext): micrositeContext is MicrositeContext {
+export function isMicrosite(
+  micrositeContext?: MicrositeContext
+): micrositeContext is MicrositeContext {
   return !!micrositeContext;
 }
 

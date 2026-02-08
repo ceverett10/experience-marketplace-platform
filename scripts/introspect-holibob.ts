@@ -8,7 +8,12 @@ import 'dotenv/config';
 import { GraphQLClient, gql } from 'graphql-request';
 import { createHmac } from 'crypto';
 
-function generateSignature(apiKey: string, apiSecret: string, timestamp: string, body: string): string {
+function generateSignature(
+  apiKey: string,
+  apiSecret: string,
+  timestamp: string,
+  body: string
+): string {
   const payload = `${timestamp}${apiKey}POST/graphql${body}`;
   const hmac = createHmac('sha1', apiSecret);
   hmac.update(payload);
@@ -96,7 +101,10 @@ async function introspectHolibob() {
       const err = error as { message?: string; response?: { errors?: { message: string }[] } };
       console.log('productDetail query failed:', err.message);
       if (err.response?.errors) {
-        console.log('GraphQL errors:', err.response.errors.map((e: { message: string }) => e.message));
+        console.log(
+          'GraphQL errors:',
+          err.response.errors.map((e: { message: string }) => e.message)
+        );
       }
     }
 
@@ -124,7 +132,10 @@ async function introspectHolibob() {
     const introspectResult = await client.request<{
       __type: {
         name: string;
-        fields: { name: string; type: { name: string; kind: string; ofType?: { name: string; kind: string } } }[];
+        fields: {
+          name: string;
+          type: { name: string; kind: string; ofType?: { name: string; kind: string } };
+        }[];
       } | null;
     }>(introspectQuery);
 
@@ -132,24 +143,27 @@ async function introspectHolibob() {
       console.log(`\nProduct type has ${introspectResult.__type.fields.length} fields:`);
 
       // Find provider/operator/supplier related fields
-      const relevantFields = introspectResult.__type.fields.filter(f =>
-        f.name.toLowerCase().includes('provider') ||
-        f.name.toLowerCase().includes('operator') ||
-        f.name.toLowerCase().includes('supplier') ||
-        f.name.toLowerCase().includes('vendor') ||
-        f.name.toLowerCase().includes('actor')
+      const relevantFields = introspectResult.__type.fields.filter(
+        (f) =>
+          f.name.toLowerCase().includes('provider') ||
+          f.name.toLowerCase().includes('operator') ||
+          f.name.toLowerCase().includes('supplier') ||
+          f.name.toLowerCase().includes('vendor') ||
+          f.name.toLowerCase().includes('actor')
       );
 
       if (relevantFields.length > 0) {
         console.log('\nProvider/Operator related fields:');
         for (const field of relevantFields) {
-          const typeName = field.type.name || `${field.type.kind}(${field.type.ofType?.name || '?'})`;
+          const typeName =
+            field.type.name || `${field.type.kind}(${field.type.ofType?.name || '?'})`;
           console.log(`  - ${field.name}: ${typeName}`);
         }
       } else {
         console.log('\nNo provider/operator related fields found. All fields:');
         for (const field of introspectResult.__type.fields) {
-          const typeName = field.type.name || `${field.type.kind}(${field.type.ofType?.name || '?'})`;
+          const typeName =
+            field.type.name || `${field.type.kind}(${field.type.ofType?.name || '?'})`;
           console.log(`  - ${field.name}: ${typeName}`);
         }
       }
@@ -175,19 +189,21 @@ async function introspectHolibob() {
     `;
 
     const pdResult = await client.request<{
-      __type: { name: string; fields: { name: string; type: { name: string; kind: string } }[] } | null;
+      __type: {
+        name: string;
+        fields: { name: string; type: { name: string; kind: string } }[];
+      } | null;
     }>(introspectProductDetailQuery);
 
     if (pdResult.__type) {
       console.log(`ProductDetail type has ${pdResult.__type.fields.length} fields`);
-      const providerField = pdResult.__type.fields.find(f => f.name === 'provider');
+      const providerField = pdResult.__type.fields.find((f) => f.name === 'provider');
       if (providerField) {
         console.log(`  Found provider field: ${providerField.type.name}`);
       }
     } else {
       console.log('ProductDetail type does not exist');
     }
-
   } catch (error) {
     console.error('Error:', error);
   }

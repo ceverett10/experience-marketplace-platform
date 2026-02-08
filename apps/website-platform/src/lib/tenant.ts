@@ -332,7 +332,12 @@ export async function getSiteFromHostname(hostname: string): Promise<SiteConfig>
   // This must happen BEFORE the development/preview check to allow testing microsites locally
   const micrositeInfo = parseMicrositeHostname(cleanHostname);
   if (micrositeInfo.isMicrositeSubdomain && micrositeInfo.subdomain && micrositeInfo.parentDomain) {
-    console.log('[Tenant] Detected microsite subdomain:', micrositeInfo.subdomain, 'on', micrositeInfo.parentDomain);
+    console.log(
+      '[Tenant] Detected microsite subdomain:',
+      micrositeInfo.subdomain,
+      'on',
+      micrositeInfo.parentDomain
+    );
     const micrositeConfig = await checkMicrositeSubdomain(
       micrositeInfo.subdomain,
       micrositeInfo.parentDomain

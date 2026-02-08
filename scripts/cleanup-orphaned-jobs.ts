@@ -24,17 +24,17 @@ async function cleanupOrphanedJobs() {
       status: 'PENDING',
       queue: 'planned',
       site: {
-        status: { in: ['ACTIVE', 'ARCHIVED'] }
-      }
+        status: { in: ['ACTIVE', 'ARCHIVED'] },
+      },
     },
     select: {
       id: true,
       type: true,
       createdAt: true,
       site: {
-        select: { name: true, status: true }
-      }
-    }
+        select: { name: true, status: true },
+      },
+    },
   });
 
   if (orphanedJobs.length === 0) {
@@ -44,7 +44,7 @@ async function cleanupOrphanedJobs() {
 
   // Group by site status
   const byStatus: Record<string, typeof orphanedJobs> = {};
-  orphanedJobs.forEach(j => {
+  orphanedJobs.forEach((j) => {
     const status = j.site?.status || 'unknown';
     if (!byStatus[status]) byStatus[status] = [];
     byStatus[status].push(j);
@@ -57,14 +57,16 @@ async function cleanupOrphanedJobs() {
 
   // Group by type
   const byType: Record<string, number> = {};
-  orphanedJobs.forEach(j => {
+  orphanedJobs.forEach((j) => {
     byType[j.type] = (byType[j.type] || 0) + 1;
   });
 
   console.log('\nBy job type:');
-  Object.entries(byType).sort((a, b) => b[1] - a[1]).forEach(([type, count]) => {
-    console.log(`  ${type}: ${count}`);
-  });
+  Object.entries(byType)
+    .sort((a, b) => b[1] - a[1])
+    .forEach(([type, count]) => {
+      console.log(`  ${type}: ${count}`);
+    });
 
   console.log('\nDeleting orphaned jobs...\n');
 

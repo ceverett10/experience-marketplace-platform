@@ -3,33 +3,34 @@
  * Creates professional icon + typography logos (no AI needed)
  */
 
-const { PrismaClient } = require("@prisma/client");
+const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 async function main() {
   // Import jobs package functions (now uses SVG generator internally)
-  const { regenerateAllLogos, isLogoGenerationAvailable } = await import("@experience-marketplace/jobs");
+  const { regenerateAllLogos, isLogoGenerationAvailable } =
+    await import('@experience-marketplace/jobs');
 
   if (!isLogoGenerationAvailable()) {
-    console.error("Logo generation not available. Check R2 storage config.");
+    console.error('Logo generation not available. Check R2 storage config.');
     process.exit(1);
   }
 
-  console.log("Using SVG-based logo generation (icon + brand name)");
-  console.log("No API calls needed - instant generation!\n");
+  console.log('Using SVG-based logo generation (icon + brand name)');
+  console.log('No API calls needed - instant generation!\n');
 
   const sites = await prisma.site.findMany({
-    where: { status: "ACTIVE" },
+    where: { status: 'ACTIVE' },
     include: {
       brand: true,
       opportunities: {
         take: 1,
         select: {
           niche: true,
-          location: true
-        }
-      }
-    }
+          location: true,
+        },
+      },
+    },
   });
 
   console.log(`Found ${sites.length} active sites to process\n`);
@@ -42,23 +43,23 @@ async function main() {
     console.log(`  Niche: ${opportunity?.niche || 'travel experiences'}`);
 
     if (!site.brand) {
-      console.log("  Skipping - no brand record");
+      console.log('  Skipping - no brand record');
       continue;
     }
 
     try {
-      console.log("  Generating SVG logos...");
+      console.log('  Generating SVG logos...');
       const result = await regenerateAllLogos(
         {
           brandName: site.brand.name,
-          niche: opportunity?.niche || "travel experiences",
+          niche: opportunity?.niche || 'travel experiences',
           primaryColor: site.brand.primaryColor,
           secondaryColor: site.brand.secondaryColor,
         },
         {
           logoUrl: site.brand.logoUrl,
           logoDarkUrl: site.brand.logoDarkUrl,
-          faviconUrl: site.brand.faviconUrl
+          faviconUrl: site.brand.faviconUrl,
         }
       );
 
@@ -68,11 +69,11 @@ async function main() {
         data: {
           logoUrl: result.logoUrl,
           logoDarkUrl: result.logoDarkUrl,
-          faviconUrl: result.faviconUrl
-        }
+          faviconUrl: result.faviconUrl,
+        },
       });
 
-      console.log("  ✓ Done!");
+      console.log('  ✓ Done!');
       console.log(`    Light: ${result.logoUrl}`);
       console.log(`    Dark:  ${result.logoDarkUrl}`);
       console.log(`    Favicon: ${result.faviconUrl}`);
@@ -82,7 +83,7 @@ async function main() {
     }
   }
 
-  console.log("\n\nAll done!");
+  console.log('\n\nAll done!');
 }
 
 main()

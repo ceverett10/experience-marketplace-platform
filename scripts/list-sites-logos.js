@@ -1,9 +1,9 @@
-const { PrismaClient } = require("@prisma/client");
+const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 async function main() {
   const sites = await prisma.site.findMany({
-    where: { status: "ACTIVE" },
+    where: { status: 'ACTIVE' },
     select: {
       id: true,
       name: true,
@@ -11,15 +11,15 @@ async function main() {
         select: {
           logoUrl: true,
           logoDarkUrl: true,
-          faviconUrl: true
-        }
-      }
-    }
+          faviconUrl: true,
+        },
+      },
+    },
   });
 
-  console.log("Active sites:", sites.length);
-  console.log("---");
-  sites.forEach(s => {
+  console.log('Active sites:', sites.length);
+  console.log('---');
+  sites.forEach((s) => {
     const hasLight = !!s.brand?.logoUrl;
     const hasDark = !!s.brand?.logoDarkUrl;
     const hasFavicon = !!s.brand?.faviconUrl;

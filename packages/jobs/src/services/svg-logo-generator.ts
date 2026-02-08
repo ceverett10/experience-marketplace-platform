@@ -82,7 +82,11 @@ function getIconForNiche(niche: string): string {
   const nicheLower = niche.toLowerCase();
 
   // Food related
-  if (nicheLower.includes('food') || nicheLower.includes('culinary') || nicheLower.includes('gastro')) {
+  if (
+    nicheLower.includes('food') ||
+    nicheLower.includes('culinary') ||
+    nicheLower.includes('gastro')
+  ) {
     return 'utensils';
   }
 
@@ -92,7 +96,11 @@ function getIconForNiche(niche: string): string {
   }
 
   // Museum/Culture/Art
-  if (nicheLower.includes('museum') || nicheLower.includes('art') || nicheLower.includes('gallery')) {
+  if (
+    nicheLower.includes('museum') ||
+    nicheLower.includes('art') ||
+    nicheLower.includes('gallery')
+  ) {
     return 'landmark';
   }
 
@@ -102,32 +110,59 @@ function getIconForNiche(niche: string): string {
   }
 
   // Adventure/Outdoor
-  if (nicheLower.includes('adventure') || nicheLower.includes('outdoor') || nicheLower.includes('mountain')) {
+  if (
+    nicheLower.includes('adventure') ||
+    nicheLower.includes('outdoor') ||
+    nicheLower.includes('mountain')
+  ) {
     return 'mountain';
   }
 
   // Boat/Water
-  if (nicheLower.includes('boat') || nicheLower.includes('cruise') || nicheLower.includes('sail') || nicheLower.includes('water')) {
+  if (
+    nicheLower.includes('boat') ||
+    nicheLower.includes('cruise') ||
+    nicheLower.includes('sail') ||
+    nicheLower.includes('water')
+  ) {
     return 'sailboat';
   }
 
   // City tours
-  if (nicheLower.includes('city') || nicheLower.includes('urban') || nicheLower.includes('architecture')) {
+  if (
+    nicheLower.includes('city') ||
+    nicheLower.includes('urban') ||
+    nicheLower.includes('architecture')
+  ) {
     return 'building';
   }
 
   // Corporate/Team building
-  if (nicheLower.includes('corporate') || nicheLower.includes('team') || nicheLower.includes('business')) {
+  if (
+    nicheLower.includes('corporate') ||
+    nicheLower.includes('team') ||
+    nicheLower.includes('business')
+  ) {
     return 'users';
   }
 
   // Party/Celebration
-  if (nicheLower.includes('party') || nicheLower.includes('bachelorette') || nicheLower.includes('bachelor') || nicheLower.includes('celebration')) {
+  if (
+    nicheLower.includes('party') ||
+    nicheLower.includes('bachelorette') ||
+    nicheLower.includes('bachelor') ||
+    nicheLower.includes('celebration')
+  ) {
     return 'sparkles';
   }
 
   // Romance
-  if (nicheLower.includes('honeymoon') || nicheLower.includes('romantic') || nicheLower.includes('anniversary') || nicheLower.includes('couple')) {
+  if (
+    nicheLower.includes('honeymoon') ||
+    nicheLower.includes('romantic') ||
+    nicheLower.includes('anniversary') ||
+    nicheLower.includes('couple')
+  ) {
     return 'heart';
   }
 
@@ -137,7 +172,11 @@ function getIconForNiche(niche: string): string {
   }
 
   // Tickets/Events
-  if (nicheLower.includes('ticket') || nicheLower.includes('event') || nicheLower.includes('show')) {
+  if (
+    nicheLower.includes('ticket') ||
+    nicheLower.includes('event') ||
+    nicheLower.includes('show')
+  ) {
     return 'ticket';
   }
 
@@ -148,10 +187,7 @@ function getIconForNiche(niche: string): string {
 /**
  * Generate SVG logo with icon and brand name
  */
-function generateLogoSvg(
-  params: SvgLogoParams,
-  variant: 'light' | 'dark'
-): string {
+function generateLogoSvg(params: SvgLogoParams, variant: 'light' | 'dark'): string {
   const iconKey = getIconForNiche(params.niche);
   const iconPath = ICON_PATHS[iconKey] || ICON_PATHS['globe'];
 
@@ -164,7 +200,7 @@ function generateLogoSvg(
   const displayName = params.brandName
     .replace(/[-_]/g, ' ')
     .split(' ')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(' ');
 
   // Calculate text width (rough estimate: 10px per character at font-size 28)
@@ -236,10 +272,7 @@ function escapeXml(str: string): string {
  * Convert SVG to PNG using sharp
  */
 async function svgToPng(svg: string, width: number, height: number): Promise<Buffer> {
-  return sharp(Buffer.from(svg))
-    .resize(width, height)
-    .png()
-    .toBuffer();
+  return sharp(Buffer.from(svg)).resize(width, height).png().toBuffer();
 }
 
 /**
@@ -255,9 +288,9 @@ export async function generateSvgLogos(params: SvgLogoParams): Promise<SvgLogoRe
 
   // Convert to PNGs (high resolution for quality)
   const [lightPng, darkPng, faviconPng] = await Promise.all([
-    svgToPng(lightSvg, 400, 112),  // 2x resolution for retina
+    svgToPng(lightSvg, 400, 112), // 2x resolution for retina
     svgToPng(darkSvg, 400, 112),
-    svgToPng(faviconSvg, 64, 64),  // Standard favicon size
+    svgToPng(faviconSvg, 64, 64), // Standard favicon size
   ]);
 
   // Generate filenames

@@ -847,9 +847,7 @@ export async function executeNextTasks(
   // - Zombie DB records from addJob calls where BullMQ failed after DB insert
   // Cleaning ALL of them (not just stale) ensures a fresh start on manual retry.
   if (retryFailed) {
-    const stalePendingJobs = jobs.filter(
-      (j) => j.status === 'PENDING' && j.queue !== 'planned'
-    );
+    const stalePendingJobs = jobs.filter((j) => j.status === 'PENDING' && j.queue !== 'planned');
     for (const staleJob of stalePendingJobs) {
       console.log(
         `[Site Roadmap] Deleting PENDING job ${staleJob.type} (id: ${staleJob.id}, queue: ${staleJob.queue}) for retry`
@@ -891,10 +889,7 @@ export async function executeNextTasks(
   const activeOrFailedJobs = new Set(
     jobs
       .filter(
-        (j) =>
-          skipStatuses.includes(j.status) &&
-          j.queue !== 'planned' &&
-          !deletedJobIds.has(j.id)
+        (j) => skipStatuses.includes(j.status) && j.queue !== 'planned' && !deletedJobIds.has(j.id)
       )
       .map((j) => j.type)
   );

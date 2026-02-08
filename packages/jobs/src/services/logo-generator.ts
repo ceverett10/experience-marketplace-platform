@@ -55,7 +55,9 @@ function getNicheStyleHint(niche: string): string {
   const nicheKey = Object.keys(nicheStyles).find((key) =>
     niche.toLowerCase().includes(key.replace(' tours', ''))
   );
-  return nicheKey ? (nicheStyles[nicheKey] ?? 'travel, exploration, discovery') : 'travel, exploration, discovery';
+  return nicheKey
+    ? (nicheStyles[nicheKey] ?? 'travel, exploration, discovery')
+    : 'travel, exploration, discovery';
 }
 
 /**
@@ -214,7 +216,9 @@ async function generateLogoVersion(
 
   if (!response.ok) {
     const errorBody = await response.text();
-    console.error(`[Logo Generator] DALL-E API error for ${logoType}: ${response.status} ${errorBody}`);
+    console.error(
+      `[Logo Generator] DALL-E API error for ${logoType}: ${response.status} ${errorBody}`
+    );
     throw new Error(`DALL-E API error: ${response.status}`);
   }
 
@@ -254,9 +258,12 @@ async function generateLogoVersion(
  * Generate all logo versions (light, dark, favicon)
  * Uses SVG-based generation for consistent, professional results
  */
-export async function generateAllLogoVersions(params: LogoGenerationParams): Promise<AllLogosResult> {
+export async function generateAllLogoVersions(
+  params: LogoGenerationParams
+): Promise<AllLogosResult> {
   // Use SVG-based logo generation (more consistent and professional)
-  const { generateSvgLogos, isSvgLogoGenerationAvailable } = await import('./svg-logo-generator.js');
+  const { generateSvgLogos, isSvgLogoGenerationAvailable } =
+    await import('./svg-logo-generator.js');
 
   if (isSvgLogoGenerationAvailable()) {
     console.log(`[Logo Generator] Using SVG-based generation for "${params.brandName}"`);
@@ -307,7 +314,10 @@ export async function regenerateLogo(
   const result = await generateLogo(params);
 
   // Delete old logo from R2 if it exists
-  if (oldLogoUrl && (oldLogoUrl.includes('.r2.cloudflarestorage.com') || oldLogoUrl.includes('.r2.dev'))) {
+  if (
+    oldLogoUrl &&
+    (oldLogoUrl.includes('.r2.cloudflarestorage.com') || oldLogoUrl.includes('.r2.dev'))
+  ) {
     try {
       await deleteFromR2(oldLogoUrl);
       console.log(`[Logo Generator] Deleted old logo: ${oldLogoUrl}`);
@@ -328,7 +338,8 @@ export async function regenerateAllLogos(
   oldUrls?: { logoUrl?: string | null; logoDarkUrl?: string | null; faviconUrl?: string | null }
 ): Promise<AllLogosResult> {
   // Use SVG-based regeneration
-  const { regenerateSvgLogos, isSvgLogoGenerationAvailable } = await import('./svg-logo-generator.js');
+  const { regenerateSvgLogos, isSvgLogoGenerationAvailable } =
+    await import('./svg-logo-generator.js');
 
   if (isSvgLogoGenerationAvailable()) {
     return regenerateSvgLogos(

@@ -66,7 +66,8 @@ function createSignatureV4(
   };
 
   const sortedHeaderKeys = Object.keys(signedHeaders).sort();
-  const canonicalHeaders = sortedHeaderKeys.map((k) => `${k.toLowerCase()}:${signedHeaders[k]}`).join('\n') + '\n';
+  const canonicalHeaders =
+    sortedHeaderKeys.map((k) => `${k.toLowerCase()}:${signedHeaders[k]}`).join('\n') + '\n';
   const signedHeadersList = sortedHeaderKeys.map((k) => k.toLowerCase()).join(';');
 
   // Create canonical request

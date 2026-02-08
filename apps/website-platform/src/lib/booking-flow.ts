@@ -351,10 +351,14 @@ export async function answerBookingQuestions(
 
 /**
  * Commit a booking (finalize)
+ * @param bookingId - The Holibob booking ID
+ * @param waitForConfirmation - Whether to wait for supplier confirmation
+ * @param productId - Optional product ID for booking analytics (urgency messaging)
  */
 export async function commitBooking(
   bookingId: string,
-  waitForConfirmation = true
+  waitForConfirmation = true,
+  productId?: string
 ): Promise<{
   booking: Booking;
   voucherUrl?: string;
@@ -367,6 +371,7 @@ export async function commitBooking(
       bookingId,
       waitForConfirmation,
       maxWaitSeconds: 60,
+      productId,
     }),
   });
 

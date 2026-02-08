@@ -46,16 +46,15 @@ export async function handleSupplierSync(job: Job<SupplierSyncPayload>): Promise
 
     // Get existing supplier IDs before sync
     const existingSupplierIds = new Set(
-      (await prisma.supplier.findMany({ select: { holibobSupplierId: true } }))
-        .map(s => s.holibobSupplierId)
+      (await prisma.supplier.findMany({ select: { holibobSupplierId: true } })).map(
+        (s) => s.holibobSupplierId
+      )
     );
 
     const result = await syncSuppliersFromHolibob();
 
     if (!result.success) {
-      console.warn(
-        `[Supplier Sync Worker] Completed with errors: ${result.errors.length} errors`
-      );
+      console.warn(`[Supplier Sync Worker] Completed with errors: ${result.errors.length} errors`);
     }
 
     // Find newly created suppliers eligible for microsites
@@ -76,7 +75,9 @@ export async function handleSupplierSync(job: Job<SupplierSyncPayload>): Promise
         },
       });
 
-      console.log(`[Supplier Sync Worker] Found ${eligibleNewSuppliers.length} eligible new suppliers for microsites`);
+      console.log(
+        `[Supplier Sync Worker] Found ${eligibleNewSuppliers.length} eligible new suppliers for microsites`
+      );
 
       for (const supplier of eligibleNewSuppliers) {
         // Check if microsite already exists
@@ -93,7 +94,10 @@ export async function handleSupplierSync(job: Job<SupplierSyncPayload>): Promise
             micrositesQueued++;
             console.log(`[Supplier Sync Worker] Queued microsite for: ${supplier.name}`);
           } catch (queueError) {
-            console.error(`[Supplier Sync Worker] Failed to queue microsite for ${supplier.name}:`, queueError);
+            console.error(
+              `[Supplier Sync Worker] Failed to queue microsite for ${supplier.name}:`,
+              queueError
+            );
           }
         }
       }
@@ -149,9 +153,7 @@ export async function handleProductSync(job: Job<ProductSyncPayload>): Promise<J
     });
 
     if (!result.success) {
-      console.warn(
-        `[Product Sync Worker] Completed with errors: ${result.errors.length} errors`
-      );
+      console.warn(`[Product Sync Worker] Completed with errors: ${result.errors.length} errors`);
     }
 
     return {

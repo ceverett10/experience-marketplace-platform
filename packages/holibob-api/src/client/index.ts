@@ -293,9 +293,12 @@ export class HolibobClient {
   async getProduct(productId: string): Promise<Product | null> {
     console.log('[HolibobClient] getProduct called with ID:', productId);
     try {
-      const response = await this.executeQuery<{ productDetail: Product | null }>(PRODUCT_DETAIL_QUERY, {
-        id: productId,
-      });
+      const response = await this.executeQuery<{ productDetail: Product | null }>(
+        PRODUCT_DETAIL_QUERY,
+        {
+          id: productId,
+        }
+      );
 
       if (response.productDetail) {
         const product = response.productDetail as Record<string, unknown>;

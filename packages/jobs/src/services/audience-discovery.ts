@@ -160,7 +160,7 @@ async function buildPortfolioContext(): Promise<PortfolioContext> {
       const segmentName = sourceData?.['segment']?.['name'] || opp.niche || '';
       const dimension = sourceData?.['segment']?.['dimension'] || '';
       const topKeywords: string[] = (
-        sourceData?.['keywordCluster']?.['topKeywords'] as Array<{ keyword: string }> || []
+        (sourceData?.['keywordCluster']?.['topKeywords'] as Array<{ keyword: string }>) || []
       ).map((k) => k.keyword);
 
       if (segmentName) {
@@ -194,16 +194,53 @@ async function buildPortfolioContext(): Promise<PortfolioContext> {
 // ==========================================
 
 const TRAVEL_SIGNAL_WORDS = [
-  'tour', 'tours', 'trip', 'trips', 'travel', 'traveling', 'travelling',
-  'holiday', 'holidays', 'vacation', 'vacations', 'getaway', 'getaways',
-  'retreat', 'retreats', 'excursion', 'excursions',
-  'adventure', 'adventures', 'experience', 'experiences',
-  'activity', 'activities', 'things to do', 'what to do',
-  'sightseeing', 'itinerary', 'guided', 'booking',
-  'visit', 'visiting', 'explore', 'exploring',
-  'destination', 'destinations', 'abroad', 'overseas',
-  'cruise', 'safari', 'trek', 'trekking', 'hike', 'hiking', 'backpacking',
-  'resort', 'spa', 'wellness',
+  'tour',
+  'tours',
+  'trip',
+  'trips',
+  'travel',
+  'traveling',
+  'travelling',
+  'holiday',
+  'holidays',
+  'vacation',
+  'vacations',
+  'getaway',
+  'getaways',
+  'retreat',
+  'retreats',
+  'excursion',
+  'excursions',
+  'adventure',
+  'adventures',
+  'experience',
+  'experiences',
+  'activity',
+  'activities',
+  'things to do',
+  'what to do',
+  'sightseeing',
+  'itinerary',
+  'guided',
+  'booking',
+  'visit',
+  'visiting',
+  'explore',
+  'exploring',
+  'destination',
+  'destinations',
+  'abroad',
+  'overseas',
+  'cruise',
+  'safari',
+  'trek',
+  'trekking',
+  'hike',
+  'hiking',
+  'backpacking',
+  'resort',
+  'spa',
+  'wellness',
 ];
 
 function hasTravelIntent(keyword: string): boolean {
@@ -215,9 +252,7 @@ function hasTravelIntent(keyword: string): boolean {
 // PHASE 1: AI AUDIENCE SEGMENT GENERATION
 // ==========================================
 
-async function generateAudienceSegments(
-  portfolio: PortfolioContext
-): Promise<{
+async function generateAudienceSegments(portfolio: PortfolioContext): Promise<{
   segments: AudienceSegment[];
   cost: number;
 }> {
@@ -487,8 +522,7 @@ Return ONLY a valid JSON array, no markdown fences, no explanation.`;
       }
     }
 
-    const avgSeeds =
-      segments.reduce((sum, s) => sum + s.searchSeeds.length, 0) / segments.length;
+    const avgSeeds = segments.reduce((sum, s) => sum + s.searchSeeds.length, 0) / segments.length;
     console.log(
       `[Audience Discovery] Optimized search seeds for ${updated}/${segments.length} segments (avg ${avgSeeds.toFixed(1)} seeds per segment)`
     );
@@ -503,9 +537,7 @@ Return ONLY a valid JSON array, no markdown fences, no explanation.`;
 // PHASE 2: KEYWORD DISCOVERY PER SEGMENT
 // ==========================================
 
-async function discoverSegmentKeywords(
-  segments: AudienceSegment[]
-): Promise<{
+async function discoverSegmentKeywords(segments: AudienceSegment[]): Promise<{
   keywordMap: Map<string, KeywordData[]>;
   cost: number;
 }> {
@@ -954,8 +986,12 @@ Return ONLY a valid JSON array, no markdown fences, no explanation.`;
       evaluations.set(cluster.segment.id, {
         viabilityScore: Number(raw['viabilityScore']) || 50,
         brandName: String(raw['brandName'] || cluster.segment.name),
-        suggestedDomain: String(raw['suggestedDomain'] || `${cluster.segment.name.toLowerCase().replace(/\s+/g, '-')}.com`),
-        alternativeDomains: Array.isArray(raw['alternativeDomains']) ? raw['alternativeDomains'] : [],
+        suggestedDomain: String(
+          raw['suggestedDomain'] || `${cluster.segment.name.toLowerCase().replace(/\s+/g, '-')}.com`
+        ),
+        alternativeDomains: Array.isArray(raw['alternativeDomains'])
+          ? raw['alternativeDomains']
+          : [],
         positioning: String(raw['positioning'] || ''),
         contentStrategy: String(raw['contentStrategy'] || ''),
         competitiveAdvantage: String(raw['competitiveAdvantage'] || ''),
@@ -1152,10 +1188,14 @@ export async function runAudienceFirstDiscovery(
       searchTermsUsed: [],
       sampleProducts: [],
     };
-    const evaluation =
-      evaluations.get(cluster.segment.id) || createFallbackEvaluation(cluster);
+    const evaluation = evaluations.get(cluster.segment.id) || createFallbackEvaluation(cluster);
 
-    const priorityScore = calculateSegmentPriorityScore(cluster, feasibility, evaluation, portfolio);
+    const priorityScore = calculateSegmentPriorityScore(
+      cluster,
+      feasibility,
+      evaluation,
+      portfolio
+    );
 
     opportunities.push({
       segment: cluster.segment,

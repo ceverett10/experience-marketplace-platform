@@ -185,9 +185,7 @@ describe('handleGscVerify', () => {
     mockGscClient.isVerified.mockRejectedValue(new Error('API rate limit exceeded'));
 
     // Retryable errors are now thrown so BullMQ can retry the job
-    await expect(handleGscVerify(createMockJob(jobData))).rejects.toThrow(
-      'Rate limit exceeded'
-    );
+    await expect(handleGscVerify(createMockJob(jobData))).rejects.toThrow('Rate limit exceeded');
   });
 });
 

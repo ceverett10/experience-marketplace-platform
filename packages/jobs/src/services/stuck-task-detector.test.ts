@@ -34,15 +34,17 @@ beforeEach(() => {
   clearAllStuckCounts();
 });
 
-function makeStuckJob(overrides: Partial<{
-  id: string;
-  type: string;
-  siteId: string | null;
-  queue: string;
-  idempotencyKey: string | null;
-  createdAt: Date;
-  startedAt: Date;
-}> = {}) {
+function makeStuckJob(
+  overrides: Partial<{
+    id: string;
+    type: string;
+    siteId: string | null;
+    queue: string;
+    idempotencyKey: string | null;
+    createdAt: Date;
+    startedAt: Date;
+  }> = {}
+) {
   return {
     id: overrides.id || 'job-1',
     type: overrides.type || 'CONTENT_OPTIMIZE',
@@ -79,9 +81,7 @@ describe('detectStuckTasks', () => {
     it('should handle jobs without idempotencyKey gracefully', async () => {
       const stuckJob = makeStuckJob({ idempotencyKey: null });
 
-      mockPrisma.job.findMany
-        .mockResolvedValueOnce([stuckJob])
-        .mockResolvedValueOnce([]);
+      mockPrisma.job.findMany.mockResolvedValueOnce([stuckJob]).mockResolvedValueOnce([]);
 
       const result = await detectStuckTasks();
 
@@ -115,9 +115,7 @@ describe('detectStuckTasks', () => {
 
       // Simulate 3 previous stuck detections (the 4th should permanently fail)
       for (let i = 0; i < 3; i++) {
-        mockPrisma.job.findMany
-          .mockResolvedValueOnce([stuckJob])
-          .mockResolvedValueOnce([]);
+        mockPrisma.job.findMany.mockResolvedValueOnce([stuckJob]).mockResolvedValueOnce([]);
         await detectStuckTasks();
       }
 
@@ -125,9 +123,7 @@ describe('detectStuckTasks', () => {
       vi.clearAllMocks();
 
       // 4th detection — should permanently fail
-      mockPrisma.job.findMany
-        .mockResolvedValueOnce([stuckJob])
-        .mockResolvedValueOnce([]);
+      mockPrisma.job.findMany.mockResolvedValueOnce([stuckJob]).mockResolvedValueOnce([]);
 
       const result = await detectStuckTasks();
 
@@ -151,9 +147,7 @@ describe('detectStuckTasks', () => {
 
       // Simulate 3 stuck detections
       for (let i = 0; i < 3; i++) {
-        mockPrisma.job.findMany
-          .mockResolvedValueOnce([stuckJob])
-          .mockResolvedValueOnce([]);
+        mockPrisma.job.findMany.mockResolvedValueOnce([stuckJob]).mockResolvedValueOnce([]);
         await detectStuckTasks();
       }
 
@@ -163,9 +157,7 @@ describe('detectStuckTasks', () => {
       vi.clearAllMocks();
 
       // Next detection should heal, not permanently fail
-      mockPrisma.job.findMany
-        .mockResolvedValueOnce([stuckJob])
-        .mockResolvedValueOnce([]);
+      mockPrisma.job.findMany.mockResolvedValueOnce([stuckJob]).mockResolvedValueOnce([]);
 
       const result = await detectStuckTasks();
 
@@ -178,7 +170,12 @@ describe('detectStuckTasks', () => {
   describe('mixed results', () => {
     it('should handle mix of PENDING and RUNNING stuck jobs', async () => {
       const pendingJob = makeStuckJob({ id: 'pend-1', type: 'CONTENT_OPTIMIZE', siteId: 'site-a' });
-      const runningJob = makeStuckJob({ id: 'run-1', type: 'DOMAIN_VERIFY', siteId: 'site-b', idempotencyKey: 'domain:bmq-789' });
+      const runningJob = makeStuckJob({
+        id: 'run-1',
+        type: 'DOMAIN_VERIFY',
+        siteId: 'site-b',
+        idempotencyKey: 'domain:bmq-789',
+      });
 
       mockPrisma.job.findMany
         .mockResolvedValueOnce([pendingJob])
@@ -192,9 +189,7 @@ describe('detectStuckTasks', () => {
     });
 
     it('should return empty results when no stuck jobs found', async () => {
-      mockPrisma.job.findMany
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([]);
+      mockPrisma.job.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
 
       const result = await detectStuckTasks();
 
@@ -208,9 +203,7 @@ describe('detectStuckTasks', () => {
     it('should log healed events with MEDIUM severity on first occurrence', async () => {
       const stuckJob = makeStuckJob({ siteId: 'site-log-test', type: 'CONTENT_GENERATE' });
 
-      mockPrisma.job.findMany
-        .mockResolvedValueOnce([stuckJob])
-        .mockResolvedValueOnce([]);
+      mockPrisma.job.findMany.mockResolvedValueOnce([stuckJob]).mockResolvedValueOnce([]);
 
       await detectStuckTasks();
 
@@ -228,17 +221,13 @@ describe('detectStuckTasks', () => {
       const stuckJob = makeStuckJob({ siteId: 'site-sev-test', type: 'DOMAIN_REGISTER' });
 
       // First detection
-      mockPrisma.job.findMany
-        .mockResolvedValueOnce([stuckJob])
-        .mockResolvedValueOnce([]);
+      mockPrisma.job.findMany.mockResolvedValueOnce([stuckJob]).mockResolvedValueOnce([]);
       await detectStuckTasks();
 
       vi.clearAllMocks();
 
       // Second detection
-      mockPrisma.job.findMany
-        .mockResolvedValueOnce([stuckJob])
-        .mockResolvedValueOnce([]);
+      mockPrisma.job.findMany.mockResolvedValueOnce([stuckJob]).mockResolvedValueOnce([]);
       await detectStuckTasks();
 
       expect(mockErrorTracking.logError).toHaveBeenCalledWith(
@@ -255,9 +244,7 @@ describe('detectStuckTasks', () => {
       // Trigger 4 detections (3 heals + 1 permanent fail)
       for (let i = 0; i < 4; i++) {
         vi.clearAllMocks();
-        mockPrisma.job.findMany
-          .mockResolvedValueOnce([stuckJob])
-          .mockResolvedValueOnce([]);
+        mockPrisma.job.findMany.mockResolvedValueOnce([stuckJob]).mockResolvedValueOnce([]);
         await detectStuckTasks();
       }
 

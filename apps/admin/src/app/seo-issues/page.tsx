@@ -282,7 +282,9 @@ export default function SEOIssuesPage() {
                     }}
                     className={`flex items-center justify-between w-full p-2 rounded text-sm hover:bg-slate-50 transition-colors ${category === cat ? 'ring-1 ring-sky-400' : ''}`}
                   >
-                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${categoryColors[cat] || ''}`}>
+                    <span
+                      className={`px-2 py-0.5 rounded text-xs font-medium ${categoryColors[cat] || ''}`}
+                    >
                       {cat.replace(/_/g, ' ')}
                     </span>
                     <span className="font-bold text-slate-700">{count}</span>
@@ -309,7 +311,9 @@ export default function SEOIssuesPage() {
                     }}
                     className={`flex items-center justify-between w-full p-2 rounded text-sm hover:bg-slate-50 transition-colors ${status === stat ? 'ring-1 ring-sky-400' : ''}`}
                   >
-                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${statusColors[stat] || ''}`}>
+                    <span
+                      className={`px-2 py-0.5 rounded text-xs font-medium ${statusColors[stat] || ''}`}
+                    >
                       {stat.replace(/_/g, ' ')}
                     </span>
                     <span className="font-bold text-slate-700">{count}</span>
@@ -506,8 +510,12 @@ export default function SEOIssuesPage() {
 
                       {/* Impact */}
                       <div>
-                        <h4 className="text-sm font-medium text-slate-700 mb-1">Estimated Impact</h4>
-                        <p className="text-sm text-green-600 font-medium">{issue.estimatedImpact}</p>
+                        <h4 className="text-sm font-medium text-slate-700 mb-1">
+                          Estimated Impact
+                        </h4>
+                        <p className="text-sm text-green-600 font-medium">
+                          {issue.estimatedImpact}
+                        </p>
                       </div>
 
                       {/* Metadata */}

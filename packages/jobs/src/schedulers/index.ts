@@ -278,8 +278,7 @@ function initializeDailyContentSchedule(): void {
           currentMinute < schedule.minute + 30;
 
         // Check day of week for weekly schedules
-        const isCorrectDay =
-          schedule.dayOfWeek === undefined || schedule.dayOfWeek === currentDow;
+        const isCorrectDay = schedule.dayOfWeek === undefined || schedule.dayOfWeek === currentDow;
 
         // Check if already run today
         const scheduleKey = `${schedule.type}-${schedule.dayOfWeek ?? 'daily'}`;

@@ -9,6 +9,7 @@ Since Holibob is a B2B brand, consumer-facing micro-sites cannot live under `hol
 **Primary Domain**: `experiencess.com` (purchased, hosted on Cloudflare)
 
 Each micro-site operates as a standalone branded entity with its own:
+
 - Brand identity (name, colors, logo)
 - Content strategy
 - SEO presence
@@ -22,14 +23,14 @@ Each micro-site operates as a standalone branded entity with its own:
 
 ### What Stays the Same
 
-| Component | Current Behavior | After Extension |
-|-----------|------------------|-----------------|
-| **Existing Sites** | `Site` model with custom domains | **Unchanged** |
-| **Domain Table** | Maps `london-tours.com` → Site | **Unchanged** |
-| **Brand Model** | One Brand per Site | **Unchanged** (new MicrositeConfig also uses Brand) |
-| **Content Generation** | Jobs generate pages for Sites | **Unchanged** (new jobs for Microsites run separately) |
-| **GSC Integration** | Per-site verification | **Unchanged** |
-| **Tenant Resolution** | Domain lookup → Site | **Unchanged** (new path added for new parent domains only) |
+| Component              | Current Behavior                 | After Extension                                            |
+| ---------------------- | -------------------------------- | ---------------------------------------------------------- |
+| **Existing Sites**     | `Site` model with custom domains | **Unchanged**                                              |
+| **Domain Table**       | Maps `london-tours.com` → Site   | **Unchanged**                                              |
+| **Brand Model**        | One Brand per Site               | **Unchanged** (new MicrositeConfig also uses Brand)        |
+| **Content Generation** | Jobs generate pages for Sites    | **Unchanged** (new jobs for Microsites run separately)     |
+| **GSC Integration**    | Per-site verification            | **Unchanged**                                              |
+| **Tenant Resolution**  | Domain lookup → Site             | **Unchanged** (new path added for new parent domains only) |
 
 ### How It Works: Two Parallel Systems
 
@@ -172,6 +173,7 @@ Both systems:
 ### Request Flow Examples
 
 **Existing Site (unchanged)**:
+
 ```
 GET https://london-tours.com/experiences
 
@@ -184,6 +186,7 @@ GET https://london-tours.com/experiences
 ```
 
 **New Microsite**:
+
 ```
 GET https://adventure-co.experiencess.com/experiences
 
@@ -205,14 +208,15 @@ GET https://adventure-co.experiencess.com/experiences
 
 You need one or more consumer-facing parent domains. Options:
 
-| Domain Type | Example | Pros | Cons |
-|-------------|---------|------|------|
-| Generic experience | `experiencess.com` | Broad, scalable | Less specific |
-| Category-specific | `walkingtours.guide` | Strong keyword signal | Limits scope |
-| Location-specific | `londontours.info` | Strong local signal | Limits geography |
-| Neutral/abstract | `getaway.io` | Brandable | No keyword benefit |
+| Domain Type        | Example              | Pros                  | Cons               |
+| ------------------ | -------------------- | --------------------- | ------------------ |
+| Generic experience | `experiencess.com`   | Broad, scalable       | Less specific      |
+| Category-specific  | `walkingtours.guide` | Strong keyword signal | Limits scope       |
+| Location-specific  | `londontours.info`   | Strong local signal   | Limits geography   |
+| Neutral/abstract   | `getaway.io`         | Brandable             | No keyword benefit |
 
 **Recommendation**: Use 2-3 parent domains strategically:
+
 ```
 experiencess.com     → Supplier micro-sites
 experiencess.com            → Product micro-sites
@@ -245,13 +249,14 @@ london-walking-tour.experiencess.com/
 
 ### When to Create Supplier vs Product Sites
 
-| Entity Type | Create Micro-Site If... | Content Focus |
-|-------------|-------------------------|---------------|
-| **Supplier** | Has 5+ products | Full brand site, all experiences |
-| **Premium Product** | High booking volume OR unique/signature experience | Deep product content |
-| **Long-tail Product** | Part of supplier's catalog | Lives under supplier subdomain |
+| Entity Type           | Create Micro-Site If...                            | Content Focus                    |
+| --------------------- | -------------------------------------------------- | -------------------------------- |
+| **Supplier**          | Has 5+ products                                    | Full brand site, all experiences |
+| **Premium Product**   | High booking volume OR unique/signature experience | Deep product content             |
+| **Long-tail Product** | Part of supplier's catalog                         | Lives under supplier subdomain   |
 
 **Estimated Distribution**:
+
 ```
 Suppliers with micro-sites:    ~10,000-50,000 (suppliers with 5+ products)
 Premium product micro-sites:   ~5,000-20,000 (signature experiences)
@@ -365,6 +370,7 @@ Homepage & Initial Content Generated
 ### Example Brand Generation
 
 **Input**:
+
 ```json
 {
   "supplierName": "London Walks Ltd",
@@ -377,13 +383,14 @@ Homepage & Initial Content Generated
 ```
 
 **Generated Brand**:
+
 ```json
 {
   "siteName": "London Walks",
   "tagline": "Discover London's Stories, One Step at a Time",
-  "primaryColor": "#1B4D3E",      // Forest green (walking/outdoor)
-  "secondaryColor": "#F5F0E8",    // Cream (heritage/history)
-  "accentColor": "#C9A962",       // Gold (premium/London)
+  "primaryColor": "#1B4D3E", // Forest green (walking/outdoor)
+  "secondaryColor": "#F5F0E8", // Cream (heritage/history)
+  "accentColor": "#C9A962", // Gold (premium/London)
   "headingFont": "Playfair Display",
   "bodyFont": "Open Sans",
   "toneOfVoice": "knowledgeable, friendly, storytelling",
@@ -398,6 +405,7 @@ Homepage & Initial Content Generated
 ### DNS Configuration
 
 **Wildcard DNS Setup** (Cloudflare):
+
 ```
 # Parent domain A records
 experiencess.com        A     <server-ip>
@@ -408,6 +416,7 @@ experiencess.com               A     <server-ip>
 ```
 
 **Benefits**:
+
 - Single DNS record handles unlimited subdomains
 - No per-subdomain DNS management
 - Instant subdomain availability
@@ -415,6 +424,7 @@ experiencess.com               A     <server-ip>
 ### SSL/TLS Configuration
 
 **Wildcard SSL Certificate** (Cloudflare):
+
 ```
 Certificate covers:
 - experiencess.com
@@ -426,6 +436,7 @@ Certificate covers:
 ```
 
 **Cloudflare Setup**:
+
 - Enable "Full (strict)" SSL mode
 - Universal SSL covers wildcard automatically
 - Edge certificates for all subdomains
@@ -442,14 +453,14 @@ export async function getSiteFromHostname(hostname: string): Promise<SiteConfig>
 
   // 1. Check if it's a known parent domain
   const parentDomains = ['experiencess.com', 'experiencess.com', 'localexperiences.com'];
-  const isSubdomain = parentDomains.some(pd =>
-    cleanHostname.endsWith(`.${pd}`) && cleanHostname !== pd
+  const isSubdomain = parentDomains.some(
+    (pd) => cleanHostname.endsWith(`.${pd}`) && cleanHostname !== pd
   );
 
   if (isSubdomain) {
     // Extract subdomain: "adventure-co.experiencess.com" → "adventure-co"
     const subdomain = cleanHostname.split('.')[0];
-    const parentDomain = parentDomains.find(pd => cleanHostname.endsWith(`.${pd}`));
+    const parentDomain = parentDomains.find((pd) => cleanHostname.endsWith(`.${pd}`));
 
     // Look up in MicrositeConfig
     const config = await getCachedMicrositeConfig(subdomain, parentDomain);
@@ -461,7 +472,7 @@ export async function getSiteFromHostname(hostname: string): Promise<SiteConfig>
   // 2. Fallback: Check Domain table (for custom domains)
   const domain = await prisma.domain.findUnique({
     where: { domain: cleanHostname },
-    include: { site: { include: { brand: true } } }
+    include: { site: { include: { brand: true } } },
   });
 
   if (domain?.site) {
@@ -483,9 +494,9 @@ async function getCachedMicrositeConfig(subdomain: string, parentDomain: string)
   // Database lookup
   const config = await prisma.micrositeConfig.findUnique({
     where: {
-      subdomain_parentDomain: { subdomain, parentDomain }
+      subdomain_parentDomain: { subdomain, parentDomain },
     },
-    include: { brand: true, pages: true }
+    include: { brand: true, pages: true },
   });
 
   if (config) {
@@ -526,7 +537,7 @@ function parseHostname(hostname: string) {
       return {
         subdomain: cleanHostname.replace(`.${pd}`, ''),
         parentDomain: pd,
-        isKnownParent: true
+        isKnownParent: true,
       };
     }
     if (cleanHostname === pd) {
@@ -547,6 +558,7 @@ function parseHostname(hostname: string) {
 Google's official stance: **"We generally consider subdomains as separate sites"**
 
 **Implications**:
+
 - Each subdomain builds its own domain authority
 - Links from `site-a.experiencess.com` to `site-b.experiencess.com` are treated as **external links**
 - Parent domain authority does NOT automatically flow to subdomains
@@ -568,6 +580,7 @@ experiencess.com/
 ```
 
 **Link flow**:
+
 ```
 experiencess.com (high authority)
     │
@@ -593,6 +606,7 @@ adventure-co.experiencess.com
 ```
 
 **Implementation**:
+
 ```typescript
 // Generate related sites section
 async function getRelatedMicrosites(currentConfig: MicrositeConfig, limit = 5) {
@@ -603,15 +617,12 @@ async function getRelatedMicrosites(currentConfig: MicrositeConfig, limit = 5) {
         { id: { not: currentConfig.id } },
         { status: 'ACTIVE' },
         {
-          OR: [
-            { location: currentConfig.location },
-            { category: currentConfig.category }
-          ]
-        }
-      ]
+          OR: [{ location: currentConfig.location }, { category: currentConfig.category }],
+        },
+      ],
     },
     orderBy: { pageViews: 'desc' },
-    take: limit
+    take: limit,
   });
 
   return related;
@@ -636,13 +647,14 @@ experiencess.com/sitemap_index.xml
 ```
 
 **GSC Submission**:
+
 ```typescript
 // Submit all subdomain sitemaps to domain-level property
 async function submitAllSitemaps() {
   const gscProperty = 'sc-domain:experiencess.com';
 
   const microsites = await prisma.micrositeConfig.findMany({
-    where: { status: 'ACTIVE' }
+    where: { status: 'ACTIVE' },
   });
 
   for (const site of microsites) {
@@ -667,17 +679,20 @@ Covers:
 ```
 
 **Verification**: DNS TXT record (one-time setup)
+
 ```
 experiencess.com TXT "google-site-verification=xxxxx"
 ```
 
 **Benefits**:
+
 - Single verification for unlimited subdomains
 - Unified search analytics across all sites
 - No per-subdomain verification needed
 - Can filter by subdomain in GSC reports
 
 **Limitations**:
+
 - Cannot set different crawl rates per subdomain
 - All subdomains share same owner/permissions
 - Must use domain-level verification (no HTML tag option)
@@ -721,12 +736,13 @@ experiencess.com TXT "google-site-verification=xxxxx"
    - Location-specific content: local tips, neighborhood guides
 
 2. **Content differentiation scoring**
+
    ```typescript
    async function assessContentUniqueness(content: string, siteId: string) {
      // Compare against similar sites
      const similarSites = await getSimilarSites(siteId);
      const similarities = await Promise.all(
-       similarSites.map(s => calculateSimilarity(content, s.content))
+       similarSites.map((s) => calculateSimilarity(content, s.content))
      );
      const maxSimilarity = Math.max(...similarities);
 
@@ -753,6 +769,7 @@ experiencess.com TXT "google-site-verification=xxxxx"
    - Fresh content gets higher priority
 
 2. **Sitemap segmentation**
+
    ```xml
    <!-- sitemap_index.xml -->
    <sitemap>
@@ -782,17 +799,18 @@ experiencess.com TXT "google-site-verification=xxxxx"
 ```typescript
 // Track events with microsite context
 gtag('event', 'page_view', {
-  'custom_dimensions': {
-    'microsite_subdomain': 'adventure-co',
-    'microsite_type': 'supplier',
-    'supplier_id': 'sup_123',
-    'category': 'walking-tours',
-    'location': 'london'
-  }
+  custom_dimensions: {
+    microsite_subdomain: 'adventure-co',
+    microsite_type: 'supplier',
+    supplier_id: 'sup_123',
+    category: 'walking-tours',
+    location: 'london',
+  },
 });
 ```
 
 **GA4 Setup**:
+
 - 1 property: `experiencess.com`
 - Custom dimensions: subdomain, type, supplier_id, category, location
 - Segment reports by dimension
@@ -823,6 +841,7 @@ Cloudflare Plan: Pro ($20/month)
 ```
 sc-domain:experiencess.com
 ```
+
 - One DNS TXT verification
 - Covers ALL subdomains automatically
 - Single API quota (not 50k × quota)
@@ -840,9 +859,9 @@ sc-domain:experiencess.com
 // Layer 4: Database (fallback)
 
 const CACHE_LAYERS = {
-  edge: { ttl: 60 },      // 1 minute at edge
-  redis: { ttl: 300 },    // 5 minutes in Redis
-  memory: { ttl: 10 },    // 10 seconds in-memory
+  edge: { ttl: 60 }, // 1 minute at edge
+  redis: { ttl: 300 }, // 5 minutes in Redis
+  memory: { ttl: 10 }, // 10 seconds in-memory
 };
 
 async function getMicrositeConfig(subdomain: string, parentDomain: string) {
@@ -862,7 +881,7 @@ async function getMicrositeConfig(subdomain: string, parentDomain: string) {
   // Database
   const config = await prisma.micrositeConfig.findUnique({
     where: { subdomain_parentDomain: { subdomain, parentDomain } },
-    include: { brand: true }
+    include: { brand: true },
   });
 
   if (config) {
@@ -997,8 +1016,8 @@ const MICROSITE_CONTENT_QUOTAS = {
     about: 1,
     experienceListing: 1,
     experienceDetailPages: 'unlimited', // One per product
-    destinationPages: 'max_5',          // Top 5 locations
-    blogPosts: 6,                        // Max 6 per year
+    destinationPages: 'max_5', // Top 5 locations
+    blogPosts: 6, // Max 6 per year
     reviewsPage: 1,
     contactPage: 1,
     // Total: ~10 + products + 6 blogs/year
@@ -1009,9 +1028,9 @@ const MICROSITE_CONTENT_QUOTAS = {
     itinerary: 1,
     reviewsPage: 1,
     faqPage: 1,
-    blogPosts: 2,                        // Max 2 per year
+    blogPosts: 2, // Max 2 per year
     // Total: ~5 + 2 blogs/year
-  }
+  },
 };
 ```
 
@@ -1189,16 +1208,17 @@ model Product {
 
 The microsite system **shares infrastructure** with the existing platform:
 
-| Component | Shared? | Notes |
-|-----------|---------|-------|
-| **website-platform app** | Yes | Same Next.js app serves both |
-| **PostgreSQL database** | Yes | New tables added, existing unchanged |
-| **Redis** | Yes | Same cache, different key prefixes |
-| **BullMQ workers** | Partially | New job types for microsites |
-| **Cloudflare** | Yes | Same account, new DNS zones |
-| **Holibob API** | Yes | Same integration |
+| Component                | Shared?   | Notes                                |
+| ------------------------ | --------- | ------------------------------------ |
+| **website-platform app** | Yes       | Same Next.js app serves both         |
+| **PostgreSQL database**  | Yes       | New tables added, existing unchanged |
+| **Redis**                | Yes       | Same cache, different key prefixes   |
+| **BullMQ workers**       | Partially | New job types for microsites         |
+| **Cloudflare**           | Yes       | Same account, new DNS zones          |
+| **Holibob API**          | Yes       | Same integration                     |
 
 **Benefits of shared infrastructure**:
+
 - Single deployment pipeline
 - Unified monitoring
 - Shared authentication (admin)
@@ -1209,31 +1229,31 @@ The microsite system **shares infrastructure** with the existing platform:
 
 ```javascript
 // Cloudflare Workers script for edge routing
-addEventListener('fetch', event => {
-  event.respondWith(handleRequest(event.request))
-})
+addEventListener('fetch', (event) => {
+  event.respondWith(handleRequest(event.request));
+});
 
 async function handleRequest(request) {
-  const url = new URL(request.url)
-  const hostname = url.hostname
+  const url = new URL(request.url);
+  const hostname = url.hostname;
 
   // Check if known parent domain
-  const parentDomains = ['experiencess.com', 'experiencess.com']
-  const isSubdomain = parentDomains.some(pd =>
-    hostname.endsWith(`.${pd}`) && hostname !== pd && !hostname.startsWith('www.')
-  )
+  const parentDomains = ['experiencess.com', 'experiencess.com'];
+  const isSubdomain = parentDomains.some(
+    (pd) => hostname.endsWith(`.${pd}`) && hostname !== pd && !hostname.startsWith('www.')
+  );
 
   if (isSubdomain) {
-    const subdomain = hostname.split('.')[0]
-    const parentDomain = parentDomains.find(pd => hostname.endsWith(`.${pd}`))
+    const subdomain = hostname.split('.')[0];
+    const parentDomain = parentDomains.find((pd) => hostname.endsWith(`.${pd}`));
 
     // Check KV cache for microsite config
-    const cacheKey = `microsite:${subdomain}:${parentDomain}`
-    const cached = await MICROSITE_KV.get(cacheKey)
+    const cacheKey = `microsite:${subdomain}:${parentDomain}`;
+    const cached = await MICROSITE_KV.get(cacheKey);
 
     if (cached === 'NOT_FOUND') {
       // Return 404 page
-      return new Response('Site not found', { status: 404 })
+      return new Response('Site not found', { status: 404 });
     }
 
     // Add headers for origin
@@ -1242,15 +1262,15 @@ async function handleRequest(request) {
         ...Object.fromEntries(request.headers),
         'x-subdomain': subdomain,
         'x-parent-domain': parentDomain,
-        'x-microsite': 'true'
-      })
-    })
+        'x-microsite': 'true',
+      }),
+    });
 
-    return fetch(modifiedRequest)
+    return fetch(modifiedRequest);
   }
 
   // Pass through for non-microsite requests
-  return fetch(request)
+  return fetch(request);
 }
 ```
 
@@ -1262,15 +1282,15 @@ async function handleRequest(request) {
 
 The existing Holibob integration provides:
 
-| Data | API Method | Notes |
-|------|------------|-------|
-| **Products** | `discoverProducts()` | Search by location, category, dates |
-| **Product Details** | `getProduct(id)` | Full details, reviews, itinerary |
-| **Categories** | `getCategories()` | Activity types with product counts |
-| **Places** | `getPlaces()` | Location hierarchy (country → city) |
+| Data                    | API Method                     | Notes                                     |
+| ----------------------- | ------------------------------ | ----------------------------------------- |
+| **Products**            | `discoverProducts()`           | Search by location, category, dates       |
+| **Product Details**     | `getProduct(id)`               | Full details, reviews, itinerary          |
+| **Categories**          | `getCategories()`              | Activity types with product counts        |
+| **Places**              | `getPlaces()`                  | Location hierarchy (country → city)       |
 | **Inventory Landscape** | `discoverInventoryLandscape()` | Countries, cities, categories with counts |
-| **Availability** | `discoverAvailability()` | Real-time pricing and slots |
-| **Booking** | `createBooking()` | Full booking flow |
+| **Availability**        | `discoverAvailability()`       | Real-time pricing and slots               |
+| **Booking**             | `createBooking()`              | Full booking flow                         |
 
 ### Key Insight: Supplier Data via Products
 
@@ -1447,10 +1467,10 @@ export async function syncProductsFromHolibob() {
           rating: product.reviewRating,
           reviewCount: product.reviewCount,
           primaryImage: product.imageList?.[0]?.url,
-          images: product.imageList?.map(img => img.url),
+          images: product.imageList?.map((img) => img.url),
           city: product.place?.name,
           country: product.place?.country,
-          categories: product.categories?.map(c => c.name) || [],
+          categories: product.categories?.map((c) => c.name) || [],
           supplierId: supplier.id,
         },
         update: {
@@ -1460,7 +1480,7 @@ export async function syncProductsFromHolibob() {
           rating: product.reviewRating,
           reviewCount: product.reviewCount,
           primaryImage: product.imageList?.[0]?.url,
-          images: product.imageList?.map(img => img.url),
+          images: product.imageList?.map((img) => img.url),
           lastSyncedAt: new Date(),
         },
       });
@@ -1486,11 +1506,11 @@ async function discoverAllSupplierProducts(holibob: HolibobClient, supplier: Sup
 
       // Filter to only this supplier's products
       const supplierProducts = response.items.filter(
-        p => p.supplierId === supplier.holibobSupplierId
+        (p) => p.supplierId === supplier.holibobSupplierId
       );
 
       allProducts.push(...supplierProducts);
-      seenIds.push(...response.items.map(p => p.id));
+      seenIds.push(...response.items.map((p) => p.id));
       hasMore = response.pageInfo.hasNextPage;
     }
   }
@@ -1501,14 +1521,14 @@ async function discoverAllSupplierProducts(holibob: HolibobClient, supplier: Sup
 
 ### What Changes vs Current Sites
 
-| Aspect | Current Sites | New Microsites |
-|--------|---------------|----------------|
-| **Holibob Partner ID** | One per site (in config) | All use same Partner ID |
-| **Product Discovery** | Real-time, all products | Filtered by `supplierId` |
-| **Supplier Info** | Not tracked | Local `Supplier` table |
-| **Product Catalog** | On-demand only | Cached locally (daily sync) |
-| **Availability/Pricing** | Real-time | **Real-time (unchanged)** |
-| **Booking Flow** | Real-time | **Real-time (unchanged)** |
+| Aspect                   | Current Sites            | New Microsites              |
+| ------------------------ | ------------------------ | --------------------------- |
+| **Holibob Partner ID**   | One per site (in config) | All use same Partner ID     |
+| **Product Discovery**    | Real-time, all products  | Filtered by `supplierId`    |
+| **Supplier Info**        | Not tracked              | Local `Supplier` table      |
+| **Product Catalog**      | On-demand only           | Cached locally (daily sync) |
+| **Availability/Pricing** | Real-time                | **Real-time (unchanged)**   |
+| **Booking Flow**         | Real-time                | **Real-time (unchanged)**   |
 
 ### Hybrid Data Strategy
 
@@ -1527,6 +1547,7 @@ async function discoverAllSupplierProducts(holibob: HolibobClient, supplier: Sup
 ```
 
 **Why this hybrid approach?**
+
 - **SEO pages** (homepage, listings): Use cached data for fast load times
 - **Booking-critical pages**: Always real-time from Holibob for accurate availability
 - **Reviews**: Can be slightly stale (1 hour) without impacting user experience
@@ -1565,19 +1586,19 @@ export async function GET(request: Request) {
 
 // NEW: Holibob data sync jobs (added to existing scheduler)
 scheduleJob('SUPPLIER_SYNC', {
-  schedule: '0 2 * * *',     // Daily at 2 AM
+  schedule: '0 2 * * *', // Daily at 2 AM
   handler: syncSuppliersFromHolibob,
   timeout: 4 * 60 * 60 * 1000, // 4 hours max
 });
 
 scheduleJob('PRODUCT_SYNC', {
-  schedule: '0 3 * * *',     // Daily at 3 AM (after supplier sync)
+  schedule: '0 3 * * *', // Daily at 3 AM (after supplier sync)
   handler: syncProductsFromHolibob,
   timeout: 4 * 60 * 60 * 1000, // 4 hours max
 });
 
 scheduleJob('MICROSITE_CONTENT_REFRESH', {
-  schedule: '0 5 * * *',     // Daily at 5 AM (after product sync)
+  schedule: '0 5 * * *', // Daily at 5 AM (after product sync)
   handler: refreshMicrositeContent,
 });
 ```
@@ -1627,22 +1648,24 @@ export const rateLimiter = new RateLimiter();
 
 ### Estimated Sync Times
 
-| Data | Volume | Estimated Time |
-|------|--------|----------------|
-| Supplier discovery | ~10k suppliers | ~2-3 hours |
-| Product sync | ~300k products | ~3-4 hours |
-| **Total daily sync** | | **~5-7 hours** |
+| Data                 | Volume         | Estimated Time |
+| -------------------- | -------------- | -------------- |
+| Supplier discovery   | ~10k suppliers | ~2-3 hours     |
+| Product sync         | ~300k products | ~3-4 hours     |
+| **Total daily sync** |                | **~5-7 hours** |
 
 Runs overnight (2-7 AM) so doesn't impact daytime operations.
 
 ### Backward Compatibility
 
 **Existing sites continue to use Holibob API directly (unchanged)**:
+
 - Real-time product discovery
 - Real-time availability
 - Real-time booking
 
 **New microsites use hybrid approach**:
+
 - Cached catalog for listings/SEO pages
 - Real-time Holibob for booking flow
 
@@ -1669,12 +1692,14 @@ The platform has a mature admin system and job queue infrastructure:
 | `/settings` | Platform configuration, pause controls |
 
 **Job Queue** (BullMQ + Redis):
+
 - 7 queues: `content`, `seo`, `gsc`, `site`, `domain`, `analytics`, `abtest`
 - 22+ job types with typed payloads
 - Automatic retry with exponential backoff
 - Circuit breakers for external services
 
 **Pause Controls** (3 levels):
+
 ```
 Global:     PlatformSettings.allAutonomousProcessesPaused
 Per-Site:   Site.autonomousProcessesPaused
@@ -1915,18 +1940,18 @@ async function shouldPauseMicrositeJob(micrositeId: string): Promise<boolean> {
 
 // NEW: Holibob sync schedules
 scheduleJob('SUPPLIER_SYNC', {
-  schedule: '0 2 * * *',  // Daily 2 AM
+  schedule: '0 2 * * *', // Daily 2 AM
   timeout: 4 * 60 * 60 * 1000,
 });
 
 scheduleJob('PRODUCT_SYNC', {
-  schedule: '0 3 * * *',  // Daily 3 AM (after supplier sync)
+  schedule: '0 3 * * *', // Daily 3 AM (after supplier sync)
   timeout: 4 * 60 * 60 * 1000,
 });
 
 // NEW: Microsite content schedules
 scheduleJob('MICROSITE_CONTENT_REFRESH', {
-  schedule: '0 6 * * *',  // Daily 6 AM
+  schedule: '0 6 * * *', // Daily 6 AM
   handler: async () => {
     // Refresh 1% of microsites per day (rotating)
     const microsites = await getMicrositesForRefresh(0.01);
@@ -1942,7 +1967,7 @@ scheduleJob('MICROSITE_CONTENT_REFRESH', {
 
 // NEW: Microsite health check
 scheduleJob('MICROSITE_HEALTH_CHECK', {
-  schedule: '0 8 * * 0',  // Sundays 8 AM
+  schedule: '0 8 * * 0', // Sundays 8 AM
   handler: async () => {
     // Check for microsites with issues
     // - No content generated
@@ -1988,15 +2013,15 @@ Individual microsite management
 
 ### Backward Compatibility Checklist
 
-| Component | Change Type | Impact on Existing |
-|-----------|-------------|-------------------|
-| Admin pages | **Add** new routes | None - new URLs |
-| Job types | **Add** new types | None - existing types unchanged |
-| Queue config | **Add** sync queue | None - existing queues unchanged |
-| Workers | **Add** new files | None - existing workers unchanged |
-| Schedulers | **Add** new schedules | None - existing schedules unchanged |
-| Pause controls | **Extend** settings | None - new fields only |
-| Operations dashboard | **Extend** metrics | None - additive only |
+| Component            | Change Type           | Impact on Existing                  |
+| -------------------- | --------------------- | ----------------------------------- |
+| Admin pages          | **Add** new routes    | None - new URLs                     |
+| Job types            | **Add** new types     | None - existing types unchanged     |
+| Queue config         | **Add** sync queue    | None - existing queues unchanged    |
+| Workers              | **Add** new files     | None - existing workers unchanged   |
+| Schedulers           | **Add** new schedules | None - existing schedules unchanged |
+| Pause controls       | **Extend** settings   | None - new fields only              |
+| Operations dashboard | **Extend** metrics    | None - additive only                |
 
 **No changes to existing admin functionality.** Everything is additive.
 
@@ -2083,19 +2108,20 @@ Individual microsite management
 
 ## 11. Cost Comparison: Subdomain vs Subdirectory
 
-| Item | Subdomain Approach | Subdirectory Approach |
-|------|-------------------|----------------------|
-| **Domain registration** | $20-40/year (2-3 domains) | $0 (use holibob.com) |
-| **SSL certificates** | $0 (Cloudflare wildcard) | N/A |
-| **DNS management** | Simple (wildcard) | N/A |
-| **GSC setup** | 1 domain-level property | 1 property |
-| **GA4 setup** | 1 property + dimensions | 1 property |
-| **SEO authority** | Distributed across subdomains | Consolidated |
-| **Branding flexibility** | Full independence | Limited by parent brand |
-| **Development complexity** | Medium-High | Low |
-| **Maintenance overhead** | Medium | Low |
+| Item                       | Subdomain Approach            | Subdirectory Approach   |
+| -------------------------- | ----------------------------- | ----------------------- |
+| **Domain registration**    | $20-40/year (2-3 domains)     | $0 (use holibob.com)    |
+| **SSL certificates**       | $0 (Cloudflare wildcard)      | N/A                     |
+| **DNS management**         | Simple (wildcard)             | N/A                     |
+| **GSC setup**              | 1 domain-level property       | 1 property              |
+| **GA4 setup**              | 1 property + dimensions       | 1 property              |
+| **SEO authority**          | Distributed across subdomains | Consolidated            |
+| **Branding flexibility**   | Full independence             | Limited by parent brand |
+| **Development complexity** | Medium-High                   | Low                     |
+| **Maintenance overhead**   | Medium                        | Low                     |
 
 **Subdomain approach recommended** because:
+
 - Holibob B2B brand cannot be consumer-facing
 - Independent supplier/product branding required
 - Cost difference is minimal ($20-40/year vs $0)
@@ -2105,17 +2131,20 @@ Individual microsite management
 ## 12. Success Metrics
 
 ### Phase 1 (3 months)
+
 - 10,000+ microsites live
 - 70%+ pages indexed
 - Parent domain DA 20+
 
 ### Phase 2 (6 months)
+
 - 50,000+ microsites live
 - 85%+ pages indexed
 - 10,000+ organic sessions/month
 - Top 10 ranking for 100+ supplier brand terms
 
 ### Phase 3 (12 months)
+
 - Full rollout complete
 - 50,000+ organic sessions/month
 - 25% of microsites driving bookings
@@ -2125,23 +2154,24 @@ Individual microsite management
 
 ## 13. Key Differences from Subdirectory Approach
 
-| Aspect | Subdirectory | Subdomain |
-|--------|--------------|-----------|
-| **URL** | holibob.com/suppliers/x | x.experiencess.com |
-| **Branding** | Holibob (B2B) | Independent per site |
-| **Domain authority** | Consolidated | Distributed |
-| **Internal links** | Full PageRank | External link treatment |
-| **GSC properties** | 1 | 1 (domain-level) |
-| **GA4 properties** | 1 | 1 (with dimensions) |
-| **Technical complexity** | Lower | Higher |
-| **Subdomain count** | N/A | 15,000-70,000 |
-| **Parent domain role** | Main site | Authority hub + directory |
+| Aspect                   | Subdirectory            | Subdomain                 |
+| ------------------------ | ----------------------- | ------------------------- |
+| **URL**                  | holibob.com/suppliers/x | x.experiencess.com        |
+| **Branding**             | Holibob (B2B)           | Independent per site      |
+| **Domain authority**     | Consolidated            | Distributed               |
+| **Internal links**       | Full PageRank           | External link treatment   |
+| **GSC properties**       | 1                       | 1 (domain-level)          |
+| **GA4 properties**       | 1                       | 1 (with dimensions)       |
+| **Technical complexity** | Lower                   | Higher                    |
+| **Subdomain count**      | N/A                     | 15,000-70,000             |
+| **Parent domain role**   | Main site               | Authority hub + directory |
 
 ---
 
 ## 14. Recommendation
 
 **Proceed with subdomain approach** using:
+
 - 2-3 consumer-facing parent domains
 - AI-generated independent branding per microsite
 - 15,000-70,000 subdomains (not 300k - consolidate long-tail under supplier sites)
@@ -2150,6 +2180,7 @@ Individual microsite management
 - Multi-layer caching for performance
 
 **Key success factors**:
+
 1. Strong parent domain content and backlinks
 2. Quality thresholds for microsite creation
 3. Unique, supplier-specific content
@@ -2158,6 +2189,6 @@ Individual microsite management
 
 ---
 
-*Document Version: 2.0*
-*Last Updated: 2026-02-06*
-*Focus: Subdomain approach with independent branding*
+_Document Version: 2.0_
+_Last Updated: 2026-02-06_
+_Focus: Subdomain approach with independent branding_

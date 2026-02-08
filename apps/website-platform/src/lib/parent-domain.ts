@@ -92,8 +92,7 @@ export async function getFeaturedSuppliers(limit: number = 12): Promise<Featured
       reviewCount: s.reviewCount,
       logoUrl: s.logoUrl,
       heroImageUrl: s.heroImageUrl,
-      micrositeUrl:
-        s.microsite?.status === 'ACTIVE' ? `https://${s.microsite.fullDomain}` : null,
+      micrositeUrl: s.microsite?.status === 'ACTIVE' ? `https://${s.microsite.fullDomain}` : null,
     }));
   } catch (error) {
     console.error('[Parent Domain] Error fetching suppliers:', error);

@@ -17,6 +17,7 @@ import { AboutActivity } from '@/components/experiences/AboutActivity';
 import { MobileBookingCTA } from '@/components/experiences/MobileBookingCTA';
 import { RelatedExperiences } from '@/components/experiences/RelatedExperiences';
 import { TrackViewItem } from '@/components/analytics/TrackViewItem';
+import { getProductBookingStats } from '@/lib/booking-analytics';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -191,8 +192,11 @@ export default async function ExperienceDetailPage({ params }: Props) {
     notFound();
   }
 
-  // Fetch related experiences in parallel (non-blocking)
-  const relatedExperiences = await getRelatedExperiences(site, experience);
+  // Fetch related experiences and booking stats in parallel
+  const [relatedExperiences, bookingStats] = await Promise.all([
+    getRelatedExperiences(site, experience),
+    getProductBookingStats(site.id, experience.id),
+  ]);
 
   // Check if experience has free cancellation
   const hasFreeCancellation =
@@ -825,7 +829,7 @@ export default async function ExperienceDetailPage({ params }: Props) {
             {/* Right Column - Booking Widget (Sticky) */}
             <div className="mt-8 lg:mt-0">
               <div className="sticky top-24">
-                <BookingWidget experience={experience} />
+                <BookingWidget experience={experience} bookingStats={bookingStats} />
               </div>
             </div>
           </div>
@@ -941,6 +945,7 @@ export default async function ExperienceDetailPage({ params }: Props) {
           productId={experience.id}
           productName={experience.title}
           priceFormatted={experience.price.formatted}
+          bookingStats={bookingStats}
         />
       </div>
     </>

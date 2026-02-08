@@ -216,7 +216,7 @@ describe('PremiumExperienceCard', () => {
           headingFont: 'Inter',
           bodyFont: 'Inter',
           logoUrl: null,
-        logoDarkUrl: null,
+          logoDarkUrl: null,
           faviconUrl: null,
           ogImageUrl: null,
           socialLinks: null,

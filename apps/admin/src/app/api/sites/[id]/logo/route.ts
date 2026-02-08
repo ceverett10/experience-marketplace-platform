@@ -13,9 +13,8 @@ export async function POST(
     const { id: siteId } = await params;
 
     // Import the logo generator functions dynamically
-    const { regenerateAllLogos, isLogoGenerationAvailable } = await import(
-      '@experience-marketplace/jobs'
-    ).then((m) => m);
+    const { regenerateAllLogos, isLogoGenerationAvailable } =
+      await import('@experience-marketplace/jobs').then((m) => m);
 
     if (!isLogoGenerationAvailable()) {
       return NextResponse.json(
@@ -70,8 +69,7 @@ export async function POST(
     // Extract logo description from seoConfig if available
     const brandStory = seoConfig?.['brandStory'] as Record<string, unknown> | undefined;
     const usps = brandStory?.['uniqueSellingPoints'] as string[] | undefined;
-    const logoDescription =
-      (seoConfig?.['logoDescription'] as string) || usps?.[0] || undefined;
+    const logoDescription = (seoConfig?.['logoDescription'] as string) || usps?.[0] || undefined;
 
     console.log(`[Logo API] Regenerating all logo versions for site ${siteId} (${site.name})`);
 

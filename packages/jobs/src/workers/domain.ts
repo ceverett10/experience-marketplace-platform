@@ -685,7 +685,9 @@ async function provisionSslCertificate(
     const sslService = new SSLService();
     const existingCert = await sslService.getCertificateStatus(domain, zoneId);
     if (existingCert && existingCert.status === 'active') {
-      console.log(`[Domain] SSL certificate already active for ${domain} (likely issued after previous timeout)`);
+      console.log(
+        `[Domain] SSL certificate already active for ${domain} (likely issued after previous timeout)`
+      );
       return existingCert.expiresAt;
     }
 

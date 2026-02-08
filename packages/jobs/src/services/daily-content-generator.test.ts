@@ -168,9 +168,7 @@ describe('Blog Slug Convention', () => {
       };
 
       // Simulate existing guide WITH correct prefix
-      const existingGuides = [
-        { slug: 'blog/first-timers-guide-london' },
-      ];
+      const existingGuides = [{ slug: 'blog/first-timers-guide-london' }];
 
       mockPrisma.site.findUnique.mockResolvedValue(mockSite);
       mockPrisma.page.findMany.mockResolvedValue(existingGuides);

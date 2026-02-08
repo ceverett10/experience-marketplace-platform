@@ -12,6 +12,7 @@ This roadmap breaks down the implementation of the microsite system into paralle
 ## Work Streams
 
 ### Stream 1: Infrastructure & Domain Setup
+
 **Priority**: Critical (blocks other streams)
 **Estimated Time**: 2-3 days
 
@@ -33,19 +34,23 @@ This roadmap breaks down the implementation of the microsite system into paralle
   - Add `experiencess.com` to allowed domains
 
 **Deliverables**:
+
 - Any subdomain like `test.experiencess.com` resolves to the website-platform
 - SSL works for all subdomains
 
 ---
 
 ### Stream 2: Database Schema
+
 **Priority**: Critical (blocks streams 4, 5, 6)
 **Estimated Time**: 1-2 days
 
 - [ ] **2.1** Add new Prisma models to schema
+
   ```
   packages/database/prisma/schema.prisma
   ```
+
   - `Supplier` model
   - `Product` model (for cached Holibob products)
   - `MicrositeConfig` model
@@ -60,11 +65,13 @@ This roadmap breaks down the implementation of the microsite system into paralle
   - `MicrositeConfig` → `Page[]` (one-to-many)
 
 - [ ] **2.3** Run migration
+
   ```bash
   pnpm db:migrate
   ```
 
 - [ ] **2.4** Generate Prisma client
+
   ```bash
   pnpm db:generate
   ```
@@ -79,20 +86,24 @@ This roadmap breaks down the implementation of the microsite system into paralle
   - `MicrositeConfig.[subdomain, parentDomain]` (composite unique)
 
 **Deliverables**:
+
 - New models available via Prisma client
 - Migrations applied successfully
 
 ---
 
 ### Stream 3: Tenant Resolution & Routing
+
 **Priority**: High (blocks stream 6)
 **Estimated Time**: 2-3 days
 **Depends on**: Stream 2
 
 - [ ] **3.1** Update `tenant.ts` with microsite detection
+
   ```
   apps/website-platform/src/lib/tenant.ts
   ```
+
   - Add `checkMicrositeSubdomain()` function
   - Add `getMicrositeConfig()` with caching
   - Add `mapMicrositeToSiteConfig()` function
@@ -104,9 +115,11 @@ This roadmap breaks down the implementation of the microsite system into paralle
   - Invalidation on update
 
 - [ ] **3.3** Update middleware (if needed)
+
   ```
   apps/website-platform/src/middleware.ts
   ```
+
   - Add headers for microsite detection
   - Pass subdomain info to pages
 
@@ -120,6 +133,7 @@ This roadmap breaks down the implementation of the microsite system into paralle
   - Test cache invalidation
 
 **Deliverables**:
+
 - `getSiteFromHostname()` returns correct config for microsites
 - Existing sites continue to work unchanged
 - Redis caching operational
@@ -127,62 +141,77 @@ This roadmap breaks down the implementation of the microsite system into paralle
 ---
 
 ### Stream 4: Holibob Sync Pipeline
+
 **Priority**: High
 **Estimated Time**: 4-5 days
 **Depends on**: Stream 2
 
 - [ ] **4.1** Create rate limiter utility
+
   ```
   packages/jobs/src/utils/rate-limiter.ts
   ```
+
   - 60 requests/minute default
   - Configurable delay between batches
   - Request counter with minute reset
 
 - [ ] **4.2** Create supplier sync service
+
   ```
   packages/jobs/src/services/supplier-sync.ts
   ```
+
   - `syncSuppliersFromHolibob()` function
   - Discover suppliers through product aggregation
   - Generate unique slugs with collision handling
   - Upsert to database
 
 - [ ] **4.3** Create product sync service
+
   ```
   packages/jobs/src/services/product-sync.ts
   ```
+
   - `syncProductsFromHolibob()` function
   - Fetch products per supplier
   - Cache product details locally
   - Link to supplier records
 
 - [ ] **4.4** Add new job types
+
   ```
   packages/jobs/src/types.ts
   ```
+
   - `SUPPLIER_SYNC`
   - `PRODUCT_SYNC`
   - `SUPPLIER_SYNC_INCREMENTAL`
 
 - [ ] **4.5** Add sync queue
+
   ```
   packages/jobs/src/queues/index.ts
   ```
+
   - New `sync` queue for long-running jobs
   - Configure 4-hour timeout
 
 - [ ] **4.6** Create sync workers
+
   ```
   packages/jobs/src/workers/sync.ts
   ```
+
   - Handle `SUPPLIER_SYNC` jobs
   - Handle `PRODUCT_SYNC` jobs
 
 - [ ] **4.7** Add scheduled jobs
+
   ```
   packages/jobs/src/schedulers/index.ts
   ```
+
   - Supplier sync: Daily 2 AM
   - Product sync: Daily 3 AM
 
@@ -190,9 +219,11 @@ This roadmap breaks down the implementation of the microsite system into paralle
   ```
   packages/jobs/src/scripts/trigger-sync.ts
   ```
+
   - CLI tool for manual sync execution
 
 **Deliverables**:
+
 - Suppliers discovered and stored in database
 - Products cached locally
 - Daily sync scheduled
@@ -201,14 +232,17 @@ This roadmap breaks down the implementation of the microsite system into paralle
 ---
 
 ### Stream 5: Microsite Job Pipeline
+
 **Priority**: Medium
 **Estimated Time**: 3-4 days
 **Depends on**: Stream 2, Stream 4
 
 - [ ] **5.1** Add microsite job types
+
   ```
   packages/jobs/src/types.ts
   ```
+
   - `MICROSITE_CREATE`
   - `MICROSITE_BRAND_GENERATE`
   - `MICROSITE_CONTENT_GENERATE`
@@ -216,26 +250,32 @@ This roadmap breaks down the implementation of the microsite system into paralle
   - `MICROSITE_ARCHIVE`
 
 - [ ] **5.2** Create microsite worker
+
   ```
   packages/jobs/src/workers/microsite.ts
   ```
+
   - `handleMicrositeCreate()` - creates microsite config
   - `handleMicrositeBrandGenerate()` - generates brand
   - `handleMicrositePublish()` - activates microsite
 
 - [ ] **5.3** Create microsite content generator
+
   ```
   packages/jobs/src/services/microsite-content.ts
   ```
+
   - Generate homepage content
   - Generate about page
   - Generate experience listing page
   - Use AI for unique content
 
 - [ ] **5.4** Extend brand generation for microsites
+
   ```
   packages/jobs/src/services/brand-generation.ts
   ```
+
   - Accept supplier/product context
   - Generate appropriate colors/fonts for niche
   - Create fallback templates
@@ -244,10 +284,12 @@ This roadmap breaks down the implementation of the microsite system into paralle
   ```
   packages/jobs/src/schedulers/index.ts
   ```
+
   - Content refresh: Daily 6 AM (1% rotation)
   - Health check: Sundays 8 AM
 
 **Deliverables**:
+
 - Microsites can be created via jobs
 - Brand and content generation automated
 - Scheduled maintenance jobs
@@ -255,28 +297,35 @@ This roadmap breaks down the implementation of the microsite system into paralle
 ---
 
 ### Stream 6: Website Platform Updates
+
 **Priority**: Medium
 **Estimated Time**: 4-5 days
 **Depends on**: Stream 2, Stream 3
 
 - [ ] **6.1** Create microsite layout variant
+
   ```
   apps/website-platform/src/app/(microsite)/layout.tsx
   ```
+
   - Or: Modify existing layout to handle microsite context
   - Apply microsite-specific branding
 
 - [ ] **6.2** Update experience listing for microsites
+
   ```
   apps/website-platform/src/app/experiences/page.tsx
   ```
+
   - Filter by supplier when on microsite
   - Use cached local data instead of Holibob API
 
 - [ ] **6.3** Create microsite API routes
+
   ```
   apps/website-platform/src/app/api/microsite/
   ```
+
   - `GET /api/microsite/products` - cached products for supplier
   - `GET /api/microsite/supplier` - supplier info
 
@@ -286,16 +335,20 @@ This roadmap breaks down the implementation of the microsite system into paralle
   - Supplier-specific hero/testimonials
 
 - [ ] **6.5** Create supplier about page
+
   ```
   apps/website-platform/src/app/about/page.tsx
   ```
+
   - Detect microsite context
   - Show supplier-specific about content
 
 - [ ] **6.6** Create parent domain homepage
+
   ```
   experiencess.com/ (root domain)
   ```
+
   - Directory of all microsites
   - Search functionality
   - Category/location filters
@@ -306,6 +359,7 @@ This roadmap breaks down the implementation of the microsite system into paralle
   - Create sitemap index for parent domain
 
 **Deliverables**:
+
 - Microsites render with correct branding
 - Products filtered by supplier
 - Parent domain serves as directory
@@ -313,14 +367,17 @@ This roadmap breaks down the implementation of the microsite system into paralle
 ---
 
 ### Stream 7: Admin Interface
+
 **Priority**: Low (can be done later)
 **Estimated Time**: 3-4 days
 **Depends on**: Stream 2, Stream 4, Stream 5
 
 - [ ] **7.1** Create `/microsites` page
+
   ```
   apps/admin/src/app/microsites/page.tsx
   ```
+
   - List all microsites
   - Filter by status, supplier, etc.
   - Pagination
@@ -332,9 +389,11 @@ This roadmap breaks down the implementation of the microsite system into paralle
   - Archive functionality
 
 - [ ] **7.3** Create `/suppliers` page
+
   ```
   apps/admin/src/app/suppliers/page.tsx
   ```
+
   - List synced suppliers
   - Filter by product count, rating
   - Bulk select for microsite creation
@@ -350,9 +409,11 @@ This roadmap breaks down the implementation of the microsite system into paralle
   - View sync logs
 
 - [ ] **7.6** Add microsite API endpoints
+
   ```
   apps/admin/src/app/api/microsites/
   ```
+
   - CRUD operations
   - Bulk create
   - Status updates
@@ -363,6 +424,7 @@ This roadmap breaks down the implementation of the microsite system into paralle
   - Add supplier/product counts
 
 **Deliverables**:
+
 - Admin can view/manage microsites
 - Admin can view synced suppliers
 - Admin can trigger sync manually
@@ -402,16 +464,19 @@ Week 5+:
 ## Parallel Execution Plan
 
 **Agent 1 (Infrastructure)**:
+
 1. Stream 1: Domain/Cloudflare setup
 2. Stream 3: Tenant resolution
 3. Stream 6: Website platform updates
 
 **Agent 2 (Data Pipeline)**:
+
 1. Stream 2: Database schema
 2. Stream 4: Holibob sync
 3. Stream 5: Microsite jobs
 
 **Agent 3 (Admin - Optional)**:
+
 1. Stream 7: Admin interface
 2. Testing & QA
 
@@ -420,18 +485,21 @@ Week 5+:
 ## Success Criteria
 
 ### Phase 1 (End of Week 2)
+
 - [ ] `test.experiencess.com` loads website-platform
 - [ ] Database has Supplier/Product/MicrositeConfig models
 - [ ] Tenant resolution detects microsite subdomains
 - [ ] Initial Holibob sync completes
 
 ### Phase 2 (End of Week 4)
+
 - [ ] 100 microsites generated with unique brands
 - [ ] Microsites render with correct supplier products
 - [ ] Parent domain shows directory
 - [ ] Daily sync jobs running
 
 ### Phase 3 (End of Week 6)
+
 - [ ] 1,000+ microsites live
 - [ ] Admin interface functional
 - [ ] Sitemaps submitted to GSC
@@ -442,6 +510,7 @@ Week 5+:
 ## Files to Create/Modify
 
 ### New Files
+
 ```
 packages/database/prisma/schema.prisma (modify)
 packages/jobs/src/utils/rate-limiter.ts (new)
@@ -457,6 +526,7 @@ apps/admin/src/app/operations/sync/page.tsx (new)
 ```
 
 ### Modified Files
+
 ```
 packages/jobs/src/types.ts
 packages/jobs/src/queues/index.ts
@@ -469,5 +539,5 @@ apps/website-platform/src/app/page.tsx (for parent domain)
 
 ---
 
-*Document Version: 1.0*
-*Created: 2026-02-06*
+_Document Version: 1.0_
+_Created: 2026-02-06_

@@ -172,9 +172,7 @@ export function ParentDomainHomepage({
                   href={`/providers?city=${encodeURIComponent(city.name)}`}
                   className="group flex flex-col items-center rounded-lg bg-gray-50 p-4 transition-all hover:bg-indigo-50"
                 >
-                  <span className="text-2xl">
-                    {getCityEmoji(city.name)}
-                  </span>
+                  <span className="text-2xl">{getCityEmoji(city.name)}</span>
                   <h3 className="mt-2 text-center text-sm font-medium text-gray-900 group-hover:text-indigo-600">
                     {city.name}
                   </h3>
@@ -195,8 +193,8 @@ export function ParentDomainHomepage({
             Are you an experience provider?
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-indigo-100">
-            Join our marketplace and get your own branded microsite to showcase your tours
-            and activities to travelers worldwide.
+            Join our marketplace and get your own branded microsite to showcase your tours and
+            activities to travelers worldwide.
           </p>
           <div className="mt-8">
             <Link
@@ -252,12 +250,18 @@ export function ParentDomainHomepage({
                   </Link>
                 </li>
                 <li>
-                  <Link href="/providers/features" className="text-sm text-gray-300 hover:text-white">
+                  <Link
+                    href="/providers/features"
+                    className="text-sm text-gray-300 hover:text-white"
+                  >
                     Features
                   </Link>
                 </li>
                 <li>
-                  <Link href="/providers/pricing" className="text-sm text-gray-300 hover:text-white">
+                  <Link
+                    href="/providers/pricing"
+                    className="text-sm text-gray-300 hover:text-white"
+                  >
                     Pricing
                   </Link>
                 </li>
@@ -318,9 +322,7 @@ function SupplierCard({ supplier }: { supplier: FeaturedSupplier }) {
                 className="h-16 w-16 rounded-full object-contain"
               />
             ) : (
-              <span className="text-4xl font-bold text-indigo-300">
-                {supplier.name.charAt(0)}
-              </span>
+              <span className="text-4xl font-bold text-indigo-300">{supplier.name.charAt(0)}</span>
             )}
           </div>
         )}
@@ -328,9 +330,7 @@ function SupplierCard({ supplier }: { supplier: FeaturedSupplier }) {
 
       {/* Content */}
       <div className="flex flex-1 flex-col p-4">
-        <h3 className="font-semibold text-gray-900 group-hover:text-indigo-600">
-          {supplier.name}
-        </h3>
+        <h3 className="font-semibold text-gray-900 group-hover:text-indigo-600">{supplier.name}</h3>
 
         {/* Rating */}
         {supplier.rating && supplier.rating > 0 && (
@@ -338,9 +338,7 @@ function SupplierCard({ supplier }: { supplier: FeaturedSupplier }) {
             <svg className="h-4 w-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
               <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
             </svg>
-            <span className="text-sm font-medium text-gray-700">
-              {supplier.rating.toFixed(1)}
-            </span>
+            <span className="text-sm font-medium text-gray-700">{supplier.rating.toFixed(1)}</span>
             <span className="text-sm text-gray-500">
               ({supplier.reviewCount.toLocaleString()} reviews)
             </span>
@@ -349,9 +347,7 @@ function SupplierCard({ supplier }: { supplier: FeaturedSupplier }) {
 
         {/* Description */}
         {supplier.description && (
-          <p className="mt-2 line-clamp-2 text-sm text-gray-600">
-            {supplier.description}
-          </p>
+          <p className="mt-2 line-clamp-2 text-sm text-gray-600">{supplier.description}</p>
         )}
 
         {/* Meta */}
@@ -376,28 +372,28 @@ function SupplierCard({ supplier }: { supplier: FeaturedSupplier }) {
  */
 function getCityEmoji(city: string): string {
   const cityEmojis: Record<string, string> = {
-    'London': '🇬🇧',
-    'Paris': '🇫🇷',
-    'Barcelona': '🇪🇸',
-    'Rome': '🇮🇹',
-    'Amsterdam': '🇳🇱',
-    'Berlin': '🇩🇪',
-    'Madrid': '🇪🇸',
-    'Lisbon': '🇵🇹',
-    'Prague': '🇨🇿',
-    'Vienna': '🇦🇹',
-    'Athens': '🇬🇷',
-    'Dublin': '🇮🇪',
-    'Edinburgh': '🏴󠁧󠁢󠁳󠁣󠁴󠁿',
+    London: '🇬🇧',
+    Paris: '🇫🇷',
+    Barcelona: '🇪🇸',
+    Rome: '🇮🇹',
+    Amsterdam: '🇳🇱',
+    Berlin: '🇩🇪',
+    Madrid: '🇪🇸',
+    Lisbon: '🇵🇹',
+    Prague: '🇨🇿',
+    Vienna: '🇦🇹',
+    Athens: '🇬🇷',
+    Dublin: '🇮🇪',
+    Edinburgh: '🏴󠁧󠁢󠁳󠁣󠁴󠁿',
     'New York': '🇺🇸',
     'Los Angeles': '🇺🇸',
     'San Francisco': '🇺🇸',
-    'Tokyo': '🇯🇵',
-    'Sydney': '🇦🇺',
-    'Dubai': '🇦🇪',
-    'Singapore': '🇸🇬',
+    Tokyo: '🇯🇵',
+    Sydney: '🇦🇺',
+    Dubai: '🇦🇪',
+    Singapore: '🇸🇬',
     'Hong Kong': '🇭🇰',
-    'Bangkok': '🇹🇭',
+    Bangkok: '🇹🇭',
   };
 
   return cityEmojis[city] || '📍';
