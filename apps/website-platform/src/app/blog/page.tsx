@@ -18,15 +18,38 @@ export const revalidate = 300;
 const POSTS_PER_PAGE = 12;
 
 /**
- * Generate SEO metadata for blog listing page
+ * Generate SEO metadata for blog listing page with proper pagination handling
  */
-export async function generateMetadata(): Promise<Metadata> {
+export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const headersList = await headers();
   const hostname = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
   const site = await getSiteFromHostname(hostname);
+  const resolvedParams = await searchParams;
+
+  const currentPage = parseInt(resolvedParams.page ?? '1', 10);
+  const baseUrl = `https://${site.primaryDomain || hostname}/blog`;
+
+  // Get total post count to determine if there are more pages
+  const totalPosts = await prisma.page.count({
+    where: {
+      siteId: site.id,
+      type: 'BLOG',
+      status: 'PUBLISHED',
+    },
+  });
+  const totalPages = Math.ceil(totalPosts / POSTS_PER_PAGE);
+
+  // Canonical URL includes page number for pages > 1
+  const canonicalUrl = currentPage > 1 ? `${baseUrl}?page=${currentPage}` : baseUrl;
+
+  // Build title with page number for paginated pages
+  const title =
+    currentPage > 1
+      ? `Travel Blog & Guides - Page ${currentPage} | ${site.name}`
+      : `Travel Blog & Guides | ${site.name}`;
 
   return {
-    title: `Travel Blog & Guides | ${site.name}`,
+    title,
     description: `Explore travel tips, destination guides, and insider knowledge from ${site.name}. Get expert advice for planning your perfect experience.`,
     openGraph: {
       title: `Travel Blog & Guides | ${site.name}`,
@@ -34,7 +57,16 @@ export async function generateMetadata(): Promise<Metadata> {
       type: 'website',
     },
     alternates: {
-      canonical: `https://${site.primaryDomain || hostname}/blog`,
+      canonical: canonicalUrl,
+    },
+    // Add other metadata for pagination hints (though Next.js doesn't have direct rel=next/prev support)
+    other: {
+      ...(currentPage > 1 && {
+        'link-prev': currentPage === 2 ? baseUrl : `${baseUrl}?page=${currentPage - 1}`,
+      }),
+      ...(currentPage < totalPages && {
+        'link-next': `${baseUrl}?page=${currentPage + 1}`,
+      }),
     },
   };
 }

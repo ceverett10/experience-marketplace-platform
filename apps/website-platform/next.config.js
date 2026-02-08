@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // URL normalization - enforce no trailing slashes for consistent canonicals
+  trailingSlash: false,
+
   transpilePackages: [
     '@experience-marketplace/database',
     '@experience-marketplace/shared',

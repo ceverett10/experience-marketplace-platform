@@ -53,6 +53,29 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
     description = `Find the best ${searchQuery.toLowerCase()} experiences. ${destination ? `Tours and activities in ${destination}.` : ''} Book online with instant confirmation.`;
   }
 
+  // Build canonical URL with SEO-relevant parameters
+  const baseUrl = `https://${site.primaryDomain || hostname}/experiences`;
+  const canonicalParams = new URLSearchParams();
+
+  // Include destination in canonical (creates unique landing pages)
+  if (destination) {
+    canonicalParams.set('destination', destination);
+  }
+
+  // Include search query in canonical (creates unique search result pages)
+  if (searchQuery) {
+    canonicalParams.set('q', searchQuery);
+  }
+
+  // Include page number for pagination (page 1 has no param)
+  const pageNum = parseInt(resolvedParams.page ?? '1', 10);
+  if (pageNum > 1) {
+    canonicalParams.set('page', String(pageNum));
+  }
+
+  const canonicalUrl =
+    canonicalParams.toString() ? `${baseUrl}?${canonicalParams.toString()}` : baseUrl;
+
   return {
     title: `${title} | ${site.name}`,
     description: description + ` ${site.seoConfig?.defaultDescription ?? ''}`,
@@ -67,7 +90,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
       description: description,
     },
     alternates: {
-      canonical: `https://${site.primaryDomain || hostname}/experiences`,
+      canonical: canonicalUrl,
     },
   };
 }

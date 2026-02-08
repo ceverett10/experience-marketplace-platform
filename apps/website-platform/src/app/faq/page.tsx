@@ -20,10 +20,27 @@ const FAQS_PER_PAGE = 12;
 /**
  * Generate SEO metadata for FAQ listing page
  */
-export async function generateMetadata(): Promise<Metadata> {
+export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const headersList = await headers();
   const hostname = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
   const site = await getSiteFromHostname(hostname);
+
+  const resolvedParams = await searchParams;
+  const currentPage = Math.max(1, parseInt(resolvedParams.page || '1', 10));
+  const baseUrl = `https://${site.primaryDomain || hostname}/faq`;
+
+  // For paginated content, include page in canonical (except page 1)
+  const canonicalUrl = currentPage > 1 ? `${baseUrl}?page=${currentPage}` : baseUrl;
+
+  // Get total pages for rel-next/prev
+  const totalCount = await prisma.page.count({
+    where: {
+      siteId: site.id,
+      type: 'FAQ',
+      status: 'PUBLISHED',
+    },
+  });
+  const totalPages = Math.ceil(totalCount / FAQS_PER_PAGE);
 
   return {
     title: `Frequently Asked Questions | ${site.name}`,
@@ -34,7 +51,16 @@ export async function generateMetadata(): Promise<Metadata> {
       type: 'website',
     },
     alternates: {
-      canonical: `https://${site.primaryDomain || hostname}/faq`,
+      canonical: canonicalUrl,
+    },
+    // Add rel-next/prev for pagination (helps Google understand paginated content)
+    other: {
+      ...(currentPage > 1 && {
+        'link-prev': currentPage === 2 ? baseUrl : `${baseUrl}?page=${currentPage - 1}`,
+      }),
+      ...(currentPage < totalPages && {
+        'link-next': `${baseUrl}?page=${currentPage + 1}`,
+      }),
     },
   };
 }

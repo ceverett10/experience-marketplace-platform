@@ -99,6 +99,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const title = page.metaTitle || page.title;
   const description = page.metaDescription || page.content?.body.substring(0, 160);
 
+  // Generate canonical URL - use custom if set, otherwise default to page URL
+  const canonicalUrl = page.canonicalUrl || `https://${site.primaryDomain || hostname}/faq/${slug}`;
+
   return {
     title: `${title} | ${site.name}`,
     description,
@@ -109,11 +112,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       publishedTime: page.createdAt.toISOString(),
       modifiedTime: page.updatedAt.toISOString(),
     },
-    alternates: page.canonicalUrl
-      ? {
-          canonical: page.canonicalUrl,
-        }
-      : undefined,
+    alternates: {
+      canonical: canonicalUrl,
+    },
     robots: {
       index: !page.noIndex,
       follow: !page.noIndex,
