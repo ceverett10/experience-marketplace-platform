@@ -14,6 +14,7 @@ describe('Footer', () => {
       name: 'Test Site',
       brand: {
         logoUrl: 'https://example.com/logo.png',
+        logoDarkUrl: null,
         name: 'Test Brand',
         tagline: 'Test tagline',
         primaryColor: '#6366f1',
@@ -44,6 +45,7 @@ describe('Footer', () => {
         headingFont: 'Inter',
         bodyFont: 'Inter',
         logoUrl: null,
+        logoDarkUrl: null,
         faviconUrl: null,
         ogImageUrl: null,
         socialLinks: null,
@@ -94,6 +96,7 @@ describe('Footer', () => {
         headingFont: 'Inter',
         bodyFont: 'Inter',
         logoUrl: null,
+        logoDarkUrl: null,
         faviconUrl: null,
         ogImageUrl: null,
       },

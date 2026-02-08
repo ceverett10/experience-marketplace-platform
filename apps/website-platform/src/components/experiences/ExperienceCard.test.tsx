@@ -96,6 +96,7 @@ describe('ExperienceCard', () => {
           headingFont: 'Inter',
           bodyFont: 'Inter',
           logoUrl: null,
+        logoDarkUrl: null,
           faviconUrl: null,
           ogImageUrl: null,
           socialLinks: null,

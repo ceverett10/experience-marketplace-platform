@@ -86,6 +86,7 @@ describe('SEO utilities', () => {
         brand: {
           ...DEFAULT_SITE_CONFIG.brand!,
           logoUrl: 'https://example.com/logo.png',
+        logoDarkUrl: null,
         },
       };
 

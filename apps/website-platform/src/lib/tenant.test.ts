@@ -98,6 +98,7 @@ describe('tenant utilities', () => {
         headingFont: 'Arial',
         bodyFont: 'Helvetica',
         logoUrl: null,
+        logoDarkUrl: null,
         faviconUrl: null,
         ogImageUrl: null,
         socialLinks: null,
