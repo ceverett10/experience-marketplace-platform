@@ -3,15 +3,25 @@ import { Hero } from '@/components/layout/Hero';
 import { FeaturedExperiences } from '@/components/experiences/FeaturedExperiences';
 import { CategoryGrid } from '@/components/experiences/CategoryGrid';
 import { LatestBlogPosts } from '@/components/content/LatestBlogPosts';
+import { ProductSpotlightHomepage, CatalogHomepage } from '@/components/microsite';
 import { getSiteFromHostname, type HomepageConfig } from '@/lib/tenant';
-import { getHolibobClient, type ExperienceListItem, parseIsoDuration } from '@/lib/holibob';
+import {
+  getHolibobClient,
+  mapProductToExperience,
+  type ExperienceListItem,
+  type Experience,
+  parseIsoDuration,
+} from '@/lib/holibob';
 import { prisma } from '@/lib/prisma';
 import { optimizeUnsplashUrl, shouldSkipOptimization } from '@/lib/image-utils';
 import {
   getMicrositeHomepageProducts,
   isMicrosite,
   localProductToExperienceListItem,
+  getRelatedMicrosites,
+  type RelatedMicrosite,
 } from '@/lib/microsite-experiences';
+import { RelatedMicrosites } from '@/components/microsites/RelatedMicrosites';
 import {
   isParentDomain,
   getFeaturedSuppliers,
@@ -20,6 +30,7 @@ import {
   getPlatformStats,
 } from '@/lib/parent-domain';
 import { ParentDomainHomepage } from '@/components/parent-domain/ParentDomainHomepage';
+import { TourOperatorSchema, WebSiteSchema } from '@/components/seo/StructuredData';
 
 // Revalidate every 5 minutes for fresh content
 export const revalidate = 300;
@@ -280,6 +291,60 @@ export default async function HomePage() {
 
   const site = await getSiteFromHostname(hostname);
 
+  // === MICROSITE LAYOUT ROUTING ===
+  // For microsites, use the appropriate layout based on product count
+  if (isMicrosite(site.micrositeContext)) {
+    const layoutConfig = site.micrositeContext.layoutConfig;
+    console.log(
+      '[Homepage] Microsite detected with layout:',
+      layoutConfig.resolvedType,
+      'productCount:',
+      layoutConfig.productCount
+    );
+
+    // PRODUCT_SPOTLIGHT: Single product landing page
+    if (layoutConfig.resolvedType === 'PRODUCT_SPOTLIGHT') {
+      // Fetch the single product from Holibob API
+      if (site.micrositeContext.holibobProductId) {
+        try {
+          const client = getHolibobClient(site);
+          const product = await client.getProduct(site.micrositeContext.holibobProductId);
+          if (product) {
+            const experience = mapProductToExperience(product);
+            return (
+              <ProductSpotlightHomepage
+                site={site}
+                experience={experience}
+              />
+            );
+          }
+        } catch (error) {
+          console.error('[Homepage] Error fetching spotlight product:', error);
+        }
+      }
+      // Fall through to catalog if product fetch fails
+    }
+
+    // CATALOG: Supplier with 2-50 products
+    if (layoutConfig.resolvedType === 'CATALOG' || layoutConfig.resolvedType === 'PRODUCT_SPOTLIGHT') {
+      // Get all products for the catalog
+      const experiences = await getFeaturedExperiences(site, site.homepageConfig?.popularExperiences);
+
+      return (
+        <CatalogHomepage
+          site={site}
+          layoutConfig={layoutConfig}
+          experiences={experiences}
+          heroConfig={site.homepageConfig?.hero}
+          testimonials={site.homepageConfig?.testimonials}
+        />
+      );
+    }
+
+    // MARKETPLACE: Fall through to regular marketplace layout below
+  }
+  // === END MICROSITE LAYOUT ROUTING ===
+
   // Get homepage configuration (AI-generated or default)
   const homepageConfig = site.homepageConfig;
   const heroConfig = homepageConfig?.hero;
@@ -332,32 +397,50 @@ export default async function HomePage() {
   // Fetch latest blog posts
   const blogPosts = await getLatestBlogPosts(site.id);
 
-  // TravelAgency structured data for SEO
-  const localBusinessLd = {
-    '@context': 'https://schema.org',
-    '@type': 'TravelAgency',
-    name: site.name,
-    description: site.description || `Book amazing experiences and tours with ${site.name}`,
-    url: `https://${site.primaryDomain || hostname}`,
-    logo: site.brand?.logoUrl
-      ? `https://${site.primaryDomain || hostname}${site.brand.logoUrl}`
-      : undefined,
-    image: site.brand?.ogImageUrl || undefined,
-    priceRange: '£',
-    aggregateRating:
-      experiences.length > 0 && experiences.filter((e) => e.rating).length > 0
-        ? {
-            '@type': 'AggregateRating',
-            ratingValue: (
-              experiences.reduce((sum, exp) => sum + (exp.rating?.average || 0), 0) /
-              experiences.filter((e) => e.rating).length
-            ).toFixed(1),
-            reviewCount: experiences.filter((e) => e.rating).length,
-            bestRating: 5,
-            worstRating: 1,
-          }
-        : undefined,
-  };
+  // Fetch related microsites for cross-linking (only for microsites)
+  let relatedMicrosites: RelatedMicrosite[] = [];
+  if (isMicrosite(site.micrositeContext) && site.micrositeContext.micrositeId) {
+    try {
+      // Get cities and categories from the microsite's supplier/product
+      const microsite = await prisma.micrositeConfig.findUnique({
+        where: { id: site.micrositeContext.micrositeId },
+        include: { supplier: { select: { cities: true, categories: true } } },
+      });
+      if (microsite?.supplier) {
+        relatedMicrosites = await getRelatedMicrosites(
+          site.micrositeContext.micrositeId,
+          microsite.supplier.cities,
+          microsite.supplier.categories,
+          6
+        );
+      }
+    } catch (error) {
+      console.error('[Homepage] Error fetching related microsites:', error);
+    }
+  }
+
+  // Build structured data for SEO
+  const siteUrl = `https://${site.primaryDomain || hostname}`;
+  const logoUrl = site.brand?.logoUrl
+    ? site.brand.logoUrl.startsWith('http')
+      ? site.brand.logoUrl
+      : `${siteUrl}${site.brand.logoUrl}`
+    : undefined;
+
+  // Calculate aggregate rating from experiences
+  const ratedExperiences = experiences.filter((e) => e.rating && e.rating.average > 0);
+  const aggregateRating =
+    ratedExperiences.length > 0
+      ? {
+          ratingValue:
+            ratedExperiences.reduce((sum, exp) => sum + (exp.rating?.average || 0), 0) /
+            ratedExperiences.length,
+          reviewCount: ratedExperiences.reduce((sum, exp) => sum + (exp.rating?.count || 0), 0),
+        }
+      : undefined;
+
+  // Build areaServed from destinations
+  const areaServed = destinations.slice(0, 5).map((d) => d.name);
 
   // Preload hero image URL so browser fetches it immediately
   // R2 images are pre-optimized, Unsplash images need URL optimization
@@ -372,10 +455,22 @@ export default async function HomePage() {
       {/* Preload hero image - critical for LCP */}
       {heroImageUrl && <link rel="preload" as="image" href={heroImageUrl} fetchPriority="high" />}
 
-      {/* JSON-LD Structured Data - LocalBusiness */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessLd) }}
+      {/* TourOperator structured data - helps Google understand the business */}
+      <TourOperatorSchema
+        name={site.name}
+        url={siteUrl}
+        logo={logoUrl}
+        description={site.description || `Book amazing experiences and tours with ${site.name}`}
+        areaServed={areaServed}
+        priceRange="$$"
+        aggregateRating={aggregateRating}
+      />
+
+      {/* WebSite schema with search action for sitelinks searchbox */}
+      <WebSiteSchema
+        name={site.name}
+        url={siteUrl}
+        description={site.description || undefined}
       />
 
       {/* Hero Section */}
@@ -598,6 +693,9 @@ export default async function HomePage() {
 
       {/* Latest Blog Posts - SEO Content */}
       <LatestBlogPosts posts={blogPosts} siteName={site.name} />
+
+      {/* Related Microsites - Cross-linking for SEO (only on microsites) */}
+      {relatedMicrosites.length > 0 && <RelatedMicrosites microsites={relatedMicrosites} />}
     </>
   );
 }

@@ -4,6 +4,11 @@
  */
 
 import { parseMicrositeHostname, type MicrositeParentDomain } from './microsite';
+import {
+  type MicrositeLayoutType,
+  type MicrositeLayoutConfig,
+  getLayoutConfig,
+} from './microsite-layout';
 
 // Local type declarations matching Prisma schema
 // (to avoid dependency on @prisma/client generation)
@@ -60,6 +65,10 @@ interface MicrositeConfig {
   tagline: string | null;
   seoConfig: unknown;
   homepageConfig: unknown;
+  // Layout configuration for microsite homepage
+  layoutType: MicrositeLayoutType;
+  cachedProductCount: number;
+  productCountUpdatedAt: Date | null;
   status: 'DRAFT' | 'GENERATING' | 'REVIEW' | 'ACTIVE' | 'PAUSED' | 'ARCHIVED';
   autonomousProcessesPaused: boolean;
   pausedAt: Date | null;
@@ -133,11 +142,14 @@ export interface HomepageConfig {
 
 // Microsite-specific context (only present for microsites)
 export interface MicrositeContext {
+  micrositeId: string; // The MicrositeConfig ID
   entityType: 'SUPPLIER' | 'PRODUCT';
   supplierId: string | null;
   productId: string | null;
   holibobSupplierId?: string | null; // For filtering Holibob API calls
   holibobProductId?: string | null; // For single product microsites
+  // Layout configuration for microsite homepage
+  layoutConfig: MicrositeLayoutConfig;
 }
 
 // Site configuration with brand info
@@ -557,13 +569,19 @@ function mapMicrositeToSiteConfig(microsite: MicrositeConfigWithEntity): SiteCon
           gaMeasurementId: null,
         },
     homepageConfig: homepageConfig,
-    // Include microsite context for supplier/product filtering
+    // Include microsite context for supplier/product filtering and layout
     micrositeContext: {
+      micrositeId: microsite.id,
       entityType: microsite.entityType,
       supplierId: microsite.supplierId,
       productId: microsite.productId,
       holibobSupplierId: microsite.supplier?.holibobSupplierId ?? null,
       holibobProductId: microsite.product?.holibobProductId ?? null,
+      // Layout configuration based on product count
+      layoutConfig: getLayoutConfig(
+        microsite.layoutType ?? 'AUTO',
+        microsite.cachedProductCount ?? 0
+      ),
     },
   };
 }

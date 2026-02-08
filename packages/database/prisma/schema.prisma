@@ -1111,6 +1111,11 @@ model MicrositeConfig {
   // Homepage configuration (similar to Site.homepageConfig)
   homepageConfig Json?
 
+  // Layout type determines homepage structure based on product count
+  layoutType            MicrositeLayoutType @default(AUTO)
+  cachedProductCount    Int                 @default(0)
+  productCountUpdatedAt DateTime?
+
   // Content pages
   pages Page[]
 
@@ -1149,4 +1154,11 @@ enum MicrositeStatus {
   ACTIVE // Live and accessible
   PAUSED // Temporarily disabled
   ARCHIVED // Permanently disabled
+}
+
+enum MicrositeLayoutType {
+  PRODUCT_SPOTLIGHT // 1 product - dedicated product landing page
+  CATALOG // 2-50 products - compact grid, no empty sections
+  MARKETPLACE // 50+ products - full marketplace layout (rarely used for microsites)
+  AUTO // System determines based on product count (default)
 }
