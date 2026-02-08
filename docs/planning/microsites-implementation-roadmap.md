@@ -216,6 +216,7 @@ This roadmap breaks down the implementation of the microsite system into paralle
   - Product sync: Daily 3 AM
 
 - [ ] **4.8** Create manual sync trigger script
+
   ```
   packages/jobs/src/scripts/trigger-sync.ts
   ```
@@ -281,6 +282,7 @@ This roadmap breaks down the implementation of the microsite system into paralle
   - Create fallback templates
 
 - [ ] **5.5** Add microsite scheduler
+
   ```
   packages/jobs/src/schedulers/index.ts
   ```
