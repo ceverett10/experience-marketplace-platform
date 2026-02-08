@@ -480,7 +480,16 @@ export default function OperationsDashboard() {
       )}
 
       {/* Quick Navigation */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Link href="/operations/suppliers">
+          <Card className="hover:shadow-md transition-shadow cursor-pointer">
+            <CardContent className="p-6 text-center">
+              <div className="text-2xl mb-2">&#127970;</div>
+              <h3 className="font-medium text-slate-900">Suppliers</h3>
+              <p className="text-sm text-slate-500 mt-1">Manage Holibob suppliers and microsites</p>
+            </CardContent>
+          </Card>
+        </Link>
         <Link href="/operations/jobs">
           <Card className="hover:shadow-md transition-shadow cursor-pointer">
             <CardContent className="p-6 text-center">
