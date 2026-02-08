@@ -2,10 +2,12 @@ import { headers } from 'next/headers';
 import type { MetadataRoute } from 'next';
 import { getSiteFromHostname } from '@/lib/tenant';
 import { prisma } from '@/lib/prisma';
+import { isMicrosite } from '@/lib/microsite-experiences';
 
 /**
  * Generate dynamic sitemap for SEO
  * Includes all static pages and database-generated content
+ * Microsite-aware: includes supplier products for operator microsites
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const headersList = await headers();
@@ -13,8 +15,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const site = await getSiteFromHostname(hostname);
 
   const baseUrl = site.primaryDomain ? `https://${site.primaryDomain}` : `https://${hostname}`;
+  const isMicrositePage = isMicrosite(site.micrositeContext);
 
-  // Static pages
+  // Static pages - adjust for microsites
   const staticPages: MetadataRoute.Sitemap = [
     {
       url: baseUrl,
@@ -28,18 +31,23 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: 'daily',
       priority: 0.9,
     },
-    {
-      url: `${baseUrl}/destinations`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 0.8,
-    },
-    {
-      url: `${baseUrl}/categories`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 0.8,
-    },
+    // Destinations and categories are less relevant for single-operator microsites
+    ...(isMicrositePage
+      ? []
+      : [
+          {
+            url: `${baseUrl}/destinations`,
+            lastModified: new Date(),
+            changeFrequency: 'weekly' as const,
+            priority: 0.8,
+          },
+          {
+            url: `${baseUrl}/categories`,
+            lastModified: new Date(),
+            changeFrequency: 'weekly' as const,
+            priority: 0.8,
+          },
+        ]),
     {
       url: `${baseUrl}/blog`,
       lastModified: new Date(),
@@ -112,5 +120,27 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     };
   });
 
-  return [...staticPages, ...databasePages];
+  // For microsites, also include all supplier products as experience pages
+  let productPages: MetadataRoute.Sitemap = [];
+  if (isMicrositePage && site.micrositeContext?.supplierId) {
+    const products = await prisma.product.findMany({
+      where: { supplierId: site.micrositeContext.supplierId },
+      select: {
+        holibobProductId: true,
+        updatedAt: true,
+        rating: true,
+      },
+      orderBy: { rating: 'desc' },
+    });
+
+    productPages = products.map((product) => ({
+      url: `${baseUrl}/experiences/${product.holibobProductId}`,
+      lastModified: product.updatedAt,
+      changeFrequency: 'weekly' as const,
+      // Higher priority for highly-rated products
+      priority: product.rating ? Math.min(0.8, 0.6 + product.rating * 0.04) : 0.6,
+    }));
+  }
+
+  return [...staticPages, ...databasePages, ...productPages];
 }

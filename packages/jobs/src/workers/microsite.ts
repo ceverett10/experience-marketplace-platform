@@ -16,11 +16,41 @@ import {
 } from '../services/brand-identity.js';
 import { generateAndStoreFavicon } from '../services/favicon-generator.js';
 import { generateLogo, isLogoGenerationAvailable } from '../services/logo-generator.js';
+import { getGSCClient, isGSCConfigured } from '../services/gsc-client.js';
 
 /**
  * Microsite Worker
  * Handles autonomous microsite creation, brand generation, and lifecycle management
  */
+
+// Parent domain for GSC submissions (domain property covers all subdomains)
+const GSC_PARENT_DOMAIN = 'experiencess.com';
+
+/**
+ * Submit microsite sitemap to Google Search Console
+ * Uses the domain property which covers all subdomains
+ */
+async function submitMicrositeSitemapToGSC(fullDomain: string): Promise<void> {
+  if (!isGSCConfigured()) {
+    console.log('[Microsite GSC] GSC not configured, skipping sitemap submission');
+    return;
+  }
+
+  try {
+    const gscClient = getGSCClient();
+    const sitemapUrl = `https://${fullDomain}/sitemap.xml`;
+    const domainProperty = `sc-domain:${GSC_PARENT_DOMAIN}`;
+
+    console.log(`[Microsite GSC] Submitting sitemap: ${sitemapUrl}`);
+
+    await gscClient.submitSitemap(domainProperty, sitemapUrl);
+
+    console.log(`[Microsite GSC] Successfully submitted sitemap for ${fullDomain}`);
+  } catch (error) {
+    // Non-critical - log but don't fail the operation
+    console.warn('[Microsite GSC] Sitemap submission failed (non-critical):', error);
+  }
+}
 
 /**
  * Generate a URL-safe slug from a name
@@ -541,6 +571,9 @@ export async function handleMicrositePublish(
       where: { id: micrositeId },
       data: { status: 'ACTIVE' },
     });
+
+    // Submit sitemap to Google Search Console (via domain property)
+    await submitMicrositeSitemapToGSC(microsite.fullDomain);
 
     return {
       success: true,

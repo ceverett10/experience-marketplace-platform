@@ -385,3 +385,71 @@ function formatPrice(amount: number, currency: string): string {
     currency,
   }).format(displayAmount);
 }
+
+/**
+ * Related microsite data for cross-linking
+ */
+export interface RelatedMicrosite {
+  fullDomain: string;
+  siteName: string;
+  tagline: string | null;
+  logoUrl: string | null;
+  categories: string[];
+  cities: string[];
+  productCount: number;
+  rating: number | null;
+}
+
+/**
+ * Get related microsites for cross-linking
+ * Finds microsites with similar cities or categories
+ */
+export async function getRelatedMicrosites(
+  currentMicrositeId: string,
+  cities: string[],
+  categories: string[],
+  limit: number = 6
+): Promise<RelatedMicrosite[]> {
+  // Get active microsites that share cities or categories
+  const microsites = await prisma.micrositeConfig.findMany({
+    where: {
+      id: { not: currentMicrositeId },
+      status: 'ACTIVE',
+      supplier: {
+        OR: [
+          { cities: { hasSome: cities.length > 0 ? cities : ['_none_'] } },
+          { categories: { hasSome: categories.length > 0 ? categories : ['_none_'] } },
+        ],
+      },
+    },
+    include: {
+      supplier: {
+        select: {
+          cities: true,
+          categories: true,
+          productCount: true,
+          rating: true,
+          logoUrl: true,
+        },
+      },
+      brand: {
+        select: {
+          logoUrl: true,
+        },
+      },
+    },
+    orderBy: [{ supplier: { rating: 'desc' } }, { supplier: { productCount: 'desc' } }],
+    take: limit,
+  });
+
+  return microsites.map((ms) => ({
+    fullDomain: ms.fullDomain,
+    siteName: ms.siteName,
+    tagline: ms.tagline,
+    logoUrl: ms.brand?.logoUrl || ms.supplier?.logoUrl || null,
+    categories: ms.supplier?.categories || [],
+    cities: ms.supplier?.cities || [],
+    productCount: ms.supplier?.productCount || 0,
+    rating: ms.supplier?.rating || null,
+  }));
+}

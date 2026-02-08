@@ -36,6 +36,29 @@ interface OrganizationSchemaProps {
   sameAs?: string[];
 }
 
+interface TourOperatorSchemaProps {
+  name: string;
+  url: string;
+  logo?: string;
+  description?: string;
+  telephone?: string;
+  email?: string;
+  address?: {
+    streetAddress?: string;
+    addressLocality?: string;
+    addressRegion?: string;
+    postalCode?: string;
+    addressCountry?: string;
+  };
+  areaServed?: string[];
+  priceRange?: string;
+  aggregateRating?: {
+    ratingValue: number;
+    reviewCount: number;
+  };
+  sameAs?: string[];
+}
+
 /**
  * Schema.org TouristTrip markup for individual experience pages
  * Helps search engines understand the experience content for rich results
@@ -261,6 +284,81 @@ export function OrganizationSchema({
     ...(logo && { logo: logo }),
     ...(description && { description: description }),
     ...(sameAs && sameAs.length > 0 && { sameAs: sameAs }),
+  };
+
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+    />
+  );
+}
+
+/**
+ * Schema.org TourOperator markup (extends LocalBusiness)
+ * Specialized structured data for tour operator microsites
+ * Helps Google understand the business type and service areas
+ */
+export function TourOperatorSchema({
+  name,
+  url,
+  logo,
+  description,
+  telephone,
+  email,
+  address,
+  areaServed,
+  priceRange,
+  aggregateRating,
+  sameAs,
+}: TourOperatorSchemaProps) {
+  const schema = {
+    '@context': 'https://schema.org',
+    '@type': ['TourOperator', 'LocalBusiness'],
+    '@id': `${url}#organization`,
+    name: name,
+    url: url,
+    ...(logo && {
+      logo: {
+        '@type': 'ImageObject',
+        url: logo,
+      },
+      image: logo,
+    }),
+    ...(description && { description: description }),
+    ...(telephone && { telephone: telephone }),
+    ...(email && { email: email }),
+    ...(address && {
+      address: {
+        '@type': 'PostalAddress',
+        ...(address.streetAddress && { streetAddress: address.streetAddress }),
+        ...(address.addressLocality && { addressLocality: address.addressLocality }),
+        ...(address.addressRegion && { addressRegion: address.addressRegion }),
+        ...(address.postalCode && { postalCode: address.postalCode }),
+        ...(address.addressCountry && { addressCountry: address.addressCountry }),
+      },
+    }),
+    ...(areaServed &&
+      areaServed.length > 0 && {
+        areaServed: areaServed.map((area) => ({
+          '@type': 'Place',
+          name: area,
+        })),
+      }),
+    ...(priceRange && { priceRange: priceRange }),
+    ...(aggregateRating &&
+      aggregateRating.reviewCount > 0 && {
+        aggregateRating: {
+          '@type': 'AggregateRating',
+          ratingValue: aggregateRating.ratingValue.toFixed(1),
+          reviewCount: aggregateRating.reviewCount,
+          bestRating: '5',
+          worstRating: '1',
+        },
+      }),
+    ...(sameAs && sameAs.length > 0 && { sameAs: sameAs }),
+    // Mark as a travel-related business
+    additionalType: 'https://schema.org/TravelAgency',
   };
 
   return (
