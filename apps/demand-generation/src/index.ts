@@ -48,6 +48,13 @@ import {
   handleSupplierSyncIncremental,
   handleProductSync,
   handleProductSyncIncremental,
+  // Microsite handlers
+  handleMicrositeCreate,
+  handleMicrositeBrandGenerate,
+  handleMicrositeContentGenerate,
+  handleMicrositePublish,
+  handleMicrositeArchive,
+  handleMicrositeHealthCheck,
 } from '@experience-marketplace/jobs';
 import { prisma, JobStatus } from '@experience-marketplace/database';
 import type { JobType } from '@experience-marketplace/database';
@@ -154,6 +161,8 @@ const contentWorker = new Worker(
         return await handleContentOptimize(job);
       case 'CONTENT_REVIEW':
         return await handleContentReview(job);
+      case 'MICROSITE_CONTENT_GENERATE':
+        return await handleMicrositeContentGenerate(job);
       default:
         throw new Error(`Unknown job type: ${job.name}`);
     }
@@ -317,6 +326,34 @@ const abtestWorker = new Worker(
 );
 
 /**
+ * Microsite Queue Worker
+ * Handles: MICROSITE_CREATE, MICROSITE_BRAND_GENERATE, MICROSITE_PUBLISH, MICROSITE_ARCHIVE, MICROSITE_HEALTH_CHECK
+ */
+const micrositeWorker = new Worker(
+  QUEUE_NAMES.MICROSITE,
+  async (job: Job) => {
+    console.log(`[Microsite Worker] Processing ${job.name} job ${job.id}`);
+    await updateJobStatus(job, 'RUNNING');
+
+    switch (job.name as JobType) {
+      case 'MICROSITE_CREATE':
+        return await handleMicrositeCreate(job);
+      case 'MICROSITE_BRAND_GENERATE':
+        return await handleMicrositeBrandGenerate(job);
+      case 'MICROSITE_PUBLISH':
+        return await handleMicrositePublish(job);
+      case 'MICROSITE_ARCHIVE':
+        return await handleMicrositeArchive(job);
+      case 'MICROSITE_HEALTH_CHECK':
+        return await handleMicrositeHealthCheck(job);
+      default:
+        throw new Error(`Unknown job type: ${job.name}`);
+    }
+  },
+  makeWorkerOptions(QUEUE_NAMES.MICROSITE, 2) // Low: brand generation uses AI
+);
+
+/**
  * Holibob Sync Queue Worker
  * Handles: SUPPLIER_SYNC, SUPPLIER_SYNC_INCREMENTAL, PRODUCT_SYNC, PRODUCT_SYNC_INCREMENTAL
  */
@@ -351,6 +388,7 @@ const workers = [
   domainWorker,
   analyticsWorker,
   abtestWorker,
+  micrositeWorker,
   syncWorker,
 ];
 
@@ -471,13 +509,14 @@ process.on('SIGINT', () => shutdown('SIGINT'));
 
 // Startup
 console.log('Workers initialized:');
-console.log('  ✓ Content Worker (content generation, optimization, review)');
+console.log('  ✓ Content Worker (content generation, optimization, review, microsite content)');
 console.log('  ✓ SEO Worker (opportunity scan, SEO analysis)');
 console.log('  ✓ GSC Worker (Google Search Console sync)');
 console.log('  ✓ Site Worker (site creation, deployment)');
 console.log('  ✓ Domain Worker (domain registration, verification, SSL)');
 console.log('  ✓ Analytics Worker (metrics aggregation, reports)');
 console.log('  ✓ A/B Test Worker (test analysis, rebalancing)');
+console.log('  ✓ Microsite Worker (microsite creation, branding, publishing)');
 console.log('  ✓ Sync Worker (Holibob supplier and product sync)');
 console.log('');
 
@@ -500,5 +539,6 @@ export {
   domainWorker,
   analyticsWorker,
   abtestWorker,
+  micrositeWorker,
   syncWorker,
 };

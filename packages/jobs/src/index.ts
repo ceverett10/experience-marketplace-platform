@@ -15,6 +15,7 @@ export * from './workers/abtest';
 export * from './workers/seo-optimization';
 export * from './workers/link-building';
 export * from './workers/sync';
+export * from './workers/microsite';
 
 // Export schedulers
 export * from './schedulers';
