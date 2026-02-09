@@ -20,6 +20,19 @@ import type { MicrositeLayoutConfig } from '@/lib/microsite-layout';
 import type { ExperienceListItem } from '@/lib/holibob';
 import type { RelatedMicrosite } from '@/lib/microsite-experiences';
 import { RelatedMicrosites } from '@/components/microsites/RelatedMicrosites';
+import { HomepageBlogSection } from './HomepageBlogSection';
+
+interface BlogPost {
+  id: string;
+  slug: string;
+  title: string;
+  metaDescription: string | null;
+  createdAt: Date;
+  content?: {
+    body: string;
+    qualityScore: number | null;
+  } | null;
+}
 
 interface CatalogHomepageProps {
   site: SiteConfig;
@@ -30,6 +43,7 @@ interface CatalogHomepageProps {
   heroConfig?: HomepageConfig['hero'];
   testimonials?: HomepageConfig['testimonials'];
   relatedMicrosites?: RelatedMicrosite[];
+  blogPosts?: BlogPost[];
 }
 
 export function CatalogHomepage({
@@ -40,6 +54,7 @@ export function CatalogHomepage({
   heroConfig,
   testimonials,
   relatedMicrosites,
+  blogPosts,
 }: CatalogHomepageProps) {
   const primaryColor = site.brand?.primaryColor ?? '#6366f1';
   const gridColumns = layoutConfig.gridColumns;
@@ -123,6 +138,28 @@ export function CatalogHomepage({
                   <span className="ml-2">Avg Rating</span>
                 </div>
               )}
+            </div>
+
+            {/* Trust Badges - Compact inline indicators */}
+            <div className="mt-6 flex flex-wrap justify-center gap-4 text-xs text-white/90 sm:gap-6 sm:text-sm">
+              <div className="flex items-center gap-1.5">
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>Verified Operator</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>Instant Confirmation</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+                </svg>
+                <span>Secure Booking</span>
+              </div>
             </div>
           </div>
         </div>
@@ -259,6 +296,15 @@ export function CatalogHomepage({
           </div>
         </div>
       </section>
+
+      {/* Latest Blog Posts */}
+      {blogPosts && blogPosts.length > 0 && (
+        <HomepageBlogSection
+          posts={blogPosts}
+          primaryColor={primaryColor}
+          siteName={site.name}
+        />
+      )}
 
       {/* Testimonials */}
       {displayTestimonials.length > 0 && (

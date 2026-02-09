@@ -327,14 +327,15 @@ const CATEGORY_LABELS: Record<string, string> = {
 /**
  * Fetch latest blog posts for homepage
  */
-async function getLatestBlogPosts(siteId: string) {
+async function getLatestBlogPosts(siteId: string, micrositeId?: string) {
   try {
+    // For microsites, query by micrositeId; for regular sites, query by siteId
+    const whereClause = micrositeId
+      ? { micrositeId, type: 'BLOG' as const, status: 'PUBLISHED' as const }
+      : { siteId, type: 'BLOG' as const, status: 'PUBLISHED' as const };
+
     return await prisma.page.findMany({
-      where: {
-        siteId,
-        type: 'BLOG',
-        status: 'PUBLISHED',
-      },
+      where: whereClause,
       include: {
         content: {
           select: {
@@ -466,6 +467,9 @@ export default async function HomePage() {
       );
     }
 
+    // Fetch blog posts for microsite
+    const micrositeBlogPosts = await getLatestBlogPosts(site.id, site.micrositeContext.micrositeId);
+
     return (
       <CatalogHomepage
         site={site}
@@ -475,6 +479,7 @@ export default async function HomePage() {
         heroConfig={site.homepageConfig?.hero}
         testimonials={site.homepageConfig?.testimonials}
         relatedMicrosites={relatedMicrosites}
+        blogPosts={micrositeBlogPosts}
       />
     );
   }

@@ -2,6 +2,7 @@ import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getSiteFromHostname } from '@/lib/tenant';
+import { isMicrosite } from '@/lib/microsite-experiences';
 import {
   getHolibobClient,
   mapProductToExperience,
@@ -10,12 +11,14 @@ import {
   type Experience,
   type ExperienceListItem,
 } from '@/lib/holibob';
+import { prisma } from '@/lib/prisma';
 import { ExperienceGallery } from '@/components/experiences/ExperienceGallery';
 import { BookingWidget } from '@/components/experiences/BookingWidget';
 import { ReviewsCarousel } from '@/components/experiences/ReviewsCarousel';
 import { AboutActivity } from '@/components/experiences/AboutActivity';
 import { MobileBookingCTA } from '@/components/experiences/MobileBookingCTA';
 import { RelatedExperiences } from '@/components/experiences/RelatedExperiences';
+import { RelatedArticles } from '@/components/experiences/RelatedArticles';
 import { TrackViewItem } from '@/components/analytics/TrackViewItem';
 import { getProductBookingStats } from '@/lib/booking-analytics';
 
@@ -139,6 +142,81 @@ async function getRelatedExperiences(
 
 // No mock data - all data comes from Holibob API
 
+/**
+ * Fetch related blog posts for an experience
+ * Searches for blog posts matching the experience's location or category
+ */
+async function getRelatedBlogPosts(
+  site: Awaited<ReturnType<typeof getSiteFromHostname>>,
+  experience: Experience
+) {
+  try {
+    // Get the micrositeId for querying blog posts
+    const micrositeId = isMicrosite(site.micrositeContext)
+      ? site.micrositeContext.micrositeId
+      : undefined;
+
+    // Build search terms from location and categories
+    const searchTerms: string[] = [];
+    if (experience.location.name) {
+      searchTerms.push(experience.location.name.toLowerCase());
+    }
+    experience.categories.forEach((cat) => {
+      searchTerms.push(cat.name.toLowerCase());
+    });
+
+    // Query for blog posts - prefer posts that match location/category in title or description
+    const whereClause = micrositeId
+      ? { micrositeId, type: 'BLOG' as const, status: 'PUBLISHED' as const }
+      : { siteId: site.id, type: 'BLOG' as const, status: 'PUBLISHED' as const };
+
+    const blogPosts = await prisma.page.findMany({
+      where: whereClause,
+      include: {
+        content: {
+          select: {
+            body: true,
+            qualityScore: true,
+          },
+        },
+      },
+      orderBy: [
+        { content: { qualityScore: 'desc' } }, // Prefer high-quality posts
+        { createdAt: 'desc' },
+      ],
+      take: 10, // Fetch more than needed to filter by relevance
+    });
+
+    // Score posts by relevance to experience
+    const scoredPosts = blogPosts.map((post) => {
+      let score = 0;
+      const titleLower = post.title.toLowerCase();
+      const descLower = (post.metaDescription || '').toLowerCase();
+
+      for (const term of searchTerms) {
+        if (titleLower.includes(term)) score += 3;
+        if (descLower.includes(term)) score += 1;
+      }
+
+      // Boost high-quality posts
+      if (post.content?.qualityScore && post.content.qualityScore >= 80) {
+        score += 2;
+      }
+
+      return { post, score };
+    });
+
+    // Sort by score and take top 3
+    return scoredPosts
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3)
+      .map((item) => item.post);
+  } catch (error) {
+    console.error('Error fetching related blog posts:', error);
+    return [];
+  }
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const headersList = await headers();
@@ -196,10 +274,11 @@ export default async function ExperienceDetailPage({ params }: Props) {
     notFound();
   }
 
-  // Fetch related experiences and booking stats in parallel
-  const [relatedExperiences, bookingStats] = await Promise.all([
+  // Fetch related experiences, booking stats, and blog posts in parallel
+  const [relatedExperiences, bookingStats, relatedBlogPosts] = await Promise.all([
     getRelatedExperiences(site, experience),
     getProductBookingStats(site.id, experience.id),
+    getRelatedBlogPosts(site, experience),
   ]);
 
   // Check if experience has free cancellation
@@ -959,6 +1038,17 @@ export default async function ExperienceDetailPage({ params }: Props) {
             </div>
           </div>
         </section>
+
+        {/* Related Articles */}
+        {relatedBlogPosts.length > 0 && (
+          <RelatedArticles
+            posts={relatedBlogPosts}
+            experienceTitle={experience.title}
+            locationName={experience.location.name || undefined}
+            categoryName={experience.categories[0]?.name}
+            primaryColor={site.brand?.primaryColor}
+          />
+        )}
 
         {/* Related Experiences */}
         <RelatedExperiences
