@@ -20,6 +20,17 @@ const navItems: NavItem[] = [
   { href: '/domains', label: 'Domains', icon: '🌍' },
   { href: '/tasks', label: 'Tasks', icon: '✅' },
   {
+    href: '/analytics',
+    label: 'Analytics',
+    icon: '📈',
+    children: [
+      { href: '/analytics', label: 'Overview', icon: '📊' },
+      { href: '/analytics/traffic', label: 'Traffic', icon: '👥' },
+      { href: '/analytics/search', label: 'Search', icon: '🔍' },
+      { href: '/analytics/blockers', label: 'Blockers', icon: '🚧' },
+    ],
+  },
+  {
     href: '/operations',
     label: 'Operations',
     icon: '⚡',
@@ -44,6 +55,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [expandedGroup, setExpandedGroup] = useState<string | null>(
+    pathname?.startsWith('/analytics') ? '/analytics' :
     pathname?.startsWith('/operations') ? '/operations' : null
   );
 
