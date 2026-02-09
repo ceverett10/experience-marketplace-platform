@@ -139,7 +139,9 @@ export async function syncProductsFromHolibob(
     staleSyncThresholdHours = 24,
   } = options;
 
-  console.log('[Product Sync] Starting product sync from Holibob using Product List by Provider...');
+  console.log(
+    '[Product Sync] Starting product sync from Holibob using Product List by Provider...'
+  );
 
   const client = getHolibobClient();
 

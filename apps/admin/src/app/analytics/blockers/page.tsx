@@ -300,10 +300,15 @@ export default function BlockersPage() {
                       </Link>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <span className={`text-sm font-medium ${
-                        item.bounceRate > 85 ? 'text-red-600' :
-                        item.bounceRate > 70 ? 'text-amber-600' : 'text-slate-700'
-                      }`}>
+                      <span
+                        className={`text-sm font-medium ${
+                          item.bounceRate > 85
+                            ? 'text-red-600'
+                            : item.bounceRate > 70
+                              ? 'text-amber-600'
+                              : 'text-slate-700'
+                        }`}
+                      >
                         {item.bounceRate.toFixed(1)}%
                       </span>
                     </td>
@@ -363,10 +368,15 @@ export default function BlockersPage() {
                       </Link>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <span className={`text-sm font-medium ${
-                        item.exitRate > 75 ? 'text-red-600' :
-                        item.exitRate > 60 ? 'text-amber-600' : 'text-slate-700'
-                      }`}>
+                      <span
+                        className={`text-sm font-medium ${
+                          item.exitRate > 75
+                            ? 'text-red-600'
+                            : item.exitRate > 60
+                              ? 'text-amber-600'
+                              : 'text-slate-700'
+                        }`}
+                      >
                         {item.exitRate.toFixed(1)}%
                       </span>
                     </td>
@@ -422,9 +432,7 @@ export default function BlockersPage() {
                       </Link>
                     </td>
                     <td className="px-4 py-3 text-right text-sm text-slate-700">
-                      {item.avgTimeOnPage > 0
-                        ? `${Math.round(item.avgTimeOnPage)}s`
-                        : 'N/A'}
+                      {item.avgTimeOnPage > 0 ? `${Math.round(item.avgTimeOnPage)}s` : 'N/A'}
                     </td>
                     <td className="px-4 py-3 text-right text-sm text-slate-700">
                       {item.pageviews.toLocaleString()}

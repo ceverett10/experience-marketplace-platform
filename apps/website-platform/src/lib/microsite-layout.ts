@@ -115,8 +115,7 @@ export const LAYOUT_TYPE_LABELS: Record<MicrositeLayoutType, string> = {
  */
 export const LAYOUT_TYPE_DESCRIPTIONS: Record<MicrositeLayoutType, string> = {
   AUTO: 'System automatically selects the best layout based on your product count',
-  PRODUCT_SPOTLIGHT:
-    'Focused landing page for a single premium product with inline booking widget',
+  PRODUCT_SPOTLIGHT: 'Focused landing page for a single premium product with inline booking widget',
   CATALOG: 'Clean product grid with compact hero, optimized for small-to-medium catalogs',
   MARKETPLACE: 'Full marketplace layout with categories, destinations, and pagination',
 };

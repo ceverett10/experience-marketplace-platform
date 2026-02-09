@@ -201,7 +201,12 @@ export function ProductSpotlightHomepage({ site, experience }: ProductSpotlightH
                 <dl className="mt-4 space-y-4">
                   <div className="flex items-start gap-3">
                     <dt className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-gray-600">
-                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg
+                        className="h-5 w-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
                         <path
                           strokeLinecap="round"
                           strokeLinejoin="round"

@@ -9,10 +9,7 @@ interface RouteContext {
  * GET /api/analytics/sites/[id]
  * Returns detailed analytics for a single site
  */
-export async function GET(
-  request: NextRequest,
-  context: RouteContext
-): Promise<NextResponse> {
+export async function GET(request: NextRequest, context: RouteContext): Promise<NextResponse> {
   try {
     const { id: siteId } = await context.params;
     const searchParams = request.nextUrl.searchParams;
@@ -107,28 +104,51 @@ export async function GET(
     }
 
     // Aggregate traffic sources from snapshots
-    const sourceMap = new Map<string, { source: string; medium: string; users: number; sessions: number }>();
+    const sourceMap = new Map<
+      string,
+      { source: string; medium: string; users: number; sessions: number }
+    >();
     for (const snapshot of ga4Snapshots) {
-      const sources = snapshot.trafficSources as Array<{ source: string; medium: string; users: number; sessions: number }> | null;
+      const sources = snapshot.trafficSources as Array<{
+        source: string;
+        medium: string;
+        users: number;
+        sessions: number;
+      }> | null;
       if (sources) {
         for (const s of sources) {
           const key = `${s.source}|${s.medium}`;
-          const existing = sourceMap.get(key) || { source: s.source, medium: s.medium, users: 0, sessions: 0 };
+          const existing = sourceMap.get(key) || {
+            source: s.source,
+            medium: s.medium,
+            users: 0,
+            sessions: 0,
+          };
           existing.users += s.users;
           existing.sessions += s.sessions;
           sourceMap.set(key, existing);
         }
       }
     }
-    const sources = Array.from(sourceMap.values()).sort((a, b) => b.sessions - a.sessions).slice(0, 10);
+    const sources = Array.from(sourceMap.values())
+      .sort((a, b) => b.sessions - a.sessions)
+      .slice(0, 10);
 
     // Aggregate device breakdown
     const deviceMap = new Map<string, { device: string; users: number; sessions: number }>();
     for (const snapshot of ga4Snapshots) {
-      const devices = snapshot.deviceBreakdown as Array<{ deviceCategory: string; users: number; sessions: number }> | null;
+      const devices = snapshot.deviceBreakdown as Array<{
+        deviceCategory: string;
+        users: number;
+        sessions: number;
+      }> | null;
       if (devices) {
         for (const d of devices) {
-          const existing = deviceMap.get(d.deviceCategory) || { device: d.deviceCategory, users: 0, sessions: 0 };
+          const existing = deviceMap.get(d.deviceCategory) || {
+            device: d.deviceCategory,
+            users: 0,
+            sessions: 0,
+          };
           existing.users += d.users;
           existing.sessions += d.sessions;
           deviceMap.set(d.deviceCategory, existing);
@@ -148,19 +168,42 @@ export async function GET(
     // Aggregate GSC totals
     const search = {
       totals: { clicks: 0, impressions: 0, ctr: 0, position: 0 },
-      topQueries: [] as Array<{ query: string; clicks: number; impressions: number; ctr: number; position: number }>,
-      topPages: [] as Array<{ page: string; clicks: number; impressions: number; ctr: number; position: number }>,
+      topQueries: [] as Array<{
+        query: string;
+        clicks: number;
+        impressions: number;
+        ctr: number;
+        position: number;
+      }>,
+      topPages: [] as Array<{
+        page: string;
+        clicks: number;
+        impressions: number;
+        ctr: number;
+        position: number;
+      }>,
     };
 
-    const queryMap = new Map<string, { clicks: number; impressions: number; positionSum: number; count: number }>();
-    const pageMap = new Map<string, { clicks: number; impressions: number; positionSum: number; count: number }>();
+    const queryMap = new Map<
+      string,
+      { clicks: number; impressions: number; positionSum: number; count: number }
+    >();
+    const pageMap = new Map<
+      string,
+      { clicks: number; impressions: number; positionSum: number; count: number }
+    >();
 
     for (const m of gscMetrics) {
       search.totals.clicks += m.clicks;
       search.totals.impressions += m.impressions;
 
       if (m.query) {
-        const existing = queryMap.get(m.query) || { clicks: 0, impressions: 0, positionSum: 0, count: 0 };
+        const existing = queryMap.get(m.query) || {
+          clicks: 0,
+          impressions: 0,
+          positionSum: 0,
+          count: 0,
+        };
         existing.clicks += m.clicks;
         existing.impressions += m.impressions;
         existing.positionSum += m.position * m.impressions;
@@ -169,7 +212,12 @@ export async function GET(
       }
 
       if (m.pageUrl) {
-        const existing = pageMap.get(m.pageUrl) || { clicks: 0, impressions: 0, positionSum: 0, count: 0 };
+        const existing = pageMap.get(m.pageUrl) || {
+          clicks: 0,
+          impressions: 0,
+          positionSum: 0,
+          count: 0,
+        };
         existing.clicks += m.clicks;
         existing.impressions += m.impressions;
         existing.positionSum += m.position * m.impressions;
@@ -178,9 +226,8 @@ export async function GET(
       }
     }
 
-    search.totals.ctr = search.totals.impressions > 0
-      ? (search.totals.clicks / search.totals.impressions) * 100
-      : 0;
+    search.totals.ctr =
+      search.totals.impressions > 0 ? (search.totals.clicks / search.totals.impressions) * 100 : 0;
 
     // Calculate average position
     let totalPositionWeight = 0;

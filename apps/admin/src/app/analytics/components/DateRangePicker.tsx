@@ -21,10 +21,7 @@ export function DateRangePicker({ startDate, endDate, onChange }: DateRangePicke
     const start = new Date();
     start.setDate(start.getDate() - days);
 
-    onChange(
-      start.toISOString().split('T')[0]!,
-      end.toISOString().split('T')[0]!
-    );
+    onChange(start.toISOString().split('T')[0]!, end.toISOString().split('T')[0]!);
   };
 
   // Calculate which preset is currently active

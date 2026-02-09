@@ -177,9 +177,7 @@ export default function SearchPage() {
             <span>Search</span>
           </div>
           <h1 className="text-2xl font-bold text-slate-900">Search Performance</h1>
-          <p className="text-slate-500 mt-1">
-            Google Search Console data across all sites
-          </p>
+          <p className="text-slate-500 mt-1">Google Search Console data across all sites</p>
         </div>
         <DateRangePicker
           startDate={dates.startDate}
@@ -190,19 +188,9 @@ export default function SearchPage() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <MetricCard
-          title="Total Clicks"
-          value={totals.clicks}
-        />
-        <MetricCard
-          title="Total Impressions"
-          value={totals.impressions}
-        />
-        <MetricCard
-          title="Avg CTR"
-          value={totals.ctr}
-          format="percent"
-        />
+        <MetricCard title="Total Clicks" value={totals.clicks} />
+        <MetricCard title="Total Impressions" value={totals.impressions} />
+        <MetricCard title="Avg CTR" value={totals.ctr} format="percent" />
         <MetricCard
           title="Avg Position"
           value={totals.avgPosition}
@@ -225,7 +213,8 @@ export default function SearchPage() {
               <div className="text-2xl font-bold text-green-600">
                 {totalPositionImpressions > 0
                   ? ((positionDistribution.top3 / totalPositionImpressions) * 100).toFixed(1)
-                  : '0'}%
+                  : '0'}
+                %
               </div>
               <p className="text-sm text-slate-500 mt-1">Top 3</p>
               <p className="text-xs text-slate-400">
@@ -236,7 +225,8 @@ export default function SearchPage() {
               <div className="text-2xl font-bold text-yellow-600">
                 {totalPositionImpressions > 0
                   ? ((positionDistribution.top10 / totalPositionImpressions) * 100).toFixed(1)
-                  : '0'}%
+                  : '0'}
+                %
               </div>
               <p className="text-sm text-slate-500 mt-1">Position 4-10</p>
               <p className="text-xs text-slate-400">
@@ -247,7 +237,8 @@ export default function SearchPage() {
               <div className="text-2xl font-bold text-orange-600">
                 {totalPositionImpressions > 0
                   ? ((positionDistribution.top20 / totalPositionImpressions) * 100).toFixed(1)
-                  : '0'}%
+                  : '0'}
+                %
               </div>
               <p className="text-sm text-slate-500 mt-1">Position 11-20</p>
               <p className="text-xs text-slate-400">
@@ -258,7 +249,8 @@ export default function SearchPage() {
               <div className="text-2xl font-bold text-red-600">
                 {totalPositionImpressions > 0
                   ? ((positionDistribution.beyond20 / totalPositionImpressions) * 100).toFixed(1)
-                  : '0'}%
+                  : '0'}
+                %
               </div>
               <p className="text-sm text-slate-500 mt-1">Beyond 20</p>
               <p className="text-xs text-slate-400">

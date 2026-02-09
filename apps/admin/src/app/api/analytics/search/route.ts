@@ -115,13 +115,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     });
 
     // Aggregate queries across sites
-    const queryMap = new Map<string, {
-      clicks: number;
-      impressions: number;
-      positionSum: number;
-      count: number;
-      sites: Set<string>;
-    }>();
+    const queryMap = new Map<
+      string,
+      {
+        clicks: number;
+        impressions: number;
+        positionSum: number;
+        count: number;
+        sites: Set<string>;
+      }
+    >();
 
     for (const m of queryMetrics) {
       if (!m.query) continue;

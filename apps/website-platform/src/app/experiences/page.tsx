@@ -82,8 +82,9 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
     canonicalParams.set('page', String(pageNum));
   }
 
-  const canonicalUrl =
-    canonicalParams.toString() ? `${baseUrl}?${canonicalParams.toString()}` : baseUrl;
+  const canonicalUrl = canonicalParams.toString()
+    ? `${baseUrl}?${canonicalParams.toString()}`
+    : baseUrl;
 
   return {
     title: `${title} | ${site.name}`,
@@ -138,7 +139,10 @@ async function getExperiences(
     };
 
     // First try local database
-    const localResult = await getExperiencesFromLocalDB(site.micrositeContext.supplierId, { offset, filters });
+    const localResult = await getExperiencesFromLocalDB(site.micrositeContext.supplierId, {
+      offset,
+      filters,
+    });
 
     // If we have local products, use them
     if (localResult.totalCount > 0) {
@@ -148,7 +152,9 @@ async function getExperiences(
     // Fallback to Holibob API when no local products exist
     // This is common for suppliers whose products haven't been synced yet
     if (site.micrositeContext.holibobSupplierId) {
-      console.log(`[Experiences] No local products for supplier ${site.micrositeContext.supplierId}, using Holibob API`);
+      console.log(
+        `[Experiences] No local products for supplier ${site.micrositeContext.supplierId}, using Holibob API`
+      );
       return getExperiencesFromHolibobAPI(site, site.micrositeContext.holibobSupplierId, {
         page,
         filters,
@@ -433,14 +439,14 @@ async function getExperiencesFromHolibobAPI(
 }> {
   try {
     const client = getHolibobClient(site);
-    const hasFilters = options.filters && (
-      (options.filters.categories && options.filters.categories.length > 0) ||
-      options.filters.priceMin != null ||
-      options.filters.priceMax != null ||
-      options.filters.duration ||
-      options.filters.minRating != null ||
-      (options.filters.cities && options.filters.cities.length > 0)
-    );
+    const hasFilters =
+      options.filters &&
+      ((options.filters.categories && options.filters.categories.length > 0) ||
+        options.filters.priceMin != null ||
+        options.filters.priceMax != null ||
+        options.filters.duration ||
+        options.filters.minRating != null ||
+        (options.filters.cities && options.filters.cities.length > 0));
 
     // When filters are applied, we need to fetch more products for client-side filtering
     // When no filters, use true server-side pagination for efficiency
@@ -454,15 +460,16 @@ async function getExperiencesFromHolibobAPI(
 
     // Map Holibob products to ExperienceListItem format
     let experiences: ExperienceListItem[] = response.nodes.map((product) => {
-      const primaryImage =
-        product.imageList?.[0]?.url ?? '/placeholder-experience.jpg';
+      const primaryImage = product.imageList?.[0]?.url ?? '/placeholder-experience.jpg';
 
       // ProductList API returns guidePrice in MAJOR units (e.g., 71 EUR, not cents)
       const priceAmount = product.guidePrice ?? 0;
       const priceCurrency = product.guidePriceCurrency ?? 'GBP';
       const priceFormatted =
         product.guidePriceFormattedText ??
-        new Intl.NumberFormat('en-GB', { style: 'currency', currency: priceCurrency }).format(priceAmount);
+        new Intl.NumberFormat('en-GB', { style: 'currency', currency: priceCurrency }).format(
+          priceAmount
+        );
 
       // Parse ISO 8601 duration
       let durationFormatted = 'Duration varies';
@@ -606,9 +613,7 @@ function applyClientSideFilters(
     // Location/city filter
     if (filters.cities && filters.cities.length > 0) {
       const location = exp.location.name.toLowerCase();
-      const matchesCity = filters.cities.some((city) =>
-        location.includes(city.toLowerCase())
-      );
+      const matchesCity = filters.cities.some((city) => location.includes(city.toLowerCase()));
       if (!matchesCity) return false;
     }
 
@@ -728,9 +733,21 @@ async function getFilterOptions(supplierId: string): Promise<FilterOptions> {
 
   // Rating filters
   const ratings: FilterOptions['ratings'] = [
-    { label: '4.5+ Excellent', value: 4.5, count: products.filter((p) => (p.rating ?? 0) >= 4.5).length },
-    { label: '4.0+ Very Good', value: 4.0, count: products.filter((p) => (p.rating ?? 0) >= 4.0).length },
-    { label: '3.5+ Good', value: 3.5, count: products.filter((p) => (p.rating ?? 0) >= 3.5).length },
+    {
+      label: '4.5+ Excellent',
+      value: 4.5,
+      count: products.filter((p) => (p.rating ?? 0) >= 4.5).length,
+    },
+    {
+      label: '4.0+ Very Good',
+      value: 4.0,
+      count: products.filter((p) => (p.rating ?? 0) >= 4.0).length,
+    },
+    {
+      label: '3.5+ Good',
+      value: 3.5,
+      count: products.filter((p) => (p.rating ?? 0) >= 3.5).length,
+    },
   ].filter((r) => r.count > 0);
 
   return {
@@ -841,7 +858,11 @@ async function getFilterOptionsFromAPI(
       durations.push({ label: 'Under 2 hours', value: 'short', count: durationCounts.short });
     }
     if (durationCounts.halfDay > 0) {
-      durations.push({ label: 'Half day (2-4h)', value: 'half-day', count: durationCounts.halfDay });
+      durations.push({
+        label: 'Half day (2-4h)',
+        value: 'half-day',
+        count: durationCounts.halfDay,
+      });
     }
     if (durationCounts.fullDay > 0) {
       durations.push({ label: 'Full day', value: 'full-day', count: durationCounts.fullDay });

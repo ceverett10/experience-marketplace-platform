@@ -197,7 +197,9 @@ export async function generateDailyBlogPostsForMicrosites(): Promise<MicrositeBl
   // Calculate how many to process (5% per day, minimum 1)
   const processCount = Math.max(1, Math.floor(totalActive * DAILY_PERCENTAGE));
 
-  console.log(`[Microsite Blog] Processing ${processCount} of ${totalActive} active microsites (${(DAILY_PERCENTAGE * 100).toFixed(0)}% daily rotation)`);
+  console.log(
+    `[Microsite Blog] Processing ${processCount} of ${totalActive} active microsites (${(DAILY_PERCENTAGE * 100).toFixed(0)}% daily rotation)`
+  );
 
   // Get microsites to process, prioritized by:
   // 1. Page views (high-traffic first)
@@ -226,7 +228,9 @@ export async function generateDailyBlogPostsForMicrosites(): Promise<MicrositeBl
     const batchNumber = Math.floor(i / BATCH_SIZE) + 1;
     const totalBatches = Math.ceil(micrositesToProcess.length / BATCH_SIZE);
 
-    console.log(`[Microsite Blog] Processing batch ${batchNumber}/${totalBatches} (${batch.length} microsites)`);
+    console.log(
+      `[Microsite Blog] Processing batch ${batchNumber}/${totalBatches} (${batch.length} microsites)`
+    );
 
     // Process batch concurrently
     const batchPromises = batch.map(async (ms, idx) => {
@@ -241,7 +245,9 @@ export async function generateDailyBlogPostsForMicrosites(): Promise<MicrositeBl
     // Log batch progress
     const batchQueued = batchResults.filter((r) => r.postQueued).length;
     const batchErrors = batchResults.filter((r) => r.error).length;
-    console.log(`[Microsite Blog] Batch ${batchNumber} complete: ${batchQueued} queued, ${batchErrors} errors`);
+    console.log(
+      `[Microsite Blog] Batch ${batchNumber} complete: ${batchQueued} queued, ${batchErrors} errors`
+    );
 
     // Delay between batches (except for last batch)
     if (i + BATCH_SIZE < micrositesToProcess.length) {
@@ -257,11 +263,11 @@ export async function generateDailyBlogPostsForMicrosites(): Promise<MicrositeBl
 
   console.log(
     `[Microsite Blog] Complete. ` +
-    `Processed: ${results.length}, ` +
-    `Posts queued: ${postsQueued}, ` +
-    `Skipped: ${skipped}, ` +
-    `Errors: ${errors}, ` +
-    `Duration: ${(durationMs / 1000).toFixed(1)}s`
+      `Processed: ${results.length}, ` +
+      `Posts queued: ${postsQueued}, ` +
+      `Skipped: ${skipped}, ` +
+      `Errors: ${errors}, ` +
+      `Duration: ${(durationMs / 1000).toFixed(1)}s`
   );
 
   return {
@@ -316,7 +322,9 @@ export async function bootstrapBlogPostsForNewMicrosites(): Promise<MicrositeBlo
     };
   }
 
-  console.log(`[Microsite Blog] Found ${micrositesWithoutBlogs.length} microsites needing bootstrap`);
+  console.log(
+    `[Microsite Blog] Found ${micrositesWithoutBlogs.length} microsites needing bootstrap`
+  );
 
   // Process using the same batch logic
   const results: MicrositeBlogGenerationResult[] = [];
@@ -344,9 +352,9 @@ export async function bootstrapBlogPostsForNewMicrosites(): Promise<MicrositeBlo
 
   console.log(
     `[Microsite Blog] Bootstrap complete. ` +
-    `Posts queued: ${postsQueued}, ` +
-    `Errors: ${errors}, ` +
-    `Duration: ${(durationMs / 1000).toFixed(1)}s`
+      `Posts queued: ${postsQueued}, ` +
+      `Errors: ${errors}, ` +
+      `Duration: ${(durationMs / 1000).toFixed(1)}s`
   );
 
   return {

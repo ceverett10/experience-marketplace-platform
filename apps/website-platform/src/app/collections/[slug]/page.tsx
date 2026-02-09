@@ -58,7 +58,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const hostname = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
   const site = await getSiteFromHostname(hostname);
 
-  const collection = await getCollection(site.micrositeContext?.micrositeId || site.id, resolvedParams.slug);
+  const collection = await getCollection(
+    site.micrositeContext?.micrositeId || site.id,
+    resolvedParams.slug
+  );
 
   if (!collection) {
     return {
@@ -130,7 +133,10 @@ export default async function CollectionPage({ params }: Props) {
   const hostname = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
   const site = await getSiteFromHostname(hostname);
 
-  const collection = await getCollection(site.micrositeContext?.micrositeId || site.id, resolvedParams.slug);
+  const collection = await getCollection(
+    site.micrositeContext?.micrositeId || site.id,
+    resolvedParams.slug
+  );
 
   if (!collection || !collection.isActive) {
     notFound();
@@ -395,9 +401,7 @@ export default async function CollectionPage({ params }: Props) {
                             {product.rating.toFixed(1)}
                           </span>
                           {product.reviewCount && product.reviewCount > 0 && (
-                            <span className="text-sm text-gray-500">
-                              ({product.reviewCount})
-                            </span>
+                            <span className="text-sm text-gray-500">({product.reviewCount})</span>
                           )}
                         </div>
                       )}

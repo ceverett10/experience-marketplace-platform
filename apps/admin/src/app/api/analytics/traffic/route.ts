@@ -51,13 +51,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     });
 
     // Aggregate traffic sources across all sites
-    const sourceMap = new Map<string, {
-      source: string;
-      medium: string;
-      users: number;
-      sessions: number;
-      sites: Set<string>;
-    }>();
+    const sourceMap = new Map<
+      string,
+      {
+        source: string;
+        medium: string;
+        users: number;
+        sessions: number;
+        sites: Set<string>;
+      }
+    >();
 
     // Also track totals by medium
     const mediumMap = new Map<string, { users: number; sessions: number }>();

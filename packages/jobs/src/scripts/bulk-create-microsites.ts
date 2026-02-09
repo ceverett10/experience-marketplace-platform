@@ -104,7 +104,9 @@ async function main() {
   if (options.syncFirst) {
     console.log('Step 1: Syncing suppliers from Holibob...\n');
     const syncResult = await syncSuppliersFromHolibob();
-    console.log(`Sync complete: ${syncResult.suppliersDiscovered} discovered, ${syncResult.suppliersCreated} created, ${syncResult.suppliersUpdated} updated`);
+    console.log(
+      `Sync complete: ${syncResult.suppliersDiscovered} discovered, ${syncResult.suppliersCreated} created, ${syncResult.suppliersUpdated} updated`
+    );
     console.log('');
   }
 
@@ -119,7 +121,9 @@ async function main() {
       gte: threshold.min,
       ...(threshold.max !== Infinity ? { lte: threshold.max } : {}),
     };
-    console.log(`Filtering for ${options.layoutFilter}: ${threshold.min}-${threshold.max === Infinity ? '∞' : threshold.max} products`);
+    console.log(
+      `Filtering for ${options.layoutFilter}: ${threshold.min}-${threshold.max === Infinity ? '∞' : threshold.max} products`
+    );
   }
 
   // Find suppliers without microsites, ordered by product count (highest first)
@@ -187,7 +191,9 @@ async function main() {
   for (const [i, supplier] of suppliers.entries()) {
     const layout = getLayoutType(supplier.productCount);
 
-    console.log(`[${i + 1}/${suppliers.length}] ${supplier.name} (${supplier.productCount} products) -> ${layout}`);
+    console.log(
+      `[${i + 1}/${suppliers.length}] ${supplier.name} (${supplier.productCount} products) -> ${layout}`
+    );
 
     try {
       const result = await handleMicrositeCreate(

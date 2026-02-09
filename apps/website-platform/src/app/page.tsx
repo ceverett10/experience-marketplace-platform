@@ -134,20 +134,18 @@ async function getFeaturedExperiences(
         }
         // Fall through to cache if API returns no products
       } catch (error) {
-        console.error('[Homepage] Error fetching microsite supplier products via Product List:', error);
+        console.error(
+          '[Homepage] Error fetching microsite supplier products via Product List:',
+          error
+        );
       }
     }
 
     // For PRODUCT microsites or as fallback, try local cache
     try {
-      const localProducts = await getMicrositeHomepageProducts(
-        siteConfig.micrositeContext,
-        8
-      );
+      const localProducts = await getMicrositeHomepageProducts(siteConfig.micrositeContext, 8);
       if (localProducts.length > 0) {
-        console.log(
-          `[Homepage] Microsite fallback: Using ${localProducts.length} cached products`
-        );
+        console.log(`[Homepage] Microsite fallback: Using ${localProducts.length} cached products`);
         return {
           experiences: localProducts.map(localProductToExperienceListItem),
           totalCount: localProducts.length, // Local cache doesn't have separate total
@@ -478,12 +476,7 @@ export default async function HomePage() {
           const product = await client.getProduct(site.micrositeContext.holibobProductId);
           if (product) {
             const experience = mapProductToExperience(product);
-            return (
-              <ProductSpotlightHomepage
-                site={site}
-                experience={experience}
-              />
-            );
+            return <ProductSpotlightHomepage site={site} experience={experience} />;
           }
         } catch (error) {
           console.error('[Homepage] Error fetching spotlight product:', error);
@@ -495,7 +488,10 @@ export default async function HomePage() {
     // ALL microsites (CATALOG, MARKETPLACE, or PRODUCT_SPOTLIGHT fallback) use CatalogHomepage
     // This ensures we use Product List by Provider and don't show irrelevant destinations/categories
     // getFeaturedExperiences() uses getProductsByProvider() for microsites
-    const { experiences, totalCount } = await getFeaturedExperiences(site, site.homepageConfig?.popularExperiences);
+    const { experiences, totalCount } = await getFeaturedExperiences(
+      site,
+      site.homepageConfig?.popularExperiences
+    );
 
     // Fetch related microsites for cross-linking (SEO benefit)
     // This finds other microsites that share cities or categories with this one
@@ -636,11 +632,7 @@ export default async function HomePage() {
       />
 
       {/* WebSite schema with search action for sitelinks searchbox */}
-      <WebSiteSchema
-        name={site.name}
-        url={siteUrl}
-        description={site.description || undefined}
-      />
+      <WebSiteSchema name={site.name} url={siteUrl} description={site.description || undefined} />
 
       {/* Hero Section */}
       <Hero

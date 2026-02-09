@@ -883,7 +883,9 @@ export class HolibobClient {
 
       // Safety limit to prevent infinite loops
       if (page > 100) {
-        console.warn(`[HolibobClient] getAllProductsByProvider: stopped at page 100 (safety limit)`);
+        console.warn(
+          `[HolibobClient] getAllProductsByProvider: stopped at page 100 (safety limit)`
+        );
         break;
       }
     }

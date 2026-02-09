@@ -153,9 +153,7 @@ function CollectionCard({ collection, primaryColor }: CollectionCardProps) {
           </div>
         )}
         {/* Emoji Badge */}
-        <div
-          className="absolute -bottom-3 left-4 flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-md text-xl"
-        >
+        <div className="absolute -bottom-3 left-4 flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-md text-xl">
           {collection.iconEmoji || '📦'}
         </div>
       </div>
@@ -172,10 +170,7 @@ function CollectionCard({ collection, primaryColor }: CollectionCardProps) {
           <span className="text-xs text-gray-500">
             {productCount} {productCount === 1 ? 'experience' : 'experiences'}
           </span>
-          <span
-            className="text-xs font-medium transition-colors"
-            style={{ color: primaryColor }}
-          >
+          <span className="text-xs font-medium transition-colors" style={{ color: primaryColor }}>
             Explore &rarr;
           </span>
         </div>

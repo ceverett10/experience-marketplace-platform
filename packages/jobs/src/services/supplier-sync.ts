@@ -199,7 +199,10 @@ export async function syncSuppliersFromHolibob(): Promise<SupplierSyncResult> {
  * Uses ProviderWithCount which includes productCount from providerTree.
  * Additional fields (rating, cities, categories, etc.) are populated by Product Sync.
  */
-async function upsertProvider(provider: ProviderWithCount, existingSlugs: Set<string>): Promise<void> {
+async function upsertProvider(
+  provider: ProviderWithCount,
+  existingSlugs: Set<string>
+): Promise<void> {
   const slug = await generateUniqueSlug(provider.name, provider.id, existingSlugs);
   existingSlugs.add(slug);
 

@@ -1,5 +1,11 @@
 import { Job } from 'bullmq';
-import { prisma, MicrositeStatus, MicrositeLayoutType, PageType, PageStatus } from '@experience-marketplace/database';
+import {
+  prisma,
+  MicrositeStatus,
+  MicrositeLayoutType,
+  PageType,
+  PageStatus,
+} from '@experience-marketplace/database';
 import type {
   MicrositeCreatePayload,
   MicrositeBrandGeneratePayload,

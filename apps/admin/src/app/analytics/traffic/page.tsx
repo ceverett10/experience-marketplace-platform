@@ -159,9 +159,7 @@ export default function TrafficPage() {
             <span>Traffic</span>
           </div>
           <h1 className="text-2xl font-bold text-slate-900">Traffic Sources</h1>
-          <p className="text-slate-500 mt-1">
-            Where your visitors are coming from
-          </p>
+          <p className="text-slate-500 mt-1">Where your visitors are coming from</p>
         </div>
         <DateRangePicker
           startDate={dates.startDate}
@@ -172,18 +170,9 @@ export default function TrafficPage() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <MetricCard
-          title="Total Users"
-          value={totals.users}
-        />
-        <MetricCard
-          title="Total Sessions"
-          value={totals.sessions}
-        />
-        <MetricCard
-          title="Pageviews"
-          value={totals.pageviews}
-        />
+        <MetricCard title="Total Users" value={totals.users} />
+        <MetricCard title="Total Sessions" value={totals.sessions} />
+        <MetricCard title="Pageviews" value={totals.pageviews} />
         <MetricCard
           title="Organic Traffic"
           value={organic.percentageOfTotal}
@@ -208,9 +197,7 @@ export default function TrafficPage() {
                       <span className="font-medium text-slate-700 capitalize">
                         {medium.medium === '(none)' ? 'Direct / None' : medium.medium}
                       </span>
-                      <span className="text-slate-500">
-                        {medium.percentage.toFixed(1)}%
-                      </span>
+                      <span className="text-slate-500">{medium.percentage.toFixed(1)}%</span>
                     </div>
                     <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
                       <div
@@ -257,20 +244,13 @@ export default function TrafficPage() {
 
               {organic.topLandingPages.length > 0 && (
                 <div>
-                  <p className="text-sm font-medium text-slate-700 mb-2">
-                    Top Landing Pages
-                  </p>
+                  <p className="text-sm font-medium text-slate-700 mb-2">Top Landing Pages</p>
                   <div className="space-y-2">
                     {organic.topLandingPages.slice(0, 5).map((page, i) => (
-                      <div
-                        key={i}
-                        className="flex items-center justify-between text-sm"
-                      >
+                      <div key={i} className="flex items-center justify-between text-sm">
                         <div className="truncate flex-1 mr-2">
                           <span className="text-slate-700">{page.page}</span>
-                          <span className="text-xs text-slate-400 ml-2">
-                            ({page.siteName})
-                          </span>
+                          <span className="text-xs text-slate-400 ml-2">({page.siteName})</span>
                         </div>
                         <span className="text-slate-500 text-xs">
                           {page.sessions.toLocaleString()} sessions
@@ -315,9 +295,7 @@ export default function TrafficPage() {
               {sources.slice(0, 20).map((source, i) => (
                 <tr key={i} className="hover:bg-slate-50">
                   <td className="px-4 py-3">
-                    <span className="text-sm font-medium text-slate-900">
-                      {source.source}
-                    </span>
+                    <span className="text-sm font-medium text-slate-900">{source.source}</span>
                     <span className="text-slate-400 mx-1">/</span>
                     <span className="text-sm text-slate-600">{source.medium}</span>
                   </td>
@@ -330,9 +308,7 @@ export default function TrafficPage() {
                   <td className="px-4 py-3 text-right text-sm text-slate-700">
                     {source.bounceRate.toFixed(1)}%
                   </td>
-                  <td className="px-4 py-3 text-right text-sm text-slate-500">
-                    {source.sites}
-                  </td>
+                  <td className="px-4 py-3 text-right text-sm text-slate-500">{source.sites}</td>
                 </tr>
               ))}
               {sources.length === 0 && (

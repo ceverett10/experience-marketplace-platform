@@ -122,11 +122,7 @@ export default function SuppliersPage() {
     if (sortField !== field) {
       return <span className="text-slate-300 ml-1">&#8597;</span>;
     }
-    return (
-      <span className="text-sky-600 ml-1">
-        {sortOrder === 'asc' ? '&#8593;' : '&#8595;'}
-      </span>
-    );
+    return <span className="text-sky-600 ml-1">{sortOrder === 'asc' ? '&#8593;' : '&#8595;'}</span>;
   };
 
   if (error && !data) {
@@ -161,10 +157,7 @@ export default function SuppliersPage() {
           <h1 className="text-2xl font-bold text-slate-900">Suppliers</h1>
           <p className="text-slate-500 mt-1">Manage Holibob suppliers and their microsites</p>
         </div>
-        <Link
-          href="/operations"
-          className="text-sm text-sky-600 hover:text-sky-700"
-        >
+        <Link href="/operations" className="text-sm text-sky-600 hover:text-sky-700">
           &#8592; Operations
         </Link>
       </div>
@@ -185,7 +178,9 @@ export default function SuppliersPage() {
                   <p className="text-sm text-slate-500">MARKETPLACE</p>
                   <p className="text-xs text-slate-400">51+ products</p>
                 </div>
-                <span className={`px-2 py-1 rounded text-xs font-medium ${layoutColors['MARKETPLACE']}`}>
+                <span
+                  className={`px-2 py-1 rounded text-xs font-medium ${layoutColors['MARKETPLACE']}`}
+                >
                   51+
                 </span>
               </div>
@@ -201,9 +196,11 @@ export default function SuppliersPage() {
                 <div
                   className="h-full bg-green-500 rounded-full"
                   style={{
-                    width: `${data.summary.MARKETPLACE.total > 0
-                      ? (data.summary.MARKETPLACE.launched / data.summary.MARKETPLACE.total) * 100
-                      : 0}%`,
+                    width: `${
+                      data.summary.MARKETPLACE.total > 0
+                        ? (data.summary.MARKETPLACE.launched / data.summary.MARKETPLACE.total) * 100
+                        : 0
+                    }%`,
                   }}
                 />
               </div>
@@ -223,7 +220,9 @@ export default function SuppliersPage() {
                   <p className="text-sm text-slate-500">CATALOG</p>
                   <p className="text-xs text-slate-400">2-50 products</p>
                 </div>
-                <span className={`px-2 py-1 rounded text-xs font-medium ${layoutColors['CATALOG']}`}>
+                <span
+                  className={`px-2 py-1 rounded text-xs font-medium ${layoutColors['CATALOG']}`}
+                >
                   2-50
                 </span>
               </div>
@@ -239,9 +238,11 @@ export default function SuppliersPage() {
                 <div
                   className="h-full bg-green-500 rounded-full"
                   style={{
-                    width: `${data.summary.CATALOG.total > 0
-                      ? (data.summary.CATALOG.launched / data.summary.CATALOG.total) * 100
-                      : 0}%`,
+                    width: `${
+                      data.summary.CATALOG.total > 0
+                        ? (data.summary.CATALOG.launched / data.summary.CATALOG.total) * 100
+                        : 0
+                    }%`,
                   }}
                 />
               </div>
@@ -261,7 +262,9 @@ export default function SuppliersPage() {
                   <p className="text-sm text-slate-500">PRODUCT SPOTLIGHT</p>
                   <p className="text-xs text-slate-400">1 product</p>
                 </div>
-                <span className={`px-2 py-1 rounded text-xs font-medium ${layoutColors['PRODUCT_SPOTLIGHT']}`}>
+                <span
+                  className={`px-2 py-1 rounded text-xs font-medium ${layoutColors['PRODUCT_SPOTLIGHT']}`}
+                >
                   1
                 </span>
               </div>
@@ -277,9 +280,13 @@ export default function SuppliersPage() {
                 <div
                   className="h-full bg-green-500 rounded-full"
                   style={{
-                    width: `${data.summary.PRODUCT_SPOTLIGHT.total > 0
-                      ? (data.summary.PRODUCT_SPOTLIGHT.launched / data.summary.PRODUCT_SPOTLIGHT.total) * 100
-                      : 0}%`,
+                    width: `${
+                      data.summary.PRODUCT_SPOTLIGHT.total > 0
+                        ? (data.summary.PRODUCT_SPOTLIGHT.launched /
+                            data.summary.PRODUCT_SPOTLIGHT.total) *
+                          100
+                        : 0
+                    }%`,
                   }}
                 />
               </div>
@@ -360,18 +367,14 @@ export default function SuppliersPage() {
                 >
                   Products <SortIcon field="productCount" />
                 </th>
-                <th className="text-center px-4 py-3 text-sm font-medium text-slate-600">
-                  Layout
-                </th>
+                <th className="text-center px-4 py-3 text-sm font-medium text-slate-600">Layout</th>
                 <th className="text-left px-4 py-3 text-sm font-medium text-slate-600">
                   Microsite URL
                 </th>
                 <th className="text-center px-4 py-3 text-sm font-medium text-slate-600">
                   Launched
                 </th>
-                <th className="text-center px-4 py-3 text-sm font-medium text-slate-600">
-                  Status
-                </th>
+                <th className="text-center px-4 py-3 text-sm font-medium text-slate-600">Status</th>
               </tr>
             </thead>
             <tbody>
@@ -406,10 +409,7 @@ export default function SuppliersPage() {
                 </tr>
               ) : (
                 data?.suppliers.map((supplier) => (
-                  <tr
-                    key={supplier.id}
-                    className="border-b border-slate-100 hover:bg-slate-50"
-                  >
+                  <tr key={supplier.id} className="border-b border-slate-100 hover:bg-slate-50">
                     <td className="px-4 py-3">
                       <div className="font-medium text-slate-900">{supplier.name}</div>
                       {supplier.cities.length > 0 && (

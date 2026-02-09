@@ -605,7 +605,10 @@ export async function refreshAllCollections(options?: {
   });
 
   // Calculate batch size: percentage-based with min/max bounds
-  const batchSize = Math.max(1, Math.min(maxPerRun, Math.floor(totalMicrosites * (percentPerRun / 100))));
+  const batchSize = Math.max(
+    1,
+    Math.min(maxPerRun, Math.floor(totalMicrosites * (percentPerRun / 100)))
+  );
 
   // Get microsites that haven't had collections refreshed recently
   // Order by updatedAt of their collections (oldest first), or by microsite creation if no collections

@@ -215,9 +215,9 @@ export async function generateDailyBlogPostsForAllSitesAndMicrosites(): Promise<
   const totalQueued = siteResults.filter((r) => r.postQueued).length + micrositeResults.postsQueued;
   console.log(
     `[Daily Blog] All complete. ` +
-    `Traditional sites: ${siteResults.filter((r) => r.postQueued).length} posts, ` +
-    `Microsites: ${micrositeResults.postsQueued} posts (${micrositeResults.processedCount}/${micrositeResults.totalMicrosites} processed), ` +
-    `Total: ${totalQueued} posts queued`
+      `Traditional sites: ${siteResults.filter((r) => r.postQueued).length} posts, ` +
+      `Microsites: ${micrositeResults.postsQueued} posts (${micrositeResults.processedCount}/${micrositeResults.totalMicrosites} processed), ` +
+      `Total: ${totalQueued} posts queued`
   );
 
   return {

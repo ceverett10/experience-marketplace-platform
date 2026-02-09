@@ -50,18 +50,12 @@ export async function GET(request: NextRequest) {
     // Required: Holibob supplier ID
     const holibobSupplierId = searchParams.get('holibobSupplierId');
     if (!holibobSupplierId) {
-      return NextResponse.json(
-        { error: 'holibobSupplierId is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'holibobSupplierId is required' }, { status: 400 });
     }
 
     // Pagination
     const page = parseInt(searchParams.get('page') || '1', 10);
-    const pageSize = parseInt(
-      searchParams.get('pageSize') || String(DEFAULT_PAGE_SIZE),
-      10
-    );
+    const pageSize = parseInt(searchParams.get('pageSize') || String(DEFAULT_PAGE_SIZE), 10);
 
     // Filters - these go directly to Holibob API
     const categories = searchParams.get('categories');
@@ -94,8 +88,7 @@ export async function GET(request: NextRequest) {
 
     // Create Holibob client
     const client = createHolibobClient({
-      apiUrl:
-        process.env['HOLIBOB_API_URL'] || 'https://api.production.holibob.tech/graphql',
+      apiUrl: process.env['HOLIBOB_API_URL'] || 'https://api.production.holibob.tech/graphql',
       apiKey: process.env['HOLIBOB_API_KEY'] || '',
       apiSecret: process.env['HOLIBOB_API_SECRET'],
       partnerId: process.env['HOLIBOB_PARTNER_ID'] || 'holibob',
@@ -111,8 +104,7 @@ export async function GET(request: NextRequest) {
 
     // Transform products to experience format
     const experiences = (response.nodes || []).map((product) => {
-      const rawImageUrl =
-        product.imageList?.[0]?.url ?? '/placeholder-experience.jpg';
+      const rawImageUrl = product.imageList?.[0]?.url ?? '/placeholder-experience.jpg';
 
       // Optimize Holibob images
       const primaryImage = rawImageUrl.includes('images.holibob.tech')
@@ -134,8 +126,7 @@ export async function GET(request: NextRequest) {
       }
 
       // Get categories
-      const categoryNames =
-        product.categoryList?.nodes?.map((c) => c.name).filter(Boolean) ?? [];
+      const categoryNames = product.categoryList?.nodes?.map((c) => c.name).filter(Boolean) ?? [];
 
       return {
         id: product.id,

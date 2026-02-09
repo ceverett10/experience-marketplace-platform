@@ -85,7 +85,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   // Generate canonical URL - use custom if set, otherwise default to page URL
   // Note: blog posts are stored with 'blog/' prefix in slug
-  const canonicalUrl = post.canonicalUrl || `https://${site.primaryDomain || hostname}/blog/${slug}`;
+  const canonicalUrl =
+    post.canonicalUrl || `https://${site.primaryDomain || hostname}/blog/${slug}`;
 
   return {
     title: `${title} | ${site.name}`,

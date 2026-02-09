@@ -11,9 +11,7 @@ const jobTypes = [
 async function main() {
   for (const jobType of jobTypes) {
     try {
-      await prisma.$executeRawUnsafe(
-        `ALTER TYPE "JobType" ADD VALUE IF NOT EXISTS '${jobType}'`
-      );
+      await prisma.$executeRawUnsafe(`ALTER TYPE "JobType" ADD VALUE IF NOT EXISTS '${jobType}'`);
       console.log(`Added: ${jobType}`);
     } catch (error) {
       console.log(`${jobType}: ${error.message}`);

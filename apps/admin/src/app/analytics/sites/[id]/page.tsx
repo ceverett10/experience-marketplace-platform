@@ -228,11 +228,17 @@ export default function SiteAnalyticsPage() {
       {(!site.configured.ga4 || !site.configured.gsc) && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
           <p className="text-sm text-amber-700">
-            {!site.configured.ga4 && !site.configured.gsc && 'GA4 and GSC are not configured for this site.'}
+            {!site.configured.ga4 &&
+              !site.configured.gsc &&
+              'GA4 and GSC are not configured for this site.'}
             {!site.configured.ga4 && site.configured.gsc && 'GA4 is not configured for this site.'}
-            {site.configured.ga4 && !site.configured.gsc && 'GSC is not configured for this site.'}
-            {' '}
-            <Link href={`/sites/${site.id}`} className="text-amber-800 underline hover:no-underline">
+            {site.configured.ga4 &&
+              !site.configured.gsc &&
+              'GSC is not configured for this site.'}{' '}
+            <Link
+              href={`/sites/${site.id}`}
+              className="text-amber-800 underline hover:no-underline"
+            >
               Configure now
             </Link>
           </p>
@@ -253,36 +259,15 @@ export default function SiteAnalyticsPage() {
               value={traffic.sessions}
               change={comparison?.changes.sessionsChange}
             />
-            <MetricCard
-              title="Pageviews"
-              value={traffic.pageviews}
-            />
-            <MetricCard
-              title="Bounce Rate"
-              value={traffic.bounceRate * 100}
-              format="percent"
-            />
+            <MetricCard title="Pageviews" value={traffic.pageviews} />
+            <MetricCard title="Bounce Rate" value={traffic.bounceRate * 100} format="percent" />
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <MetricCard
-              title="New Users"
-              value={traffic.newUsers}
-            />
-            <MetricCard
-              title="Avg Session"
-              value={traffic.avgSessionDuration}
-              format="duration"
-            />
-            <MetricCard
-              title="Bookings"
-              value={traffic.bookings}
-            />
-            <MetricCard
-              title="Revenue"
-              value={traffic.revenue}
-              format="currency"
-            />
+            <MetricCard title="New Users" value={traffic.newUsers} />
+            <MetricCard title="Avg Session" value={traffic.avgSessionDuration} format="duration" />
+            <MetricCard title="Bookings" value={traffic.bookings} />
+            <MetricCard title="Revenue" value={traffic.revenue} format="currency" />
           </div>
 
           {/* Traffic Sources & Devices */}
@@ -330,16 +315,15 @@ export default function SiteAnalyticsPage() {
                   <div className="space-y-4">
                     {devices.map((device, i) => {
                       const totalSessions = devices.reduce((sum, d) => sum + d.sessions, 0);
-                      const percentage = totalSessions > 0 ? (device.sessions / totalSessions) * 100 : 0;
+                      const percentage =
+                        totalSessions > 0 ? (device.sessions / totalSessions) * 100 : 0;
                       return (
                         <div key={i}>
                           <div className="flex items-center justify-between text-sm mb-1">
                             <span className="font-medium text-slate-700 capitalize">
                               {device.device}
                             </span>
-                            <span className="text-slate-500">
-                              {percentage.toFixed(1)}%
-                            </span>
+                            <span className="text-slate-500">{percentage.toFixed(1)}%</span>
                           </div>
                           <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
                             <div
@@ -355,9 +339,7 @@ export default function SiteAnalyticsPage() {
                     })}
                   </div>
                 ) : (
-                  <p className="text-center text-slate-500 py-4">
-                    No device data available
-                  </p>
+                  <p className="text-center text-slate-500 py-4">No device data available</p>
                 )}
               </CardContent>
             </Card>
@@ -452,9 +434,7 @@ export default function SiteAnalyticsPage() {
             </div>
             <div>
               <p className="text-xs text-slate-500">CTR</p>
-              <p className="text-xl font-bold text-slate-900">
-                {search.totals.ctr.toFixed(1)}%
-              </p>
+              <p className="text-xl font-bold text-slate-900">{search.totals.ctr.toFixed(1)}%</p>
             </div>
             <div>
               <p className="text-xs text-slate-500">Avg Position</p>
@@ -564,7 +544,10 @@ export default function SiteAnalyticsPage() {
                   {search.topPages.slice(0, 15).map((page, i) => (
                     <tr key={i} className="hover:bg-slate-50">
                       <td className="px-4 py-3">
-                        <span className="text-sm text-slate-900 block truncate max-w-md" title={page.page}>
+                        <span
+                          className="text-sm text-slate-900 block truncate max-w-md"
+                          title={page.page}
+                        >
                           {page.page}
                         </span>
                       </td>

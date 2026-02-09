@@ -155,10 +155,7 @@ export function FilterSidebar({
             >
               <div className="space-y-2 max-h-48 overflow-y-auto">
                 {filterOptions.categories.map((cat) => (
-                  <label
-                    key={cat.name}
-                    className="flex items-center gap-2 cursor-pointer group"
-                  >
+                  <label key={cat.name} className="flex items-center gap-2 cursor-pointer group">
                     <input
                       type="checkbox"
                       checked={currentFilters.categories.includes(cat.name)}
@@ -198,9 +195,7 @@ export function FilterSidebar({
                         isActive ? setPriceRange(0, null) : setPriceRange(range.min, range.max)
                       }
                       className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${
-                        isActive
-                          ? 'text-white'
-                          : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+                        isActive ? 'text-white' : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
                       }`}
                       style={isActive ? { backgroundColor: primaryColor } : undefined}
                     >
@@ -231,9 +226,7 @@ export function FilterSidebar({
                       key={dur.value}
                       onClick={() => updateFilters('duration', isActive ? null : dur.value)}
                       className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${
-                        isActive
-                          ? 'text-white'
-                          : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+                        isActive ? 'text-white' : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
                       }`}
                       style={isActive ? { backgroundColor: primaryColor } : undefined}
                     >
@@ -266,9 +259,7 @@ export function FilterSidebar({
                         updateFilters('minRating', isActive ? null : String(rating.value))
                       }
                       className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${
-                        isActive
-                          ? 'text-white'
-                          : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+                        isActive ? 'text-white' : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
                       }`}
                       style={isActive ? { backgroundColor: primaryColor } : undefined}
                     >
@@ -295,10 +286,7 @@ export function FilterSidebar({
             >
               <div className="space-y-2 max-h-48 overflow-y-auto">
                 {filterOptions.cities.map((city) => (
-                  <label
-                    key={city.name}
-                    className="flex items-center gap-2 cursor-pointer group"
-                  >
+                  <label key={city.name} className="flex items-center gap-2 cursor-pointer group">
                     <input
                       type="checkbox"
                       checked={currentFilters.cities.includes(city.name)}

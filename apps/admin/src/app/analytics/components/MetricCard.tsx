@@ -50,7 +50,9 @@ export function MetricCard({ title, value, change, subtitle, format = 'number' }
             <p className="text-2xl font-bold text-slate-900 mt-1">{formatValue(value)}</p>
             {subtitle && <p className="text-xs text-slate-400 mt-1">{subtitle}</p>}
           </div>
-          {change !== undefined && <TrendIndicator value={change} inverted={format === 'position'} />}
+          {change !== undefined && (
+            <TrendIndicator value={change} inverted={format === 'position'} />
+          )}
         </div>
       </CardContent>
     </Card>

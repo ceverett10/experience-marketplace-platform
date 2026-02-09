@@ -961,7 +961,9 @@ export async function handleGA4DailySync(job: Job): Promise<JobResult> {
       }
     }
 
-    console.log(`[GA4 Daily Sync] Complete: ${synced} synced, ${skipped} skipped, ${errors} errors`);
+    console.log(
+      `[GA4 Daily Sync] Complete: ${synced} synced, ${skipped} skipped, ${errors} errors`
+    );
 
     return {
       success: true,
@@ -1046,7 +1048,9 @@ export async function handleMicrositeGscSync(
   const { micrositeId, startDate, endDate } = job.data;
 
   try {
-    console.log(`[Microsite GSC Sync] Starting sync${micrositeId ? ` for ${micrositeId}` : ' for all microsites'}`);
+    console.log(
+      `[Microsite GSC Sync] Starting sync${micrositeId ? ` for ${micrositeId}` : ' for all microsites'}`
+    );
 
     if (!isGSCConfigured()) {
       console.log('[Microsite GSC Sync] GSC not configured, skipping');
@@ -1059,11 +1063,13 @@ export async function handleMicrositeGscSync(
 
     // Calculate date range (default: last 7 days)
     const end = endDate || new Date().toISOString().split('T')[0]!;
-    const start = startDate || (() => {
-      const date = new Date();
-      date.setDate(date.getDate() - 7);
-      return date.toISOString().split('T')[0]!;
-    })();
+    const start =
+      startDate ||
+      (() => {
+        const date = new Date();
+        date.setDate(date.getDate() - 7);
+        return date.toISOString().split('T')[0]!;
+      })();
 
     // Get active microsites
     const micrositeWhere: any = {
@@ -1096,7 +1102,9 @@ export async function handleMicrositeGscSync(
 
     // Query GSC for all data from the domain property
     const gscClient = getGSCClient();
-    console.log(`[Microsite GSC Sync] Querying ${MICROSITE_GSC_DOMAIN_PROPERTY} for ${start} to ${end}`);
+    console.log(
+      `[Microsite GSC Sync] Querying ${MICROSITE_GSC_DOMAIN_PROPERTY} for ${start} to ${end}`
+    );
 
     const response = await gscClient.querySearchAnalytics({
       siteUrl: MICROSITE_GSC_DOMAIN_PROPERTY,
@@ -1109,20 +1117,23 @@ export async function handleMicrositeGscSync(
     console.log(`[Microsite GSC Sync] Retrieved ${response.rows?.length || 0} rows from GSC`);
 
     // Create a map of subdomain -> microsite for quick lookup
-    const micrositeMap = new Map(microsites.map(m => [m.fullDomain, m]));
+    const micrositeMap = new Map(microsites.map((m) => [m.fullDomain, m]));
 
     // Group GSC data by microsite
-    const micrositeMetrics = new Map<string, Array<{
-      date: Date;
-      query?: string;
-      pageUrl?: string;
-      device?: string;
-      country?: string;
-      impressions: number;
-      clicks: number;
-      ctr: number;
-      position: number;
-    }>>();
+    const micrositeMetrics = new Map<
+      string,
+      Array<{
+        date: Date;
+        query?: string;
+        pageUrl?: string;
+        device?: string;
+        country?: string;
+        impressions: number;
+        clicks: number;
+        ctr: number;
+        position: number;
+      }>
+    >();
 
     for (const row of response.rows || []) {
       const pageUrl = row.keys?.[0] || '';
@@ -1164,10 +1175,10 @@ export async function handleMicrositeGscSync(
       try {
         // Delete existing metrics for this microsite/date and bulk insert new ones
         // This is more efficient than individual upserts with nullable compound keys
-        const dates = [...new Set(metrics.map(m => m.date.toISOString().split('T')[0]!))];
+        const dates = [...new Set(metrics.map((m) => m.date.toISOString().split('T')[0]!))];
 
         for (const dateStr of dates) {
-          const dateMetrics = metrics.filter(m => m.date.toISOString().split('T')[0] === dateStr);
+          const dateMetrics = metrics.filter((m) => m.date.toISOString().split('T')[0] === dateStr);
           const targetDate = new Date(dateStr!);
 
           // Delete old metrics for this date
@@ -1180,7 +1191,7 @@ export async function handleMicrositeGscSync(
 
           // Bulk insert new metrics
           await prisma.micrositePerformanceMetric.createMany({
-            data: dateMetrics.map(metric => ({
+            data: dateMetrics.map((metric) => ({
               micrositeId: msId,
               date: metric.date,
               query: metric.query ?? null,
@@ -1242,7 +1253,9 @@ export async function handleMicrositeAnalyticsSync(
   const { micrositeId, date } = job.data;
 
   try {
-    console.log(`[Microsite Analytics Sync] Starting sync${micrositeId ? ` for ${micrositeId}` : ' for all microsites'}`);
+    console.log(
+      `[Microsite Analytics Sync] Starting sync${micrositeId ? ` for ${micrositeId}` : ' for all microsites'}`
+    );
 
     // Calculate target date (default: yesterday)
     const targetDate = date
@@ -1276,7 +1289,9 @@ export async function handleMicrositeAnalyticsSync(
       },
     });
 
-    console.log(`[Microsite Analytics Sync] Creating snapshots for ${microsites.length} microsites for ${dateStr}`);
+    console.log(
+      `[Microsite Analytics Sync] Creating snapshots for ${microsites.length} microsites for ${dateStr}`
+    );
 
     let created = 0;
     let updated = 0;
@@ -1346,7 +1361,9 @@ export async function handleMicrositeAnalyticsSync(
       }
     }
 
-    console.log(`[Microsite Analytics Sync] Created ${created}, updated ${updated}, errors ${errors}`);
+    console.log(
+      `[Microsite Analytics Sync] Created ${created}, updated ${updated}, errors ${errors}`
+    );
 
     return {
       success: true,

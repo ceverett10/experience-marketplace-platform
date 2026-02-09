@@ -152,9 +152,7 @@ export default function AnalyticsOverviewPage() {
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Analytics Overview</h1>
-          <p className="text-slate-500 mt-1">
-            Portfolio-wide traffic and search performance
-          </p>
+          <p className="text-slate-500 mt-1">Portfolio-wide traffic and search performance</p>
         </div>
         <DateRangePicker
           startDate={dates.startDate}
@@ -174,11 +172,7 @@ export default function AnalyticsOverviewPage() {
 
       {/* Metric Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <MetricCard
-          title="Total Users"
-          value={portfolio.totalUsers}
-          change={trends.usersChange}
-        />
+        <MetricCard title="Total Users" value={portfolio.totalUsers} change={trends.usersChange} />
         <MetricCard
           title="Total Sessions"
           value={portfolio.totalSessions}
@@ -199,20 +193,13 @@ export default function AnalyticsOverviewPage() {
 
       {/* Secondary Metrics */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <MetricCard
-          title="Pageviews"
-          value={portfolio.totalPageviews}
-        />
+        <MetricCard title="Pageviews" value={portfolio.totalPageviews} />
         <MetricCard
           title="Impressions"
           value={portfolio.totalImpressions}
           change={trends.impressionsChange}
         />
-        <MetricCard
-          title="Avg CTR"
-          value={portfolio.avgCTR}
-          format="percent"
-        />
+        <MetricCard title="Avg CTR" value={portfolio.avgCTR} format="percent" />
         <MetricCard
           title="Revenue"
           value={portfolio.totalRevenue}
@@ -225,10 +212,7 @@ export default function AnalyticsOverviewPage() {
       <Card>
         <div className="p-4 border-b border-slate-200 flex items-center justify-between">
           <h2 className="font-semibold text-slate-900">Top Sites by Traffic</h2>
-          <Link
-            href="/sites"
-            className="text-sm text-sky-600 hover:text-sky-700"
-          >
+          <Link href="/sites" className="text-sm text-sky-600 hover:text-sky-700">
             View all sites
           </Link>
         </div>
@@ -307,19 +291,12 @@ export default function AnalyticsOverviewPage() {
             <div className="space-y-2">
               {unconfiguredSites.slice(0, 5).map((site) => (
                 <div key={site.id} className="flex items-center justify-between text-sm">
-                  <Link
-                    href={`/sites/${site.id}`}
-                    className="text-amber-900 hover:text-amber-700"
-                  >
+                  <Link href={`/sites/${site.id}`} className="text-amber-900 hover:text-amber-700">
                     {site.name}
                   </Link>
                   <div className="flex items-center gap-2">
-                    {site.missingGA4 && (
-                      <span className="text-xs text-amber-700">Missing GA4</span>
-                    )}
-                    {site.missingGSC && (
-                      <span className="text-xs text-amber-700">Missing GSC</span>
-                    )}
+                    {site.missingGA4 && <span className="text-xs text-amber-700">Missing GA4</span>}
+                    {site.missingGSC && <span className="text-xs text-amber-700">Missing GSC</span>}
                   </div>
                 </div>
               ))}

@@ -55,8 +55,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [expandedGroup, setExpandedGroup] = useState<string | null>(
-    pathname?.startsWith('/analytics') ? '/analytics' :
-    pathname?.startsWith('/operations') ? '/operations' : null
+    pathname?.startsWith('/analytics')
+      ? '/analytics'
+      : pathname?.startsWith('/operations')
+        ? '/operations'
+        : null
   );
 
   const isActive = (href: string) =>

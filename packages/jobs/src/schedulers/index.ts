@@ -391,8 +391,8 @@ async function runContentGeneration(schedule: ContentSchedule): Promise<void> {
       const sitePostsQueued = sites.filter((r) => r.postQueued).length;
       console.log(
         `[Scheduler] ${schedule.description} complete: ` +
-        `${sitePostsQueued} site posts + ${microsites.postsQueued} microsite posts queued ` +
-        `(${microsites.processedCount}/${microsites.totalMicrosites} microsites processed)`
+          `${sitePostsQueued} site posts + ${microsites.postsQueued} microsite posts queued ` +
+          `(${microsites.processedCount}/${microsites.totalMicrosites} microsites processed)`
       );
     } else {
       // Use new daily content generator

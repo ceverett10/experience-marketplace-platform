@@ -135,7 +135,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           ctr,
           position,
           clicksChange: prevClicks > 0 ? Math.round(((clicks - prevClicks) / prevClicks) * 100) : 0,
-          impressionsChange: prevImpressions > 0 ? Math.round(((impressions - prevImpressions) / prevImpressions) * 100) : 0,
+          impressionsChange:
+            prevImpressions > 0
+              ? Math.round(((impressions - prevImpressions) / prevImpressions) * 100)
+              : 0,
         },
         topQueries: queries.map((q) => ({
           query: q.query,
@@ -163,9 +166,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           bVal = b.metrics.position || 999;
           return sortOrder === 'asc' ? aVal - bVal : bVal - aVal;
         case 'name':
-          return sortOrder === 'asc'
-            ? a.name.localeCompare(b.name)
-            : b.name.localeCompare(a.name);
+          return sortOrder === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name);
         case 'impressions':
         default:
           aVal = a.metrics.impressions;
@@ -190,8 +191,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       avgCTR: totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0,
       avgPosition: positionCount > 0 ? positionSum / positionCount : 0,
       trends: {
-        clicksChange: prevTotalClicks > 0 ? Math.round(((totalClicks - prevTotalClicks) / prevTotalClicks) * 100) : 0,
-        impressionsChange: prevTotalImpressions > 0 ? Math.round(((totalImpressions - prevTotalImpressions) / prevTotalImpressions) * 100) : 0,
+        clicksChange:
+          prevTotalClicks > 0
+            ? Math.round(((totalClicks - prevTotalClicks) / prevTotalClicks) * 100)
+            : 0,
+        impressionsChange:
+          prevTotalImpressions > 0
+            ? Math.round(((totalImpressions - prevTotalImpressions) / prevTotalImpressions) * 100)
+            : 0,
       },
     };
 

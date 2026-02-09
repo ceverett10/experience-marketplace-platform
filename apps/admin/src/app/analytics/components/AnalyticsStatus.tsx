@@ -24,12 +24,18 @@ export function AnalyticsStatus({ ga4, gsc, size = 'sm' }: AnalyticsStatusProps)
       {ga4 ? (
         <span className={`${sizeClasses} rounded bg-sky-100 text-sky-800 font-medium`}>GA4</span>
       ) : (
-        <span className={`${sizeClasses} rounded bg-slate-100 text-slate-500 font-medium`}>No GA4</span>
+        <span className={`${sizeClasses} rounded bg-slate-100 text-slate-500 font-medium`}>
+          No GA4
+        </span>
       )}
       {gsc ? (
-        <span className={`${sizeClasses} rounded bg-purple-100 text-purple-800 font-medium`}>GSC</span>
+        <span className={`${sizeClasses} rounded bg-purple-100 text-purple-800 font-medium`}>
+          GSC
+        </span>
       ) : (
-        <span className={`${sizeClasses} rounded bg-slate-100 text-slate-500 font-medium`}>No GSC</span>
+        <span className={`${sizeClasses} rounded bg-slate-100 text-slate-500 font-medium`}>
+          No GSC
+        </span>
       )}
     </div>
   );

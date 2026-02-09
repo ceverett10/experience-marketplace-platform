@@ -37,8 +37,8 @@ async function main() {
   }
 
   // Show breakdown
-  const failed = stuckJobs.filter(j => j.status === 'FAILED').length;
-  const retrying = stuckJobs.filter(j => j.status === 'RETRYING').length;
+  const failed = stuckJobs.filter((j) => j.status === 'FAILED').length;
+  const retrying = stuckJobs.filter((j) => j.status === 'RETRYING').length;
   console.log(`  FAILED: ${failed}`);
   console.log(`  RETRYING: ${retrying}\n`);
 

@@ -135,14 +135,18 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     // Calculate summary
     const summary = {
       totalBlockers: highBounce.length + highExit.length,
-      criticalCount: highBounce.filter((b) => b.severity === 'critical').length +
-                     highExit.filter((b) => b.severity === 'critical').length,
-      warningCount: highBounce.filter((b) => b.severity === 'warning').length +
-                    highExit.filter((b) => b.severity === 'warning').length,
-      topAffectedSites: [...new Set([
-        ...highBounce.slice(0, 5).map((b) => b.siteName),
-        ...highExit.slice(0, 5).map((b) => b.siteName),
-      ])].slice(0, 5),
+      criticalCount:
+        highBounce.filter((b) => b.severity === 'critical').length +
+        highExit.filter((b) => b.severity === 'critical').length,
+      warningCount:
+        highBounce.filter((b) => b.severity === 'warning').length +
+        highExit.filter((b) => b.severity === 'warning').length,
+      topAffectedSites: [
+        ...new Set([
+          ...highBounce.slice(0, 5).map((b) => b.siteName),
+          ...highExit.slice(0, 5).map((b) => b.siteName),
+        ]),
+      ].slice(0, 5),
     };
 
     return NextResponse.json({

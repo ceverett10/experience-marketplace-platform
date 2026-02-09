@@ -147,7 +147,9 @@ export function CatalogHomepage({
             {/* Stats */}
             <div className="mt-6 flex justify-center gap-8 text-white/80">
               <div>
-                <span className="text-2xl font-bold text-white">{displayCount.toLocaleString()}</span>
+                <span className="text-2xl font-bold text-white">
+                  {displayCount.toLocaleString()}
+                </span>
                 <span className="ml-2">Experiences</span>
               </div>
               {experiences.some((e) => e.rating) && (
@@ -167,19 +169,34 @@ export function CatalogHomepage({
             <div className="mt-6 flex flex-wrap justify-center gap-4 text-xs text-white/90 sm:gap-6 sm:text-sm">
               <div className="flex items-center gap-1.5">
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
                 </svg>
                 <span>Verified Operator</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
                 </svg>
                 <span>Instant Confirmation</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"
+                  />
                 </svg>
                 <span>Secure Booking</span>
               </div>
@@ -239,7 +256,12 @@ export function CatalogHomepage({
               >
                 View All {displayCount.toLocaleString()} Experiences
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M17 8l4 4m0 0l-4 4m4-4H3"
+                  />
                 </svg>
               </Link>
             </div>
@@ -254,9 +276,7 @@ export function CatalogHomepage({
             <h2 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
               About {site.name}
             </h2>
-            {site.description && (
-              <p className="mt-4 text-lg text-gray-600">{site.description}</p>
-            )}
+            {site.description && <p className="mt-4 text-lg text-gray-600">{site.description}</p>}
             <div className="mt-8 flex justify-center gap-8">
               <div className="text-center">
                 <div
@@ -331,11 +351,7 @@ export function CatalogHomepage({
 
       {/* Latest Blog Posts */}
       {blogPosts && blogPosts.length > 0 && (
-        <HomepageBlogSection
-          posts={blogPosts}
-          primaryColor={primaryColor}
-          siteName={site.name}
-        />
+        <HomepageBlogSection posts={blogPosts} primaryColor={primaryColor} siteName={site.name} />
       )}
 
       {/* Testimonials */}

@@ -32,7 +32,11 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   // For microsites, query by micrositeId; for regular sites, query by siteId
   const isMicrosite = !!site.micrositeContext?.micrositeId;
   const whereClause = isMicrosite
-    ? { micrositeId: site.micrositeContext!.micrositeId, type: 'BLOG' as const, status: 'PUBLISHED' as const }
+    ? {
+        micrositeId: site.micrositeContext!.micrositeId,
+        type: 'BLOG' as const,
+        status: 'PUBLISHED' as const,
+      }
     : { siteId: site.id, type: 'BLOG' as const, status: 'PUBLISHED' as const };
 
   // Get total post count to determine if there are more pages
@@ -77,11 +81,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
  * Fetch blog posts with pagination
  * For microsites, query by micrositeId; for regular sites, query by siteId
  */
-async function getBlogPosts(
-  siteId: string,
-  page: number = 1,
-  micrositeId?: string
-) {
+async function getBlogPosts(siteId: string, page: number = 1, micrositeId?: string) {
   const skip = (page - 1) * POSTS_PER_PAGE;
 
   // For microsites, query by micrositeId; for regular sites, query by siteId

@@ -289,7 +289,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       micrositesWithGsc: microsites.filter((m) => m.gscLastSyncedAt).length,
       totalClicks: micrositeTotalClicks,
       totalImpressions: micrositeTotalImpressions,
-      avgCTR: micrositeTotalImpressions > 0 ? (micrositeTotalClicks / micrositeTotalImpressions) * 100 : 0,
+      avgCTR:
+        micrositeTotalImpressions > 0
+          ? (micrositeTotalClicks / micrositeTotalImpressions) * 100
+          : 0,
       avgPosition: micrositePositionCount > 0 ? micrositePositionSum / micrositePositionCount : 0,
       clicksChange: calcChange(micrositeTotalClicks, micrositePrevClicks),
       impressionsChange: calcChange(micrositeTotalImpressions, micrositePrevImpressions),
