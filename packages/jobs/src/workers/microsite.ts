@@ -15,7 +15,7 @@ import {
   generateSeoTitleConfig,
 } from '../services/brand-identity.js';
 import { generateAndStoreFavicon } from '../services/favicon-generator.js';
-import { generateLogo, isLogoGenerationAvailable } from '../services/logo-generator.js';
+import { generateSvgLogos, isSvgLogoGenerationAvailable } from '../services/svg-logo-generator.js';
 import { getGSCClient, isGSCConfigured } from '../services/gsc-client.js';
 
 /**
@@ -301,24 +301,25 @@ export async function handleMicrositeCreate(job: Job<MicrositeCreatePayload>): P
       console.warn('[Microsite Create] Favicon generation failed (non-critical):', faviconError);
     }
 
-    // Generate logo if available (non-critical)
-    if (isLogoGenerationAvailable()) {
+    // Generate SVG-based logo (no DALL-E needed, much more consistent)
+    if (isSvgLogoGenerationAvailable()) {
       try {
-        console.log('[Microsite Create] Generating logo...');
-        const logoResult = await generateLogo({
+        console.log('[Microsite Create] Generating SVG logo...');
+        const logoResult = await generateSvgLogos({
           brandName: brandIdentity.name,
           niche: categories[0] || 'experiences',
           primaryColor: brandIdentity.primaryColor,
           secondaryColor: brandIdentity.secondaryColor,
-          logoDescription: brandIdentity.logoDescription,
-          location: cities[0] || undefined,
         });
 
         await prisma.brand.update({
           where: { id: brand.id },
-          data: { logoUrl: logoResult.logoUrl },
+          data: {
+            logoUrl: logoResult.logoUrl,
+            logoDarkUrl: logoResult.logoDarkUrl,
+          },
         });
-        console.log(`[Microsite Create] Logo generated: ${logoResult.logoUrl}`);
+        console.log(`[Microsite Create] SVG logos generated: ${logoResult.logoUrl}`);
       } catch (logoError) {
         console.warn('[Microsite Create] Logo generation failed (non-critical):', logoError);
       }
