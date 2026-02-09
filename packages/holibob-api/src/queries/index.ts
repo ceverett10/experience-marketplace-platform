@@ -737,18 +737,23 @@ export const PROVIDER_DETAIL_QUERY = gql`
 // ============================================================================
 
 /**
- * Get products filtered by provider ID
+ * Get products filtered by provider ID with pagination
  * This is the correct endpoint for microsites - NOT Product Discovery
  * Product Discovery is for marketplace search (location/date/activity based)
  * Product List is for getting all products for a specific provider
  *
  * NOTE: Holibob API uses String type for providerId, not ID type
  * NOTE: place field in productList uses different schema than productDetail
+ * NOTE: Default limit is 20 if `first` not specified - pass first: 10000 to get all
  */
 export const PRODUCT_LIST_BY_PROVIDER_QUERY = gql`
-  query ProductListByProvider($providerId: String!) {
-    productList(filter: { providerId: $providerId }) {
+  query ProductListByProvider($providerId: String!, $first: Int, $after: String) {
+    productList(filter: { providerId: $providerId }, first: $first, after: $after) {
       recordCount
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
       nodes {
         id
         name
