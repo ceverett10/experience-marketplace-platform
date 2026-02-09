@@ -125,7 +125,7 @@ async function getExperiences(
   const page = parseInt(searchParams.page ?? '1', 10);
   const offset = (page - 1) * ITEMS_PER_PAGE;
 
-  // For microsites (operator-specific), fetch from local database
+  // For microsites (operator-specific), fetch from Holibob API or local database
   if (site.micrositeContext?.supplierId) {
     // Parse filter params
     const filters: LocalDBFilters = {
@@ -137,7 +137,22 @@ async function getExperiences(
       cities: searchParams.cities?.split(',').filter(Boolean),
     };
 
-    return getExperiencesFromLocalDB(site.micrositeContext.supplierId, { offset, filters });
+    // First try local database
+    const localResult = await getExperiencesFromLocalDB(site.micrositeContext.supplierId, { offset, filters });
+
+    // If we have local products, use them
+    if (localResult.totalCount > 0) {
+      return localResult;
+    }
+
+    // Fallback to Holibob API when no local products exist
+    // This is common for suppliers whose products haven't been synced yet
+    if (site.micrositeContext.holibobSupplierId) {
+      console.log(`[Experiences] No local products for supplier ${site.micrositeContext.supplierId}, using Holibob API`);
+      return getExperiencesFromHolibobAPI(site, site.micrositeContext.holibobSupplierId, { page, filters });
+    }
+
+    return localResult;
   }
 
   // For main site, use Holibob Product Discovery API
@@ -396,6 +411,177 @@ async function getExperiencesFromLocalDB(
 }
 
 /**
+ * Fetch experiences from Holibob API for microsites
+ * Used when local products haven't been synced yet
+ */
+async function getExperiencesFromHolibobAPI(
+  site: SiteConfig,
+  holibobSupplierId: string,
+  options: { page: number; filters?: LocalDBFilters }
+): Promise<{
+  experiences: ExperienceListItem[];
+  totalCount: number;
+  filteredCount: number;
+  hasMore: boolean;
+  isUsingMockData: boolean;
+  apiError?: string;
+}> {
+  try {
+    const client = getHolibobClient(site);
+    const response = await client.getProductsByProvider(holibobSupplierId);
+
+    // Map Holibob products to ExperienceListItem format
+    let experiences: ExperienceListItem[] = response.nodes.map((product) => {
+      const primaryImage =
+        product.imageList?.[0]?.url ?? '/placeholder-experience.jpg';
+
+      // ProductList API returns guidePrice in MAJOR units (e.g., 71 EUR, not cents)
+      const priceAmount = product.guidePrice ?? 0;
+      const priceCurrency = product.guidePriceCurrency ?? 'GBP';
+      const priceFormatted =
+        product.guidePriceFormattedText ??
+        new Intl.NumberFormat('en-GB', { style: 'currency', currency: priceCurrency }).format(priceAmount);
+
+      // Parse ISO 8601 duration
+      let durationFormatted = 'Duration varies';
+      if (product.maxDuration != null) {
+        const minutes = parseIsoDuration(product.maxDuration);
+        if (minutes > 0) {
+          durationFormatted = formatDuration(minutes, 'minutes');
+        }
+      }
+
+      // Get location from category (ProductList doesn't return place directly)
+      const locationName = product.categoryList?.nodes?.[0]?.name ?? '';
+
+      return {
+        id: product.id,
+        title: product.name ?? 'Experience',
+        slug: product.id,
+        shortDescription: product.description?.slice(0, 200) ?? '',
+        imageUrl: primaryImage,
+        price: {
+          amount: priceAmount,
+          currency: priceCurrency,
+          formatted: priceFormatted,
+        },
+        duration: {
+          formatted: durationFormatted,
+        },
+        rating: product.reviewRating
+          ? {
+              average: product.reviewRating,
+              count: product.reviewCount ?? 0,
+            }
+          : null,
+        location: {
+          name: locationName,
+        },
+      };
+    });
+
+    const totalCount = experiences.length;
+
+    // Apply client-side filtering (Holibob ProductList doesn't support filters)
+    if (options.filters) {
+      experiences = applyClientSideFilters(experiences, options.filters);
+    }
+
+    const filteredCount = experiences.length;
+
+    // Sort by rating (highest first)
+    experiences.sort((a, b) => {
+      const ratingA = a.rating?.average ?? 0;
+      const ratingB = b.rating?.average ?? 0;
+      return ratingB - ratingA;
+    });
+
+    // Apply pagination
+    const startIndex = (options.page - 1) * ITEMS_PER_PAGE;
+    const paginatedExperiences = experiences.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
+    return {
+      experiences: paginatedExperiences,
+      totalCount,
+      filteredCount,
+      hasMore: startIndex + ITEMS_PER_PAGE < filteredCount,
+      isUsingMockData: false,
+    };
+  } catch (error) {
+    console.error('Error fetching experiences from Holibob API:', error);
+    return {
+      experiences: [],
+      totalCount: 0,
+      filteredCount: 0,
+      hasMore: false,
+      isUsingMockData: false,
+      apiError: error instanceof Error ? error.message : 'API error',
+    };
+  }
+}
+
+/**
+ * Apply client-side filtering to experiences
+ * Used when the API doesn't support server-side filtering
+ */
+function applyClientSideFilters(
+  experiences: ExperienceListItem[],
+  filters: LocalDBFilters
+): ExperienceListItem[] {
+  return experiences.filter((exp) => {
+    // Price filter
+    if (filters.priceMin != null && exp.price.amount < filters.priceMin) {
+      return false;
+    }
+    if (filters.priceMax != null && exp.price.amount > filters.priceMax) {
+      return false;
+    }
+
+    // Rating filter
+    if (filters.minRating != null) {
+      const rating = exp.rating?.average ?? 0;
+      if (rating < filters.minRating) {
+        return false;
+      }
+    }
+
+    // Duration filter (basic string matching)
+    if (filters.duration) {
+      const duration = exp.duration.formatted.toLowerCase();
+      switch (filters.duration) {
+        case 'short':
+          if (!duration.includes('hour') && !duration.includes('min')) return false;
+          if (duration.includes('hours')) return false; // More than 1 hour
+          break;
+        case 'half-day':
+          if (!duration.includes('hours')) return false;
+          break;
+        case 'full-day':
+          if (!duration.includes('day')) return false;
+          break;
+        case 'multi-day':
+          if (!duration.includes('days')) return false;
+          break;
+      }
+    }
+
+    // Location/city filter
+    if (filters.cities && filters.cities.length > 0) {
+      const location = exp.location.name.toLowerCase();
+      const matchesCity = filters.cities.some((city) =>
+        location.includes(city.toLowerCase())
+      );
+      if (!matchesCity) return false;
+    }
+
+    // Category filter would require category data on experiences
+    // Not currently available from ProductList API response
+
+    return true;
+  });
+}
+
+/**
  * Parse duration filter string into Prisma query
  */
 function parseDurationFilter(duration: string): Record<string, unknown> | null {
@@ -518,6 +704,131 @@ async function getFilterOptions(supplierId: string): Promise<FilterOptions> {
   };
 }
 
+/**
+ * Get filter options from Holibob API
+ * Used when local products haven't been synced yet
+ */
+async function getFilterOptionsFromAPI(
+  site: SiteConfig,
+  holibobSupplierId: string
+): Promise<FilterOptions> {
+  try {
+    const client = getHolibobClient(site);
+    const response = await client.getProductsByProvider(holibobSupplierId);
+
+    // Extract filter options from API products
+    const categoryMap = new Map<string, number>();
+    const cityMap = new Map<string, number>();
+    const prices: number[] = [];
+    const durations: { label: string; value: string; count: number }[] = [];
+    const durationCounts = { short: 0, halfDay: 0, fullDay: 0 };
+    const ratingCounts = { excellent: 0, veryGood: 0, good: 0 };
+
+    for (const product of response.nodes) {
+      // Categories
+      if (product.categoryList?.nodes) {
+        for (const cat of product.categoryList.nodes) {
+          categoryMap.set(cat.name, (categoryMap.get(cat.name) ?? 0) + 1);
+        }
+      }
+
+      // Prices
+      if (product.guidePrice != null && product.guidePrice > 0) {
+        prices.push(product.guidePrice);
+      }
+
+      // Durations
+      if (product.maxDuration != null) {
+        const minutes = parseIsoDuration(product.maxDuration);
+        if (minutes > 0) {
+          if (minutes < 120) durationCounts.short++;
+          else if (minutes < 480) durationCounts.halfDay++;
+          else durationCounts.fullDay++;
+        }
+      }
+
+      // Ratings
+      if (product.reviewRating != null) {
+        if (product.reviewRating >= 4.5) ratingCounts.excellent++;
+        if (product.reviewRating >= 4.0) ratingCounts.veryGood++;
+        if (product.reviewRating >= 3.5) ratingCounts.good++;
+      }
+
+      // Cities from first category (best we can do with ProductList)
+      // ProductList doesn't return place directly
+    }
+
+    const categories = Array.from(categoryMap.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    const cities = Array.from(cityMap.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
+
+    // Build price ranges
+    const priceRanges: FilterOptions['priceRanges'] = [];
+    if (prices.length > 0) {
+      const ranges = [
+        { label: 'Under £50', min: 0, max: 50 },
+        { label: '£50 - £100', min: 50, max: 100 },
+        { label: '£100 - £200', min: 100, max: 200 },
+        { label: '£200+', min: 200, max: null },
+      ];
+
+      for (const range of ranges) {
+        const count = prices.filter(
+          (p) => p >= range.min && (range.max === null || p < range.max)
+        ).length;
+        if (count > 0) {
+          priceRanges.push({ ...range, count });
+        }
+      }
+    }
+
+    // Build duration options
+    if (durationCounts.short > 0) {
+      durations.push({ label: 'Under 2 hours', value: 'short', count: durationCounts.short });
+    }
+    if (durationCounts.halfDay > 0) {
+      durations.push({ label: 'Half day (2-4h)', value: 'half-day', count: durationCounts.halfDay });
+    }
+    if (durationCounts.fullDay > 0) {
+      durations.push({ label: 'Full day', value: 'full-day', count: durationCounts.fullDay });
+    }
+
+    // Build rating options
+    const ratings: FilterOptions['ratings'] = [];
+    if (ratingCounts.excellent > 0) {
+      ratings.push({ label: '4.5+ Excellent', value: 4.5, count: ratingCounts.excellent });
+    }
+    if (ratingCounts.veryGood > 0) {
+      ratings.push({ label: '4.0+ Very Good', value: 4.0, count: ratingCounts.veryGood });
+    }
+    if (ratingCounts.good > 0) {
+      ratings.push({ label: '3.5+ Good', value: 3.5, count: ratingCounts.good });
+    }
+
+    return {
+      categories,
+      priceRanges,
+      durations,
+      ratings,
+      cities,
+    };
+  } catch (error) {
+    console.error('Error fetching filter options from API:', error);
+    return {
+      categories: [],
+      priceRanges: [],
+      durations: [],
+      ratings: [],
+      cities: [],
+    };
+  }
+}
+
 function formatPrice(amount: number, currency: string): string {
   return new Intl.NumberFormat('en-GB', {
     style: 'currency',
@@ -564,7 +875,15 @@ export default async function ExperiencesPage({ searchParams }: Props) {
     const layoutType = site.micrositeContext.layoutConfig?.resolvedType;
 
     if (layoutType === 'MARKETPLACE') {
-      const filterOptions = await getFilterOptions(site.micrositeContext.supplierId);
+      // Try local DB filter options first, fallback to API-based filter options
+      let filterOptions = await getFilterOptions(site.micrositeContext.supplierId);
+
+      // If no local products, fetch all from API to build filter options
+      if (filterOptions.categories.length === 0 && filterOptions.priceRanges.length === 0) {
+        if (site.micrositeContext.holibobSupplierId) {
+          filterOptions = await getFilterOptionsFromAPI(site, site.micrositeContext.holibobSupplierId);
+        }
+      }
 
       return (
         <MarketplaceExperiencesPage
