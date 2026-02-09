@@ -111,6 +111,10 @@ class QueueRegistry {
       'SEO_OPPORTUNITY_OPTIMIZE', // Cross-site optimization, no single siteId
       'SITE_CREATE', // Creates a new site — siteId doesn't exist yet
       'MICROSITE_CONTENT_GENERATE', // Microsites use micrositeId, not siteId
+      'MICROSITE_GSC_SYNC', // Syncs all microsites, no single siteId
+      'MICROSITE_ANALYTICS_SYNC', // Syncs all microsites, no single siteId
+      'GA4_DAILY_SYNC', // Syncs all sites, no single siteId
+      'REFRESH_ANALYTICS_VIEWS', // System-wide job, no siteId
     ];
     if (!siteId && rawSiteId !== 'all' && !siteOptionalTypes.includes(jobType)) {
       const hasDomainId = !!(payload as { domainId?: string }).domainId;
