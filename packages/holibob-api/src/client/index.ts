@@ -820,19 +820,13 @@ export class HolibobClient {
    * Product Discovery is for marketplace search (location/date/activity based).
    * Product List is for getting ALL products for a specific provider.
    *
-   * NOTE: Holibob API has a default limit of 20 products if `first` is not specified.
-   * Pass first: 10000 to get all products for a provider.
+   * NOTE: Holibob productList does NOT support pagination - it returns all products
    */
-  async getProductsByProvider(
-    providerId: string,
-    options?: { first?: number; after?: string }
-  ): Promise<ProductListByProviderResponse> {
+  async getProductsByProvider(providerId: string): Promise<ProductListByProviderResponse> {
     const response = await this.executeQuery<{
       productList: ProductListByProviderResponse;
     }>(PRODUCT_LIST_BY_PROVIDER_QUERY, {
       providerId,
-      first: options?.first ?? 10000, // Default to 10000 to get all products
-      after: options?.after,
     });
 
     return response.productList;
