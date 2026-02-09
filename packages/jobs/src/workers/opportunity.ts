@@ -303,7 +303,7 @@ export async function handleOpportunityScan(
 
     // Initialize Holibob client
     const holibobClient = createHolibobClient({
-      apiUrl: process.env['HOLIBOB_API_URL'] || 'https://api.sandbox.holibob.tech/graphql',
+      apiUrl: process.env['HOLIBOB_API_URL'] || 'https://api.production.holibob.tech/graphql',
       partnerId: process.env['HOLIBOB_PARTNER_ID'] || '',
       apiKey: process.env['HOLIBOB_API_KEY'] || '',
       apiSecret: process.env['HOLIBOB_API_SECRET'],
@@ -1572,7 +1572,7 @@ export async function handleOpportunityOptimize(
 
     // Initialize Holibob client
     const holibobClient = createHolibobClient({
-      apiUrl: process.env['HOLIBOB_API_URL'] || 'https://api.sandbox.holibob.tech/graphql',
+      apiUrl: process.env['HOLIBOB_API_URL'] || 'https://api.production.holibob.tech/graphql',
       partnerId: process.env['HOLIBOB_PARTNER_ID'] || '',
       apiKey: process.env['HOLIBOB_API_KEY'] || '',
       apiSecret: process.env['HOLIBOB_API_SECRET'],

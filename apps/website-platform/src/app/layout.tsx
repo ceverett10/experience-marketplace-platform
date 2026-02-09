@@ -88,8 +88,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <meta name="google-site-verification" content={site.gscVerificationCode} />
         )}
         {/* Preconnect to external APIs for faster resource loading */}
-        <link rel="preconnect" href="https://api.sandbox.holibob.tech" />
-        <link rel="dns-prefetch" href="https://api.sandbox.holibob.tech" />
+        <link rel="preconnect" href="https://api.production.holibob.tech" />
+        <link rel="dns-prefetch" href="https://api.production.holibob.tech" />
         {/* Preconnect to image CDNs for faster image loading */}
         <link rel="preconnect" href="https://images.holibob.tech" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://images.holibob.tech" />

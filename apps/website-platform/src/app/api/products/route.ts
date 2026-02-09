@@ -147,7 +147,7 @@ async function fetchFromHolibob(options: {
 
   // Create Holibob client with environment credentials
   const client = createHolibobClient({
-    apiUrl: process.env['HOLIBOB_API_URL'] ?? 'https://api.sandbox.holibob.tech/graphql',
+    apiUrl: process.env['HOLIBOB_API_URL'] ?? 'https://api.production.holibob.tech/graphql',
     apiKey: process.env['HOLIBOB_API_KEY'] ?? '',
     apiSecret: process.env['HOLIBOB_API_SECRET'],
     partnerId: process.env['HOLIBOB_PARTNER_ID'] ?? 'holibob',
