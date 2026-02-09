@@ -743,21 +743,20 @@ export const PROVIDER_DETAIL_QUERY = gql`
  * Product List is for getting all products for a specific provider
  *
  * NOTE: Holibob API uses String type for providerId, not ID type
- * NOTE: place field in productList uses different schema than productDetail
+ * NOTE: place field in productList uses ProductPlace schema (cityId only, no name)
  *
  * Pagination parameters (per Holibob docs):
  * - pageSize: Number of records per page (max 5000, default 20)
  * - page: Page number to retrieve (starts at 1)
  *
  * Response includes pagination info:
- * - totalRecords, unfilteredRecords, pages, nextPage, previousPage
+ * - recordCount, unfilteredRecordCount, pages, nextPage, previousPage
  */
 export const PRODUCT_LIST_BY_PROVIDER_QUERY = gql`
   query ProductListByProvider($providerId: String!, $pageSize: Int, $page: Int) {
     productList(filter: { providerId: $providerId }, pageSize: $pageSize, page: $page) {
       recordCount
-      totalRecords
-      unfilteredRecords
+      unfilteredRecordCount
       pages
       nextPage
       previousPage
@@ -787,7 +786,6 @@ export const PRODUCT_LIST_BY_PROVIDER_QUERY = gql`
         }
         place {
           cityId
-          name
         }
       }
     }
