@@ -45,10 +45,15 @@ const CATEGORY_SEARCH_TERMS: Record<string, string> = {
   'wellness-and-spa': 'spa wellness relaxation',
 };
 
+interface FeaturedExperiencesResult {
+  experiences: ExperienceListItem[];
+  totalCount: number;
+}
+
 async function getFeaturedExperiences(
   siteConfig: Awaited<ReturnType<typeof getSiteFromHostname>>,
   popularExperiencesConfig?: HomepageConfig['popularExperiences']
-): Promise<ExperienceListItem[]> {
+): Promise<FeaturedExperiencesResult> {
   // === MICROSITE HANDLING ===
   // For microsites, use Product List by Provider endpoint (NOT Product Discovery)
   // This is the CORRECT approach - Product Discovery is for marketplace search
@@ -118,7 +123,11 @@ async function getFeaturedExperiences(
         );
 
         if (supplierProducts.length > 0) {
-          return supplierProducts.slice(0, 20); // Return up to 20 products for catalog layout
+          // Return up to 20 products for homepage display, but pass actual total count
+          return {
+            experiences: supplierProducts.slice(0, 20),
+            totalCount: response.recordCount ?? supplierProducts.length,
+          };
         }
         // Fall through to cache if API returns no products
       } catch (error) {
@@ -136,7 +145,10 @@ async function getFeaturedExperiences(
         console.log(
           `[Homepage] Microsite fallback: Using ${localProducts.length} cached products`
         );
-        return localProducts.map(localProductToExperienceListItem);
+        return {
+          experiences: localProducts.map(localProductToExperienceListItem),
+          totalCount: localProducts.length, // Local cache doesn't have separate total
+        };
       }
     } catch (error) {
       console.error('[Homepage] Error fetching cached microsite products:', error);
@@ -188,7 +200,7 @@ async function getFeaturedExperiences(
     const response = await client.discoverProducts(filter, { pageSize: 8 });
 
     // Map to our experience format
-    return response.products.map((product) => {
+    const experiences = response.products.map((product) => {
       // Get primary image from imageList (Product Detail API format - direct array)
       const primaryImage =
         product.imageList?.[0]?.url ?? product.imageUrl ?? '/placeholder-experience.jpg';
@@ -248,10 +260,15 @@ async function getFeaturedExperiences(
         },
       };
     });
+
+    return {
+      experiences,
+      totalCount: response.totalCount ?? experiences.length,
+    };
   } catch (error) {
     console.error('Error fetching featured experiences:', error);
-    // Return empty array - no mock data
-    return [];
+    // Return empty result - no mock data
+    return { experiences: [], totalCount: 0 };
   }
 }
 
@@ -432,7 +449,7 @@ export default async function HomePage() {
     // ALL microsites (CATALOG, MARKETPLACE, or PRODUCT_SPOTLIGHT fallback) use CatalogHomepage
     // This ensures we use Product List by Provider and don't show irrelevant destinations/categories
     // getFeaturedExperiences() uses getProductsByProvider() for microsites
-    const experiences = await getFeaturedExperiences(site, site.homepageConfig?.popularExperiences);
+    const { experiences, totalCount } = await getFeaturedExperiences(site, site.homepageConfig?.popularExperiences);
 
     // Fetch related microsites for cross-linking (SEO benefit)
     // This finds other microsites that share cities or categories with this one
@@ -451,6 +468,7 @@ export default async function HomePage() {
         site={site}
         layoutConfig={layoutConfig}
         experiences={experiences}
+        totalExperienceCount={totalCount}
         heroConfig={site.homepageConfig?.hero}
         testimonials={site.homepageConfig?.testimonials}
         relatedMicrosites={relatedMicrosites}
@@ -506,7 +524,7 @@ export default async function HomePage() {
     return undefined;
   })();
 
-  const experiences = await getFeaturedExperiences(site, popularExperiencesConfig);
+  const { experiences } = await getFeaturedExperiences(site, popularExperiencesConfig);
 
   // Fetch latest blog posts
   const blogPosts = await getLatestBlogPosts(site.id);

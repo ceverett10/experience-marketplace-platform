@@ -25,6 +25,8 @@ interface CatalogHomepageProps {
   site: SiteConfig;
   layoutConfig: MicrositeLayoutConfig;
   experiences: ExperienceListItem[];
+  /** Total number of experiences available (may differ from experiences.length if homepage is capped) */
+  totalExperienceCount?: number;
   heroConfig?: HomepageConfig['hero'];
   testimonials?: HomepageConfig['testimonials'];
   relatedMicrosites?: RelatedMicrosite[];
@@ -34,12 +36,15 @@ export function CatalogHomepage({
   site,
   layoutConfig,
   experiences,
+  totalExperienceCount,
   heroConfig,
   testimonials,
   relatedMicrosites,
 }: CatalogHomepageProps) {
   const primaryColor = site.brand?.primaryColor ?? '#6366f1';
   const gridColumns = layoutConfig.gridColumns;
+  // Use actual total count if provided, otherwise fall back to displayed experiences length
+  const displayCount = totalExperienceCount ?? experiences.length;
 
   // Default testimonials if none provided
   const displayTestimonials = testimonials ?? [
@@ -104,7 +109,7 @@ export function CatalogHomepage({
             {/* Stats */}
             <div className="mt-6 flex justify-center gap-8 text-white/80">
               <div>
-                <span className="text-2xl font-bold text-white">{experiences.length}</span>
+                <span className="text-2xl font-bold text-white">{displayCount.toLocaleString()}</span>
                 <span className="ml-2">Experiences</span>
               </div>
               {experiences.some((e) => e.rating) && (
@@ -131,7 +136,9 @@ export function CatalogHomepage({
               Our Experiences
             </h2>
             <p className="mx-auto mt-2 max-w-2xl text-base text-gray-600">
-              Browse our complete collection of {experiences.length} unique experiences
+              {displayCount > experiences.length
+                ? `Showing ${experiences.length} of ${displayCount.toLocaleString()} experiences`
+                : `Browse our complete collection of ${displayCount.toLocaleString()} unique experiences`}
             </p>
           </div>
 
@@ -152,6 +159,22 @@ export function CatalogHomepage({
               />
             ))}
           </div>
+
+          {/* View All button when there are more experiences */}
+          {displayCount > experiences.length && (
+            <div className="mt-10 text-center">
+              <Link
+                href="/experiences"
+                className="inline-flex items-center gap-2 rounded-lg px-6 py-3 text-base font-semibold text-white transition-colors hover:opacity-90"
+                style={{ backgroundColor: primaryColor }}
+              >
+                View All {displayCount.toLocaleString()} Experiences
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                </svg>
+              </Link>
+            </div>
+          )}
         </div>
       </section>
 
