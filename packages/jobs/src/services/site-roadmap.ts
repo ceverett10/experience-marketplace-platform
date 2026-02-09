@@ -249,6 +249,10 @@ async function validateTaskArtifacts(
     SUPPLIER_SYNC_INCREMENTAL: { valid: true },
     PRODUCT_SYNC: { valid: true },
     PRODUCT_SYNC_INCREMENTAL: { valid: true },
+
+    // Analytics (not part of standard site roadmap)
+    GA4_DAILY_SYNC: { valid: true },
+    REFRESH_ANALYTICS_VIEWS: { valid: true },
   };
 }
 
@@ -413,6 +417,16 @@ export const TASK_DESCRIPTIONS: Record<JobType, { label: string; description: st
   PRODUCT_SYNC_INCREMENTAL: {
     label: 'Incremental Product Sync',
     description: 'Update changed products',
+  },
+
+  // Analytics (scheduled jobs)
+  GA4_DAILY_SYNC: {
+    label: 'Sync GA4 Data',
+    description: 'Import daily analytics from Google Analytics',
+  },
+  REFRESH_ANALYTICS_VIEWS: {
+    label: 'Refresh Analytics Views',
+    description: 'Update analytics dashboard views',
   },
 };
 
