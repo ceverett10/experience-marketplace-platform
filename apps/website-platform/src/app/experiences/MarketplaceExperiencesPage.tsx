@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { PremiumExperienceCard } from '@/components/experiences/PremiumExperienceCard';
 import {
   FilterSidebar,
@@ -33,6 +34,7 @@ interface Experience {
   location: {
     name: string;
   };
+  categories?: string[];
   cancellationPolicy?: {
     type?: string;
   };
@@ -48,31 +50,137 @@ interface MarketplaceExperiencesPageProps {
   filterOptions: FilterOptions;
   apiError?: string;
   hostname: string;
+  holibobSupplierId?: string;
 }
 
 export function MarketplaceExperiencesPage({
   site,
-  experiences,
-  totalCount,
-  filteredCount,
-  hasMore,
-  searchParams,
+  experiences: initialExperiences,
+  totalCount: initialTotalCount,
+  filteredCount: initialFilteredCount,
+  hasMore: initialHasMore,
+  searchParams: initialSearchParams,
   filterOptions,
   apiError,
   hostname,
+  holibobSupplierId,
 }: MarketplaceExperiencesPageProps) {
+  const searchParams = useSearchParams();
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const primaryColor = site.brand?.primaryColor ?? '#6366f1';
 
+  // Client-side state for experiences accumulation
+  const [experiences, setExperiences] = useState<Experience[]>(initialExperiences);
+  const [page, setPage] = useState(parseInt(initialSearchParams['page'] ?? '1', 10));
+  const [hasMore, setHasMore] = useState(initialHasMore);
+  const [isLoading, setIsLoading] = useState(false);
+  const [totalCount, setTotalCount] = useState(initialTotalCount);
+  const [filteredCount, setFilteredCount] = useState(initialFilteredCount);
+
+  // Track if this is the initial render or a filter change
+  const [isInitialRender, setIsInitialRender] = useState(true);
+
+  // Get current filter values from URL
+  const currentFilters = {
+    categories: searchParams.get('categories') ?? '',
+    priceMin: searchParams.get('priceMin') ?? '',
+    priceMax: searchParams.get('priceMax') ?? '',
+    duration: searchParams.get('duration') ?? '',
+    minRating: searchParams.get('minRating') ?? '',
+    cities: searchParams.get('cities') ?? '',
+  };
+
   // Count active filters
-  const activeFilterCount = [
-    searchParams['categories'],
-    searchParams['priceMin'],
-    searchParams['priceMax'],
-    searchParams['duration'],
-    searchParams['minRating'],
-    searchParams['cities'],
-  ].filter(Boolean).length;
+  const activeFilterCount = Object.values(currentFilters).filter(Boolean).length;
+
+  // Build filter key for detecting changes
+  const filterKey = JSON.stringify(currentFilters);
+
+  // Reset experiences when filters change (detected by URL params changing)
+  useEffect(() => {
+    if (isInitialRender) {
+      setIsInitialRender(false);
+      return;
+    }
+
+    // Filters changed - reset and fetch first page with new filters
+    const fetchFilteredExperiences = async () => {
+      if (!holibobSupplierId) return;
+
+      setIsLoading(true);
+      setExperiences([]);
+      setPage(1);
+
+      try {
+        const params = new URLSearchParams();
+        params.set('holibobSupplierId', holibobSupplierId);
+        params.set('page', '1');
+        params.set('pageSize', '20');
+
+        // Add filter params
+        if (currentFilters.categories) {
+          params.set('categories', currentFilters.categories);
+        }
+        // Note: search, city filters would go here when supported by UI
+
+        const res = await fetch(`/api/microsite-experiences?${params.toString()}`);
+        const data = await res.json();
+
+        if (data.experiences) {
+          setExperiences(data.experiences);
+          setTotalCount(data.totalCount);
+          setFilteredCount(data.filteredCount);
+          setHasMore(data.hasMore);
+          setPage(1);
+        }
+      } catch (error) {
+        console.error('Error fetching filtered experiences:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchFilteredExperiences();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterKey]);
+
+  // Load more experiences (append to list)
+  const loadMore = useCallback(async () => {
+    if (!holibobSupplierId || isLoading || !hasMore) return;
+
+    setIsLoading(true);
+    const nextPage = page + 1;
+
+    try {
+      const params = new URLSearchParams();
+      params.set('holibobSupplierId', holibobSupplierId);
+      params.set('page', String(nextPage));
+      params.set('pageSize', '20');
+
+      // Preserve current filters
+      if (currentFilters.categories) {
+        params.set('categories', currentFilters.categories);
+      }
+
+      const res = await fetch(`/api/microsite-experiences?${params.toString()}`);
+      const data = await res.json();
+
+      if (data.experiences && data.experiences.length > 0) {
+        // APPEND to existing experiences (not replace!)
+        setExperiences((prev) => [...prev, ...data.experiences]);
+        setPage(nextPage);
+        setHasMore(data.hasMore);
+        setTotalCount(data.totalCount);
+        setFilteredCount(data.filteredCount);
+      } else {
+        setHasMore(false);
+      }
+    } catch (error) {
+      console.error('Error loading more experiences:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [holibobSupplierId, isLoading, hasMore, page, currentFilters.categories]);
 
   const pageTitle = 'Our Experiences';
   const pageSubtitle = `Explore our curated collection of ${totalCount.toLocaleString()} tours and activities`;
@@ -174,7 +282,7 @@ export function MarketplaceExperiencesPage({
 
             {/* Experiences Grid */}
             <div className="flex-1">
-              {experiences.length === 0 ? (
+              {experiences.length === 0 && !isLoading ? (
                 <EmptyState primaryColor={primaryColor} />
               ) : (
                 <>
@@ -182,8 +290,8 @@ export function MarketplaceExperiencesPage({
                   <div className="mb-6 flex items-center justify-between">
                     <p className="text-sm text-gray-600">
                       {filteredCount !== totalCount
-                        ? `Showing ${filteredCount.toLocaleString()} of ${totalCount.toLocaleString()} experiences`
-                        : `${totalCount.toLocaleString()} experiences`}
+                        ? `Showing ${experiences.length.toLocaleString()} of ${filteredCount.toLocaleString()} filtered (${totalCount.toLocaleString()} total)`
+                        : `Showing ${experiences.length.toLocaleString()} of ${totalCount.toLocaleString()} experiences`}
                     </p>
                     {/* Sort dropdown could go here */}
                   </div>
@@ -200,14 +308,20 @@ export function MarketplaceExperiencesPage({
                     ))}
                   </div>
 
-                  {/* Pagination / Load More */}
-                  {hasMore && <LoadMoreSection searchParams={searchParams} primaryColor={primaryColor} />}
+                  {/* Load More Button */}
+                  {hasMore && (
+                    <LoadMoreButton
+                      isLoading={isLoading}
+                      onClick={loadMore}
+                      primaryColor={primaryColor}
+                    />
+                  )}
 
                   {/* End of results */}
-                  {!hasMore && experiences.length > 0 && (
+                  {!hasMore && experiences.length > 0 && !isLoading && (
                     <div className="mt-12 text-center">
                       <p className="text-gray-500">
-                        You&apos;ve seen all {filteredCount.toLocaleString()} experiences
+                        You&apos;ve seen all {experiences.length.toLocaleString()} experiences
                       </p>
                     </div>
                   )}
@@ -264,42 +378,60 @@ function EmptyState({ primaryColor }: { primaryColor: string }) {
   );
 }
 
-function LoadMoreSection({
-  searchParams,
+function LoadMoreButton({
+  isLoading,
+  onClick,
   primaryColor,
 }: {
-  searchParams: Record<string, string | undefined>;
+  isLoading: boolean;
+  onClick: () => void;
   primaryColor: string;
 }) {
-  const currentPage = parseInt(searchParams['page'] ?? '1', 10);
-  const nextPage = currentPage + 1;
-
-  // Build next page URL preserving current filters
-  const nextPageParams = new URLSearchParams();
-  Object.entries(searchParams).forEach(([key, value]) => {
-    if (value && key !== 'page') {
-      nextPageParams.set(key, value);
-    }
-  });
-  nextPageParams.set('page', String(nextPage));
-
   return (
     <div className="mt-12 flex justify-center">
-      <a
-        href={`?${nextPageParams.toString()}`}
-        className="group flex items-center gap-3 rounded-full px-8 py-4 text-base font-semibold text-white shadow-lg transition-all hover:scale-105 hover:shadow-xl"
+      <button
+        onClick={onClick}
+        disabled={isLoading}
+        className="group flex items-center gap-3 rounded-full px-8 py-4 text-base font-semibold text-white shadow-lg transition-all hover:scale-105 hover:shadow-xl disabled:opacity-70 disabled:hover:scale-100"
         style={{ backgroundColor: primaryColor }}
       >
-        <span>Load More Experiences</span>
-        <svg
-          className="h-5 w-5 transition-transform group-hover:translate-y-1"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
-      </a>
+        {isLoading ? (
+          <>
+            <svg
+              className="h-5 w-5 animate-spin"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              />
+            </svg>
+            <span>Loading...</span>
+          </>
+        ) : (
+          <>
+            <span>Load More Experiences</span>
+            <svg
+              className="h-5 w-5 transition-transform group-hover:translate-y-1"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </>
+        )}
+      </button>
     </div>
   );
 }

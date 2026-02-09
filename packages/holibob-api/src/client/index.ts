@@ -52,6 +52,18 @@ import {
   PROVIDER_TREE_QUERY,
 } from '../queries/index.js';
 
+/**
+ * Filter options for product list queries
+ */
+export interface ProductListFilters {
+  /** Filter by category IDs */
+  categoryIds?: string[];
+  /** Text search across name, description, keywords */
+  search?: string;
+  /** Filter by city/country name */
+  placeName?: string;
+}
+
 export class HolibobClient {
   private client: GraphQLClient;
   private config: HolibobClientConfig;
@@ -814,7 +826,7 @@ export class HolibobClient {
   // ==========================================================================
 
   /**
-   * Get products filtered by provider ID with pagination
+   * Get products filtered by provider ID with pagination and optional filters
    *
    * This is the CORRECT endpoint for microsites - NOT Product Discovery.
    * Product Discovery is for marketplace search (location/date/activity based).
@@ -823,10 +835,19 @@ export class HolibobClient {
    * Pagination parameters (per Holibob docs):
    * - pageSize: Number of records per page (max 5000, default 20)
    * - page: Page number to retrieve (starts at 1)
+   *
+   * Filter parameters (per Holibob docs):
+   * - categoryIds: Filter by category IDs
+   * - search: Text search across name, description, keywords
+   * - placeName: Filter by city/country name
    */
   async getProductsByProvider(
     providerId: string,
-    options?: { pageSize?: number; page?: number }
+    options?: {
+      pageSize?: number;
+      page?: number;
+      filters?: ProductListFilters;
+    }
   ): Promise<ProductListByProviderResponse> {
     const response = await this.executeQuery<{
       productList: ProductListByProviderResponse;
@@ -834,6 +855,10 @@ export class HolibobClient {
       providerId,
       pageSize: options?.pageSize ?? 5000, // Default to max to get all products
       page: options?.page ?? 1,
+      // Pass filter variables - undefined values are omitted by GraphQL
+      categoryIds: options?.filters?.categoryIds,
+      search: options?.filters?.search,
+      placeName: options?.filters?.placeName,
     });
 
     return response.productList;

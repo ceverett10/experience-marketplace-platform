@@ -951,6 +951,7 @@ export default async function ExperiencesPage({ searchParams }: Props) {
           filterOptions={filterOptions}
           apiError={apiError}
           hostname={hostname}
+          holibobSupplierId={site.micrositeContext.holibobSupplierId ?? undefined}
         />
       );
     }
