@@ -141,7 +141,6 @@ export function MarketplaceExperiencesPage({
     };
 
     fetchFilteredExperiences();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterKey]);
 
   // Load more experiences (append to list)
