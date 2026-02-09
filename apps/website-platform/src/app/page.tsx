@@ -325,6 +325,48 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 /**
+ * Fetch curated collections for homepage
+ */
+async function getHomepageCollections(micrositeId: string) {
+  try {
+    const currentMonth = new Date().getMonth() + 1; // 1-12
+
+    return await prisma.curatedCollection.findMany({
+      where: {
+        micrositeId,
+        isActive: true,
+        OR: [
+          // Non-seasonal collections (empty seasonalMonths array)
+          { seasonalMonths: { isEmpty: true } },
+          // Seasonal collections matching current month
+          { seasonalMonths: { has: currentMonth } },
+        ],
+      },
+      include: {
+        products: {
+          orderBy: { sortOrder: 'asc' },
+          include: {
+            product: {
+              select: {
+                id: true,
+                primaryImageUrl: true,
+                title: true,
+              },
+            },
+          },
+          take: 4, // For preview images on homepage cards
+        },
+      },
+      orderBy: { sortOrder: 'asc' },
+      take: 4, // Show up to 4 collections on homepage
+    });
+  } catch (error) {
+    console.error('Error fetching homepage collections:', error);
+    return [];
+  }
+}
+
+/**
  * Fetch latest blog posts for homepage
  */
 async function getLatestBlogPosts(siteId: string, micrositeId?: string) {
@@ -467,8 +509,13 @@ export default async function HomePage() {
       );
     }
 
-    // Fetch blog posts for microsite
-    const micrositeBlogPosts = await getLatestBlogPosts(site.id, site.micrositeContext.micrositeId);
+    // Fetch blog posts and collections for microsite
+    const [micrositeBlogPosts, micrositeCollections] = await Promise.all([
+      getLatestBlogPosts(site.id, site.micrositeContext.micrositeId),
+      site.micrositeContext.micrositeId
+        ? getHomepageCollections(site.micrositeContext.micrositeId)
+        : Promise.resolve([]),
+    ]);
 
     return (
       <CatalogHomepage
@@ -480,6 +527,7 @@ export default async function HomePage() {
         testimonials={site.homepageConfig?.testimonials}
         relatedMicrosites={relatedMicrosites}
         blogPosts={micrositeBlogPosts}
+        collections={micrositeCollections}
       />
     );
   }

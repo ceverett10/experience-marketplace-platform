@@ -1060,6 +1060,9 @@ model Product {
   // Optional: dedicated microsite (for premium products only)
   microsite MicrositeConfig?
 
+  // Collections this product belongs to
+  collections ProductCollection[]
+
   // Tracking
   bookingCount Int @default(0)
   pageViews    Int @default(0)
@@ -1119,6 +1122,9 @@ model MicrositeConfig {
   // Content pages
   pages Page[]
 
+  // Curated collections for discovery
+  collections CuratedCollection[]
+
   // Status
   status MicrositeStatus @default(DRAFT)
 
@@ -1161,4 +1167,87 @@ enum MicrositeLayoutType {
   CATALOG // 2-50 products - compact grid, no empty sections
   MARKETPLACE // 50+ products - full marketplace layout (rarely used for microsites)
   AUTO // System determines based on product count (default)
+}
+
+// ============================================================================
+// CURATED COLLECTIONS
+// ============================================================================
+
+// CuratedCollection - AI-generated groupings of products for discovery and SEO
+model CuratedCollection {
+  id String @id @default(cuid())
+
+  // Identity
+  name        String
+  slug        String
+  description String? @db.Text
+
+  // Visual
+  iconEmoji        String? // e.g., "❤️" for couples, "🏔️" for adventure
+  imageUrl         String?
+  imageAttribution Json? // { photographer, photographerUrl, source }
+
+  // Collection type determines grouping logic
+  collectionType CollectionType
+
+  // Targeting (optional filters)
+  targetAudience String? // "couples", "families", "solo", "groups"
+  seasonalMonths Int[] // [12, 1, 2] for winter, [6, 7, 8] for summer
+
+  // Ownership - collections belong to a microsite
+  microsite   MicrositeConfig @relation(fields: [micrositeId], references: [id], onDelete: Cascade)
+  micrositeId String
+
+  // Products in this collection
+  products ProductCollection[]
+
+  // Status & ordering
+  isActive  Boolean @default(true)
+  sortOrder Int     @default(0)
+
+  // AI generation metadata
+  isAiGenerated    Boolean @default(true)
+  generationPrompt String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([micrositeId, slug])
+  @@index([micrositeId])
+  @@index([collectionType])
+  @@index([isActive])
+  @@map("curated_collections")
+}
+
+// ProductCollection - junction table for products in collections
+model ProductCollection {
+  id String @id @default(cuid())
+
+  // Collection reference
+  collection   CuratedCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  collectionId String
+
+  // Product reference
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String
+
+  // Ordering within collection
+  sortOrder Int @default(0)
+
+  // Featured badge reason (e.g., "Top rated", "Best seller", "New")
+  featuredReason String?
+
+  createdAt DateTime @default(now())
+
+  @@unique([collectionId, productId])
+  @@index([collectionId])
+  @@index([productId])
+  @@map("product_collections")
+}
+
+enum CollectionType {
+  AUDIENCE // couples, families, solo, groups
+  SEASONAL // winter, summer, spring, fall
+  THEMATIC // adventure, culture, food, relaxation
+  CURATED // staff picks, highest rated, best sellers, new arrivals
 }

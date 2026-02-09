@@ -5,11 +5,13 @@ import {
   ContentGenerationType,
 } from '../services/daily-content-generator.js';
 import { runMetaTitleMaintenance } from '../services/meta-title-maintenance.js';
+import { refreshAllCollections } from '../services/collection-generator.js';
 
 // Track intervals for cleanup
 let dailyContentInterval: NodeJS.Timeout | null = null;
 let metaTitleMaintenanceInterval: NodeJS.Timeout | null = null;
 let micrositeContentRefreshInterval: NodeJS.Timeout | null = null;
+let collectionRefreshInterval: NodeJS.Timeout | null = null;
 
 /**
  * Calculate the next run time for a cron expression.
@@ -226,6 +228,11 @@ export async function initializeScheduledJobs(): Promise<void> {
     '30 8 * * 0' // Sundays at 8:30 AM
   );
   console.log('[Scheduler] ✓ Microsite Health Check - Sundays at 8:30 AM');
+
+  // Curated Collection Refresh - Mondays at 5:30 AM
+  // Regenerates AI-curated collections for all microsites weekly
+  initializeCollectionRefreshSchedule();
+  console.log('[Scheduler] ✓ Collection Refresh - Mondays at 5:30 AM');
 
   console.log('[Scheduler] All scheduled jobs initialized successfully');
 }
@@ -461,6 +468,40 @@ async function refreshMicrositeContent(): Promise<void> {
 }
 
 /**
+ * Initialize curated collection refresh schedule
+ * Runs on Mondays at 5:30 AM to regenerate collections for all microsites
+ */
+function initializeCollectionRefreshSchedule(): void {
+  collectionRefreshInterval = setInterval(
+    async () => {
+      const now = new Date();
+      const currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
+      const currentDow = now.getDay();
+      const today = now.toISOString().split('T')[0] ?? '';
+
+      // Run on Mondays at 5:30 AM
+      if (currentDow === 1 && currentHour === 5 && currentMinute >= 30 && currentMinute < 60) {
+        const lastRun = schedulesRunToday.get('collection-refresh');
+        if (lastRun !== today) {
+          schedulesRunToday.set('collection-refresh', today);
+          console.log('[Scheduler] Running weekly curated collection refresh...');
+          try {
+            const result = await refreshAllCollections();
+            console.log(
+              `[Scheduler] Collection refresh complete: ${result.totalCreated} created, ${result.totalUpdated} updated across ${result.micrositesProcessed} microsites`
+            );
+          } catch (error) {
+            console.error('[Scheduler] Collection refresh failed:', error);
+          }
+        }
+      }
+    },
+    30 * 60 * 1000 // Check every 30 minutes
+  );
+}
+
+/**
  * Remove all scheduled jobs (useful for cleanup or reconfiguration)
  */
 export async function removeAllScheduledJobs(): Promise<void> {
@@ -492,6 +533,12 @@ export async function removeAllScheduledJobs(): Promise<void> {
   if (micrositeContentRefreshInterval) {
     clearInterval(micrositeContentRefreshInterval);
     micrositeContentRefreshInterval = null;
+  }
+
+  // Clear collection refresh interval
+  if (collectionRefreshInterval) {
+    clearInterval(collectionRefreshInterval);
+    collectionRefreshInterval = null;
   }
 
   // Clear schedule tracking
@@ -624,6 +671,11 @@ export function getScheduledJobs(): Array<{
       jobType: 'MICROSITE_HEALTH_CHECK',
       schedule: '30 8 * * 0',
       description: 'Check microsites for issues (missing content, deleted suppliers)',
+    },
+    {
+      jobType: 'COLLECTION_REFRESH',
+      schedule: '30 5 * * 1',
+      description: 'Regenerate AI-curated collections for all microsites (Mondays)',
     },
   ];
 }

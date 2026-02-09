@@ -21,6 +21,7 @@ import type { ExperienceListItem } from '@/lib/holibob';
 import type { RelatedMicrosite } from '@/lib/microsite-experiences';
 import { RelatedMicrosites } from '@/components/microsites/RelatedMicrosites';
 import { HomepageBlogSection } from './HomepageBlogSection';
+import { CuratedCollections } from './CuratedCollections';
 
 interface BlogPost {
   id: string;
@@ -34,6 +35,26 @@ interface BlogPost {
   } | null;
 }
 
+interface CollectionProduct {
+  id: string;
+  product: {
+    id: string;
+    primaryImageUrl: string | null;
+    title: string;
+  };
+}
+
+interface Collection {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  iconEmoji: string | null;
+  imageUrl: string | null;
+  collectionType: string;
+  products: CollectionProduct[];
+}
+
 interface CatalogHomepageProps {
   site: SiteConfig;
   layoutConfig: MicrositeLayoutConfig;
@@ -44,6 +65,7 @@ interface CatalogHomepageProps {
   testimonials?: HomepageConfig['testimonials'];
   relatedMicrosites?: RelatedMicrosite[];
   blogPosts?: BlogPost[];
+  collections?: Collection[];
 }
 
 export function CatalogHomepage({
@@ -55,6 +77,7 @@ export function CatalogHomepage({
   testimonials,
   relatedMicrosites,
   blogPosts,
+  collections,
 }: CatalogHomepageProps) {
   const primaryColor = site.brand?.primaryColor ?? '#6366f1';
   const gridColumns = layoutConfig.gridColumns;
@@ -164,6 +187,15 @@ export function CatalogHomepage({
           </div>
         </div>
       </section>
+
+      {/* Curated Collections */}
+      {collections && collections.length > 0 && (
+        <CuratedCollections
+          collections={collections}
+          primaryColor={primaryColor}
+          siteName={site.name}
+        />
+      )}
 
       {/* All Experiences Grid */}
       <section className="bg-white py-12 sm:py-16">
