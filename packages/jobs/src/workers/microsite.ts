@@ -15,7 +15,6 @@ import {
   generateSeoTitleConfig,
 } from '../services/brand-identity.js';
 import { generateAndStoreFavicon } from '../services/favicon-generator.js';
-import { generateSvgLogos, isSvgLogoGenerationAvailable } from '../services/svg-logo-generator.js';
 import { getGSCClient, isGSCConfigured } from '../services/gsc-client.js';
 
 /**
@@ -301,29 +300,8 @@ export async function handleMicrositeCreate(job: Job<MicrositeCreatePayload>): P
       console.warn('[Microsite Create] Favicon generation failed (non-critical):', faviconError);
     }
 
-    // Generate SVG-based logo (no DALL-E needed, much more consistent)
-    if (isSvgLogoGenerationAvailable()) {
-      try {
-        console.log('[Microsite Create] Generating SVG logo...');
-        const logoResult = await generateSvgLogos({
-          brandName: brandIdentity.name,
-          niche: categories[0] || 'experiences',
-          primaryColor: brandIdentity.primaryColor,
-          secondaryColor: brandIdentity.secondaryColor,
-        });
-
-        await prisma.brand.update({
-          where: { id: brand.id },
-          data: {
-            logoUrl: logoResult.logoUrl,
-            logoDarkUrl: logoResult.logoDarkUrl,
-          },
-        });
-        console.log(`[Microsite Create] SVG logos generated: ${logoResult.logoUrl}`);
-      } catch (logoError) {
-        console.warn('[Microsite Create] Logo generation failed (non-critical):', logoError);
-      }
-    }
+    // Logo generation disabled - using text-only branding for now
+    // TODO: Re-enable with higher quality logo generation when available
 
     // Queue content generation
     const { addJob } = await import('../queues/index.js');
