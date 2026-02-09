@@ -149,7 +149,11 @@ async function getExperiences(
     // This is common for suppliers whose products haven't been synced yet
     if (site.micrositeContext.holibobSupplierId) {
       console.log(`[Experiences] No local products for supplier ${site.micrositeContext.supplierId}, using Holibob API`);
-      return getExperiencesFromHolibobAPI(site, site.micrositeContext.holibobSupplierId, { page, filters });
+      return getExperiencesFromHolibobAPI(site, site.micrositeContext.holibobSupplierId, {
+        page,
+        filters,
+        cachedProductCount: site.micrositeContext.cachedProductCount,
+      });
     }
 
     return localResult;
@@ -417,7 +421,7 @@ async function getExperiencesFromLocalDB(
 async function getExperiencesFromHolibobAPI(
   site: SiteConfig,
   holibobSupplierId: string,
-  options: { page: number; filters?: LocalDBFilters }
+  options: { page: number; filters?: LocalDBFilters; cachedProductCount?: number }
 ): Promise<{
   experiences: ExperienceListItem[];
   totalCount: number;
@@ -498,8 +502,9 @@ async function getExperiencesFromHolibobAPI(
       };
     });
 
-    // Get total count from API response metadata
-    const totalCount = response.unfilteredRecordCount ?? response.recordCount ?? experiences.length;
+    // Use cached product count from database (accurate per-supplier count)
+    // Fall back to recordCount from API response (NOT unfilteredRecordCount which is ALL products across all providers)
+    const totalCount = options.cachedProductCount ?? response.recordCount ?? experiences.length;
     let filteredCount = totalCount;
     let hasMore: boolean;
     let isApproximate = false;
@@ -744,7 +749,8 @@ async function getFilterOptions(supplierId: string): Promise<FilterOptions> {
  */
 async function getFilterOptionsFromAPI(
   site: SiteConfig,
-  holibobSupplierId: string
+  holibobSupplierId: string,
+  cachedProductCount?: number
 ): Promise<FilterOptions & { isApproximate?: boolean }> {
   try {
     const client = getHolibobClient(site);
@@ -753,7 +759,8 @@ async function getFilterOptionsFromAPI(
       pageSize: 200,
       page: 1,
     });
-    const totalProducts = response.unfilteredRecordCount ?? response.recordCount ?? response.nodes.length;
+    // Use cached product count from database (accurate per-supplier count)
+    const totalProducts = cachedProductCount ?? response.recordCount ?? response.nodes.length;
     const isApproximate = totalProducts > 200;
 
     // Extract filter options from API products
@@ -925,7 +932,11 @@ export default async function ExperiencesPage({ searchParams }: Props) {
       // If no local products, fetch all from API to build filter options
       if (filterOptions.categories.length === 0 && filterOptions.priceRanges.length === 0) {
         if (site.micrositeContext.holibobSupplierId) {
-          filterOptions = await getFilterOptionsFromAPI(site, site.micrositeContext.holibobSupplierId);
+          filterOptions = await getFilterOptionsFromAPI(
+            site,
+            site.micrositeContext.holibobSupplierId,
+            site.micrositeContext.cachedProductCount
+          );
         }
       }
 

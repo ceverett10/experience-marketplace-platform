@@ -153,6 +153,8 @@ export interface MicrositeContext {
   supplierName?: string | null; // Supplier name for search fallback
   // Layout configuration for microsite homepage
   layoutConfig: MicrositeLayoutConfig;
+  // Cached product count from database (for accurate per-supplier counts)
+  cachedProductCount: number;
 }
 
 // Site configuration with brand info
@@ -593,6 +595,8 @@ function mapMicrositeToSiteConfig(microsite: MicrositeConfigWithEntity): SiteCon
       supplierCities: microsite.supplier?.cities ?? [],
       supplierCategories: microsite.supplier?.categories ?? [],
       supplierName: microsite.supplier?.name ?? null,
+      // Cached product count from database (for accurate per-supplier counts in UI)
+      cachedProductCount: microsite.cachedProductCount ?? 0,
       // Layout configuration based on product count
       layoutConfig: getLayoutConfig(
         microsite.layoutType ?? 'AUTO',
