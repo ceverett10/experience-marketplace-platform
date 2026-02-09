@@ -1,9 +1,61 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { renderWithProviders } from '../../test/test-utils';
 import AdminSettingsPage from './page';
 
+// Mock fetch globally for settings API calls made on component mount
+const mockFetch = vi.fn();
+
 describe('AdminSettingsPage', () => {
+  beforeEach(() => {
+    // Mock fetch to handle settings API calls
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/api/settings/autonomous')) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              success: true,
+              settings: {
+                allProcessesPaused: false,
+                enableSiteCreation: true,
+                enableContentGeneration: true,
+                enableGSCVerification: true,
+                enableContentOptimization: true,
+                enableABTesting: false,
+                maxTotalSites: 100,
+                maxSitesPerHour: 5,
+                maxContentPagesPerHour: 50,
+                maxGSCRequestsPerHour: 100,
+                maxOpportunityScansPerDay: 10,
+              },
+            }),
+        });
+      }
+      if (url.includes('/api/settings/roadmap-processor')) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              success: true,
+              processor: {
+                intervalMinutes: 10,
+                isGloballyPaused: false,
+              },
+              sites: [],
+              recentActivity: [],
+            }),
+        });
+      }
+      return Promise.resolve({ ok: false });
+    });
+    global.fetch = mockFetch;
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('should render the settings page header', () => {
     renderWithProviders(<AdminSettingsPage />);
 
