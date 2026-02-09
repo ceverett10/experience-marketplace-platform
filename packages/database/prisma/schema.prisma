@@ -102,19 +102,20 @@ model Site {
   gscLastSyncedAt     DateTime? // Last successful data sync
 
   // Relationships
-  pages             Page[]
-  content           Content[]
-  bookings          Booking[]
-  opportunities     SEOOpportunity[]
-  abTests           ABTest[]
-  metrics           PerformanceMetric[]
-  jobs              Job[]
-  manualTasks       ManualTask[]
-  backlinks         Backlink[]
-  linkOpportunities LinkOpportunity[]
-  linkableAssets    LinkableAsset[]
-  errorLogs         ErrorLog[]
-  seoIssues         SEOIssue[]
+  pages              Page[]
+  content            Content[]
+  bookings           Booking[]
+  opportunities      SEOOpportunity[]
+  abTests            ABTest[]
+  metrics            PerformanceMetric[]
+  jobs               Job[]
+  manualTasks        ManualTask[]
+  backlinks          Backlink[]
+  linkOpportunities  LinkOpportunity[]
+  linkableAssets     LinkableAsset[]
+  errorLogs          ErrorLog[]
+  seoIssues          SEOIssue[]
+  analyticsSnapshots SiteAnalyticsSnapshot[]
 
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -435,6 +436,41 @@ model PerformanceMetric {
   @@unique([siteId, date, query, pageUrl, device, country])
   @@index([siteId, date])
   @@index([query])
+}
+
+model SiteAnalyticsSnapshot {
+  id     String   @id @default(cuid())
+  siteId String
+  site   Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  date   DateTime @db.Date
+
+  // GA4 Traffic Metrics
+  users              Int   @default(0)
+  newUsers           Int   @default(0)
+  sessions           Int   @default(0)
+  pageviews          Int   @default(0)
+  bounceRate         Float @default(0)
+  avgSessionDuration Float @default(0)
+  engagementRate     Float @default(0)
+
+  // GA4 Traffic Sources (JSON for flexibility)
+  trafficSources  Json? // [{ source, medium, users, sessions }]
+  deviceBreakdown Json? // [{ device, users, sessions }]
+
+  // Business Metrics (from existing Booking model)
+  bookings Int     @default(0)
+  revenue  Decimal @default(0) @db.Decimal(10, 2)
+
+  // Metadata
+  ga4Synced Boolean  @default(false)
+  gscSynced Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([siteId, date])
+  @@index([siteId, date])
+  @@index([date])
+  @@map("site_analytics_snapshots")
 }
 
 // ============================================================================
