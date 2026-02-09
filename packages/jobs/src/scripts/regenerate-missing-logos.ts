@@ -62,12 +62,12 @@ async function main() {
   const brandsWithoutLogos = await prisma.brand.findMany({
     where: {
       logoUrl: null,
-      micrositeConfig: {
+      microsite: {
         isNot: null, // Has a microsite
       },
     },
     include: {
-      micrositeConfig: {
+      microsite: {
         include: {
           supplier: {
             select: {
@@ -99,7 +99,7 @@ async function main() {
   const errorDetails: Array<{ name: string; error: string }> = [];
 
   for (const [i, brand] of brandsWithoutLogos.entries()) {
-    const niche = brand.micrositeConfig?.supplier?.categories?.[0] || 'experiences';
+    const niche = brand.microsite?.supplier?.categories?.[0] || 'experiences';
 
     console.log(`[${i + 1}/${brandsWithoutLogos.length}] ${brand.name}`);
 
