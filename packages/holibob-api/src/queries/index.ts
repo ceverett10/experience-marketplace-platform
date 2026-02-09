@@ -773,6 +773,10 @@ export const PRODUCT_LIST_BY_PROVIDER_QUERY = gql`
             name
           }
         }
+        place {
+          cityId
+          name
+        }
       }
     }
   }
@@ -811,6 +815,10 @@ export const PRODUCT_LIST_ALL_QUERY = gql`
             id
             name
           }
+        }
+        place {
+          cityId
+          name
         }
       }
     }

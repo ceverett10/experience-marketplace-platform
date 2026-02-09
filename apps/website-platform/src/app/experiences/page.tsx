@@ -451,8 +451,8 @@ async function getExperiencesFromHolibobAPI(
         }
       }
 
-      // Get location from category (ProductList doesn't return place directly)
-      const locationName = product.categoryList?.nodes?.[0]?.name ?? '';
+      // Get location from place field
+      const locationName = product.place?.name ?? '';
 
       return {
         id: product.id,
@@ -754,8 +754,10 @@ async function getFilterOptionsFromAPI(
         if (product.reviewRating >= 3.5) ratingCounts.good++;
       }
 
-      // Cities from first category (best we can do with ProductList)
-      // ProductList doesn't return place directly
+      // Cities from place field
+      if (product.place?.name) {
+        cityMap.set(product.place.name, (cityMap.get(product.place.name) ?? 0) + 1);
+      }
     }
 
     const categories = Array.from(categoryMap.entries())
