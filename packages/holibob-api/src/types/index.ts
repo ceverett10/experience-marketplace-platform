@@ -811,10 +811,20 @@ export type ProviderListResponse = z.infer<typeof ProviderListResponseSchema>;
 /**
  * Response from productList query
  * Different from ProductListResponse (which is from Product Discovery)
- * NOTE: Holibob productList does NOT support pagination - returns all products
+ *
+ * Pagination info (per Holibob docs):
+ * - totalRecords: Total available records
+ * - unfilteredRecords: Records available without filters
+ * - pages: Total number of pages
+ * - nextPage/previousPage: Navigation helpers (null if at end/start)
  */
 export const ProductListByProviderResponseSchema = z.object({
   recordCount: z.number(),
+  totalRecords: z.number().optional(),
+  unfilteredRecords: z.number().optional(),
+  pages: z.number().optional(),
+  nextPage: z.number().nullable().optional(),
+  previousPage: z.number().nullable().optional(),
   nodes: z.array(ProductSchema),
 });
 

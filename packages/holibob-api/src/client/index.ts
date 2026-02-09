@@ -814,34 +814,59 @@ export class HolibobClient {
   // ==========================================================================
 
   /**
-   * Get products filtered by provider ID
+   * Get products filtered by provider ID with pagination
    *
    * This is the CORRECT endpoint for microsites - NOT Product Discovery.
    * Product Discovery is for marketplace search (location/date/activity based).
    * Product List is for getting ALL products for a specific provider.
    *
-   * NOTE: Holibob productList does NOT support pagination - it returns all products
+   * Pagination parameters (per Holibob docs):
+   * - pageSize: Number of records per page (max 5000, default 20)
+   * - page: Page number to retrieve (starts at 1)
    */
-  async getProductsByProvider(providerId: string): Promise<ProductListByProviderResponse> {
+  async getProductsByProvider(
+    providerId: string,
+    options?: { pageSize?: number; page?: number }
+  ): Promise<ProductListByProviderResponse> {
     const response = await this.executeQuery<{
       productList: ProductListByProviderResponse;
     }>(PRODUCT_LIST_BY_PROVIDER_QUERY, {
       providerId,
+      pageSize: options?.pageSize ?? 5000, // Default to max to get all products
+      page: options?.page ?? 1,
     });
 
     return response.productList;
   }
 
   /**
-   * Get ALL products for a provider
-   * Since productList doesn't support pagination, this just calls getProductsByProvider
+   * Get ALL products for a provider (fetches all pages)
+   * Uses pageSize: 5000 (max) to minimize API calls
    */
   async getAllProductsByProvider(providerId: string): Promise<Product[]> {
-    const response = await this.getProductsByProvider(providerId);
+    const allProducts: Product[] = [];
+    let page = 1;
+    let hasMore = true;
+
+    while (hasMore) {
+      const response = await this.getProductsByProvider(providerId, { pageSize: 5000, page });
+      allProducts.push(...response.nodes);
+
+      // Check if there are more pages
+      hasMore = response.nextPage != null && response.nextPage > page;
+      page++;
+
+      // Safety limit to prevent infinite loops
+      if (page > 100) {
+        console.warn(`[HolibobClient] getAllProductsByProvider: stopped at page 100 (safety limit)`);
+        break;
+      }
+    }
+
     console.log(
-      `[HolibobClient] getAllProductsByProvider(${providerId}): fetched ${response.nodes.length} products`
+      `[HolibobClient] getAllProductsByProvider(${providerId}): fetched ${allProducts.length} products`
     );
-    return response.nodes;
+    return allProducts;
   }
 
   /**
