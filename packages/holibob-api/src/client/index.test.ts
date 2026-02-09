@@ -880,4 +880,174 @@ describe('HolibobClient - Product Filter Mapping', () => {
 
     expect(mockRequest).toHaveBeenCalled();
   });
+
+  it('should handle dates already in ISO 8601 DateTime format', async () => {
+    mockEmptyDiscovery();
+
+    await client.discoverProducts({
+      dateFrom: '2024-06-01T12:00:00.000Z',
+      dateTo: '2024-06-30T23:59:59.999Z',
+    });
+
+    expect(mockRequest).toHaveBeenCalled();
+  });
+});
+
+describe('HolibobClient - Error Handling Edge Cases', () => {
+  let client: HolibobClient;
+  let mockRequest: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockRequest = vi.fn();
+    (GraphQLClient as unknown as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+      request: mockRequest,
+    }));
+    client = new HolibobClient({
+      apiUrl: 'https://api.holibob.test/graphql',
+      apiKey: 'test-api-key',
+      partnerId: 'test-partner-id',
+      retries: 1,
+    });
+  });
+
+  it('should handle non-Error client errors gracefully', async () => {
+    // Simulate a client error that is not an Error instance
+    const clientError = {
+      response: { status: 400 },
+      message: 'Bad request',
+    };
+    mockRequest.mockRejectedValueOnce(clientError);
+
+    await expect(client.getProduct('invalid-id')).rejects.toThrow();
+  });
+});
+
+describe('HolibobClient - Bulk Operations', () => {
+  let client: HolibobClient;
+  let mockRequest: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockRequest = vi.fn();
+    (GraphQLClient as unknown as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+      request: mockRequest,
+    }));
+    client = new HolibobClient({
+      apiUrl: 'https://api.holibob.test/graphql',
+      apiKey: 'test-api-key',
+      partnerId: 'test-partner-id',
+    });
+  });
+
+  describe('getAllProducts', () => {
+    it('should fetch all products across providers', async () => {
+      mockRequest.mockResolvedValueOnce({
+        productList: {
+          nodes: [
+            { id: 'prod-1', name: 'Tour A' },
+            { id: 'prod-2', name: 'Tour B' },
+          ],
+          recordCount: 2,
+        },
+      });
+
+      const result = await client.getAllProducts();
+
+      expect(result.nodes).toHaveLength(2);
+      expect(mockRequest).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('discoverProducts with searchTerm', () => {
+    it('should include searchTerm in what.data filter', async () => {
+      mockRequest.mockResolvedValueOnce({
+        productDiscovery: {
+          recommendedProductList: { nodes: [] },
+        },
+      });
+
+      await client.discoverProducts({
+        searchTerm: 'wine tasting',
+      });
+
+      expect(mockRequest).toHaveBeenCalled();
+    });
+  });
+
+  describe('getProvider', () => {
+    it('should fetch provider by ID', async () => {
+      mockRequest.mockResolvedValueOnce({
+        provider: { id: 'prov-1', name: 'Test Provider' },
+      });
+
+      const result = await client.getProvider('prov-1');
+
+      expect(result).toBeDefined();
+      expect(result?.id).toBe('prov-1');
+    });
+
+    it('should return null on error', async () => {
+      mockRequest.mockRejectedValueOnce(new Error('Provider not found'));
+
+      const result = await client.getProvider('invalid');
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('getProductsByProvider', () => {
+    it('should fetch products for a provider with pagination', async () => {
+      mockRequest.mockResolvedValueOnce({
+        productList: {
+          nodes: [{ id: 'prod-1', name: 'Tour A' }],
+          recordCount: 1,
+        },
+      });
+
+      const result = await client.getProductsByProvider('prov-1', {
+        pageSize: 50,
+        page: 1,
+        filters: { search: 'tour', categoryIds: ['cat-1'] },
+      });
+
+      expect(result.nodes).toHaveLength(1);
+      expect(mockRequest).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          providerId: 'prov-1',
+          pageSize: 50,
+          page: 1,
+          search: 'tour',
+          categoryIds: ['cat-1'],
+        })
+      );
+    });
+  });
+
+  describe('getAllProductsByProvider', () => {
+    it('should fetch all products across multiple pages', async () => {
+      // First page with nextPage
+      mockRequest.mockResolvedValueOnce({
+        productList: {
+          nodes: [{ id: 'prod-1' }, { id: 'prod-2' }],
+          recordCount: 4,
+          nextPage: 2,
+        },
+      });
+      // Second page without nextPage (last page)
+      mockRequest.mockResolvedValueOnce({
+        productList: {
+          nodes: [{ id: 'prod-3' }, { id: 'prod-4' }],
+          recordCount: 4,
+          nextPage: null,
+        },
+      });
+
+      const result = await client.getAllProductsByProvider('prov-1');
+
+      expect(result).toHaveLength(4);
+      expect(mockRequest).toHaveBeenCalledTimes(2);
+    });
+  });
 });

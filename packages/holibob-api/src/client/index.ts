@@ -1080,11 +1080,6 @@ export class HolibobClient {
     return input;
   }
 
-  // Legacy method - kept for compatibility
-  private mapProductFilter(filter: ProductFilter): Record<string, unknown> {
-    return this.mapProductDiscoveryInput(filter);
-  }
-
   private isClientError(error: unknown): boolean {
     if (error && typeof error === 'object' && 'response' in error) {
       const response = (error as { response?: { status?: number } }).response;
