@@ -9,6 +9,8 @@ export interface FilterOptions {
   durations: { label: string; value: string; count: number }[];
   ratings: { label: string; value: number; count: number }[];
   cities: { name: string; count: number }[];
+  /** True when filter counts are based on a sample (not all products) */
+  isApproximate?: boolean;
 }
 
 interface FilterSidebarProps {
@@ -136,6 +138,13 @@ export function FilterSidebar({
           <div className="mt-3 text-sm text-gray-600">
             Showing {filteredCount.toLocaleString()} of {totalCount.toLocaleString()} experiences
           </div>
+
+          {/* Approximate filter indicator */}
+          {filterOptions.isApproximate && (
+            <div className="mt-2 text-xs text-amber-600 bg-amber-50 p-2 rounded">
+              Filter counts are approximate for large catalogs.
+            </div>
+          )}
 
           {/* Categories Filter */}
           {filterOptions.categories.length > 0 && (

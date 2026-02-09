@@ -71,8 +71,11 @@ async function getFeaturedExperiences(
         );
 
         // Use Product List by Provider endpoint - the CORRECT approach for microsites
-        // NOTE: productList returns all products for the provider (no pagination needed)
-        const response = await client.getProductsByProvider(micrositeContext.holibobSupplierId);
+        // Fetch only 20 products for homepage display (prevents timeout for large catalogs)
+        const response = await client.getProductsByProvider(micrositeContext.holibobSupplierId, {
+          pageSize: 20,
+          page: 1,
+        });
 
         const supplierProducts: ExperienceListItem[] = response.nodes.map((product) => {
           // Map to ExperienceListItem format

@@ -425,10 +425,28 @@ async function getExperiencesFromHolibobAPI(
   hasMore: boolean;
   isUsingMockData: boolean;
   apiError?: string;
+  isApproximate?: boolean;
 }> {
   try {
     const client = getHolibobClient(site);
-    const response = await client.getProductsByProvider(holibobSupplierId);
+    const hasFilters = options.filters && (
+      (options.filters.categories && options.filters.categories.length > 0) ||
+      options.filters.priceMin != null ||
+      options.filters.priceMax != null ||
+      options.filters.duration ||
+      options.filters.minRating != null ||
+      (options.filters.cities && options.filters.cities.length > 0)
+    );
+
+    // When filters are applied, we need to fetch more products for client-side filtering
+    // When no filters, use true server-side pagination for efficiency
+    const pageSize = hasFilters ? 500 : ITEMS_PER_PAGE;
+    const page = hasFilters ? 1 : options.page;
+
+    const response = await client.getProductsByProvider(holibobSupplierId, {
+      pageSize,
+      page,
+    });
 
     // Map Holibob products to ExperienceListItem format
     let experiences: ExperienceListItem[] = response.nodes.map((product) => {
@@ -451,8 +469,8 @@ async function getExperiencesFromHolibobAPI(
         }
       }
 
-      // Get location from place field
-      const locationName = product.place?.name ?? '';
+      // Get location from place field (cityId available, name not in API response)
+      const locationName = '';
 
       return {
         id: product.id,
@@ -480,32 +498,47 @@ async function getExperiencesFromHolibobAPI(
       };
     });
 
-    const totalCount = experiences.length;
+    // Get total count from API response metadata
+    const totalCount = response.unfilteredRecordCount ?? response.recordCount ?? experiences.length;
+    let filteredCount = totalCount;
+    let hasMore: boolean;
+    let isApproximate = false;
 
-    // Apply client-side filtering (Holibob ProductList doesn't support filters)
-    if (options.filters) {
-      experiences = applyClientSideFilters(experiences, options.filters);
+    if (hasFilters) {
+      // Apply client-side filtering when filters are active
+      experiences = applyClientSideFilters(experiences, options.filters!);
+      filteredCount = experiences.length;
+      isApproximate = totalCount > 500; // Filters are approximate if we didn't fetch all products
+
+      // Sort by rating (highest first)
+      experiences.sort((a, b) => {
+        const ratingA = a.rating?.average ?? 0;
+        const ratingB = b.rating?.average ?? 0;
+        return ratingB - ratingA;
+      });
+
+      // Apply client-side pagination for filtered results
+      const startIndex = (options.page - 1) * ITEMS_PER_PAGE;
+      experiences = experiences.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+      hasMore = startIndex + ITEMS_PER_PAGE < filteredCount;
+    } else {
+      // No filters - API already returned the correct page
+      // Sort by rating (highest first)
+      experiences.sort((a, b) => {
+        const ratingA = a.rating?.average ?? 0;
+        const ratingB = b.rating?.average ?? 0;
+        return ratingB - ratingA;
+      });
+      hasMore = response.nextPage != null;
     }
 
-    const filteredCount = experiences.length;
-
-    // Sort by rating (highest first)
-    experiences.sort((a, b) => {
-      const ratingA = a.rating?.average ?? 0;
-      const ratingB = b.rating?.average ?? 0;
-      return ratingB - ratingA;
-    });
-
-    // Apply pagination
-    const startIndex = (options.page - 1) * ITEMS_PER_PAGE;
-    const paginatedExperiences = experiences.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-
     return {
-      experiences: paginatedExperiences,
+      experiences,
       totalCount,
       filteredCount,
-      hasMore: startIndex + ITEMS_PER_PAGE < filteredCount,
+      hasMore,
       isUsingMockData: false,
+      isApproximate,
     };
   } catch (error) {
     console.error('Error fetching experiences from Holibob API:', error);
@@ -707,14 +740,21 @@ async function getFilterOptions(supplierId: string): Promise<FilterOptions> {
 /**
  * Get filter options from Holibob API
  * Used when local products haven't been synced yet
+ * Fetches a sample of products (200) to build approximate filter options
  */
 async function getFilterOptionsFromAPI(
   site: SiteConfig,
   holibobSupplierId: string
-): Promise<FilterOptions> {
+): Promise<FilterOptions & { isApproximate?: boolean }> {
   try {
     const client = getHolibobClient(site);
-    const response = await client.getProductsByProvider(holibobSupplierId);
+    // Fetch a sample of 200 products for filter options (prevents timeout for large catalogs)
+    const response = await client.getProductsByProvider(holibobSupplierId, {
+      pageSize: 200,
+      page: 1,
+    });
+    const totalProducts = response.unfilteredRecordCount ?? response.recordCount ?? response.nodes.length;
+    const isApproximate = totalProducts > 200;
 
     // Extract filter options from API products
     const categoryMap = new Map<string, number>();
@@ -818,6 +858,7 @@ async function getFilterOptionsFromAPI(
       durations,
       ratings,
       cities,
+      isApproximate,
     };
   } catch (error) {
     console.error('Error fetching filter options from API:', error);
@@ -827,6 +868,7 @@ async function getFilterOptionsFromAPI(
       durations: [],
       ratings: [],
       cities: [],
+      isApproximate: false,
     };
   }
 }
