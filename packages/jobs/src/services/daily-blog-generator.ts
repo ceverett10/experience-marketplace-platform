@@ -2,11 +2,18 @@
  * Daily Blog Generator Service
  * Generates 1 blog post per day for active sites to build SEO authority
  * Runs on a schedule and can also be triggered manually
+ *
+ * For microsites, uses the scalable microsite-blog-generator service
+ * which implements rotating daily processing (5% per day) and batch parallelization
  */
 
 import { prisma, PageType, PageStatus } from '@experience-marketplace/database';
 import { generateDailyBlogTopic, BlogTopicContext } from './blog-topics.js';
 import { addJob } from '../queues/index.js';
+import {
+  generateDailyBlogPostsForMicrosites,
+  type MicrositeBlogGenerationSummary,
+} from './microsite-blog-generator.js';
 
 export interface DailyBlogGenerationResult {
   siteId: string;
@@ -143,13 +150,14 @@ export async function generateDailyBlogPostForSite(
 }
 
 /**
- * Generate daily blog posts for all active sites
+ * Generate daily blog posts for all active sites (traditional sites only)
+ * For microsites, use generateDailyBlogPostsForMicrosites() instead
  * Called by the scheduler
  */
 export async function generateDailyBlogPostsForAllSites(): Promise<DailyBlogGenerationResult[]> {
   console.log('[Daily Blog] Starting daily blog generation for all active sites...');
 
-  // Find all active sites
+  // Find all active sites (traditional sites, not microsites)
   const activeSites = await prisma.site.findMany({
     where: {
       status: 'ACTIVE',
@@ -160,7 +168,7 @@ export async function generateDailyBlogPostsForAllSites(): Promise<DailyBlogGene
     },
   });
 
-  console.log(`[Daily Blog] Found ${activeSites.length} active sites`);
+  console.log(`[Daily Blog] Found ${activeSites.length} active traditional sites`);
 
   const results: DailyBlogGenerationResult[] = [];
 
@@ -173,16 +181,53 @@ export async function generateDailyBlogPostsForAllSites(): Promise<DailyBlogGene
     await new Promise((resolve) => setTimeout(resolve, 2000));
   }
 
-  // Log summary
+  // Log summary for traditional sites
   const postsQueued = results.filter((r) => r.postQueued).length;
   const errors = results.filter((r) => r.error).length;
 
   console.log(
-    `[Daily Blog] Completed. Sites: ${results.length}, Posts queued: ${postsQueued}, Errors: ${errors}`
+    `[Daily Blog] Traditional sites complete. Sites: ${results.length}, Posts queued: ${postsQueued}, Errors: ${errors}`
   );
 
   return results;
 }
+
+/**
+ * Generate daily blog posts for both traditional sites AND microsites
+ * This is the main entry point for the scheduler
+ *
+ * Traditional sites: Process all daily
+ * Microsites: Process 5% per day (rotating), batched for scalability
+ */
+export async function generateDailyBlogPostsForAllSitesAndMicrosites(): Promise<{
+  sites: DailyBlogGenerationResult[];
+  microsites: MicrositeBlogGenerationSummary;
+}> {
+  console.log('[Daily Blog] Starting daily blog generation for all sites and microsites...');
+
+  // Process traditional sites first
+  const siteResults = await generateDailyBlogPostsForAllSites();
+
+  // Then process microsites with scalable rotating/batching
+  const micrositeResults = await generateDailyBlogPostsForMicrosites();
+
+  // Log combined summary
+  const totalQueued = siteResults.filter((r) => r.postQueued).length + micrositeResults.postsQueued;
+  console.log(
+    `[Daily Blog] All complete. ` +
+    `Traditional sites: ${siteResults.filter((r) => r.postQueued).length} posts, ` +
+    `Microsites: ${micrositeResults.postsQueued} posts (${micrositeResults.processedCount}/${micrositeResults.totalMicrosites} processed), ` +
+    `Total: ${totalQueued} posts queued`
+  );
+
+  return {
+    sites: siteResults,
+    microsites: micrositeResults,
+  };
+}
+
+// Re-export microsite functions for direct access
+export { generateDailyBlogPostsForMicrosites } from './microsite-blog-generator.js';
 
 /**
  * Get the current day number of the year (1-366)

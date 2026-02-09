@@ -1,5 +1,8 @@
 import { scheduleJob, queueRegistry } from '../queues';
-import { generateDailyBlogPostsForAllSites } from '../services/daily-blog-generator.js';
+import {
+  generateDailyBlogPostsForAllSites,
+  generateDailyBlogPostsForAllSitesAndMicrosites,
+} from '../services/daily-blog-generator.js';
 import {
   generateDailyContent,
   ContentGenerationType,
@@ -138,6 +141,28 @@ export async function initializeScheduledJobs(): Promise<void> {
     '0 1 * * *' // Daily at 1 AM
   );
   console.log('[Scheduler] ✓ Metrics Aggregation - Daily at 1 AM');
+
+  // GA4 Daily Sync - Daily at 6 AM (after GA4 has processed previous day)
+  // Syncs GA4 traffic data + booking metrics into SiteAnalyticsSnapshot
+  await scheduleJob(
+    'GA4_DAILY_SYNC' as any,
+    {
+      includeBookings: true,
+    },
+    '0 6 * * *' // Daily at 6 AM
+  );
+  console.log('[Scheduler] ✓ GA4 Daily Sync - Daily at 6 AM');
+
+  // Refresh Analytics Views - Every hour
+  // Refreshes materialized views used by analytics dashboard
+  await scheduleJob(
+    'REFRESH_ANALYTICS_VIEWS' as any,
+    {
+      concurrently: true,
+    },
+    '0 * * * *' // Every hour at :00
+  );
+  console.log('[Scheduler] ✓ Refresh Analytics Views - Hourly');
 
   // Weekly Performance Report - Every Monday at 9 AM
   await scheduleJob(
@@ -347,11 +372,15 @@ async function runContentGeneration(schedule: ContentSchedule): Promise<void> {
 
   try {
     if (schedule.type === 'blog') {
-      // Use existing blog generator
-      const results = await generateDailyBlogPostsForAllSites();
-      const postsQueued = results.filter((r) => r.postQueued).length;
+      // Use combined blog generator for both sites and microsites
+      // Sites: processed sequentially (typically few)
+      // Microsites: processed with 5% daily rotation and batch parallelization (scalable)
+      const { sites, microsites } = await generateDailyBlogPostsForAllSitesAndMicrosites();
+      const sitePostsQueued = sites.filter((r) => r.postQueued).length;
       console.log(
-        `[Scheduler] ${schedule.description} complete: ${postsQueued} posts queued across ${results.length} sites`
+        `[Scheduler] ${schedule.description} complete: ` +
+        `${sitePostsQueued} site posts + ${microsites.postsQueued} microsite posts queued ` +
+        `(${microsites.processedCount}/${microsites.totalMicrosites} microsites processed)`
       );
     } else {
       // Use new daily content generator
@@ -512,6 +541,8 @@ export async function removeAllScheduledJobs(): Promise<void> {
   await queueRegistry.removeRepeatableJob('SEO_ANALYZE', '0 3 * * *');
   await queueRegistry.removeRepeatableJob('SEO_AUTO_OPTIMIZE', '0 6 * * 0');
   await queueRegistry.removeRepeatableJob('METRICS_AGGREGATE', '0 1 * * *');
+  await queueRegistry.removeRepeatableJob('GA4_DAILY_SYNC' as any, '0 6 * * *');
+  await queueRegistry.removeRepeatableJob('REFRESH_ANALYTICS_VIEWS' as any, '0 * * * *');
   await queueRegistry.removeRepeatableJob('PERFORMANCE_REPORT', '0 9 * * 1');
   await queueRegistry.removeRepeatableJob('ABTEST_REBALANCE', '0 * * * *');
   await queueRegistry.removeRepeatableJob('LINK_BACKLINK_MONITOR' as any, '0 3 * * 3');
@@ -562,6 +593,16 @@ export function getScheduledJobs(): Array<{
       description: 'Aggregate daily performance metrics and detect issues',
     },
     {
+      jobType: 'GA4_DAILY_SYNC',
+      schedule: '0 6 * * *',
+      description: 'Sync GA4 traffic + booking data into SiteAnalyticsSnapshot',
+    },
+    {
+      jobType: 'REFRESH_ANALYTICS_VIEWS',
+      schedule: '0 * * * *',
+      description: 'Refresh materialized views for analytics dashboard',
+    },
+    {
       jobType: 'SEO_OPPORTUNITY_SCAN',
       schedule: '0 2 * * *',
       description: 'Scan for new SEO opportunities across all sites',
@@ -584,7 +625,7 @@ export function getScheduledJobs(): Array<{
     {
       jobType: 'DAILY_BLOG_GENERATE',
       schedule: '0 4 * * *',
-      description: 'Generate 1 blog post per site daily for SEO authority',
+      description: 'Generate blog posts for sites (all) and microsites (5% daily rotation)',
     },
     {
       jobType: 'DAILY_DESTINATION_GENERATE',
