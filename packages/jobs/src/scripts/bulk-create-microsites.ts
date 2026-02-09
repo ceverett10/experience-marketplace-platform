@@ -17,7 +17,8 @@
  *   --sync-first                             Run supplier sync before creating microsites
  */
 
-import 'dotenv/config';
+// Note: On Heroku, env vars are already configured - no dotenv needed
+// For local development, run: source .env && npx tsx ...
 import { prisma, MicrositeLayoutType } from '@experience-marketplace/database';
 import { createHolibobClient } from '@experience-marketplace/holibob-api';
 import { handleMicrositeCreate } from '../workers/microsite.js';
