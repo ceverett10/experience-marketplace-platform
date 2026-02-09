@@ -13,7 +13,8 @@
  *   --limit=N    Limit to N microsites
  */
 
-import 'dotenv/config';
+// Note: On Heroku, env vars are already configured - no dotenv needed
+// For local development, run: source .env && npx tsx ...
 import { prisma } from '@experience-marketplace/database';
 import { getGSCClient, isGSCConfigured } from '../services/gsc-client.js';
 
