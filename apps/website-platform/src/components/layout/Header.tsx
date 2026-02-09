@@ -36,12 +36,21 @@ export function Header() {
   // Transparent when on homepage and not scrolled
   const isTransparent = isHomepage && !scrolled;
 
-  const navigation = [
-    { name: 'Experiences', href: '/experiences' },
-    { name: 'Destinations', href: '/destinations' },
-    { name: 'Categories', href: '/categories' },
-    { name: 'About', href: '/about' },
-  ];
+  // Microsites use simplified navigation (no destinations/categories pages)
+  const isMicrosite = !!site.micrositeContext;
+
+  const navigation = isMicrosite
+    ? [
+        { name: 'Experiences', href: '/experiences' },
+        { name: 'Blog', href: '/blog' },
+        { name: 'About', href: '/about' },
+      ]
+    : [
+        { name: 'Experiences', href: '/experiences' },
+        { name: 'Destinations', href: '/destinations' },
+        { name: 'Categories', href: '/categories' },
+        { name: 'About', href: '/about' },
+      ];
 
   return (
     <header
