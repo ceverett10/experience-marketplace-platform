@@ -7,6 +7,8 @@ import { ProductDiscoverySearch } from '@/components/search/ProductDiscoverySear
 import { TrustBadges } from '@/components/ui/TrustSignals';
 import { ExperienceListSchema, BreadcrumbSchema } from '@/components/seo/StructuredData';
 import { prisma } from '@/lib/prisma';
+import { MarketplaceExperiencesPage } from './MarketplaceExperiencesPage';
+import type { FilterOptions } from '@/components/experiences/FilterSidebar';
 
 interface SearchParams {
   [key: string]: string | undefined;
@@ -20,6 +22,13 @@ interface SearchParams {
   page?: string;
   when?: string;
   who?: string;
+  // Filter params for microsites
+  categories?: string;
+  priceMin?: string;
+  priceMax?: string;
+  duration?: string;
+  minRating?: string;
+  cities?: string;
 }
 
 interface Props {
@@ -106,6 +115,7 @@ async function getExperiences(
 ): Promise<{
   experiences: ExperienceListItem[];
   totalCount: number;
+  filteredCount: number;
   hasMore: boolean;
   isUsingMockData: boolean;
   apiError?: string;
@@ -117,7 +127,17 @@ async function getExperiences(
 
   // For microsites (operator-specific), fetch from local database
   if (site.micrositeContext?.supplierId) {
-    return getExperiencesFromLocalDB(site.micrositeContext.supplierId, { offset });
+    // Parse filter params
+    const filters: LocalDBFilters = {
+      categories: searchParams.categories?.split(',').filter(Boolean),
+      priceMin: searchParams.priceMin ? parseFloat(searchParams.priceMin) : undefined,
+      priceMax: searchParams.priceMax ? parseFloat(searchParams.priceMax) : undefined,
+      duration: searchParams.duration,
+      minRating: searchParams.minRating ? parseFloat(searchParams.minRating) : undefined,
+      cities: searchParams.cities?.split(',').filter(Boolean),
+    };
+
+    return getExperiencesFromLocalDB(site.micrositeContext.supplierId, { offset, filters });
   }
 
   // For main site, use Holibob Product Discovery API
@@ -210,10 +230,12 @@ async function getExperiences(
     // Holibob doesn't return accurate pagination info, so we always show "See More"
     // if we have a reasonable number of products (the API will return empty when exhausted)
     const hasMore = experiences.length >= ITEMS_PER_PAGE;
+    const totalCount = response.totalCount ?? experiences.length;
 
     return {
       experiences,
-      totalCount: response.totalCount ?? experiences.length,
+      totalCount,
+      filteredCount: totalCount, // No filters for main site
       hasMore,
       isUsingMockData: false,
       // These will be populated when the API returns recommended data
@@ -234,6 +256,7 @@ async function getExperiences(
     return {
       experiences: [],
       totalCount: 0,
+      filteredCount: 0,
       hasMore: false,
       isUsingMockData: false,
       apiError: error instanceof Error ? error.message : 'Unknown error',
@@ -241,24 +264,70 @@ async function getExperiences(
   }
 }
 
+interface LocalDBFilters {
+  categories?: string[];
+  priceMin?: number;
+  priceMax?: number;
+  duration?: string;
+  minRating?: number;
+  cities?: string[];
+}
+
 /**
  * Fetch experiences from local database for operator microsites
  * Only shows products from the specific operator (supplier)
+ * Supports filtering for MARKETPLACE layouts
  */
 async function getExperiencesFromLocalDB(
   supplierId: string,
-  options: { offset: number }
+  options: { offset: number; filters?: LocalDBFilters }
 ): Promise<{
   experiences: ExperienceListItem[];
   totalCount: number;
+  filteredCount: number;
   hasMore: boolean;
   isUsingMockData: boolean;
   apiError?: string;
 }> {
   try {
-    const [products, totalCount] = await Promise.all([
+    // Build where clause with filters using Prisma's ProductWhereInput type
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const whereClause: any = { supplierId };
+
+    if (options.filters?.categories && options.filters.categories.length > 0) {
+      // Products have categories as String[], filter if any category matches
+      whereClause.categories = { hasSome: options.filters.categories };
+    }
+
+    if (options.filters?.priceMin != null || options.filters?.priceMax != null) {
+      whereClause.priceFrom = {};
+      if (options.filters.priceMin != null) {
+        whereClause.priceFrom.gte = options.filters.priceMin;
+      }
+      if (options.filters.priceMax != null) {
+        whereClause.priceFrom.lte = options.filters.priceMax;
+      }
+    }
+
+    if (options.filters?.minRating != null) {
+      whereClause.rating = { gte: options.filters.minRating };
+    }
+
+    if (options.filters?.cities && options.filters.cities.length > 0) {
+      whereClause.city = { in: options.filters.cities };
+    }
+
+    // Duration filter - parse duration ranges
+    if (options.filters?.duration) {
+      const durationFilter = parseDurationFilter(options.filters.duration);
+      if (durationFilter) {
+        whereClause.duration = durationFilter;
+      }
+    }
+
+    const [products, filteredCount, totalCount] = await Promise.all([
       prisma.product.findMany({
-        where: { supplierId },
+        where: whereClause,
         take: ITEMS_PER_PAGE,
         skip: options.offset,
         orderBy: [{ rating: 'desc' }, { reviewCount: 'desc' }],
@@ -277,7 +346,8 @@ async function getExperiencesFromLocalDB(
           city: true,
         },
       }),
-      prisma.product.count({ where: { supplierId } }),
+      prisma.product.count({ where: whereClause }),
+      prisma.product.count({ where: { supplierId } }), // Total without filters
     ]);
 
     const experiences: ExperienceListItem[] = products.map((product) => ({
@@ -308,7 +378,8 @@ async function getExperiencesFromLocalDB(
     return {
       experiences,
       totalCount,
-      hasMore: options.offset + ITEMS_PER_PAGE < totalCount,
+      filteredCount,
+      hasMore: options.offset + ITEMS_PER_PAGE < filteredCount,
       isUsingMockData: false,
     };
   } catch (error) {
@@ -316,11 +387,135 @@ async function getExperiencesFromLocalDB(
     return {
       experiences: [],
       totalCount: 0,
+      filteredCount: 0,
       hasMore: false,
       isUsingMockData: false,
       apiError: error instanceof Error ? error.message : 'Database error',
     };
   }
+}
+
+/**
+ * Parse duration filter string into Prisma query
+ */
+function parseDurationFilter(duration: string): Record<string, unknown> | null {
+  // Duration values: 'short' (<2h), 'half-day' (2-4h), 'full-day' (4-8h), 'multi-day' (>8h)
+  // We'll do a simple contains check on the duration string
+  // This is a simplified approach - in production you'd normalize durations
+  switch (duration) {
+    case 'short':
+      // Less than 2 hours - contains "hour" or "min" but not "hours"
+      return { contains: 'hour' };
+    case 'half-day':
+      // 2-4 hours
+      return { contains: 'hours' };
+    case 'full-day':
+      // Full day tours
+      return { contains: 'day' };
+    case 'multi-day':
+      // Multi-day tours
+      return { contains: 'days' };
+    default:
+      return null;
+  }
+}
+
+/**
+ * Get filter options for a supplier's products
+ */
+async function getFilterOptions(supplierId: string): Promise<FilterOptions> {
+  const products = await prisma.product.findMany({
+    where: { supplierId },
+    select: {
+      categories: true,
+      priceFrom: true,
+      duration: true,
+      rating: true,
+      city: true,
+    },
+  });
+
+  // Aggregate categories
+  const categoryMap = new Map<string, number>();
+  for (const product of products) {
+    for (const cat of product.categories) {
+      categoryMap.set(cat, (categoryMap.get(cat) ?? 0) + 1);
+    }
+  }
+  const categories = Array.from(categoryMap.entries())
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10); // Top 10 categories
+
+  // Aggregate cities
+  const cityMap = new Map<string, number>();
+  for (const product of products) {
+    if (product.city) {
+      cityMap.set(product.city, (cityMap.get(product.city) ?? 0) + 1);
+    }
+  }
+  const cities = Array.from(cityMap.entries())
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count);
+
+  // Calculate price ranges based on actual data
+  const prices = products.map((p) => Number(p.priceFrom ?? 0)).filter((p) => p > 0);
+  const maxPrice = Math.max(...prices, 0);
+  const priceRanges: FilterOptions['priceRanges'] = [];
+
+  if (maxPrice > 0) {
+    // Dynamic price ranges based on data distribution
+    const ranges = [
+      { label: 'Under £50', min: 0, max: 50 },
+      { label: '£50 - £100', min: 50, max: 100 },
+      { label: '£100 - £200', min: 100, max: 200 },
+      { label: '£200+', min: 200, max: null },
+    ];
+
+    for (const range of ranges) {
+      const count = prices.filter(
+        (p) => p >= range.min && (range.max === null || p < range.max)
+      ).length;
+      if (count > 0) {
+        priceRanges.push({ ...range, count });
+      }
+    }
+  }
+
+  // Aggregate durations (simplified)
+  const durations: FilterOptions['durations'] = [
+    {
+      label: 'Under 2 hours',
+      value: 'short',
+      count: products.filter((p) => p.duration?.includes('hour') && !p.duration?.includes('hours'))
+        .length,
+    },
+    {
+      label: 'Half day (2-4h)',
+      value: 'half-day',
+      count: products.filter((p) => p.duration?.includes('hours')).length,
+    },
+    {
+      label: 'Full day',
+      value: 'full-day',
+      count: products.filter((p) => p.duration?.toLowerCase().includes('day')).length,
+    },
+  ].filter((d) => d.count > 0);
+
+  // Rating filters
+  const ratings: FilterOptions['ratings'] = [
+    { label: '4.5+ Excellent', value: 4.5, count: products.filter((p) => (p.rating ?? 0) >= 4.5).length },
+    { label: '4.0+ Very Good', value: 4.0, count: products.filter((p) => (p.rating ?? 0) >= 4.0).length },
+    { label: '3.5+ Good', value: 3.5, count: products.filter((p) => (p.rating ?? 0) >= 3.5).length },
+  ].filter((r) => r.count > 0);
+
+  return {
+    categories,
+    priceRanges,
+    durations,
+    ratings,
+    cities,
+  };
 }
 
 function formatPrice(amount: number, currency: string): string {
@@ -356,13 +551,36 @@ export default async function ExperiencesPage({ searchParams }: Props) {
   const site = await getSiteFromHostname(hostname);
   const resolvedSearchParams = await searchParams;
 
-  const { experiences, totalCount, hasMore, apiError } = await getExperiences(
+  const { experiences, totalCount, filteredCount, hasMore, apiError } = await getExperiences(
     site,
     resolvedSearchParams
   );
 
   const destination = resolvedSearchParams.destination || resolvedSearchParams.location;
   const isMicrosite = !!site.micrositeContext?.supplierId;
+
+  // For MARKETPLACE microsites (50+ products), show filter sidebar
+  if (isMicrosite && site.micrositeContext?.supplierId) {
+    const layoutType = site.micrositeContext.layoutConfig?.resolvedType;
+
+    if (layoutType === 'MARKETPLACE') {
+      const filterOptions = await getFilterOptions(site.micrositeContext.supplierId);
+
+      return (
+        <MarketplaceExperiencesPage
+          site={site}
+          experiences={experiences}
+          totalCount={totalCount}
+          filteredCount={filteredCount}
+          hasMore={hasMore}
+          searchParams={resolvedSearchParams}
+          filterOptions={filterOptions}
+          apiError={apiError}
+          hostname={hostname}
+        />
+      );
+    }
+  }
 
   // Build page title based on context
   let pageTitle = 'Discover Experiences';
