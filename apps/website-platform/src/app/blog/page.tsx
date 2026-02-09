@@ -29,13 +29,15 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   const currentPage = parseInt(resolvedParams.page ?? '1', 10);
   const baseUrl = `https://${site.primaryDomain || hostname}/blog`;
 
+  // For microsites, query by micrositeId; for regular sites, query by siteId
+  const isMicrosite = !!site.micrositeContext?.micrositeId;
+  const whereClause = isMicrosite
+    ? { micrositeId: site.micrositeContext!.micrositeId, type: 'BLOG' as const, status: 'PUBLISHED' as const }
+    : { siteId: site.id, type: 'BLOG' as const, status: 'PUBLISHED' as const };
+
   // Get total post count to determine if there are more pages
   const totalPosts = await prisma.page.count({
-    where: {
-      siteId: site.id,
-      type: 'BLOG',
-      status: 'PUBLISHED',
-    },
+    where: whereClause,
   });
   const totalPages = Math.ceil(totalPosts / POSTS_PER_PAGE);
 
@@ -73,17 +75,23 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 
 /**
  * Fetch blog posts with pagination
+ * For microsites, query by micrositeId; for regular sites, query by siteId
  */
-async function getBlogPosts(siteId: string, page: number = 1) {
+async function getBlogPosts(
+  siteId: string,
+  page: number = 1,
+  micrositeId?: string
+) {
   const skip = (page - 1) * POSTS_PER_PAGE;
+
+  // For microsites, query by micrositeId; for regular sites, query by siteId
+  const whereClause = micrositeId
+    ? { micrositeId, type: 'BLOG' as const, status: 'PUBLISHED' as const }
+    : { siteId, type: 'BLOG' as const, status: 'PUBLISHED' as const };
 
   const [posts, totalCount] = await Promise.all([
     prisma.page.findMany({
-      where: {
-        siteId,
-        type: 'BLOG',
-        status: 'PUBLISHED',
-      },
+      where: whereClause,
       include: {
         content: {
           select: {
@@ -100,11 +108,7 @@ async function getBlogPosts(siteId: string, page: number = 1) {
       take: POSTS_PER_PAGE,
     }),
     prisma.page.count({
-      where: {
-        siteId,
-        type: 'BLOG',
-        status: 'PUBLISHED',
-      },
+      where: whereClause,
     }),
   ]);
 
@@ -158,7 +162,9 @@ export default async function BlogPage({ searchParams }: Props) {
   const resolvedParams = await searchParams;
   const currentPage = Math.max(1, parseInt(resolvedParams.page || '1', 10));
 
-  const { posts, totalCount, totalPages } = await getBlogPosts(site.id, currentPage);
+  // For microsites, pass micrositeId to query the correct blog posts
+  const micrositeId = site.micrositeContext?.micrositeId;
+  const { posts, totalCount, totalPages } = await getBlogPosts(site.id, currentPage, micrositeId);
 
   // JSON-LD structured data for blog listing
   const jsonLd = {
@@ -502,11 +508,12 @@ export default async function BlogPage({ searchParams }: Props) {
                 >
                   Browse Experiences
                 </Link>
+                {/* Microsites: show About link; Regular sites: show Destinations */}
                 <Link
-                  href="/destinations"
+                  href={micrositeId ? '/about' : '/destinations'}
                   className="inline-flex items-center justify-center rounded-lg border border-white/30 bg-white/10 px-6 py-3 text-base font-medium text-white backdrop-blur-sm transition-all hover:bg-white/20"
                 >
-                  Explore Destinations
+                  {micrositeId ? 'About Us' : 'Explore Destinations'}
                 </Link>
               </div>
             </div>
