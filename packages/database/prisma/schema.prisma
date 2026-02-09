@@ -834,6 +834,8 @@ enum JobType {
   REFRESH_ANALYTICS_VIEWS
   METRICS_AGGREGATE
   PERFORMANCE_REPORT
+  MICROSITE_GSC_SYNC
+  MICROSITE_ANALYTICS_SYNC
 
   // A/B Testing
   ABTEST_ANALYZE
@@ -1176,6 +1178,13 @@ model MicrositeConfig {
   pageViews         Int       @default(0)
   lastContentUpdate DateTime?
 
+  // GSC tracking (uses parent domain property sc-domain:experiencess.com)
+  gscLastSyncedAt DateTime? // Last successful GSC data sync
+
+  // Relations
+  analyticsSnapshots MicrositeAnalyticsSnapshot[]
+  performanceMetrics MicrositePerformanceMetric[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1205,6 +1214,77 @@ enum MicrositeLayoutType {
   CATALOG // 2-50 products - compact grid, no empty sections
   MARKETPLACE // 50+ products - full marketplace layout (rarely used for microsites)
   AUTO // System determines based on product count (default)
+}
+
+// MicrositeAnalyticsSnapshot - Pre-aggregated daily GA4 + GSC metrics for microsites
+model MicrositeAnalyticsSnapshot {
+  id          String          @id @default(cuid())
+  micrositeId String
+  microsite   MicrositeConfig @relation(fields: [micrositeId], references: [id], onDelete: Cascade)
+  date        DateTime        @db.Date
+
+  // GA4 Traffic Metrics (from shared GA4 property)
+  users              Int   @default(0)
+  newUsers           Int   @default(0)
+  sessions           Int   @default(0)
+  pageviews          Int   @default(0)
+  bounceRate         Float @default(0)
+  avgSessionDuration Float @default(0)
+  engagementRate     Float @default(0)
+
+  // GA4 Traffic Sources (JSON for flexibility)
+  trafficSources  Json? // [{ source, medium, users, sessions }]
+  deviceBreakdown Json? // [{ device, users, sessions }]
+
+  // GSC Search Metrics (aggregated from MicrositePerformanceMetric)
+  totalClicks      Int   @default(0)
+  totalImpressions Int   @default(0)
+  avgCtr           Float @default(0)
+  avgPosition      Float @default(0)
+
+  // Metadata
+  ga4Synced Boolean  @default(false)
+  gscSynced Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([micrositeId, date])
+  @@index([micrositeId, date])
+  @@index([date])
+  @@map("microsite_analytics_snapshots")
+}
+
+// MicrositePerformanceMetric - GSC search data for microsites
+model MicrositePerformanceMetric {
+  id String @id @default(cuid())
+
+  // Time Period
+  date DateTime @db.Date
+
+  // GSC Metrics
+  impressions Int   @default(0)
+  clicks      Int   @default(0)
+  ctr         Float @default(0)
+  position    Float @default(0)
+
+  // Query/Page Data
+  query   String?
+  pageUrl String?
+
+  // Device & Country
+  device  String? // DESKTOP, MOBILE, TABLET
+  country String? // ISO country code
+
+  // Relationship
+  microsite   MicrositeConfig @relation(fields: [micrositeId], references: [id], onDelete: Cascade)
+  micrositeId String
+
+  createdAt DateTime @default(now())
+
+  @@unique([micrositeId, date, query, pageUrl, device, country])
+  @@index([micrositeId, date])
+  @@index([query])
+  @@map("microsite_performance_metrics")
 }
 
 // ============================================================================

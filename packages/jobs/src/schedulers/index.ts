@@ -160,6 +160,22 @@ export async function initializeScheduledJobs(): Promise<void> {
   );
   console.log('[Scheduler] ✓ Refresh Analytics Views - Hourly');
 
+  // Microsite GSC Sync - Daily at 7 AM (after GA4 sync)
+  await scheduleJob(
+    'MICROSITE_GSC_SYNC' as any,
+    {} as any, // Empty payload - syncs all active microsites
+    '0 7 * * *' // Daily at 7 AM
+  );
+  console.log('[Scheduler] ✓ Microsite GSC Sync - Daily at 7 AM');
+
+  // Microsite Analytics Sync - Daily at 8 AM (after GSC sync)
+  await scheduleJob(
+    'MICROSITE_ANALYTICS_SYNC' as any,
+    {} as any, // Empty payload - syncs all active microsites
+    '0 8 * * *' // Daily at 8 AM
+  );
+  console.log('[Scheduler] ✓ Microsite Analytics Sync - Daily at 8 AM');
+
   // Weekly Performance Report - Every Monday at 9 AM
   await scheduleJob(
     'PERFORMANCE_REPORT',
@@ -539,6 +555,8 @@ export async function removeAllScheduledJobs(): Promise<void> {
   await queueRegistry.removeRepeatableJob('METRICS_AGGREGATE', '0 1 * * *');
   await queueRegistry.removeRepeatableJob('GA4_DAILY_SYNC' as any, '0 6 * * *');
   await queueRegistry.removeRepeatableJob('REFRESH_ANALYTICS_VIEWS' as any, '0 * * * *');
+  await queueRegistry.removeRepeatableJob('MICROSITE_GSC_SYNC' as any, '0 7 * * *');
+  await queueRegistry.removeRepeatableJob('MICROSITE_ANALYTICS_SYNC' as any, '0 8 * * *');
   await queueRegistry.removeRepeatableJob('PERFORMANCE_REPORT', '0 9 * * 1');
   await queueRegistry.removeRepeatableJob('ABTEST_REBALANCE', '0 * * * *');
   await queueRegistry.removeRepeatableJob('LINK_BACKLINK_MONITOR' as any, '0 3 * * 3');

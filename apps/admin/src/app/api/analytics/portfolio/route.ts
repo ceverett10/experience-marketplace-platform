@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
 /**
+ * Helper function for calculating percentage change
+ */
+function calcChange(current: number, previous: number): number {
+  if (previous === 0) return current > 0 ? 100 : 0;
+  return Math.round(((current - previous) / previous) * 100);
+}
+
+/**
  * GET /api/analytics/portfolio
  * Returns aggregated analytics across all sites for the portfolio overview
  */
@@ -184,12 +192,110 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     // Sort sites by users (descending)
     siteMetrics.sort((a, b) => b.users - a.users || b.sessions - a.sessions);
 
-    // Calculate trends
-    const calcChange = (current: number, previous: number): number => {
-      if (previous === 0) return current > 0 ? 100 : 0;
-      return Math.round(((current - previous) / previous) * 100);
+    // =========================================================================
+    // MICROSITE ANALYTICS
+    // =========================================================================
+
+    // Fetch all active microsites
+    const microsites = await prisma.micrositeConfig.findMany({
+      where: { status: 'ACTIVE' },
+      select: {
+        id: true,
+        siteName: true,
+        fullDomain: true,
+        subdomain: true,
+        gscLastSyncedAt: true,
+      },
+    });
+
+    // Aggregate microsite GSC metrics (current period)
+    const currentMicrositeMetrics = await prisma.micrositePerformanceMetric.groupBy({
+      by: ['micrositeId'],
+      where: {
+        date: { gte: start, lte: end },
+      },
+      _sum: { clicks: true, impressions: true },
+      _avg: { ctr: true, position: true },
+    });
+
+    // Aggregate microsite GSC metrics (previous period)
+    const previousMicrositeMetrics = await prisma.micrositePerformanceMetric.groupBy({
+      by: ['micrositeId'],
+      where: {
+        date: { gte: prevStart, lte: prevEnd },
+      },
+      _sum: { clicks: true, impressions: true },
+    });
+
+    // Create lookup maps for microsite metrics
+    const currentMicrositeMap = new Map(currentMicrositeMetrics.map((m) => [m.micrositeId, m]));
+    const previousMicrositeMap = new Map(previousMicrositeMetrics.map((m) => [m.micrositeId, m]));
+
+    // Calculate microsite totals
+    let micrositeTotalClicks = 0;
+    let micrositeTotalImpressions = 0;
+    let micrositePrevClicks = 0;
+    let micrositePrevImpressions = 0;
+    let micrositePositionSum = 0;
+    let micrositePositionCount = 0;
+
+    const micrositeMetrics: Array<{
+      id: string;
+      name: string;
+      domain: string;
+      clicks: number;
+      impressions: number;
+      ctr: number;
+      position: number;
+      gscSynced: boolean;
+    }> = [];
+
+    for (const ms of microsites) {
+      const current = currentMicrositeMap.get(ms.id);
+      const previous = previousMicrositeMap.get(ms.id);
+
+      const clicks = current?._sum.clicks || 0;
+      const impressions = current?._sum.impressions || 0;
+      const position = current?._avg.position || 0;
+
+      micrositeTotalClicks += clicks;
+      micrositeTotalImpressions += impressions;
+      micrositePrevClicks += previous?._sum.clicks || 0;
+      micrositePrevImpressions += previous?._sum.impressions || 0;
+
+      if (position > 0) {
+        micrositePositionSum += position;
+        micrositePositionCount++;
+      }
+
+      micrositeMetrics.push({
+        id: ms.id,
+        name: ms.siteName,
+        domain: ms.fullDomain,
+        clicks,
+        impressions,
+        ctr: impressions > 0 ? (clicks / impressions) * 100 : 0,
+        position,
+        gscSynced: !!ms.gscLastSyncedAt,
+      });
+    }
+
+    // Sort microsites by impressions (descending)
+    micrositeMetrics.sort((a, b) => b.impressions - a.impressions || b.clicks - a.clicks);
+
+    // Microsite summary
+    const micrositeSummary = {
+      totalMicrosites: microsites.length,
+      micrositesWithGsc: microsites.filter((m) => m.gscLastSyncedAt).length,
+      totalClicks: micrositeTotalClicks,
+      totalImpressions: micrositeTotalImpressions,
+      avgCTR: micrositeTotalImpressions > 0 ? (micrositeTotalClicks / micrositeTotalImpressions) * 100 : 0,
+      avgPosition: micrositePositionCount > 0 ? micrositePositionSum / micrositePositionCount : 0,
+      clicksChange: calcChange(micrositeTotalClicks, micrositePrevClicks),
+      impressionsChange: calcChange(micrositeTotalImpressions, micrositePrevImpressions),
     };
 
+    // Calculate trends
     const trends = {
       usersChange: calcChange(totalUsers, prevUsers),
       sessionsChange: calcChange(totalSessions, prevSessions),
@@ -221,6 +327,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       topSites: siteMetrics.slice(0, 20),
       trends,
       unconfiguredSites: unconfiguredSites.slice(0, 10),
+      // Microsite analytics
+      microsites: {
+        summary: micrositeSummary,
+        top: micrositeMetrics.slice(0, 20),
+      },
       dateRange: { startDate, endDate },
     });
   } catch (error) {

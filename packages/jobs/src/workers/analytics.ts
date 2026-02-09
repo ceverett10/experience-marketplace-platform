@@ -5,9 +5,12 @@ import type {
   MetricsAggregatePayload,
   PerformanceReportPayload,
   GA4SetupPayload,
+  MicrositeGscSyncPayload,
+  MicrositeAnalyticsSyncPayload,
   JobResult,
 } from '../types/index.js';
 import { getGA4Client, isGA4Configured } from '../services/ga4-client.js';
+import { getGSCClient, isGSCConfigured } from '../services/gsc-client.js';
 import { circuitBreakers } from '../errors/circuit-breaker.js';
 import { toJobError } from '../errors/index.js';
 import { errorTracking } from '../errors/tracking.js';
@@ -822,4 +825,546 @@ Format as JSON:
     insights: ['Performance data analyzed successfully'],
     recommendations: ['Continue monitoring key metrics', 'Focus on high-performing queries'],
   };
+}
+
+// ============================================================================
+// GA4 DAILY SYNC HANDLERS
+// ============================================================================
+
+/**
+ * GA4 Daily Sync Handler
+ * Syncs GA4 traffic data for all sites into SiteAnalyticsSnapshot
+ */
+export async function handleGA4DailySync(job: Job): Promise<JobResult> {
+  try {
+    console.log('[GA4 Daily Sync] Starting sync for all sites');
+
+    if (!isGA4Configured()) {
+      console.log('[GA4 Daily Sync] GA4 not configured, skipping');
+      return {
+        success: false,
+        error: 'GA4 not configured',
+        timestamp: new Date(),
+      };
+    }
+
+    // Get all active sites with GA4 configured
+    const sites = await prisma.site.findMany({
+      where: {
+        status: 'ACTIVE',
+      },
+      select: {
+        id: true,
+        name: true,
+        seoConfig: true,
+      },
+    });
+
+    // Calculate yesterday's date
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    yesterday.setHours(0, 0, 0, 0);
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const ga4Client = getGA4Client();
+    const yesterdayStr = yesterday.toISOString().split('T')[0]!;
+
+    let synced = 0;
+    let skipped = 0;
+    let errors = 0;
+
+    for (const site of sites) {
+      const seoConfig = (site.seoConfig as Record<string, unknown>) || {};
+      const ga4PropertyId = seoConfig['ga4PropertyId'] as string | undefined;
+
+      if (!ga4PropertyId) {
+        skipped++;
+        continue;
+      }
+
+      try {
+        // Get traffic report from GA4
+        const traffic = await ga4Client.getTrafficReport(ga4PropertyId, yesterdayStr, yesterdayStr);
+        const sources = await ga4Client.getSourceReport(ga4PropertyId, yesterdayStr, yesterdayStr);
+        const devices = await ga4Client.getDeviceReport(ga4PropertyId, yesterdayStr, yesterdayStr);
+
+        // Get booking data for yesterday (if Booking model exists)
+        let bookingCount = 0;
+        let bookingRevenue = 0;
+        try {
+          const bookings = await (prisma as any).booking?.aggregate({
+            where: {
+              siteId: site.id,
+              createdAt: {
+                gte: yesterday,
+                lt: today,
+              },
+            },
+            _count: true,
+            _sum: { totalAmount: true },
+          });
+          if (bookings) {
+            bookingCount = bookings._count || 0;
+            bookingRevenue = bookings._sum?.totalAmount || 0;
+          }
+        } catch {
+          // Booking model might not exist, that's OK
+        }
+
+        // Upsert the snapshot
+        await prisma.siteAnalyticsSnapshot.upsert({
+          where: {
+            siteId_date: {
+              siteId: site.id,
+              date: yesterday,
+            },
+          },
+          update: {
+            users: traffic?.totalUsers || 0,
+            newUsers: traffic?.newUsers || 0,
+            sessions: traffic?.sessions || 0,
+            pageviews: traffic?.pageviews || 0,
+            bounceRate: traffic?.bounceRate || 0,
+            avgSessionDuration: traffic?.avgSessionDuration || 0,
+            engagementRate: traffic?.engagementRate || 0,
+            trafficSources: sources as any,
+            deviceBreakdown: devices as any,
+            bookings: bookingCount,
+            revenue: bookingRevenue,
+            ga4Synced: true,
+            updatedAt: new Date(),
+          },
+          create: {
+            siteId: site.id,
+            date: yesterday,
+            users: traffic?.totalUsers || 0,
+            newUsers: traffic?.newUsers || 0,
+            sessions: traffic?.sessions || 0,
+            pageviews: traffic?.pageviews || 0,
+            bounceRate: traffic?.bounceRate || 0,
+            avgSessionDuration: traffic?.avgSessionDuration || 0,
+            engagementRate: traffic?.engagementRate || 0,
+            trafficSources: sources as any,
+            deviceBreakdown: devices as any,
+            bookings: bookingCount,
+            revenue: bookingRevenue,
+            ga4Synced: true,
+          },
+        });
+
+        synced++;
+      } catch (error) {
+        console.error(`[GA4 Daily Sync] Error syncing ${site.name}:`, error);
+        errors++;
+      }
+    }
+
+    console.log(`[GA4 Daily Sync] Complete: ${synced} synced, ${skipped} skipped, ${errors} errors`);
+
+    return {
+      success: true,
+      message: `Synced GA4 data for ${synced} sites`,
+      data: { synced, skipped, errors, date: yesterdayStr },
+      timestamp: new Date(),
+    };
+  } catch (error) {
+    console.error('[GA4 Daily Sync] Error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      timestamp: new Date(),
+    };
+  }
+}
+
+/**
+ * Refresh Analytics Views Handler
+ * Refreshes materialized views for the analytics dashboard
+ */
+export async function handleRefreshAnalyticsViews(job: Job): Promise<JobResult> {
+  try {
+    console.log('[Refresh Analytics Views] Refreshing materialized views');
+
+    // Refresh the site daily GSC view
+    try {
+      await prisma.$executeRaw`REFRESH MATERIALIZED VIEW CONCURRENTLY IF EXISTS mv_site_daily_gsc`;
+      console.log('[Refresh Analytics Views] Refreshed mv_site_daily_gsc');
+    } catch (error) {
+      // View might not exist yet
+      console.log('[Refresh Analytics Views] mv_site_daily_gsc does not exist, skipping');
+    }
+
+    // Refresh the portfolio weekly view
+    try {
+      await prisma.$executeRaw`REFRESH MATERIALIZED VIEW CONCURRENTLY IF EXISTS mv_portfolio_weekly`;
+      console.log('[Refresh Analytics Views] Refreshed mv_portfolio_weekly');
+    } catch (error) {
+      // View might not exist yet
+      console.log('[Refresh Analytics Views] mv_portfolio_weekly does not exist, skipping');
+    }
+
+    // Refresh the microsite daily GSC view
+    try {
+      await prisma.$executeRaw`REFRESH MATERIALIZED VIEW CONCURRENTLY IF EXISTS mv_microsite_daily_gsc`;
+      console.log('[Refresh Analytics Views] Refreshed mv_microsite_daily_gsc');
+    } catch (error) {
+      // View might not exist yet
+      console.log('[Refresh Analytics Views] mv_microsite_daily_gsc does not exist, skipping');
+    }
+
+    return {
+      success: true,
+      message: 'Refreshed analytics materialized views',
+      timestamp: new Date(),
+    };
+  } catch (error) {
+    console.error('[Refresh Analytics Views] Error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      timestamp: new Date(),
+    };
+  }
+}
+
+// ============================================================================
+// MICROSITE ANALYTICS HANDLERS
+// ============================================================================
+
+const MICROSITE_PARENT_DOMAIN = 'experiencess.com';
+const MICROSITE_GSC_DOMAIN_PROPERTY = `sc-domain:${MICROSITE_PARENT_DOMAIN}`;
+
+/**
+ * Microsite GSC Sync Handler
+ * Syncs GSC performance data for all microsites from the parent domain property
+ */
+export async function handleMicrositeGscSync(
+  job: Job<MicrositeGscSyncPayload>
+): Promise<JobResult> {
+  const { micrositeId, startDate, endDate } = job.data;
+
+  try {
+    console.log(`[Microsite GSC Sync] Starting sync${micrositeId ? ` for ${micrositeId}` : ' for all microsites'}`);
+
+    if (!isGSCConfigured()) {
+      console.log('[Microsite GSC Sync] GSC not configured, skipping');
+      return {
+        success: false,
+        error: 'GSC not configured',
+        timestamp: new Date(),
+      };
+    }
+
+    // Calculate date range (default: last 7 days)
+    const end = endDate || new Date().toISOString().split('T')[0]!;
+    const start = startDate || (() => {
+      const date = new Date();
+      date.setDate(date.getDate() - 7);
+      return date.toISOString().split('T')[0]!;
+    })();
+
+    // Get active microsites
+    const micrositeWhere: any = {
+      parentDomain: MICROSITE_PARENT_DOMAIN,
+      status: 'ACTIVE',
+    };
+    if (micrositeId) {
+      micrositeWhere.id = micrositeId;
+    }
+
+    const microsites = await prisma.micrositeConfig.findMany({
+      where: micrositeWhere,
+      select: {
+        id: true,
+        fullDomain: true,
+        subdomain: true,
+        siteName: true,
+      },
+    });
+
+    console.log(`[Microsite GSC Sync] Found ${microsites.length} microsites to sync`);
+
+    if (microsites.length === 0) {
+      return {
+        success: true,
+        message: 'No active microsites to sync',
+        timestamp: new Date(),
+      };
+    }
+
+    // Query GSC for all data from the domain property
+    const gscClient = getGSCClient();
+    console.log(`[Microsite GSC Sync] Querying ${MICROSITE_GSC_DOMAIN_PROPERTY} for ${start} to ${end}`);
+
+    const response = await gscClient.querySearchAnalytics({
+      siteUrl: MICROSITE_GSC_DOMAIN_PROPERTY,
+      startDate: start,
+      endDate: end,
+      dimensions: ['page', 'query', 'device', 'country'],
+      rowLimit: 25000,
+    });
+
+    console.log(`[Microsite GSC Sync] Retrieved ${response.rows?.length || 0} rows from GSC`);
+
+    // Create a map of subdomain -> microsite for quick lookup
+    const micrositeMap = new Map(microsites.map(m => [m.fullDomain, m]));
+
+    // Group GSC data by microsite
+    const micrositeMetrics = new Map<string, Array<{
+      date: Date;
+      query?: string;
+      pageUrl?: string;
+      device?: string;
+      country?: string;
+      impressions: number;
+      clicks: number;
+      ctr: number;
+      position: number;
+    }>>();
+
+    for (const row of response.rows || []) {
+      const pageUrl = row.keys?.[0] || '';
+
+      // Extract subdomain from URL (e.g., "https://adventure-co.experiencess.com/..." -> "adventure-co.experiencess.com")
+      let domain: string | null = null;
+      try {
+        const url = new URL(pageUrl);
+        domain = url.hostname;
+      } catch {
+        continue; // Skip invalid URLs
+      }
+
+      const microsite = micrositeMap.get(domain);
+      if (!microsite) continue; // Not a microsite URL
+
+      const metrics = micrositeMetrics.get(microsite.id) || [];
+      metrics.push({
+        date: new Date(start),
+        query: row.keys?.[1] || undefined,
+        pageUrl: pageUrl,
+        device: row.keys?.[2] || undefined,
+        country: row.keys?.[3] || undefined,
+        impressions: row.impressions,
+        clicks: row.clicks,
+        ctr: row.ctr * 100,
+        position: row.position,
+      });
+      micrositeMetrics.set(microsite.id, metrics);
+    }
+
+    console.log(`[Microsite GSC Sync] Matched data for ${micrositeMetrics.size} microsites`);
+
+    // Store metrics for each microsite
+    let totalStored = 0;
+    let errors = 0;
+
+    for (const [msId, metrics] of micrositeMetrics) {
+      try {
+        // Delete existing metrics for this microsite/date and bulk insert new ones
+        // This is more efficient than individual upserts with nullable compound keys
+        const dates = [...new Set(metrics.map(m => m.date.toISOString().split('T')[0]!))];
+
+        for (const dateStr of dates) {
+          const dateMetrics = metrics.filter(m => m.date.toISOString().split('T')[0] === dateStr);
+          const targetDate = new Date(dateStr!);
+
+          // Delete old metrics for this date
+          await prisma.micrositePerformanceMetric.deleteMany({
+            where: {
+              micrositeId: msId,
+              date: targetDate,
+            },
+          });
+
+          // Bulk insert new metrics
+          await prisma.micrositePerformanceMetric.createMany({
+            data: dateMetrics.map(metric => ({
+              micrositeId: msId,
+              date: metric.date,
+              query: metric.query ?? null,
+              pageUrl: metric.pageUrl ?? null,
+              device: metric.device ?? null,
+              country: metric.country ?? null,
+              impressions: metric.impressions,
+              clicks: metric.clicks,
+              ctr: metric.ctr,
+              position: metric.position,
+            })),
+            skipDuplicates: true,
+          });
+
+          totalStored += dateMetrics.length;
+        }
+
+        // Update microsite's last synced timestamp
+        await prisma.micrositeConfig.update({
+          where: { id: msId },
+          data: { gscLastSyncedAt: new Date() },
+        });
+      } catch (error) {
+        console.error(`[Microsite GSC Sync] Error storing metrics for ${msId}:`, error);
+        errors++;
+      }
+    }
+
+    console.log(`[Microsite GSC Sync] Stored ${totalStored} metrics, ${errors} errors`);
+
+    return {
+      success: true,
+      message: `Synced GSC data for ${micrositeMetrics.size} microsites`,
+      data: {
+        micrositesSynced: micrositeMetrics.size,
+        metricsStored: totalStored,
+        errors,
+        dateRange: { start, end },
+      },
+      timestamp: new Date(),
+    };
+  } catch (error) {
+    console.error('[Microsite GSC Sync] Error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      timestamp: new Date(),
+    };
+  }
+}
+
+/**
+ * Microsite Analytics Sync Handler
+ * Creates daily analytics snapshots for microsites (aggregates GSC data)
+ */
+export async function handleMicrositeAnalyticsSync(
+  job: Job<MicrositeAnalyticsSyncPayload>
+): Promise<JobResult> {
+  const { micrositeId, date } = job.data;
+
+  try {
+    console.log(`[Microsite Analytics Sync] Starting sync${micrositeId ? ` for ${micrositeId}` : ' for all microsites'}`);
+
+    // Calculate target date (default: yesterday)
+    const targetDate = date
+      ? new Date(date)
+      : (() => {
+          const d = new Date();
+          d.setDate(d.getDate() - 1);
+          return d;
+        })();
+
+    const dateStr = targetDate.toISOString().split('T')[0]!;
+    const startOfDay = new Date(dateStr);
+    const endOfDay = new Date(dateStr);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    // Get active microsites
+    const micrositeWhere: any = {
+      parentDomain: MICROSITE_PARENT_DOMAIN,
+      status: 'ACTIVE',
+    };
+    if (micrositeId) {
+      micrositeWhere.id = micrositeId;
+    }
+
+    const microsites = await prisma.micrositeConfig.findMany({
+      where: micrositeWhere,
+      select: {
+        id: true,
+        fullDomain: true,
+        siteName: true,
+      },
+    });
+
+    console.log(`[Microsite Analytics Sync] Creating snapshots for ${microsites.length} microsites for ${dateStr}`);
+
+    let created = 0;
+    let updated = 0;
+    let errors = 0;
+
+    for (const microsite of microsites) {
+      try {
+        // Aggregate GSC metrics for this microsite and date
+        const gscMetrics = await prisma.micrositePerformanceMetric.aggregate({
+          where: {
+            micrositeId: microsite.id,
+            date: {
+              gte: startOfDay,
+              lte: endOfDay,
+            },
+          },
+          _sum: {
+            clicks: true,
+            impressions: true,
+          },
+          _avg: {
+            ctr: true,
+            position: true,
+          },
+        });
+
+        const totalClicks = gscMetrics._sum.clicks || 0;
+        const totalImpressions = gscMetrics._sum.impressions || 0;
+        const avgCtr = gscMetrics._avg.ctr || 0;
+        const avgPosition = gscMetrics._avg.position || 0;
+
+        // Upsert the snapshot
+        const result = await prisma.micrositeAnalyticsSnapshot.upsert({
+          where: {
+            micrositeId_date: {
+              micrositeId: microsite.id,
+              date: startOfDay,
+            },
+          },
+          update: {
+            totalClicks,
+            totalImpressions,
+            avgCtr,
+            avgPosition,
+            gscSynced: totalImpressions > 0,
+            updatedAt: new Date(),
+          },
+          create: {
+            micrositeId: microsite.id,
+            date: startOfDay,
+            totalClicks,
+            totalImpressions,
+            avgCtr,
+            avgPosition,
+            gscSynced: totalImpressions > 0,
+          },
+        });
+
+        if (result.createdAt.getTime() === result.updatedAt.getTime()) {
+          created++;
+        } else {
+          updated++;
+        }
+      } catch (error) {
+        console.error(`[Microsite Analytics Sync] Error for ${microsite.id}:`, error);
+        errors++;
+      }
+    }
+
+    console.log(`[Microsite Analytics Sync] Created ${created}, updated ${updated}, errors ${errors}`);
+
+    return {
+      success: true,
+      message: `Created/updated ${created + updated} microsite analytics snapshots`,
+      data: {
+        date: dateStr,
+        created,
+        updated,
+        errors,
+      },
+      timestamp: new Date(),
+    };
+  } catch (error) {
+    console.error('[Microsite Analytics Sync] Error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      timestamp: new Date(),
+    };
+  }
 }

@@ -176,6 +176,17 @@ export interface GA4SetupPayload {
   accountId?: string; // Optional - if not provided, uses first available account
 }
 
+export interface MicrositeGscSyncPayload {
+  micrositeId?: string; // Optional - if not provided, syncs all active microsites
+  startDate?: string; // YYYY-MM-DD
+  endDate?: string; // YYYY-MM-DD
+}
+
+export interface MicrositeAnalyticsSyncPayload {
+  micrositeId?: string; // Optional - if not provided, syncs all active microsites
+  date?: string; // YYYY-MM-DD, defaults to yesterday
+}
+
 // Site Management Jobs
 export interface SiteCreatePayload {
   opportunityId: string;
@@ -357,6 +368,8 @@ export type JobPayload =
   | MicrositePublishPayload
   | MicrositeArchivePayload
   | MicrositeHealthCheckPayload
+  | MicrositeGscSyncPayload
+  | MicrositeAnalyticsSyncPayload
   | SupplierSyncPayload
   | ProductSyncPayload;
 
@@ -463,4 +476,6 @@ export const JOB_TYPE_TO_QUEUE: Record<JobType, QueueName> = {
   // Analytics (scheduled jobs)
   GA4_DAILY_SYNC: QUEUE_NAMES.ANALYTICS,
   REFRESH_ANALYTICS_VIEWS: QUEUE_NAMES.ANALYTICS,
+  MICROSITE_GSC_SYNC: QUEUE_NAMES.ANALYTICS,
+  MICROSITE_ANALYTICS_SYNC: QUEUE_NAMES.ANALYTICS,
 };

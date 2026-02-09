@@ -32,6 +32,10 @@ import {
   handleMetricsAggregate,
   handlePerformanceReport,
   handleGA4Setup,
+  handleGA4DailySync,
+  handleRefreshAnalyticsViews,
+  handleMicrositeGscSync,
+  handleMicrositeAnalyticsSync,
   handleABTestAnalyze,
   handleABTestRebalance,
   processAllSiteRoadmaps,
@@ -296,6 +300,14 @@ const analyticsWorker = new Worker(
         return await handlePerformanceReport(job);
       case 'GA4_SETUP':
         return await handleGA4Setup(job);
+      case 'GA4_DAILY_SYNC':
+        return await handleGA4DailySync(job);
+      case 'REFRESH_ANALYTICS_VIEWS':
+        return await handleRefreshAnalyticsViews(job);
+      case 'MICROSITE_GSC_SYNC':
+        return await handleMicrositeGscSync(job);
+      case 'MICROSITE_ANALYTICS_SYNC':
+        return await handleMicrositeAnalyticsSync(job);
       default:
         throw new Error(`Unknown job type: ${job.name}`);
     }
@@ -514,7 +526,7 @@ console.log('  ✓ SEO Worker (opportunity scan, SEO analysis)');
 console.log('  ✓ GSC Worker (Google Search Console sync)');
 console.log('  ✓ Site Worker (site creation, deployment)');
 console.log('  ✓ Domain Worker (domain registration, verification, SSL)');
-console.log('  ✓ Analytics Worker (metrics aggregation, reports)');
+console.log('  ✓ Analytics Worker (metrics aggregation, reports, GA4 sync, microsite analytics)');
 console.log('  ✓ A/B Test Worker (test analysis, rebalancing)');
 console.log('  ✓ Microsite Worker (microsite creation, branding, publishing)');
 console.log('  ✓ Sync Worker (Holibob supplier and product sync)');

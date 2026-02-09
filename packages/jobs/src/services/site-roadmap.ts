@@ -253,6 +253,8 @@ async function validateTaskArtifacts(
     // Analytics (not part of standard site roadmap)
     GA4_DAILY_SYNC: { valid: true },
     REFRESH_ANALYTICS_VIEWS: { valid: true },
+    MICROSITE_GSC_SYNC: { valid: true },
+    MICROSITE_ANALYTICS_SYNC: { valid: true },
   };
 }
 
@@ -427,6 +429,14 @@ export const TASK_DESCRIPTIONS: Record<JobType, { label: string; description: st
   REFRESH_ANALYTICS_VIEWS: {
     label: 'Refresh Analytics Views',
     description: 'Update analytics dashboard views',
+  },
+  MICROSITE_GSC_SYNC: {
+    label: 'Sync Microsite GSC Data',
+    description: 'Import search performance data for microsites',
+  },
+  MICROSITE_ANALYTICS_SYNC: {
+    label: 'Sync Microsite Analytics',
+    description: 'Create daily analytics snapshots for microsites',
   },
 };
 
