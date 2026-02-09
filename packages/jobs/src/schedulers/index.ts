@@ -229,10 +229,10 @@ export async function initializeScheduledJobs(): Promise<void> {
   );
   console.log('[Scheduler] ✓ Microsite Health Check - Sundays at 8:30 AM');
 
-  // Curated Collection Refresh - Mondays at 5:30 AM
-  // Regenerates AI-curated collections for all microsites weekly
+  // Curated Collection Refresh - Daily at 5:30 AM
+  // Processes 5% of microsites per day (rotating), spreading load across time
   initializeCollectionRefreshSchedule();
-  console.log('[Scheduler] ✓ Collection Refresh - Mondays at 5:30 AM');
+  console.log('[Scheduler] ✓ Collection Refresh - Daily at 5:30 AM (5% rotation)');
 
   console.log('[Scheduler] All scheduled jobs initialized successfully');
 }
@@ -469,7 +469,8 @@ async function refreshMicrositeContent(): Promise<void> {
 
 /**
  * Initialize curated collection refresh schedule
- * Runs on Mondays at 5:30 AM to regenerate collections for all microsites
+ * Runs daily at 5:30 AM, processing 5% of microsites per day (rotating)
+ * This ensures each microsite gets its collections refreshed every ~20 days
  */
 function initializeCollectionRefreshSchedule(): void {
   collectionRefreshInterval = setInterval(
@@ -477,19 +478,18 @@ function initializeCollectionRefreshSchedule(): void {
       const now = new Date();
       const currentHour = now.getHours();
       const currentMinute = now.getMinutes();
-      const currentDow = now.getDay();
       const today = now.toISOString().split('T')[0] ?? '';
 
-      // Run on Mondays at 5:30 AM
-      if (currentDow === 1 && currentHour === 5 && currentMinute >= 30 && currentMinute < 60) {
+      // Run daily at 5:30 AM
+      if (currentHour === 5 && currentMinute >= 30 && currentMinute < 60) {
         const lastRun = schedulesRunToday.get('collection-refresh');
         if (lastRun !== today) {
           schedulesRunToday.set('collection-refresh', today);
-          console.log('[Scheduler] Running weekly curated collection refresh...');
+          console.log('[Scheduler] Running daily curated collection refresh (5% rotation)...');
           try {
             const result = await refreshAllCollections();
             console.log(
-              `[Scheduler] Collection refresh complete: ${result.totalCreated} created, ${result.totalUpdated} updated across ${result.micrositesProcessed} microsites`
+              `[Scheduler] Collection refresh complete: ${result.totalCreated} created, ${result.totalUpdated} updated across ${result.micrositesProcessed}/${result.totalMicrosites} microsites`
             );
           } catch (error) {
             console.error('[Scheduler] Collection refresh failed:', error);
@@ -674,8 +674,8 @@ export function getScheduledJobs(): Array<{
     },
     {
       jobType: 'COLLECTION_REFRESH',
-      schedule: '30 5 * * 1',
-      description: 'Regenerate AI-curated collections for all microsites (Mondays)',
+      schedule: '30 5 * * *',
+      description: 'Refresh AI-curated collections for 5% of microsites daily (rotating)',
     },
   ];
 }

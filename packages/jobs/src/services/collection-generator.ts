@@ -573,38 +573,97 @@ export async function generateCollectionsForMicrosite(
 }
 
 /**
- * Refresh collections for all active microsites
+ * Refresh collections for a rotating subset of microsites (batch processing for scale)
+ *
+ * Strategy: Process 5% of microsites per run (daily), meaning each site gets
+ * refreshed roughly every 20 days. This spreads load across time and prevents
+ * database spikes with thousands of microsites.
+ *
+ * @param options.percentPerRun - Percentage of total microsites to process (default 5%)
+ * @param options.maxPerRun - Maximum microsites per run regardless of percentage (default 100)
+ * @param options.forceRegenerate - Whether to regenerate existing collections
  */
-export async function refreshAllCollections(): Promise<{
+export async function refreshAllCollections(options?: {
+  percentPerRun?: number;
+  maxPerRun?: number;
+  forceRegenerate?: boolean;
+}): Promise<{
   micrositesProcessed: number;
+  totalMicrosites: number;
   totalCreated: number;
   totalUpdated: number;
   errors: string[];
 }> {
+  const { percentPerRun = 5, maxPerRun = 100, forceRegenerate = false } = options || {};
+
+  // Get total count of active microsites with products
+  const totalMicrosites = await prisma.micrositeConfig.count({
+    where: {
+      status: 'ACTIVE',
+      supplierId: { not: null },
+    },
+  });
+
+  // Calculate batch size: percentage-based with min/max bounds
+  const batchSize = Math.max(1, Math.min(maxPerRun, Math.floor(totalMicrosites * (percentPerRun / 100))));
+
+  // Get microsites that haven't had collections refreshed recently
+  // Order by updatedAt of their collections (oldest first), or by microsite creation if no collections
   const microsites = await prisma.micrositeConfig.findMany({
     where: {
       status: 'ACTIVE',
-      supplierId: { not: null }, // Only supplier microsites have products
+      supplierId: { not: null },
     },
-    select: { id: true, siteName: true },
+    select: {
+      id: true,
+      siteName: true,
+      collections: {
+        select: { updatedAt: true },
+        orderBy: { updatedAt: 'desc' },
+        take: 1,
+      },
+    },
+    orderBy: { createdAt: 'asc' }, // Fallback ordering
+    take: batchSize * 2, // Fetch extra to sort properly
   });
 
-  console.log(`[CollectionGenerator] Refreshing collections for ${microsites.length} microsites`);
+  // Sort by last collection update (oldest first, null = never updated = highest priority)
+  const sortedMicrosites = microsites
+    .map((ms) => ({
+      id: ms.id,
+      siteName: ms.siteName,
+      lastCollectionUpdate: ms.collections[0]?.updatedAt || null,
+    }))
+    .sort((a, b) => {
+      if (!a.lastCollectionUpdate) return -1;
+      if (!b.lastCollectionUpdate) return 1;
+      return a.lastCollectionUpdate.getTime() - b.lastCollectionUpdate.getTime();
+    })
+    .slice(0, batchSize);
+
+  console.log(
+    `[CollectionGenerator] Refreshing collections for ${sortedMicrosites.length} of ${totalMicrosites} microsites (${percentPerRun}% batch)`
+  );
 
   let micrositesProcessed = 0;
   let totalCreated = 0;
   let totalUpdated = 0;
   const errors: string[] = [];
 
-  for (const microsite of microsites) {
+  for (const microsite of sortedMicrosites) {
     try {
       const result = await generateCollectionsForMicrosite(microsite.id, {
-        forceRegenerate: false, // Only create new collections, don't update existing
+        forceRegenerate,
       });
 
       totalCreated += result.created;
       totalUpdated += result.updated;
       micrositesProcessed++;
+
+      // Small delay between microsites to spread database load
+      if (micrositesProcessed < sortedMicrosites.length) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
     } catch (error) {
       const errorMsg = `Error processing ${microsite.siteName}: ${error instanceof Error ? error.message : String(error)}`;
       console.error(`[CollectionGenerator] ${errorMsg}`);
@@ -614,6 +673,7 @@ export async function refreshAllCollections(): Promise<{
 
   return {
     micrositesProcessed,
+    totalMicrosites,
     totalCreated,
     totalUpdated,
     errors,
