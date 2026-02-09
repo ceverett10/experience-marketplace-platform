@@ -145,10 +145,8 @@ export async function initializeScheduledJobs(): Promise<void> {
   // GA4 Daily Sync - Daily at 6 AM (after GA4 has processed previous day)
   // Syncs GA4 traffic data + booking metrics into SiteAnalyticsSnapshot
   await scheduleJob(
-    'GA4_DAILY_SYNC' as any,
-    {
-      includeBookings: true,
-    },
+    'GA4_DAILY_SYNC',
+    {} as any, // Empty payload - uses defaults
     '0 6 * * *' // Daily at 6 AM
   );
   console.log('[Scheduler] ✓ GA4 Daily Sync - Daily at 6 AM');
@@ -156,10 +154,8 @@ export async function initializeScheduledJobs(): Promise<void> {
   // Refresh Analytics Views - Every hour
   // Refreshes materialized views used by analytics dashboard
   await scheduleJob(
-    'REFRESH_ANALYTICS_VIEWS' as any,
-    {
-      concurrently: true,
-    },
+    'REFRESH_ANALYTICS_VIEWS',
+    {} as any, // Empty payload - uses defaults
     '0 * * * *' // Every hour at :00
   );
   console.log('[Scheduler] ✓ Refresh Analytics Views - Hourly');
