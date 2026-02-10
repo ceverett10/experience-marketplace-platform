@@ -305,6 +305,13 @@ export default async function ExperienceDetailPage({ params }: Props) {
       availability: 'https://schema.org/InStock',
       url: `https://${site.primaryDomain || hostname}/experiences/${slug}`,
       priceValidUntil: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(), // 90 days from now
+      description: experience.shortDescription || experience.description?.substring(0, 200),
+      // Experience bookings are non-refundable services (cancellation policy shown separately)
+      hasMerchantReturnPolicy: {
+        '@type': 'MerchantReturnPolicy',
+        returnPolicyCategory: 'https://schema.org/MerchantReturnNotPermitted',
+        applicableCountry: 'GB',
+      },
     },
     // Only include aggregateRating if we have valid rating data
     ...(experience.rating &&
