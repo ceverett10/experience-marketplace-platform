@@ -160,7 +160,7 @@ export interface RewriteRecord {
 export interface PipelineConfig {
   // Model selection
   draftModel: 'haiku' | 'sonnet'; // For initial draft
-  qualityModel: 'sonnet' | 'opus'; // For quality assessment
+  qualityModel: 'haiku' | 'sonnet' | 'opus'; // For quality assessment (haiku for cost savings)
   rewriteModel: 'haiku' | 'sonnet'; // For rewrites
 
   // Quality thresholds
@@ -267,7 +267,7 @@ export const ContentBriefSchema = z.object({
 
 export const PipelineConfigSchema = z.object({
   draftModel: z.enum(['haiku', 'sonnet']),
-  qualityModel: z.enum(['sonnet', 'opus']),
+  qualityModel: z.enum(['haiku', 'sonnet', 'opus']),
   rewriteModel: z.enum(['haiku', 'sonnet']),
   qualityThreshold: z.number().min(0).max(100),
   autoPublishThreshold: z.number().min(0).max(100),
@@ -282,7 +282,7 @@ export const PipelineConfigSchema = z.object({
 // Default configuration
 export const DEFAULT_PIPELINE_CONFIG: PipelineConfig = {
   draftModel: 'haiku',
-  qualityModel: 'sonnet',
+  qualityModel: 'haiku', // Changed from 'sonnet' for ~75% cost reduction
   rewriteModel: 'haiku',
   qualityThreshold: 75,
   autoPublishThreshold: 90,

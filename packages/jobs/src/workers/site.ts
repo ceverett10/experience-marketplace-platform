@@ -902,7 +902,7 @@ Format as JSON:
 }`;
 
     const response = await client.generate({
-      model: client.getModelId('sonnet'),
+      model: client.getModelId('haiku'), // Changed from 'sonnet' for cost reduction
       messages: [{ role: 'user', content: prompt }],
       maxTokens: 500,
       temperature: 0.9, // Higher temperature for creativity

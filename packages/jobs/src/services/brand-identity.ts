@@ -163,7 +163,7 @@ Return ONLY valid JSON with this exact structure:
 }`;
 
     const response = await client.generate({
-      model: client.getModelId('sonnet'),
+      model: client.getModelId('haiku'), // Changed from 'sonnet' for cost reduction
       messages: [{ role: 'user', content: prompt }],
       maxTokens: 3000,
       temperature: 0.8, // Balanced between creativity and consistency
@@ -570,7 +570,7 @@ Return ONLY valid JSON:
 }`;
 
     const response = await client.generate({
-      model: client.getModelId('sonnet'),
+      model: client.getModelId('haiku'), // Changed from 'sonnet' for cost reduction
       messages: [{ role: 'user', content: prompt }],
       maxTokens: 2000,
       temperature: 0.7,

@@ -86,7 +86,7 @@ Return a JSON array with exactly ${count} topics:
 Only return valid JSON, no other text.`;
 
     const response = await client.generate({
-      model: client.getModelId('sonnet'),
+      model: client.getModelId('haiku'), // Changed from 'sonnet' for cost reduction
       messages: [{ role: 'user', content: prompt }],
       maxTokens: 3000,
       temperature: 0.8,
