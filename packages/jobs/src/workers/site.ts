@@ -998,6 +998,120 @@ async function checkDomainAvailabilityForSite(
   }
 }
 
+/**
+ * Standard Holibob Privacy Policy content - GDPR compliant
+ * This is the data controller policy for all Holibob-powered sites
+ */
+const HOLIBOB_PRIVACY_POLICY = `# Privacy Policy
+
+## Introduction
+
+Welcome to Holibob Limited, where your personal data protection is of paramount importance to us. This Privacy Policy aims to provide transparency regarding how we process your data within our business operations and digital platforms.
+
+## Data Controller
+
+**Holibob Limited**
+C/O Johnston Carmichael,
+7-11 Melville Street,
+Edinburgh, Scotland, EH3 7PE
+
+Company Number: SC631937
+Email: info@holibob.tech
+
+## Data Processing Principles
+
+- **Legality:** Ensuring data is processed lawfully, fairly, and transparently.
+- **Purpose Limitation:** Utilising data for defined, explicit, and legitimate purposes.
+- **Data Minimisation:** Processing only the data necessary for relevant purposes.
+- **Accuracy:** Maintaining accurate and current data.
+- **Storage Limitation:** Retaining data only for the necessary duration.
+- **Integrity and Confidentiality:** Ensuring data security and confidential processing.
+
+## Data Collected
+
+During our business development activities, we may collect and store the following data:
+
+- Email address
+- Company name
+- Position within the company
+- Name
+
+## Purpose of Processing
+
+We utilise your data for:
+
+- Conducting business development activities
+- Distributing newsletters or promotional materials (with explicit consent)
+- Enhancing our services and online platform
+- Legal compliance
+
+## Legal Basis
+
+Data processing is aligned with GDPR Article 6(1):
+
+- (a) Consent
+- (b) Contract performance or pre-contractual activities
+- (c) Compliance with legal obligations
+- (f) Pursuit of legitimate interests
+
+## Data Subject Rights
+
+You retain the right to:
+
+- Request access, rectification, or erasure of your personal data.
+- Restrict or object to data processing and request data portability.
+- Withdraw your consent at any point.
+- Lodge a complaint with a supervisory authority.
+
+## Data Protection
+
+We utilise appropriate technical and organisational measures to protect your data from unauthorized access.
+
+## Changes to the Privacy Policy
+
+We may amend this policy to ensure alignment with legal requisites.
+
+## Contact
+
+For queries or concerns regarding your data protection, please contact us at info@holibob.tech`;
+
+/**
+ * Standard Holibob Terms of Service content
+ */
+const HOLIBOB_TERMS_OF_SERVICE = `# Terms of Service
+
+## Introduction
+
+These Terms of Service govern your use of this website and any bookings made through it. By using this website, you agree to these terms.
+
+## Service Provider
+
+This website is operated by **Holibob Limited**, a company registered in Scotland with company number SC631937, whose registered office is at C/O Johnston Carmichael, 7-11 Melville Street, Edinburgh, Scotland, EH3 7PE.
+
+## Use of the Website
+
+You may use this website for lawful purposes only. You must not use this website in any way that breaches any applicable laws or regulations.
+
+## Bookings
+
+All bookings are subject to availability and confirmation. Prices displayed are in GBP unless otherwise stated. Payment terms and cancellation policies vary by experience and are shown at the time of booking.
+
+## Intellectual Property
+
+All content on this website, including text, graphics, logos, and images, is the property of Holibob Limited or its licensors and is protected by copyright laws.
+
+## Limitation of Liability
+
+To the fullest extent permitted by law, Holibob Limited shall not be liable for any indirect, incidental, special, or consequential damages arising from your use of this website.
+
+## Governing Law
+
+These terms are governed by the laws of Scotland, and any disputes will be subject to the exclusive jurisdiction of the Scottish courts.
+
+## Contact
+
+For any queries regarding these terms, please contact us at info@holibob.tech`;
+
 async function createInitialPages(siteId: string, opportunity: any) {
   const pages = [
     {
@@ -1021,20 +1135,6 @@ async function createInitialPages(siteId: string, opportunity: any) {
       type: PageType.CONTACT,
       status: PageStatus.DRAFT,
     },
-    {
-      siteId,
-      title: 'Privacy Policy',
-      slug: 'privacy',
-      type: PageType.LEGAL,
-      status: PageStatus.DRAFT,
-    },
-    {
-      siteId,
-      title: 'Terms of Service',
-      slug: 'terms',
-      type: PageType.LEGAL,
-      status: PageStatus.DRAFT,
-    },
   ];
 
   const createdPages = [];
@@ -1047,6 +1147,62 @@ async function createInitialPages(siteId: string, opportunity: any) {
       createdPages.push(existing);
     } else {
       const page = await prisma.page.create({ data: pageData });
+      createdPages.push(page);
+    }
+  }
+
+  // Create legal pages with pre-populated content (Privacy Policy and Terms of Service)
+  // These use the standard Holibob content and are marked PUBLISHED immediately
+  const legalPages = [
+    {
+      title: 'Privacy Policy',
+      slug: 'privacy',
+      content: HOLIBOB_PRIVACY_POLICY,
+      metaDescription: 'Privacy Policy - How we collect, use, and protect your personal data.',
+    },
+    {
+      title: 'Terms of Service',
+      slug: 'terms',
+      content: HOLIBOB_TERMS_OF_SERVICE,
+      metaDescription: 'Terms of Service - The terms governing your use of this website.',
+    },
+  ];
+
+  for (const legalPage of legalPages) {
+    // Check if page already exists
+    const existing = await prisma.page.findFirst({
+      where: { siteId, slug: legalPage.slug },
+    });
+
+    if (existing) {
+      createdPages.push(existing);
+    } else {
+      // Create content record first
+      const content = await prisma.content.create({
+        data: {
+          siteId,
+          body: legalPage.content,
+          bodyFormat: 'MARKDOWN',
+          isAiGenerated: false, // This is static legal content, not AI-generated
+          qualityScore: 100, // Legal content is pre-approved
+          version: 1,
+        },
+      });
+
+      // Create page linked to content, marked as PUBLISHED
+      const page = await prisma.page.create({
+        data: {
+          siteId,
+          title: legalPage.title,
+          slug: legalPage.slug,
+          type: PageType.LEGAL,
+          status: PageStatus.PUBLISHED,
+          contentId: content.id,
+          metaDescription: legalPage.metaDescription,
+          metaTitle: legalPage.title,
+          publishedAt: new Date(),
+        },
+      });
       createdPages.push(page);
     }
   }
