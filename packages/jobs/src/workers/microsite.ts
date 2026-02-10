@@ -515,18 +515,34 @@ export async function handleMicrositeContentGenerate(
       });
     }
 
-    // Update microsite status
+    // Update microsite status and auto-publish
+    // Microsite homepages render from homepageConfig + Holibob API products,
+    // not from Page content, so we can go straight to ACTIVE.
     await prisma.micrositeConfig.update({
       where: { id: micrositeId },
       data: {
-        status: 'REVIEW',
+        status: 'ACTIVE',
         lastContentUpdate: new Date(),
       },
     });
 
+    // Publish all pages immediately (they have metadata from content generation)
+    await prisma.page.updateMany({
+      where: {
+        micrositeId,
+        status: PageStatus.DRAFT,
+      },
+      data: {
+        status: PageStatus.PUBLISHED,
+        publishedAt: new Date(),
+      },
+    });
+
+    console.log(`[Microsite Content] Auto-published microsite ${micrositeId} to ACTIVE`);
+
     return {
       success: true,
-      message: `Generated ${createdPages.length} pages for microsite ${micrositeId}`,
+      message: `Generated ${createdPages.length} pages and activated microsite ${micrositeId}`,
       data: { pageIds: createdPages },
       timestamp: new Date(),
     };
