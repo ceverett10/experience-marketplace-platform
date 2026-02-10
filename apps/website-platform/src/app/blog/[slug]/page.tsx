@@ -1,7 +1,7 @@
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import { getSiteFromHostname, type HomepageConfig } from '@/lib/tenant';
+import { getSiteFromHostname, type HomepageConfig, type SiteConfig } from '@/lib/tenant';
 import { prisma } from '@/lib/prisma';
 import { BlogPostTemplate } from '@/components/content/BlogPostTemplate';
 
@@ -14,14 +14,32 @@ interface Props {
  * Note: Blog pages are stored with 'blog/' prefix in slug (e.g., 'blog/my-post')
  * The URL /blog/my-post maps to slug 'blog/my-post' in the database
  */
-async function getBlogPost(siteId: string, slug: string) {
-  // Slugs are stored with 'blog/' prefix, so prepend it for the query
+async function getBlogPost(site: SiteConfig, slug: string) {
   const fullSlug = `blog/${slug}`;
+  const isMicrosite = !!site.micrositeContext?.micrositeId;
 
+  if (isMicrosite) {
+    // Microsite pages use micrositeId_slug composite key
+    return await prisma.page.findUnique({
+      where: {
+        micrositeId_slug: {
+          micrositeId: site.micrositeContext!.micrositeId,
+          slug: fullSlug,
+        },
+        type: 'BLOG',
+        status: 'PUBLISHED',
+      },
+      include: {
+        content: true,
+      },
+    });
+  }
+
+  // Regular sites use siteId_slug composite key
   return await prisma.page.findUnique({
     where: {
       siteId_slug: {
-        siteId,
+        siteId: site.id,
         slug: fullSlug,
       },
       type: 'BLOG',
@@ -72,7 +90,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const hostname = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
   const site = await getSiteFromHostname(hostname);
 
-  const post = await getBlogPost(site.id, slug);
+  const post = await getBlogPost(site, slug);
 
   if (!post) {
     return {
@@ -117,7 +135,7 @@ export default async function BlogPostPage({ params }: Props) {
   const hostname = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
   const site = await getSiteFromHostname(hostname);
 
-  const post = await getBlogPost(site.id, slug);
+  const post = await getBlogPost(site, slug);
 
   if (!post) {
     notFound();

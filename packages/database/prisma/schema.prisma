@@ -322,10 +322,12 @@ model Content {
   previousVersionId String?
   nextVersions      Content[] @relation("ContentVersions")
 
-  // Relationships
+  // Relationships (Content belongs to either Site OR MicrositeConfig)
   page          Page?
-  site          Site            @relation(fields: [siteId], references: [id], onDelete: Cascade)
-  siteId        String
+  site          Site?            @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  siteId        String?
+  microsite     MicrositeConfig? @relation(fields: [micrositeId], references: [id], onDelete: Cascade)
+  micrositeId   String?
   opportunity   SEOOpportunity? @relation(fields: [opportunityId], references: [id])
   opportunityId String?
 
@@ -333,6 +335,7 @@ model Content {
   updatedAt DateTime @updatedAt
 
   @@index([siteId])
+  @@index([micrositeId])
   @@index([qualityScore])
   @@index([isAiGenerated])
 }
@@ -1161,7 +1164,8 @@ model MicrositeConfig {
   productCountUpdatedAt DateTime?
 
   // Content pages
-  pages Page[]
+  pages   Page[]
+  content Content[]
 
   // Curated collections for discovery
   collections CuratedCollection[]

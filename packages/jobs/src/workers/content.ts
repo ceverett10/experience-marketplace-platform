@@ -597,30 +597,34 @@ function buildWritingGuidelines(
 }
 
 /**
- * Simplified content generation for microsite pages.
- * Since the Content model requires siteId (which microsites don't have),
- * this updates the Page directly with generated metadata.
+ * Content generation for microsite pages.
+ * - Non-blog types (about, category, destination): metadata-only (templates render from API data)
+ * - Blog type: full AI pipeline with Content record creation
  */
 async function handleMicrositePageContentGenerate(params: {
   micrositeId: string;
   pageId?: string;
   contentType: string;
   targetKeyword: string;
+  secondaryKeywords?: string[];
+  destination?: string;
+  category?: string;
+  targetLength?: { min: number; max: number };
+  sourceData?: ContentGeneratePayload['sourceData'];
 }): Promise<JobResult> {
-  const { micrositeId, pageId, contentType, targetKeyword } = params;
+  const { micrositeId, pageId, contentType, targetKeyword, secondaryKeywords,
+          destination, category, targetLength, sourceData } = params;
 
   try {
-    // Look up the microsite
     const microsite = await prisma.micrositeConfig.findUnique({
       where: { id: micrositeId },
-      include: { brand: true },
+      include: { brand: true, supplier: true },
     });
 
     if (!microsite) {
       throw new NotFoundError('MicrositeConfig', micrositeId);
     }
 
-    // If no pageId provided, we can't proceed
     if (!pageId) {
       return {
         success: false,
@@ -629,38 +633,201 @@ async function handleMicrositePageContentGenerate(params: {
       };
     }
 
-    // Look up the page
     const page = await prisma.page.findUnique({ where: { id: pageId } });
     if (!page) {
       throw new NotFoundError('Page', pageId);
     }
 
-    // Generate simple meta content based on page type and microsite info
     const siteName = microsite.siteName;
-    const metaTitle = `${page.title} | ${siteName}`;
-    const metaDescription = `${page.title} - ${microsite.tagline || `Discover experiences with ${siteName}`}`;
+    const entityDomain = microsite.fullDomain;
 
-    // Update the page with generated metadata and publish it
+    // ── Non-blog types: metadata-only (about, category, destination) ──
+    if (contentType !== 'blog') {
+      const metaTitle = `${page.title} | ${siteName}`;
+      const metaDescription = `${page.title} - ${microsite.tagline || `Discover experiences with ${siteName}`}`;
+
+      await prisma.page.update({
+        where: { id: pageId },
+        data: {
+          metaTitle: metaTitle.length > 60 ? metaTitle.substring(0, 57) + '...' : metaTitle,
+          metaDescription:
+            metaDescription.length > 160 ? metaDescription.substring(0, 157) + '...' : metaDescription,
+          status: 'PUBLISHED',
+          publishedAt: new Date(),
+        },
+      });
+
+      console.log(`[Content Generate - Microsite] Updated page ${pageId} with metadata`);
+      return {
+        success: true,
+        message: `Updated microsite page metadata for "${targetKeyword}"`,
+        data: { pageId, micrositeId },
+        timestamp: new Date(),
+      };
+    }
+
+    // ── Blog type: full AI content pipeline ──
+    console.log(`[Content Generate - Microsite] Generating blog content for ${siteName}: "${targetKeyword}"`);
+
+    const canProceed = await canExecuteAutonomousOperation({
+      feature: 'enableContentGeneration',
+      rateLimitType: 'CONTENT_GENERATE',
+    });
+
+    if (!canProceed.allowed) {
+      console.log(`[Content Generate - Microsite] Skipping - ${canProceed.reason}`);
+      return {
+        success: false,
+        error: canProceed.reason || 'Content generation is paused',
+        errorCategory: 'paused',
+        timestamp: new Date(),
+      };
+    }
+
+    // Get brand identity for tone of voice
+    const brandIdentity = await getBrandIdentityFromBrandId(microsite.brandId);
+
+    // Build content brief
+    const supplierCities = (microsite.supplier?.cities as string[]) || [];
+    const supplierCategories = (microsite.supplier?.categories as string[]) || [];
+    const contentSubtype = sourceData?.contentSubtype;
+    const formatHints = getContentFormatHints(contentSubtype, sourceData);
+
+    const brief = {
+      type: contentType as any,
+      siteId: micrositeId, // Used as opaque identifier by pipeline, not a DB FK
+      siteName,
+      targetKeyword,
+      secondaryKeywords: secondaryKeywords || [],
+      destination: destination || supplierCities[0] || '',
+      category: category || supplierCategories[0] || '',
+      targetLength: targetLength || { min: 1000, max: 1800 },
+      tone: 'informative' as const,
+      sourceData: sourceData || undefined,
+      brandContext: {
+        siteName,
+        toneOfVoice: brandIdentity.toneOfVoice,
+        trustSignals: brandIdentity.trustSignals,
+        brandStory: brandIdentity.brandStory,
+        contentGuidelines: brandIdentity.contentGuidelines,
+        writingGuidelines: buildWritingGuidelines(brandIdentity, formatHints),
+      },
+    };
+
+    // Generate content via AI pipeline with circuit breaker
+    const anthropicBreaker = circuitBreakers.getBreaker('anthropic-api', {
+      failureThreshold: 3,
+      timeout: 120000,
+    });
+
+    const result = await anthropicBreaker.execute(async () => {
+      const pipeline = createPipeline({
+        qualityThreshold: 80,
+        maxRewrites: 3,
+        draftModel: 'haiku',
+        qualityModel: 'sonnet',
+        rewriteModel: 'haiku',
+      });
+      return await pipeline.generate(brief);
+    });
+
+    if (!result.success) {
+      if (result.content) {
+        console.warn(
+          `[Content Generate - Microsite] Quality not met (score: ${result.content.qualityAssessment?.overallScore || 'unknown'}/80), accepting anyway`
+        );
+      } else {
+        throw new ExternalApiError(result.error || 'Content generation failed', {
+          service: 'anthropic-api',
+          statusCode: 503,
+          context: { targetKeyword, contentType, micrositeId },
+        });
+      }
+    }
+
+    // Generate structured data
+    const structuredData = generateStructuredDataForContent({
+      contentType,
+      siteName,
+      siteUrl: `https://${entityDomain}`,
+      title: result.content.title,
+      description: targetKeyword,
+      content: result.content.content,
+      destination: destination || supplierCities[0],
+      datePublished: new Date().toISOString(),
+    });
+
+    // Sanitize AI-generated links
+    const existingSlugs = await getExistingPageSlugsByMicrosite(micrositeId);
+    const { sanitized: sanitizedContent, removedCount } = sanitizeContentLinks(
+      result.content.content,
+      contentType,
+      entityDomain || undefined,
+      existingSlugs
+    );
+    if (removedCount > 0) {
+      console.log(`[Content Generate - Microsite] Removed ${removedCount} invalid links`);
+    }
+
+    // Save Content record with micrositeId
+    const content = await prisma.content.create({
+      data: {
+        micrositeId,
+        body: sanitizedContent,
+        bodyFormat: 'MARKDOWN',
+        isAiGenerated: true,
+        aiModel: result.content.generatedBy,
+        aiPrompt: `Generated for keyword: ${targetKeyword}`,
+        qualityScore: result.content.qualityAssessment?.overallScore || 0,
+        version: result.content.version,
+        structuredData: structuredData as any,
+      },
+    });
+
+    // Optimized meta tags
+    const optimizedMetaDescription = generateOptimizedMetaDescription({
+      aiMetaDescription: result.content.metaDescription,
+      contentBody: sanitizedContent,
+      targetKeyword,
+      contentType,
+      siteName,
+    });
+    const optimizedMetaTitle = generateOptimizedMetaTitle({
+      aiTitle: result.content.title,
+      targetKeyword,
+      siteName,
+      contentType,
+    });
+
+    // Sitemap priority from quality score
+    const qualityScore = result.content.qualityAssessment?.overallScore || 50;
+    const sitemapPriority = calculateSitemapPriority({ qualityScore, contentType });
+
+    // Link content to page and publish
     await prisma.page.update({
       where: { id: pageId },
       data: {
-        metaTitle: metaTitle.length > 60 ? metaTitle.substring(0, 57) + '...' : metaTitle,
-        metaDescription:
-          metaDescription.length > 160 ? metaDescription.substring(0, 157) + '...' : metaDescription,
+        contentId: content.id,
+        metaTitle: optimizedMetaTitle,
+        metaDescription: optimizedMetaDescription,
+        priority: sitemapPriority,
         status: 'PUBLISHED',
         publishedAt: new Date(),
       },
     });
 
-    console.log(`[Content Generate] Updated microsite page ${pageId} with metadata`);
+    console.log(
+      `[Content Generate - Microsite] Success! Content ${content.id} for page ${pageId} (quality: ${qualityScore})`
+    );
 
     return {
       success: true,
-      message: `Updated microsite page metadata for "${targetKeyword}"`,
+      message: `Generated blog content for "${targetKeyword}"`,
       data: {
+        contentId: content.id,
         pageId,
         micrositeId,
-        metaTitle,
+        qualityScore,
       },
       timestamp: new Date(),
     };
@@ -700,14 +867,18 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
   try {
     console.log(`[Content Generate] Starting for ${entityType} ${entityId}, keyword: ${targetKeyword}`);
 
-    // For microsites, use simplified content generation path
-    // The Content model requires siteId, so microsites update Page directly
+    // For microsites, use dedicated handler (metadata-only for non-blog, full AI for blog)
     if (micrositeId) {
       return handleMicrositePageContentGenerate({
         micrositeId,
         pageId,
         contentType,
         targetKeyword,
+        secondaryKeywords,
+        destination,
+        category,
+        targetLength,
+        sourceData,
       });
     }
 
