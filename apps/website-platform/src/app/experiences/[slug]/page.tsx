@@ -76,18 +76,91 @@ async function getRelatedExperiences(
   try {
     const client = getHolibobClient(site);
 
-    // Use site's brand "What" and "Where" to keep related experiences on-brand
+    // === MICROSITE: Show other products from the SAME provider ===
+    if (isMicrosite(site.micrositeContext) && site.micrositeContext.holibobSupplierId) {
+      const response = await client.getProductsByProvider(
+        site.micrositeContext.holibobSupplierId,
+        { pageSize: 5, page: 1 }
+      );
+
+      return response.nodes
+        .filter((p) => p.id !== experience.id)
+        .slice(0, 4)
+        .map((product) => {
+          const primaryImage =
+            product.imageList?.[0]?.url ?? product.imageUrl ?? '/placeholder-experience.jpg';
+          // ProductList API returns guidePrice in MAJOR units (e.g., 71 EUR, not 7100 cents)
+          const priceAmount = product.guidePrice ?? product.priceFrom ?? 0;
+          const priceCurrency = product.guidePriceCurrency ?? product.priceCurrency ?? 'GBP';
+          const priceFormatted =
+            product.guidePriceFormattedText ??
+            new Intl.NumberFormat('en-GB', { style: 'currency', currency: priceCurrency }).format(
+              priceAmount
+            );
+
+          let durationFormatted = 'Duration varies';
+          if (product.durationText) {
+            durationFormatted = product.durationText;
+          } else if (product.maxDuration != null) {
+            const minutes = parseIsoDuration(product.maxDuration);
+            if (minutes > 0) {
+              const hours = Math.floor(minutes / 60);
+              const mins = minutes % 60;
+              durationFormatted =
+                hours > 0 ? (mins > 0 ? `${hours}h ${mins}m` : `${hours}h`) : `${minutes}m`;
+            }
+          }
+
+          return {
+            id: product.id,
+            title: product.name ?? 'Experience',
+            slug: product.id,
+            shortDescription: product.description?.slice(0, 200) ?? '',
+            imageUrl: primaryImage,
+            price: { amount: priceAmount, currency: priceCurrency, formatted: priceFormatted },
+            duration: { formatted: durationFormatted },
+            rating: product.reviewRating
+              ? { average: product.reviewRating, count: product.reviewCount ?? 0 }
+              : null,
+            location: { name: '' },
+          };
+        });
+    }
+
+    // === REGULAR SITE: Use discovery with location context ===
     const siteSearchTerm = site.homepageConfig?.popularExperiences?.searchTerms?.[0];
     const siteDestination = site.homepageConfig?.popularExperiences?.destination;
 
-    const response = await client.discoverProducts(
-      {
-        currency: 'GBP',
-        freeText: experience.location.name || siteDestination || undefined,
-        searchTerm: siteSearchTerm || undefined,
-      },
-      { pageSize: 5 }
-    );
+    const filter: {
+      currency: string;
+      freeText?: string;
+      searchTerm?: string;
+      geoPoint?: { lat: number; lng: number; radiusKm?: number };
+    } = {
+      currency: 'GBP',
+    };
+
+    // Prefer geo-coordinates for accurate location matching
+    if (experience.location.lat && experience.location.lng) {
+      filter.geoPoint = {
+        lat: experience.location.lat,
+        lng: experience.location.lng,
+        radiusKm: 50,
+      };
+    }
+
+    // Use location name as freeText, fall back to site destination — never to "London"
+    if (experience.location.name) {
+      filter.freeText = experience.location.name;
+    } else if (siteDestination) {
+      filter.freeText = siteDestination;
+    }
+
+    if (siteSearchTerm) {
+      filter.searchTerm = siteSearchTerm;
+    }
+
+    const response = await client.discoverProducts(filter, { pageSize: 5 });
 
     return response.products
       .filter((p) => p.id !== experience.id)
@@ -1060,7 +1133,11 @@ export default async function ExperienceDetailPage({ params }: Props) {
         {/* Related Experiences */}
         <RelatedExperiences
           experiences={relatedExperiences}
-          title={`More things to do in ${experience.location.name || 'this area'}`}
+          title={
+            isMicrosite(site.micrositeContext)
+              ? `More from ${site.name}`
+              : `More things to do in ${experience.location.name || 'this area'}`
+          }
         />
 
         {/* Mobile Sticky CTA with Availability Modal */}

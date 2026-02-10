@@ -1029,14 +1029,23 @@ export class HolibobClient {
   private mapProductDiscoveryInput(filter: ProductFilter): Record<string, unknown> {
     const input: Record<string, unknown> = {};
 
-    // Where - location/destination as free text
-    if (filter.freeText || filter.placeIds?.length) {
-      input['where'] = {
-        freeText: filter.freeText || filter.placeIds?.[0] || 'London',
+    // Where - location/destination
+    const whereInput: Record<string, unknown> = {};
+    if (filter.freeText) {
+      whereInput['freeText'] = filter.freeText;
+    } else if (filter.placeIds?.length) {
+      whereInput['freeText'] = filter.placeIds[0];
+    }
+    if (filter.geoPoint) {
+      whereInput['geoPoint'] = {
+        lat: filter.geoPoint.lat,
+        lng: filter.geoPoint.lng,
+        radiusKm: filter.geoPoint.radiusKm ?? 50,
       };
-    } else {
-      // Default to a location if none specified
-      input['where'] = { freeText: 'London' };
+    }
+    // Only set 'where' if we have location data — no hardcoded fallback
+    if (Object.keys(whereInput).length > 0) {
+      input['where'] = whereInput;
     }
 
     // When - dates must be full ISO 8601 DateTime format
