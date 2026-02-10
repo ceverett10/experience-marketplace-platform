@@ -1,70 +1,14 @@
 import { headers } from 'next/headers';
 import type { Metadata } from 'next';
 import { getSiteFromHostname } from '@/lib/tenant';
-import { prisma } from '@/lib/prisma';
 import { StaticPageTemplate } from '@/components/content/StaticPageTemplate';
 
 /**
- * Fetch Privacy Policy page from database
+ * Standard Holibob Privacy Policy - used across ALL sites and microsites.
+ * This is a legal requirement and must NOT be replaced by AI-generated content.
+ * Holibob Limited is the data controller for all platform sites.
  */
-async function getPrivacyPage(siteId: string) {
-  return await prisma.page.findFirst({
-    where: {
-      siteId,
-      slug: 'privacy',
-      type: 'LEGAL',
-    },
-    include: {
-      content: true,
-    },
-  });
-}
-
-/**
- * Generate SEO metadata for Privacy Policy page
- */
-export async function generateMetadata(): Promise<Metadata> {
-  const headersList = await headers();
-  const hostname = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
-  const site = await getSiteFromHostname(hostname);
-
-  const page = await getPrivacyPage(site.id);
-
-  const title = page?.metaTitle || page?.title || 'Privacy Policy';
-  const description =
-    page?.metaDescription ||
-    `Privacy Policy for ${site.name}. Learn how we collect, use, and protect your personal information.`;
-
-  return {
-    title: `${title} | ${site.name}`,
-    description,
-    openGraph: {
-      title,
-      description,
-      type: 'website',
-    },
-    alternates: {
-      canonical: `https://${site.primaryDomain || hostname}/privacy`,
-    },
-    robots: {
-      index: page ? !page.noIndex : true,
-      follow: page ? !page.noIndex : true,
-    },
-  };
-}
-
-/**
- * Privacy Policy page
- */
-export default async function PrivacyPage() {
-  const headersList = await headers();
-  const hostname = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
-  const site = await getSiteFromHostname(hostname);
-
-  const page = await getPrivacyPage(site.id);
-
-  // Default privacy policy content - Holibob Limited is the data controller for all sites
-  const defaultContent = `# Privacy Policy
+const HOLIBOB_PRIVACY_POLICY = `# Privacy Policy
 
 ## Introduction
 
@@ -137,15 +81,56 @@ We may amend this policy to ensure alignment with legal requisites.
 
 For queries or concerns regarding your data protection, please contact us at info@holibob.tech`;
 
-  // If no page exists, create a default structure for display
-  const displayPage = page || {
-    id: 'default',
+/**
+ * Generate SEO metadata for Privacy Policy page
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const headersList = await headers();
+  const hostname = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
+  const site = await getSiteFromHostname(hostname);
+
+  const title = 'Privacy Policy';
+  const description =
+    'Privacy Policy for Holibob Limited. Learn how we collect, use, and protect your personal data.';
+
+  return {
+    title: `${title} | ${site.name}`,
+    description,
+    openGraph: {
+      title,
+      description,
+      type: 'website',
+    },
+    alternates: {
+      canonical: `https://${site.primaryDomain || hostname}/privacy`,
+    },
+    robots: {
+      index: true,
+      follow: true,
+    },
+  };
+}
+
+/**
+ * Privacy Policy page
+ * Always renders the standard Holibob Limited privacy policy.
+ * This is NOT fetched from the database to ensure legal consistency
+ * across all sites and prevent AI-generated content from overwriting it.
+ */
+export default async function PrivacyPage() {
+  const headersList = await headers();
+  const hostname = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
+  const site = await getSiteFromHostname(hostname);
+
+  // Always use the standard Holibob privacy policy
+  const displayPage = {
+    id: 'privacy-policy',
     title: 'Privacy Policy',
-    metaDescription: `Privacy Policy for ${site.name}`,
+    metaDescription: 'Privacy Policy for Holibob Limited.',
     content: {
-      id: 'default',
-      body: defaultContent,
-      bodyFormat: 'MARKDOWN',
+      id: 'privacy-policy-content',
+      body: HOLIBOB_PRIVACY_POLICY,
+      bodyFormat: 'MARKDOWN' as const,
       isAiGenerated: false,
       qualityScore: null,
       createdAt: new Date(),
