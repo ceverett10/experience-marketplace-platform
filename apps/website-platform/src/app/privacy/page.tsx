@@ -63,74 +63,79 @@ export default async function PrivacyPage() {
 
   const page = await getPrivacyPage(site.id);
 
-  // Default privacy policy content
+  // Default privacy policy content - Holibob Limited is the data controller for all sites
   const defaultContent = `# Privacy Policy
 
-**Effective Date:** ${new Date().toLocaleDateString('en-GB', { year: 'numeric', month: 'long', day: 'numeric' })}
+## Introduction
 
-${site.name} ("we", "us", or "our") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our website.
+Welcome to Holibob Limited, where your personal data protection is of paramount importance to us. This Privacy Policy aims to provide transparency regarding how we process your data within our business operations and digital platforms.
 
-## Information We Collect
+## Data Controller
 
-### Personal Information
-When you make a booking or create an account, we may collect:
-- Name and contact details (email address, phone number)
-- Billing and payment information
-- Travel preferences and booking history
+**Holibob Limited**
+C/O Johnston Carmichael,
+7-11 Melville Street,
+Edinburgh, Scotland, EH3 7PE
 
-### Automatically Collected Information
-When you visit our website, we automatically collect certain information:
-- Device and browser information
-- IP address and location data
-- Pages visited and time spent on site
-- Referral sources
+Company Number: SC631937
+Email: info@holibob.tech
 
-## How We Use Your Information
+## Data Processing Principles
 
-We use the information we collect to:
-- Process and manage your bookings
-- Communicate with you about your reservations
-- Improve our website and services
-- Send promotional communications (with your consent)
-- Comply with legal obligations
+- **Legality:** Ensuring data is processed lawfully, fairly, and transparently.
+- **Purpose Limitation:** Utilising data for defined, explicit, and legitimate purposes.
+- **Data Minimisation:** Processing only the data necessary for relevant purposes.
+- **Accuracy:** Maintaining accurate and current data.
+- **Storage Limitation:** Retaining data only for the necessary duration.
+- **Integrity and Confidentiality:** Ensuring data security and confidential processing.
 
-## Information Sharing
+## Data Collected
 
-We may share your information with:
-- Experience providers and tour operators to fulfil your bookings
-- Payment processors to handle transactions
-- Service providers who assist our operations
-- Legal authorities when required by law
+During our business development activities, we may collect and store the following data:
 
-## Your Rights Under UK Law
+- Email address
+- Company name
+- Position within the company
+- Name
 
-Under the UK General Data Protection Regulation (UK GDPR), you have the right to:
-- Access your personal data
-- Rectify inaccurate data
-- Erase your data (right to be forgotten)
-- Restrict processing
-- Data portability
-- Object to processing
+## Purpose of Processing
 
-## Data Security
+We utilise your data for:
 
-We implement appropriate technical and organisational measures to protect your personal information against unauthorised access, alteration, disclosure, or destruction.
+- Conducting business development activities
+- Distributing newsletters or promotional materials (with explicit consent)
+- Enhancing our services and online platform
+- Legal compliance
 
-## Cookies
+## Legal Basis
 
-Our website uses cookies to enhance your experience. You can control cookie settings through your browser preferences.
+Data processing is aligned with GDPR Article 6(1):
 
-## Contact Us
+- (a) Consent
+- (b) Contract performance or pre-contractual activities
+- (c) Compliance with legal obligations
+- (f) Pursuit of legitimate interests
 
-If you have questions about this Privacy Policy or wish to exercise your data protection rights, please contact us.
+## Data Subject Rights
 
-## Changes to This Policy
+You retain the right to:
 
-We may update this Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page.
+- Request access, rectification, or erasure of your personal data.
+- Restrict or object to data processing and request data portability.
+- Withdraw your consent at any point.
+- Lodge a complaint with a supervisory authority.
 
----
+## Data Protection
 
-*This policy is governed by the laws of England and Wales.*`;
+We utilise appropriate technical and organisational measures to protect your data from unauthorized access.
+
+## Changes to the Privacy Policy
+
+We may amend this policy to ensure alignment with legal requisites.
+
+## Contact
+
+For queries or concerns regarding your data protection, please contact us at info@holibob.tech`;
 
   // If no page exists, create a default structure for display
   const displayPage = page || {
@@ -158,7 +163,7 @@ We may update this Privacy Policy from time to time. We will notify you of any c
     description: displayPage.metaDescription,
     publisher: {
       '@type': 'Organization',
-      name: site.name,
+      name: 'Holibob Limited',
     },
   };
 
