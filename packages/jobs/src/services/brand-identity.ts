@@ -82,23 +82,29 @@ export async function generateComprehensiveBrandIdentity(
       apiKey: process.env['ANTHROPIC_API_KEY'] || process.env['CLAUDE_API_KEY'] || '',
     });
 
-    const prompt = `You are a brand strategist creating a UNIQUE brand identity for a travel experience website.
+    const entityName = opportunity.entityName || opportunity.keyword;
+    const prompt = `You are a brand strategist creating a brand identity for a travel experience website.
 
 Context:
-- Business Name: ${opportunity.entityName || opportunity.keyword}
+- Business Name: ${entityName}
 - Target Market: ${opportunity.location || 'Multiple locations'}
 - Niche: ${opportunity.niche}
 - Primary Keyword: ${opportunity.keyword}${opportunity.entityDescription ? `\n- Business Description: ${opportunity.entityDescription}` : ''}
 
-CRITICAL: The brand name MUST be unique and distinctive — derived from or inspired by "${opportunity.entityName || opportunity.keyword}". Do NOT use generic names like "Premium Travel Experiences" or "{Location} {Category}". Instead create a memorable, creative brand name that reflects this specific business identity. Consider wordplay, evocative imagery, or a name that captures the essence of what makes this particular business special.
+CRITICAL RULES FOR THE BRAND NAME:
+1. The brand name MUST be based on the actual business name "${entityName}"
+2. You may clean up the business name (remove "Pty Ltd", "LLC", "Ltd", "Inc", "S.A.S", "GmbH", "S.R.L", etc.) but keep the core identity
+3. You may shorten it if it is very long (e.g. "Adventures Vision Treks and Travels" → "Adventure Vision")
+4. Do NOT invent a completely new name. Do NOT use generic names like "VoyageVault", "Wanderlust Collective", "ExploreHub", "Journey Craft", etc.
+5. The name should be recognisable as belonging to this specific operator
 
 Create a complete brand identity that positions this site as THE trusted authority for ${opportunity.niche} experiences in ${opportunity.location || 'this market'}.
 
 Generate a comprehensive brand identity with:
 
 1. VISUAL IDENTITY:
-   - Brand name (memorable, professional, 2-3 words max)
-   - Tagline (compelling, trust-building, under 60 chars)
+   - Brand name (cleaned-up version of "${entityName}" — see rules above)
+   - Tagline (compelling, trust-building, under 60 chars, specific to this business)
    - Color palette (primary, secondary, accent hex codes that convey trust and quality)
    - Typography (2 Google Fonts: heading and body)
    - Logo description (for future generation - describe the ideal logo concept)
@@ -215,10 +221,8 @@ function createTemplateBrandIdentity(opportunity: OpportunityContext): Comprehen
   const niche = capitalize(opportunity.niche);
   const entityName = opportunity.entityName || opportunity.keyword;
 
-  // Use the entity name as the brand base — never fall back to generic "Premium Travel Experiences"
-  const brandName = entityName
-    ? `${entityName}${location ? ` ${location}` : ''}`
-    : `${location || 'Discover'} ${niche}`;
+  // Clean up entity name: remove corporate suffixes
+  const brandName = cleanEntityName(entityName);
   const tagline = location
     ? `Discover the Best ${niche} in ${location}`
     : `Your Curated Guide to ${niche}`;
@@ -1046,6 +1050,17 @@ export async function storeHomepageConfig(siteId: string, config: HomepageConfig
 }
 
 // Helper functions
+/**
+ * Clean up an entity name for use as a brand name.
+ * Removes corporate suffixes (Pty Ltd, LLC, etc.) and trims.
+ */
+function cleanEntityName(name: string): string {
+  return name
+    .replace(/\s*(Pty\.?\s*Ltd\.?|Ltd\.?|LLC|Inc\.?|S\.?A\.?S\.?|GmbH|S\.?R\.?L\.?|S\.?L\.?|B\.?V\.?|P\.?L\.?C\.?|Co\.?\s*Ltd\.?|Corp\.?|CC|Ltda\.?|EIRL|Pte\.?\s*Ltd\.?)\s*$/gi, '')
+    .replace(/\s*[-–]\s*$/, '')
+    .trim();
+}
+
 function capitalize(str: string): string {
   return str
     .split(' ')
