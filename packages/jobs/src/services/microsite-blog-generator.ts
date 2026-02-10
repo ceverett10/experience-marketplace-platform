@@ -49,7 +49,9 @@ export async function generateBlogPostForMicrosite(
       brand: true,
       supplier: {
         select: {
+          id: true,
           name: true,
+          description: true,
           cities: true,
           categories: true,
         },
@@ -78,6 +80,16 @@ export async function generateBlogPostForMicrosite(
 
   const existingTopics = existingPosts.map((p) => p.title);
 
+  // Fetch supplier's top experiences for topic relevance
+  const topProducts = microsite.supplier?.id
+    ? await prisma.product.findMany({
+        where: { supplierId: microsite.supplier.id },
+        select: { title: true, shortDescription: true, city: true, categories: true },
+        orderBy: [{ rating: 'desc' }, { reviewCount: 'desc' }],
+        take: 15,
+      })
+    : [];
+
   // Build context from microsite data
   const supplierName = microsite.supplier?.name || microsite.siteName;
   const cities = microsite.supplier?.cities || [];
@@ -90,6 +102,15 @@ export async function generateBlogPostForMicrosite(
     niche,
     location,
     existingTopics,
+    supplierDescription: microsite.supplier?.description || undefined,
+    allCities: (cities as string[]).length > 0 ? (cities as string[]) : undefined,
+    allCategories: (categories as string[]).length > 0 ? (categories as string[]) : undefined,
+    topExperiences: topProducts.map((p) => ({
+      title: p.title,
+      description: p.shortDescription || undefined,
+      city: p.city || undefined,
+      categories: (p.categories as string[]) || undefined,
+    })),
   };
 
   try {

@@ -519,6 +519,14 @@ Base Tone: ${brief.tone}
 
 ${brief.destination ? 'Destination: ' + brief.destination : ''}
 ${brief.category ? 'Category: ' + brief.category : ''}
+${brief.sourceData?.['experiences'] ? `
+## SITE EXPERIENCES (actual bookable experiences on this site)
+The following experiences are available on this site. Your content MUST be relevant to these:
+${(brief.sourceData['experiences'] as Array<{ title: string; description?: string; city?: string; duration?: string; priceFrom?: number }>).map((e) => `- **${e.title}**${e.city ? ` (${e.city})` : ''}${e.duration ? ` — ${e.duration}` : ''}${e.priceFrom ? ` from $${e.priceFrom}` : ''}${e.description ? `\n  ${e.description.substring(0, 120)}` : ''}`).join('\n')}
+${brief.sourceData?.['supplierDescription'] ? `\nABOUT THE OPERATOR: ${(brief.sourceData['supplierDescription'] as string).substring(0, 300)}` : ''}
+
+IMPORTANT: Reference these actual experiences naturally in the content. Mention specific tours, activities, and destinations that readers can actually book on this site. Do NOT recommend experiences or destinations this operator does not offer.
+` : ''}
 ${brandSection}
 ${aboutInstructions}${blogInstructions}
 ## SEO OPTIMIZATION GUIDELINES

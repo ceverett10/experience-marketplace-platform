@@ -23,6 +23,16 @@ export interface BlogTopicContext {
   location?: string;
   destination?: string;
   existingTopics?: string[]; // To avoid duplicates
+  // Experience context for relevant topic generation
+  supplierDescription?: string;
+  allCities?: string[];
+  allCategories?: string[];
+  topExperiences?: Array<{
+    title: string;
+    description?: string;
+    city?: string;
+    categories?: string[];
+  }>;
 }
 
 /**
@@ -207,6 +217,20 @@ export async function generateDailyBlogTopic(
     const currentMonth = new Date().toLocaleString('en-US', { month: 'long' });
     const currentSeason = getSeason();
 
+    // Build experience context if available
+    const experienceContext = context.topExperiences?.length
+      ? `\nBOOKABLE EXPERIENCES ON THIS SITE (use these to pick a relevant topic):
+${context.topExperiences.map((e) => `- ${e.title}${e.city ? ` (${e.city})` : ''}${e.categories?.length ? ` [${e.categories.join(', ')}]` : ''}`).join('\n')}
+
+ALL LOCATIONS SERVED: ${context.allCities?.join(', ') || context.location || 'General'}
+ALL EXPERIENCE CATEGORIES: ${context.allCategories?.join(', ') || context.niche}
+${context.supplierDescription ? `ABOUT THIS OPERATOR: ${context.supplierDescription.substring(0, 300)}` : ''}
+
+IMPORTANT: The blog topic MUST be directly relevant to the experiences listed above.
+Write about destinations, activities, or themes that match what this site actually offers.
+Do NOT write about experience types or destinations not covered by this operator.`
+      : '';
+
     const prompt = `Generate 1 highly relevant SEO-optimized blog post idea for today.
 
 SITE CONTEXT:
@@ -216,8 +240,9 @@ SITE CONTEXT:
 - Current Month: ${currentMonth}
 - Current Season: ${currentSeason}
 - Today's Focus: ${dailyFocus}
+${experienceContext}
 
-EXISTING TOPICS TO AVOID (these are already published):
+EXISTING TOPICS TO AVOID (already published — ensure your topic covers a DIFFERENT angle, destination, or theme):
 ${context.existingTopics?.map((t) => `- ${t}`).join('\n') || 'None yet'}
 
 FOCUS GUIDELINES:

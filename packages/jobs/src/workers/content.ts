@@ -618,7 +618,12 @@ async function handleMicrositePageContentGenerate(params: {
   try {
     const microsite = await prisma.micrositeConfig.findUnique({
       where: { id: micrositeId },
-      include: { brand: true, supplier: true },
+      include: {
+        brand: true,
+        supplier: {
+          select: { id: true, name: true, description: true, cities: true, categories: true },
+        },
+      },
     });
 
     if (!microsite) {
@@ -687,6 +692,23 @@ async function handleMicrositePageContentGenerate(params: {
     // Get brand identity for tone of voice
     const brandIdentity = await getBrandIdentityFromBrandId(microsite.brandId);
 
+    // Fetch top experiences for content relevance
+    const topProducts = microsite.supplier?.id
+      ? await prisma.product.findMany({
+          where: { supplierId: microsite.supplier.id },
+          select: {
+            title: true,
+            shortDescription: true,
+            city: true,
+            categories: true,
+            duration: true,
+            priceFrom: true,
+          },
+          orderBy: [{ rating: 'desc' }, { reviewCount: 'desc' }],
+          take: 10,
+        })
+      : [];
+
     // Build content brief
     const supplierCities = (microsite.supplier?.cities as string[]) || [];
     const supplierCategories = (microsite.supplier?.categories as string[]) || [];
@@ -699,11 +721,22 @@ async function handleMicrositePageContentGenerate(params: {
       siteName,
       targetKeyword,
       secondaryKeywords: secondaryKeywords || [],
-      destination: destination || supplierCities[0] || '',
-      category: category || supplierCategories[0] || '',
+      destination: destination || supplierCities.join(', ') || '',
+      category: category || supplierCategories.join(', ') || '',
       targetLength: targetLength || { min: 1000, max: 1800 },
       tone: 'informative' as const,
-      sourceData: sourceData || undefined,
+      sourceData: {
+        ...sourceData,
+        supplierDescription: microsite.supplier?.description || undefined,
+        experiences: topProducts.map((p) => ({
+          title: p.title,
+          description: p.shortDescription,
+          city: p.city,
+          categories: p.categories,
+          duration: p.duration,
+          priceFrom: p.priceFrom,
+        })),
+      },
       brandContext: {
         siteName,
         toneOfVoice: brandIdentity.toneOfVoice,
