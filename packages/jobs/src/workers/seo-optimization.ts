@@ -36,7 +36,7 @@ import { autoFixClusterLinks, getClusterHealthSummary } from '../services/intern
 import { findSnippetOpportunities } from '../services/content-optimizer';
 import { createSEOIssue, updateSEOIssueStatus } from '../services/seo-issues';
 import { getGA4Client } from '../services/ga4-client';
-import { getJobQueue, addJob } from '../queues';
+import { addJob } from '../queues';
 
 /**
  * Job payload types
@@ -98,11 +98,10 @@ export async function handleSEOAudit(job: Job<SEOAuditPayload>): Promise<JobResu
         select: { id: true, name: true },
       });
 
-      const seoQueue = getJobQueue('seo');
       let scheduled = 0;
 
       for (const site of sites) {
-        await seoQueue.add(
+        await addJob(
           'SEO_ANALYZE',
           {
             siteId: site.id,
@@ -258,7 +257,6 @@ export async function handleSEOAudit(job: Job<SEOAuditPayload>): Promise<JobResu
  * Queue optimization jobs based on recommendations
  */
 async function queueOptimizations(siteId: string, report: SiteHealthReport): Promise<number> {
-  const contentQueue = getJobQueue('content');
   let queued = 0;
 
   // Get pages needing optimization with their specific issues
@@ -269,19 +267,13 @@ async function queueOptimizations(siteId: string, report: SiteHealthReport): Pro
     const optimizationReason = mapReasonToOptimization(page.reason);
 
     // Queue content optimization job
-    await contentQueue.add(
+    await addJob(
       'CONTENT_OPTIMIZE',
       {
         siteId,
         contentId: page.pageId, // Will be resolved to content ID in worker
         pageId: page.pageId,
         reason: optimizationReason,
-        priority: page.urgency === 'high' ? 1 : page.urgency === 'medium' ? 2 : 3,
-        metadata: {
-          triggerSource: 'seo_audit',
-          currentMetrics: page.metrics,
-          iteration: 1,
-        },
       },
       {
         priority: page.urgency === 'high' ? 1 : page.urgency === 'medium' ? 5 : 10,
@@ -409,21 +401,12 @@ export async function handleRecursiveOptimize(
       console.log(`[Recursive SEO] Trying alternative approach: ${alternativeReason}`);
 
       // Queue alternative optimization
-      const contentQueue = getJobQueue('content');
-      await contentQueue.add(
-        'optimize',
+      await addJob(
+        'CONTENT_OPTIMIZE',
         {
           siteId,
           pageId,
           reason: alternativeReason,
-          priority: 2,
-          metadata: {
-            triggerSource: 'recursive_seo',
-            iteration: iteration + 1,
-            previousApproach: reason,
-            previousScore: currentScore,
-            targetScore,
-          },
         },
         { delay: 24 * 60 * 60 * 1000 } // Wait 24 hours before retry
       );
@@ -445,16 +428,11 @@ export async function handleRecursiveOptimize(
     console.log(`[Recursive SEO] Improvement detected: ${previousScore || 0} → ${currentScore}`);
 
     // Schedule next measurement and potential optimization
-    const seoQueue = getJobQueue('seo');
-    await seoQueue.add(
-      'recursive_optimize',
+    await addJob(
+      'SEO_AUTO_OPTIMIZE',
       {
         siteId,
-        pageId,
-        reason,
-        iteration: iteration + 1,
-        previousScore: currentScore,
-        targetScore,
+        scope: 'content',
       },
       { delay: 7 * 24 * 60 * 60 * 1000 } // Check again in 7 days
     );
@@ -599,23 +577,17 @@ export async function handleBatchOptimize(job: Job<SEOBatchOptimizePayload>): Pr
     }
 
     // Queue individual optimization jobs
-    const contentQueue = getJobQueue('content');
     let queued = 0;
 
     for (const page of pages) {
       const optimizationReason = mapReasonToOptimization(page.reason);
 
-      await contentQueue.add(
-        'optimize',
+      await addJob(
+        'CONTENT_OPTIMIZE',
         {
           siteId,
           pageId: page.pageId,
           reason: optimizationReason,
-          priority: page.urgency === 'high' ? 1 : 2,
-          metadata: {
-            triggerSource: 'batch_seo',
-            currentMetrics: page.metrics,
-          },
         },
         {
           priority: page.urgency === 'high' ? 1 : 5,
@@ -675,12 +647,11 @@ export async function handleWeeklyAuditScheduler(job: Job): Promise<JobResult> {
       select: { id: true, name: true },
     });
 
-    const seoQueue = getJobQueue('seo');
     let scheduled = 0;
 
     for (const site of sites) {
-      await seoQueue.add(
-        'audit',
+      await addJob(
+        'SEO_ANALYZE',
         {
           siteId: site.id,
           triggerOptimizations: true,
