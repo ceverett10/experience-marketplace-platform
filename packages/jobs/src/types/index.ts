@@ -40,7 +40,9 @@ export interface ContentOptimizePayload {
     | 'low_time'
     | 'no_bookings'
     | 'initial_seo'
-    | 'thin_content';
+    | 'thin_content'
+    | 'keyword_optimization'
+    | 'snippet_optimization';
   performanceData?: {
     ctr?: number;
     position?: number;
@@ -50,6 +52,10 @@ export interface ContentOptimizePayload {
     currentWordCount?: number;
     targetWordCount?: number;
   };
+  /** SEO issue ID that triggered this optimization (for auto-resolution tracking) */
+  seoIssueId?: string;
+  /** Additional optimization context from SEO issue metadata */
+  optimizationContext?: Record<string, unknown>;
 }
 
 export interface ContentReviewPayload {

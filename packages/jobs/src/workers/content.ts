@@ -26,6 +26,7 @@ import {
   generateFAQSchema,
 } from '../services/structured-data';
 import { suggestInternalLinks } from '../services/internal-linking';
+import { resolveSEOIssue } from '../services/seo-issues';
 
 /**
  * Valid internal routes that exist on every site.
@@ -1292,6 +1293,18 @@ export async function handleContentOptimize(job: Job<ContentOptimizePayload>): P
       case 'no_bookings':
         optimizationPrompt = 'No conversions. Strengthen CTAs and add urgency/social proof.';
         break;
+      case 'keyword_optimization': {
+        const keyword = (job.data.optimizationContext?.['keyword'] as string) || '';
+        const currentDensity = (job.data.optimizationContext?.['currentDensity'] as number) || 0;
+        optimizationPrompt = `Optimize for target keyword "${keyword}". Current keyword density: ${currentDensity.toFixed(1)}%. Naturally incorporate the keyword in the title, first paragraph, headings, and throughout the body to reach 1-2% density without keyword stuffing.`;
+        break;
+      }
+      case 'snippet_optimization': {
+        const snippetType = (job.data.optimizationContext?.['snippetType'] as string) || 'paragraph';
+        const suggestedFormat = (job.data.optimizationContext?.['suggestedFormat'] as string) || '';
+        optimizationPrompt = `Restructure content to target a featured snippet (type: ${snippetType}). ${suggestedFormat} Use clear headings, concise answers, and structured formatting (lists, tables, step-by-step) to increase chances of Position 0 ranking.`;
+        break;
+      }
     }
 
     // Re-generate content with optimization hints
@@ -1379,6 +1392,20 @@ export async function handleContentOptimize(job: Job<ContentOptimizePayload>): P
 
     console.log(`[Content Optimize] Success! Created optimized version ${optimizedContent.id}`);
 
+    // Auto-resolve the SEO issue that triggered this optimization
+    if (job.data.seoIssueId) {
+      try {
+        await resolveSEOIssue(
+          job.data.seoIssueId,
+          `Auto-resolved: content optimized for ${reason}. New content version: ${optimizedContent.id}`,
+          'CONTENT_OPTIMIZE'
+        );
+        console.log(`[Content Optimize] Resolved SEO issue ${job.data.seoIssueId}`);
+      } catch (resolveErr) {
+        console.warn(`[Content Optimize] Failed to resolve SEO issue ${job.data.seoIssueId}:`, resolveErr);
+      }
+    }
+
     return {
       success: true,
       message: `Optimized content for ${reason}`,
@@ -1386,6 +1413,7 @@ export async function handleContentOptimize(job: Job<ContentOptimizePayload>): P
         contentId: optimizedContent.id,
         previousVersion: contentId,
         qualityScore: result.content.qualityAssessment?.overallScore || 0,
+        seoIssueResolved: job.data.seoIssueId || null,
       },
       timestamp: new Date(),
     };

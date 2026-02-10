@@ -34,7 +34,7 @@ import {
 } from '../services/seo-optimizer';
 import { autoFixClusterLinks, getClusterHealthSummary } from '../services/internal-linking';
 import { findSnippetOpportunities } from '../services/content-optimizer';
-import { createSEOIssue } from '../services/seo-issues';
+import { createSEOIssue, updateSEOIssueStatus } from '../services/seo-issues';
 import { getGA4Client } from '../services/ga4-client';
 import { getJobQueue } from '../queues';
 
@@ -971,6 +971,71 @@ export async function handleAutoOptimize(job: Job<SEOAutoOptimizePayload>): Prom
       };
       if (snippetIssuesCreated > 0) {
         console.log(`[Auto SEO] Created ${snippetIssuesCreated} snippet opportunity issues`);
+      }
+    }
+
+    // 9. Auto-resolve OPEN keyword/snippet issues by queuing CONTENT_OPTIMIZE jobs
+    if (scope === 'all' || scope === 'content') {
+      console.log('[Auto SEO] Processing OPEN SEO issues for auto-resolution...');
+      const openIssues = await prisma.sEOIssue.findMany({
+        where: {
+          siteId,
+          status: 'OPEN',
+          category: 'CONTENT',
+          severity: { in: ['HIGH', 'CRITICAL'] },
+          detectedBy: 'SEO_AUTO_OPTIMIZE',
+          OR: [
+            { title: { startsWith: 'Keyword optimization needed' } },
+            { title: { startsWith: 'Featured snippet opportunity' } },
+          ],
+        },
+        include: {
+          page: {
+            select: { id: true, contentId: true },
+          },
+        },
+        orderBy: { severity: 'desc' },
+        take: 10, // Limit to 10 per run to avoid overwhelming the content queue
+      });
+
+      let issuesQueued = 0;
+      const contentQueue = getJobQueue('content');
+
+      for (const issue of openIssues) {
+        // Skip issues without a page or content
+        if (!issue.pageId || !issue.page?.contentId) continue;
+
+        const isKeyword = issue.title.startsWith('Keyword optimization needed');
+        const metadata = (issue.metadata as Record<string, unknown>) || {};
+
+        await contentQueue.add(
+          'CONTENT_OPTIMIZE',
+          {
+            siteId,
+            pageId: issue.pageId,
+            contentId: issue.page.contentId,
+            reason: isKeyword ? 'keyword_optimization' : 'snippet_optimization',
+            seoIssueId: issue.id,
+            optimizationContext: metadata,
+          },
+          {
+            priority: 5,
+            delay: issuesQueued * 30000, // Stagger by 30 seconds
+          }
+        );
+
+        // Mark issue as IN_PROGRESS
+        await updateSEOIssueStatus(issue.id, 'IN_PROGRESS');
+        issuesQueued++;
+      }
+
+      results['autoResolve'] = {
+        openIssuesFound: openIssues.length,
+        jobsQueued: issuesQueued,
+        skipped: openIssues.length - issuesQueued,
+      };
+      if (issuesQueued > 0) {
+        console.log(`[Auto SEO] Queued ${issuesQueued} CONTENT_OPTIMIZE jobs for OPEN issues`);
       }
     }
 
