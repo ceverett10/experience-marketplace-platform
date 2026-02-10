@@ -437,6 +437,38 @@ export async function getBrandIdentityForContent(siteId: string): Promise<{
 }
 
 /**
+ * Get brand identity from a Brand record (for microsites)
+ * Returns default brand identity guidelines based on brand colors and fonts.
+ */
+export async function getBrandIdentityFromBrandId(brandId: string | null): Promise<{
+  toneOfVoice?: any;
+  trustSignals?: any;
+  brandStory?: any;
+  contentGuidelines?: any;
+}> {
+  if (!brandId) return {};
+
+  const brand = await prisma.brand.findUnique({
+    where: { id: brandId },
+    select: { name: true, tagline: true },
+  });
+
+  if (!brand) return {};
+
+  // Return basic brand identity for microsites
+  return {
+    toneOfVoice: {
+      personality: ['professional', 'friendly', 'informative'],
+      formality: 'conversational',
+    },
+    contentGuidelines: {
+      brandName: brand.name,
+      tagline: brand.tagline,
+    },
+  };
+}
+
+/**
  * Homepage configuration structure
  */
 export interface HomepageConfig {

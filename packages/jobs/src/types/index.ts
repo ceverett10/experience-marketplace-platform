@@ -6,7 +6,8 @@ import type { JobType } from '@experience-marketplace/database';
 
 // Content Generation Jobs
 export interface ContentGeneratePayload {
-  siteId: string;
+  siteId?: string; // For Site-based content generation
+  micrositeId?: string; // For MicrositeConfig-based content generation
   pageId?: string; // If provided, update existing page instead of creating new one
   opportunityId?: string;
   contentType: 'destination' | 'experience' | 'category' | 'blog' | 'about' | 'faq';

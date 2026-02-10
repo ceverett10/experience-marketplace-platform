@@ -17,7 +17,7 @@ import {
 import { errorTracking } from '../errors/tracking';
 import { circuitBreakers } from '../errors/circuit-breaker';
 import { canExecuteAutonomousOperation } from '../services/pause-control';
-import { getBrandIdentityForContent } from '../services/brand-identity';
+import { getBrandIdentityForContent, getBrandIdentityFromBrandId } from '../services/brand-identity';
 import {
   generateArticleSchema,
   generateBreadcrumbSchema,
@@ -191,6 +191,18 @@ function sanitizeContentLinks(
 async function getExistingPageSlugs(siteId: string): Promise<Set<string>> {
   const pages = await prisma.page.findMany({
     where: { siteId, status: 'PUBLISHED' },
+    select: { slug: true },
+  });
+  return new Set(pages.map((p) => p.slug));
+}
+
+/**
+ * Get existing page slugs for a microsite
+ * Used for link validation in content sanitization
+ */
+async function getExistingPageSlugsByMicrosite(micrositeId: string): Promise<Set<string>> {
+  const pages = await prisma.page.findMany({
+    where: { micrositeId, status: 'PUBLISHED' },
     select: { slug: true },
   });
   return new Set(pages.map((p) => p.slug));
@@ -584,12 +596,91 @@ function buildWritingGuidelines(
 }
 
 /**
+ * Simplified content generation for microsite pages.
+ * Since the Content model requires siteId (which microsites don't have),
+ * this updates the Page directly with generated metadata.
+ */
+async function handleMicrositePageContentGenerate(params: {
+  micrositeId: string;
+  pageId?: string;
+  contentType: string;
+  targetKeyword: string;
+}): Promise<JobResult> {
+  const { micrositeId, pageId, contentType, targetKeyword } = params;
+
+  try {
+    // Look up the microsite
+    const microsite = await prisma.micrositeConfig.findUnique({
+      where: { id: micrositeId },
+      include: { brand: true },
+    });
+
+    if (!microsite) {
+      throw new NotFoundError('MicrositeConfig', micrositeId);
+    }
+
+    // If no pageId provided, we can't proceed
+    if (!pageId) {
+      return {
+        success: false,
+        error: 'Microsite content generation requires an existing pageId',
+        timestamp: new Date(),
+      };
+    }
+
+    // Look up the page
+    const page = await prisma.page.findUnique({ where: { id: pageId } });
+    if (!page) {
+      throw new NotFoundError('Page', pageId);
+    }
+
+    // Generate simple meta content based on page type and microsite info
+    const siteName = microsite.siteName;
+    const metaTitle = `${page.title} | ${siteName}`;
+    const metaDescription = `${page.title} - ${microsite.tagline || `Discover experiences with ${siteName}`}`;
+
+    // Update the page with generated metadata and publish it
+    await prisma.page.update({
+      where: { id: pageId },
+      data: {
+        metaTitle: metaTitle.length > 60 ? metaTitle.substring(0, 57) + '...' : metaTitle,
+        metaDescription:
+          metaDescription.length > 160 ? metaDescription.substring(0, 157) + '...' : metaDescription,
+        status: 'PUBLISHED',
+        publishedAt: new Date(),
+      },
+    });
+
+    console.log(`[Content Generate] Updated microsite page ${pageId} with metadata`);
+
+    return {
+      success: true,
+      message: `Updated microsite page metadata for "${targetKeyword}"`,
+      data: {
+        pageId,
+        micrositeId,
+        metaTitle,
+      },
+      timestamp: new Date(),
+    };
+  } catch (error) {
+    console.error('[Content Generate - Microsite] Error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      timestamp: new Date(),
+    };
+  }
+}
+
+/**
  * Content Generation Worker
  * Generates new content using AI based on opportunities or manual requests
  */
 export async function handleContentGenerate(job: Job<ContentGeneratePayload>): Promise<JobResult> {
   const {
     siteId,
+    micrositeId,
     pageId,
     opportunityId,
     contentType,
@@ -601,12 +692,28 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
     sourceData,
   } = job.data;
 
+  // Determine entity type and ID for logging
+  const entityType = micrositeId ? 'microsite' : 'site';
+  const entityId = micrositeId || siteId;
+
   try {
-    console.log(`[Content Generate] Starting for site ${siteId}, keyword: ${targetKeyword}`);
+    console.log(`[Content Generate] Starting for ${entityType} ${entityId}, keyword: ${targetKeyword}`);
+
+    // For microsites, use simplified content generation path
+    // The Content model requires siteId, so microsites update Page directly
+    if (micrositeId) {
+      return handleMicrositePageContentGenerate({
+        micrositeId,
+        pageId,
+        contentType,
+        targetKeyword,
+      });
+    }
 
     // Check if autonomous content generation is allowed
+    // For microsites, we pass siteId as undefined - pause control checks global settings
     const canProceed = await canExecuteAutonomousOperation({
-      siteId,
+      siteId: siteId || undefined,
       feature: 'enableContentGeneration',
       rateLimitType: 'CONTENT_GENERATE',
     });
@@ -621,14 +728,16 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
       };
     }
 
-    // Verify site exists
-    const site = await prisma.site.findUnique({ where: { id: siteId } });
+    // Look up Site (microsite path handled by early return above)
+    const site = await prisma.site.findUnique({ where: { id: siteId! } });
     if (!site) {
-      throw new NotFoundError('Site', siteId);
+      throw new NotFoundError('Site', siteId!);
     }
+    const entityName = site.name;
+    const entityDomain = site.primaryDomain;
 
     // Get brand identity for tone of voice and trust signals
-    const brandIdentity = await getBrandIdentityForContent(siteId);
+    const brandIdentity = await getBrandIdentityForContent(siteId!);
     console.log(
       `[Content Generate] Using brand identity with tone: ${brandIdentity.toneOfVoice?.personality?.join(', ') || 'default'}`
     );
@@ -646,10 +755,11 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
     const formatHints = getContentFormatHints(contentSubtype, sourceData);
 
     // Create content brief with brand context
+    // After the microsite early return above, we know siteId is defined
     const brief = {
       type: contentType,
-      siteId,
-      siteName: site.name, // Include site name for brand-aware content generation
+      siteId: siteId!, // Non-null after microsite early return
+      siteName: entityName, // Site name for brand-aware content generation
       targetKeyword,
       secondaryKeywords: secondaryKeywords || (opportunity?.keyword ? [opportunity.keyword] : []),
       destination: destination || opportunity?.location || '',
@@ -660,7 +770,7 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
       sourceData: sourceData || undefined,
       // Include comprehensive brand guidelines for content generation
       brandContext: {
-        siteName: site.name,
+        siteName: entityName,
         toneOfVoice: brandIdentity.toneOfVoice,
         trustSignals: brandIdentity.trustSignals,
         brandStory: brandIdentity.brandStory,
@@ -707,8 +817,8 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
     // Generate Schema.org structured data for SEO
     const structuredData = generateStructuredDataForContent({
       contentType,
-      siteName: site.name,
-      siteUrl: site.primaryDomain ? `https://${site.primaryDomain}` : '',
+      siteName: entityName,
+      siteUrl: entityDomain ? `https://${entityDomain}` : '',
       title: result.content.title,
       description: targetKeyword,
       content: result.content.content,
@@ -717,7 +827,10 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
     });
 
     // Get existing page slugs to validate blog links against
-    const existingSlugs = await getExistingPageSlugs(siteId);
+    // For microsites, pass micrositeId to get microsite-specific slugs
+    const existingSlugs = siteId
+      ? await getExistingPageSlugs(siteId)
+      : await getExistingPageSlugsByMicrosite(micrositeId!);
 
     // Sanitize AI-generated links - remove any links to non-existent pages
     // Includes validation of same-domain links (e.g., https://site.com/blog/fake-page)
@@ -725,7 +838,7 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
     const { sanitized: sanitizedContent, removedCount } = sanitizeContentLinks(
       result.content.content,
       contentType,
-      site.primaryDomain || undefined,
+      entityDomain || undefined,
       existingSlugs
     );
     if (removedCount > 0) {
@@ -748,8 +861,9 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
 
     // Add internal links to improve SEO and user navigation
     // Skip for about pages - they should not have inline internal links
+    // Skip for microsites - internal linking is handled differently
     let finalContent = postSanitized;
-    if (contentType !== 'about') {
+    if (contentType !== 'about' && siteId) {
       const linkSuggestion = await suggestInternalLinks({
         siteId,
         content: postSanitized,
@@ -769,9 +883,10 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
     }
 
     // Save content to database
+    // After the microsite early return, siteId is guaranteed to be defined
     const content = await prisma.content.create({
       data: {
-        siteId,
+        siteId: siteId!,
         body: finalContent,
         bodyFormat: 'MARKDOWN',
         isAiGenerated: true,
@@ -790,13 +905,13 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
       contentBody: finalContent,
       targetKeyword,
       contentType,
-      siteName: site.name,
+      siteName: entityName,
     });
 
     const optimizedMetaTitle = generateOptimizedMetaTitle({
       aiTitle: result.content.title,
       targetKeyword,
-      siteName: site.name,
+      siteName: entityName,
       contentType,
     });
 
@@ -837,8 +952,9 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
       console.log(`[Content Generate] Updated existing page ${pageId} with content`);
     } else {
       // Check if page with same slug already exists (idempotency on retry)
+      // Site-only path (microsites handled by early return above)
       const existingPage = await prisma.page.findFirst({
-        where: { siteId, slug: result.content.slug },
+        where: { siteId: siteId!, slug: result.content.slug },
       });
 
       if (existingPage) {
@@ -868,7 +984,8 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
         };
         page = await prisma.page.create({
           data: {
-            siteId,
+            // Site-only path (microsites handled by early return above)
+            siteId: siteId!,
             slug: result.content.slug,
             type: (pageTypeMap[contentType] || contentType.toUpperCase()) as any,
             title: result.content.title,

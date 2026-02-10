@@ -498,9 +498,11 @@ export async function handleMicrositeContentGenerate(
       createdPages.push(page.id);
 
       // Queue actual content generation (uses content engine)
+      // Note: We pass micrositeId (not siteId) since this is a MicrositeConfig, not a Site.
+      // The content handler will look up context from the Page record.
       const { addJob } = await import('../queues/index.js');
       await addJob('CONTENT_GENERATE', {
-        siteId: micrositeId, // MicrositeConfig uses same pattern
+        micrositeId,
         pageId: page.id,
         contentType:
           contentType === 'experiences'

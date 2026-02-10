@@ -110,6 +110,7 @@ class QueueRegistry {
       'SEO_OPPORTUNITY_SCAN', // Cross-site scan, no single siteId
       'SEO_OPPORTUNITY_OPTIMIZE', // Cross-site optimization, no single siteId
       'SITE_CREATE', // Creates a new site — siteId doesn't exist yet
+      'CONTENT_GENERATE', // Can be triggered by microsites with pageId instead of siteId
       'MICROSITE_CONTENT_GENERATE', // Microsites use micrositeId, not siteId
       'MICROSITE_GSC_SYNC', // Syncs all microsites, no single siteId
       'MICROSITE_ANALYTICS_SYNC', // Syncs all microsites, no single siteId
