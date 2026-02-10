@@ -36,7 +36,7 @@ import { autoFixClusterLinks, getClusterHealthSummary } from '../services/intern
 import { findSnippetOpportunities } from '../services/content-optimizer';
 import { createSEOIssue, updateSEOIssueStatus } from '../services/seo-issues';
 import { getGA4Client } from '../services/ga4-client';
-import { getJobQueue } from '../queues';
+import { getJobQueue, addJob } from '../queues';
 
 /**
  * Job payload types
@@ -740,11 +740,10 @@ export async function handleAutoOptimize(job: Job<SEOAutoOptimizePayload>): Prom
         select: { id: true, name: true },
       });
 
-      const seoQueue = getJobQueue('seo');
       let scheduled = 0;
 
       for (const site of sites) {
-        await seoQueue.add(
+        await addJob(
           'SEO_AUTO_OPTIMIZE',
           {
             siteId: site.id,
@@ -809,18 +808,17 @@ export async function handleAutoOptimize(job: Job<SEOAutoOptimizePayload>): Prom
       if (thinPages.length > 0) {
         console.log(`[Auto SEO] Flagged ${thinPages.length} pages with thin content`);
         // Queue content optimization jobs for thin pages (only those with existing content)
-        const contentQueue = getJobQueue('content');
         const pagesWithContent = thinPages.filter((p) => p.contentId !== null);
         let jobsQueued = 0;
 
         for (const thinPage of pagesWithContent.slice(0, 5)) {
           // Limit to 5 at a time
-          await contentQueue.add(
+          await addJob(
             'CONTENT_OPTIMIZE',
             {
               siteId,
               pageId: thinPage.pageId,
-              contentId: thinPage.contentId, // Include contentId for proper expansion
+              contentId: thinPage.contentId || undefined, // Include contentId for proper expansion
               reason: 'thin_content',
               performanceData: {
                 currentWordCount: thinPage.wordCount,
@@ -999,7 +997,6 @@ export async function handleAutoOptimize(job: Job<SEOAutoOptimizePayload>): Prom
       });
 
       let issuesQueued = 0;
-      const contentQueue = getJobQueue('content');
 
       for (const issue of openIssues) {
         // Skip issues without a page or content
@@ -1008,7 +1005,7 @@ export async function handleAutoOptimize(job: Job<SEOAutoOptimizePayload>): Prom
         const isKeyword = issue.title.startsWith('Keyword optimization needed');
         const metadata = (issue.metadata as Record<string, unknown>) || {};
 
-        await contentQueue.add(
+        await addJob(
           'CONTENT_OPTIMIZE',
           {
             siteId,
