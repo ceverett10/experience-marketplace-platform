@@ -116,6 +116,7 @@ model Site {
   errorLogs          ErrorLog[]
   seoIssues          SEOIssue[]
   analyticsSnapshots SiteAnalyticsSnapshot[]
+  subscribers        Subscriber[]
 
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -1184,6 +1185,7 @@ model MicrositeConfig {
   // Relations
   analyticsSnapshots MicrositeAnalyticsSnapshot[]
   performanceMetrics MicrositePerformanceMetric[]
+  subscribers        Subscriber[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1368,4 +1370,92 @@ enum CollectionType {
   SEASONAL // winter, summer, spring, fall
   THEMATIC // adventure, culture, food, relaxation
   CURATED // staff picks, highest rated, best sellers, new arrivals
+}
+
+// ============================================================================
+// EMAIL SUBSCRIPTION & PRIZE DRAW
+// ============================================================================
+
+model Subscriber {
+  id    String @id @default(cuid())
+  email String @unique
+
+  // Source tracking (which site/microsite captured this)
+  siteId      String?
+  site        Site?            @relation(fields: [siteId], references: [id])
+  micrositeId String?
+  microsite   MicrositeConfig? @relation(fields: [micrositeId], references: [id])
+  domain      String // The exact domain where they subscribed
+
+  // GDPR Consent Fields
+  marketingConsent          Boolean   @default(false) // Explicit opt-in for ongoing marketing
+  marketingConsentTimestamp DateTime? // When they gave marketing consent
+  prizeDrawConsent          Boolean   @default(true) // Consent to enter prize draw
+  prizeDrawConsentTimestamp DateTime  @default(now())
+
+  // Consent audit trail
+  ipAddress     String? // Hashed for privacy
+  userAgent     String?
+  consentSource String  @default("popup") // "popup", "footer", "checkout"
+
+  // Prize draw tracking
+  prizeDrawId     String?
+  prizeDrawStatus PrizeDrawStatus @default(ENTERED)
+
+  // Marketing status
+  marketingStatus  MarketingStatus @default(PENDING)
+  unsubscribedAt   DateTime?
+  unsubscribeToken String          @unique @default(cuid()) // For one-click unsubscribe
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([siteId])
+  @@index([micrositeId])
+  @@index([domain])
+  @@index([marketingConsent])
+  @@index([prizeDrawStatus])
+  @@index([createdAt])
+  @@map("subscribers")
+}
+
+enum PrizeDrawStatus {
+  ENTERED
+  WINNER
+  NOT_SELECTED
+}
+
+enum MarketingStatus {
+  PENDING // Subscribed but not yet verified
+  ACTIVE // Verified and receiving emails
+  UNSUBSCRIBED // User opted out
+  BOUNCED // Email bounced
+}
+
+model PrizeDraw {
+  id          String  @id @default(cuid())
+  name        String // "Win £1,000 of experiences 2024"
+  description String?
+
+  prizeValue Decimal @db.Decimal(10, 2) // 1000.00
+  currency   String  @default("GBP")
+
+  // Draw timing
+  startDate DateTime
+  endDate   DateTime
+  drawDate  DateTime? // When winner is selected
+
+  // Status
+  status String @default("ACTIVE") // DRAFT, ACTIVE, CLOSED, DRAWN, COMPLETED
+
+  // Winner
+  winnerId String?
+
+  // Terms version
+  termsVersion String @default("1.0")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("prize_draws")
 }

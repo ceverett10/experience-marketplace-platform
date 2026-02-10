@@ -6,6 +6,7 @@ import { SiteProvider } from '@/lib/site-context';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { GoogleAnalytics } from '@/components/analytics/GoogleAnalytics';
+import { EmailPopup } from '@/components/marketing/EmailPopup';
 import './globals.css';
 
 // Load fonts
@@ -108,6 +109,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <main className="flex-1">{children}</main>
             <Footer />
           </div>
+          <EmailPopup />
         </SiteProvider>
         {/* Google Analytics - Dynamic per site */}
         <GoogleAnalytics measurementId={site.seoConfig?.gaMeasurementId} />
