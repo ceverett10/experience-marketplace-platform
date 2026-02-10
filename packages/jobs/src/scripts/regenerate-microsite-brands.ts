@@ -24,6 +24,7 @@ async function main() {
       supplier: {
         select: {
           name: true,
+          description: true,
           cities: true,
           categories: true,
         },
@@ -55,6 +56,8 @@ async function main() {
         niche: categories[0] || 'travel experiences',
         searchVolume: 100,
         intent: 'TRANSACTIONAL',
+        entityName: operatorName,
+        entityDescription: ms.supplier.description || undefined,
       });
 
       console.log(`NEW Brand: ${brandIdentity.name}`);

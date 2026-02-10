@@ -18,6 +18,10 @@ interface OpportunityContext {
   niche: string;
   searchVolume: number;
   intent: string;
+  /** The actual entity name (supplier or product) — used for unique brand derivation */
+  entityName?: string;
+  /** Brief description of the entity for richer brand context */
+  entityDescription?: string;
 }
 
 interface ComprehensiveBrandIdentity {
@@ -78,14 +82,15 @@ export async function generateComprehensiveBrandIdentity(
       apiKey: process.env['ANTHROPIC_API_KEY'] || process.env['CLAUDE_API_KEY'] || '',
     });
 
-    const prompt = `You are a brand strategist creating a comprehensive brand identity for a new travel experience marketplace website.
+    const prompt = `You are a brand strategist creating a UNIQUE brand identity for a travel experience website.
 
 Context:
+- Business Name: ${opportunity.entityName || opportunity.keyword}
 - Target Market: ${opportunity.location || 'Multiple locations'}
 - Niche: ${opportunity.niche}
-- Primary Keyword: ${opportunity.keyword}
-- Search Volume: ${opportunity.searchVolume}/month
-- Search Intent: ${opportunity.intent}
+- Primary Keyword: ${opportunity.keyword}${opportunity.entityDescription ? `\n- Business Description: ${opportunity.entityDescription}` : ''}
+
+CRITICAL: The brand name MUST be unique and distinctive — derived from or inspired by "${opportunity.entityName || opportunity.keyword}". Do NOT use generic names like "Premium Travel Experiences" or "{Location} {Category}". Instead create a memorable, creative brand name that reflects this specific business identity. Consider wordplay, evocative imagery, or a name that captures the essence of what makes this particular business special.
 
 Create a complete brand identity that positions this site as THE trusted authority for ${opportunity.niche} experiences in ${opportunity.location || 'this market'}.
 
@@ -206,12 +211,21 @@ Return ONLY valid JSON with this exact structure:
  * Create template-based brand identity as fallback
  */
 function createTemplateBrandIdentity(opportunity: OpportunityContext): ComprehensiveBrandIdentity {
-  const location = opportunity.location?.split(',')[0]?.trim() || 'Premium';
+  const location = opportunity.location?.split(',')[0]?.trim() || '';
   const niche = capitalize(opportunity.niche);
+  const entityName = opportunity.entityName || opportunity.keyword;
+
+  // Use the entity name as the brand base — never fall back to generic "Premium Travel Experiences"
+  const brandName = entityName
+    ? `${entityName}${location ? ` ${location}` : ''}`
+    : `${location || 'Discover'} ${niche}`;
+  const tagline = location
+    ? `Discover the Best ${niche} in ${location}`
+    : `Your Curated Guide to ${niche}`;
 
   return {
-    name: `${location} ${niche}`,
-    tagline: `Your Trusted Source for ${niche} Experiences`,
+    name: brandName,
+    tagline,
     primaryColor: '#2563eb', // Professional blue
     secondaryColor: '#7c3aed', // Complementary purple
     accentColor: '#f59e0b', // Warm accent

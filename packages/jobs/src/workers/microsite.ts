@@ -232,6 +232,8 @@ export async function handleMicrositeCreate(job: Job<MicrositeCreatePayload>): P
       niche: categories[0] || 'travel experiences',
       searchVolume: 100, // Placeholder
       intent: 'TRANSACTIONAL',
+      entityName,
+      entityDescription: description || undefined,
     });
 
     console.log(
@@ -367,12 +369,16 @@ export async function handleMicrositeBrandGenerate(
       microsite.supplier?.cities || (microsite.product?.city ? [microsite.product.city] : []);
 
     // Generate new brand identity
+    const entityName = 'name' in entity ? entity.name : (entity as any).title;
+    const entityDescription = microsite.supplier?.description || microsite.product?.shortDescription || microsite.product?.description || undefined;
     const brandIdentity = await generateComprehensiveBrandIdentity({
-      keyword: 'name' in entity ? entity.name : (entity as any).title,
+      keyword: entityName,
       location: cities[0] || undefined,
       niche: categories[0] || 'travel experiences',
       searchVolume: 100,
       intent: 'TRANSACTIONAL',
+      entityName,
+      entityDescription,
     });
 
     // Update brand
