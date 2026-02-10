@@ -1,7 +1,7 @@
 #!/usr/bin/env npx tsx
 /**
- * Regenerate brand identities for microsites using AI
- * This cleans up operator names like "OTC Adventures Pty Ltd" -> "OTC Adventures"
+ * Regenerate brand identities for microsites stuck with the generic
+ * "Premium Travel Experiences" fallback brand name.
  */
 
 import 'dotenv/config';
@@ -13,11 +13,12 @@ async function main() {
   console.log('ANTHROPIC_API_KEY:', process.env['ANTHROPIC_API_KEY'] ? 'set' : 'NOT SET');
   console.log('');
 
-  // Get all microsites with their suppliers
+  // Only regenerate microsites affected by the generic fallback brand
   const microsites = await prisma.micrositeConfig.findMany({
     where: {
       parentDomain: 'experiencess.com',
       supplierId: { not: null },
+      brand: { name: 'Premium Travel Experiences' },
     },
     include: {
       brand: true,
@@ -33,7 +34,7 @@ async function main() {
     orderBy: { createdAt: 'desc' },
   });
 
-  console.log(`Found ${microsites.length} microsites to regenerate\n`);
+  console.log(`Found ${microsites.length} microsites with "Premium Travel Experiences" brand to regenerate\n`);
 
   for (const ms of microsites) {
     if (!ms.supplier) continue;
