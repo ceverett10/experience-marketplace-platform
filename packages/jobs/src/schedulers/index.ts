@@ -9,12 +9,14 @@ import {
 } from '../services/daily-content-generator.js';
 import { runMetaTitleMaintenance } from '../services/meta-title-maintenance.js';
 import { refreshAllCollections } from '../services/collection-generator.js';
+import { resubmitMicrositeSitemapsToGSC } from '../services/microsite-sitemap-resubmit.js';
 
 // Track intervals for cleanup
 let dailyContentInterval: NodeJS.Timeout | null = null;
 let metaTitleMaintenanceInterval: NodeJS.Timeout | null = null;
 let micrositeContentRefreshInterval: NodeJS.Timeout | null = null;
 let collectionRefreshInterval: NodeJS.Timeout | null = null;
+let sitemapResubmitInterval: NodeJS.Timeout | null = null;
 
 /**
  * Calculate the next run time for a cron expression.
@@ -265,6 +267,11 @@ export async function initializeScheduledJobs(): Promise<void> {
     '30 8 * * 0' // Sundays at 8:30 AM
   );
   console.log('[Scheduler] ✓ Microsite Health Check - Sundays at 8:30 AM');
+
+  // Microsite Sitemap Resubmission to GSC - Sundays at 9 AM
+  // Resubmits all active microsite sitemaps to keep Google's crawl queue fresh
+  initializeSitemapResubmitSchedule();
+  console.log('[Scheduler] ✓ Microsite Sitemap Resubmit - Sundays at 9 AM');
 
   // Curated Collection Refresh - Daily at 5:30 AM
   // Processes 5% of microsites per day (rotating), spreading load across time
@@ -543,6 +550,40 @@ function initializeCollectionRefreshSchedule(): void {
 }
 
 /**
+ * Initialize weekly microsite sitemap resubmission to GSC
+ * Runs Sundays at 9 AM to keep Google's crawl queue fresh with latest content
+ */
+function initializeSitemapResubmitSchedule(): void {
+  sitemapResubmitInterval = setInterval(
+    async () => {
+      const now = new Date();
+      const currentHour = now.getHours();
+      const currentDow = now.getDay();
+
+      // Run on Sundays at 9 AM
+      if (currentDow === 0 && currentHour === 9) {
+        const today = now.toISOString().split('T')[0] ?? '';
+        const lastRun = schedulesRunToday.get('sitemap-resubmit');
+
+        if (lastRun !== today) {
+          schedulesRunToday.set('sitemap-resubmit', today);
+          console.log('[Scheduler] Running weekly microsite sitemap resubmission...');
+          try {
+            const result = await resubmitMicrositeSitemapsToGSC();
+            console.log(
+              `[Scheduler] Sitemap resubmission complete: ${result.submitted} submitted, ${result.skipped} skipped, ${result.errors} errors`
+            );
+          } catch (error) {
+            console.error('[Scheduler] Sitemap resubmission failed:', error);
+          }
+        }
+      }
+    },
+    60 * 60 * 1000 // Check every hour
+  );
+}
+
+/**
  * Remove all scheduled jobs (useful for cleanup or reconfiguration)
  */
 export async function removeAllScheduledJobs(): Promise<void> {
@@ -584,6 +625,12 @@ export async function removeAllScheduledJobs(): Promise<void> {
   if (collectionRefreshInterval) {
     clearInterval(collectionRefreshInterval);
     collectionRefreshInterval = null;
+  }
+
+  // Clear sitemap resubmit interval
+  if (sitemapResubmitInterval) {
+    clearInterval(sitemapResubmitInterval);
+    sitemapResubmitInterval = null;
   }
 
   // Clear schedule tracking
@@ -726,6 +773,11 @@ export function getScheduledJobs(): Array<{
       jobType: 'MICROSITE_HEALTH_CHECK',
       schedule: '30 8 * * 0',
       description: 'Check microsites for issues (missing content, deleted suppliers)',
+    },
+    {
+      jobType: 'MICROSITE_SITEMAP_RESUBMIT',
+      schedule: '0 9 * * 0',
+      description: 'Resubmit all active microsite sitemaps to GSC (weekly)',
     },
     {
       jobType: 'COLLECTION_REFRESH',
