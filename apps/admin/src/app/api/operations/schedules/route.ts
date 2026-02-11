@@ -107,6 +107,10 @@ export async function POST(request: Request): Promise<NextResponse> {
     // Map job types to their default payloads
     const defaultPayloads: Record<string, any> = {
       GSC_SYNC: { siteId: 'all', dimensions: ['query', 'page', 'country', 'device'] },
+      GA4_DAILY_SYNC: { siteId: 'all' },
+      MICROSITE_GSC_SYNC: {},
+      MICROSITE_ANALYTICS_SYNC: {},
+      REFRESH_ANALYTICS_VIEWS: {},
       SEO_OPPORTUNITY_SCAN: { forceRescan: false },
       SEO_ANALYZE: { siteId: 'all', fullSiteAudit: false, triggerOptimizations: true },
       SEO_AUTO_OPTIMIZE: { siteId: 'all', scope: 'all' },
