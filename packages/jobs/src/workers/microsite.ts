@@ -1,6 +1,7 @@
 import { Job } from 'bullmq';
 import {
   prisma,
+  Prisma,
   MicrositeStatus,
   MicrositeLayoutType,
   PageType,
@@ -22,6 +23,7 @@ import {
 } from '../services/brand-identity.js';
 import { generateAndStoreFavicon } from '../services/favicon-generator.js';
 import { getGSCClient, isGSCConfigured } from '../services/gsc-client.js';
+import { enrichHomepageConfigWithImages } from '../services/unsplash-images.js';
 
 /**
  * Microsite Worker
@@ -300,6 +302,27 @@ export async function handleMicrositeCreate(job: Job<MicrositeCreatePayload>): P
     });
 
     console.log(`[Microsite Create] Created microsite ${microsite.id} at ${fullDomain}`);
+
+    // Enrich hero with Unsplash image (non-critical)
+    try {
+      const enrichedConfig = await enrichHomepageConfigWithImages(
+        { hero: { title: brandIdentity.name, subtitle: brandIdentity.tagline } },
+        { niche: categories[0] || 'travel experiences', location: cities[0] || undefined }
+      );
+      if (enrichedConfig.hero?.backgroundImage) {
+        await prisma.micrositeConfig.update({
+          where: { id: microsite.id },
+          data: {
+            homepageConfig: {
+              hero: enrichedConfig.hero,
+            } as unknown as Prisma.InputJsonValue,
+          },
+        });
+        console.log(`[Microsite Create] Hero image set from Unsplash`);
+      }
+    } catch (unsplashError) {
+      console.warn('[Microsite Create] Unsplash hero image failed (non-critical):', unsplashError);
+    }
 
     // Generate favicon (non-critical)
     try {
