@@ -12,8 +12,8 @@ interface TrafficData {
     medium: string;
     users: number;
     sessions: number;
-    bounceRate: number;
-    sites: number;
+    bounceRate?: number;
+    siteCount: number;
   }>;
   byMedium: Array<{
     medium: string;
@@ -25,13 +25,12 @@ interface TrafficData {
     totalUsers: number;
     totalSessions: number;
     percentageOfTotal: number;
-    topLandingPages: Array<{ page: string; sessions: number; siteName: string }>;
+    topLandingPages: Array<{ path: string; sessions: number; site: string }>;
   };
   totals: {
     users: number;
     sessions: number;
-    pageviews: number;
-    avgSessionDuration: number;
+    sitesWithData: number;
   };
   dateRange: { startDate: string; endDate: string };
 }
@@ -172,7 +171,7 @@ export default function TrafficPage() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <MetricCard title="Total Users" value={totals.users} />
         <MetricCard title="Total Sessions" value={totals.sessions} />
-        <MetricCard title="Pageviews" value={totals.pageviews} />
+        <MetricCard title="Sites with Data" value={totals.sitesWithData} />
         <MetricCard
           title="Organic Traffic"
           value={organic.percentageOfTotal}
@@ -249,8 +248,8 @@ export default function TrafficPage() {
                     {organic.topLandingPages.slice(0, 5).map((page, i) => (
                       <div key={i} className="flex items-center justify-between text-sm">
                         <div className="truncate flex-1 mr-2">
-                          <span className="text-slate-700">{page.page}</span>
-                          <span className="text-xs text-slate-400 ml-2">({page.siteName})</span>
+                          <span className="text-slate-700">{page.path}</span>
+                          <span className="text-xs text-slate-400 ml-2">({page.site})</span>
                         </div>
                         <span className="text-slate-500 text-xs">
                           {page.sessions.toLocaleString()} sessions
@@ -306,9 +305,11 @@ export default function TrafficPage() {
                     {source.sessions.toLocaleString()}
                   </td>
                   <td className="px-4 py-3 text-right text-sm text-slate-700">
-                    {source.bounceRate.toFixed(1)}%
+                    {source.bounceRate != null ? `${source.bounceRate.toFixed(1)}%` : '—'}
                   </td>
-                  <td className="px-4 py-3 text-right text-sm text-slate-500">{source.sites}</td>
+                  <td className="px-4 py-3 text-right text-sm text-slate-500">
+                    {source.siteCount}
+                  </td>
                 </tr>
               ))}
               {sources.length === 0 && (
