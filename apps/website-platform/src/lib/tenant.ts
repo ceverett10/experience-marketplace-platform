@@ -581,8 +581,9 @@ function mapMicrositeToSiteConfig(microsite: MicrositeConfigWithEntity): SiteCon
       accentColor: microsite.brand.accentColor,
       headingFont: microsite.brand.headingFont,
       bodyFont: microsite.brand.bodyFont,
-      logoUrl: microsite.brand.logoUrl,
-      logoDarkUrl: microsite.brand.logoDarkUrl,
+      // Generated logos disabled - using text-only branding (standard design) for all sites
+      logoUrl: null,
+      logoDarkUrl: null,
       faviconUrl: microsite.brand.faviconUrl,
       ogImageUrl: microsite.brand.ogImageUrl,
       socialLinks: microsite.brand.socialLinks as Record<string, string> | null,
@@ -655,8 +656,9 @@ function mapSiteToConfig(site: Site & { brand: Brand | null }): SiteConfig {
           accentColor: site.brand.accentColor,
           headingFont: site.brand.headingFont,
           bodyFont: site.brand.bodyFont,
-          logoUrl: site.brand.logoUrl,
-          logoDarkUrl: site.brand.logoDarkUrl,
+          // Generated logos disabled - using text-only branding (standard design) for all sites
+          logoUrl: null,
+          logoDarkUrl: null,
           faviconUrl: site.brand.faviconUrl,
           ogImageUrl: site.brand.ogImageUrl,
           socialLinks: site.brand.socialLinks as Record<string, string> | null,

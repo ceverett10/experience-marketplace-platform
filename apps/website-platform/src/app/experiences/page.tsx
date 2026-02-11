@@ -169,12 +169,20 @@ async function getExperiences(
   try {
     const client = getHolibobClient(site);
 
+    // Product Discovery API requires a location input (where.freeText, destinationId, circle, or boundingBox).
+    // When no destination is provided in search params, fall back to the site's configured destination.
+    const freeText =
+      searchParams.destination ||
+      searchParams.location ||
+      site.homepageConfig?.popularExperiences?.destination ||
+      site.homepageConfig?.destinations?.[0]?.name;
+
     // Product Discovery API filters: where (freeText), when (dates), who (travelers), what (searchTerm)
     // Note: Category/price filters are not supported by Product Discovery
     const response = await client.discoverProducts(
       {
         currency: 'GBP',
-        freeText: searchParams.destination || searchParams.location,
+        freeText,
         searchTerm: searchParams.q,
         adults: searchParams.adults ? parseInt(searchParams.adults, 10) : 2,
         children: searchParams.children ? parseInt(searchParams.children, 10) : undefined,

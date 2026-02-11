@@ -135,21 +135,12 @@ async function getRelatedExperiences(
       currency: string;
       freeText?: string;
       searchTerm?: string;
-      geoPoint?: { lat: number; lng: number; radiusKm?: number };
     } = {
       currency: 'GBP',
     };
 
-    // Prefer geo-coordinates for accurate location matching
-    if (experience.location.lat && experience.location.lng) {
-      filter.geoPoint = {
-        lat: experience.location.lat,
-        lng: experience.location.lng,
-        radiusKm: 50,
-      };
-    }
-
-    // Use location name as freeText, fall back to site destination — never to "London"
+    // Use location name as freeText for related experiences, fall back to site destination
+    // Note: geoPoint is NOT supported by ProductDiscoveryWhere — use freeText only
     if (experience.location.name) {
       filter.freeText = experience.location.name;
     } else if (siteDestination) {

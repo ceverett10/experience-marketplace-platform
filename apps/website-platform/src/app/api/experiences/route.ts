@@ -116,10 +116,17 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    // Product Discovery API requires where.freeText — fall back to site's default destination
+    const freeText =
+      destination ||
+      site.homepageConfig?.popularExperiences?.destination ||
+      site.homepageConfig?.destinations?.[0]?.name ||
+      site.name;
+
     const response = await client.discoverProducts(
       {
         currency: 'GBP',
-        freeText: destination || undefined,
+        freeText,
         searchTerm: searchTerm || undefined,
         adults: adults ? parseInt(adults, 10) : 2,
         children: children ? parseInt(children, 10) : undefined,

@@ -4,11 +4,23 @@ import { prisma } from '@/lib/prisma';
 /**
  * Regenerate all logo versions for a specific site
  * POST /api/sites/[id]/logo
+ *
+ * NOTE: Logo generation is disabled - using text-only branding (standard design)
+ * for all sites and microsites due to insufficient quality from the generation service.
  */
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
+  // Logo generation disabled - all sites use text-only branding (standard design)
+  return NextResponse.json(
+    {
+      error: 'Logo generation disabled',
+      message: 'Generated logos are disabled. All sites use text-only branding (standard design).',
+    },
+    { status: 403 }
+  );
+
   try {
     const { id: siteId } = await params;
 

@@ -1036,13 +1036,7 @@ export class HolibobClient {
     } else if (filter.placeIds?.length) {
       whereInput['freeText'] = filter.placeIds[0];
     }
-    if (filter.geoPoint) {
-      whereInput['geoPoint'] = {
-        lat: filter.geoPoint.lat,
-        lng: filter.geoPoint.lng,
-        radiusKm: filter.geoPoint.radiusKm ?? 50,
-      };
-    }
+    // Note: geoPoint is NOT supported by ProductDiscoveryWhere — use freeText for location
     // Only set 'where' if we have location data — no hardcoded fallback
     if (Object.keys(whereInput).length > 0) {
       input['where'] = whereInput;

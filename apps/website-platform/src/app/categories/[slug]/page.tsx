@@ -56,9 +56,15 @@ async function getRelatedExperiences(
 
   try {
     const client = getHolibobClient(site);
+    // Product Discovery API requires where.freeText — use site's default destination
+    const freeText =
+      site.homepageConfig?.popularExperiences?.destination ||
+      site.homepageConfig?.destinations?.[0]?.name ||
+      site.name;
     const response = await client.discoverProducts(
       {
         categoryIds: [categoryId],
+        freeText,
         currency: 'GBP',
       },
       { pageSize: 6 }

@@ -190,8 +190,8 @@ async function getFeaturedExperiences(
     // Product Discovery API requires where.freeText when no consumerTripSelector is provided
     filter.freeText =
       popularExperiencesConfig?.destination ||
-      site.homepageConfig?.destinations?.[0]?.name ||
-      site.name;
+      siteConfig.homepageConfig?.destinations?.[0]?.name ||
+      siteConfig.name;
 
     // "What" - combined search terms for filtering by category/niche
     if (searchTermParts.length > 0) {
