@@ -136,11 +136,20 @@ async function refreshFacebookToken(accessToken: string): Promise<TokenRefreshRe
 
 async function refreshTwitterToken(refreshToken: string): Promise<TokenRefreshResult> {
   const clientId = process.env['TWITTER_CLIENT_ID'];
-  if (!clientId) throw new Error('Twitter OAuth not configured');
+  const clientSecret = process.env['TWITTER_CLIENT_SECRET'];
+  if (!clientId) throw new Error('Twitter OAuth not configured (TWITTER_CLIENT_ID)');
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/x-www-form-urlencoded',
+  };
+
+  if (clientSecret) {
+    headers['Authorization'] = `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`;
+  }
 
   const response = await fetch('https://api.twitter.com/2/oauth2/token', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    headers,
     body: new URLSearchParams({
       grant_type: 'refresh_token',
       refresh_token: refreshToken,

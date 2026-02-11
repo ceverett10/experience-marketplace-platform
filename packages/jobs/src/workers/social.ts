@@ -10,7 +10,6 @@ import { addJob } from '../queues';
 import { generateCaption } from '../services/social/caption-generator';
 import { selectImageForPost } from '../services/social/image-selector';
 import { refreshTokenIfNeeded } from '../services/social/token-refresh';
-import { decryptToken } from '../services/social/token-encryption';
 import { createPinterestPin } from '../services/social/pinterest-client';
 import { createFacebookPost } from '../services/social/facebook-client';
 import { createTweet } from '../services/social/twitter-client';
@@ -337,13 +336,8 @@ export async function handleSocialPostPublish(
       }
 
       case 'TWITTER': {
-        // Twitter uses OAuth 1.0a - accessSecret is stored in refreshToken field
-        const accessSecret = post.account.refreshToken
-          ? decryptToken(post.account.refreshToken)
-          : process.env['TWITTER_ACCESS_SECRET'] || '';
         result = await createTweet({
           accessToken,
-          accessSecret,
           text: post.hashtags.length > 0
             ? `${post.caption}\n\n${post.hashtags.map((h) => `#${h}`).join(' ')}`
             : post.caption,

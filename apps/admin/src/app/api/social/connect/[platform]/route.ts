@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createCipheriv, randomBytes } from 'crypto';
-import { prisma } from '@experience-marketplace/database';
+import { createCipheriv, createHash, randomBytes } from 'crypto';
 
 const ADMIN_BASE_URL = process.env['ADMIN_BASE_URL'] || 'https://holibob-experiences-demand-gen-c27f61accbd2.herokuapp.com/admin';
 
@@ -76,39 +75,31 @@ export async function GET(
     }
 
     case 'twitter': {
-      // Twitter uses OAuth 1.0a - connect using pre-configured tokens from env vars
-      const twitterAccessToken = process.env['TWITTER_ACCESS_TOKEN'];
-      const twitterAccessSecret = process.env['TWITTER_ACCESS_SECRET'];
-      if (!twitterAccessToken || !twitterAccessSecret) {
-        return NextResponse.json(
-          { error: 'Twitter OAuth 1.0a tokens not configured (TWITTER_ACCESS_TOKEN, TWITTER_ACCESS_SECRET)' },
-          { status: 500 }
-        );
+      // Twitter OAuth 2.0 with PKCE
+      const clientId = process.env['TWITTER_CLIENT_ID'];
+      if (!clientId) {
+        return NextResponse.json({ error: 'Twitter OAuth not configured' }, { status: 500 });
       }
 
-      // Verify the tokens by fetching user info
-      // (we'll set account name from env or a lookup later)
-      await prisma.socialAccount.upsert({
-        where: { siteId_platform: { siteId, platform: 'TWITTER' } },
-        create: {
-          siteId,
-          platform: 'TWITTER',
-          accountName: 'X / Twitter Account',
-          accessToken: encryptToken(twitterAccessToken),
-          refreshToken: encryptToken(twitterAccessSecret), // Store access secret in refreshToken field
-          isActive: true,
-        },
-        update: {
-          accessToken: encryptToken(twitterAccessToken),
-          refreshToken: encryptToken(twitterAccessSecret),
-          isActive: true,
-        },
-      });
+      // PKCE: generate code_verifier and code_challenge (S256)
+      const codeVerifier = randomBytes(32).toString('base64url');
+      const codeChallenge = createHash('sha256').update(codeVerifier).digest('base64url');
 
-      console.log(`[Social OAuth] Twitter account connected for site ${siteId} (via env tokens)`);
-      return NextResponse.redirect(
-        `${ADMIN_BASE_URL}/sites/${siteId}?tab=social&connected=twitter`
-      );
+      // Include code_verifier in state so callback can use it
+      const twitterState = Buffer.from(
+        JSON.stringify({ siteId, csrf: csrfToken, codeVerifier })
+      ).toString('base64url');
+
+      const callbackUrl = getCallbackUrl('twitter');
+      authUrl =
+        `https://twitter.com/i/oauth2/authorize?response_type=code` +
+        `&client_id=${clientId}` +
+        `&redirect_uri=${encodeURIComponent(callbackUrl)}` +
+        `&scope=${encodeURIComponent('tweet.read tweet.write users.read offline.access')}` +
+        `&state=${twitterState}` +
+        `&code_challenge=${codeChallenge}` +
+        `&code_challenge_method=S256`;
+      break;
     }
 
     default:

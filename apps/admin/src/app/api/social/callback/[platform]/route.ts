@@ -51,11 +51,13 @@ export async function GET(
     );
   }
 
-  // Decode state to get siteId
+  // Decode state to get siteId (and codeVerifier for Twitter PKCE)
   let siteId: string;
+  let codeVerifier: string | undefined;
   try {
     const stateData = JSON.parse(Buffer.from(stateParam, 'base64url').toString());
     siteId = stateData.siteId;
+    codeVerifier = stateData.codeVerifier;
   } catch {
     return NextResponse.redirect(
       `${ADMIN_BASE_URL}/sites?error=${encodeURIComponent('Invalid state parameter')}`
@@ -81,7 +83,7 @@ export async function GET(
         tokenData = await exchangeFacebookCode(code);
         break;
       case 'twitter':
-        tokenData = await exchangeTwitterCode(code);
+        tokenData = await exchangeTwitterCode(code, codeVerifier);
         break;
       default:
         return NextResponse.redirect(
@@ -247,7 +249,7 @@ async function exchangeFacebookCode(code: string) {
   };
 }
 
-async function exchangeTwitterCode(code: string) {
+async function exchangeTwitterCode(code: string, codeVerifier?: string) {
   const clientId = process.env['TWITTER_CLIENT_ID']!;
   const clientSecret = process.env['TWITTER_CLIENT_SECRET'];
   const callbackUrl = getCallbackUrl('twitter');
@@ -269,7 +271,7 @@ async function exchangeTwitterCode(code: string) {
       code,
       redirect_uri: callbackUrl,
       client_id: clientId,
-      code_verifier: 'challenge', // Must match code_challenge from connect route
+      code_verifier: codeVerifier || 'challenge',
     }),
   });
 
