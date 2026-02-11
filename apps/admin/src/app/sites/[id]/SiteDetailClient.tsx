@@ -335,8 +335,11 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
   const [executingTasks, setExecutingTasks] = useState(false);
   const [generatingHomepageConfig, setGeneratingHomepageConfig] = useState(false);
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'roadmap' | 'seo' | 'brand' | 'homepage' | 'pages' | 'domains'
+    'overview' | 'roadmap' | 'seo' | 'brand' | 'homepage' | 'pages' | 'domains' | 'social'
   >('roadmap');
+  const [socialAccounts, setSocialAccounts] = useState<any[]>([]);
+  const [socialPosts, setSocialPosts] = useState<any[]>([]);
+  const [loadingSocial, setLoadingSocial] = useState(false);
   const [seoHealth, setSeoHealth] = useState<SEOHealthData | null>(null);
   const [loadingSeoHealth, setLoadingSeoHealth] = useState(false);
   const [triggeringSeoAudit, setTriggeringSeoAudit] = useState(false);
@@ -394,6 +397,32 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
     };
 
     fetchSeoHealth();
+  }, [activeTab, siteId]);
+
+  // Fetch social data when Social tab is active
+  useEffect(() => {
+    const fetchSocialData = async () => {
+      if (activeTab !== 'social' || !siteId) return;
+
+      try {
+        setLoadingSocial(true);
+        const response = await fetch(`/admin/api/sites/${siteId}/social`);
+        const data = await response.json();
+
+        if (response.ok) {
+          setSocialAccounts(data.accounts || []);
+          setSocialPosts(data.recentPosts || []);
+        } else {
+          console.error('Failed to fetch social data:', data.error);
+        }
+      } catch (error) {
+        console.error('Failed to fetch social data:', error);
+      } finally {
+        setLoadingSocial(false);
+      }
+    };
+
+    fetchSocialData();
   }, [activeTab, siteId]);
 
   const getJobStatusBadge = (status: Job['status']) => {
@@ -552,7 +581,7 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
       {/* Tabs */}
       <div className="border-b border-slate-200">
         <nav className="flex gap-4">
-          {(['roadmap', 'seo', 'overview', 'brand', 'homepage', 'pages', 'domains'] as const).map(
+          {(['roadmap', 'seo', 'overview', 'brand', 'homepage', 'pages', 'domains', 'social'] as const).map(
             (tab) => (
               <button
                 key={tab}
@@ -2377,6 +2406,253 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
                   </CardContent>
                 </Card>
               ))}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Social Tab */}
+      {activeTab === 'social' && (
+        <div className="space-y-6">
+          <h2 className="text-lg font-semibold text-slate-900">Social Media</h2>
+
+          {loadingSocial ? (
+            <div className="space-y-4">
+              {[1, 2, 3].map((i) => (
+                <Card key={i}>
+                  <CardContent className="p-4">
+                    <div className="animate-pulse h-12 bg-slate-200 rounded" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <>
+              {/* Connected Accounts */}
+              <div>
+                <h3 className="text-md font-medium text-slate-700 mb-3">Connected Accounts</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {(['PINTEREST', 'FACEBOOK', 'TWITTER'] as const).map((platform) => {
+                    const account = socialAccounts.find(
+                      (a: any) => a.platform === platform
+                    );
+                    const platformLabels: Record<string, { name: string; icon: string }> = {
+                      PINTEREST: { name: 'Pinterest', icon: '📌' },
+                      FACEBOOK: { name: 'Facebook', icon: '📘' },
+                      TWITTER: { name: 'X / Twitter', icon: '🐦' },
+                    };
+                    const { name: platName, icon } = platformLabels[platform]!;
+
+                    return (
+                      <Card key={platform}>
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xl">{icon}</span>
+                              <span className="font-medium text-slate-900">{platName}</span>
+                            </div>
+                            {account ? (
+                              <span
+                                className={`text-xs px-2 py-1 rounded ${
+                                  account.tokenStatus === 'valid'
+                                    ? 'bg-green-100 text-green-800'
+                                    : account.tokenStatus === 'expiring_soon'
+                                      ? 'bg-amber-100 text-amber-800'
+                                      : 'bg-red-100 text-red-800'
+                                }`}
+                              >
+                                {account.tokenStatus === 'valid'
+                                  ? 'Connected'
+                                  : account.tokenStatus === 'expiring_soon'
+                                    ? 'Token Expiring'
+                                    : 'Token Expired'}
+                              </span>
+                            ) : (
+                              <span className="text-xs px-2 py-1 rounded bg-slate-100 text-slate-500">
+                                Not Connected
+                              </span>
+                            )}
+                          </div>
+
+                          {account ? (
+                            <div>
+                              <p className="text-sm text-slate-600">
+                                {account.accountName || 'Account connected'}
+                              </p>
+                              {account.lastPostedAt && (
+                                <p className="text-xs text-slate-400 mt-1">
+                                  Last posted: {formatDate(account.lastPostedAt)}
+                                </p>
+                              )}
+                              <button
+                                onClick={async () => {
+                                  if (!confirm(`Disconnect ${platName}?`)) return;
+                                  try {
+                                    await fetch(
+                                      `/admin/api/sites/${siteId}/social?accountId=${account.id}`,
+                                      { method: 'DELETE' }
+                                    );
+                                    setSocialAccounts(
+                                      socialAccounts.filter(
+                                        (a: any) => a.id !== account.id
+                                      )
+                                    );
+                                  } catch (err) {
+                                    console.error('Failed to disconnect:', err);
+                                  }
+                                }}
+                                className="mt-2 text-xs text-red-600 hover:text-red-800"
+                              >
+                                Disconnect
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                window.location.href = `/admin/api/social/connect/${platform.toLowerCase()}?siteId=${siteId}`;
+                              }}
+                              className="w-full mt-2 px-3 py-2 bg-sky-600 hover:bg-sky-700 text-white text-sm rounded-lg transition-colors"
+                            >
+                              Connect {platName}
+                            </button>
+                          )}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Recent Posts */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-md font-medium text-slate-700">Recent Posts</h3>
+                  {socialAccounts.length > 0 && (
+                    <button
+                      onClick={async () => {
+                        const platform = socialAccounts[0]?.platform;
+                        if (!platform) return;
+                        try {
+                          const res = await fetch('/admin/api/social/posts', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ siteId, platform }),
+                          });
+                          const data = await res.json();
+                          if (data.success) {
+                            alert(`Post generation triggered for ${platform}`);
+                          }
+                        } catch (err) {
+                          console.error('Failed to trigger post:', err);
+                        }
+                      }}
+                      className="px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white text-sm rounded-lg transition-colors"
+                    >
+                      Generate Post
+                    </button>
+                  )}
+                </div>
+
+                {socialPosts.length === 0 ? (
+                  <Card>
+                    <CardContent className="p-8 text-center">
+                      <p className="text-slate-500">No social posts yet.</p>
+                      <p className="text-sm text-slate-400 mt-1">
+                        Connect a social account and posts will be generated automatically.
+                      </p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <div className="space-y-2">
+                    {socialPosts.map((post: any) => {
+                      const statusColors: Record<string, string> = {
+                        PUBLISHED: 'bg-green-100 text-green-800',
+                        SCHEDULED: 'bg-blue-100 text-blue-800',
+                        PUBLISHING: 'bg-sky-100 text-sky-800',
+                        DRAFT: 'bg-slate-100 text-slate-600',
+                        FAILED: 'bg-red-100 text-red-800',
+                        CANCELLED: 'bg-gray-100 text-gray-600',
+                      };
+                      const platformIcons: Record<string, string> = {
+                        PINTEREST: '📌',
+                        FACEBOOK: '📘',
+                        TWITTER: '🐦',
+                      };
+
+                      return (
+                        <Card key={post.id}>
+                          <CardContent className="p-4">
+                            <div className="flex items-start gap-3">
+                              <span className="text-lg mt-0.5">
+                                {platformIcons[post.platform] || '📱'}
+                              </span>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span
+                                    className={`text-xs px-2 py-0.5 rounded ${
+                                      statusColors[post.status] || 'bg-slate-100 text-slate-600'
+                                    }`}
+                                  >
+                                    {post.status}
+                                  </span>
+                                  <span className="text-xs text-slate-400">
+                                    {formatDate(post.publishedAt || post.createdAt)}
+                                  </span>
+                                </div>
+                                <p className="text-sm text-slate-700 line-clamp-2">
+                                  {post.caption}
+                                </p>
+                                {post.page && (
+                                  <p className="text-xs text-slate-400 mt-1">
+                                    From: {post.page.title}
+                                  </p>
+                                )}
+                                <div className="flex items-center gap-3 mt-2">
+                                  {post.platformUrl && (
+                                    <a
+                                      href={post.platformUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-xs text-sky-600 hover:text-sky-800"
+                                    >
+                                      View on {post.platform.charAt(0) + post.platform.slice(1).toLowerCase()}
+                                    </a>
+                                  )}
+                                  {post.status === 'FAILED' && (
+                                    <button
+                                      onClick={async () => {
+                                        try {
+                                          await fetch('/admin/api/social/posts', {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({
+                                              action: 'retry',
+                                              socialPostId: post.id,
+                                            }),
+                                          });
+                                          alert('Retry queued');
+                                        } catch (err) {
+                                          console.error('Failed to retry:', err);
+                                        }
+                                      }}
+                                      className="text-xs text-amber-600 hover:text-amber-800"
+                                    >
+                                      Retry
+                                    </button>
+                                  )}
+                                </div>
+                                {post.errorMessage && (
+                                  <p className="text-xs text-red-500 mt-1">{post.errorMessage}</p>
+                                )}
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </>
           )}
         </div>

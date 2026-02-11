@@ -16,6 +16,7 @@ export * from './workers/seo-optimization';
 export * from './workers/link-building';
 export * from './workers/sync';
 export * from './workers/microsite';
+export * from './workers/social';
 
 // Export schedulers
 export * from './schedulers';
@@ -40,6 +41,10 @@ export * from './services/backlink-analysis';
 export * from './services/linkable-assets';
 export * from './services/outreach-templates';
 export * from './services/cloudflare-cdn';
+export { encryptToken, decryptToken, isTokenEncryptionConfigured } from './services/social/token-encryption';
+export { refreshTokenIfNeeded } from './services/social/token-refresh';
+export { generateCaption } from './services/social/caption-generator';
+export { selectImageForPost } from './services/social/image-selector';
 export {
   detectStuckTasks,
   resetStuckCount,

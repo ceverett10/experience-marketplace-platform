@@ -59,6 +59,10 @@ import {
   handleMicrositePublish,
   handleMicrositeArchive,
   handleMicrositeHealthCheck,
+  // Social media handlers
+  handleSocialDailyPosting,
+  handleSocialPostGenerate,
+  handleSocialPostPublish,
 } from '@experience-marketplace/jobs';
 import { prisma, JobStatus } from '@experience-marketplace/database';
 import type { JobType } from '@experience-marketplace/database';
@@ -416,6 +420,30 @@ const syncWorker = new Worker(
   makeWorkerOptions(QUEUE_NAMES.SYNC, 1) // Low: long-running Holibob API sync jobs
 );
 
+/**
+ * Social Media Queue Worker
+ * Handles: SOCIAL_DAILY_POSTING, SOCIAL_POST_GENERATE, SOCIAL_POST_PUBLISH
+ */
+const socialWorker = new Worker(
+  QUEUE_NAMES.SOCIAL,
+  async (job: Job) => {
+    console.log(`[Social Worker] Processing ${job.name} job ${job.id}`);
+    await updateJobStatus(job, 'RUNNING');
+
+    switch (job.name as JobType) {
+      case 'SOCIAL_DAILY_POSTING':
+        return await handleSocialDailyPosting(job);
+      case 'SOCIAL_POST_GENERATE':
+        return await handleSocialPostGenerate(job);
+      case 'SOCIAL_POST_PUBLISH':
+        return await handleSocialPostPublish(job);
+      default:
+        throw new Error(`Unknown job type: ${job.name}`);
+    }
+  },
+  makeWorkerOptions(QUEUE_NAMES.SOCIAL, 2) // Low: external API rate limits
+);
+
 // Worker event handlers
 const workers = [
   contentWorker,
@@ -427,6 +455,7 @@ const workers = [
   abtestWorker,
   micrositeWorker,
   syncWorker,
+  socialWorker,
 ];
 
 workers.forEach((worker) => {
@@ -555,6 +584,7 @@ console.log('  ✓ Analytics Worker (metrics aggregation, reports, GA4 sync, mic
 console.log('  ✓ A/B Test Worker (test analysis, rebalancing)');
 console.log('  ✓ Microsite Worker (microsite creation, branding, publishing)');
 console.log('  ✓ Sync Worker (Holibob supplier and product sync)');
+console.log('  ✓ Social Worker (social media posting - Pinterest, Facebook, Twitter)');
 console.log('');
 
 // Set up scheduled jobs and autonomous processor after a short delay to ensure workers are ready

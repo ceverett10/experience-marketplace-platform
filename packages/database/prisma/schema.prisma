@@ -117,6 +117,9 @@ model Site {
   seoIssues          SEOIssue[]
   analyticsSnapshots SiteAnalyticsSnapshot[]
   subscribers        Subscriber[]
+  socialAccounts     SocialAccount[]
+  socialPosts        SocialPost[]
+  adCampaigns        AdCampaign[]
 
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -262,6 +265,9 @@ model Page {
   // SEO Issues
   seoIssues SEOIssue[]
 
+  // Social Media
+  socialPosts SocialPost[]
+
   // Analytics
   pageViews Int @default(0)
 
@@ -383,6 +389,9 @@ model SEOOpportunity {
   // AI-generated explanation of why this is a good opportunity
   explanation String? @db.Text
 
+  // Paid traffic campaigns linked to this opportunity
+  adCampaigns AdCampaign[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -391,6 +400,7 @@ model SEOOpportunity {
   @@index([niche])
   @@index([priorityScore])
   @@index([siteId])
+  @@index([cpc])
 }
 
 enum SearchIntent {
@@ -409,6 +419,7 @@ enum OpportunityStatus {
   PUBLISHED
   MONITORING
   ARCHIVED
+  PAID_CANDIDATE // Flagged for paid traffic acquisition (CPC < $0.10)
 }
 
 model PerformanceMetric {
@@ -865,12 +876,22 @@ enum JobType {
   PRODUCT_SYNC
   PRODUCT_SYNC_INCREMENTAL
 
+  // Social Media
+  SOCIAL_POST_GENERATE
+  SOCIAL_POST_PUBLISH
+  SOCIAL_DAILY_POSTING
+
   // Scheduled Maintenance (setInterval-based, tracked for admin visibility)
   META_TITLE_MAINTENANCE
   MICROSITE_CONTENT_REFRESH
   MICROSITE_SITEMAP_RESUBMIT
   COLLECTION_REFRESH
   AUTONOMOUS_ROADMAP
+
+  // Paid Traffic Acquisition
+  AD_CAMPAIGN_SYNC
+  AD_PERFORMANCE_REPORT
+  AD_BUDGET_OPTIMIZER
 }
 
 enum JobStatus {
@@ -881,6 +902,77 @@ enum JobStatus {
   FAILED
   CANCELLED
   RETRYING
+}
+
+// ============================================================================
+// SOCIAL MEDIA
+// ============================================================================
+
+enum SocialPlatform {
+  PINTEREST
+  FACEBOOK
+  TWITTER
+}
+
+enum SocialPostStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHING
+  PUBLISHED
+  FAILED
+  CANCELLED
+}
+
+model SocialAccount {
+  id             String         @id @default(cuid())
+  siteId         String
+  site           Site           @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  platform       SocialPlatform
+  accountId      String? // Platform-specific account/page ID
+  accountName    String? // Display name
+  accountUrl     String? // Profile URL
+  accessToken    String? // Encrypted
+  refreshToken   String? // Encrypted
+  tokenExpiresAt DateTime?
+  metadata       Json? // Platform-specific data (e.g. Pinterest board ID, FB page ID)
+  isActive       Boolean        @default(true)
+  lastPostedAt   DateTime?
+  posts          SocialPost[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@unique([siteId, platform])
+  @@index([siteId])
+}
+
+model SocialPost {
+  id             String           @id @default(cuid())
+  siteId         String
+  site           Site             @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  accountId      String
+  account        SocialAccount    @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  pageId         String? // Source blog post (if repurposed)
+  page           Page?            @relation(fields: [pageId], references: [id], onDelete: SetNull)
+  platform       SocialPlatform
+  caption        String           @db.Text
+  hashtags       String[]
+  mediaUrls      String[] // Image/video URLs
+  linkUrl        String? // Link to blog post
+  scheduledFor   DateTime?
+  publishedAt    DateTime?
+  status         SocialPostStatus @default(DRAFT)
+  platformPostId String? // ID returned by platform after publishing
+  platformUrl    String? // Direct URL to the post on platform
+  errorMessage   String?          @db.Text
+  retryCount     Int              @default(0)
+  generationData Json? // AI prompt/model used, content pillar, etc.
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@index([siteId, status])
+  @@index([accountId])
+  @@index([scheduledFor])
+  @@index([status])
 }
 
 // ============================================================================

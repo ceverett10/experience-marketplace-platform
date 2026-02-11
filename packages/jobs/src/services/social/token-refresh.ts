@@ -1,0 +1,162 @@
+import { prisma } from '@experience-marketplace/database';
+import { encryptToken, decryptToken } from './token-encryption';
+
+interface TokenRefreshResult {
+  accessToken: string;
+  refreshToken?: string;
+  expiresIn?: number; // seconds
+}
+
+/**
+ * Refresh an OAuth token if it's within 24 hours of expiry.
+ * Returns the account with updated tokens, or the original if no refresh needed.
+ */
+export async function refreshTokenIfNeeded(account: {
+  id: string;
+  platform: string;
+  accessToken: string | null;
+  refreshToken: string | null;
+  tokenExpiresAt: Date | null;
+}): Promise<{ accessToken: string }> {
+  if (!account.accessToken) {
+    throw new Error(`No access token for social account ${account.id}`);
+  }
+
+  // If no expiry set or more than 24 hours away, no refresh needed
+  if (!account.tokenExpiresAt) {
+    return { accessToken: decryptToken(account.accessToken) };
+  }
+
+  const hoursUntilExpiry =
+    (account.tokenExpiresAt.getTime() - Date.now()) / (1000 * 60 * 60);
+
+  if (hoursUntilExpiry > 24) {
+    return { accessToken: decryptToken(account.accessToken) };
+  }
+
+  // Token needs refresh
+  if (!account.refreshToken) {
+    throw new Error(`Token expiring soon but no refresh token for account ${account.id}`);
+  }
+
+  console.log(
+    `[Social] Refreshing ${account.platform} token for account ${account.id} (expires in ${hoursUntilExpiry.toFixed(1)}h)`
+  );
+
+  const decryptedRefreshToken = decryptToken(account.refreshToken);
+  let result: TokenRefreshResult;
+
+  switch (account.platform) {
+    case 'PINTEREST':
+      result = await refreshPinterestToken(decryptedRefreshToken);
+      break;
+    case 'FACEBOOK':
+      result = await refreshFacebookToken(decryptToken(account.accessToken));
+      break;
+    case 'TWITTER':
+      result = await refreshTwitterToken(decryptedRefreshToken);
+      break;
+    default:
+      throw new Error(`Unknown platform: ${account.platform}`);
+  }
+
+  // Update tokens in DB
+  const updateData: Record<string, unknown> = {
+    accessToken: encryptToken(result.accessToken),
+    updatedAt: new Date(),
+  };
+
+  if (result.refreshToken) {
+    updateData['refreshToken'] = encryptToken(result.refreshToken);
+  }
+
+  if (result.expiresIn) {
+    updateData['tokenExpiresAt'] = new Date(Date.now() + result.expiresIn * 1000);
+  }
+
+  await prisma.socialAccount.update({
+    where: { id: account.id },
+    data: updateData,
+  });
+
+  return { accessToken: result.accessToken };
+}
+
+async function refreshPinterestToken(refreshToken: string): Promise<TokenRefreshResult> {
+  const appId = process.env['PINTEREST_APP_ID'];
+  const appSecret = process.env['PINTEREST_APP_SECRET'];
+  if (!appId || !appSecret) throw new Error('Pinterest OAuth not configured');
+
+  const response = await fetch('https://api.pinterest.com/v5/oauth/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Authorization: `Basic ${Buffer.from(`${appId}:${appSecret}`).toString('base64')}`,
+    },
+    body: new URLSearchParams({
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Pinterest token refresh failed: ${error}`);
+  }
+
+  const data = (await response.json()) as { access_token: string; refresh_token?: string; expires_in?: number };
+  return {
+    accessToken: data.access_token,
+    refreshToken: data.refresh_token || refreshToken,
+    expiresIn: data.expires_in,
+  };
+}
+
+async function refreshFacebookToken(accessToken: string): Promise<TokenRefreshResult> {
+  const appId = process.env['META_APP_ID'];
+  const appSecret = process.env['META_APP_SECRET'];
+  if (!appId || !appSecret) throw new Error('Meta OAuth not configured');
+
+  // Exchange short-lived for long-lived token
+  const response = await fetch(
+    `https://graph.facebook.com/v18.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${appId}&client_secret=${appSecret}&fb_exchange_token=${accessToken}`
+  );
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Facebook token refresh failed: ${error}`);
+  }
+
+  const data = (await response.json()) as { access_token: string; expires_in?: number };
+  return {
+    accessToken: data.access_token,
+    expiresIn: data.expires_in || 5184000, // 60 days default
+  };
+}
+
+async function refreshTwitterToken(refreshToken: string): Promise<TokenRefreshResult> {
+  const clientId = process.env['TWITTER_CLIENT_ID'];
+  if (!clientId) throw new Error('Twitter OAuth not configured');
+
+  const response = await fetch('https://api.twitter.com/2/oauth2/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+      client_id: clientId,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Twitter token refresh failed: ${error}`);
+  }
+
+  const data = (await response.json()) as { access_token: string; refresh_token?: string; expires_in?: number };
+  return {
+    accessToken: data.access_token,
+    refreshToken: data.refresh_token,
+    expiresIn: data.expires_in,
+  };
+}

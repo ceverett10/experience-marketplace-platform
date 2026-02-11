@@ -262,6 +262,11 @@ async function validateTaskArtifacts(
     MICROSITE_SITEMAP_RESUBMIT: { valid: true },
     COLLECTION_REFRESH: { valid: true },
     AUTONOMOUS_ROADMAP: { valid: true },
+
+    // Social Media (not part of standard site roadmap)
+    SOCIAL_POST_GENERATE: { valid: true },
+    SOCIAL_POST_PUBLISH: { valid: true },
+    SOCIAL_DAILY_POSTING: { valid: true },
   };
 }
 
@@ -466,6 +471,20 @@ export const TASK_DESCRIPTIONS: Record<JobType, { label: string; description: st
   AUTONOMOUS_ROADMAP: {
     label: 'Process Roadmaps',
     description: 'Process site roadmaps and queue lifecycle tasks',
+  },
+
+  // Social Media
+  SOCIAL_POST_GENERATE: {
+    label: 'Generate Social Post',
+    description: 'Generate social media post content for a page',
+  },
+  SOCIAL_POST_PUBLISH: {
+    label: 'Publish Social Post',
+    description: 'Publish generated social post to platform',
+  },
+  SOCIAL_DAILY_POSTING: {
+    label: 'Daily Social Posting',
+    description: 'Schedule and fan out daily social media posts',
   },
 };
 

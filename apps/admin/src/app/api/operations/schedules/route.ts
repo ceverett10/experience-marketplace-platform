@@ -136,6 +136,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       SUPPLIER_SYNC: { forceSync: false },
       PRODUCT_SYNC: { forceSync: false },
       MICROSITE_HEALTH_CHECK: {},
+      SOCIAL_DAILY_POSTING: {},
     };
 
     // Clean job type name (remove " (deep)" suffix)

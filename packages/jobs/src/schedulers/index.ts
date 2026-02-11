@@ -316,6 +316,19 @@ export async function initializeScheduledJobs(): Promise<void> {
   initializeCollectionRefreshSchedule();
   console.log('[Scheduler] ✓ Collection Refresh - Daily at 5:30 AM (5% rotation)');
 
+  // =========================================================================
+  // SOCIAL MEDIA SCHEDULES
+  // =========================================================================
+
+  // Social Media Daily Posting - Daily at 10 AM
+  // Generates and publishes social posts for all sites with connected accounts
+  await scheduleJob(
+    'SOCIAL_DAILY_POSTING' as any,
+    {} as any,
+    '0 10 * * *' // Daily at 10 AM
+  );
+  console.log('[Scheduler] ✓ Social Daily Posting - Daily at 10 AM');
+
   console.log('[Scheduler] All scheduled jobs initialized successfully');
 }
 
@@ -829,6 +842,12 @@ export function getScheduledJobs(): Array<{
       jobType: 'COLLECTION_REFRESH',
       schedule: '30 5 * * *',
       description: 'Refresh AI-curated collections for 5% of microsites daily (rotating)',
+    },
+    // Social Media
+    {
+      jobType: 'SOCIAL_DAILY_POSTING',
+      schedule: '0 10 * * *',
+      description: 'Generate and publish social media posts for all connected sites',
     },
   ];
 }

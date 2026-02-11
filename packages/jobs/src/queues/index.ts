@@ -29,6 +29,8 @@ const QUEUE_CONFIG: Record<QueueName, { timeout: number; attempts: number; backo
     [QUEUE_NAMES.SYNC]: { timeout: 14_400_000, attempts: 2, backoffDelay: 60_000 },
     // Microsite: Brand generation + content setup — moderate timeout
     [QUEUE_NAMES.MICROSITE]: { timeout: 300_000, attempts: 3, backoffDelay: 15_000 },
+    // Social: Caption generation + external API posting
+    [QUEUE_NAMES.SOCIAL]: { timeout: 120_000, attempts: 3, backoffDelay: 30_000 },
   };
 
 /**

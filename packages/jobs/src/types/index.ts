@@ -339,6 +339,21 @@ export interface ProductSyncPayload {
   staleSyncThresholdHours?: number;
 }
 
+// Social Media Jobs
+export interface SocialDailyPostingPayload {
+  siteId?: string; // Optional - if provided, only process this site
+}
+
+export interface SocialPostGeneratePayload {
+  siteId: string;
+  platform: 'PINTEREST' | 'FACEBOOK' | 'TWITTER';
+  pageId?: string; // Optional - specific blog post to promote
+}
+
+export interface SocialPostPublishPayload {
+  socialPostId: string;
+}
+
 /**
  * Union type of all job payloads
  */
@@ -378,7 +393,10 @@ export type JobPayload =
   | MicrositeGscSyncPayload
   | MicrositeAnalyticsSyncPayload
   | SupplierSyncPayload
-  | ProductSyncPayload;
+  | ProductSyncPayload
+  | SocialDailyPostingPayload
+  | SocialPostGeneratePayload
+  | SocialPostPublishPayload;
 
 /**
  * Job configuration options
@@ -433,6 +451,9 @@ export const QUEUE_NAMES = {
   // Microsite & Sync (long-running jobs)
   SYNC: 'sync',
   MICROSITE: 'microsite',
+
+  // Social Media
+  SOCIAL: 'social',
 } as const;
 
 export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];
@@ -485,6 +506,11 @@ export const JOB_TYPE_TO_QUEUE: Record<JobType, QueueName> = {
   REFRESH_ANALYTICS_VIEWS: QUEUE_NAMES.ANALYTICS,
   MICROSITE_GSC_SYNC: QUEUE_NAMES.ANALYTICS,
   MICROSITE_ANALYTICS_SYNC: QUEUE_NAMES.ANALYTICS,
+
+  // Social Media
+  SOCIAL_POST_GENERATE: QUEUE_NAMES.SOCIAL,
+  SOCIAL_POST_PUBLISH: QUEUE_NAMES.SOCIAL,
+  SOCIAL_DAILY_POSTING: QUEUE_NAMES.SOCIAL,
 
   // Scheduled Maintenance (setInterval-based, tracked for admin visibility)
   // These don't use BullMQ queues but need a mapping for type completeness
