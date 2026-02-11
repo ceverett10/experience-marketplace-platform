@@ -12,6 +12,12 @@ interface PinterestPostResult {
   platformUrl: string;
 }
 
+// Use sandbox API while app is in Trial mode; switch to production once approved
+const PINTEREST_API_BASE =
+  process.env['PINTEREST_USE_SANDBOX'] === 'true'
+    ? 'https://api-sandbox.pinterest.com'
+    : 'https://api.pinterest.com';
+
 /**
  * Create a pin on Pinterest via the v5 API.
  * Docs: https://developers.pinterest.com/docs/api/v5/pins-create
@@ -33,7 +39,7 @@ export async function createPinterestPin(input: PinterestPostInput): Promise<Pin
     body['link'] = linkUrl;
   }
 
-  const response = await fetch('https://api.pinterest.com/v5/pins', {
+  const response = await fetch(`${PINTEREST_API_BASE}/v5/pins`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

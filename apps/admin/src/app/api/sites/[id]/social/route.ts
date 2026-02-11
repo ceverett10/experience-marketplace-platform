@@ -118,7 +118,10 @@ export async function POST(
       const accessToken = decryptToken(account.accessToken);
       const boardName = body.boardName || 'Travel Inspiration';
 
-      const response = await fetch('https://api.pinterest.com/v5/boards', {
+      const pinterestBase = process.env['PINTEREST_USE_SANDBOX'] === 'true'
+        ? 'https://api-sandbox.pinterest.com'
+        : 'https://api.pinterest.com';
+      const response = await fetch(`${pinterestBase}/v5/boards`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
