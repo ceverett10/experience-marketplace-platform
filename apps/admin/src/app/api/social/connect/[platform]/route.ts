@@ -54,7 +54,7 @@ export async function GET(
         `https://www.pinterest.com/oauth/?response_type=code` +
         `&client_id=${appId}` +
         `&redirect_uri=${encodeURIComponent(callbackUrl)}` +
-        `&scope=boards:read,pins:read,pins:write` +
+        `&scope=boards:read,boards:write,pins:read,pins:write` +
         `&state=${state}`;
       break;
     }
