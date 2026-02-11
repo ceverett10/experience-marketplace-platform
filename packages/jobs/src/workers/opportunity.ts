@@ -142,10 +142,10 @@ async function runIntegratedOptimization(
   for (const ranked of result.finalOpportunities) {
     const opp = ranked.opportunity;
 
-    // Flag as paid candidate if CPC < $0.10 and reasonable volume
+    // Flag as paid candidate if CPC < $3.00 and reasonable volume
     const isPaidCandidate =
       opp.dataForSeo.cpc > 0 &&
-      opp.dataForSeo.cpc < 0.1 &&
+      opp.dataForSeo.cpc < 3.0 &&
       opp.dataForSeo.searchVolume >= 100;
 
     try {
@@ -539,8 +539,8 @@ export async function handleOpportunityScan(
 
       // Only store opportunities with score > 50
       if (priorityScore >= 50) {
-        // Flag as paid candidate if CPC < $0.10 and reasonable volume
-        const isPaidCandidate = opp.cpc > 0 && opp.cpc < 0.1 && opp.searchVolume >= 100;
+        // Flag as paid candidate if CPC < $3.00 and reasonable volume
+        const isPaidCandidate = opp.cpc > 0 && opp.cpc < 3.0 && opp.searchVolume >= 100;
 
         const opportunity = await prisma.sEOOpportunity.upsert({
           where: {

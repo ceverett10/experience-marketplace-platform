@@ -11,7 +11,7 @@ import { prisma } from '@/lib/prisma';
 export async function GET(request: Request): Promise<NextResponse> {
   try {
     const { searchParams } = new URL(request.url);
-    const maxCpc = parseFloat(searchParams.get('maxCpc') || '0.10');
+    const maxCpc = parseFloat(searchParams.get('maxCpc') || '3.00');
     const minVolume = parseInt(searchParams.get('minVolume') || '100', 10);
     const siteId = searchParams.get('siteId') || undefined;
     const limit = Math.min(parseInt(searchParams.get('limit') || '100', 10), 500);

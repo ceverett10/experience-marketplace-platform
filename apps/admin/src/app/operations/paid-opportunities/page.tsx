@@ -45,7 +45,7 @@ export default function PaidOpportunitiesPage() {
   const [error, setError] = useState<string | null>(null);
 
   // Filters
-  const [maxCpc, setMaxCpc] = useState('0.10');
+  const [maxCpc, setMaxCpc] = useState('3.00');
   const [minVolume, setMinVolume] = useState('100');
   const [sortBy, setSortBy] = useState('volume');
 
@@ -153,7 +153,7 @@ export default function PaidOpportunitiesPage() {
                 type="number"
                 step="0.01"
                 min="0.01"
-                max="1.00"
+                max="15.00"
                 value={maxCpc}
                 onChange={(e) => setMaxCpc(e.target.value)}
                 className="w-24 px-3 py-1.5 border border-slate-300 rounded-md text-sm"
