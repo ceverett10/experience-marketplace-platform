@@ -337,8 +337,13 @@ export async function handleSocialPostPublish(
       }
 
       case 'TWITTER': {
+        // Twitter uses OAuth 1.0a - accessSecret is stored in refreshToken field
+        const accessSecret = post.account.refreshToken
+          ? decryptToken(post.account.refreshToken)
+          : process.env['TWITTER_ACCESS_SECRET'] || '';
         result = await createTweet({
           accessToken,
+          accessSecret,
           text: post.hashtags.length > 0
             ? `${post.caption}\n\n${post.hashtags.map((h) => `#${h}`).join(' ')}`
             : post.caption,

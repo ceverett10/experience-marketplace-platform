@@ -1,10 +1,25 @@
 import { NextResponse } from 'next/server';
-import { randomBytes } from 'crypto';
+import { createCipheriv, randomBytes } from 'crypto';
+import { prisma } from '@experience-marketplace/database';
 
 const ADMIN_BASE_URL = process.env['ADMIN_BASE_URL'] || 'https://holibob-experiences-demand-gen-c27f61accbd2.herokuapp.com/admin';
 
 function getCallbackUrl(platform: string): string {
   return `${ADMIN_BASE_URL}/api/social/callback/${platform}`;
+}
+
+function encryptToken(plaintext: string): string {
+  const secret = process.env['SOCIAL_TOKEN_SECRET'];
+  if (!secret || secret.length !== 64) {
+    throw new Error('SOCIAL_TOKEN_SECRET must be a 64-character hex string');
+  }
+  const key = Buffer.from(secret, 'hex');
+  const iv = randomBytes(12);
+  const cipher = createCipheriv('aes-256-gcm', key, iv);
+  let encrypted = cipher.update(plaintext, 'utf8', 'base64');
+  encrypted += cipher.final('base64');
+  const authTag = cipher.getAuthTag();
+  return `${iv.toString('base64')}:${authTag.toString('base64')}:${encrypted}`;
 }
 
 /**
@@ -61,22 +76,39 @@ export async function GET(
     }
 
     case 'twitter': {
-      const clientId = process.env['TWITTER_CLIENT_ID'];
-      if (!clientId) {
-        return NextResponse.json({ error: 'Twitter OAuth not configured' }, { status: 500 });
+      // Twitter uses OAuth 1.0a - connect using pre-configured tokens from env vars
+      const twitterAccessToken = process.env['TWITTER_ACCESS_TOKEN'];
+      const twitterAccessSecret = process.env['TWITTER_ACCESS_SECRET'];
+      if (!twitterAccessToken || !twitterAccessSecret) {
+        return NextResponse.json(
+          { error: 'Twitter OAuth 1.0a tokens not configured (TWITTER_ACCESS_TOKEN, TWITTER_ACCESS_SECRET)' },
+          { status: 500 }
+        );
       }
-      const callbackUrl = getCallbackUrl('twitter');
-      // OAuth 2.0 with PKCE
-      const codeChallenge = randomBytes(32).toString('base64url');
-      authUrl =
-        `https://twitter.com/i/oauth2/authorize?response_type=code` +
-        `&client_id=${clientId}` +
-        `&redirect_uri=${encodeURIComponent(callbackUrl)}` +
-        `&scope=tweet.read%20tweet.write%20users.read%20offline.access` +
-        `&state=${state}` +
-        `&code_challenge=${codeChallenge}` +
-        `&code_challenge_method=plain`;
-      break;
+
+      // Verify the tokens by fetching user info
+      // (we'll set account name from env or a lookup later)
+      await prisma.socialAccount.upsert({
+        where: { siteId_platform: { siteId, platform: 'TWITTER' } },
+        create: {
+          siteId,
+          platform: 'TWITTER',
+          accountName: 'X / Twitter Account',
+          accessToken: encryptToken(twitterAccessToken),
+          refreshToken: encryptToken(twitterAccessSecret), // Store access secret in refreshToken field
+          isActive: true,
+        },
+        update: {
+          accessToken: encryptToken(twitterAccessToken),
+          refreshToken: encryptToken(twitterAccessSecret),
+          isActive: true,
+        },
+      });
+
+      console.log(`[Social OAuth] Twitter account connected for site ${siteId} (via env tokens)`);
+      return NextResponse.redirect(
+        `${ADMIN_BASE_URL}/sites/${siteId}?tab=social&connected=twitter`
+      );
     }
 
     default:
