@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@experience-marketplace/database';
+import { decryptToken } from '@experience-marketplace/jobs';
 
 /**
  * GET /api/sites/[id]/social
@@ -89,6 +90,78 @@ export async function GET(
   } catch (error) {
     console.error('[Social API] Error fetching social data:', error);
     return NextResponse.json({ error: 'Failed to fetch social data' }, { status: 500 });
+  }
+}
+
+/**
+ * POST /api/sites/[id]/social
+ * Actions: create Pinterest board, etc.
+ * Body: { action: 'create_board', boardName: string }
+ */
+export async function POST(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const body = await request.json();
+
+    if (body.action === 'create_board') {
+      const account = await prisma.socialAccount.findUnique({
+        where: { siteId_platform: { siteId: id, platform: 'PINTEREST' } },
+      });
+
+      if (!account || !account.accessToken) {
+        return NextResponse.json({ error: 'No Pinterest account connected' }, { status: 400 });
+      }
+
+      const accessToken = decryptToken(account.accessToken);
+      const boardName = body.boardName || 'Travel Inspiration';
+
+      const response = await fetch('https://api.pinterest.com/v5/boards', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          name: boardName,
+          description: `Travel content and inspiration`,
+          privacy: 'PUBLIC',
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        return NextResponse.json({ error: `Pinterest API error: ${error}` }, { status: response.status });
+      }
+
+      const board = (await response.json()) as { id: string; name: string };
+
+      // Update account metadata with the new board
+      const metadata = (account.metadata as Record<string, unknown>) || {};
+      metadata['boardId'] = board.id;
+      metadata['boardName'] = board.name;
+      const boards = (metadata['boards'] as Array<{ id: string; name: string }>) || [];
+      boards.push({ id: board.id, name: board.name });
+      metadata['boards'] = boards;
+
+      await prisma.socialAccount.update({
+        where: { id: account.id },
+        data: { metadata: JSON.parse(JSON.stringify(metadata)) },
+      });
+
+      return NextResponse.json({
+        success: true,
+        board: { id: board.id, name: board.name },
+        message: `Board "${board.name}" created and set as default`,
+      });
+    }
+
+    return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
+  } catch (error) {
+    console.error('[Social API] POST error:', error);
+    return NextResponse.json({ error: String(error) }, { status: 500 });
   }
 }
 
