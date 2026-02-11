@@ -438,11 +438,12 @@ export class GA4Client {
     endDate = 'today'
   ): Promise<GA4TrafficReport | null> {
     if (!this.dataClient) {
-      console.warn('[GA4 Client] Data API not available');
+      console.warn('[GA4 Client] Data API not available - BetaAnalyticsDataClient failed to initialize');
       return null;
     }
 
     try {
+      console.log(`[GA4 Client] Querying property ${propertyId} for ${startDate} to ${endDate}`);
       const [response] = await this.dataClient.runReport({
         property: `properties/${propertyId}`,
         dateRanges: [{ startDate, endDate }],
@@ -459,6 +460,7 @@ export class GA4Client {
 
       const row = response.rows?.[0];
       if (!row?.metricValues) {
+        console.log(`[GA4 Client] No data rows returned for property ${propertyId} (${startDate} to ${endDate})`);
         return null;
       }
 

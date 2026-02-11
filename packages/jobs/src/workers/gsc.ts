@@ -358,13 +358,17 @@ export async function handleGscSync(job: Job<GscSyncPayload>): Promise<JobResult
       };
     }
 
+    // Use gscPropertyUrl (sc-domain: format) when available, fall back to primary domain
+    const gscDomain = site.gscPropertyUrl || primaryDomain.domain;
+    console.log(`[GSC Sync] Using GSC property: ${gscDomain} for site ${site.name || siteId}`);
+
     // Fetch data from Google Search Console (protected by circuit breaker)
     const gscBreaker = circuitBreakers.getBreaker('gsc-api', {
       failureThreshold: 3,
       timeout: 120_000,
     });
     const gscData = await gscBreaker.execute(() =>
-      fetchGscData(primaryDomain.domain, startDate, endDate, dimensions)
+      fetchGscData(gscDomain, startDate, endDate, dimensions)
     );
 
     // Store performance metrics

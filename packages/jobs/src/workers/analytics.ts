@@ -886,9 +886,12 @@ export async function handleGA4DailySync(job: Job): Promise<JobResult> {
 
       try {
         // Get traffic report from GA4
+        console.log(`[GA4 Daily Sync] Fetching data for ${site.name} (property: ${ga4PropertyId})`);
         const traffic = await ga4Client.getTrafficReport(ga4PropertyId, yesterdayStr, yesterdayStr);
         const sources = await ga4Client.getSourceReport(ga4PropertyId, yesterdayStr, yesterdayStr);
         const devices = await ga4Client.getDeviceReport(ga4PropertyId, yesterdayStr, yesterdayStr);
+
+        console.log(`[GA4 Daily Sync] ${site.name}: users=${traffic?.totalUsers || 0}, sessions=${traffic?.sessions || 0}, pageviews=${traffic?.pageviews || 0}`);
 
         // Get booking data for yesterday (if Booking model exists)
         let bookingCount = 0;
