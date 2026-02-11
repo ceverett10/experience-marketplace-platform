@@ -8,6 +8,21 @@ import { getScheduledJobs, getNextCronRun, addJob } from '@experience-marketplac
  * GET /api/operations/schedules
  * Returns all scheduled jobs with execution history and next run times
  */
+
+// Map orchestrator display types to their actual DB-tracked child types.
+// Daily content schedules use setInterval to orchestrate, but the actual work
+// is tracked as CONTENT_GENERATE jobs via addJob(). Show the most recent run.
+const TYPE_ALIASES: Record<string, string> = {
+  DAILY_FAQ_GENERATE: 'CONTENT_GENERATE',
+  DAILY_CONTENT_REFRESH: 'CONTENT_GENERATE',
+  DAILY_BLOG_GENERATE: 'CONTENT_GENERATE',
+  DAILY_DESTINATION_GENERATE: 'CONTENT_GENERATE',
+  DAILY_COMPARISON_GENERATE: 'CONTENT_GENERATE',
+  DAILY_SEASONAL_GENERATE: 'CONTENT_GENERATE',
+  WEEKLY_LOCAL_GUIDE_GENERATE: 'CONTENT_GENERATE',
+  WEEKLY_BLOG_GENERATE: 'CONTENT_GENERATE',
+};
+
 export async function GET(): Promise<NextResponse> {
   try {
     const scheduledJobs = getScheduledJobs();
@@ -15,31 +30,30 @@ export async function GET(): Promise<NextResponse> {
     // For each scheduled job, get execution history
     const jobsWithHistory = await Promise.all(
       scheduledJobs.map(async (sj) => {
-        // Handle "SEO_ANALYZE (deep)" style names and non-DB types
+        // Handle "SEO_ANALYZE (deep)" style names
         const jobType = sj.jobType.replace(' (deep)', '');
-        const isDbTracked = jobType !== 'AUTONOMOUS_ROADMAP' && jobType !== 'WEEKLY_BLOG_GENERATE';
+        // Resolve aliased types to their actual DB type
+        const dbType = TYPE_ALIASES[jobType] || jobType;
 
         let executions: any[] = [];
-        if (isDbTracked) {
-          try {
-            executions = await prisma.job.findMany({
-              where: { type: jobType as any },
-              select: {
-                id: true,
-                status: true,
-                error: true,
-                attempts: true,
-                createdAt: true,
-                startedAt: true,
-                completedAt: true,
-                site: { select: { name: true } },
-              },
-              orderBy: { createdAt: 'desc' },
-              take: 10,
-            });
-          } catch {
-            // Job type may not exist in DB yet, that's ok
-          }
+        try {
+          executions = await prisma.job.findMany({
+            where: { type: dbType as any },
+            select: {
+              id: true,
+              status: true,
+              error: true,
+              attempts: true,
+              createdAt: true,
+              startedAt: true,
+              completedAt: true,
+              site: { select: { name: true } },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 10,
+          });
+        } catch {
+          // Job type may not exist in DB yet, that's ok
         }
 
         const lastExecution = executions[0] || null;
@@ -119,13 +133,31 @@ export async function POST(request: Request): Promise<NextResponse> {
       ABTEST_REBALANCE: { abTestId: 'all', algorithm: 'thompson_sampling' },
       LINK_OPPORTUNITY_SCAN: { siteId: 'all' },
       LINK_BACKLINK_MONITOR: { siteId: 'all' },
+      SUPPLIER_SYNC: { forceSync: false },
+      PRODUCT_SYNC: { forceSync: false },
+      MICROSITE_HEALTH_CHECK: {},
     };
 
     // Clean job type name (remove " (deep)" suffix)
     const cleanType = jobType.replace(' (deep)', '');
 
-    // Non-triggerable types
-    if (cleanType === 'AUTONOMOUS_ROADMAP' || cleanType === 'WEEKLY_BLOG_GENERATE') {
+    // Non-triggerable types (run via setInterval or autonomous processor, not job queue)
+    const nonTriggerableTypes = [
+      'AUTONOMOUS_ROADMAP',
+      'WEEKLY_BLOG_GENERATE',
+      'DAILY_FAQ_GENERATE',
+      'DAILY_CONTENT_REFRESH',
+      'DAILY_BLOG_GENERATE',
+      'DAILY_DESTINATION_GENERATE',
+      'DAILY_COMPARISON_GENERATE',
+      'DAILY_SEASONAL_GENERATE',
+      'WEEKLY_LOCAL_GUIDE_GENERATE',
+      'META_TITLE_MAINTENANCE',
+      'MICROSITE_CONTENT_REFRESH',
+      'MICROSITE_SITEMAP_RESUBMIT',
+      'COLLECTION_REFRESH',
+    ];
+    if (nonTriggerableTypes.includes(cleanType)) {
       return NextResponse.json(
         { error: `${jobType} runs automatically and cannot be manually triggered from here` },
         { status: 400 }

@@ -19,6 +19,44 @@ let collectionRefreshInterval: NodeJS.Timeout | null = null;
 let sitemapResubmitInterval: NodeJS.Timeout | null = null;
 
 /**
+ * Wraps a setInterval job execution with DB tracking so the admin dashboard
+ * can display last run time, status, and duration.
+ */
+async function trackScheduledExecution<T>(
+  jobType: string,
+  fn: () => Promise<T>
+): Promise<T> {
+  const { prisma } = await import('@experience-marketplace/database');
+  const dbJob = await prisma.job.create({
+    data: {
+      type: jobType as any,
+      queue: 'scheduled',
+      payload: {},
+      status: 'RUNNING',
+      startedAt: new Date(),
+    },
+  });
+  try {
+    const result = await fn();
+    await prisma.job.update({
+      where: { id: dbJob.id },
+      data: {
+        status: 'COMPLETED',
+        completedAt: new Date(),
+        result: (result != null ? result : {}) as any,
+      },
+    });
+    return result;
+  } catch (error) {
+    await prisma.job.update({
+      where: { id: dbJob.id },
+      data: { status: 'FAILED', completedAt: new Date(), error: String(error) },
+    });
+    throw error;
+  }
+}
+
+/**
  * Calculate the next run time for a cron expression.
  * Supports standard 5-field cron: minute hour dayOfMonth month dayOfWeek
  */
@@ -435,7 +473,9 @@ function initializeMetaTitleMaintenanceSchedule(): void {
           schedulesRunToday.set('meta-title-maintenance', today);
           console.log('[Scheduler] Running weekly meta title maintenance...');
           try {
-            const result = await runMetaTitleMaintenance();
+            const result = await trackScheduledExecution('META_TITLE_MAINTENANCE', () =>
+              runMetaTitleMaintenance()
+            );
             console.log(
               `[Scheduler] Meta title maintenance complete: ${result.pagesFixed}/${result.totalPages} pages fixed`
             );
@@ -467,7 +507,9 @@ function initializeMicrositeContentRefreshSchedule(): void {
           schedulesRunToday.set('microsite-content-refresh', today);
           console.log('[Scheduler] Running microsite content refresh...');
           try {
-            await refreshMicrositeContent();
+            await trackScheduledExecution('MICROSITE_CONTENT_REFRESH', () =>
+              refreshMicrositeContent()
+            );
           } catch (error) {
             console.error('[Scheduler] Microsite content refresh failed:', error);
           }
@@ -535,7 +577,9 @@ function initializeCollectionRefreshSchedule(): void {
           schedulesRunToday.set('collection-refresh', today);
           console.log('[Scheduler] Running daily curated collection refresh (5% rotation)...');
           try {
-            const result = await refreshAllCollections();
+            const result = await trackScheduledExecution('COLLECTION_REFRESH', () =>
+              refreshAllCollections()
+            );
             console.log(
               `[Scheduler] Collection refresh complete: ${result.totalCreated} created, ${result.totalUpdated} updated across ${result.micrositesProcessed}/${result.totalMicrosites} microsites`
             );
@@ -569,7 +613,9 @@ function initializeSitemapResubmitSchedule(): void {
           schedulesRunToday.set('sitemap-resubmit', today);
           console.log('[Scheduler] Running weekly microsite sitemap resubmission...');
           try {
-            const result = await resubmitMicrositeSitemapsToGSC();
+            const result = await trackScheduledExecution('MICROSITE_SITEMAP_RESUBMIT', () =>
+              resubmitMicrositeSitemapsToGSC()
+            );
             console.log(
               `[Scheduler] Sitemap resubmission complete: ${result.submitted} submitted, ${result.skipped} skipped, ${result.errors} errors`
             );

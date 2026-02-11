@@ -255,6 +255,13 @@ async function validateTaskArtifacts(
     REFRESH_ANALYTICS_VIEWS: { valid: true },
     MICROSITE_GSC_SYNC: { valid: true },
     MICROSITE_ANALYTICS_SYNC: { valid: true },
+
+    // Scheduled Maintenance (not part of standard site roadmap)
+    META_TITLE_MAINTENANCE: { valid: true },
+    MICROSITE_CONTENT_REFRESH: { valid: true },
+    MICROSITE_SITEMAP_RESUBMIT: { valid: true },
+    COLLECTION_REFRESH: { valid: true },
+    AUTONOMOUS_ROADMAP: { valid: true },
   };
 }
 
@@ -437,6 +444,28 @@ export const TASK_DESCRIPTIONS: Record<JobType, { label: string; description: st
   MICROSITE_ANALYTICS_SYNC: {
     label: 'Sync Microsite Analytics',
     description: 'Create daily analytics snapshots for microsites',
+  },
+
+  // Scheduled Maintenance
+  META_TITLE_MAINTENANCE: {
+    label: 'Meta Title Maintenance',
+    description: 'Ensure all pages have SEO-optimized meta titles',
+  },
+  MICROSITE_CONTENT_REFRESH: {
+    label: 'Refresh Microsite Content',
+    description: 'Refresh rotating subset of microsite content',
+  },
+  MICROSITE_SITEMAP_RESUBMIT: {
+    label: 'Resubmit Sitemaps',
+    description: 'Resubmit microsite sitemaps to Google Search Console',
+  },
+  COLLECTION_REFRESH: {
+    label: 'Refresh Collections',
+    description: 'Refresh AI-curated collections for microsites',
+  },
+  AUTONOMOUS_ROADMAP: {
+    label: 'Process Roadmaps',
+    description: 'Process site roadmaps and queue lifecycle tasks',
   },
 };
 

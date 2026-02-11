@@ -64,7 +64,9 @@ import { prisma, JobStatus } from '@experience-marketplace/database';
 import type { JobType } from '@experience-marketplace/database';
 
 /**
- * Update job status in the database
+ * Update job status in the database.
+ * For repeatable/cron jobs (created by scheduleJob()), auto-creates a DB record
+ * on the first RUNNING status update so the admin dashboard can track them.
  */
 async function updateJobStatus(
   job: Job,
@@ -72,7 +74,30 @@ async function updateJobStatus(
   result?: object,
   error?: string
 ) {
-  const dbJobId = (job.data as { dbJobId?: string }).dbJobId;
+  let dbJobId = (job.data as { dbJobId?: string }).dbJobId;
+
+  // For repeatable/cron jobs that don't have a DB record, create one when they start
+  if (!dbJobId && status === 'RUNNING') {
+    try {
+      const dbJob = await prisma.job.create({
+        data: {
+          type: job.name as JobType,
+          queue: 'scheduled',
+          payload: job.data as object,
+          status: 'RUNNING' as JobStatus,
+          startedAt: new Date(),
+          attempts: job.attemptsMade,
+        },
+      });
+      dbJobId = dbJob.id;
+      // Persist dbJobId so completed/failed event handlers can find it
+      await job.updateData({ ...job.data, dbJobId });
+    } catch (err) {
+      console.error(`Failed to create DB record for scheduled job ${job.name}:`, err);
+      return;
+    }
+  }
+
   if (!dbJobId) return;
 
   try {
