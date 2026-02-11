@@ -38,19 +38,26 @@ export function Header() {
 
   // Microsites use simplified navigation (no destinations/categories pages)
   const isMicrosite = !!site.micrositeContext;
+  const isParentDomainSite = !!site.isParentDomain;
 
-  const navigation = isMicrosite
+  const navigation = isParentDomainSite
     ? [
-        { name: 'Experiences', href: '/experiences' },
-        { name: 'Blog', href: '/blog' },
-        { name: 'About', href: '/about' },
+        { name: 'Our Brands', href: '/#our-brands' },
+        { name: 'Our Providers', href: '/#featured-providers' },
+        { name: 'About Us', href: '/about' },
       ]
-    : [
-        { name: 'Experiences', href: '/experiences' },
-        { name: 'Destinations', href: '/destinations' },
-        { name: 'Categories', href: '/categories' },
-        { name: 'About', href: '/about' },
-      ];
+    : isMicrosite
+      ? [
+          { name: 'Experiences', href: '/experiences' },
+          { name: 'Blog', href: '/blog' },
+          { name: 'About', href: '/about' },
+        ]
+      : [
+          { name: 'Experiences', href: '/experiences' },
+          { name: 'Destinations', href: '/destinations' },
+          { name: 'Categories', href: '/categories' },
+          { name: 'About', href: '/about' },
+        ];
 
   return (
     <header
@@ -141,7 +148,7 @@ export function Header() {
         {/* Desktop CTA */}
         <div className="hidden lg:flex lg:flex-1 lg:justify-end">
           <Link
-            href="/experiences"
+            href={isParentDomainSite ? '/#our-brands' : '/experiences'}
             className={`rounded-md px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all duration-300 ${
               isTransparent ? 'ring-1 ring-white/30' : ''
             }`}
@@ -149,7 +156,7 @@ export function Header() {
               backgroundColor: brand?.primaryColor ?? '#6366f1',
             }}
           >
-            Book Now
+            {isParentDomainSite ? 'Explore Brands' : 'Book Now'}
           </Link>
         </div>
       </nav>
@@ -173,12 +180,12 @@ export function Header() {
               </Link>
             ))}
             <Link
-              href="/experiences"
+              href={isParentDomainSite ? '/#our-brands' : '/experiences'}
               className="mt-4 block rounded-md px-3 py-2.5 text-center text-base font-semibold text-white"
               style={{ backgroundColor: brand?.primaryColor ?? '#6366f1' }}
               onClick={() => setMobileMenuOpen(false)}
             >
-              Book Now
+              {isParentDomainSite ? 'Explore Brands' : 'Book Now'}
             </Link>
           </div>
         </div>

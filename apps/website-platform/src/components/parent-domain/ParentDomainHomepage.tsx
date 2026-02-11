@@ -9,6 +9,7 @@ import type {
   SupplierCategory,
   SupplierCity,
   PlatformStats,
+  FeaturedSite,
 } from '@/lib/parent-domain';
 
 interface ParentDomainHomepageProps {
@@ -16,6 +17,7 @@ interface ParentDomainHomepageProps {
   categories: SupplierCategory[];
   cities: SupplierCity[];
   stats: PlatformStats;
+  sites: FeaturedSite[];
 }
 
 export function ParentDomainHomepage({
@@ -23,6 +25,7 @@ export function ParentDomainHomepage({
   categories,
   cities,
   stats,
+  sites,
 }: ParentDomainHomepageProps) {
   return (
     <div className="min-h-screen bg-white">
@@ -32,30 +35,25 @@ export function ParentDomainHomepage({
         <div className="relative mx-auto max-w-7xl px-4 py-24 sm:px-6 lg:px-8 lg:py-32">
           <div className="text-center">
             <h1 className="text-4xl font-bold tracking-tight text-white sm:text-5xl lg:text-6xl">
-              Discover Amazing Experiences
+              Experiencess
             </h1>
             <p className="mx-auto mt-6 max-w-2xl text-xl text-indigo-100">
-              Browse {stats.totalProducts.toLocaleString()}+ tours and activities from{' '}
-              {stats.totalSuppliers.toLocaleString()} experience providers across{' '}
-              {stats.totalCities.toLocaleString()} destinations worldwide.
+              A network of experience brands powered through our partnership with Holibob,
+              helping people discover and book incredible experiences worldwide.
             </p>
-
-            {/* Search Bar */}
-            <div className="mx-auto mt-10 max-w-xl">
-              <form action="/search" method="GET" className="flex gap-2">
-                <input
-                  type="text"
-                  name="q"
-                  placeholder="Search experiences, destinations, or providers..."
-                  className="flex-1 rounded-lg border-0 px-4 py-3 text-gray-900 shadow-lg placeholder:text-gray-500 focus:ring-2 focus:ring-white"
-                />
-                <button
-                  type="submit"
-                  className="rounded-lg bg-white px-6 py-3 font-semibold text-indigo-600 shadow-lg hover:bg-indigo-50 focus:ring-2 focus:ring-white"
-                >
-                  Search
-                </button>
-              </form>
+            <div className="mx-auto mt-8 flex flex-wrap justify-center gap-4">
+              <a
+                href="#our-brands"
+                className="rounded-lg bg-white px-6 py-3 font-semibold text-indigo-600 shadow-lg hover:bg-indigo-50"
+              >
+                Our Brands
+              </a>
+              <a
+                href="#featured-providers"
+                className="rounded-lg border-2 border-white px-6 py-3 font-semibold text-white hover:bg-white/10"
+              >
+                Our Providers
+              </a>
             </div>
           </div>
         </div>
@@ -64,7 +62,7 @@ export function ParentDomainHomepage({
       {/* Stats Bar */}
       <section className="border-b bg-gray-50">
         <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
             <div className="text-center">
               <div className="text-3xl font-bold text-indigo-600">
                 {stats.totalSuppliers.toLocaleString()}
@@ -89,19 +87,45 @@ export function ParentDomainHomepage({
               </div>
               <div className="mt-1 text-sm text-gray-600">Categories</div>
             </div>
+            <div className="text-center">
+              <div className="text-3xl font-bold text-indigo-600">
+                {stats.activeMicrosites.toLocaleString()}
+              </div>
+              <div className="mt-1 text-sm text-gray-600">Active Microsites</div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Featured Providers */}
-      <section className="py-16">
+      {/* Our Brands */}
+      {sites.length > 0 && (
+        <section id="our-brands" className="py-16">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="text-center">
+              <h2 className="text-3xl font-bold tracking-tight text-gray-900">Our Brands</h2>
+              <p className="mt-2 text-lg text-gray-600">
+                Explore our network of specialist experience brands
+              </p>
+            </div>
+
+            <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {sites.map((site) => (
+                <SiteCard key={site.id} site={site} />
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Our Featured Providers */}
+      <section id="featured-providers" className="bg-gray-50 py-16">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <h2 className="text-3xl font-bold tracking-tight text-gray-900">
-              Featured Experience Providers
+              Our Featured Providers
             </h2>
             <p className="mt-2 text-lg text-gray-600">
-              Discover top-rated tour operators and activity providers
+              Top-rated tour operators and activity providers across our network
             </p>
           </div>
 
@@ -118,6 +142,38 @@ export function ParentDomainHomepage({
           )}
         </div>
       </section>
+
+      {/* Top Locations */}
+      {cities.length > 0 && (
+        <section id="top-locations" className="py-16">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="text-center">
+              <h2 className="text-3xl font-bold tracking-tight text-gray-900">Top Locations</h2>
+              <p className="mt-2 text-lg text-gray-600">
+                Browse experience providers by destination
+              </p>
+            </div>
+
+            <div className="mt-10 grid gap-4 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-8">
+              {cities.map((city) => (
+                <Link
+                  key={city.slug}
+                  href={`/providers?city=${encodeURIComponent(city.name)}`}
+                  className="group flex flex-col items-center rounded-lg bg-gray-50 p-4 transition-all hover:bg-indigo-50"
+                >
+                  <span className="text-2xl">{getCityEmoji(city.name)}</span>
+                  <h3 className="mt-2 text-center text-sm font-medium text-gray-900 group-hover:text-indigo-600">
+                    {city.name}
+                  </h3>
+                  <p className="text-xs text-gray-500">
+                    {city.supplierCount} provider{city.supplierCount !== 1 ? 's' : ''}
+                  </p>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Browse by Category */}
       {categories.length > 0 && (
@@ -152,40 +208,6 @@ export function ParentDomainHomepage({
         </section>
       )}
 
-      {/* Browse by Destination */}
-      {cities.length > 0 && (
-        <section className="py-16">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div className="text-center">
-              <h2 className="text-3xl font-bold tracking-tight text-gray-900">
-                Popular Destinations
-              </h2>
-              <p className="mt-2 text-lg text-gray-600">
-                Explore experiences in top travel destinations
-              </p>
-            </div>
-
-            <div className="mt-10 grid gap-4 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-8">
-              {cities.map((city) => (
-                <Link
-                  key={city.slug}
-                  href={`/providers?city=${encodeURIComponent(city.name)}`}
-                  className="group flex flex-col items-center rounded-lg bg-gray-50 p-4 transition-all hover:bg-indigo-50"
-                >
-                  <span className="text-2xl">{getCityEmoji(city.name)}</span>
-                  <h3 className="mt-2 text-center text-sm font-medium text-gray-900 group-hover:text-indigo-600">
-                    {city.name}
-                  </h3>
-                  <p className="text-xs text-gray-500">
-                    {city.supplierCount} provider{city.supplierCount !== 1 ? 's' : ''}
-                  </p>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
       {/* CTA Section */}
       <section className="bg-indigo-600 py-16">
         <div className="mx-auto max-w-7xl px-4 text-center sm:px-6 lg:px-8">
@@ -193,8 +215,8 @@ export function ParentDomainHomepage({
             Are you an experience provider?
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-indigo-100">
-            Join our marketplace and get your own branded microsite to showcase your tours and
-            activities to travelers worldwide.
+            Join our network and get your own branded microsite to showcase your tours and
+            activities to travellers worldwide.
           </p>
           <div className="mt-8">
             <Link
@@ -206,91 +228,65 @@ export function ParentDomainHomepage({
           </div>
         </div>
       </section>
-
-      {/* Footer */}
-      <footer className="bg-gray-900 py-12">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-            <div>
-              <h3 className="text-lg font-semibold text-white">Experiencess</h3>
-              <p className="mt-2 text-sm text-gray-400">
-                The global marketplace for tours, activities, and unique experiences.
-              </p>
-            </div>
-            <div>
-              <h4 className="text-sm font-semibold uppercase tracking-wider text-gray-400">
-                For Travelers
-              </h4>
-              <ul className="mt-4 space-y-2">
-                <li>
-                  <Link href="/providers" className="text-sm text-gray-300 hover:text-white">
-                    Browse Providers
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/destinations" className="text-sm text-gray-300 hover:text-white">
-                    Destinations
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/categories" className="text-sm text-gray-300 hover:text-white">
-                    Categories
-                  </Link>
-                </li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="text-sm font-semibold uppercase tracking-wider text-gray-400">
-                For Providers
-              </h4>
-              <ul className="mt-4 space-y-2">
-                <li>
-                  <Link href="/providers/join" className="text-sm text-gray-300 hover:text-white">
-                    Join Marketplace
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="/providers/features"
-                    className="text-sm text-gray-300 hover:text-white"
-                  >
-                    Features
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="/providers/pricing"
-                    className="text-sm text-gray-300 hover:text-white"
-                  >
-                    Pricing
-                  </Link>
-                </li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="text-sm font-semibold uppercase tracking-wider text-gray-400">
-                Legal
-              </h4>
-              <ul className="mt-4 space-y-2">
-                <li>
-                  <Link href="/privacy" className="text-sm text-gray-300 hover:text-white">
-                    Privacy Policy
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/terms" className="text-sm text-gray-300 hover:text-white">
-                    Terms of Service
-                  </Link>
-                </li>
-              </ul>
-            </div>
-          </div>
-          <div className="mt-8 border-t border-gray-800 pt-8 text-center text-sm text-gray-400">
-            &copy; {new Date().getFullYear()} Experiencess. All rights reserved.
-          </div>
-        </div>
-      </footer>
     </div>
+  );
+}
+
+/**
+ * Site/Brand Card Component
+ */
+function SiteCard({ site }: { site: FeaturedSite }) {
+  const href = site.primaryDomain ? `https://${site.primaryDomain}` : '#';
+  const brandColor = site.brand?.primaryColor || '#6366f1';
+
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="group flex flex-col overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200 transition-all hover:shadow-lg"
+    >
+      {/* Brand Header */}
+      <div
+        className="flex items-center gap-4 p-6"
+        style={{ borderBottom: `3px solid ${brandColor}` }}
+      >
+        {site.brand?.logoUrl ? (
+          <img
+            src={site.brand.logoUrl}
+            alt={site.name}
+            className="h-12 w-12 rounded-lg object-contain"
+          />
+        ) : (
+          <div
+            className="flex h-12 w-12 items-center justify-center rounded-lg text-xl font-bold text-white"
+            style={{ backgroundColor: brandColor }}
+          >
+            {site.name.charAt(0)}
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <h3 className="font-semibold text-gray-900 group-hover:text-indigo-600 truncate">
+            {site.name}
+          </h3>
+          {site.brand?.tagline && (
+            <p className="text-sm text-gray-500 truncate">{site.brand.tagline}</p>
+          )}
+        </div>
+      </div>
+
+      {/* Description */}
+      <div className="flex-1 p-6 pt-4">
+        {site.description && (
+          <p className="line-clamp-2 text-sm text-gray-600">{site.description}</p>
+        )}
+        {site.primaryDomain && (
+          <p className="mt-3 text-xs text-indigo-600 group-hover:underline">
+            {site.primaryDomain}
+          </p>
+        )}
+      </div>
+    </a>
   );
 }
 
@@ -372,29 +368,29 @@ function SupplierCard({ supplier }: { supplier: FeaturedSupplier }) {
  */
 function getCityEmoji(city: string): string {
   const cityEmojis: Record<string, string> = {
-    London: '🇬🇧',
-    Paris: '🇫🇷',
-    Barcelona: '🇪🇸',
-    Rome: '🇮🇹',
-    Amsterdam: '🇳🇱',
-    Berlin: '🇩🇪',
-    Madrid: '🇪🇸',
-    Lisbon: '🇵🇹',
-    Prague: '🇨🇿',
-    Vienna: '🇦🇹',
-    Athens: '🇬🇷',
-    Dublin: '🇮🇪',
-    Edinburgh: '🏴󠁧󠁢󠁳󠁣󠁴󠁿',
-    'New York': '🇺🇸',
-    'Los Angeles': '🇺🇸',
-    'San Francisco': '🇺🇸',
-    Tokyo: '🇯🇵',
-    Sydney: '🇦🇺',
-    Dubai: '🇦🇪',
-    Singapore: '🇸🇬',
-    'Hong Kong': '🇭🇰',
-    Bangkok: '🇹🇭',
+    London: '\u{1F1EC}\u{1F1E7}',
+    Paris: '\u{1F1EB}\u{1F1F7}',
+    Barcelona: '\u{1F1EA}\u{1F1F8}',
+    Rome: '\u{1F1EE}\u{1F1F9}',
+    Amsterdam: '\u{1F1F3}\u{1F1F1}',
+    Berlin: '\u{1F1E9}\u{1F1EA}',
+    Madrid: '\u{1F1EA}\u{1F1F8}',
+    Lisbon: '\u{1F1F5}\u{1F1F9}',
+    Prague: '\u{1F1E8}\u{1F1FF}',
+    Vienna: '\u{1F1E6}\u{1F1F9}',
+    Athens: '\u{1F1EC}\u{1F1F7}',
+    Dublin: '\u{1F1EE}\u{1F1EA}',
+    Edinburgh: '\u{1F3F4}\u{E0067}\u{E0062}\u{E0073}\u{E0063}\u{E0074}\u{E007F}',
+    'New York': '\u{1F1FA}\u{1F1F8}',
+    'Los Angeles': '\u{1F1FA}\u{1F1F8}',
+    'San Francisco': '\u{1F1FA}\u{1F1F8}',
+    Tokyo: '\u{1F1EF}\u{1F1F5}',
+    Sydney: '\u{1F1E6}\u{1F1FA}',
+    Dubai: '\u{1F1E6}\u{1F1EA}',
+    Singapore: '\u{1F1F8}\u{1F1EC}',
+    'Hong Kong': '\u{1F1ED}\u{1F1F0}',
+    Bangkok: '\u{1F1F9}\u{1F1ED}',
   };
 
-  return cityEmojis[city] || '📍';
+  return cityEmojis[city] || '\u{1F4CD}';
 }

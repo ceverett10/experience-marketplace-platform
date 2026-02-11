@@ -26,6 +26,7 @@ import {
   getSupplierCategories,
   getSupplierCities,
   getPlatformStats,
+  getActiveSites,
 } from '@/lib/parent-domain';
 import { ParentDomainHomepage } from '@/components/parent-domain/ParentDomainHomepage';
 import { TourOperatorSchema, WebSiteSchema } from '@/components/seo/StructuredData';
@@ -186,9 +187,11 @@ async function getFeaturedExperiences(
     };
 
     // "Where" - location as freeText (e.g., "London")
-    if (popularExperiencesConfig?.destination) {
-      filter.freeText = popularExperiencesConfig.destination;
-    }
+    // Product Discovery API requires where.freeText when no consumerTripSelector is provided
+    filter.freeText =
+      popularExperiencesConfig?.destination ||
+      site.homepageConfig?.destinations?.[0]?.name ||
+      site.name;
 
     // "What" - combined search terms for filtering by category/niche
     if (searchTermParts.length > 0) {
@@ -435,11 +438,12 @@ export default async function HomePage() {
   // For experiencess.com (the marketplace root), render the directory/homepage
   if (isParentDomain(hostname)) {
     console.log('[Homepage] Parent domain detected:', hostname);
-    const [suppliers, categories, cities, stats] = await Promise.all([
+    const [suppliers, categories, cities, stats, sites] = await Promise.all([
       getFeaturedSuppliers(12),
       getSupplierCategories(),
       getSupplierCities(16),
       getPlatformStats(),
+      getActiveSites(),
     ]);
 
     return (
@@ -448,6 +452,7 @@ export default async function HomePage() {
         categories={categories}
         cities={cities}
         stats={stats}
+        sites={sites}
       />
     );
   }

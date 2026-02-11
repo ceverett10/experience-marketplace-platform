@@ -4,6 +4,7 @@
  */
 
 import { parseMicrositeHostname, type MicrositeParentDomain } from './microsite';
+import { isParentDomain } from './parent-domain';
 import {
   type MicrositeLayoutType,
   type MicrositeLayoutConfig,
@@ -197,6 +198,9 @@ export interface SiteConfig {
 
   // Microsite context (only present for microsites on *.experiencess.com)
   micrositeContext?: MicrositeContext;
+
+  // Parent domain flag (only true for experiencess.com root domain)
+  isParentDomain?: boolean;
 }
 
 // Default site configuration for development/fallback
@@ -368,6 +372,20 @@ export async function getSiteFromHostname(hostname: string): Promise<SiteConfig>
     return DEFAULT_SITE_CONFIG;
   }
   // === END MICROSITE CHECK ===
+
+  // === PARENT DOMAIN CHECK ===
+  // For experiencess.com (the marketplace root), return parent domain config
+  if (isParentDomain(cleanHostname)) {
+    console.log('[Tenant] Parent domain detected:', cleanHostname);
+    return {
+      ...DEFAULT_SITE_CONFIG,
+      name: 'Experiencess',
+      description: 'A network of experience brands powered by Holibob',
+      primaryDomain: cleanHostname,
+      isParentDomain: true,
+    };
+  }
+  // === END PARENT DOMAIN CHECK ===
 
   // Development: localhost or preview deployments
   if (

@@ -237,3 +237,52 @@ export async function getPlatformStats(): Promise<PlatformStats> {
     };
   }
 }
+
+/**
+ * Active site for the "Our Brands" section
+ */
+export interface FeaturedSite {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  primaryDomain: string | null;
+  brand: {
+    name: string;
+    tagline: string | null;
+    logoUrl: string | null;
+    primaryColor: string;
+  } | null;
+}
+
+/**
+ * Get active sites for the "Our Brands" section
+ */
+export async function getActiveSites(): Promise<FeaturedSite[]> {
+  try {
+    const sites = await prisma.site.findMany({
+      where: { status: 'ACTIVE' },
+      orderBy: { name: 'asc' },
+      select: {
+        id: true,
+        slug: true,
+        name: true,
+        description: true,
+        primaryDomain: true,
+        brand: {
+          select: {
+            name: true,
+            tagline: true,
+            logoUrl: true,
+            primaryColor: true,
+          },
+        },
+      },
+    });
+
+    return sites;
+  } catch (error) {
+    console.error('[Parent Domain] Error fetching sites:', error);
+    return [];
+  }
+}

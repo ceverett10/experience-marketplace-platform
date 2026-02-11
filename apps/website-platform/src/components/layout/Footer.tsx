@@ -17,6 +17,11 @@ export function Footer() {
   const brand = useBrand();
   const homepageConfig = useHomepageConfig();
 
+  // Parent domain has its own footer layout
+  if (site.isParentDomain) {
+    return <ParentDomainFooter />;
+  }
+
   // Get destination from homepage config (e.g., "London" for london-food-tours.com)
   const destination = homepageConfig?.popularExperiences?.destination;
 
@@ -162,6 +167,103 @@ export function Footer() {
                   ))}
                 </ul>
               </div>
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold leading-6 text-white">Legal</h3>
+              <ul role="list" className="mt-6 space-y-4">
+                {footerNavigation.legal.map((item) => (
+                  <li key={item.name}>
+                    <Link
+                      href={item.href}
+                      className="text-sm leading-6 text-gray-300 hover:text-white"
+                    >
+                      {item.name}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom section */}
+        <div className="mt-16 border-t border-white/10 pt-8 sm:mt-20 lg:mt-24">
+          <p className="text-xs leading-5 text-gray-400">
+            &copy; {new Date().getFullYear()} Holibob. All rights reserved.
+          </p>
+        </div>
+      </div>
+    </footer>
+  );
+}
+
+/**
+ * Footer variant for the parent domain (experiencess.com)
+ */
+function ParentDomainFooter() {
+  const footerNavigation = {
+    network: [
+      { name: 'Our Brands', href: '/#our-brands' },
+      { name: 'Our Providers', href: '/#featured-providers' },
+      { name: 'Top Locations', href: '/#top-locations' },
+    ],
+    company: [
+      { name: 'About Us', href: '/about' },
+      { name: 'Contact', href: '/contact' },
+    ],
+    legal: [
+      { name: 'Privacy Policy', href: '/privacy' },
+      { name: 'Terms of Service', href: '/terms' },
+    ],
+  };
+
+  return (
+    <footer className="bg-gray-900" aria-labelledby="footer-heading">
+      <h2 id="footer-heading" className="sr-only">
+        Footer
+      </h2>
+      <div className="mx-auto max-w-7xl px-6 pb-8 pt-16 sm:pt-24 lg:px-8 lg:pt-32">
+        <div className="xl:grid xl:grid-cols-3 xl:gap-8">
+          {/* Brand section */}
+          <div className="space-y-8">
+            <span className="text-2xl font-bold text-white">Experiencess</span>
+            <p className="text-sm leading-6 text-gray-300">
+              A network of experience brands powered through our partnership with Holibob,
+              helping people discover incredible experiences worldwide.
+            </p>
+          </div>
+
+          {/* Navigation */}
+          <div className="mt-16 grid grid-cols-3 gap-8 xl:col-span-2 xl:mt-0">
+            <div>
+              <h3 className="text-sm font-semibold leading-6 text-white">Network</h3>
+              <ul role="list" className="mt-6 space-y-4">
+                {footerNavigation.network.map((item) => (
+                  <li key={item.name}>
+                    <Link
+                      href={item.href}
+                      className="text-sm leading-6 text-gray-300 hover:text-white"
+                    >
+                      {item.name}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold leading-6 text-white">Company</h3>
+              <ul role="list" className="mt-6 space-y-4">
+                {footerNavigation.company.map((item) => (
+                  <li key={item.name}>
+                    <Link
+                      href={item.href}
+                      className="text-sm leading-6 text-gray-300 hover:text-white"
+                    >
+                      {item.name}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
             </div>
             <div>
               <h3 className="text-sm font-semibold leading-6 text-white">Legal</h3>
