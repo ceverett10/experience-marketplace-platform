@@ -123,6 +123,8 @@ class QueueRegistry {
       'AD_CAMPAIGN_SYNC', // Syncs all campaigns, no single siteId
       'AD_PERFORMANCE_REPORT', // Cross-site reporting, no single siteId
       'AD_BUDGET_OPTIMIZER', // Cross-site optimization, no single siteId
+      'SOCIAL_POST_PUBLISH', // Uses socialPostId, not siteId
+      'SOCIAL_DAILY_POSTING', // Fan-out job, siteId is optional
     ];
     if (!siteId && rawSiteId !== 'all' && !siteOptionalTypes.includes(jobType)) {
       const hasDomainId = !!(payload as { domainId?: string }).domainId;
