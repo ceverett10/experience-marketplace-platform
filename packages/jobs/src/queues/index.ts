@@ -31,6 +31,8 @@ const QUEUE_CONFIG: Record<QueueName, { timeout: number; attempts: number; backo
     [QUEUE_NAMES.MICROSITE]: { timeout: 300_000, attempts: 3, backoffDelay: 15_000 },
     // Social: Caption generation + external API posting
     [QUEUE_NAMES.SOCIAL]: { timeout: 120_000, attempts: 3, backoffDelay: 30_000 },
+    // Ads: Campaign sync and budget optimization with ad platform APIs
+    [QUEUE_NAMES.ADS]: { timeout: 120_000, attempts: 3, backoffDelay: 30_000 },
   };
 
 /**
@@ -118,6 +120,9 @@ class QueueRegistry {
       'MICROSITE_ANALYTICS_SYNC', // Syncs all microsites, no single siteId
       'GA4_DAILY_SYNC', // Syncs all sites, no single siteId
       'REFRESH_ANALYTICS_VIEWS', // System-wide job, no siteId
+      'AD_CAMPAIGN_SYNC', // Syncs all campaigns, no single siteId
+      'AD_PERFORMANCE_REPORT', // Cross-site reporting, no single siteId
+      'AD_BUDGET_OPTIMIZER', // Cross-site optimization, no single siteId
     ];
     if (!siteId && rawSiteId !== 'all' && !siteOptionalTypes.includes(jobType)) {
       const hasDomainId = !!(payload as { domainId?: string }).domainId;

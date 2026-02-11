@@ -42,6 +42,27 @@ export function middleware(request: NextRequest) {
   // Add site ID to headers for API routes
   response.headers.set('x-site-id', siteId);
 
+  // Capture UTM parameters for paid traffic attribution
+  // Persists UTM data in a cookie so it survives navigation through to checkout
+  const utmSource = request.nextUrl.searchParams.get('utm_source');
+  if (utmSource) {
+    const utmData = JSON.stringify({
+      source: utmSource,
+      medium: request.nextUrl.searchParams.get('utm_medium') || '',
+      campaign: request.nextUrl.searchParams.get('utm_campaign') || '',
+      term: request.nextUrl.searchParams.get('utm_term') || '',
+      content: request.nextUrl.searchParams.get('utm_content') || '',
+      landingPage: request.nextUrl.pathname,
+    });
+    response.cookies.set('utm_params', utmData, {
+      httpOnly: false, // Readable by booking checkout for attribution
+      secure: process.env['NODE_ENV'] === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 30, // 30-minute attribution window
+    });
+  }
+
   // Track AI referral sources — set a cookie when traffic comes from an LLM platform
   // so GA4 and analytics can attribute the session to an AI source
   const referer = request.headers.get('referer');

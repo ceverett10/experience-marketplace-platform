@@ -354,6 +354,22 @@ export interface SocialPostPublishPayload {
   socialPostId: string;
 }
 
+// Paid Traffic Acquisition Jobs
+export interface AdCampaignSyncPayload {
+  campaignId?: string; // If omitted, sync all active campaigns
+  platform?: 'PINTEREST' | 'FACEBOOK' | 'GOOGLE_DISPLAY' | 'BING' | 'OUTBRAIN' | 'REDDIT';
+}
+
+export interface AdPerformanceReportPayload {
+  siteId?: string; // If omitted, report across all sites
+  dateRange?: { start: string; end: string }; // YYYY-MM-DD
+}
+
+export interface AdBudgetOptimizerPayload {
+  siteId?: string; // If omitted, optimize across all sites
+  maxCpc?: number; // Override default $0.10 cap
+}
+
 /**
  * Union type of all job payloads
  */
@@ -396,7 +412,10 @@ export type JobPayload =
   | ProductSyncPayload
   | SocialDailyPostingPayload
   | SocialPostGeneratePayload
-  | SocialPostPublishPayload;
+  | SocialPostPublishPayload
+  | AdCampaignSyncPayload
+  | AdPerformanceReportPayload
+  | AdBudgetOptimizerPayload;
 
 /**
  * Job configuration options
@@ -454,6 +473,9 @@ export const QUEUE_NAMES = {
 
   // Social Media
   SOCIAL: 'social',
+
+  // Paid Traffic
+  ADS: 'ads',
 } as const;
 
 export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];
@@ -519,4 +541,9 @@ export const JOB_TYPE_TO_QUEUE: Record<JobType, QueueName> = {
   MICROSITE_SITEMAP_RESUBMIT: QUEUE_NAMES.MICROSITE,
   COLLECTION_REFRESH: QUEUE_NAMES.CONTENT,
   AUTONOMOUS_ROADMAP: QUEUE_NAMES.SITE,
+
+  // Paid Traffic Acquisition
+  AD_CAMPAIGN_SYNC: QUEUE_NAMES.ADS,
+  AD_PERFORMANCE_REPORT: QUEUE_NAMES.ADS,
+  AD_BUDGET_OPTIMIZER: QUEUE_NAMES.ADS,
 };

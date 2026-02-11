@@ -517,6 +517,15 @@ export default function OperationsDashboard() {
             </CardContent>
           </Card>
         </Link>
+        <Link href="/operations/paid-opportunities">
+          <Card className="hover:shadow-md transition-shadow cursor-pointer">
+            <CardContent className="p-6 text-center">
+              <div className="text-2xl mb-2">&#128176;</div>
+              <h3 className="font-medium text-slate-900">Paid Traffic</h3>
+              <p className="text-sm text-slate-500 mt-1">Low-CPC opportunities for paid acquisition</p>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
     </div>
   );

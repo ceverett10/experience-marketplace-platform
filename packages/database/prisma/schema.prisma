@@ -976,6 +976,95 @@ model SocialPost {
 }
 
 // ============================================================================
+// PAID TRAFFIC ACQUISITION
+// ============================================================================
+
+enum AdPlatform {
+  PINTEREST
+  FACEBOOK
+  GOOGLE_DISPLAY
+  BING
+  OUTBRAIN
+  REDDIT
+}
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  COMPLETED
+  FAILED
+}
+
+model AdCampaign {
+  id       String     @id @default(cuid())
+  siteId   String
+  site     Site       @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  platform AdPlatform
+  name     String
+  status   CampaignStatus @default(DRAFT)
+
+  // Budget
+  dailyBudget Decimal  @db.Decimal(10, 2)
+  totalBudget Decimal? @db.Decimal(10, 2)
+  maxCpc      Decimal  @db.Decimal(10, 2) // Hard cap (e.g., $0.10)
+
+  // Targeting
+  keywords   String[] // Target keywords
+  targetUrl  String   // Landing page URL
+  audiences  Json?    // Platform-specific audience config
+  geoTargets String[] // Country/region codes
+
+  // UTM Tracking (auto-generated)
+  utmSource   String // e.g., "pinterest_ads", "facebook_ads"
+  utmMedium   String @default("cpc")
+  utmCampaign String // Auto-generated from keywords
+
+  // Platform reference
+  platformCampaignId String? // ID from ad platform API
+
+  // Aggregated performance (synced from platform)
+  totalSpend       Decimal @default(0) @db.Decimal(10, 2)
+  totalClicks      Int     @default(0)
+  totalImpressions Int     @default(0)
+  avgCpc           Decimal? @db.Decimal(10, 4)
+  conversions      Int     @default(0)
+  revenue          Decimal @default(0) @db.Decimal(10, 2)
+  roas             Float?  // Revenue / Spend
+
+  // Linked opportunity
+  opportunityId String?
+  opportunity   SEOOpportunity? @relation(fields: [opportunityId], references: [id])
+
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  dailyMetrics AdDailyMetric[]
+
+  @@index([siteId])
+  @@index([platform, status])
+  @@index([opportunityId])
+  @@map("ad_campaigns")
+}
+
+model AdDailyMetric {
+  id         String     @id @default(cuid())
+  campaignId String
+  campaign   AdCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  date       DateTime   @db.Date
+  spend      Decimal    @db.Decimal(10, 2)
+  clicks     Int
+  impressions Int
+  cpc        Decimal    @db.Decimal(10, 4)
+  conversions Int       @default(0)
+  revenue    Decimal    @default(0) @db.Decimal(10, 2)
+
+  @@unique([campaignId, date])
+  @@index([campaignId])
+  @@index([date])
+  @@map("ad_daily_metrics")
+}
+
+// ============================================================================
 // LINK BUILDING & BACKLINK MANAGEMENT
 // ============================================================================
 

@@ -142,6 +142,12 @@ async function runIntegratedOptimization(
   for (const ranked of result.finalOpportunities) {
     const opp = ranked.opportunity;
 
+    // Flag as paid candidate if CPC < $0.10 and reasonable volume
+    const isPaidCandidate =
+      opp.dataForSeo.cpc > 0 &&
+      opp.dataForSeo.cpc < 0.1 &&
+      opp.dataForSeo.searchVolume >= 100;
+
     try {
       const opportunity = await prisma.sEOOpportunity.upsert({
         where: {
@@ -159,7 +165,7 @@ async function runIntegratedOptimization(
           niche: opp.suggestion.niche,
           location: opp.suggestion.destination,
           priorityScore: opp.priorityScore,
-          status: 'IDENTIFIED',
+          status: isPaidCandidate ? 'PAID_CANDIDATE' : 'IDENTIFIED',
           source: 'integrated_scan',
           explanation: ranked.explanation,
           sourceData: {
@@ -173,6 +179,7 @@ async function runIntegratedOptimization(
             holibobInventory: opp.holibobInventory,
             iterationCount: result.iterations.length,
             totalApiCost: result.totalApiCost.totalCost,
+            paidCandidate: isPaidCandidate,
           },
           siteId: options.siteId || undefined,
         },
@@ -193,6 +200,7 @@ async function runIntegratedOptimization(
             holibobInventory: opp.holibobInventory,
             iterationCount: result.iterations.length,
             totalApiCost: result.totalApiCost.totalCost,
+            paidCandidate: isPaidCandidate,
           },
         },
       });
@@ -531,6 +539,9 @@ export async function handleOpportunityScan(
 
       // Only store opportunities with score > 50
       if (priorityScore >= 50) {
+        // Flag as paid candidate if CPC < $0.10 and reasonable volume
+        const isPaidCandidate = opp.cpc > 0 && opp.cpc < 0.1 && opp.searchVolume >= 100;
+
         const opportunity = await prisma.sEOOpportunity.upsert({
           where: {
             keyword_location: {
@@ -547,9 +558,9 @@ export async function handleOpportunityScan(
             niche: opp.niche,
             location: opp.location,
             priorityScore,
-            status: 'IDENTIFIED',
+            status: isPaidCandidate ? 'PAID_CANDIDATE' : 'IDENTIFIED',
             source: 'direct_scan',
-            sourceData: opp.sourceData,
+            sourceData: { ...((opp.sourceData as object) || {}), paidCandidate: isPaidCandidate },
             siteId: targetSites.length === 1 ? targetSites[0]?.id : undefined,
           },
           update: {
@@ -557,7 +568,7 @@ export async function handleOpportunityScan(
             difficulty: opp.difficulty,
             cpc: opp.cpc,
             priorityScore,
-            sourceData: opp.sourceData,
+            sourceData: { ...((opp.sourceData as object) || {}), paidCandidate: isPaidCandidate },
           },
         });
         stored++;

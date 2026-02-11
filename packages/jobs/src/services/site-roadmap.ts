@@ -267,6 +267,11 @@ async function validateTaskArtifacts(
     SOCIAL_POST_GENERATE: { valid: true },
     SOCIAL_POST_PUBLISH: { valid: true },
     SOCIAL_DAILY_POSTING: { valid: true },
+
+    // Paid Traffic Acquisition (not part of standard site roadmap)
+    AD_CAMPAIGN_SYNC: { valid: true },
+    AD_PERFORMANCE_REPORT: { valid: true },
+    AD_BUDGET_OPTIMIZER: { valid: true },
   };
 }
 
@@ -485,6 +490,20 @@ export const TASK_DESCRIPTIONS: Record<JobType, { label: string; description: st
   SOCIAL_DAILY_POSTING: {
     label: 'Daily Social Posting',
     description: 'Schedule and fan out daily social media posts',
+  },
+
+  // Paid Traffic Acquisition
+  AD_CAMPAIGN_SYNC: {
+    label: 'Sync Ad Campaigns',
+    description: 'Sync performance metrics from ad platforms',
+  },
+  AD_PERFORMANCE_REPORT: {
+    label: 'Ad Performance Report',
+    description: 'Generate ROAS and CPA reports for ad campaigns',
+  },
+  AD_BUDGET_OPTIMIZER: {
+    label: 'Optimize Ad Budgets',
+    description: 'Auto-optimize budget allocation across campaigns',
   },
 };
 
