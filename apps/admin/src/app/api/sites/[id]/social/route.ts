@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@experience-marketplace/database';
-import { decryptToken } from '@experience-marketplace/jobs';
+import { decryptToken, encryptToken } from '@experience-marketplace/jobs';
 
 /**
  * GET /api/sites/[id]/social
@@ -155,6 +155,34 @@ export async function POST(
         success: true,
         board: { id: board.id, name: board.name },
         message: `Board "${board.name}" created and set as default`,
+      });
+    }
+
+    if (body.action === 'update_token') {
+      const { platform, accessToken: rawToken } = body;
+      if (!platform || !rawToken) {
+        return NextResponse.json({ error: 'platform and accessToken are required' }, { status: 400 });
+      }
+
+      const account = await prisma.socialAccount.findUnique({
+        where: { siteId_platform: { siteId: id, platform } },
+      });
+
+      if (!account) {
+        return NextResponse.json({ error: `No ${platform} account found` }, { status: 404 });
+      }
+
+      await prisma.socialAccount.update({
+        where: { id: account.id },
+        data: {
+          accessToken: encryptToken(rawToken),
+          tokenExpiresAt: null, // Production tokens don't expire
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: `${platform} token updated`,
       });
     }
 
