@@ -179,11 +179,16 @@ async function getExperiences(
 
     // Product Discovery API filters: where (freeText), when (dates), who (travelers), what (searchTerm)
     // Note: Category/price filters are not supported by Product Discovery
+    // For themed sites (e.g., harry-potter-tours.com), use the site's configured search terms
+    // so the API returns relevant experiences, not just generic destination results.
+    const searchTerm =
+      searchParams.q || site.homepageConfig?.popularExperiences?.searchTerms?.[0];
+
     const response = await client.discoverProducts(
       {
         currency: 'GBP',
         freeText,
-        searchTerm: searchParams.q,
+        searchTerm,
         adults: searchParams.adults ? parseInt(searchParams.adults, 10) : 2,
         children: searchParams.children ? parseInt(searchParams.children, 10) : undefined,
         dateFrom: searchParams.startDate,
@@ -1122,6 +1127,11 @@ export default async function ExperiencesPage({ searchParams }: Props) {
         {/* Main Content */}
         <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
           <ExperiencesGrid
+            key={Object.entries(resolvedSearchParams)
+              .filter(([, v]) => v)
+              .sort(([a], [b]) => a.localeCompare(b))
+              .map(([k, v]) => `${k}=${v}`)
+              .join('&')}
             initialExperiences={experiences}
             hasMore={hasMore}
             searchParams={resolvedSearchParams}

@@ -446,7 +446,8 @@ export async function getRelatedMicrosites(
     fullDomain: ms.fullDomain,
     siteName: ms.siteName,
     tagline: ms.tagline,
-    logoUrl: ms.brand?.logoUrl || ms.supplier?.logoUrl || null,
+    // Generated logos disabled - using text-only branding (standard design) for all sites
+    logoUrl: null,
     categories: ms.supplier?.categories || [],
     cities: ms.supplier?.cities || [],
     productCount: ms.supplier?.productCount || 0,

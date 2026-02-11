@@ -66,7 +66,9 @@ export async function GET(request: NextRequest) {
 
     const searchParams = request.nextUrl.searchParams;
     const destination = searchParams.get('destination') || searchParams.get('location');
-    const searchTerm = searchParams.get('q');
+    // Fall back to site's configured search terms for themed sites (e.g., harry-potter-tours.com)
+    const searchTerm =
+      searchParams.get('q') || site.homepageConfig?.popularExperiences?.searchTerms?.[0] || null;
     const adults = searchParams.get('adults');
     const children = searchParams.get('children');
     const startDate = searchParams.get('startDate');

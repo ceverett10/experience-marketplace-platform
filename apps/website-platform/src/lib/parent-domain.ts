@@ -90,7 +90,8 @@ export async function getFeaturedSuppliers(limit: number = 12): Promise<Featured
       categories: s.categories,
       rating: s.rating,
       reviewCount: s.reviewCount,
-      logoUrl: s.logoUrl,
+      // Generated logos disabled - using text-only branding (standard design) for all sites
+      logoUrl: null,
       heroImageUrl: s.heroImageUrl,
       micrositeUrl: s.microsite?.status === 'ACTIVE' ? `https://${s.microsite.fullDomain}` : null,
     }));
@@ -280,7 +281,11 @@ export async function getActiveSites(): Promise<FeaturedSite[]> {
       },
     });
 
-    return sites;
+    // Generated logos disabled - using text-only branding (standard design) for all sites
+    return sites.map((site) => ({
+      ...site,
+      brand: site.brand ? { ...site.brand, logoUrl: null } : null,
+    }));
   } catch (error) {
     console.error('[Parent Domain] Error fetching sites:', error);
     return [];
