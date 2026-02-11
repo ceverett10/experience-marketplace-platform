@@ -7,6 +7,36 @@ import { DateRangePicker } from './components/DateRangePicker';
 import { MetricCard } from './components/MetricCard';
 import { AnalyticsStatus } from './components/AnalyticsStatus';
 
+interface MicrositeSummary {
+  totalMicrosites: number;
+  micrositesWithGsc: number;
+  totalUsers: number;
+  totalSessions: number;
+  totalPageviews: number;
+  totalClicks: number;
+  totalImpressions: number;
+  avgCTR: number;
+  avgPosition: number;
+  usersChange: number;
+  sessionsChange: number;
+  clicksChange: number;
+  impressionsChange: number;
+}
+
+interface MicrositeMetric {
+  id: string;
+  name: string;
+  domain: string;
+  users: number;
+  sessions: number;
+  pageviews: number;
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  position: number;
+  gscSynced: boolean;
+}
+
 interface PortfolioData {
   portfolio: {
     totalSites: number;
@@ -46,6 +76,10 @@ interface PortfolioData {
     missingGA4: boolean;
     missingGSC: boolean;
   }>;
+  microsites?: {
+    summary: MicrositeSummary;
+    top: MicrositeMetric[];
+  };
   dateRange: { startDate: string; endDate: string };
 }
 
@@ -144,7 +178,7 @@ export default function AnalyticsOverviewPage() {
 
   if (!data) return null;
 
-  const { portfolio, topSites, trends, unconfiguredSites } = data;
+  const { portfolio, topSites, trends, unconfiguredSites, microsites } = data;
 
   return (
     <div className="space-y-6">
@@ -280,6 +314,113 @@ export default function AnalyticsOverviewPage() {
           </table>
         </div>
       </Card>
+
+      {/* Microsites Section (*.experiencess.com) */}
+      {microsites && microsites.summary.totalMicrosites > 0 && (
+        <>
+          <div className="mt-2">
+            <h2 className="text-lg font-semibold text-slate-900">
+              Microsites (experiencess.com)
+            </h2>
+            <p className="text-sm text-slate-500 mt-1">
+              {microsites.summary.totalMicrosites} microsites &middot;{' '}
+              {microsites.summary.micrositesWithGsc} with GSC
+            </p>
+          </div>
+
+          {/* Microsite Metric Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <MetricCard
+              title="Microsite Users"
+              value={microsites.summary.totalUsers}
+              change={microsites.summary.usersChange}
+            />
+            <MetricCard
+              title="Microsite Sessions"
+              value={microsites.summary.totalSessions}
+              change={microsites.summary.sessionsChange}
+            />
+            <MetricCard
+              title="Microsite Clicks"
+              value={microsites.summary.totalClicks}
+              change={microsites.summary.clicksChange}
+            />
+            <MetricCard
+              title="Avg Position"
+              value={microsites.summary.avgPosition}
+              format="position"
+              subtitle="Lower is better"
+            />
+          </div>
+
+          {/* Microsite Table */}
+          <Card>
+            <div className="p-4 border-b border-slate-200">
+              <h3 className="font-semibold text-slate-900">Top Microsites</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
+                      Microsite
+                    </th>
+                    <th className="text-right text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
+                      Users
+                    </th>
+                    <th className="text-right text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
+                      Sessions
+                    </th>
+                    <th className="text-right text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
+                      Pageviews
+                    </th>
+                    <th className="text-right text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
+                      Clicks
+                    </th>
+                    <th className="text-right text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
+                      Impressions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {microsites.top.slice(0, 10).map((ms) => (
+                    <tr key={ms.id} className="hover:bg-slate-50">
+                      <td className="px-4 py-3">
+                        <span className="text-sm font-medium text-slate-900">
+                          {ms.name}
+                        </span>
+                        <p className="text-xs text-slate-500">{ms.domain}</p>
+                      </td>
+                      <td className="px-4 py-3 text-right text-sm text-slate-700">
+                        {ms.users.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3 text-right text-sm text-slate-700">
+                        {ms.sessions.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3 text-right text-sm text-slate-700">
+                        {ms.pageviews.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3 text-right text-sm text-slate-700">
+                        {ms.clicks.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3 text-right text-sm text-slate-700">
+                        {ms.impressions.toLocaleString()}
+                      </td>
+                    </tr>
+                  ))}
+                  {microsites.top.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
+                        No microsite analytics data available yet
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </>
+      )}
 
       {/* Unconfigured Sites Warning */}
       {unconfiguredSites.length > 0 && (

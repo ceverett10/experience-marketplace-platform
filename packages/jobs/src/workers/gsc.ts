@@ -308,6 +308,32 @@ export async function handleGscSync(job: Job<GscSyncPayload>): Promise<JobResult
   try {
     console.log(`[GSC Sync] Starting sync for site ${siteId}`);
 
+    // Handle "all" siteId - fan out to individual per-site GSC_SYNC jobs
+    if (siteId === 'all') {
+      console.log('[GSC Sync] Fan-out: queuing GSC_SYNC for all verified sites');
+      const allSites = await prisma.site.findMany({
+        where: { status: 'ACTIVE', gscVerified: true },
+        select: { id: true, name: true },
+      });
+
+      let queued = 0;
+      for (const s of allSites) {
+        try {
+          await addJob('GSC_SYNC', { siteId: s.id, startDate, endDate, dimensions });
+          queued++;
+        } catch (err) {
+          console.log(`[GSC Sync] Skipping ${s.name} (may already be queued)`);
+        }
+      }
+
+      return {
+        success: true,
+        message: `Queued GSC_SYNC for ${queued} of ${allSites.length} verified sites`,
+        data: { queued, total: allSites.length },
+        timestamp: new Date(),
+      };
+    }
+
     // Check if autonomous GSC sync is allowed
     const canProceed = await canExecuteAutonomousOperation({
       siteId,

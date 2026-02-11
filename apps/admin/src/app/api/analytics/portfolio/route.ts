@@ -227,15 +227,41 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       _sum: { clicks: true, impressions: true },
     });
 
+    // Aggregate microsite GA4 metrics from MicrositeAnalyticsSnapshot (current period)
+    const currentMicrositeGa4 = await prisma.micrositeAnalyticsSnapshot.groupBy({
+      by: ['micrositeId'],
+      where: {
+        date: { gte: start, lte: end },
+      },
+      _sum: { users: true, sessions: true, pageviews: true, totalClicks: true, totalImpressions: true },
+      _avg: { bounceRate: true, engagementRate: true, avgPosition: true },
+    });
+
+    // Aggregate microsite GA4 metrics (previous period for trends)
+    const previousMicrositeGa4 = await prisma.micrositeAnalyticsSnapshot.groupBy({
+      by: ['micrositeId'],
+      where: {
+        date: { gte: prevStart, lte: prevEnd },
+      },
+      _sum: { users: true, sessions: true },
+    });
+
     // Create lookup maps for microsite metrics
     const currentMicrositeMap = new Map(currentMicrositeMetrics.map((m) => [m.micrositeId, m]));
     const previousMicrositeMap = new Map(previousMicrositeMetrics.map((m) => [m.micrositeId, m]));
+    const currentMicrositeGa4Map = new Map(currentMicrositeGa4.map((m) => [m.micrositeId, m]));
+    const previousMicrositeGa4Map = new Map(previousMicrositeGa4.map((m) => [m.micrositeId, m]));
 
     // Calculate microsite totals
     let micrositeTotalClicks = 0;
     let micrositeTotalImpressions = 0;
+    let micrositeTotalUsers = 0;
+    let micrositeTotalSessions = 0;
+    let micrositeTotalPageviews = 0;
     let micrositePrevClicks = 0;
     let micrositePrevImpressions = 0;
+    let micrositePrevUsers = 0;
+    let micrositePrevSessions = 0;
     let micrositePositionSum = 0;
     let micrositePositionCount = 0;
 
@@ -243,6 +269,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       id: string;
       name: string;
       domain: string;
+      users: number;
+      sessions: number;
+      pageviews: number;
       clicks: number;
       impressions: number;
       ctr: number;
@@ -251,17 +280,30 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     }> = [];
 
     for (const ms of microsites) {
-      const current = currentMicrositeMap.get(ms.id);
-      const previous = previousMicrositeMap.get(ms.id);
+      const gscCurrent = currentMicrositeMap.get(ms.id);
+      const gscPrevious = previousMicrositeMap.get(ms.id);
+      const ga4Current = currentMicrositeGa4Map.get(ms.id);
+      const ga4Previous = previousMicrositeGa4Map.get(ms.id);
 
-      const clicks = current?._sum.clicks || 0;
-      const impressions = current?._sum.impressions || 0;
-      const position = current?._avg.position || 0;
+      // Use GSC PerformanceMetric data first, fall back to snapshot aggregated GSC data
+      const clicks = gscCurrent?._sum.clicks || ga4Current?._sum.totalClicks || 0;
+      const impressions = gscCurrent?._sum.impressions || ga4Current?._sum.totalImpressions || 0;
+      const position = gscCurrent?._avg.position || ga4Current?._avg.avgPosition || 0;
+
+      // GA4 data from snapshots
+      const users = ga4Current?._sum.users || 0;
+      const sessions = ga4Current?._sum.sessions || 0;
+      const pageviews = ga4Current?._sum.pageviews || 0;
 
       micrositeTotalClicks += clicks;
       micrositeTotalImpressions += impressions;
-      micrositePrevClicks += previous?._sum.clicks || 0;
-      micrositePrevImpressions += previous?._sum.impressions || 0;
+      micrositeTotalUsers += users;
+      micrositeTotalSessions += sessions;
+      micrositeTotalPageviews += pageviews;
+      micrositePrevClicks += gscPrevious?._sum.clicks || 0;
+      micrositePrevImpressions += gscPrevious?._sum.impressions || 0;
+      micrositePrevUsers += ga4Previous?._sum.users || 0;
+      micrositePrevSessions += ga4Previous?._sum.sessions || 0;
 
       if (position > 0) {
         micrositePositionSum += position;
@@ -272,6 +314,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         id: ms.id,
         name: ms.siteName,
         domain: ms.fullDomain,
+        users,
+        sessions,
+        pageviews,
         clicks,
         impressions,
         ctr: impressions > 0 ? (clicks / impressions) * 100 : 0,
@@ -280,13 +325,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       });
     }
 
-    // Sort microsites by impressions (descending)
-    micrositeMetrics.sort((a, b) => b.impressions - a.impressions || b.clicks - a.clicks);
+    // Sort microsites by users (descending), then sessions
+    micrositeMetrics.sort((a, b) => b.users - a.users || b.sessions - a.sessions);
 
     // Microsite summary
     const micrositeSummary = {
       totalMicrosites: microsites.length,
       micrositesWithGsc: microsites.filter((m) => m.gscLastSyncedAt).length,
+      totalUsers: micrositeTotalUsers,
+      totalSessions: micrositeTotalSessions,
+      totalPageviews: micrositeTotalPageviews,
       totalClicks: micrositeTotalClicks,
       totalImpressions: micrositeTotalImpressions,
       avgCTR:
@@ -294,6 +342,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           ? (micrositeTotalClicks / micrositeTotalImpressions) * 100
           : 0,
       avgPosition: micrositePositionCount > 0 ? micrositePositionSum / micrositePositionCount : 0,
+      usersChange: calcChange(micrositeTotalUsers, micrositePrevUsers),
+      sessionsChange: calcChange(micrositeTotalSessions, micrositePrevSessions),
       clicksChange: calcChange(micrositeTotalClicks, micrositePrevClicks),
       impressionsChange: calcChange(micrositeTotalImpressions, micrositePrevImpressions),
     };
