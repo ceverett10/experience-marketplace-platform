@@ -41,6 +41,24 @@ app.use(
   })
 );
 
+// Proxy /mcp routes to MCP server (SSE transport for Claude Desktop / ChatGPT)
+app.use(
+  '/mcp',
+  createProxyMiddleware({
+    target: 'http://localhost:3100',
+    changeOrigin: false,
+    xfwd: true,
+    pathRewrite: { '^/mcp': '' }, // Strip /mcp prefix — MCP server expects /sse, /messages, /health at root
+    onError: (err, req, res) => {
+      console.error('MCP proxy error:', err.message);
+      res.status(503).json({
+        error: 'MCP server unavailable',
+        message: 'Please try again in a moment',
+      });
+    },
+  })
+);
+
 // Proxy all other routes to website platform
 app.use(
   '/',

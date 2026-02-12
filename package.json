@@ -19,7 +19,7 @@
     "build:apps": "npm run build -w @experience-marketplace/admin -w @experience-marketplace/demand-generation -w @experience-marketplace/website-platform --if-present",
     "dev": "npm run dev --workspaces --if-present",
     "start": "npm run start --workspaces --if-present",
-    "start:web": "concurrently -n website,admin,proxy \"npm run start --workspace=@experience-marketplace/website-platform\" \"npm run start --workspace=@experience-marketplace/admin\" \"npm run start --workspace=@experience-marketplace/proxy\"",
+    "start:web": "concurrently -n website,admin,mcp,proxy \"npm run start --workspace=@experience-marketplace/website-platform\" \"npm run start --workspace=@experience-marketplace/admin\" \"node packages/mcp-server/dist/bin/serve.js --transport=http --port=3100\" \"npm run start --workspace=@experience-marketplace/proxy\"",
     "test": "npm run test --workspaces --if-present",
     "test:watch": "npm run test:watch --workspaces --if-present",
     "test:coverage": "npm run test:coverage --workspaces --if-present",
