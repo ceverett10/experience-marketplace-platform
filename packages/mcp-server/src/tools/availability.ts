@@ -3,6 +3,8 @@ import { registerAppTool } from '@modelcontextprotocol/ext-apps/server';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { HolibobClient } from '@experience-marketplace/holibob-api';
 import type { AvailabilitySlot, AvailabilityDetail, AvailabilityOption } from '@experience-marketplace/holibob-api/types';
+import type { NextAction } from './helpers.js';
+import { classifyError } from './helpers.js';
 
 function formatSlot(slot: AvailabilitySlot): string {
   const parts = [`- **${slot.date}** (Slot ID: \`${slot.id}\`)`];
@@ -142,6 +144,11 @@ export function registerAvailabilityTools(server: McpServer, client: HolibobClie
         sections.push('No available dates found in this range. Try different dates.');
       }
 
+      const availableSlots = result.nodes.filter((s) => !s.soldOut);
+      const nextActions: NextAction[] = availableSlots.length
+        ? [{ tool: 'get_slot_options', reason: 'Configure the chosen slot before booking' }]
+        : [];
+
       return {
         content: [{ type: 'text' as const, text: sections.join('\n') }],
         structuredContent: {
@@ -152,6 +159,7 @@ export function registerAvailabilityTools(server: McpServer, client: HolibobClie
             soldOut: slot.soldOut ?? false,
           })),
           experienceId,
+          nextActions,
         },
       };
     }
@@ -170,9 +178,14 @@ export function registerAvailabilityTools(server: McpServer, client: HolibobClie
     },
     async ({ slotId }) => {
       const avail = await client.getAvailability(slotId);
+      const optionsComplete = avail.optionList?.isComplete ?? false;
+      const nextActions: NextAction[] = optionsComplete
+        ? [{ tool: 'get_slot_pricing', reason: 'Options complete — get pricing categories' }]
+        : [{ tool: 'answer_slot_options', reason: 'Answer the unanswered configuration options' }];
+
       return {
         content: [{ type: 'text' as const, text: formatAvailabilityDetail(avail) }],
-        structuredContent: availabilityToStructured(avail),
+        structuredContent: { ...availabilityToStructured(avail), nextActions },
       };
     }
   );
@@ -198,9 +211,14 @@ export function registerAvailabilityTools(server: McpServer, client: HolibobClie
       const avail = await client.setAvailabilityOptions(slotId, {
         optionList: options,
       });
+      const optionsComplete = avail.optionList?.isComplete ?? false;
+      const nextActions: NextAction[] = optionsComplete
+        ? [{ tool: 'get_slot_pricing', reason: 'Options complete — get pricing categories' }]
+        : [{ tool: 'answer_slot_options', reason: 'More options need answering' }];
+
       return {
         content: [{ type: 'text' as const, text: formatAvailabilityDetail(avail) }],
-        structuredContent: availabilityToStructured(avail),
+        structuredContent: { ...availabilityToStructured(avail), nextActions },
       };
     }
   );
@@ -220,7 +238,10 @@ export function registerAvailabilityTools(server: McpServer, client: HolibobClie
       const avail = await client.getAvailabilityPricing(slotId);
       return {
         content: [{ type: 'text' as const, text: formatAvailabilityDetail(avail) }],
-        structuredContent: availabilityToStructured(avail),
+        structuredContent: {
+          ...availabilityToStructured(avail),
+          nextActions: [{ tool: 'set_slot_pricing', reason: 'Set participant counts for each pricing category' }] as NextAction[],
+        },
       };
     }
   );
@@ -244,10 +265,86 @@ export function registerAvailabilityTools(server: McpServer, client: HolibobClie
     },
     async ({ slotId, pricingCategories }) => {
       const avail = await client.setAvailabilityPricing(slotId, pricingCategories);
+      const nextActions: NextAction[] = avail.isValid
+        ? [{ tool: 'create_booking', reason: 'Slot is valid — create a booking basket then add this slot' }]
+        : [{ tool: 'set_slot_pricing', reason: 'Adjust participant counts — current selection is not valid' }];
+
       return {
         content: [{ type: 'text' as const, text: formatAvailabilityDetail(avail) }],
-        structuredContent: availabilityToStructured(avail),
+        structuredContent: { ...availabilityToStructured(avail), nextActions },
       };
+    }
+  );
+
+  // Composite tool: configure options + set pricing in one call
+  registerAppTool(
+    server,
+    'configure_and_quote',
+    {
+      title: 'Configure & Quote',
+      description: 'Composite tool: configure slot options AND set pricing in one call. Completes any remaining option selections, then sets participant counts. Use this instead of calling answer_slot_options → get_slot_pricing → set_slot_pricing separately.',
+      inputSchema: {
+        slotId: z.string().describe('The availability slot ID'),
+        options: z.array(
+          z.object({
+            id: z.string().describe('Option ID'),
+            value: z.string().describe('Selected value'),
+          })
+        ).optional().describe('Option answers (if any still need answering)'),
+        pricingCategories: z.array(
+          z.object({
+            id: z.string().describe('Pricing category ID'),
+            units: z.number().describe('Number of participants'),
+          })
+        ).optional().describe('Participant counts per pricing category'),
+      },
+      _meta: {},
+    },
+    async ({ slotId, options, pricingCategories }) => {
+      try {
+        // Step 1: Complete options (iteratively if needed)
+        let avail = await client.completeAvailabilityOptions(
+          slotId,
+          options ?? []
+        );
+
+        if (!avail.optionList?.isComplete) {
+          // Options still incomplete — return what's needed
+          const nextActions: NextAction[] = [
+            { tool: 'answer_slot_options', reason: 'More options need answering before pricing can be set' },
+          ];
+          return {
+            content: [{ type: 'text' as const, text: `Options still incomplete.\n\n${formatAvailabilityDetail(avail)}` }],
+            structuredContent: { ...availabilityToStructured(avail), nextActions },
+          };
+        }
+
+        // Step 2: If pricing categories provided, set them
+        if (pricingCategories?.length) {
+          avail = await client.setAvailabilityPricing(slotId, pricingCategories);
+        } else {
+          // Just get pricing info so model can see categories
+          avail = await client.getAvailabilityPricing(slotId);
+        }
+
+        const nextActions: NextAction[] = avail.isValid
+          ? [{ tool: 'create_booking', reason: 'Slot is valid — create a booking basket then add this slot' }]
+          : pricingCategories?.length
+            ? [{ tool: 'set_slot_pricing', reason: 'Adjust participant counts — current selection is not valid' }]
+            : [{ tool: 'set_slot_pricing', reason: 'Set participant counts for each pricing category' }];
+
+        return {
+          content: [{ type: 'text' as const, text: formatAvailabilityDetail(avail) }],
+          structuredContent: { ...availabilityToStructured(avail), nextActions },
+        };
+      } catch (error) {
+        const structured = classifyError(error, { slotId });
+        return {
+          content: [{ type: 'text' as const, text: `Error configuring slot: ${structured.message}` }],
+          structuredContent: { error: structured, nextActions: structured.nextActions },
+          isError: true,
+        };
+      }
     }
   );
 }

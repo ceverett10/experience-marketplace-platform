@@ -3,6 +3,7 @@ import { registerAppTool } from '@modelcontextprotocol/ext-apps/server';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { HolibobClient } from '@experience-marketplace/holibob-api';
 import type { Product } from '@experience-marketplace/holibob-api/types';
+import type { NextAction } from './helpers.js';
 
 function formatProduct(p: Product): string {
   const lines: string[] = [];
@@ -224,7 +225,12 @@ export function registerDiscoveryTools(server: McpServer, client: HolibobClient)
       if (!result.products.length) {
         return {
           content: [{ type: 'text' as const, text: `No experiences found for "${destination}"${searchTerm ? ` matching "${searchTerm}"` : ''}. Try a different destination or broader search terms.` }],
-          structuredContent: { experiences: [], destination, hasMore: false },
+          structuredContent: {
+            experiences: [],
+            destination,
+            hasMore: false,
+            nextActions: [{ tool: 'search_experiences', reason: 'Try different search terms or destination' }] as NextAction[],
+          },
         };
       }
 
@@ -242,6 +248,7 @@ export function registerDiscoveryTools(server: McpServer, client: HolibobClient)
             what: searchTerm ?? null,
             who: travelers ?? null,
           },
+          nextActions: [{ tool: 'get_experience_details', reason: 'Get full details for an experience the user is interested in' }] as NextAction[],
         },
       };
     }
@@ -269,7 +276,10 @@ export function registerDiscoveryTools(server: McpServer, client: HolibobClient)
 
       return {
         content: [{ type: 'text' as const, text: formatProductDetails(product) }],
-        structuredContent: { experience: productToDetailStructured(product) },
+        structuredContent: {
+          experience: productToDetailStructured(product),
+          nextActions: [{ tool: 'check_availability', reason: 'Check available dates to book this experience' }] as NextAction[],
+        },
       };
     }
   );

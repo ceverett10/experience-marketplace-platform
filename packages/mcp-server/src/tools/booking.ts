@@ -3,6 +3,8 @@ import { registerAppTool } from '@modelcontextprotocol/ext-apps/server';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { HolibobClient } from '@experience-marketplace/holibob-api';
 import type { Booking, BookingQuestion } from '@experience-marketplace/holibob-api/types';
+import type { NextAction } from './helpers.js';
+import { classifyError } from './helpers.js';
 
 function formatQuestion(q: BookingQuestion, prefix = ''): string {
   const parts = [`${prefix}- **${q.label}** (ID: ${q.id}, Type: ${q.type ?? 'text'})${q.isRequired ? ' *required*' : ''}`];
@@ -117,7 +119,10 @@ export function registerBookingTools(server: McpServer, client: HolibobClient): 
           type: 'text' as const,
           text: `Booking created!\n\n${formatBookingSummary(booking)}\n\nNext: Use add_to_booking to add an availability slot to this booking.`,
         }],
-        structuredContent: bookingToStructured(booking),
+        structuredContent: {
+          ...bookingToStructured(booking),
+          nextActions: [{ tool: 'add_to_booking', reason: 'Add a configured availability slot to this booking' }] as NextAction[],
+        },
       };
     }
   );
@@ -145,6 +150,10 @@ export function registerBookingTools(server: McpServer, client: HolibobClient): 
           ? `Availability added to booking ${result.code ?? bookingId}. The booking is ready — use commit_booking to finalize.`
           : `Availability added to booking ${result.code ?? bookingId}. Questions need to be answered before the booking can be committed.\n\nUse get_booking_questions to see what information is needed.`;
 
+        const nextActions: NextAction[] = result.canCommit
+          ? [{ tool: 'get_payment_info', reason: 'Check if payment is required before committing' }]
+          : [{ tool: 'get_booking_questions', reason: 'Get required questions that need answering' }];
+
         return {
           content: [{ type: 'text' as const, text }],
           structuredContent: {
@@ -152,24 +161,19 @@ export function registerBookingTools(server: McpServer, client: HolibobClient): 
             bookingCode: result.code ?? undefined,
             state: result.state ?? 'OPEN',
             canCommit: result.canCommit ?? false,
+            nextActions,
           },
         };
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        const isAvailabilityError = message.includes('availability') || message.includes('AVAILABILITY_ERROR');
-
-        if (isAvailabilityError) {
-          return {
-            content: [{
-              type: 'text' as const,
-              text: `## Slot Not Ready\n\nThe availability slot could not be added because it is not fully configured.\n\n**Required steps before add_to_booking:**\n1. \`get_slot_options\` — check/answer configuration options\n2. \`get_slot_pricing\` — get pricing categories\n3. \`set_slot_pricing\` — set participant counts (e.g., 2 Adults)\n4. Verify \`isValid = true\` in the response\n\nPlease complete these steps first, then try add_to_booking again.`,
-            }],
-            isError: true,
-          };
-        }
-
+        const structured = classifyError(error, { bookingId });
         return {
-          content: [{ type: 'text' as const, text: `Error adding to booking: ${message}` }],
+          content: [{
+            type: 'text' as const,
+            text: structured.code === 'SLOT_NOT_CONFIGURED'
+              ? `## Slot Not Ready\n\nThe availability slot could not be added because it is not fully configured.\n\n**Required steps before add_to_booking:**\n1. \`get_slot_options\` — check/answer configuration options\n2. \`get_slot_pricing\` — get pricing categories\n3. \`set_slot_pricing\` — set participant counts (e.g., 2 Adults)\n4. Verify \`isValid = true\` in the response\n\nPlease complete these steps first, then try add_to_booking again.`
+              : `Error adding to booking: ${structured.message}`,
+          }],
+          structuredContent: { error: structured, nextActions: structured.nextActions },
           isError: true,
         };
       }
@@ -230,9 +234,22 @@ export function registerBookingTools(server: McpServer, client: HolibobClient): 
       sections.push('\n---');
       sections.push('Use answer_booking_questions to submit answers. Provide the question IDs and values.');
 
+      // Determine if there are unanswered required questions
+      const hasUnanswered = [
+        ...(booking.questionList?.nodes ?? []),
+        ...(booking.availabilityList?.nodes?.flatMap((a) => [
+          ...(a.questionList?.nodes ?? []),
+          ...(a.personList?.nodes?.flatMap((p) => p.questionList?.nodes ?? []) ?? []),
+        ]) ?? []),
+      ].some((q) => !q.answerValue && q.isRequired);
+
+      const nextActions: NextAction[] = hasUnanswered
+        ? [{ tool: 'answer_booking_questions', reason: 'Answer the required questions listed above' }]
+        : [{ tool: 'get_payment_info', reason: 'All questions answered — check if payment is required' }];
+
       return {
         content: [{ type: 'text' as const, text: sections.join('\n') }],
-        structuredContent: bookingToStructured(booking),
+        structuredContent: { ...bookingToStructured(booking), nextActions },
       };
     }
   );
@@ -290,9 +307,13 @@ export function registerBookingTools(server: McpServer, client: HolibobClient): 
         }
       }
 
+      const nextActions: NextAction[] = booking.canCommit
+        ? [{ tool: 'get_payment_info', reason: 'Check if payment is required before committing' }]
+        : [{ tool: 'answer_booking_questions', reason: 'More required questions still need answers' }];
+
       return {
         content: [{ type: 'text' as const, text: sections.join('\n') }],
-        structuredContent: bookingToStructured(booking),
+        structuredContent: { ...bookingToStructured(booking), nextActions },
       };
     }
   );

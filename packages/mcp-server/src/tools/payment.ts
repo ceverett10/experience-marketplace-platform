@@ -2,6 +2,8 @@ import { z } from 'zod';
 import { registerAppTool } from '@modelcontextprotocol/ext-apps/server';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { HolibobClient } from '@experience-marketplace/holibob-api';
+import type { NextAction } from './helpers.js';
+import { classifyError, computeBookingPhase, collectMissingQuestions } from './helpers.js';
 
 export function registerPaymentTools(server: McpServer, client: HolibobClient): void {
   registerAppTool(
@@ -40,6 +42,7 @@ export function registerPaymentTools(server: McpServer, client: HolibobClient): 
               clientSecret: paymentIntent.clientSecret,
               publishableKey: paymentIntent.apiKey,
             },
+            nextActions: [{ tool: 'commit_booking', reason: 'Commit booking after consumer completes Stripe payment' }] as NextAction[],
           },
         };
       } catch (error) {
@@ -56,6 +59,7 @@ export function registerPaymentTools(server: McpServer, client: HolibobClient): 
             structuredContent: {
               bookingId,
               status: 'no_payment_required' as const,
+              nextActions: [{ tool: 'commit_booking', reason: 'No payment needed — commit the booking directly' }] as NextAction[],
             },
           };
         }
@@ -125,6 +129,10 @@ export function registerPaymentTools(server: McpServer, client: HolibobClient): 
           sections.push(`\n**Voucher URL:** ${booking.voucherUrl}`);
         }
 
+        const nextActions: NextAction[] = finalState === 'CONFIRMED'
+          ? []
+          : [{ tool: 'get_booking_status', reason: 'Check if booking has been confirmed by supplier' }];
+
         return {
           content: [{ type: 'text' as const, text: sections.join('\n') }],
           structuredContent: {
@@ -135,34 +143,49 @@ export function registerPaymentTools(server: McpServer, client: HolibobClient): 
             totalPrice: booking.totalPrice?.grossFormattedText ?? undefined,
             items,
             voucherUrl: voucherUrl ?? undefined,
+            nextActions,
           },
         };
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
+        const structured = classifyError(error, { bookingId });
 
-        if (message.includes('payment') || message.includes('requires_payment_method')) {
+        if (structured.code === 'PAYMENT_REQUIRED') {
           return {
             content: [{
               type: 'text' as const,
               text: '## Payment Not Completed\n\nThe booking cannot be committed because payment has not been processed yet.\n\nUse `get_payment_info` to get the Stripe payment details. The consumer must complete payment via Stripe before the booking can be committed.\n\nOnce payment is confirmed, try `commit_booking` again.',
             }],
+            structuredContent: { error: structured, nextActions: structured.nextActions },
             isError: true,
           };
         }
 
-        // Handle unanswered question errors (e.g., "NAME_GIVEN question is not answered")
-        if (message.includes('question is not answered') || message.includes('BOOKING_COMMIT_ERROR')) {
+        if (structured.code === 'MISSING_REQUIRED_QUESTIONS') {
+          // Fetch actual missing questions for the model
+          let missing: string[] = [];
+          try {
+            const bookingData = await client.getBookingQuestions(bookingId);
+            missing = collectMissingQuestions(bookingData);
+          } catch {
+            // Fall back to error message if we can't fetch questions
+          }
+
           return {
             content: [{
               type: 'text' as const,
-              text: `## Required Questions Not Answered\n\n${message}\n\n**Fix:** Call \`get_booking_questions\` to see ALL unanswered questions, then use \`answer_booking_questions\` to answer them. Make sure to:\n- Provide \`leadPassengerName\` (the guest's full name)\n- Answer ALL questions including NAME_GIVEN, EMAIL, and PHONE_NUMBER\n- Check that \`canCommit = true\` in the response before calling commit_booking again.`,
+              text: `## Required Questions Not Answered\n\n${structured.message}\n\n${missing.length ? `**Missing:** ${missing.join(', ')}\n\n` : ''}**Fix:** Call \`get_booking_questions\` to see ALL unanswered questions, then use \`answer_booking_questions\` to answer them. Make sure to:\n- Provide \`leadPassengerName\` (the guest's full name)\n- Answer ALL questions including NAME_GIVEN, EMAIL, and PHONE_NUMBER\n- Check that \`canCommit = true\` in the response before calling commit_booking again.`,
             }],
+            structuredContent: {
+              error: { ...structured, missing },
+              nextActions: structured.nextActions,
+            },
             isError: true,
           };
         }
 
         return {
-          content: [{ type: 'text' as const, text: `Error committing booking: ${message}` }],
+          content: [{ type: 'text' as const, text: `Error committing booking: ${structured.message}` }],
+          structuredContent: { error: structured, nextActions: structured.nextActions },
           isError: true,
         };
       }
@@ -222,6 +245,16 @@ export function registerPaymentTools(server: McpServer, client: HolibobClient): 
         sections.push(`\n**Voucher URL:** ${booking.voucherUrl}`);
       }
 
+      const phase = computeBookingPhase(booking);
+      const nextActions: NextAction[] =
+        phase === 'CONFIRMED' ? []
+        : phase === 'COMMITTED_PENDING' ? [{ tool: 'get_booking_status', reason: 'Check again later for supplier confirmation' }]
+        : phase === 'NEEDS_PAYMENT' ? [{ tool: 'get_payment_info', reason: 'Payment is required' }]
+        : phase === 'READY_TO_COMMIT' ? [{ tool: 'commit_booking', reason: 'Booking is ready to commit' }]
+        : phase === 'NEEDS_QUESTIONS' ? [{ tool: 'get_booking_questions', reason: 'Questions need answering' }]
+        : phase === 'DRAFT' ? [{ tool: 'add_to_booking', reason: 'Add an availability slot to start' }]
+        : [];
+
       return {
         content: [{ type: 'text' as const, text: sections.join('\n') }],
         structuredContent: {
@@ -232,11 +265,13 @@ export function registerPaymentTools(server: McpServer, client: HolibobClient): 
             : booking.paymentState === 'AWAITING_PAYMENT' ? 'payment_required' as const
             : 'open' as const,
           state: booking.state,
+          bookingPhase: phase,
           leadPassenger: booking.leadPassengerName ?? undefined,
           paymentState: booking.paymentState ?? undefined,
           totalPrice: booking.totalPrice?.grossFormattedText ?? undefined,
           items,
           voucherUrl: booking.voucherUrl ?? undefined,
+          nextActions,
         },
       };
     }
