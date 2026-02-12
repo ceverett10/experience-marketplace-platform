@@ -237,6 +237,11 @@ export function registerDiscoveryTools(server: McpServer, client: HolibobClient)
           experiences: result.products.map(productToStructured),
           destination,
           hasMore: result.pageInfo.hasNextPage,
+          prefilled: {
+            where: destination ?? null,
+            what: searchTerm ?? null,
+            who: travelers ?? null,
+          },
         },
       };
     }

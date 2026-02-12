@@ -7,10 +7,10 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
 <style>
   :root { --primary: #14B8A6; --primary-light: rgba(20,184,166,0.1); --primary-dark: #0D9488; --bg: #111827; --surface: rgba(255,255,255,0.05); --surface-hover: rgba(255,255,255,0.08); --surface-raised: rgba(255,255,255,0.07); --border: rgba(255,255,255,0.1); --border-hover: rgba(255,255,255,0.2); --text: #F5F7FA; --text-secondary: #D1D5DB; --text-muted: #9CA3AF; --text-dim: #6B7280; --yellow: #FACC15; --green: #4ADE80; --red: #F87171; --shadow-sm: 0 1px 3px rgba(0,0,0,0.3); --shadow: 0 4px 12px rgba(0,0,0,0.4); --shadow-lg: 0 8px 24px rgba(0,0,0,0.5); --radius: 12px; --card-w: 260px; --gap: 14px; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; color: var(--text); background: var(--bg); -webkit-font-smoothing: antialiased; line-height: 1.5; }
+  body { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; color: var(--text); background: transparent; -webkit-font-smoothing: antialiased; line-height: 1.5; }
 
   /* === LOADING === */
-  .loading-overlay { position: fixed; inset: 0; background: rgba(17,24,39,0.85); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; z-index: 100; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+  .loading-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; z-index: 100; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
   .loading-overlay.active { opacity: 1; pointer-events: auto; }
   .spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.7s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
