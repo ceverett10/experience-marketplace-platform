@@ -18,7 +18,7 @@ import { canExecuteAutonomousOperation } from '../services/pause-control';
 type SocialPlatform = 'PINTEREST' | 'FACEBOOK' | 'TWITTER';
 type ContentType = 'blog_promo' | 'engagement' | 'travel_tip';
 
-const MAX_POSTS_PER_DAY = 7;
+const MAX_POSTS_PER_DAY = 7; // Per platform account per day
 const PEAK_START_HOUR = 9; // 9 AM local
 const PEAK_END_HOUR = 19; // 7 PM local
 const JITTER_MINUTES = 15;
