@@ -515,15 +515,23 @@ async function scanPinterestCpc(
   let enriched = 0;
   let newStored = 0;
   let apiCost = 0;
+  let consecutiveFailures = 0;
   const batchSize = 5;
 
   for (let i = 0; i < existingOpportunities.length; i += batchSize) {
+    // Bail out early if API is consistently failing (e.g., missing OAuth scope)
+    if (consecutiveFailures >= 3) {
+      console.log('[PaidKeywordScan/Pinterest] 3 consecutive API failures — aborting (check OAuth scopes)');
+      break;
+    }
+
     const batch = existingOpportunities.slice(i, i + batchSize);
     const keywords = batch.map((o) => o.keyword);
 
     try {
       const metrics = await client.getKeywordMetrics(keywords);
       apiCost += 0.001; // Pinterest Ads API — free tier, tracked for consistency
+      consecutiveFailures = 0; // Reset on success
 
       for (const metric of metrics) {
         if (metric.bidSuggested <= 0) continue;
@@ -577,6 +585,7 @@ async function scanPinterestCpc(
         }
       }
     } catch (error) {
+      consecutiveFailures++;
       console.error('[PaidKeywordScan/Pinterest] Batch failed:', error);
     }
   }
@@ -646,12 +655,20 @@ async function scanMetaAudiences(
   let enriched = 0;
   let newStored = 0;
   let apiCost = 0;
+  let consecutiveFailures = 0;
 
   for (const seed of topSeeds) {
+    // Bail out early if API is consistently failing (e.g., missing OAuth scope)
+    if (consecutiveFailures >= 3) {
+      console.log('[PaidKeywordScan/Meta] 3 consecutive API failures — aborting (check OAuth scopes)');
+      break;
+    }
+
     try {
       // Step 1: Find interests related to keyword
       const interests = await client.searchInterests(seed.keyword);
       apiCost += 0.001;
+      consecutiveFailures = 0; // Reset on success
 
       if (interests.length === 0) continue;
 
@@ -728,6 +745,7 @@ async function scanMetaAudiences(
         newStored++;
       }
     } catch (error) {
+      consecutiveFailures++;
       console.error(`[PaidKeywordScan/Meta] Failed for seed "${seed.keyword}":`, error);
     }
   }

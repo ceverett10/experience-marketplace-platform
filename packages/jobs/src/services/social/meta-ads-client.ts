@@ -69,6 +69,10 @@ export class MetaAdsClient {
         console.error(
           `[MetaAds] Interest search error (${response.status}): ${errorText.substring(0, 200)}`
         );
+        // Throw on auth errors so the scanner can detect persistent failures
+        if (response.status === 401 || response.status === 403) {
+          throw new Error(`Meta Ads API auth error (${response.status}): ${errorText.substring(0, 200)}`);
+        }
         return [];
       }
 

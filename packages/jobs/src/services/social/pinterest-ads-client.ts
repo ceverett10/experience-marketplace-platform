@@ -81,6 +81,10 @@ export class PinterestAdsClient {
           console.error(
             `[PinterestAds] API error (${response.status}): ${errorText.substring(0, 200)}`
           );
+          // Throw on auth errors so the scanner can detect persistent failures
+          if (response.status === 401 || response.status === 403) {
+            throw new Error(`Pinterest Ads API auth error (${response.status}): ${errorText.substring(0, 200)}`);
+          }
           continue; // Skip this batch, try next
         }
 
