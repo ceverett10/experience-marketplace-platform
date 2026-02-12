@@ -365,12 +365,12 @@ export function registerDiscoveryTools(server: McpServer, client: HolibobClient)
     'plan_trip',
     {
       title: 'Plan Trip',
-      description: 'Show an interactive trip planner. Use at the start of a conversation or when the user wants to explore experiences. Collects Where, When, Who, and What preferences via suggestion chips.',
+      description: 'Show an interactive trip planner. Use at the start of a conversation or when the user wants to explore experiences. IMPORTANT: Extract ALL known preferences from the user message and pass them as parameters. For example, if the user says "walking tours for families in London", set knownDestination="London", knownWhat="Walking Tours", knownWho="Family with Kids". Always pre-fill any information the user has already provided.',
       inputSchema: {
-        knownDestination: z.string().optional().describe('Pre-fill destination if already known (e.g., "London")'),
-        knownWhen: z.string().optional().describe('Pre-fill timing if already known (e.g., "This Weekend")'),
-        knownWho: z.string().optional().describe('Pre-fill group type if already known (e.g., "Couple")'),
-        knownWhat: z.string().optional().describe('Pre-fill activity interest if already known (e.g., "Walking Tours")'),
+        knownDestination: z.string().optional().describe('ALWAYS set this if user mentions a destination/city/country (e.g., "London", "Paris")'),
+        knownWhen: z.string().optional().describe('ALWAYS set this if user mentions timing (e.g., "This Weekend", "Tomorrow", "Next Week")'),
+        knownWho: z.string().optional().describe('ALWAYS set this if user mentions group type. Map to: "Solo Traveller", "Couple", "Family with Kids", or "Group of Friends"'),
+        knownWhat: z.string().optional().describe('ALWAYS set this if user mentions activity type (e.g., "Walking Tours", "Food & Drink", "Museums")'),
       },
       _meta: { ui: { resourceUri: 'ui://holibob/combined-experience.html' } },
     },

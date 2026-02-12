@@ -145,7 +145,7 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
     plannerExpanded: true,
     selections: { where: '', when: '', who: '', what: '' },
     activeIdx: 0,
-    allChips: {},
+    allChips: { where: ['London','Paris','Barcelona','Rome','Amsterdam','Edinburgh'], when: ['Today','Tomorrow','This Weekend','Next Week','Next Month'], who: ['Solo Traveller','Couple','Family with Kids','Group of Friends'], what: ['Walking Tours','Food & Drink','Museums','Outdoor Activities','Day Trips'] },
     experiences: [],
     seenIds: {},
     destination: '',
@@ -497,8 +497,25 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
 
       case 'copy-suggestion':
         var copyText = actionEl.getAttribute('data-text');
-        if (copyText && navigator.clipboard) {
-          navigator.clipboard.writeText(copyText).catch(function(){});
+        if (copyText) {
+          var copied = false;
+          try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(copyText).then(function(){ copied = true; }).catch(function(){});
+              copied = true;
+            }
+          } catch(e) {}
+          if (!copied) {
+            try {
+              var ta = document.createElement('textarea');
+              ta.value = copyText;
+              ta.style.cssText = 'position:fixed;left:-9999px;top:-9999px;opacity:0';
+              document.body.appendChild(ta);
+              ta.select();
+              document.execCommand('copy');
+              document.body.removeChild(ta);
+            } catch(e) {}
+          }
           var copyIcon = actionEl.querySelector('.copy-icon');
           if (copyIcon) { copyIcon.textContent = '\\u2713'; setTimeout(function(){ copyIcon.textContent = '\\u{1F4CB}'; }, 1500); }
         }
