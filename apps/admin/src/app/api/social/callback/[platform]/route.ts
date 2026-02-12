@@ -125,6 +125,32 @@ export async function GET(
 
     console.log(`[Social OAuth] ${platform} account connected for site ${siteId}`);
 
+    // Propagate tokens to all other sites sharing the same platform + accountId.
+    // This ensures all sites get valid tokens when one is re-authenticated.
+    if (tokenData.accountId) {
+      const platformEnum = platform.toUpperCase();
+      const propagated = await prisma.socialAccount.updateMany({
+        where: {
+          platform: platformEnum as any,
+          accountId: tokenData.accountId,
+          siteId: { not: siteId },
+        },
+        data: {
+          accessToken: encryptToken(tokenData.accessToken),
+          refreshToken: tokenData.refreshToken ? encryptToken(tokenData.refreshToken) : undefined,
+          tokenExpiresAt: tokenData.expiresIn
+            ? new Date(Date.now() + tokenData.expiresIn * 1000)
+            : undefined,
+          updatedAt: new Date(),
+        },
+      });
+      if (propagated.count > 0) {
+        console.log(
+          `[Social OAuth] Propagated ${platform} tokens to ${propagated.count} sibling account(s)`
+        );
+      }
+    }
+
     return NextResponse.redirect(
       `${ADMIN_BASE_URL}/sites/${siteId}?tab=social&connected=${platform}`
     );

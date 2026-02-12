@@ -489,7 +489,7 @@ async function scanPinterestCpc(
   // Get Pinterest OAuth token from any active social account
   const account = await prisma.socialAccount.findFirst({
     where: { platform: 'PINTEREST', isActive: true },
-    select: { id: true, platform: true, accessToken: true, refreshToken: true, tokenExpiresAt: true },
+    select: { id: true, platform: true, accountId: true, accessToken: true, refreshToken: true, tokenExpiresAt: true },
   });
 
   if (!account || !account.accessToken) {
@@ -627,7 +627,7 @@ async function scanMetaAudiences(
   // Get Facebook OAuth token from any active social account
   const account = await prisma.socialAccount.findFirst({
     where: { platform: 'FACEBOOK', isActive: true },
-    select: { id: true, platform: true, accessToken: true, refreshToken: true, tokenExpiresAt: true },
+    select: { id: true, platform: true, accountId: true, accessToken: true, refreshToken: true, tokenExpiresAt: true },
   });
 
   if (!account || !account.accessToken) {

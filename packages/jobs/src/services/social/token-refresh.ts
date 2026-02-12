@@ -10,10 +10,17 @@ interface TokenRefreshResult {
 /**
  * Refresh an OAuth token if it's within 24 hours of expiry.
  * Returns the account with updated tokens, or the original if no refresh needed.
+ *
+ * For shared accounts (same platform + accountId across multiple sites), this:
+ * 1. Checks if a sibling account has fresher tokens before attempting refresh
+ * 2. Propagates refreshed tokens to ALL sibling accounts after success
+ * This handles platforms like Twitter where refresh tokens are single-use and
+ * only one token set is valid per user-app combination.
  */
 export async function refreshTokenIfNeeded(account: {
   id: string;
   platform: string;
+  accountId?: string | null;
   accessToken: string | null;
   refreshToken: string | null;
   tokenExpiresAt: Date | null;
@@ -32,6 +39,42 @@ export async function refreshTokenIfNeeded(account: {
 
   if (hoursUntilExpiry > 24) {
     return { accessToken: decryptToken(account.accessToken) };
+  }
+
+  // Before refreshing, check if a sibling account (same platform + accountId) has fresher tokens.
+  // This handles the case where another site already refreshed the shared token.
+  if (account.accountId) {
+    const siblingWithFresherToken = await prisma.socialAccount.findFirst({
+      where: {
+        platform: account.platform as any,
+        accountId: account.accountId,
+        id: { not: account.id },
+        tokenExpiresAt: { gt: new Date() },
+      },
+      orderBy: { tokenExpiresAt: 'desc' },
+      select: { accessToken: true, refreshToken: true, tokenExpiresAt: true },
+    });
+
+    if (siblingWithFresherToken?.accessToken && siblingWithFresherToken.tokenExpiresAt) {
+      const siblingHoursLeft =
+        (siblingWithFresherToken.tokenExpiresAt.getTime() - Date.now()) / (1000 * 60 * 60);
+      if (siblingHoursLeft > hoursUntilExpiry) {
+        console.log(
+          `[Social] Borrowing fresher token from sibling account (${siblingHoursLeft.toFixed(1)}h remaining)`
+        );
+        // Copy sibling's tokens to this account
+        await prisma.socialAccount.update({
+          where: { id: account.id },
+          data: {
+            accessToken: siblingWithFresherToken.accessToken,
+            refreshToken: siblingWithFresherToken.refreshToken,
+            tokenExpiresAt: siblingWithFresherToken.tokenExpiresAt,
+            updatedAt: new Date(),
+          },
+        });
+        return { accessToken: decryptToken(siblingWithFresherToken.accessToken) };
+      }
+    }
   }
 
   // Token needs refresh
@@ -78,6 +121,23 @@ export async function refreshTokenIfNeeded(account: {
     where: { id: account.id },
     data: updateData,
   });
+
+  // Propagate refreshed tokens to all sibling accounts sharing the same platform + accountId
+  if (account.accountId) {
+    const propagated = await prisma.socialAccount.updateMany({
+      where: {
+        platform: account.platform as any,
+        accountId: account.accountId,
+        id: { not: account.id },
+      },
+      data: updateData,
+    });
+    if (propagated.count > 0) {
+      console.log(
+        `[Social] Propagated refreshed ${account.platform} token to ${propagated.count} sibling account(s)`
+      );
+    }
+  }
 
   return { accessToken: result.accessToken };
 }
