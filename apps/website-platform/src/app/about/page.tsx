@@ -232,7 +232,7 @@ function ParentDomainAbout({
       {/* Content */}
       <section className="py-16">
         <div className="mx-auto max-w-4xl px-4">
-          <div className="prose prose-lg max-w-none">
+          <div className="max-w-none text-gray-700 [&>h2]:mt-8 [&>h2]:mb-4 [&>h2]:text-2xl [&>h2]:font-bold [&>h2]:text-gray-900 [&>p]:mb-4 [&>p]:leading-7">
             <h2>Our Mission</h2>
             <p>
               Experiencess brings together a curated network of specialist experience brands,
