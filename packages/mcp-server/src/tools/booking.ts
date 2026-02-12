@@ -107,7 +107,7 @@ export function registerBookingTools(server: McpServer, client: HolibobClient): 
       title: 'Create Booking',
       description: 'Create a new booking basket. This is the first step in the booking process after checking availability.',
       inputSchema: {},
-      _meta: { ui: { resourceUri: 'ui://holibob/booking.html' } },
+      _meta: {},
     },
     async () => {
       const booking = await client.createBooking({ autoFillQuestions: true });
@@ -132,7 +132,7 @@ export function registerBookingTools(server: McpServer, client: HolibobClient): 
         bookingId: z.string().describe('The booking ID from create_booking'),
         availabilityId: z.string().describe('The availability slot ID from check_availability results'),
       },
-      _meta: { ui: { resourceUri: 'ui://holibob/booking.html' } },
+      _meta: {},
     },
     async ({ bookingId, availabilityId }) => {
       const result = await client.addAvailabilityToBooking({
@@ -165,7 +165,7 @@ export function registerBookingTools(server: McpServer, client: HolibobClient): 
       inputSchema: {
         bookingId: z.string().describe('The booking ID'),
       },
-      _meta: { ui: { resourceUri: 'ui://holibob/booking.html' } },
+      _meta: {},
     },
     async ({ bookingId }) => {
       const booking = await client.getBookingQuestions(bookingId);
@@ -233,7 +233,7 @@ export function registerBookingTools(server: McpServer, client: HolibobClient): 
           })
         ).optional().describe('Array of question answers'),
       },
-      _meta: { ui: { resourceUri: 'ui://holibob/booking.html' } },
+      _meta: {},
     },
     async ({ bookingId, leadPassengerName, answers }) => {
       const booking = await client.answerBookingQuestions(bookingId, {

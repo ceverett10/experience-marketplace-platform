@@ -7,12 +7,10 @@ import { registerBookingTools } from './tools/booking.js';
 import { registerPaymentTools } from './tools/payment.js';
 import { registerResources } from './resources/index.js';
 import { registerPrompts } from './prompts/index.js';
-import { SEARCH_RESULTS_HTML } from './widgets/search-results.js';
+import { TRIP_PLANNER_HTML } from './widgets/trip-planner.js';
+import { EXPERIENCE_CAROUSEL_HTML } from './widgets/experience-carousel.js';
 import { EXPERIENCE_DETAIL_HTML } from './widgets/experience-detail.js';
-import { AVAILABILITY_HTML } from './widgets/availability.js';
-import { SLOT_CONFIG_HTML } from './widgets/slot-config.js';
-import { BOOKING_HTML } from './widgets/booking.js';
-import { BOOKING_STATUS_HTML } from './widgets/booking-status.js';
+import { COMBINED_EXPERIENCE_HTML } from './widgets/combined-experience.js';
 
 export function createServer(client: HolibobClient): McpServer {
   const server = new McpServer({
@@ -34,12 +32,10 @@ export function createServer(client: HolibobClient): McpServer {
 
   // Register widget app resources for ChatGPT Apps SDK
   const widgets: Array<[string, string, string]> = [
-    ['search-results', 'ui://holibob/search-results.html', SEARCH_RESULTS_HTML],
+    ['trip-planner', 'ui://holibob/trip-planner.html', TRIP_PLANNER_HTML],
+    ['experience-carousel', 'ui://holibob/experience-carousel.html', EXPERIENCE_CAROUSEL_HTML],
     ['experience-detail', 'ui://holibob/experience-detail.html', EXPERIENCE_DETAIL_HTML],
-    ['availability', 'ui://holibob/availability.html', AVAILABILITY_HTML],
-    ['slot-config', 'ui://holibob/slot-config.html', SLOT_CONFIG_HTML],
-    ['booking', 'ui://holibob/booking.html', BOOKING_HTML],
-    ['booking-status', 'ui://holibob/booking-status.html', BOOKING_STATUS_HTML],
+    ['combined-experience', 'ui://holibob/combined-experience.html', COMBINED_EXPERIENCE_HTML],
   ];
 
   for (const [name, uri, html] of widgets) {

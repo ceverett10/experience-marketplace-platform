@@ -196,7 +196,7 @@ export function registerDiscoveryTools(server: McpServer, client: HolibobClient)
         travelers: z.string().optional().describe('Number of travelers (e.g., "2 adults, 1 child")'),
         searchTerm: z.string().optional().describe('Activity search term (e.g., "kayaking", "food tour", "museum")'),
       },
-      _meta: { ui: { resourceUri: 'ui://holibob/search-results.html' } },
+      _meta: { ui: { resourceUri: 'ui://holibob/experience-carousel.html' } },
     },
     async ({ destination, startDate, endDate, travelers, searchTerm }) => {
       let adults = 2;
@@ -325,7 +325,7 @@ export function registerDiscoveryTools(server: McpServer, client: HolibobClient)
         searchTerm: z.string().optional().describe('Activity search term from original search'),
         seenExperienceIds: z.array(z.string()).describe('IDs of experiences already displayed'),
       },
-      _meta: { ui: { resourceUri: 'ui://holibob/search-results.html' } },
+      _meta: { ui: { resourceUri: 'ui://holibob/experience-carousel.html' } },
     },
     async ({ destination, startDate, endDate, searchTerm, seenExperienceIds }) => {
       const result = await client.discoverProducts(
@@ -355,6 +355,63 @@ export function registerDiscoveryTools(server: McpServer, client: HolibobClient)
           experiences: result.products.map(productToStructured),
           destination,
           hasMore: result.pageInfo.hasNextPage,
+        },
+      };
+    }
+  );
+
+  registerAppTool(
+    server,
+    'plan_trip',
+    {
+      title: 'Plan Trip',
+      description: 'Show an interactive trip planner. Use at the start of a conversation or when the user wants to explore experiences. Collects Where, When, Who, and What preferences via suggestion chips.',
+      inputSchema: {
+        knownDestination: z.string().optional().describe('Pre-fill destination if already known (e.g., "London")'),
+        knownWhen: z.string().optional().describe('Pre-fill timing if already known (e.g., "This Weekend")'),
+        knownWho: z.string().optional().describe('Pre-fill group type if already known (e.g., "Couple")'),
+        knownWhat: z.string().optional().describe('Pre-fill activity interest if already known (e.g., "Walking Tours")'),
+      },
+      _meta: { ui: { resourceUri: 'ui://holibob/trip-planner.html' } },
+    },
+    async ({ knownDestination, knownWhen, knownWho, knownWhat }) => {
+      let suggestions: {
+        destination: { id: string; name: string } | null;
+        destinations: Array<{ id: string; name: string }>;
+        tags: Array<{ id: string; name: string }>;
+        searchTerms: string[];
+      } = { destination: null, destinations: [], tags: [], searchTerms: [] };
+
+      if (knownDestination || knownWhat) {
+        suggestions = await client.getSuggestions({
+          currency: 'GBP',
+          freeText: knownDestination,
+          searchTerm: knownWhat,
+        });
+      }
+
+      const prefilled: Record<string, string | null> = {
+        where: knownDestination ?? null,
+        when: knownWhen ?? null,
+        who: knownWho ?? null,
+        what: knownWhat ?? null,
+      };
+
+      return {
+        content: [{ type: 'text' as const, text: 'Trip planner opened. The user can select their preferences using the interactive widget.' }],
+        structuredContent: {
+          suggestions: {
+            destinations: suggestions.destinations,
+            tags: suggestions.tags,
+            searchTerms: suggestions.searchTerms,
+          },
+          prefilled,
+          defaults: {
+            where: ['London', 'Paris', 'Barcelona', 'Rome', 'Amsterdam', 'Edinburgh'],
+            when: ['Today', 'Tomorrow', 'This Weekend', 'Next Week', 'Next Month'],
+            who: ['Solo Traveller', 'Couple', 'Family with Kids', 'Group of Friends'],
+            what: ['Walking Tours', 'Food & Drink', 'Museums', 'Outdoor Activities', 'Day Trips'],
+          },
         },
       };
     }

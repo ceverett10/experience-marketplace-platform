@@ -125,7 +125,7 @@ export function registerAvailabilityTools(server: McpServer, client: HolibobClie
         dateFrom: z.string().describe('Start date in YYYY-MM-DD format'),
         dateTo: z.string().describe('End date in YYYY-MM-DD format'),
       },
-      _meta: { ui: { resourceUri: 'ui://holibob/availability.html' } },
+      _meta: {},
     },
     async ({ experienceId, dateFrom, dateTo }) => {
       const result = await client.getAvailabilityList(experienceId, {
@@ -166,7 +166,7 @@ export function registerAvailabilityTools(server: McpServer, client: HolibobClie
       inputSchema: {
         slotId: z.string().describe('The availability slot ID from check_availability'),
       },
-      _meta: { ui: { resourceUri: 'ui://holibob/slot-config.html' } },
+      _meta: {},
     },
     async ({ slotId }) => {
       const avail = await client.getAvailability(slotId);
@@ -192,7 +192,7 @@ export function registerAvailabilityTools(server: McpServer, client: HolibobClie
           })
         ).describe('Array of option answers'),
       },
-      _meta: { ui: { resourceUri: 'ui://holibob/slot-config.html' } },
+      _meta: {},
     },
     async ({ slotId, options }) => {
       const avail = await client.setAvailabilityOptions(slotId, {
@@ -214,7 +214,7 @@ export function registerAvailabilityTools(server: McpServer, client: HolibobClie
       inputSchema: {
         slotId: z.string().describe('The availability slot ID (must have options complete)'),
       },
-      _meta: { ui: { resourceUri: 'ui://holibob/slot-config.html' } },
+      _meta: {},
     },
     async ({ slotId }) => {
       const avail = await client.getAvailabilityPricing(slotId);
@@ -240,7 +240,7 @@ export function registerAvailabilityTools(server: McpServer, client: HolibobClie
           })
         ).describe('Array of pricing category selections'),
       },
-      _meta: { ui: { resourceUri: 'ui://holibob/slot-config.html' } },
+      _meta: {},
     },
     async ({ slotId, pricingCategories }) => {
       const avail = await client.setAvailabilityPricing(slotId, pricingCategories);

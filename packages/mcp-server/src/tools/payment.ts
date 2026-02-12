@@ -13,7 +13,7 @@ export function registerPaymentTools(server: McpServer, client: HolibobClient): 
       inputSchema: {
         bookingId: z.string().describe('The booking ID'),
       },
-      _meta: { ui: { resourceUri: 'ui://holibob/booking-status.html' } },
+      _meta: {},
     },
     async ({ bookingId }) => {
       try {
@@ -78,7 +78,7 @@ export function registerPaymentTools(server: McpServer, client: HolibobClient): 
         bookingId: z.string().describe('The booking ID to commit'),
         waitForConfirmation: z.boolean().optional().describe('Wait for supplier confirmation (default: true, may take up to 60 seconds)'),
       },
-      _meta: { ui: { resourceUri: 'ui://holibob/booking-status.html' } },
+      _meta: {},
     },
     async ({ bookingId, waitForConfirmation = true }) => {
       try {
@@ -167,7 +167,7 @@ export function registerPaymentTools(server: McpServer, client: HolibobClient): 
       inputSchema: {
         bookingId: z.string().describe('The booking ID to check'),
       },
-      _meta: { ui: { resourceUri: 'ui://holibob/booking-status.html' } },
+      _meta: {},
     },
     async ({ bookingId }) => {
       const booking = await client.getBooking(bookingId);
