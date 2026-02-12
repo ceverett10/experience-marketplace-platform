@@ -220,7 +220,9 @@ async function startHttp(port: number): Promise<void> {
         return;
       }
 
-      const transport = new SSEServerTransport('/messages', res);
+      // Use /mcp/messages so the client POSTs through the proxy (which strips /mcp prefix)
+      const messagesPath = publicBaseUrl.includes('localhost') ? '/messages' : '/mcp/messages';
+      const transport = new SSEServerTransport(messagesPath, res);
       sessions.set(transport.sessionId, { transport, partnerName });
       res.on('close', () => {
         sessions.delete(transport.sessionId);
