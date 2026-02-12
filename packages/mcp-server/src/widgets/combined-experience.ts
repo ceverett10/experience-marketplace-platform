@@ -156,7 +156,7 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
   }
 
   function sendMessage(text) {
-    return rpcRequest('ui/message', { role: 'user', content: [{ type: 'text', text: text }] }).catch(function() {});
+    rpcNotify('ui/message', { role: 'user', content: [{ type: 'text', text: text }] });
   }
 
   function callTool(name, args) {

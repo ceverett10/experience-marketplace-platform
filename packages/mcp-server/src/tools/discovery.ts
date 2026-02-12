@@ -196,7 +196,7 @@ export function registerDiscoveryTools(server: McpServer, client: HolibobClient)
         travelers: z.string().optional().describe('Number of travelers (e.g., "2 adults, 1 child")'),
         searchTerm: z.string().optional().describe('Activity search term (e.g., "kayaking", "food tour", "museum")'),
       },
-      _meta: { ui: { resourceUri: 'ui://holibob/experience-carousel.html' } },
+      _meta: { ui: { resourceUri: 'ui://holibob/combined-experience.html' } },
     },
     async ({ destination, startDate, endDate, travelers, searchTerm }) => {
       let adults = 2;
@@ -251,7 +251,7 @@ export function registerDiscoveryTools(server: McpServer, client: HolibobClient)
       inputSchema: {
         experienceId: z.string().describe('The experience ID from search results'),
       },
-      _meta: { ui: { resourceUri: 'ui://holibob/experience-detail.html' } },
+      _meta: { ui: { resourceUri: 'ui://holibob/combined-experience.html' } },
     },
     async ({ experienceId }) => {
       const product = await client.getProduct(experienceId);
@@ -325,7 +325,7 @@ export function registerDiscoveryTools(server: McpServer, client: HolibobClient)
         searchTerm: z.string().optional().describe('Activity search term from original search'),
         seenExperienceIds: z.array(z.string()).describe('IDs of experiences already displayed'),
       },
-      _meta: { ui: { resourceUri: 'ui://holibob/experience-carousel.html' } },
+      _meta: { ui: { resourceUri: 'ui://holibob/combined-experience.html' } },
     },
     async ({ destination, startDate, endDate, searchTerm, seenExperienceIds }) => {
       const result = await client.discoverProducts(
@@ -372,7 +372,7 @@ export function registerDiscoveryTools(server: McpServer, client: HolibobClient)
         knownWho: z.string().optional().describe('Pre-fill group type if already known (e.g., "Couple")'),
         knownWhat: z.string().optional().describe('Pre-fill activity interest if already known (e.g., "Walking Tours")'),
       },
-      _meta: { ui: { resourceUri: 'ui://holibob/trip-planner.html' } },
+      _meta: { ui: { resourceUri: 'ui://holibob/combined-experience.html' } },
     },
     async ({ knownDestination, knownWhen, knownWho, knownWhat }) => {
       let suggestions: {

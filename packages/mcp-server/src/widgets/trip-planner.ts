@@ -73,7 +73,7 @@ export const TRIP_PLANNER_HTML = `<!DOCTYPE html>
   }
 
   function sendMessage(text) {
-    return rpcRequest('ui/message', { role: 'user', content: [{ type: 'text', text: text }] }).catch(function() {});
+    rpcNotify('ui/message', { role: 'user', content: [{ type: 'text', text: text }] });
   }
 
   window.addEventListener('message', function(event) {
