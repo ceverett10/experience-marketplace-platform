@@ -7,6 +7,7 @@ import type {
   GA4SetupPayload,
   MicrositeGscSyncPayload,
   MicrositeAnalyticsSyncPayload,
+  MicrositeGA4SyncPayload,
   JobResult,
 } from '../types/index.js';
 import { getGA4Client, isGA4Configured } from '../services/ga4-client.js';
@@ -1381,6 +1382,238 @@ export async function handleMicrositeAnalyticsSync(
     };
   } catch (error) {
     console.error('[Microsite Analytics Sync] Error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      timestamp: new Date(),
+    };
+  }
+}
+
+// Cache the resolved GA4 property ID so we only look it up once per process
+let _cachedMicrositeGA4PropertyId: string | null = null;
+
+/**
+ * Resolve the shared microsite GA4 property ID.
+ * Checks MICROSITE_GA4_PROPERTY_ID env var first, then falls back to
+ * discovering it via the GA4 Admin API using GA4_ACCOUNT_ID.
+ */
+async function resolveMicrositeGA4PropertyId(ga4Client: ReturnType<typeof getGA4Client>): Promise<string | null> {
+  // 1. Explicit env var takes priority
+  const explicit = process.env['MICROSITE_GA4_PROPERTY_ID'];
+  if (explicit) return explicit;
+
+  // 2. Return cached result from previous lookup
+  if (_cachedMicrositeGA4PropertyId) return _cachedMicrositeGA4PropertyId;
+
+  // 3. Discover via GA4 Admin API
+  const accountId = process.env['GA4_ACCOUNT_ID'];
+  if (!accountId) {
+    console.log('[Microsite GA4 Sync] Neither MICROSITE_GA4_PROPERTY_ID nor GA4_ACCOUNT_ID set');
+    return null;
+  }
+
+  try {
+    const properties = await ga4Client.listProperties(accountId);
+    const micrositeProperty = properties.find(
+      (p) => p.displayName?.includes('Experiencess') || p.displayName?.includes(MICROSITE_PARENT_DOMAIN)
+    );
+
+    if (micrositeProperty?.propertyId) {
+      console.log(`[Microsite GA4 Sync] Resolved GA4 property: ${micrositeProperty.displayName} (${micrositeProperty.propertyId})`);
+      _cachedMicrositeGA4PropertyId = micrositeProperty.propertyId;
+      return micrositeProperty.propertyId;
+    }
+
+    console.log('[Microsite GA4 Sync] No GA4 property found matching "Experiencess" or parent domain');
+    return null;
+  } catch (error) {
+    console.error('[Microsite GA4 Sync] Error discovering GA4 property:', error);
+    return null;
+  }
+}
+
+/**
+ * Microsite GA4 Sync Handler
+ * Queries the shared parent GA4 property with hostName dimension
+ * to break down traffic by microsite subdomain.
+ */
+export async function handleMicrositeGA4Sync(
+  job: Job<MicrositeGA4SyncPayload>
+): Promise<JobResult> {
+  const { micrositeId, date } = job.data;
+
+  try {
+    console.log(
+      `[Microsite GA4 Sync] Starting sync${micrositeId ? ` for ${micrositeId}` : ' for all microsites'}`
+    );
+
+    if (!isGA4Configured()) {
+      console.log('[Microsite GA4 Sync] GA4 not configured (missing credentials), skipping');
+      return {
+        success: false,
+        error: 'GA4 not configured',
+        timestamp: new Date(),
+      };
+    }
+
+    const ga4Client = getGA4Client();
+    const ga4PropertyId = await resolveMicrositeGA4PropertyId(ga4Client);
+    if (!ga4PropertyId) {
+      console.log('[Microsite GA4 Sync] Could not resolve GA4 property ID, skipping');
+      return {
+        success: true,
+        message: 'GA4 property ID not available (set MICROSITE_GA4_PROPERTY_ID or GA4_ACCOUNT_ID)',
+        data: { synced: 0 },
+        timestamp: new Date(),
+      };
+    }
+
+    // Calculate target date (default: yesterday — GA4 has ~24h reporting lag)
+    const targetDate = date
+      ? new Date(date)
+      : (() => {
+          const d = new Date();
+          d.setDate(d.getDate() - 1);
+          return d;
+        })();
+    targetDate.setHours(0, 0, 0, 0);
+    const dateStr = targetDate.toISOString().split('T')[0]!;
+
+    // Get active microsites
+    const micrositeWhere: any = {
+      parentDomain: MICROSITE_PARENT_DOMAIN,
+      status: 'ACTIVE',
+    };
+    if (micrositeId) {
+      micrositeWhere.id = micrositeId;
+    }
+
+    const microsites = await prisma.micrositeConfig.findMany({
+      where: micrositeWhere,
+      select: {
+        id: true,
+        fullDomain: true,
+        siteName: true,
+      },
+    });
+
+    if (microsites.length === 0) {
+      return {
+        success: true,
+        message: 'No active microsites to sync',
+        timestamp: new Date(),
+      };
+    }
+
+    // Build hostname -> micrositeId lookup map
+    const hostnameMap = new Map(microsites.map((m) => [m.fullDomain, m.id]));
+
+    console.log(
+      `[Microsite GA4 Sync] Querying GA4 property ${ga4PropertyId} for ${dateStr} across ${microsites.length} microsites`
+    );
+
+    // Fetch all 3 reports in parallel (3 API calls total, not per-microsite)
+    const [trafficRows, sourceRows, deviceRows] = await Promise.all([
+      ga4Client.getTrafficByHostname(ga4PropertyId, dateStr, dateStr),
+      ga4Client.getSourcesByHostname(ga4PropertyId, dateStr, dateStr),
+      ga4Client.getDevicesByHostname(ga4PropertyId, dateStr, dateStr),
+    ]);
+
+    console.log(
+      `[Microsite GA4 Sync] GA4 returned: ${trafficRows.length} traffic rows, ${sourceRows.length} source rows, ${deviceRows.length} device rows`
+    );
+
+    // Group source data by hostname
+    const sourcesByHostname = new Map<string, Array<{ source: string; medium: string; users: number; sessions: number }>>();
+    for (const row of sourceRows) {
+      const msId = hostnameMap.get(row.hostname);
+      if (!msId) continue;
+      const existing = sourcesByHostname.get(row.hostname) || [];
+      existing.push({ source: row.source, medium: row.medium, users: row.users, sessions: row.sessions });
+      sourcesByHostname.set(row.hostname, existing);
+    }
+
+    // Group device data by hostname
+    const devicesByHostname = new Map<string, Array<{ device: string; users: number; sessions: number }>>();
+    for (const row of deviceRows) {
+      const msId = hostnameMap.get(row.hostname);
+      if (!msId) continue;
+      const existing = devicesByHostname.get(row.hostname) || [];
+      existing.push({ device: row.deviceCategory, users: row.users, sessions: row.sessions });
+      devicesByHostname.set(row.hostname, existing);
+    }
+
+    // Upsert snapshots for each microsite with traffic data
+    let synced = 0;
+    let errors = 0;
+
+    for (const traffic of trafficRows) {
+      const msId = hostnameMap.get(traffic.hostname);
+      if (!msId) continue;
+
+      try {
+        const sources = sourcesByHostname.get(traffic.hostname) || [];
+        const devices = devicesByHostname.get(traffic.hostname) || [];
+
+        await prisma.micrositeAnalyticsSnapshot.upsert({
+          where: {
+            micrositeId_date: {
+              micrositeId: msId,
+              date: targetDate,
+            },
+          },
+          update: {
+            users: traffic.totalUsers,
+            newUsers: traffic.newUsers,
+            sessions: traffic.sessions,
+            pageviews: traffic.pageviews,
+            bounceRate: traffic.bounceRate,
+            avgSessionDuration: traffic.avgSessionDuration,
+            engagementRate: traffic.engagementRate,
+            trafficSources: sources as any,
+            deviceBreakdown: devices as any,
+            ga4Synced: true,
+            updatedAt: new Date(),
+          },
+          create: {
+            micrositeId: msId,
+            date: targetDate,
+            users: traffic.totalUsers,
+            newUsers: traffic.newUsers,
+            sessions: traffic.sessions,
+            pageviews: traffic.pageviews,
+            bounceRate: traffic.bounceRate,
+            avgSessionDuration: traffic.avgSessionDuration,
+            engagementRate: traffic.engagementRate,
+            trafficSources: sources as any,
+            deviceBreakdown: devices as any,
+            ga4Synced: true,
+          },
+        });
+
+        synced++;
+        console.log(
+          `[Microsite GA4 Sync] ${traffic.hostname}: users=${traffic.totalUsers}, sessions=${traffic.sessions}, pageviews=${traffic.pageviews}`
+        );
+      } catch (error) {
+        console.error(`[Microsite GA4 Sync] Error upserting snapshot for ${traffic.hostname}:`, error);
+        errors++;
+      }
+    }
+
+    console.log(
+      `[Microsite GA4 Sync] Complete: ${synced} synced, ${errors} errors, date=${dateStr}`
+    );
+
+    return {
+      success: true,
+      message: `Synced GA4 data for ${synced} microsites`,
+      data: { synced, errors, date: dateStr },
+      timestamp: new Date(),
+    };
+  } catch (error) {
+    console.error('[Microsite GA4 Sync] Error:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',

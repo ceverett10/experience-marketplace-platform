@@ -36,6 +36,7 @@ import {
   handleRefreshAnalyticsViews,
   handleMicrositeGscSync,
   handleMicrositeAnalyticsSync,
+  handleMicrositeGA4Sync,
   handleABTestAnalyze,
   handleABTestRebalance,
   processAllSiteRoadmaps,
@@ -342,6 +343,8 @@ const analyticsWorker = new Worker(
         return await handleMicrositeGscSync(job);
       case 'MICROSITE_ANALYTICS_SYNC':
         return await handleMicrositeAnalyticsSync(job);
+      case 'MICROSITE_GA4_SYNC':
+        return await handleMicrositeGA4Sync(job);
       default:
         throw new Error(`Unknown job type: ${job.name}`);
     }

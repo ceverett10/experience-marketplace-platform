@@ -618,6 +618,167 @@ export class GA4Client {
     }
   }
 
+  // ==========================================================================
+  // HOSTNAME-DIMENSIONED REPORTS (for microsite analytics)
+  // ==========================================================================
+
+  /**
+   * Get traffic report broken down by hostname.
+   * Used to partition a shared GA4 property's traffic across microsites.
+   */
+  async getTrafficByHostname(
+    propertyId: string,
+    startDate: string,
+    endDate: string
+  ): Promise<
+    Array<{
+      hostname: string;
+      totalUsers: number;
+      newUsers: number;
+      sessions: number;
+      pageviews: number;
+      bounceRate: number;
+      avgSessionDuration: number;
+      engagementRate: number;
+    }>
+  > {
+    if (!this.dataClient) {
+      console.warn('[GA4 Client] Data API not available');
+      return [];
+    }
+
+    try {
+      const [response] = await this.dataClient.runReport({
+        property: `properties/${propertyId}`,
+        dateRanges: [{ startDate, endDate }],
+        dimensions: [{ name: 'hostName' }],
+        metrics: [
+          { name: 'totalUsers' },
+          { name: 'newUsers' },
+          { name: 'sessions' },
+          { name: 'screenPageViews' },
+          { name: 'bounceRate' },
+          { name: 'averageSessionDuration' },
+          { name: 'engagementRate' },
+        ],
+        limit: 10000,
+      });
+
+      return (response.rows || []).map((row) => ({
+        hostname: row.dimensionValues?.[0]?.value || '',
+        totalUsers: parseInt(row.metricValues?.[0]?.value || '0', 10),
+        newUsers: parseInt(row.metricValues?.[1]?.value || '0', 10),
+        sessions: parseInt(row.metricValues?.[2]?.value || '0', 10),
+        pageviews: parseInt(row.metricValues?.[3]?.value || '0', 10),
+        bounceRate: parseFloat(row.metricValues?.[4]?.value || '0'),
+        avgSessionDuration: parseFloat(row.metricValues?.[5]?.value || '0'),
+        engagementRate: parseFloat(row.metricValues?.[6]?.value || '0'),
+      }));
+    } catch (error) {
+      console.error('[GA4 Client] Error getting traffic by hostname:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get traffic sources broken down by hostname.
+   */
+  async getSourcesByHostname(
+    propertyId: string,
+    startDate: string,
+    endDate: string
+  ): Promise<
+    Array<{
+      hostname: string;
+      source: string;
+      medium: string;
+      users: number;
+      sessions: number;
+    }>
+  > {
+    if (!this.dataClient) {
+      console.warn('[GA4 Client] Data API not available');
+      return [];
+    }
+
+    try {
+      const [response] = await this.dataClient.runReport({
+        property: `properties/${propertyId}`,
+        dateRanges: [{ startDate, endDate }],
+        dimensions: [
+          { name: 'hostName' },
+          { name: 'sessionSource' },
+          { name: 'sessionMedium' },
+        ],
+        metrics: [
+          { name: 'totalUsers' },
+          { name: 'sessions' },
+        ],
+        orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
+        limit: 10000,
+      });
+
+      return (response.rows || []).map((row) => ({
+        hostname: row.dimensionValues?.[0]?.value || '',
+        source: row.dimensionValues?.[1]?.value || '(direct)',
+        medium: row.dimensionValues?.[2]?.value || '(none)',
+        users: parseInt(row.metricValues?.[0]?.value || '0', 10),
+        sessions: parseInt(row.metricValues?.[1]?.value || '0', 10),
+      }));
+    } catch (error) {
+      console.error('[GA4 Client] Error getting sources by hostname:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get device breakdown by hostname.
+   */
+  async getDevicesByHostname(
+    propertyId: string,
+    startDate: string,
+    endDate: string
+  ): Promise<
+    Array<{
+      hostname: string;
+      deviceCategory: string;
+      users: number;
+      sessions: number;
+    }>
+  > {
+    if (!this.dataClient) {
+      console.warn('[GA4 Client] Data API not available');
+      return [];
+    }
+
+    try {
+      const [response] = await this.dataClient.runReport({
+        property: `properties/${propertyId}`,
+        dateRanges: [{ startDate, endDate }],
+        dimensions: [
+          { name: 'hostName' },
+          { name: 'deviceCategory' },
+        ],
+        metrics: [
+          { name: 'totalUsers' },
+          { name: 'sessions' },
+        ],
+        orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
+        limit: 10000,
+      });
+
+      return (response.rows || []).map((row) => ({
+        hostname: row.dimensionValues?.[0]?.value || '',
+        deviceCategory: row.dimensionValues?.[1]?.value || 'unknown',
+        users: parseInt(row.metricValues?.[0]?.value || '0', 10),
+        sessions: parseInt(row.metricValues?.[1]?.value || '0', 10),
+      }));
+    } catch (error) {
+      console.error('[GA4 Client] Error getting devices by hostname:', error);
+      return [];
+    }
+  }
+
   /**
    * Compare traffic between two periods
    * Useful for tracking SEO impact over time

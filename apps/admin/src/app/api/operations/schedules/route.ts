@@ -136,6 +136,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       SUPPLIER_SYNC: { forceSync: false },
       PRODUCT_SYNC: { forceSync: false },
       MICROSITE_HEALTH_CHECK: {},
+      MICROSITE_GA4_SYNC: {},
       SOCIAL_DAILY_POSTING: {},
       PAID_KEYWORD_SCAN: { maxCpc: 3.0, minVolume: 100, modes: ['gsc', 'expansion', 'discovery', 'pinterest', 'meta'] },
     };

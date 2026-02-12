@@ -194,6 +194,11 @@ export interface MicrositeAnalyticsSyncPayload {
   date?: string; // YYYY-MM-DD, defaults to yesterday
 }
 
+export interface MicrositeGA4SyncPayload {
+  micrositeId?: string; // Optional - if not provided, syncs all active microsites
+  date?: string; // YYYY-MM-DD, defaults to yesterday
+}
+
 // Site Management Jobs
 export interface SiteCreatePayload {
   opportunityId: string;
@@ -416,6 +421,7 @@ export type JobPayload =
   | MicrositeHealthCheckPayload
   | MicrositeGscSyncPayload
   | MicrositeAnalyticsSyncPayload
+  | MicrositeGA4SyncPayload
   | SupplierSyncPayload
   | ProductSyncPayload
   | SocialDailyPostingPayload
@@ -537,6 +543,7 @@ export const JOB_TYPE_TO_QUEUE: Record<JobType, QueueName> = {
   REFRESH_ANALYTICS_VIEWS: QUEUE_NAMES.ANALYTICS,
   MICROSITE_GSC_SYNC: QUEUE_NAMES.ANALYTICS,
   MICROSITE_ANALYTICS_SYNC: QUEUE_NAMES.ANALYTICS,
+  MICROSITE_GA4_SYNC: QUEUE_NAMES.ANALYTICS,
 
   // Social Media
   SOCIAL_POST_GENERATE: QUEUE_NAMES.SOCIAL,

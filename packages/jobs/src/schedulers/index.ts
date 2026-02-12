@@ -208,7 +208,15 @@ export async function initializeScheduledJobs(): Promise<void> {
   );
   console.log('[Scheduler] ✓ Microsite GSC Sync - Daily at 7 AM');
 
-  // Microsite Analytics Sync - Daily at 8 AM (after GSC sync)
+  // Microsite GA4 Sync - Daily at 7:30 AM (after GSC sync, before analytics aggregation)
+  await scheduleJob(
+    'MICROSITE_GA4_SYNC' as any,
+    {} as any, // Empty payload - syncs all active microsites
+    '30 7 * * *' // Daily at 7:30 AM
+  );
+  console.log('[Scheduler] ✓ Microsite GA4 Sync - Daily at 7:30 AM');
+
+  // Microsite Analytics Sync - Daily at 8 AM (after GSC + GA4 sync)
   await scheduleJob(
     'MICROSITE_ANALYTICS_SYNC' as any,
     {} as any, // Empty payload - syncs all active microsites
@@ -669,6 +677,7 @@ export async function removeAllScheduledJobs(): Promise<void> {
   await queueRegistry.removeRepeatableJob('GA4_DAILY_SYNC' as any, '0 6 * * *');
   await queueRegistry.removeRepeatableJob('REFRESH_ANALYTICS_VIEWS' as any, '0 * * * *');
   await queueRegistry.removeRepeatableJob('MICROSITE_GSC_SYNC' as any, '0 7 * * *');
+  await queueRegistry.removeRepeatableJob('MICROSITE_GA4_SYNC' as any, '30 7 * * *');
   await queueRegistry.removeRepeatableJob('MICROSITE_ANALYTICS_SYNC' as any, '0 8 * * *');
   await queueRegistry.removeRepeatableJob('PERFORMANCE_REPORT', '0 9 * * 1');
   await queueRegistry.removeRepeatableJob('ABTEST_REBALANCE', '0 * * * *');
@@ -841,6 +850,21 @@ export function getScheduledJobs(): Array<{
       jobType: 'MICROSITE_CONTENT_REFRESH',
       schedule: '0 6 * * *',
       description: 'Refresh 1% of microsite content daily (rotating)',
+    },
+    {
+      jobType: 'MICROSITE_GSC_SYNC',
+      schedule: '0 7 * * *',
+      description: 'Sync GSC search data for all microsites from parent domain property',
+    },
+    {
+      jobType: 'MICROSITE_GA4_SYNC',
+      schedule: '30 7 * * *',
+      description: 'Sync GA4 traffic data for all microsites from shared property',
+    },
+    {
+      jobType: 'MICROSITE_ANALYTICS_SYNC',
+      schedule: '0 8 * * *',
+      description: 'Create daily analytics snapshots for microsites (aggregates GSC data)',
     },
     {
       jobType: 'MICROSITE_HEALTH_CHECK',

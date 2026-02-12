@@ -255,6 +255,7 @@ async function validateTaskArtifacts(
     REFRESH_ANALYTICS_VIEWS: { valid: true },
     MICROSITE_GSC_SYNC: { valid: true },
     MICROSITE_ANALYTICS_SYNC: { valid: true },
+    MICROSITE_GA4_SYNC: { valid: true },
 
     // Scheduled Maintenance (not part of standard site roadmap)
     META_TITLE_MAINTENANCE: { valid: true },
@@ -455,6 +456,10 @@ export const TASK_DESCRIPTIONS: Record<JobType, { label: string; description: st
   MICROSITE_ANALYTICS_SYNC: {
     label: 'Sync Microsite Analytics',
     description: 'Create daily analytics snapshots for microsites',
+  },
+  MICROSITE_GA4_SYNC: {
+    label: 'Sync Microsite GA4 Traffic',
+    description: 'Sync GA4 traffic data for microsites from shared property',
   },
 
   // Scheduled Maintenance
