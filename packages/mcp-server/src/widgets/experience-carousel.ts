@@ -60,27 +60,91 @@ export const EXPERIENCE_CAROUSEL_HTML = `<!DOCTYPE html>
   var destination = '';
   var hasMore = false;
 
+  // === JSON-RPC bridge ===
+  var rpcId = 0;
+  var pending = {};
+  var bridgeReady = new Promise(function(resolve) { window._bridgeResolve = resolve; });
+
+  function rpcRequest(method, params) {
+    return new Promise(function(resolve, reject) {
+      var id = ++rpcId;
+      pending[id] = { resolve: resolve, reject: reject };
+      window.parent.postMessage({ jsonrpc: '2.0', id: id, method: method, params: params || {} }, '*');
+    });
+  }
+
+  function rpcNotify(method, params) {
+    window.parent.postMessage({ jsonrpc: '2.0', method: method, params: params || {} }, '*');
+  }
+
+  function sendMessage(text) {
+    return rpcRequest('ui/message', { role: 'user', content: [{ type: 'text', text: text }] });
+  }
+
+  function callTool(name, args) {
+    return rpcRequest('tools/call', { name: name, arguments: args }).then(function(result) {
+      handleData(result && result.structuredContent);
+    });
+  }
+
+  window.addEventListener('message', function(event) {
+    if (event.source !== window.parent) return;
+    var msg = event.data;
+    if (!msg || msg.jsonrpc !== '2.0') return;
+
+    if (msg.id && pending[msg.id]) {
+      var p = pending[msg.id];
+      delete pending[msg.id];
+      if (msg.error) p.reject(msg.error);
+      else p.resolve(msg.result);
+      return;
+    }
+
+    if (msg.method === 'ui/notifications/tool-result' && msg.params) {
+      handleData(msg.params.structuredContent || msg.params._meta);
+    }
+  });
+
+  rpcRequest('ui/initialize', {
+    appInfo: { name: 'Holibob Carousel', version: '1.0.0' },
+    appCapabilities: {},
+    protocolVersion: '2026-01-26'
+  }).then(function() {
+    window._bridgeResolve();
+    rpcNotify('ui/notifications/initialized', {});
+  }).catch(function() {
+    window._bridgeResolve();
+  });
+
+  // === Widget logic ===
   function esc(s) { if (!s) return ''; var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
-  function render() {
+  function handleData(data) {
+    if (!data || !data.experiences) return;
+    if (data.brand && data.brand.primaryColor) document.documentElement.style.setProperty('--primary', data.brand.primaryColor);
+    destination = data.destination || destination;
+    hasMore = data.hasMore || false;
+    data.experiences.forEach(function(exp) {
+      if (!seenIds[exp.id]) { seenIds[exp.id] = true; allExperiences.push(exp); }
+    });
+    renderCarousel();
+  }
+
+  function renderCarousel() {
     if (!allExperiences.length) { root.innerHTML = '<div class="container"><div class="empty">No experiences found. Try different search terms.</div></div>'; return; }
 
     var html = '<div class="container">';
     html += '<div class="header"><h2>Experiences' + (destination ? ' in ' + esc(destination) : '') + '</h2><span class="count">' + allExperiences.length + ' found</span></div>';
     html += '<div class="carousel">';
-
-    // Nav buttons
     html += '<button class="nav-btn left' + (currentIndex <= 0 ? ' hidden' : '') + '" data-dir="left"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg></button>';
-
     html += '<div class="viewport"><div class="track" id="track">';
 
     allExperiences.forEach(function(exp) {
       var imgUrl = exp.imageUrl || '';
-      var badge = exp.isBestSeller ? 'Best Seller' : '';
       html += '<div class="card" data-id="' + esc(exp.id) + '" data-name="' + esc(exp.name) + '">';
       html += '<div class="card-img">';
       if (imgUrl) html += '<img src="' + esc(imgUrl) + '" alt="" loading="lazy">';
-      if (badge) html += '<div class="badge">' + esc(badge) + '</div>';
+      if (exp.isBestSeller) html += '<div class="badge">Best Seller</div>';
       if (exp.rating) html += '<div class="rating-badge"><span class="star">\\u2605</span>' + exp.rating + '</div>';
       html += '</div>';
       html += '<div class="card-body">';
@@ -100,12 +164,9 @@ export const EXPERIENCE_CAROUSEL_HTML = `<!DOCTYPE html>
       html += '<div class="load-more" id="loadMore"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg><span>Show more</span></div>';
     }
 
-    html += '</div></div>'; // track + viewport
-
-    // Right nav
+    html += '</div></div>';
     html += '<button class="nav-btn right" data-dir="right"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg></button>';
-
-    html += '</div></div>'; // carousel + container
+    html += '</div></div>';
     root.innerHTML = html;
 
     updateScroll();
@@ -141,7 +202,7 @@ export const EXPERIENCE_CAROUSEL_HTML = `<!DOCTYPE html>
         if (e.target.closest('.view-btn')) return;
         var id = card.getAttribute('data-id');
         var name = card.getAttribute('data-name');
-        window.parent.postMessage({ jsonrpc: '2.0', method: 'ui/message', params: { role: 'user', content: [{ type: 'text', text: 'Show me details for "' + name + '" (ID: ' + id + ')' }] } }, '*');
+        bridgeReady.then(function() { sendMessage('Show me details for "' + name + '" (ID: ' + id + ')'); });
       });
     });
 
@@ -149,38 +210,20 @@ export const EXPERIENCE_CAROUSEL_HTML = `<!DOCTYPE html>
       btn.addEventListener('click', function() {
         var id = btn.getAttribute('data-id');
         var name = btn.getAttribute('data-name');
-        window.parent.postMessage({ jsonrpc: '2.0', method: 'ui/message', params: { role: 'user', content: [{ type: 'text', text: 'Show me details for "' + name + '" (ID: ' + id + ')' }] } }, '*');
+        bridgeReady.then(function() { sendMessage('Show me details for "' + name + '" (ID: ' + id + ')'); });
       });
     });
 
     var loadMore = document.getElementById('loadMore');
     if (loadMore) {
       loadMore.addEventListener('click', function() {
-        window.parent.postMessage({ jsonrpc: '2.0', method: 'ui/message', params: { role: 'user', content: [{ type: 'text', text: 'Show me more experiences like these' }] } }, '*');
+        var ids = allExperiences.map(function(e) { return e.id; });
+        bridgeReady.then(function() {
+          callTool('load_more_experiences', { destination: destination, seenExperienceIds: ids });
+        });
       });
     }
   }
-
-  window.addEventListener('message', function(event) {
-    if (event.source !== window.parent) return;
-    var msg = event.data;
-    if (msg && msg.method === 'ui/notifications/tool-result' && msg.params) {
-      var data = msg.params.structuredContent || msg.params._meta;
-      if (!data || !data.experiences) return;
-      if (data.brand && data.brand.primaryColor) document.documentElement.style.setProperty('--primary', data.brand.primaryColor);
-      destination = data.destination || destination;
-      hasMore = data.hasMore || false;
-      // Accumulate experiences, deduplicate
-      data.experiences.forEach(function(exp) {
-        if (!seenIds[exp.id]) {
-          seenIds[exp.id] = true;
-          allExperiences.push(exp);
-        }
-      });
-      render();
-    }
-  });
-  window.parent.postMessage({ jsonrpc: '2.0', method: 'ui/notifications/initialized', params: { appInfo: { name: 'Holibob Carousel', version: '1.0.0' } } }, '*');
 })();
 </script>
 </body>

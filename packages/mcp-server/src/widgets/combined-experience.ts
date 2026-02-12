@@ -133,15 +133,70 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
   var sIcons = ['\\u{1F4CD}','\\u{1F4C5}','\\u{1F465}','\\u{2728}'];
   var sPlaceholders = ['Type a destination...','When are you going?','Who is travelling?','What do you want to do?'];
 
+  // === JSON-RPC bridge ===
+  var rpcId = 0;
+  var pending = {};
+  var bridgeReady = new Promise(function(resolve) { window._bridgeResolve = resolve; });
+
+  function rpcRequest(method, params) {
+    return new Promise(function(resolve, reject) {
+      var id = ++rpcId;
+      pending[id] = { resolve: resolve, reject: reject };
+      window.parent.postMessage({ jsonrpc: '2.0', id: id, method: method, params: params || {} }, '*');
+    });
+  }
+
+  function rpcNotify(method, params) {
+    window.parent.postMessage({ jsonrpc: '2.0', method: method, params: params || {} }, '*');
+  }
+
+  function sendMessage(text) {
+    return rpcRequest('ui/message', { role: 'user', content: [{ type: 'text', text: text }] });
+  }
+
+  function callTool(name, args) {
+    return rpcRequest('tools/call', { name: name, arguments: args }).then(function(result) {
+      handleData(result && result.structuredContent);
+    });
+  }
+
+  window.addEventListener('message', function(event) {
+    if (event.source !== window.parent) return;
+    var msg = event.data;
+    if (!msg || msg.jsonrpc !== '2.0') return;
+
+    if (msg.id && pending[msg.id]) {
+      var p = pending[msg.id];
+      delete pending[msg.id];
+      if (msg.error) p.reject(msg.error);
+      else p.resolve(msg.result);
+      return;
+    }
+
+    if (msg.method === 'ui/notifications/tool-result' && msg.params) {
+      handleData(msg.params.structuredContent || msg.params._meta);
+    }
+  });
+
+  rpcRequest('ui/initialize', {
+    appInfo: { name: 'Holibob Combined', version: '1.0.0' },
+    appCapabilities: {},
+    protocolVersion: '2026-01-26'
+  }).then(function() {
+    window._bridgeResolve();
+    rpcNotify('ui/notifications/initialized', {});
+  }).catch(function() {
+    window._bridgeResolve();
+  });
+
+  // === Widget logic ===
   function esc(s) { if (!s) return ''; var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
   function handleData(data) {
     if (!data) return;
     if (data.brand && data.brand.primaryColor) document.documentElement.style.setProperty('--primary', data.brand.primaryColor);
 
-    // Route data by shape
     if (data.defaults || data.prefilled || data.suggestions) {
-      // Planner data
       var defaults = data.defaults || {};
       var prefilled = data.prefilled || {};
       var suggestions = data.suggestions || {};
@@ -168,7 +223,6 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
     }
 
     render();
-    // Scroll to newest section
     if (data.experience) { var ds = document.getElementById('detailSection'); if (ds) ds.scrollIntoView({behavior:'smooth'}); }
     else if (data.experiences) { var cs = document.getElementById('carouselSection'); if (cs) cs.scrollIntoView({behavior:'smooth'}); }
   }
@@ -176,7 +230,6 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
   function render() {
     var html = '';
 
-    // === PLANNER ===
     if (state.plannerExpanded) {
       html += renderPlanner();
     } else {
@@ -185,12 +238,10 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
       html += '<div class="planner-collapsed" id="plannerToggle"><span style="font-size:16px">\\u{1F4CD}</span><span class="summary">' + esc(parts.join(' \\u00B7 ')) + '</span><span class="edit-btn">Edit</span></div>';
     }
 
-    // === CAROUSEL ===
     html += '<div class="carousel-section' + (state.experiences.length ? ' visible' : '') + '" id="carouselSection">';
     html += renderCarousel();
     html += '</div>';
 
-    // === DETAIL ===
     html += '<div class="detail-section' + (state.detail ? ' visible' : '') + '" id="detailSection">';
     if (state.detail) html += renderDetail();
     html += '</div>';
@@ -242,9 +293,9 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
       h += '<button class="view-btn" data-id="' + esc(exp.id) + '" data-name="' + esc(exp.name) + '">Details</button></div></div>';
     });
     if (state.hasMore) h += '<div class="load-more" id="loadMore"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg><span>Show more</span></div>';
-    h += '</div></div>'; // track+viewport
+    h += '</div></div>';
     h += '<button class="nav-btn right" data-dir="right"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg></button>';
-    h += '</div>'; // carousel
+    h += '</div>';
     return h;
   }
 
@@ -262,7 +313,6 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
     if (exp.price) h += '<span style="font-weight:700;color:var(--primary)">' + esc(exp.price) + '</span>';
     h += '</div>';
 
-    // Tabs
     var tabs = [['desc','Description']];
     if (exp.highlights && exp.highlights.length) tabs.push(['high','Highlights']);
     if ((exp.inclusions && exp.inclusions.length) || (exp.exclusions && exp.exclusions.length)) tabs.push(['incl',"What's Included"]);
@@ -271,7 +321,6 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
     tabs.forEach(function(t){ h += '<div class="tab' + (state.activeTab === t[0] ? ' active' : '') + '" data-tab="' + t[0] + '">' + t[1] + '</div>'; });
     h += '</div>';
 
-    // Tab contents
     h += '<div class="tab-content' + (state.activeTab === 'desc' ? ' active' : '') + '">' + esc(exp.description || 'No description available.') + '</div>';
     if (exp.highlights && exp.highlights.length) {
       h += '<div class="tab-content' + (state.activeTab === 'high' ? ' active' : '') + '">';
@@ -312,16 +361,13 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
   }
 
   function bindAll() {
-    // Planner toggle
     var pt = document.getElementById('plannerToggle');
     if (pt) pt.addEventListener('click', function(){ state.plannerExpanded = true; render(); });
 
-    // Section toggles
     root.querySelectorAll('[data-toggle]').forEach(function(el){
       el.addEventListener('click', function(){ state.activeIdx = parseInt(el.getAttribute('data-toggle'), 10); render(); });
     });
 
-    // Chips
     root.querySelectorAll('.chip').forEach(function(chip){
       chip.addEventListener('click', function(){
         var key = chip.getAttribute('data-key'), val = chip.getAttribute('data-val');
@@ -331,7 +377,6 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
       });
     });
 
-    // Inputs
     root.querySelectorAll('input[data-key]').forEach(function(inp){
       inp.addEventListener('keydown', function(e){
         if (e.key === 'Enter' && inp.value.trim()) {
@@ -342,16 +387,14 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
       });
     });
 
-    // Search CTA
+    // Search CTA — calls search_experiences directly via tools/call
     var cta = root.querySelector('.cta');
     if (cta) cta.addEventListener('click', function(){
       if (cta.disabled) return;
-      var s = state.selections, p = ['Search for experiences'];
-      if (s.where) p.push('in ' + s.where);
-      if (s.what) p.push('for "' + s.what + '"');
-      if (s.when) p.push(s.when.toLowerCase());
-      if (s.who) p.push('for ' + s.who.toLowerCase());
-      window.parent.postMessage({ jsonrpc: '2.0', method: 'ui/message', params: { role: 'user', content: [{ type: 'text', text: p.join(' ') }] } }, '*');
+      var s = state.selections;
+      var args = { destination: s.where || 'popular destinations' };
+      if (s.what) args.searchTerm = s.what;
+      bridgeReady.then(function() { callTool('search_experiences', args); });
     });
 
     // Carousel nav
@@ -363,20 +406,23 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
       });
     });
 
-    // Card clicks
+    // Card clicks — calls get_experience_details directly via tools/call
     root.querySelectorAll('.card, .view-btn').forEach(function(el){
       el.addEventListener('click', function(e){
         var t = e.target.closest('[data-id]');
         if (!t) return;
         e.stopPropagation();
-        var id = t.getAttribute('data-id'), name = t.getAttribute('data-name');
-        window.parent.postMessage({ jsonrpc: '2.0', method: 'ui/message', params: { role: 'user', content: [{ type: 'text', text: 'Show me details for "' + name + '" (ID: ' + id + ')' }] } }, '*');
+        var id = t.getAttribute('data-id');
+        bridgeReady.then(function() { callTool('get_experience_details', { experienceId: id }); });
       });
     });
 
-    // Load more
+    // Load more — calls load_more_experiences directly via tools/call
     var lm = document.getElementById('loadMore');
-    if (lm) lm.addEventListener('click', function(){ window.parent.postMessage({ jsonrpc: '2.0', method: 'ui/message', params: { role: 'user', content: [{ type: 'text', text: 'Show me more experiences like these' }] } }, '*'); });
+    if (lm) lm.addEventListener('click', function(){
+      var ids = state.experiences.map(function(e) { return e.id; });
+      bridgeReady.then(function() { callTool('load_more_experiences', { destination: state.destination, seenExperienceIds: ids }); });
+    });
 
     // Back to results
     var back = document.getElementById('backToResults');
@@ -387,24 +433,15 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
       tab.addEventListener('click', function(){ state.activeTab = tab.getAttribute('data-tab'); render(); });
     });
 
-    // Detail CTA
+    // Detail CTA — sends message for chat to handle booking
     var dcta = root.querySelector('.detail-cta');
     if (dcta) dcta.addEventListener('click', function(){
       var id = dcta.getAttribute('data-id'), name = dcta.getAttribute('data-name');
-      window.parent.postMessage({ jsonrpc: '2.0', method: 'ui/message', params: { role: 'user', content: [{ type: 'text', text: 'Check availability for "' + name + '" (ID: ' + id + ')' }] } }, '*');
+      bridgeReady.then(function() { sendMessage('Check availability for "' + name + '" (ID: ' + id + ')'); });
     });
 
     updateCarouselScroll();
   }
-
-  window.addEventListener('message', function(event) {
-    if (event.source !== window.parent) return;
-    var msg = event.data;
-    if (msg && msg.method === 'ui/notifications/tool-result' && msg.params) {
-      handleData(msg.params.structuredContent || msg.params._meta);
-    }
-  });
-  window.parent.postMessage({ jsonrpc: '2.0', method: 'ui/notifications/initialized', params: { appInfo: { name: 'Holibob Combined', version: '1.0.0' } } }, '*');
 
   // Initial empty render
   render();

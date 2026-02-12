@@ -50,9 +50,63 @@ export const TRIP_PLANNER_HTML = `<!DOCTYPE html>
   var sectionPlaceholders = ['Type a destination...', 'When are you going?', 'Who is travelling?', 'What do you want to do?'];
   var allChips = {};
 
+  // === JSON-RPC bridge ===
+  var rpcId = 0;
+  var pending = {};
+  var bridgeReady = new Promise(function(resolve) { window._bridgeResolve = resolve; });
+
+  function rpcRequest(method, params) {
+    return new Promise(function(resolve, reject) {
+      var id = ++rpcId;
+      pending[id] = { resolve: resolve, reject: reject };
+      window.parent.postMessage({ jsonrpc: '2.0', id: id, method: method, params: params || {} }, '*');
+    });
+  }
+
+  function rpcNotify(method, params) {
+    window.parent.postMessage({ jsonrpc: '2.0', method: method, params: params || {} }, '*');
+  }
+
+  function sendMessage(text) {
+    return rpcRequest('ui/message', { role: 'user', content: [{ type: 'text', text: text }] });
+  }
+
+  window.addEventListener('message', function(event) {
+    if (event.source !== window.parent) return;
+    var msg = event.data;
+    if (!msg || msg.jsonrpc !== '2.0') return;
+
+    // Handle responses to our requests
+    if (msg.id && pending[msg.id]) {
+      var p = pending[msg.id];
+      delete pending[msg.id];
+      if (msg.error) p.reject(msg.error);
+      else p.resolve(msg.result);
+      return;
+    }
+
+    // Handle tool-result notifications
+    if (msg.method === 'ui/notifications/tool-result' && msg.params) {
+      handleData(msg.params.structuredContent || msg.params._meta);
+    }
+  });
+
+  // Initialize bridge
+  rpcRequest('ui/initialize', {
+    appInfo: { name: 'Holibob Trip Planner', version: '1.0.0' },
+    appCapabilities: {},
+    protocolVersion: '2026-01-26'
+  }).then(function() {
+    window._bridgeResolve();
+    rpcNotify('ui/notifications/initialized', {});
+  }).catch(function() {
+    window._bridgeResolve();
+  });
+
+  // === Widget logic ===
   function esc(s) { if (!s) return ''; var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
-  function render(data) {
+  function handleData(data) {
     if (!data) return;
     if (data.brand && data.brand.primaryColor) document.documentElement.style.setProperty('--primary', data.brand.primaryColor);
 
@@ -60,7 +114,6 @@ export const TRIP_PLANNER_HTML = `<!DOCTYPE html>
     var prefilled = data.prefilled || {};
     var suggestions = data.suggestions || {};
 
-    // Merge suggestions into defaults
     allChips.where = (suggestions.destinations && suggestions.destinations.length)
       ? suggestions.destinations.map(function(d) { return d.name; })
       : (defaults.where || ['London','Paris','Barcelona','Rome','Amsterdam','Edinburgh']);
@@ -70,18 +123,15 @@ export const TRIP_PLANNER_HTML = `<!DOCTYPE html>
       ? suggestions.tags.map(function(t) { return t.name; })
       : (defaults.what || ['Walking Tours','Food & Drink','Museums','Outdoor Activities','Day Trips']);
 
-    // Apply prefilled values
     sectionKeys.forEach(function(key) {
       if (prefilled[key]) selections[key] = prefilled[key];
     });
 
-    // Find first unfilled section
     activeIdx = 0;
     for (var i = 0; i < sectionKeys.length; i++) {
       if (!selections[sectionKeys[i]]) { activeIdx = i; break; }
-      if (i === sectionKeys.length - 1) activeIdx = sectionKeys.length; // all filled
+      if (i === sectionKeys.length - 1) activeIdx = sectionKeys.length;
     }
-
     renderUI();
   }
 
@@ -90,8 +140,6 @@ export const TRIP_PLANNER_HTML = `<!DOCTYPE html>
     var canSearch = !!(selections.where || selections.what);
 
     var html = '<div class="container">';
-
-    // Progress dots
     html += '<div class="progress">';
     for (var d = 0; d < 4; d++) {
       var cls = d < filledCount ? 'dot done' : (d === activeIdx ? 'dot active' : 'dot');
@@ -99,7 +147,6 @@ export const TRIP_PLANNER_HTML = `<!DOCTYPE html>
     }
     html += '</div>';
 
-    // Sections
     for (var i = 0; i < sectionKeys.length; i++) {
       var key = sectionKeys[i];
       var isActive = (i === activeIdx);
@@ -124,7 +171,6 @@ export const TRIP_PLANNER_HTML = `<!DOCTYPE html>
       html += '</div></div></div>';
     }
 
-    // CTA
     html += '<button class="cta"' + (canSearch ? '' : ' disabled') + '>';
     html += '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>';
     html += 'Search Experiences</button>';
@@ -144,7 +190,6 @@ export const TRIP_PLANNER_HTML = `<!DOCTYPE html>
         var key = chip.getAttribute('data-key');
         var val = chip.getAttribute('data-val');
         selections[key] = val;
-        // Advance to next unfilled section
         for (var n = 0; n < sectionKeys.length; n++) {
           if (!selections[sectionKeys[n]]) { activeIdx = n; renderUI(); return; }
         }
@@ -176,19 +221,10 @@ export const TRIP_PLANNER_HTML = `<!DOCTYPE html>
         if (selections.what) parts.push('for "' + selections.what + '"');
         if (selections.when) parts.push(selections.when.toLowerCase());
         if (selections.who) parts.push('for ' + selections.who.toLowerCase());
-        window.parent.postMessage({ jsonrpc: '2.0', method: 'ui/message', params: { role: 'user', content: [{ type: 'text', text: parts.join(' ') }] } }, '*');
+        bridgeReady.then(function() { sendMessage(parts.join(' ')); });
       });
     }
   }
-
-  window.addEventListener('message', function(event) {
-    if (event.source !== window.parent) return;
-    var msg = event.data;
-    if (msg && msg.method === 'ui/notifications/tool-result' && msg.params) {
-      render(msg.params.structuredContent || msg.params._meta);
-    }
-  });
-  window.parent.postMessage({ jsonrpc: '2.0', method: 'ui/notifications/initialized', params: { appInfo: { name: 'Holibob Trip Planner', version: '1.0.0' } } }, '*');
 })();
 </script>
 </body>
