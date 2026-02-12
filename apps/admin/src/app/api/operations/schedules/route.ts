@@ -137,6 +137,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       PRODUCT_SYNC: { forceSync: false },
       MICROSITE_HEALTH_CHECK: {},
       SOCIAL_DAILY_POSTING: {},
+      PAID_KEYWORD_SCAN: { maxCpc: 3.0, minVolume: 100, modes: ['gsc', 'expansion', 'discovery', 'pinterest', 'meta'] },
     };
 
     // Clean job type name (remove " (deep)" suffix)
