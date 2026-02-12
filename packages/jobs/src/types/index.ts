@@ -348,6 +348,7 @@ export interface SocialPostGeneratePayload {
   siteId: string;
   platform: 'PINTEREST' | 'FACEBOOK' | 'TWITTER';
   pageId?: string; // Optional - specific blog post to promote
+  contentType?: 'blog_promo' | 'engagement' | 'travel_tip'; // Content variation
 }
 
 export interface SocialPostPublishPayload {
@@ -368,6 +369,13 @@ export interface AdPerformanceReportPayload {
 export interface AdBudgetOptimizerPayload {
   siteId?: string; // If omitted, optimize across all sites
   maxCpc?: number; // Override default $0.10 cap
+}
+
+export interface PaidKeywordScanPayload {
+  siteId?: string; // Optional — 'all' for cross-site scan
+  maxCpc?: number; // Default: 3.00
+  minVolume?: number; // Default: 100
+  modes?: ('gsc' | 'expansion' | 'discovery')[]; // Default: all three
 }
 
 /**
@@ -415,7 +423,8 @@ export type JobPayload =
   | SocialPostPublishPayload
   | AdCampaignSyncPayload
   | AdPerformanceReportPayload
-  | AdBudgetOptimizerPayload;
+  | AdBudgetOptimizerPayload
+  | PaidKeywordScanPayload;
 
 /**
  * Job configuration options
@@ -546,4 +555,5 @@ export const JOB_TYPE_TO_QUEUE: Record<JobType, QueueName> = {
   AD_CAMPAIGN_SYNC: QUEUE_NAMES.ADS,
   AD_PERFORMANCE_REPORT: QUEUE_NAMES.ADS,
   AD_BUDGET_OPTIMIZER: QUEUE_NAMES.ADS,
+  PAID_KEYWORD_SCAN: QUEUE_NAMES.ADS,
 };

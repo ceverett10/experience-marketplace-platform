@@ -15,6 +15,22 @@ interface CaptionResult {
   pinTitle?: string; // Pinterest only
 }
 
+interface NonBlogCaptionRequest {
+  siteId: string;
+  platform: SocialPlatform;
+  brandName: string;
+  tagline?: string | null;
+  seoConfig: Record<string, unknown> | null;
+  primaryDomain?: string | null;
+}
+
+interface NonBlogCaptionResult {
+  caption: string;
+  hashtags: string[];
+  pinTitle?: string;
+  linkUrl?: string;
+}
+
 const PLATFORM_LIMITS: Record<SocialPlatform, { maxCaption: number; maxHashtags: number }> = {
   PINTEREST: { maxCaption: 500, maxHashtags: 5 },
   FACEBOOK: { maxCaption: 500, maxHashtags: 5 },
@@ -22,7 +38,7 @@ const PLATFORM_LIMITS: Record<SocialPlatform, { maxCaption: number; maxHashtags:
 };
 
 /**
- * Generate a platform-specific social media caption from a blog post.
+ * Generate a platform-specific social media caption from a blog post (blog_promo).
  * Uses Claude Haiku for fast, cheap generation.
  */
 export async function generateCaption(request: CaptionRequest): Promise<CaptionResult> {
@@ -82,7 +98,7 @@ export async function generateCaption(request: CaptionRequest): Promise<CaptionR
 
   const limits = PLATFORM_LIMITS[platform];
 
-  const prompt = buildPrompt({
+  const prompt = buildBlogPromoPrompt({
     platform,
     brandName: site.brand?.name || site.name,
     tagline: site.brand?.tagline,
@@ -95,6 +111,104 @@ export async function generateCaption(request: CaptionRequest): Promise<CaptionR
     maxHashtags: limits.maxHashtags,
   });
 
+  const text = await callClaude(prompt);
+  return parseResponse(text, platform);
+}
+
+/**
+ * Generate an engagement post — a question or poll prompt related to the site's niche.
+ * No blog link required.
+ */
+export async function generateEngagementCaption(
+  request: NonBlogCaptionRequest
+): Promise<NonBlogCaptionResult> {
+  const { platform, brandName, tagline, seoConfig } = request;
+  const toneOfVoice = seoConfig?.['toneOfVoice'] as Record<string, unknown> | undefined;
+  const niche = (seoConfig?.['niche'] as string) || (seoConfig?.['primaryCategory'] as string) || 'travel experiences';
+  const limits = PLATFORM_LIMITS[platform];
+
+  const prompt = `You are a social media manager for "${brandName}"${tagline ? ` (${tagline})` : ''}, a travel experiences brand focused on ${niche}.
+${(toneOfVoice?.['personality'] as string[] | undefined)?.length ? `Brand tone: ${(toneOfVoice?.['personality'] as string[]).join(', ')}.` : 'Tone: friendly, conversational, travel-enthusiast.'}
+
+Create an ENGAGEMENT post for ${platform} that sparks conversation. This is NOT promoting a specific article — it's designed to get followers talking.
+
+Ideas for engagement posts:
+- Ask a travel-related question ("What's your dream destination?" / "Have you tried [niche activity]?")
+- This-or-that choices ("Beach holiday or mountain adventure?")
+- Fill in the blank ("The best part of travelling is ___")
+- Share a fun travel fact and ask for reactions
+- Ask followers to tag a friend they'd travel with
+
+Rules:
+- Caption must be under ${limits.maxCaption} characters
+- Include exactly ${limits.maxHashtags} relevant hashtags specific to ${niche}
+- Do NOT include any URLs
+- Make it feel authentic and conversational, not corporate
+- End with a question or prompt that invites replies
+
+Format your response EXACTLY as:
+CAPTION: [your caption here]
+HASHTAGS: #tag1 #tag2 #tag3${platform === 'PINTEREST' ? '\nTITLE: [pin title here]' : ''}`;
+
+  const text = await callClaude(prompt);
+  const result = parseResponse(text, platform);
+  return { ...result, linkUrl: undefined };
+}
+
+/**
+ * Generate a travel tip post — a practical tip related to the site's niche.
+ * Optionally links to a relevant blog post.
+ */
+export async function generateTravelTipCaption(
+  request: NonBlogCaptionRequest
+): Promise<NonBlogCaptionResult> {
+  const { siteId, platform, brandName, tagline, seoConfig, primaryDomain } = request;
+  const toneOfVoice = seoConfig?.['toneOfVoice'] as Record<string, unknown> | undefined;
+  const niche = (seoConfig?.['niche'] as string) || (seoConfig?.['primaryCategory'] as string) || 'travel experiences';
+  const limits = PLATFORM_LIMITS[platform];
+
+  // Find a recent blog post to optionally link
+  const recentBlog = await prisma.page.findFirst({
+    where: { siteId, type: 'BLOG', status: 'PUBLISHED' },
+    orderBy: { publishedAt: 'desc' },
+    select: { title: true, slug: true },
+  });
+
+  const blogUrl = recentBlog && primaryDomain
+    ? `https://${primaryDomain}/${recentBlog.slug}`
+    : undefined;
+
+  const prompt = `You are a social media manager for "${brandName}"${tagline ? ` (${tagline})` : ''}, a travel experiences brand focused on ${niche}.
+${(toneOfVoice?.['personality'] as string[] | undefined)?.length ? `Brand tone: ${(toneOfVoice?.['personality'] as string[]).join(', ')}.` : 'Tone: friendly, expert, helpful.'}
+
+Create a TRAVEL TIP post for ${platform}. Share a practical, useful tip related to ${niche}.
+
+Guidelines:
+- Start with "Pro tip:" or a similar hook
+- Share genuinely useful advice (booking tips, packing tips, best times to visit, money-saving tricks, insider knowledge)
+- Keep it specific and actionable, not generic
+- Make the reader feel like they're getting insider knowledge
+${recentBlog ? `- You can reference this related article: "${recentBlog.title}"` : ''}
+
+Rules:
+- Caption must be under ${limits.maxCaption} characters
+- Include exactly ${limits.maxHashtags} relevant hashtags specific to ${niche}
+- Do NOT include any URLs in the caption (links are added separately)
+- Sound like a knowledgeable friend, not a textbook
+
+Format your response EXACTLY as:
+CAPTION: [your caption here]
+HASHTAGS: #tag1 #tag2 #tag3${platform === 'PINTEREST' ? '\nTITLE: [pin title here]' : ''}`;
+
+  const text = await callClaude(prompt);
+  const result = parseResponse(text, platform);
+  return { ...result, linkUrl: blogUrl };
+}
+
+/**
+ * Call Claude Haiku API with a prompt.
+ */
+async function callClaude(prompt: string): Promise<string> {
   const anthropicApiKey = process.env['ANTHROPIC_API_KEY'];
   if (!anthropicApiKey) {
     throw new Error('ANTHROPIC_API_KEY not configured');
@@ -130,11 +244,10 @@ export async function generateCaption(request: CaptionRequest): Promise<CaptionR
     content: Array<{ text: string }>;
   };
 
-  const text = data.content[0]?.text || '';
-  return parseResponse(text, platform);
+  return data.content[0]?.text || '';
 }
 
-function buildPrompt(ctx: {
+function buildBlogPromoPrompt(ctx: {
   platform: SocialPlatform;
   brandName: string;
   tagline?: string | null;

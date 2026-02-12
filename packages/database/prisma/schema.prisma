@@ -82,6 +82,9 @@ model Site {
   pausedBy                  String? // Admin identifier who paused
   pauseReason               String? // Reason for pausing
 
+  // Timezone for social media scheduling (IANA format)
+  timezone String @default("Europe/London")
+
   // SEO Configuration
   seoConfig Json? // { titleTemplate, defaultDescription, keywords }
 
@@ -892,6 +895,7 @@ enum JobType {
   AD_CAMPAIGN_SYNC
   AD_PERFORMANCE_REPORT
   AD_BUDGET_OPTIMIZER
+  PAID_KEYWORD_SCAN
 }
 
 enum JobStatus {

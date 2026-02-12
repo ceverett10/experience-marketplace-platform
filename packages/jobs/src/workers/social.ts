@@ -7,7 +7,7 @@ import type {
   SocialPostPublishPayload,
 } from '../types';
 import { addJob } from '../queues';
-import { generateCaption } from '../services/social/caption-generator';
+import { generateCaption, generateEngagementCaption, generateTravelTipCaption } from '../services/social/caption-generator';
 import { selectImageForPost } from '../services/social/image-selector';
 import { refreshTokenIfNeeded } from '../services/social/token-refresh';
 import { createPinterestPin } from '../services/social/pinterest-client';
@@ -16,17 +16,24 @@ import { createTweet } from '../services/social/twitter-client';
 import { canExecuteAutonomousOperation } from '../services/pause-control';
 
 type SocialPlatform = 'PINTEREST' | 'FACEBOOK' | 'TWITTER';
+type ContentType = 'blog_promo' | 'engagement' | 'travel_tip';
+
+const MAX_POSTS_PER_DAY = 7;
+const PEAK_START_HOUR = 9; // 9 AM local
+const PEAK_END_HOUR = 19; // 7 PM local
+const JITTER_MINUTES = 15;
 
 /**
- * SOCIAL_DAILY_POSTING - Fan-out job
- * Finds all sites with active social accounts and queues individual post generation jobs.
+ * SOCIAL_DAILY_POSTING - Smart staggered fan-out job
+ * Runs at 5 AM UTC. Groups sites by shared platform account, caps at 7 posts/day,
+ * distributes posting times across each site's local peak hours (9 AM – 7 PM).
  */
 export async function handleSocialDailyPosting(
   job: Job<SocialDailyPostingPayload>
 ): Promise<JobResult> {
   const { siteId } = job.data;
 
-  console.log('[Social] Starting daily social posting');
+  console.log('[Social] Starting smart daily social posting');
 
   // Find sites with active social accounts
   const whereClause: Record<string, unknown> = {
@@ -43,61 +50,236 @@ export async function handleSocialDailyPosting(
     select: {
       id: true,
       name: true,
+      timezone: true,
       autonomousProcessesPaused: true,
       socialAccounts: {
         where: { isActive: true },
-        select: { platform: true },
+        select: {
+          id: true,
+          platform: true,
+          accountId: true,
+          lastPostedAt: true,
+        },
       },
     },
   });
 
-  let queued = 0;
-  let skipped = 0;
+  // Group by shared platform account (same accountId + platform)
+  // This handles multiple sites sharing the same Facebook Page or X account
+  const accountGroups = new Map<string, Array<{
+    siteId: string;
+    siteName: string;
+    timezone: string;
+    accountDbId: string;
+    platform: SocialPlatform;
+    lastPostedAt: Date | null;
+  }>>();
 
   for (const site of sites) {
-    // Respect site-level pause
     if (site.autonomousProcessesPaused) {
       console.log(`[Social] Skipping ${site.name} (autonomous processes paused)`);
-      skipped++;
       continue;
     }
 
     for (const account of site.socialAccounts) {
+      const groupKey = `${account.platform}:${account.accountId}`;
+      if (!accountGroups.has(groupKey)) {
+        accountGroups.set(groupKey, []);
+      }
+      accountGroups.get(groupKey)!.push({
+        siteId: site.id,
+        siteName: site.name,
+        timezone: site.timezone,
+        accountDbId: account.id,
+        platform: account.platform as SocialPlatform,
+        lastPostedAt: account.lastPostedAt,
+      });
+    }
+  }
+
+  let totalQueued = 0;
+  let totalDeferred = 0;
+  const scheduledDetails: Array<{ site: string; platform: string; delayMin: number; contentType: string }> = [];
+
+  for (const [groupKey, groupSites] of accountGroups) {
+    // Sort by lastPostedAt ASC — sites that haven't posted recently go first
+    groupSites.sort((a, b) => {
+      const aTime = a.lastPostedAt?.getTime() ?? 0;
+      const bTime = b.lastPostedAt?.getTime() ?? 0;
+      return aTime - bTime;
+    });
+
+    // Select top N sites for today (cap at MAX_POSTS_PER_DAY)
+    const todaySites = groupSites.slice(0, MAX_POSTS_PER_DAY);
+    const deferredSites = groupSites.slice(MAX_POSTS_PER_DAY);
+
+    if (deferredSites.length > 0) {
+      console.log(
+        `[Social] ${groupKey}: Deferring ${deferredSites.length} sites to tomorrow: ${deferredSites.map((s) => s.siteName).join(', ')}`
+      );
+      totalDeferred += deferredSites.length;
+    }
+
+    // Determine content type rotation for each site
+    const contentTypes = await getContentTypeRotation(todaySites.map((s) => s.siteId));
+
+    // Calculate posting times across the day
+    const postingSlots = calculatePostingSlots(todaySites.length);
+
+    for (let i = 0; i < todaySites.length; i++) {
+      const site = todaySites[i]!;
+      const contentType = contentTypes.get(site.siteId) || 'blog_promo';
+
+      // Calculate delay from now to the posting time in the site's timezone
+      const delayMs = calculateDelayForSlot(postingSlots[i]!, site.timezone);
+
+      if (delayMs < 0) {
+        // Slot is in the past — post with minimal delay
+        console.log(`[Social] ${site.siteName}/${site.platform}: Slot in past, using 1-min delay`);
+      }
+
+      const actualDelay = Math.max(60 * 1000, delayMs); // Minimum 1 minute
+
       try {
         await addJob(
           'SOCIAL_POST_GENERATE',
-          { siteId: site.id, platform: account.platform } as SocialPostGeneratePayload,
-          { priority: 5, attempts: 2 }
+          {
+            siteId: site.siteId,
+            platform: site.platform,
+            contentType,
+          } as SocialPostGeneratePayload,
+          { priority: 5, attempts: 2, delay: actualDelay }
         );
-        queued++;
+        totalQueued++;
+        const delayMin = Math.round(actualDelay / 60000);
+        scheduledDetails.push({
+          site: site.siteName,
+          platform: site.platform,
+          delayMin,
+          contentType,
+        });
+        console.log(
+          `[Social] Scheduled ${site.siteName}/${site.platform} — ${contentType} in ${delayMin} min`
+        );
       } catch (err) {
-        console.warn(`[Social] Failed to queue post for ${site.name}/${account.platform}:`, err);
+        console.warn(`[Social] Failed to queue post for ${site.siteName}/${site.platform}:`, err);
       }
     }
   }
 
   console.log(
-    `[Social] Daily posting: queued ${queued} posts across ${sites.length} sites (${skipped} skipped)`
+    `[Social] Daily posting: scheduled ${totalQueued} posts across ${accountGroups.size} account groups (${totalDeferred} sites deferred)`
   );
 
   return {
     success: true,
-    message: `Queued ${queued} social posts for ${sites.length - skipped} sites`,
-    data: { queued, sites: sites.length, skipped },
+    message: `Scheduled ${totalQueued} staggered social posts (${totalDeferred} deferred to tomorrow)`,
+    data: { queued: totalQueued, deferred: totalDeferred, schedule: scheduledDetails },
     timestamp: new Date(),
   };
 }
 
 /**
+ * Determine content type for each site based on recent post history.
+ * Cycles through: blog_promo → engagement → travel_tip
+ */
+async function getContentTypeRotation(
+  siteIds: string[]
+): Promise<Map<string, ContentType>> {
+  const rotation: Map<string, ContentType> = new Map();
+  const contentCycle: ContentType[] = ['blog_promo', 'engagement', 'travel_tip'];
+
+  for (const siteId of siteIds) {
+    // Count recent posts by content type (last 7 days)
+    const recentPosts = await prisma.socialPost.findMany({
+      where: {
+        siteId,
+        createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+        status: { in: ['PUBLISHED', 'SCHEDULED', 'PUBLISHING'] },
+      },
+      select: { generationData: true },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+    });
+
+    // Count by content type
+    const counts: Record<ContentType, number> = { blog_promo: 0, engagement: 0, travel_tip: 0 };
+    for (const post of recentPosts) {
+      const data = post.generationData as Record<string, unknown> | null;
+      const ct = (data?.['contentType'] as ContentType) || 'blog_promo';
+      if (ct in counts) counts[ct]++;
+    }
+
+    // Pick the content type with the fewest recent posts
+    let minCount = Infinity;
+    let chosen: ContentType = 'blog_promo';
+    for (const ct of contentCycle) {
+      if (counts[ct] < minCount) {
+        minCount = counts[ct];
+        chosen = ct;
+      }
+    }
+
+    rotation.set(siteId, chosen);
+  }
+
+  return rotation;
+}
+
+/**
+ * Calculate evenly-spaced posting slots within the peak window (9 AM – 7 PM).
+ * Returns hours (decimal) within the peak window.
+ * Example: 5 posts → [9.0, 11.0, 13.0, 15.0, 17.0]
+ */
+function calculatePostingSlots(count: number): number[] {
+  if (count === 0) return [];
+  if (count === 1) return [13]; // Noon-ish for single post
+
+  const windowHours = PEAK_END_HOUR - PEAK_START_HOUR; // 10 hours
+  const slots: number[] = [];
+
+  for (let i = 0; i < count; i++) {
+    const baseHour = PEAK_START_HOUR + (i * windowHours) / (count);
+    // Add jitter: ±JITTER_MINUTES
+    const jitter = (Math.random() * 2 - 1) * JITTER_MINUTES / 60;
+    slots.push(Math.max(PEAK_START_HOUR, Math.min(PEAK_END_HOUR - 0.5, baseHour + jitter)));
+  }
+
+  return slots;
+}
+
+/**
+ * Calculate delay in ms from now to a target local hour in the given timezone.
+ */
+function calculateDelayForSlot(targetLocalHour: number, timezone: string): number {
+  const now = new Date();
+
+  // Get the current time in the target timezone
+  const localTimeStr = now.toLocaleString('en-US', { timeZone: timezone, hour12: false });
+  const localDate = new Date(localTimeStr);
+  const currentLocalHour = localDate.getHours() + localDate.getMinutes() / 60;
+
+  // Calculate hours until target
+  let hoursUntil = targetLocalHour - currentLocalHour;
+  if (hoursUntil < -1) {
+    // Target is tomorrow — shouldn't happen since we run at 5 AM UTC
+    hoursUntil += 24;
+  }
+
+  return Math.round(hoursUntil * 60 * 60 * 1000);
+}
+
+/**
  * SOCIAL_POST_GENERATE - Content creation
- * Selects a blog post to promote, generates caption and selects image.
+ * Selects a blog post to promote (or generates engagement/tip content),
+ * generates caption and selects image.
  */
 export async function handleSocialPostGenerate(
   job: Job<SocialPostGeneratePayload>
 ): Promise<JobResult> {
-  const { siteId, platform, pageId } = job.data;
+  const { siteId, platform, pageId, contentType = 'blog_promo' } = job.data;
 
-  console.log(`[Social] Generating ${platform} post for site ${siteId}`);
+  console.log(`[Social] Generating ${platform} ${contentType} post for site ${siteId}`);
 
   // Check pause control
   const canExecute = await canExecuteAutonomousOperation({ siteId });
@@ -122,7 +304,12 @@ export async function handleSocialPostGenerate(
     };
   }
 
-  // Select a blog post to promote
+  // For engagement and travel_tip content types, we don't need a blog post
+  if (contentType === 'engagement' || contentType === 'travel_tip') {
+    return await generateNonBlogPost(siteId, platform as SocialPlatform, account.id, contentType);
+  }
+
+  // blog_promo: Select a blog post to promote
   let selectedPageId = pageId;
 
   if (!selectedPageId) {
@@ -161,11 +348,9 @@ export async function handleSocialPostGenerate(
   }
 
   if (!selectedPageId) {
-    return {
-      success: false,
-      message: `No published blog posts found for site ${siteId}`,
-      timestamp: new Date(),
-    };
+    // No blog posts — fallback to engagement content
+    console.log(`[Social] No blog posts for site ${siteId}, falling back to engagement content`);
+    return await generateNonBlogPost(siteId, platform as SocialPlatform, account.id, 'engagement');
   }
 
   // Generate caption
@@ -194,8 +379,7 @@ export async function handleSocialPostGenerate(
   // Build full caption (append link for Twitter)
   let fullCaption = captionResult.caption;
   if (platform === 'TWITTER' && blogUrl) {
-    // Append link to tweet text
-    const maxTextLen = 280 - blogUrl.length - 1; // -1 for space
+    const maxTextLen = 280 - blogUrl.length - 1;
     if (fullCaption.length > maxTextLen) {
       fullCaption = fullCaption.substring(0, maxTextLen - 3) + '...';
     }
@@ -214,31 +398,124 @@ export async function handleSocialPostGenerate(
       mediaUrls: imageUrl ? [imageUrl] : [],
       linkUrl: blogUrl,
       status: 'SCHEDULED',
-      scheduledFor: new Date(Date.now() + 5 * 60 * 1000), // 5 min delay
+      scheduledFor: new Date(Date.now() + 60 * 1000), // 1-min delay
       generationData: {
         model: 'claude-haiku-4-5-20251001',
+        pinTitle: captionResult.pinTitle,
+        rawCaption: captionResult.caption,
+        contentType: 'blog_promo',
+      },
+    },
+  });
+
+  // Queue publish job with 1-minute delay
+  await addJob(
+    'SOCIAL_POST_PUBLISH',
+    { socialPostId: socialPost.id } as SocialPostPublishPayload,
+    { delay: 60 * 1000, attempts: 3, backoff: { type: 'exponential', delay: 60000 } }
+  );
+
+  console.log(`[Social] Generated ${platform} blog_promo post ${socialPost.id} for "${page?.slug}"`);
+
+  return {
+    success: true,
+    message: `Generated ${platform} blog_promo post, scheduled for publishing`,
+    data: {
+      socialPostId: socialPost.id,
+      platform,
+      contentType: 'blog_promo',
+      pageId: selectedPageId,
+      captionLength: fullCaption.length,
+      hasImage: !!imageUrl,
+    },
+    timestamp: new Date(),
+  };
+}
+
+/**
+ * Generate engagement or travel_tip posts (no blog link required).
+ */
+async function generateNonBlogPost(
+  siteId: string,
+  platform: SocialPlatform,
+  accountId: string,
+  contentType: 'engagement' | 'travel_tip'
+): Promise<JobResult> {
+  // Get site info for caption generation
+  const site = await prisma.site.findUnique({
+    where: { id: siteId },
+    select: {
+      name: true,
+      primaryDomain: true,
+      seoConfig: true,
+      brand: { select: { name: true, tagline: true } },
+    },
+  });
+
+  if (!site) {
+    return { success: false, message: `Site ${siteId} not found`, timestamp: new Date() };
+  }
+
+  // Generate caption based on content type
+  const captionFn = contentType === 'engagement' ? generateEngagementCaption : generateTravelTipCaption;
+  const captionResult = await captionFn({
+    siteId,
+    platform,
+    brandName: site.brand?.name || site.name,
+    tagline: site.brand?.tagline,
+    seoConfig: site.seoConfig as Record<string, unknown> | null,
+    primaryDomain: site.primaryDomain,
+  });
+
+  let fullCaption = captionResult.caption;
+
+  // For travel_tip on Twitter, append link if we have one
+  if (platform === 'TWITTER' && captionResult.linkUrl) {
+    const maxTextLen = 280 - captionResult.linkUrl.length - 1;
+    if (fullCaption.length > maxTextLen) {
+      fullCaption = fullCaption.substring(0, maxTextLen - 3) + '...';
+    }
+    fullCaption = `${fullCaption} ${captionResult.linkUrl}`;
+  }
+
+  // Select a generic site image
+  const imageUrl = await selectImageForPost(siteId);
+
+  const socialPost = await prisma.socialPost.create({
+    data: {
+      siteId,
+      accountId,
+      platform,
+      caption: fullCaption,
+      hashtags: captionResult.hashtags,
+      mediaUrls: imageUrl ? [imageUrl] : [],
+      linkUrl: captionResult.linkUrl,
+      status: 'SCHEDULED',
+      scheduledFor: new Date(Date.now() + 60 * 1000),
+      generationData: {
+        model: 'claude-haiku-4-5-20251001',
+        contentType,
         pinTitle: captionResult.pinTitle,
         rawCaption: captionResult.caption,
       },
     },
   });
 
-  // Queue publish job with 5-minute delay
   await addJob(
     'SOCIAL_POST_PUBLISH',
     { socialPostId: socialPost.id } as SocialPostPublishPayload,
-    { delay: 5 * 60 * 1000, attempts: 3, backoff: { type: 'exponential', delay: 60000 } }
+    { delay: 60 * 1000, attempts: 3, backoff: { type: 'exponential', delay: 60000 } }
   );
 
-  console.log(`[Social] Generated ${platform} post ${socialPost.id} for blog "${page?.slug}"`);
+  console.log(`[Social] Generated ${platform} ${contentType} post ${socialPost.id} for site ${siteId}`);
 
   return {
     success: true,
-    message: `Generated ${platform} post, scheduled for publishing`,
+    message: `Generated ${platform} ${contentType} post, scheduled for publishing`,
     data: {
       socialPostId: socialPost.id,
       platform,
-      pageId: selectedPageId,
+      contentType,
       captionLength: fullCaption.length,
       hasImage: !!imageUrl,
     },

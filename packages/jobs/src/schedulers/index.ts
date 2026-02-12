@@ -320,14 +320,27 @@ export async function initializeScheduledJobs(): Promise<void> {
   // SOCIAL MEDIA SCHEDULES
   // =========================================================================
 
-  // Social Media Daily Posting - Daily at 10 AM
-  // Generates and publishes social posts for all sites with connected accounts
+  // Social Media Daily Posting - Daily at 5 AM UTC
+  // Smart staggered scheduling: groups by shared account, caps at 7/day, timezone-aware
   await scheduleJob(
     'SOCIAL_DAILY_POSTING' as any,
     {} as any,
-    '0 10 * * *' // Daily at 10 AM
+    '0 5 * * *' // Daily at 5 AM UTC (before any timezone's 9 AM peak)
   );
-  console.log('[Scheduler] ✓ Social Daily Posting - Daily at 10 AM');
+  console.log('[Scheduler] ✓ Social Daily Posting - Daily at 5 AM UTC (smart staggered)');
+
+  // =========================================================================
+  // PAID TRAFFIC SCHEDULES
+  // =========================================================================
+
+  // Paid Keyword Scanner — Tuesdays and Fridays at 4 AM
+  // Discovers new low-CPC keyword opportunities from GSC data, keyword expansion, and category discovery
+  await scheduleJob(
+    'PAID_KEYWORD_SCAN' as any,
+    { maxCpc: 3.0, minVolume: 100 },
+    '0 4 * * 2,5' // Tuesdays and Fridays at 4 AM
+  );
+  console.log('[Scheduler] ✓ Paid Keyword Scanner - Tuesdays & Fridays at 4 AM');
 
   console.log('[Scheduler] All scheduled jobs initialized successfully');
 }
@@ -661,6 +674,7 @@ export async function removeAllScheduledJobs(): Promise<void> {
   await queueRegistry.removeRepeatableJob('ABTEST_REBALANCE', '0 * * * *');
   await queueRegistry.removeRepeatableJob('LINK_BACKLINK_MONITOR' as any, '0 3 * * 3');
   await queueRegistry.removeRepeatableJob('LINK_OPPORTUNITY_SCAN' as any, '0 2 * * 2');
+  await queueRegistry.removeRepeatableJob('SOCIAL_DAILY_POSTING' as any, '0 5 * * *');
 
   // Clear daily content interval
   if (dailyContentInterval) {
@@ -846,8 +860,8 @@ export function getScheduledJobs(): Array<{
     // Social Media
     {
       jobType: 'SOCIAL_DAILY_POSTING',
-      schedule: '0 10 * * *',
-      description: 'Generate and publish social media posts for all connected sites',
+      schedule: '0 5 * * *',
+      description: 'Smart staggered social posting: 7/day cap, timezone-aware, content rotation',
     },
   ];
 }
