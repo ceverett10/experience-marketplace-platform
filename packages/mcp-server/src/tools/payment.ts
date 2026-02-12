@@ -55,40 +55,59 @@ export function registerPaymentTools(server: McpServer, client: HolibobClient): 
       waitForConfirmation: z.boolean().optional().describe('Wait for supplier confirmation (default: true, may take up to 60 seconds)'),
     },
     async ({ bookingId, waitForConfirmation = true }) => {
-      const booking = await client.commitBooking({ id: bookingId });
+      try {
+        const booking = await client.commitBooking({ id: bookingId });
 
-      const sections: string[] = [];
-      sections.push('## Booking Committed!');
-      sections.push(`**Booking ID:** ${booking.id}`);
-      if (booking.code) sections.push(`**Booking Code:** ${booking.code}`);
-      sections.push(`**State:** ${booking.state}`);
+        const sections: string[] = [];
+        sections.push('## Booking Committed!');
+        sections.push(`**Booking ID:** ${booking.id}`);
+        if (booking.code) sections.push(`**Booking Code:** ${booking.code}`);
+        sections.push(`**State:** ${booking.state}`);
 
-      if (booking.totalPrice) {
-        sections.push(`**Total:** ${booking.totalPrice.grossFormattedText ?? `${booking.totalPrice.currency} ${booking.totalPrice.gross}`}`);
-      }
-
-      if (booking.state === 'PENDING' && waitForConfirmation) {
-        sections.push('\nWaiting for supplier confirmation...');
-        try {
-          const confirmed = await client.waitForConfirmation(bookingId, {
-            maxAttempts: 15,
-            intervalMs: 2000,
-          });
-          sections.push(`**Status updated:** ${confirmed.state}`);
-          if (confirmed.voucherUrl) {
-            sections.push(`\n**Voucher URL:** ${confirmed.voucherUrl}`);
-            sections.push('The customer can download their booking voucher from this link.');
-          }
-        } catch {
-          sections.push('Supplier confirmation is still pending. Use get_booking_status to check later.');
+        if (booking.totalPrice) {
+          sections.push(`**Total:** ${booking.totalPrice.grossFormattedText ?? `${booking.totalPrice.currency} ${booking.totalPrice.gross}`}`);
         }
-      } else if (booking.voucherUrl) {
-        sections.push(`\n**Voucher URL:** ${booking.voucherUrl}`);
-      }
 
-      return {
-        content: [{ type: 'text' as const, text: sections.join('\n') }],
-      };
+        if (booking.state === 'PENDING' && waitForConfirmation) {
+          sections.push('\nWaiting for supplier confirmation...');
+          try {
+            const confirmed = await client.waitForConfirmation(bookingId, {
+              maxAttempts: 15,
+              intervalMs: 2000,
+            });
+            sections.push(`**Status updated:** ${confirmed.state}`);
+            if (confirmed.voucherUrl) {
+              sections.push(`\n**Voucher URL:** ${confirmed.voucherUrl}`);
+              sections.push('The customer can download their booking voucher from this link.');
+            }
+          } catch {
+            sections.push('Supplier confirmation is still pending. Use get_booking_status to check later.');
+          }
+        } else if (booking.voucherUrl) {
+          sections.push(`\n**Voucher URL:** ${booking.voucherUrl}`);
+        }
+
+        return {
+          content: [{ type: 'text' as const, text: sections.join('\n') }],
+        };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+
+        if (message.includes('payment') || message.includes('requires_payment_method')) {
+          return {
+            content: [{
+              type: 'text' as const,
+              text: '## Payment Not Completed\n\nThe booking cannot be committed because payment has not been processed yet.\n\nUse `get_payment_info` to get the Stripe payment details. The consumer must complete payment via Stripe before the booking can be committed.\n\nOnce payment is confirmed, try `commit_booking` again.',
+            }],
+            isError: true,
+          };
+        }
+
+        return {
+          content: [{ type: 'text' as const, text: `Error committing booking: ${message}` }],
+          isError: true,
+        };
+      }
     }
   );
 

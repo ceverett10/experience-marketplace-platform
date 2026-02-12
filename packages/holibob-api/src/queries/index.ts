@@ -588,7 +588,7 @@ export const BOOKING_FULL_QUERY = gql`
         nodes {
           id
           date
-          startAt
+          startTime: startAt
           product {
             id
             name
