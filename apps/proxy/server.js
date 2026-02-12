@@ -41,6 +41,25 @@ app.use(
   })
 );
 
+// OAuth discovery & auth endpoints at root level — Claude Desktop looks for these at the origin root
+// These MUST be before the catch-all website proxy
+const mcpOAuthProxy = createProxyMiddleware({
+  target: 'http://localhost:3100',
+  changeOrigin: false,
+  xfwd: true,
+  onError: (err, req, res) => {
+    console.error('MCP OAuth proxy error:', err.message);
+    res.status(503).json({
+      error: 'MCP server unavailable',
+      message: 'Please try again in a moment',
+    });
+  },
+});
+app.use('/.well-known/oauth-protected-resource', mcpOAuthProxy);
+app.use('/.well-known/oauth-authorization-server', mcpOAuthProxy);
+app.use('/authorize', mcpOAuthProxy);
+app.use('/oauth', mcpOAuthProxy);
+
 // Proxy /mcp routes to MCP server (SSE transport for Claude Desktop / ChatGPT)
 app.use(
   '/mcp',

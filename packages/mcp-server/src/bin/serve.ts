@@ -38,7 +38,9 @@ async function startHttp(port: number): Promise<void> {
   const http = await import('node:http');
 
   // Determine the public base URL (used in OAuth metadata)
-  const publicBaseUrl = process.env['MCP_PUBLIC_URL'] ?? `http://localhost:${port}`;
+  // MCP_PUBLIC_URL should be the ROOT origin (e.g. https://domain.com) — NOT /mcp subpath
+  // Claude Desktop discovers OAuth metadata from the root origin
+  const publicBaseUrl = (process.env['MCP_PUBLIC_URL'] ?? `http://localhost:${port}`).replace(/\/mcp\/?$/, '');
 
   // Track per-session transports and their servers
   const sessions = new Map<string, {
@@ -133,7 +135,7 @@ async function startHttp(port: number): Promise<void> {
     if (url.pathname === '/.well-known/oauth-authorization-server' && req.method === 'GET') {
       jsonResponse(res, 200, {
         issuer: publicBaseUrl,
-        authorization_endpoint: `${publicBaseUrl}/oauth/authorize`,
+        authorization_endpoint: `${publicBaseUrl}/authorize`,
         token_endpoint: `${publicBaseUrl}/oauth/token`,
         response_types_supported: ['code'],
         grant_types_supported: ['authorization_code', 'client_credentials'],
@@ -145,7 +147,8 @@ async function startHttp(port: number): Promise<void> {
     }
 
     // ── OAuth Authorization Endpoint ──
-    if (url.pathname === '/oauth/authorize' && req.method === 'GET') {
+    // Handle both /authorize (Claude Desktop default) and /oauth/authorize
+    if ((url.pathname === '/oauth/authorize' || url.pathname === '/authorize') && req.method === 'GET') {
       const result = await handleAuthorize(url.searchParams);
       if (result.redirect) {
         res.writeHead(302, { Location: result.redirect });
