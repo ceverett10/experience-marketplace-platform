@@ -10,7 +10,6 @@ const transportArg = args.find((a) => a.startsWith('--transport='))?.split('=')[
 const portArg = args.find((a) => a.startsWith('--port='))?.split('=')[1] ?? '3100';
 
 async function startStdio(): Promise<void> {
-  // Read Holibob credentials from env (for local / Claude Desktop usage)
   const apiUrl = process.env['HOLIBOB_API_URL'] ?? 'https://api.production.holibob.tech/graphql';
   const partnerId = process.env['HOLIBOB_PARTNER_ID'];
   const apiKey = process.env['HOLIBOB_API_KEY'];
@@ -35,7 +34,11 @@ async function startStdio(): Promise<void> {
 async function startHttp(port: number): Promise<void> {
   const { SSEServerTransport } = await import('@modelcontextprotocol/sdk/server/sse.js');
   const { authenticateApiKey } = await import('../auth/api-key.js');
+  const { handleAuthorize, handleToken, validateAccessToken } = await import('../auth/oauth.js');
   const http = await import('node:http');
+
+  // Determine the public base URL (used in OAuth metadata)
+  const publicBaseUrl = process.env['MCP_PUBLIC_URL'] ?? `http://localhost:${port}`;
 
   // Track per-session transports and their servers
   const sessions = new Map<string, {
@@ -43,7 +46,7 @@ async function startHttp(port: number): Promise<void> {
     partnerName: string;
   }>();
 
-  // Also support env var auth as fallback (for testing without DB)
+  // Env var auth fallback
   const envPartnerId = process.env['HOLIBOB_PARTNER_ID'];
   const envApiKey = process.env['HOLIBOB_API_KEY'];
   const envApiSecret = process.env['HOLIBOB_API_SECRET'];
@@ -57,6 +60,49 @@ async function startHttp(port: number): Promise<void> {
       return parts[1] ?? null;
     }
     return null;
+  }
+
+  function jsonResponse(res: import('node:http').ServerResponse, status: number, body: unknown): void {
+    res.writeHead(status, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(body));
+  }
+
+  function parseFormBody(req: import('node:http').IncomingMessage): Promise<Record<string, string>> {
+    return new Promise((resolve, reject) => {
+      let data = '';
+      req.on('data', (chunk: Buffer) => { data += chunk.toString(); });
+      req.on('end', () => {
+        try {
+          const contentType = req.headers['content-type'] ?? '';
+          if (contentType.includes('application/json')) {
+            resolve(JSON.parse(data));
+          } else {
+            const params = new URLSearchParams(data);
+            const result: Record<string, string> = {};
+            for (const [key, value] of params) {
+              result[key] = value;
+            }
+            resolve(result);
+          }
+        } catch {
+          reject(new Error('Failed to parse request body'));
+        }
+      });
+      req.on('error', reject);
+    });
+  }
+
+  /**
+   * Authenticate a Bearer token — could be an MCP API key (mcp_live_...)
+   * or an OAuth access token (hbmcp_...).
+   */
+  async function authenticateToken(token: string) {
+    if (token.startsWith('hbmcp_')) {
+      const tokenData = validateAccessToken(token);
+      if (!tokenData) return null;
+      return authenticateApiKey(tokenData.mcpApiKey);
+    }
+    return authenticateApiKey(token);
   }
 
   const httpServer = http.createServer(async (req, res) => {
@@ -73,14 +119,67 @@ async function startHttp(port: number): Promise<void> {
       return;
     }
 
-    // Health check
-    if (url.pathname === '/health' && req.method === 'GET') {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ status: 'ok', server: 'holibob-mcp', version: '0.1.0' }));
+    // ── OAuth 2.0 Protected Resource Metadata (RFC 9728) ──
+    if (url.pathname === '/.well-known/oauth-protected-resource' && req.method === 'GET') {
+      jsonResponse(res, 200, {
+        resource: publicBaseUrl,
+        authorization_servers: [publicBaseUrl],
+        scopes_supported: ['mcp'],
+      });
       return;
     }
 
-    // SSE endpoint — authenticate and create per-session server
+    // ── OAuth 2.0 Authorization Server Metadata (RFC 8414) ──
+    if (url.pathname === '/.well-known/oauth-authorization-server' && req.method === 'GET') {
+      jsonResponse(res, 200, {
+        issuer: publicBaseUrl,
+        authorization_endpoint: `${publicBaseUrl}/oauth/authorize`,
+        token_endpoint: `${publicBaseUrl}/oauth/token`,
+        response_types_supported: ['code'],
+        grant_types_supported: ['authorization_code', 'client_credentials'],
+        code_challenge_methods_supported: ['S256'],
+        scopes_supported: ['mcp'],
+        token_endpoint_auth_methods_supported: ['none', 'client_secret_post'],
+      });
+      return;
+    }
+
+    // ── OAuth Authorization Endpoint ──
+    if (url.pathname === '/oauth/authorize' && req.method === 'GET') {
+      const result = await handleAuthorize(url.searchParams);
+      if (result.redirect) {
+        res.writeHead(302, { Location: result.redirect });
+        res.end();
+      } else {
+        jsonResponse(res, result.statusCode ?? 400, { error: result.error });
+      }
+      return;
+    }
+
+    // ── OAuth Token Endpoint ──
+    if (url.pathname === '/oauth/token' && req.method === 'POST') {
+      try {
+        const body = await parseFormBody(req);
+        const result = await handleToken(body);
+        if (result.json) {
+          res.setHeader('Cache-Control', 'no-store');
+          jsonResponse(res, result.statusCode ?? 200, result.json);
+        } else {
+          jsonResponse(res, result.statusCode ?? 400, { error: result.error });
+        }
+      } catch {
+        jsonResponse(res, 400, { error: 'invalid_request', error_description: 'Failed to parse request body' });
+      }
+      return;
+    }
+
+    // ── Health check ──
+    if (url.pathname === '/health' && req.method === 'GET') {
+      jsonResponse(res, 200, { status: 'ok', server: 'holibob-mcp', version: '0.1.0' });
+      return;
+    }
+
+    // ── SSE endpoint — authenticate and create per-session MCP server ──
     if (url.pathname === '/sse' && req.method === 'GET') {
       const token = extractBearerToken(req);
 
@@ -88,18 +187,19 @@ async function startHttp(port: number): Promise<void> {
       let partnerName = 'env';
 
       if (token) {
-        // Database-backed auth: look up MCP API key → partner → Holibob credentials
-        const auth = await authenticateApiKey(token);
+        const auth = await authenticateToken(token);
         if (!auth) {
-          res.writeHead(401, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Invalid or inactive API key' }));
+          res.writeHead(401, {
+            'Content-Type': 'application/json',
+            'WWW-Authenticate': `Bearer resource_metadata="${publicBaseUrl}/.well-known/oauth-protected-resource"`,
+          });
+          res.end(JSON.stringify({ error: 'Invalid or expired token' }));
           return;
         }
         server = createServer(auth.client);
         partnerName = auth.partnerName;
         console.error(`[MCP] Partner "${partnerName}" connected (holibob: ${auth.holibobPartnerId})`);
       } else if (envPartnerId && envApiKey) {
-        // Fallback: env var auth (for local testing)
         const client = createHolibobClient({
           apiUrl: envApiUrl,
           partnerId: envPartnerId,
@@ -109,10 +209,11 @@ async function startHttp(port: number): Promise<void> {
         server = createServer(client);
         console.error('[MCP] Session connected using env var credentials');
       } else {
-        res.writeHead(401, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-          error: 'Authentication required. Provide an API key via Authorization: Bearer <key>',
-        }));
+        res.writeHead(401, {
+          'Content-Type': 'application/json',
+          'WWW-Authenticate': `Bearer resource_metadata="${publicBaseUrl}/.well-known/oauth-protected-resource"`,
+        });
+        res.end(JSON.stringify({ error: 'Authentication required' }));
         return;
       }
 
@@ -126,19 +227,17 @@ async function startHttp(port: number): Promise<void> {
       return;
     }
 
-    // Messages endpoint
+    // ── Messages endpoint ──
     if (url.pathname === '/messages' && req.method === 'POST') {
       const sessionId = url.searchParams.get('sessionId');
       if (!sessionId) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Missing sessionId parameter' }));
+        jsonResponse(res, 400, { error: 'Missing sessionId parameter' });
         return;
       }
 
       const session = sessions.get(sessionId);
       if (!session) {
-        res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Session not found' }));
+        jsonResponse(res, 404, { error: 'Session not found' });
         return;
       }
 
@@ -146,17 +245,17 @@ async function startHttp(port: number): Promise<void> {
       return;
     }
 
-    // Not found
-    res.writeHead(404, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'Not found' }));
+    // ── Not found ──
+    jsonResponse(res, 404, { error: 'Not found' });
   });
 
   httpServer.listen(port, () => {
     console.error(`Holibob MCP Server (HTTP/SSE) listening on port ${port}`);
-    console.error(`  SSE endpoint: http://localhost:${port}/sse`);
-    console.error(`  Messages endpoint: http://localhost:${port}/messages`);
-    console.error(`  Health check: http://localhost:${port}/health`);
-    console.error(`  Auth: Bearer token (MCP API key) or env var fallback`);
+    console.error(`  Public URL: ${publicBaseUrl}`);
+    console.error(`  SSE endpoint: ${publicBaseUrl}/sse`);
+    console.error(`  OAuth authorize: ${publicBaseUrl}/oauth/authorize`);
+    console.error(`  OAuth token: ${publicBaseUrl}/oauth/token`);
+    console.error(`  Health check: ${publicBaseUrl}/health`);
   });
 }
 
@@ -164,7 +263,6 @@ async function main(): Promise<void> {
   if (transportArg === 'stdio') {
     await startStdio();
   } else if (transportArg === 'http') {
-    // Use --port arg first, then MCP_PORT env var. Do NOT use PORT (that's the main Heroku web port).
     const port = parseInt(portArg !== '3100' ? portArg : (process.env['MCP_PORT'] ?? portArg), 10);
     await startHttp(port);
   } else {
