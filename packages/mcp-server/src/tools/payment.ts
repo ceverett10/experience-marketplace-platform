@@ -73,7 +73,7 @@ export function registerPaymentTools(server: McpServer, client: HolibobClient): 
     'commit_booking',
     {
       title: 'Commit Booking',
-      description: 'Finalize and commit a booking. If payment is required, ensure payment is completed first. Returns the booking confirmation with voucher URL.',
+      description: 'Finalize and commit a booking. PREREQUISITES: 1) All required questions must be answered (canCommit=true from answer_booking_questions). 2) If payment is required, payment must be completed first. Returns the booking confirmation with voucher URL.',
       inputSchema: {
         bookingId: z.string().describe('The booking ID to commit'),
         waitForConfirmation: z.boolean().optional().describe('Wait for supplier confirmation (default: true, may take up to 60 seconds)'),
@@ -145,6 +145,17 @@ export function registerPaymentTools(server: McpServer, client: HolibobClient): 
             content: [{
               type: 'text' as const,
               text: '## Payment Not Completed\n\nThe booking cannot be committed because payment has not been processed yet.\n\nUse `get_payment_info` to get the Stripe payment details. The consumer must complete payment via Stripe before the booking can be committed.\n\nOnce payment is confirmed, try `commit_booking` again.',
+            }],
+            isError: true,
+          };
+        }
+
+        // Handle unanswered question errors (e.g., "NAME_GIVEN question is not answered")
+        if (message.includes('question is not answered') || message.includes('BOOKING_COMMIT_ERROR')) {
+          return {
+            content: [{
+              type: 'text' as const,
+              text: `## Required Questions Not Answered\n\n${message}\n\n**Fix:** Call \`get_booking_questions\` to see ALL unanswered questions, then use \`answer_booking_questions\` to answer them. Make sure to:\n- Provide \`leadPassengerName\` (the guest's full name)\n- Answer ALL questions including NAME_GIVEN, EMAIL, and PHONE_NUMBER\n- Check that \`canCommit = true\` in the response before calling commit_booking again.`,
             }],
             isError: true,
           };

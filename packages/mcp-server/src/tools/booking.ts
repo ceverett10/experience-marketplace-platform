@@ -242,16 +242,16 @@ export function registerBookingTools(server: McpServer, client: HolibobClient): 
     'answer_booking_questions',
     {
       title: 'Answer Questions',
-      description: 'Answer booking questions (guest name, email, phone, etc.). The lead passenger name is required. Provide answers as question ID + value pairs.',
+      description: 'Answer booking questions (guest name, email, phone, etc.). IMPORTANT: You MUST provide leadPassengerName AND answer ALL required questions from get_booking_questions (including NAME_GIVEN, EMAIL, PHONE_NUMBER). After calling this, check canCommit — only call commit_booking when canCommit is true.',
       inputSchema: {
         bookingId: z.string().describe('The booking ID'),
-        leadPassengerName: z.string().optional().describe('Full name of the lead passenger (e.g., "John Smith")'),
+        leadPassengerName: z.string().describe('Full name of the lead passenger (REQUIRED, e.g., "John Smith")'),
         answers: z.array(
           z.object({
             questionId: z.string().describe('Question ID from get_booking_questions'),
             value: z.string().describe('Answer value'),
           })
-        ).optional().describe('Array of question answers'),
+        ).describe('Array of ALL required question answers — include every question from get_booking_questions'),
       },
       _meta: {},
     },

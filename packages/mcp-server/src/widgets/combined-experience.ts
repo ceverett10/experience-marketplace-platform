@@ -448,6 +448,12 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
 
       case 'search':
         if (actionEl.disabled) return;
+        // Clear previous results when re-searching
+        state.experiences = [];
+        state.seenIds = {};
+        state.carouselIdx = 0;
+        state.detail = null;
+        state.hasMore = false;
         var s = state.selections;
         var args = { destination: s.where || 'popular destinations' };
         if (s.what) args.searchTerm = s.what;
