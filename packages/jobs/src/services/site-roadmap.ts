@@ -272,6 +272,7 @@ async function validateTaskArtifacts(
     AD_CAMPAIGN_SYNC: { valid: true },
     AD_PERFORMANCE_REPORT: { valid: true },
     AD_BUDGET_OPTIMIZER: { valid: true },
+    PAID_KEYWORD_SCAN: { valid: true },
   };
 }
 
@@ -504,6 +505,10 @@ export const TASK_DESCRIPTIONS: Record<JobType, { label: string; description: st
   AD_BUDGET_OPTIMIZER: {
     label: 'Optimize Ad Budgets',
     description: 'Auto-optimize budget allocation across campaigns',
+  },
+  PAID_KEYWORD_SCAN: {
+    label: 'Scan Paid Keywords',
+    description: 'Discover new low-CPC keyword opportunities for paid traffic',
   },
 };
 

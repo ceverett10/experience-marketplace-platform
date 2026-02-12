@@ -31,8 +31,8 @@ const QUEUE_CONFIG: Record<QueueName, { timeout: number; attempts: number; backo
     [QUEUE_NAMES.MICROSITE]: { timeout: 300_000, attempts: 3, backoffDelay: 15_000 },
     // Social: Caption generation + external API posting
     [QUEUE_NAMES.SOCIAL]: { timeout: 120_000, attempts: 3, backoffDelay: 30_000 },
-    // Ads: Campaign sync and budget optimization with ad platform APIs
-    [QUEUE_NAMES.ADS]: { timeout: 120_000, attempts: 3, backoffDelay: 30_000 },
+    // Ads: Campaign sync, budget optimization, and paid keyword scanning with external APIs
+    [QUEUE_NAMES.ADS]: { timeout: 300_000, attempts: 3, backoffDelay: 30_000 },
   };
 
 /**
@@ -125,6 +125,7 @@ class QueueRegistry {
       'AD_BUDGET_OPTIMIZER', // Cross-site optimization, no single siteId
       'SOCIAL_POST_PUBLISH', // Uses socialPostId, not siteId
       'SOCIAL_DAILY_POSTING', // Fan-out job, siteId is optional
+      'PAID_KEYWORD_SCAN', // Cross-site keyword discovery, no single siteId
     ];
     if (!siteId && rawSiteId !== 'all' && !siteOptionalTypes.includes(jobType)) {
       const hasDomainId = !!(payload as { domainId?: string }).domainId;

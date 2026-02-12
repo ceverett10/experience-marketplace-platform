@@ -54,7 +54,7 @@ export async function GET(
         `https://www.pinterest.com/oauth/?response_type=code` +
         `&client_id=${appId}` +
         `&redirect_uri=${encodeURIComponent(callbackUrl)}` +
-        `&scope=boards:read,boards:write,pins:read,pins:write` +
+        `&scope=boards:read,boards:write,pins:read,pins:write,ads:read` +
         `&state=${state}`;
       break;
     }
@@ -69,7 +69,7 @@ export async function GET(
         `https://www.facebook.com/v18.0/dialog/oauth?response_type=code` +
         `&client_id=${appId}` +
         `&redirect_uri=${encodeURIComponent(callbackUrl)}` +
-        `&scope=pages_manage_posts,pages_read_engagement` +
+        `&scope=pages_manage_posts,pages_read_engagement,ads_read` +
         `&state=${state}`;
       break;
     }

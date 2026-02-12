@@ -334,10 +334,10 @@ export async function initializeScheduledJobs(): Promise<void> {
   // =========================================================================
 
   // Paid Keyword Scanner — Tuesdays and Fridays at 4 AM
-  // Discovers new low-CPC keyword opportunities from GSC data, keyword expansion, and category discovery
+  // Discovers new low-CPC keyword opportunities from GSC, DataForSEO, Pinterest Ads, and Meta Marketing APIs
   await scheduleJob(
     'PAID_KEYWORD_SCAN' as any,
-    { maxCpc: 3.0, minVolume: 100 },
+    { maxCpc: 3.0, minVolume: 100, modes: ['gsc', 'expansion', 'discovery', 'pinterest', 'meta'] },
     '0 4 * * 2,5' // Tuesdays and Fridays at 4 AM
   );
   console.log('[Scheduler] ✓ Paid Keyword Scanner - Tuesdays & Fridays at 4 AM');

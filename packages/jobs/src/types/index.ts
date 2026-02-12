@@ -375,7 +375,7 @@ export interface PaidKeywordScanPayload {
   siteId?: string; // Optional — 'all' for cross-site scan
   maxCpc?: number; // Default: 3.00
   minVolume?: number; // Default: 100
-  modes?: ('gsc' | 'expansion' | 'discovery')[]; // Default: all three
+  modes?: ('gsc' | 'expansion' | 'discovery' | 'pinterest' | 'meta')[]; // Default: all five
 }
 
 /**

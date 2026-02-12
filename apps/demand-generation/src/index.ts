@@ -63,6 +63,11 @@ import {
   handleSocialDailyPosting,
   handleSocialPostGenerate,
   handleSocialPostPublish,
+  // Paid traffic handlers
+  handlePaidKeywordScan,
+  handleAdCampaignSync,
+  handleAdPerformanceReport,
+  handleAdBudgetOptimizer,
 } from '@experience-marketplace/jobs';
 import { prisma, JobStatus } from '@experience-marketplace/database';
 import type { JobType } from '@experience-marketplace/database';
@@ -444,6 +449,32 @@ const socialWorker = new Worker(
   makeWorkerOptions(QUEUE_NAMES.SOCIAL, 2) // Low: external API rate limits
 );
 
+/**
+ * Ads/Paid Traffic Queue Worker
+ * Handles: PAID_KEYWORD_SCAN, AD_CAMPAIGN_SYNC, AD_PERFORMANCE_REPORT, AD_BUDGET_OPTIMIZER
+ */
+const adsWorker = new Worker(
+  QUEUE_NAMES.ADS,
+  async (job: Job) => {
+    console.log(`[Ads Worker] Processing ${job.name} job ${job.id}`);
+    await updateJobStatus(job, 'RUNNING');
+
+    switch (job.name as JobType) {
+      case 'PAID_KEYWORD_SCAN':
+        return await handlePaidKeywordScan(job);
+      case 'AD_CAMPAIGN_SYNC':
+        return await handleAdCampaignSync(job);
+      case 'AD_PERFORMANCE_REPORT':
+        return await handleAdPerformanceReport(job);
+      case 'AD_BUDGET_OPTIMIZER':
+        return await handleAdBudgetOptimizer(job);
+      default:
+        throw new Error(`Unknown job type: ${job.name}`);
+    }
+  },
+  makeWorkerOptions(QUEUE_NAMES.ADS, 2) // Low: DataForSEO rate limits
+);
+
 // Worker event handlers
 const workers = [
   contentWorker,
@@ -456,6 +487,7 @@ const workers = [
   micrositeWorker,
   syncWorker,
   socialWorker,
+  adsWorker,
 ];
 
 workers.forEach((worker) => {
@@ -585,6 +617,7 @@ console.log('  ✓ A/B Test Worker (test analysis, rebalancing)');
 console.log('  ✓ Microsite Worker (microsite creation, branding, publishing)');
 console.log('  ✓ Sync Worker (Holibob supplier and product sync)');
 console.log('  ✓ Social Worker (social media posting - Pinterest, Facebook, Twitter)');
+console.log('  ✓ Ads Worker (paid keyword scanning, campaign sync, budget optimization)');
 console.log('');
 
 // Set up scheduled jobs and autonomous processor after a short delay to ensure workers are ready
@@ -608,4 +641,5 @@ export {
   abtestWorker,
   micrositeWorker,
   syncWorker,
+  adsWorker,
 };

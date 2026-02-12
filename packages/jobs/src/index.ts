@@ -17,6 +17,7 @@ export * from './workers/link-building';
 export * from './workers/sync';
 export * from './workers/microsite';
 export * from './workers/social';
+export * from './workers/ads';
 
 // Export schedulers
 export * from './schedulers';
@@ -33,6 +34,8 @@ export * from './services/daily-content-generator';
 export * from './services/structured-data';
 export * from './services/internal-linking';
 export * from './services/opportunity-optimizer';
+export { runPaidKeywordScan } from './services/paid-keyword-scanner';
+export type { PaidKeywordScanResult } from './services/paid-keyword-scanner';
 export * from './services/seo-health';
 export * from './services/seo-issues';
 export * from './services/seo-optimizer';
