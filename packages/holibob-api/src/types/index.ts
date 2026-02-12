@@ -368,6 +368,7 @@ export const AvailabilityListResponseSchema = z.object({
   sessionId: z.string(),
   nodes: z.array(AvailabilitySlotSchema),
   optionList: z.object({
+    isComplete: z.boolean().optional(),
     nodes: z.array(AvailabilityOptionSchema),
   }),
 });

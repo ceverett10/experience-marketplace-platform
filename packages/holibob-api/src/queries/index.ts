@@ -196,6 +196,7 @@ export const AVAILABILITY_LIST_QUERY = gql`
         soldOut
       }
       optionList {
+        isComplete
         nodes {
           id
           label
@@ -203,6 +204,13 @@ export const AVAILABILITY_LIST_QUERY = gql`
           required
           type
           dataType
+          dataFormat
+          answerValue
+          answerFormattedText
+          availableOptions {
+            label
+            value
+          }
           errorList {
             nodes
           }
