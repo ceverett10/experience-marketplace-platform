@@ -119,9 +119,15 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
   .review-stars { color: var(--yellow); font-size: 12px; margin-bottom: 5px; }
   .review-text { font-size: 12px; color: var(--gray-600); line-height: 1.5; }
   .cancel-policy { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--green); font-weight: 600; margin-bottom: 14px; padding: 8px 12px; background: #ECFDF5; border-radius: 8px; }
-  .detail-cta { width: 100%; padding: 14px; background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: white; border: none; border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 8px rgba(15,118,110,0.25); }
-  .detail-cta:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(15,118,110,0.35); }
-  .detail-cta:active { transform: translateY(0); }
+  /* === CHAT HANDOFF === */
+  .chat-handoff { margin-top: 16px; padding: 20px 16px; background: var(--primary-light); border: 1px solid rgba(15,118,110,0.15); border-radius: var(--radius); text-align: center; }
+  .handoff-icon { font-size: 28px; margin-bottom: 8px; }
+  .handoff-title { font-size: 15px; font-weight: 700; color: var(--gray-900); margin-bottom: 4px; }
+  .handoff-desc { font-size: 13px; color: var(--gray-600); line-height: 1.5; margin-bottom: 12px; }
+  .handoff-suggestion { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; background: var(--surface); border: 1px solid var(--gray-200); border-radius: 8px; cursor: pointer; transition: all 0.15s; max-width: 100%; }
+  .handoff-suggestion:hover { border-color: var(--primary); background: var(--primary-light); }
+  .suggestion-text { font-size: 13px; color: var(--primary); font-weight: 600; font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .copy-icon { font-size: 14px; flex-shrink: 0; }
 
   /* === DIVIDER === */
   .section-divider { height: 1px; background: linear-gradient(90deg, transparent, var(--gray-200), transparent); margin: 0 16px; }
@@ -172,11 +178,6 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
 
   function rpcNotify(method, params) {
     try { window.parent.postMessage({ jsonrpc: '2.0', method: method, params: params || {} }, '*'); } catch(e) {}
-  }
-
-  // ui/message is a REQUEST per MCP Apps spec (needs id for response)
-  function sendMessage(text) {
-    return rpcRequest('ui/message', { role: 'user', content: [{ type: 'text', text: text }] }).catch(function() {});
   }
 
   function showLoading(text) {
@@ -384,7 +385,15 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
     }
 
     if (exp.cancellationPolicy) h += '<div class="cancel-policy">\\u2713 ' + esc(exp.cancellationPolicy) + '</div>';
-    h += '<button class="detail-cta" data-action="check-avail" data-id="' + esc(exp.id) + '" data-name="' + esc(exp.name) + '">Check Availability</button>';
+    var suggestText = 'Book "' + (exp.name || '') + '"';
+    h += '<div class="chat-handoff">';
+    h += '<div class="handoff-icon">\\u{1F4AC}</div>';
+    h += '<div class="handoff-title">Ready to book?</div>';
+    h += '<div class="handoff-desc">Type in the chat below to check availability and complete your booking.</div>';
+    h += '<div class="handoff-suggestion" data-action="copy-suggestion" data-text="' + esc(suggestText) + '">';
+    h += '<span class="suggestion-text">\\u201C' + esc(suggestText) + '\\u201D</span>';
+    h += '<span class="copy-icon">\\u{1F4CB}</span>';
+    h += '</div></div>';
     return h;
   }
 
@@ -479,10 +488,13 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
         render();
         break;
 
-      case 'check-avail':
-        var availId = actionEl.getAttribute('data-id');
-        var availName = actionEl.getAttribute('data-name');
-        bridgeReady.then(function() { sendMessage('Check availability for "' + availName + '" (ID: ' + availId + ')'); });
+      case 'copy-suggestion':
+        var copyText = actionEl.getAttribute('data-text');
+        if (copyText && navigator.clipboard) {
+          navigator.clipboard.writeText(copyText).catch(function(){});
+          var copyIcon = actionEl.querySelector('.copy-icon');
+          if (copyIcon) { copyIcon.textContent = '\\u2713'; setTimeout(function(){ copyIcon.textContent = '\\u{1F4CB}'; }, 1500); }
+        }
         break;
     }
   });
