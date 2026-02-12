@@ -205,6 +205,8 @@ export async function syncProductsFromHolibob(
         const supplierCategories = new Set<string>();
         let minPrice: number | null = null;
         let maxPrice: number | null = null;
+        let bestHeroImage: string | null = null;
+        let bestHeroRating: number = -1;
 
         // Upsert products
         for (const product of productsToSync) {
@@ -233,6 +235,17 @@ export async function syncProductsFromHolibob(
               if (minPrice === null || price < minPrice) minPrice = price;
               if (maxPrice === null || price > maxPrice) maxPrice = price;
             }
+            // Pick the best product image as the supplier hero image
+            // Prefer highest-rated product's image for visual appeal
+            const productImage =
+              product.primaryImageUrl ?? product.imageUrl ?? product.imageList?.[0]?.url;
+            if (productImage) {
+              const productRating = product.reviewRating ?? product.rating ?? 0;
+              if (productRating > bestHeroRating || !bestHeroImage) {
+                bestHeroImage = productImage;
+                bestHeroRating = productRating;
+              }
+            }
           } catch (productError) {
             const errorMsg = `Error upserting product "${product.name}": ${
               productError instanceof Error ? productError.message : String(productError)
@@ -252,6 +265,7 @@ export async function syncProductsFromHolibob(
             categories: Array.from(supplierCategories),
             priceRangeMin: minPrice,
             priceRangeMax: maxPrice,
+            ...(bestHeroImage ? { heroImageUrl: bestHeroImage } : {}),
           },
         });
 

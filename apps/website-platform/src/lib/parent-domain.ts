@@ -77,6 +77,13 @@ export async function getFeaturedSuppliers(limit: number = 12): Promise<Featured
             status: true,
           },
         },
+        // Fallback: grab the top-rated product's image if supplier has no hero
+        products: {
+          where: { primaryImageUrl: { not: null } },
+          orderBy: { rating: 'desc' },
+          take: 1,
+          select: { primaryImageUrl: true },
+        },
       },
     });
 
@@ -92,7 +99,7 @@ export async function getFeaturedSuppliers(limit: number = 12): Promise<Featured
       reviewCount: s.reviewCount,
       // Generated logos disabled - using text-only branding (standard design) for all sites
       logoUrl: null,
-      heroImageUrl: s.heroImageUrl,
+      heroImageUrl: s.heroImageUrl || s.products[0]?.primaryImageUrl || null,
       micrositeUrl: s.microsite?.status === 'ACTIVE' ? `https://${s.microsite.fullDomain}` : null,
     }));
   } catch (error) {

@@ -53,6 +53,13 @@ async function getFilteredSuppliers(
           status: true,
         },
       },
+      // Fallback: grab the top-rated product's image if supplier has no hero
+      products: {
+        where: { primaryImageUrl: { not: null } },
+        orderBy: { rating: 'desc' },
+        take: 1,
+        select: { primaryImageUrl: true },
+      },
     },
   });
 
@@ -67,7 +74,7 @@ async function getFilteredSuppliers(
     rating: s.rating,
     reviewCount: s.reviewCount,
     logoUrl: null,
-    heroImageUrl: s.heroImageUrl,
+    heroImageUrl: s.heroImageUrl || s.products[0]?.primaryImageUrl || null,
     micrositeUrl: s.microsite?.status === 'ACTIVE' ? `https://${s.microsite.fullDomain}` : null,
   }));
 }
