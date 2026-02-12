@@ -1,0 +1,195 @@
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { z } from 'zod';
+import type { HolibobClient } from '@experience-marketplace/holibob-api';
+import type { Booking, BookingQuestion } from '@experience-marketplace/holibob-api/types';
+
+function formatQuestion(q: BookingQuestion, prefix = ''): string {
+  const parts = [`${prefix}- **${q.label}** (ID: ${q.id}, Type: ${q.type ?? 'text'})${q.isRequired ? ' *required*' : ''}`];
+  if (q.answerValue) parts.push(`${prefix}  Current answer: ${q.answerValue}`);
+  if (q.autoCompleteValue && !q.answerValue) parts.push(`${prefix}  Suggested: ${q.autoCompleteValue}`);
+  if (q.options?.length) {
+    parts.push(`${prefix}  Options:`);
+    q.options.forEach((o) => parts.push(`${prefix}    - "${o.value}" — ${o.label}`));
+  }
+  return parts.join('\n');
+}
+
+function formatBookingSummary(booking: Booking): string {
+  const sections: string[] = [];
+  sections.push(`**Booking ID:** ${booking.id}`);
+  if (booking.code) sections.push(`**Booking Code:** ${booking.code}`);
+  sections.push(`**State:** ${booking.state ?? 'OPEN'}`);
+
+  if (booking.canCommit !== undefined) {
+    sections.push(`**Ready to commit:** ${booking.canCommit ? 'Yes' : 'No — answer all required questions first'}`);
+  }
+
+  if (booking.totalPrice) {
+    sections.push(`**Total:** ${booking.totalPrice.grossFormattedText ?? `${booking.totalPrice.currency} ${booking.totalPrice.gross}`}`);
+  }
+
+  if (booking.availabilityList?.nodes?.length) {
+    sections.push('\n## Items in Booking');
+    booking.availabilityList.nodes.forEach((avail) => {
+      const name = avail.product?.name ?? 'Experience';
+      const price = avail.totalPrice?.grossFormattedText ?? '';
+      sections.push(`- **${name}** on ${avail.date}${avail.startTime ? ` at ${avail.startTime}` : ''} ${price}`);
+    });
+  }
+
+  if (booking.voucherUrl) {
+    sections.push(`\n**Voucher:** ${booking.voucherUrl}`);
+  }
+
+  return sections.join('\n');
+}
+
+export function registerBookingTools(server: McpServer, client: HolibobClient): void {
+  server.tool(
+    'create_booking',
+    'Create a new booking basket. This is the first step in the booking process after checking availability.',
+    {},
+    async () => {
+      const booking = await client.createBooking({ autoFillQuestions: true });
+
+      return {
+        content: [{
+          type: 'text' as const,
+          text: `Booking created!\n\n${formatBookingSummary(booking)}\n\nNext: Use add_to_booking to add an availability slot to this booking.`,
+        }],
+      };
+    }
+  );
+
+  server.tool(
+    'add_to_booking',
+    'Add an availability slot (from check_availability results) to an existing booking.',
+    {
+      bookingId: z.string().describe('The booking ID from create_booking'),
+      availabilityId: z.string().describe('The availability slot ID from check_availability results'),
+    },
+    async ({ bookingId, availabilityId }) => {
+      const result = await client.addAvailabilityToBooking({
+        bookingSelector: { id: bookingId },
+        id: availabilityId,
+      });
+
+      const text = result.isComplete
+        ? `Availability added to booking ${bookingId}. The booking is ready — use commit_booking to finalize.`
+        : `Availability added to booking ${bookingId}. Questions need to be answered before the booking can be committed.\n\nUse get_booking_questions to see what information is needed.`;
+
+      return {
+        content: [{ type: 'text' as const, text }],
+      };
+    }
+  );
+
+  server.tool(
+    'get_booking_questions',
+    'Get all questions that need to be answered for a booking (guest details, contact info, etc.).',
+    {
+      bookingId: z.string().describe('The booking ID'),
+    },
+    async ({ bookingId }) => {
+      const booking = await client.getBookingQuestions(bookingId);
+      const sections: string[] = [];
+
+      sections.push(formatBookingSummary(booking));
+
+      // Booking-level questions
+      if (booking.questionList?.nodes?.length) {
+        const unanswered = booking.questionList.nodes.filter((q) => !q.answerValue);
+        if (unanswered.length) {
+          sections.push('\n## Booking Questions');
+          unanswered.forEach((q) => sections.push(formatQuestion(q)));
+        }
+      }
+
+      // Availability-level and person-level questions
+      if (booking.availabilityList?.nodes?.length) {
+        booking.availabilityList.nodes.forEach((avail) => {
+          const name = avail.product?.name ?? 'Experience';
+
+          // Availability questions
+          const availQuestions = avail.questionList?.nodes?.filter((q) => !q.answerValue) ?? [];
+          if (availQuestions.length) {
+            sections.push(`\n## Questions for "${name}"`);
+            availQuestions.forEach((q) => sections.push(formatQuestion(q)));
+          }
+
+          // Person questions
+          if (avail.personList?.nodes?.length) {
+            avail.personList.nodes.forEach((person) => {
+              const personQuestions = person.questionList?.nodes?.filter((q) => !q.answerValue) ?? [];
+              if (personQuestions.length) {
+                sections.push(`\n## Questions for ${person.pricingCategoryLabel ?? 'Guest'} (Person ID: ${person.id})`);
+                personQuestions.forEach((q) => sections.push(formatQuestion(q, '  ')));
+              }
+            });
+          }
+        });
+      }
+
+      sections.push('\n---');
+      sections.push('Use answer_booking_questions to submit answers. Provide the question IDs and values.');
+
+      return {
+        content: [{ type: 'text' as const, text: sections.join('\n') }],
+      };
+    }
+  );
+
+  server.tool(
+    'answer_booking_questions',
+    'Answer booking questions (guest name, email, phone, etc.). The lead passenger name is required. Provide answers as question ID + value pairs.',
+    {
+      bookingId: z.string().describe('The booking ID'),
+      leadPassengerName: z.string().optional().describe('Full name of the lead passenger (e.g., "John Smith")'),
+      answers: z.array(
+        z.object({
+          questionId: z.string().describe('Question ID from get_booking_questions'),
+          value: z.string().describe('Answer value'),
+        })
+      ).optional().describe('Array of question answers'),
+    },
+    async ({ bookingId, leadPassengerName, answers }) => {
+      const booking = await client.answerBookingQuestions(bookingId, {
+        leadPassengerName,
+        answerList: answers,
+      });
+
+      const sections: string[] = [];
+      sections.push(formatBookingSummary(booking));
+
+      if (booking.canCommit) {
+        sections.push('\n**Booking is ready to commit!**');
+        sections.push('Use get_payment_info to check if payment is needed, then commit_booking to finalize.');
+      } else {
+        // Check for remaining unanswered questions
+        const remaining: string[] = [];
+        booking.questionList?.nodes?.forEach((q) => {
+          if (!q.answerValue && q.isRequired) remaining.push(q.label);
+        });
+        booking.availabilityList?.nodes?.forEach((avail) => {
+          avail.questionList?.nodes?.forEach((q) => {
+            if (!q.answerValue && q.isRequired) remaining.push(q.label);
+          });
+          avail.personList?.nodes?.forEach((person) => {
+            person.questionList?.nodes?.forEach((q) => {
+              if (!q.answerValue && q.isRequired) remaining.push(`${person.pricingCategoryLabel}: ${q.label}`);
+            });
+          });
+        });
+
+        if (remaining.length) {
+          sections.push(`\n**Still need answers for:** ${remaining.join(', ')}`);
+          sections.push('Call answer_booking_questions again with the remaining answers.');
+        }
+      }
+
+      return {
+        content: [{ type: 'text' as const, text: sections.join('\n') }],
+      };
+    }
+  );
+}

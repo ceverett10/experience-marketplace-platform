@@ -51,6 +51,60 @@ model PlatformSettings {
 }
 
 // ============================================================================
+// PARTNER & MCP API KEY MANAGEMENT
+// ============================================================================
+
+model Partner {
+  id           String @id @default(cuid())
+  name         String
+  contactEmail String
+
+  // Holibob Integration Credentials (encrypted via AES-256-GCM)
+  holibobPartnerId String
+  holibobApiKey    String // Encrypted
+  holibobApiSecret String? // Encrypted, optional (for HMAC auth)
+  holibobApiUrl    String  @default("https://api.production.holibob.tech/graphql")
+
+  // Payment Configuration
+  paymentModel String @default("REQUIRED") // ON_ACCOUNT or REQUIRED
+
+  // Status
+  status String @default("ACTIVE") // ACTIVE, SUSPENDED, ARCHIVED
+
+  // Relations
+  mcpApiKeys McpApiKey[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@map("partners")
+}
+
+model McpApiKey {
+  id        String  @id @default(cuid())
+  partnerId String
+  partner   Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+
+  key    String   @unique // Format: mcp_live_<random> or mcp_test_<random>
+  name   String // "Production", "Staging", "Development"
+  scopes String[] // ["discovery", "booking", "payment"]
+
+  // Rate Limiting
+  rateLimitRpm Int @default(60)
+
+  // Status
+  isActive   Boolean   @default(true)
+  lastUsedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([key])
+  @@index([partnerId])
+  @@map("mcp_api_keys")
+}
+
+// ============================================================================
 // SITE & BRAND MANAGEMENT
 // ============================================================================
 

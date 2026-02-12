@@ -18,6 +18,7 @@ const navItems: NavItem[] = [
   { href: '/sites', label: 'Sites', icon: '🌐' },
   { href: '/opportunities', label: 'Opportunities', icon: '🔍' },
   { href: '/domains', label: 'Domains', icon: '🌍' },
+  { href: '/partners', label: 'Partners', icon: '🤝' },
   { href: '/tasks', label: 'Tasks', icon: '✅' },
   {
     href: '/analytics',

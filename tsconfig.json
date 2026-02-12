@@ -8,6 +8,7 @@
     { "path": "./packages/database" },
     { "path": "./packages/holibob-api" },
     { "path": "./packages/ui-components" },
+    { "path": "./packages/mcp-server" },
     { "path": "./apps/demand-generation" },
     { "path": "./apps/website-platform" },
     { "path": "./apps/admin" }
