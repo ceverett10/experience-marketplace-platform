@@ -164,7 +164,8 @@ async function main(): Promise<void> {
   if (transportArg === 'stdio') {
     await startStdio();
   } else if (transportArg === 'http') {
-    const port = parseInt(process.env['PORT'] ?? portArg, 10);
+    // Use --port arg first, then MCP_PORT env var. Do NOT use PORT (that's the main Heroku web port).
+    const port = parseInt(portArg !== '3100' ? portArg : (process.env['MCP_PORT'] ?? portArg), 10);
     await startHttp(port);
   } else {
     console.error(`Unknown transport: ${transportArg}. Use --transport=stdio or --transport=http`);
