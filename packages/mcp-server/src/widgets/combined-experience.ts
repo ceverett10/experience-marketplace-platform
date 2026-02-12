@@ -7,7 +7,7 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
 <style>
   :root { --primary: #0F766E; --primary-light: #F0FDFA; --gray-50: #F9FAFB; --gray-100: #F3F4F6; --gray-200: #E5E7EB; --gray-400: #9CA3AF; --gray-500: #6B7280; --gray-600: #4B5563; --gray-900: #111827; --yellow: #FACC15; --green: #059669; --red: #DC2626; --shadow: 0 4px 12px rgba(0,0,0,0.08); --card-w: 260px; --gap: 16px; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: system-ui, -apple-system, sans-serif; color: var(--gray-900); background: transparent; -webkit-font-smoothing: antialiased; }
+  body { font-family: system-ui, -apple-system, sans-serif; color: var(--gray-900); background: white; -webkit-font-smoothing: antialiased; }
 
   /* === PLANNER === */
   .planner { padding: 16px; }
@@ -19,7 +19,7 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
   .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--gray-200); transition: all 0.2s; }
   .dot.active { background: var(--primary); width: 24px; border-radius: 4px; }
   .dot.done { background: var(--primary); }
-  .section { border: 1px solid var(--gray-200); border-radius: 12px; margin-bottom: 8px; overflow: hidden; transition: all 0.2s; }
+  .section { border: 1px solid var(--gray-200); border-radius: 12px; margin-bottom: 8px; overflow: hidden; transition: all 0.2s; background: white; }
   .section.active { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(15,118,110,0.12); }
   .section-header { display: flex; align-items: center; gap: 10px; padding: 12px 14px; cursor: pointer; }
   .section-icon { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; background: var(--gray-100); flex-shrink: 0; }
@@ -31,7 +31,7 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
   .section-body { display: none; padding: 0 14px 12px; }
   .section.active .section-body { display: block; }
   .input-row { margin-bottom: 8px; }
-  .input-row input { width: 100%; padding: 9px 12px; border: 1px solid var(--gray-200); border-radius: 8px; font-size: 13px; color: var(--gray-900); outline: none; transition: border-color 0.15s; }
+  .input-row input { width: 100%; padding: 9px 12px; border: 1px solid var(--gray-200); border-radius: 8px; font-size: 13px; color: var(--gray-900); background: white; outline: none; transition: border-color 0.15s; }
   .input-row input:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(15,118,110,0.15); }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; }
   .chip { padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; background: var(--gray-100); color: var(--gray-600); border: 1px solid transparent; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
@@ -351,7 +351,7 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
       if (s.what) p.push('for "' + s.what + '"');
       if (s.when) p.push(s.when.toLowerCase());
       if (s.who) p.push('for ' + s.who.toLowerCase());
-      window.parent.postMessage({ jsonrpc: '2.0', method: 'ui/message', params: { message: p.join(' ') } }, '*');
+      window.parent.postMessage({ jsonrpc: '2.0', method: 'ui/message', params: { role: 'user', content: [{ type: 'text', text: p.join(' ') }] } }, '*');
     });
 
     // Carousel nav
@@ -370,13 +370,13 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
         if (!t) return;
         e.stopPropagation();
         var id = t.getAttribute('data-id'), name = t.getAttribute('data-name');
-        window.parent.postMessage({ jsonrpc: '2.0', method: 'ui/message', params: { message: 'Show me details for "' + name + '" (ID: ' + id + ')' } }, '*');
+        window.parent.postMessage({ jsonrpc: '2.0', method: 'ui/message', params: { role: 'user', content: [{ type: 'text', text: 'Show me details for "' + name + '" (ID: ' + id + ')' }] } }, '*');
       });
     });
 
     // Load more
     var lm = document.getElementById('loadMore');
-    if (lm) lm.addEventListener('click', function(){ window.parent.postMessage({ jsonrpc: '2.0', method: 'ui/message', params: { message: 'Show me more experiences like these' } }, '*'); });
+    if (lm) lm.addEventListener('click', function(){ window.parent.postMessage({ jsonrpc: '2.0', method: 'ui/message', params: { role: 'user', content: [{ type: 'text', text: 'Show me more experiences like these' }] } }, '*'); });
 
     // Back to results
     var back = document.getElementById('backToResults');
@@ -391,7 +391,7 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
     var dcta = root.querySelector('.detail-cta');
     if (dcta) dcta.addEventListener('click', function(){
       var id = dcta.getAttribute('data-id'), name = dcta.getAttribute('data-name');
-      window.parent.postMessage({ jsonrpc: '2.0', method: 'ui/message', params: { message: 'Check availability for "' + name + '" (ID: ' + id + ')' } }, '*');
+      window.parent.postMessage({ jsonrpc: '2.0', method: 'ui/message', params: { role: 'user', content: [{ type: 'text', text: 'Check availability for "' + name + '" (ID: ' + id + ')' }] } }, '*');
     });
 
     updateCarouselScroll();

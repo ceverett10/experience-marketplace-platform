@@ -7,8 +7,8 @@ export const EXPERIENCE_CAROUSEL_HTML = `<!DOCTYPE html>
 <style>
   :root { --primary: #0F766E; --primary-light: #F0FDFA; --gray-50: #F9FAFB; --gray-100: #F3F4F6; --gray-200: #E5E7EB; --gray-400: #9CA3AF; --gray-500: #6B7280; --gray-600: #4B5563; --gray-900: #111827; --yellow: #FACC15; --shadow: 0 4px 12px rgba(0,0,0,0.08); --card-w: 260px; --gap: 16px; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: system-ui, -apple-system, sans-serif; color: var(--gray-900); background: transparent; -webkit-font-smoothing: antialiased; }
-  .container { padding: 16px; }
+  body { font-family: system-ui, -apple-system, sans-serif; color: var(--gray-900); background: white; -webkit-font-smoothing: antialiased; }
+  .container { padding: 16px; background: white; border-radius: 12px; }
   .header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 14px; }
   .header h2 { font-size: 18px; font-weight: 700; }
   .header .count { font-size: 13px; color: var(--gray-500); }
@@ -141,7 +141,7 @@ export const EXPERIENCE_CAROUSEL_HTML = `<!DOCTYPE html>
         if (e.target.closest('.view-btn')) return;
         var id = card.getAttribute('data-id');
         var name = card.getAttribute('data-name');
-        window.parent.postMessage({ jsonrpc: '2.0', method: 'ui/message', params: { message: 'Show me details for "' + name + '" (ID: ' + id + ')' } }, '*');
+        window.parent.postMessage({ jsonrpc: '2.0', method: 'ui/message', params: { role: 'user', content: [{ type: 'text', text: 'Show me details for "' + name + '" (ID: ' + id + ')' }] } }, '*');
       });
     });
 
@@ -149,14 +149,14 @@ export const EXPERIENCE_CAROUSEL_HTML = `<!DOCTYPE html>
       btn.addEventListener('click', function() {
         var id = btn.getAttribute('data-id');
         var name = btn.getAttribute('data-name');
-        window.parent.postMessage({ jsonrpc: '2.0', method: 'ui/message', params: { message: 'Show me details for "' + name + '" (ID: ' + id + ')' } }, '*');
+        window.parent.postMessage({ jsonrpc: '2.0', method: 'ui/message', params: { role: 'user', content: [{ type: 'text', text: 'Show me details for "' + name + '" (ID: ' + id + ')' }] } }, '*');
       });
     });
 
     var loadMore = document.getElementById('loadMore');
     if (loadMore) {
       loadMore.addEventListener('click', function() {
-        window.parent.postMessage({ jsonrpc: '2.0', method: 'ui/message', params: { message: 'Show me more experiences like these' } }, '*');
+        window.parent.postMessage({ jsonrpc: '2.0', method: 'ui/message', params: { role: 'user', content: [{ type: 'text', text: 'Show me more experiences like these' }] } }, '*');
       });
     }
   }

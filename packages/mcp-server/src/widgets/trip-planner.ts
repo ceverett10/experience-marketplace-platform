@@ -7,13 +7,13 @@ export const TRIP_PLANNER_HTML = `<!DOCTYPE html>
 <style>
   :root { --primary: #0F766E; --primary-light: #F0FDFA; --gray-50: #F9FAFB; --gray-100: #F3F4F6; --gray-200: #E5E7EB; --gray-400: #9CA3AF; --gray-500: #6B7280; --gray-600: #4B5563; --gray-900: #111827; --shadow: 0 4px 12px rgba(0,0,0,0.08); }
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: system-ui, -apple-system, sans-serif; color: var(--gray-900); background: transparent; -webkit-font-smoothing: antialiased; }
-  .container { padding: 16px; }
+  body { font-family: system-ui, -apple-system, sans-serif; color: var(--gray-900); background: white; -webkit-font-smoothing: antialiased; }
+  .container { padding: 16px; background: white; border-radius: 12px; }
   .progress { display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 20px; }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--gray-200); transition: all 0.2s; }
   .dot.active { background: var(--primary); width: 24px; border-radius: 4px; }
   .dot.done { background: var(--primary); }
-  .section { border: 1px solid var(--gray-200); border-radius: 12px; margin-bottom: 10px; overflow: hidden; transition: all 0.2s; }
+  .section { border: 1px solid var(--gray-200); border-radius: 12px; margin-bottom: 10px; overflow: hidden; transition: all 0.2s; background: white; }
   .section.active { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(15,118,110,0.12); }
   .section-header { display: flex; align-items: center; gap: 10px; padding: 14px 16px; cursor: pointer; user-select: none; }
   .section-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; background: var(--gray-100); flex-shrink: 0; }
@@ -25,7 +25,7 @@ export const TRIP_PLANNER_HTML = `<!DOCTYPE html>
   .section-body { display: none; padding: 0 16px 14px; }
   .section.active .section-body { display: block; }
   .input-row { margin-bottom: 10px; }
-  .input-row input { width: 100%; padding: 10px 12px; border: 1px solid var(--gray-200); border-radius: 8px; font-size: 14px; color: var(--gray-900); outline: none; transition: border-color 0.15s; }
+  .input-row input { width: 100%; padding: 10px 12px; border: 1px solid var(--gray-200); border-radius: 8px; font-size: 14px; color: var(--gray-900); background: white; outline: none; transition: border-color 0.15s; }
   .input-row input:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(15,118,110,0.15); }
   .chips { display: flex; flex-wrap: wrap; gap: 8px; }
   .chip { padding: 7px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; background: var(--gray-100); color: var(--gray-600); border: 1px solid transparent; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
@@ -176,7 +176,7 @@ export const TRIP_PLANNER_HTML = `<!DOCTYPE html>
         if (selections.what) parts.push('for "' + selections.what + '"');
         if (selections.when) parts.push(selections.when.toLowerCase());
         if (selections.who) parts.push('for ' + selections.who.toLowerCase());
-        window.parent.postMessage({ jsonrpc: '2.0', method: 'ui/message', params: { message: parts.join(' ') } }, '*');
+        window.parent.postMessage({ jsonrpc: '2.0', method: 'ui/message', params: { role: 'user', content: [{ type: 'text', text: parts.join(' ') }] } }, '*');
       });
     }
   }
