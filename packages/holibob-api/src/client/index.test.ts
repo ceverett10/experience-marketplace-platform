@@ -529,15 +529,15 @@ describe('HolibobClient - Booking Methods', () => {
   describe('addAvailabilityToBooking', () => {
     it('should add availability to booking', async () => {
       mockRequest.mockResolvedValueOnce({
-        bookingAddAvailability: { isComplete: false },
+        bookingAddAvailability: { id: 'booking-123', code: 'ABC123', state: 'OPEN', canCommit: false },
       });
 
       const result = await client.addAvailabilityToBooking({
-        bookingId: 'booking-123',
-        availabilityId: 'avail-456',
+        bookingSelector: { id: 'booking-123' },
+        id: 'avail-456',
       });
 
-      expect(result.isComplete).toBe(false);
+      expect(result.canCommit).toBe(false);
     });
   });
 
@@ -758,7 +758,7 @@ describe('HolibobClient - High-Level Helpers', () => {
     it('should create booking and add availability', async () => {
       mockRequest
         .mockResolvedValueOnce({ bookingCreate: { id: 'booking-123' } })
-        .mockResolvedValueOnce({ bookingAddAvailability: { isComplete: false } })
+        .mockResolvedValueOnce({ bookingAddAvailability: { id: 'booking-123', code: 'ABC123', state: 'OPEN', canCommit: false } })
         .mockResolvedValueOnce({ booking: { id: 'booking-123', questionList: [] } });
 
       const result = await client.startBookingFlow('avail-123');

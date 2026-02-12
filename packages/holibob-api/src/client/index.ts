@@ -531,13 +531,13 @@ export class HolibobClient {
 
   /**
    * Add an availability (configured with options and pricing) to a booking
-   * Returns isComplete = false initially, requiring question answers
+   * Returns the updated booking with canCommit status
    */
   async addAvailabilityToBooking(
     input: BookingAddAvailabilityInput
-  ): Promise<{ isComplete: boolean }> {
+  ): Promise<{ id: string; code: string; state: string; canCommit: boolean }> {
     const response = await this.executeQuery<{
-      bookingAddAvailability: { isComplete: boolean };
+      bookingAddAvailability: { id: string; code: string; state: string; canCommit: boolean };
     }>(BOOKING_ADD_AVAILABILITY_MUTATION, { input });
 
     return response.bookingAddAvailability;

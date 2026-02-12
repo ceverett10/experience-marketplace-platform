@@ -367,12 +367,15 @@ export const BOOKING_CREATE_MUTATION = gql`
 
 /**
  * Step 7: Add Availability to Booking
- * Returns isComplete = false initially, requiring question answers
+ * Returns the updated booking so we can check if questions still need answering
  */
 export const BOOKING_ADD_AVAILABILITY_MUTATION = gql`
   mutation BookingAddAvailability($input: BookingAddAvailabilityInputType!) {
     bookingAddAvailability(input: $input) {
-      isComplete
+      id
+      code
+      state
+      canCommit
     }
   }
 `;

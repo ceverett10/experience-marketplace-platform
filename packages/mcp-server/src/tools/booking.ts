@@ -74,9 +74,9 @@ export function registerBookingTools(server: McpServer, client: HolibobClient): 
         id: availabilityId,
       });
 
-      const text = result.isComplete
-        ? `Availability added to booking ${bookingId}. The booking is ready — use commit_booking to finalize.`
-        : `Availability added to booking ${bookingId}. Questions need to be answered before the booking can be committed.\n\nUse get_booking_questions to see what information is needed.`;
+      const text = result.canCommit
+        ? `Availability added to booking ${result.code ?? bookingId}. The booking is ready — use commit_booking to finalize.`
+        : `Availability added to booking ${result.code ?? bookingId}. Questions need to be answered before the booking can be committed.\n\nUse get_booking_questions to see what information is needed.`;
 
       return {
         content: [{ type: 'text' as const, text }],
