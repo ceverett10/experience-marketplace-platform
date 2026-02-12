@@ -3,13 +3,9 @@ import { z } from 'zod';
 import type { HolibobClient } from '@experience-marketplace/holibob-api';
 import type { AvailabilityOption, AvailabilitySlot } from '@experience-marketplace/holibob-api/types';
 
-/** Check if an option has been answered — use both `value` and `answerValue` since either may be populated */
+/** Check if an option has been answered — the `value` field is populated when answered */
 function isOptionAnswered(opt: AvailabilityOption): boolean {
-  return !!(opt.answerValue || opt.value);
-}
-
-function getOptionAnswer(opt: AvailabilityOption): string {
-  return opt.answerFormattedText ?? opt.answerValue ?? opt.value ?? '';
+  return opt.value != null && opt.value !== '';
 }
 
 function formatSlot(slot: AvailabilitySlot): string {
@@ -21,15 +17,8 @@ function formatSlot(slot: AvailabilitySlot): string {
 
 function formatOption(opt: AvailabilityOption): string {
   const parts = [`- **${opt.label}** (ID: \`${opt.id}\`, Type: ${opt.type ?? 'unknown'})${opt.required ? ' *required*' : ''}`];
-  if (isOptionAnswered(opt)) parts.push(`  Current answer: ${getOptionAnswer(opt)}`);
-  if (opt.dataFormat) parts.push(`  Format: ${opt.dataFormat}`);
+  if (isOptionAnswered(opt)) parts.push(`  Current value: ${opt.value}`);
   if (opt.dataType) parts.push(`  Data type: ${opt.dataType}`);
-  if (opt.availableOptions?.length) {
-    parts.push('  Options:');
-    opt.availableOptions.forEach((choice) => {
-      parts.push(`    - "${choice.value}" — ${choice.label}`);
-    });
-  }
   if (opt.errorList?.nodes?.length) {
     parts.push(`  Errors: ${opt.errorList.nodes.join(', ')}`);
   }
@@ -68,17 +57,25 @@ export function registerAvailabilityTools(server: McpServer, client: HolibobClie
         const unanswered = result.optionList.nodes.filter((o) => !isOptionAnswered(o));
         const answered = result.optionList.nodes.filter((o) => isOptionAnswered(o));
 
-        if (result.optionList.isComplete) {
-          sections.push('\n**All options resolved.** Pick a slot ID above and use add_to_booking.');
-        } else if (unanswered.length) {
+        if (unanswered.length) {
           sections.push('\n## Options to Answer');
-          sections.push('Use answer_availability_options with the session ID and option selections:');
+          sections.push('Use answer_availability_options with the session ID and option selections.');
+          sections.push('For date options (START_DATE/END_DATE), use the date from an available slot above in YYYY-MM-DD format.');
           unanswered.forEach((opt) => sections.push(formatOption(opt)));
         }
 
         if (answered.length) {
           sections.push('\n## Already Answered');
-          answered.forEach((opt) => sections.push(`- ${opt.label}: ${getOptionAnswer(opt)}`));
+          answered.forEach((opt) => sections.push(`- ${opt.label}: ${opt.value}`));
+        }
+
+        if (unanswered.length === 0) {
+          sections.push('\n**All options resolved.** Pick a slot ID above and use add_to_booking.');
+        }
+      } else {
+        // No options at all — slots are directly bookable
+        if (result.nodes.length) {
+          sections.push('\n**No options required.** Pick a slot ID above and use create_booking + add_to_booking.');
         }
       }
 
@@ -90,14 +87,14 @@ export function registerAvailabilityTools(server: McpServer, client: HolibobClie
 
   server.tool(
     'answer_availability_options',
-    'Answer option questions for an availability check (e.g., select a specific date, time slot, group size). Call this iteratively until isComplete is true or all options have values, then use the slot ID with add_to_booking.',
+    'Answer option questions for an availability check (e.g., select a specific date, time slot, group size). Call this iteratively until no unanswered options remain, then use the slot ID with add_to_booking. For START_DATE/END_DATE options, use a date from the available slots in YYYY-MM-DD format.',
     {
       experienceId: z.string().describe('The experience ID'),
       sessionId: z.string().describe('The session ID from check_availability'),
       options: z.array(
         z.object({
           id: z.string().describe('Option ID'),
-          value: z.string().describe('The selected value — use the value from availableOptions if listed, or a date in YYYY-MM-DD format for date options'),
+          value: z.string().describe('The selected value — for date options use YYYY-MM-DD format from an available slot'),
         })
       ).describe('Array of option answers'),
     },
@@ -110,15 +107,7 @@ export function registerAvailabilityTools(server: McpServer, client: HolibobClie
       );
 
       const sections: string[] = [];
-      sections.push(`**Session ID:** \`${result.sessionId}\``);
-
-      // Check completion
-      const isComplete = result.optionList?.isComplete ?? false;
-      if (isComplete) {
-        sections.push('**Status: COMPLETE** — All options are answered.\n');
-      } else {
-        sections.push('**Status: OPTIONS PENDING** — More options may need answering.\n');
-      }
+      sections.push(`**Session ID:** \`${result.sessionId}\`\n`);
 
       // Slots with pricing
       if (result.nodes.length) {
@@ -131,21 +120,25 @@ export function registerAvailabilityTools(server: McpServer, client: HolibobClie
         const unanswered = result.optionList.nodes.filter((o) => !isOptionAnswered(o));
         const answered = result.optionList.nodes.filter((o) => isOptionAnswered(o));
 
-        if (isComplete || unanswered.length === 0) {
+        if (unanswered.length === 0) {
           sections.push('\n**All options answered!** Pick a slot ID above and use:');
           sections.push('1. `create_booking` to start a booking');
           sections.push('2. `add_to_booking` with the slot ID to add this availability');
         } else {
           sections.push('\n## More Options to Answer');
+          sections.push('Continue answering with answer_availability_options using the same session ID.');
           unanswered.forEach((opt) => sections.push(formatOption(opt)));
         }
 
         if (answered.length) {
           sections.push('\n## Confirmed Selections');
-          answered.forEach((opt) => sections.push(`- ${opt.label}: ${getOptionAnswer(opt)}`));
+          answered.forEach((opt) => sections.push(`- ${opt.label}: ${opt.value}`));
         }
-      } else if (isComplete) {
-        sections.push('\n**Ready to book!** Pick a slot ID and use create_booking + add_to_booking.');
+      } else {
+        // No options left — ready to book
+        if (result.nodes.length) {
+          sections.push('\n**Ready to book!** Pick a slot ID and use create_booking + add_to_booking.');
+        }
       }
 
       return {
