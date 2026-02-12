@@ -190,10 +190,12 @@ export async function handleDomainVerify(job: Job<DomainVerifyPayload>): Promise
       throw new NotFoundError('Domain', domainId);
     }
 
-    // 2. If domain is already verified, return success immediately (idempotency guard)
-    if (domain.verifiedAt) {
+    // 2. If domain is fully configured (verified + DNS + Heroku), return success immediately
+    // Only skip if dnsConfigured is true - this ensures retries after Heroku failure
+    // re-enter DNS configuration (which includes the Heroku step)
+    if (domain.verifiedAt && domain.dnsConfigured) {
       console.log(
-        `[Domain Verify] Domain ${domain.domain} already verified at ${domain.verifiedAt.toISOString()}, skipping`
+        `[Domain Verify] Domain ${domain.domain} already verified and DNS configured, skipping`
       );
       return {
         success: true,
@@ -208,23 +210,29 @@ export async function handleDomainVerify(job: Job<DomainVerifyPayload>): Promise
       };
     }
 
-    // 3. Verify domain ownership
-    const isVerified = await verifyDomainOwnership(domain.domain, verificationMethod);
+    // 3. Verify domain ownership (skip if already verified on a previous attempt)
+    let updatedDomain = domain;
+    if (!domain.verifiedAt) {
+      const isVerified = await verifyDomainOwnership(domain.domain, verificationMethod);
 
-    if (!isVerified) {
-      throw new Error(`Domain ${domain.domain} verification failed via ${verificationMethod}`);
+      if (!isVerified) {
+        throw new Error(`Domain ${domain.domain} verification failed via ${verificationMethod}`);
+      }
+
+      updatedDomain = await prisma.domain.update({
+        where: { id: domainId },
+        data: {
+          verifiedAt: new Date(),
+          status: DomainStatus.DNS_PENDING,
+        },
+      });
+
+      console.log(`[Domain Verify] Domain ${domain.domain} verified successfully`);
+    } else {
+      console.log(
+        `[Domain Verify] Domain ${domain.domain} already verified, proceeding to DNS configuration`
+      );
     }
-
-    // 3. Update domain status
-    const updatedDomain = await prisma.domain.update({
-      where: { id: domainId },
-      data: {
-        verifiedAt: new Date(),
-        status: DomainStatus.DNS_PENDING,
-      },
-    });
-
-    console.log(`[Domain Verify] Domain ${domain.domain} verified successfully`);
 
     // 4. Configure DNS if using Cloudflare
     if (domain.registrar === 'cloudflare') {
@@ -297,15 +305,26 @@ export async function handleDomainVerify(job: Job<DomainVerifyPayload>): Promise
       timestamp: new Date(),
     });
 
-    if (jobError.retryable) {
-      const retryDelay = calculateRetryDelay(jobError, job.attemptsMade);
-      console.log(
-        `Error is retryable, will retry in ${(retryDelay / 1000).toFixed(0)}s (configured at queue level)`
-      );
-    }
-
     if (shouldMoveToDeadLetter(jobError, job.attemptsMade)) {
       await job.moveToFailed(new Error(`Permanent failure: ${jobError.message}`), '0', true);
+      console.error('[Domain Verify] Permanent failure:', jobError.toJSON());
+      return {
+        success: false,
+        error: jobError.message,
+        errorCategory: jobError.category,
+        errorSeverity: jobError.severity,
+        retryable: false,
+        timestamp: new Date(),
+      };
+    }
+
+    // Re-throw retryable errors so BullMQ actually retries the job
+    if (jobError.retryable) {
+      console.log(
+        `[Domain Verify] Retryable error, throwing for BullMQ retry (attempt ${job.attemptsMade}):`,
+        jobError.message
+      );
+      throw error;
     }
 
     console.error('[Domain Verify] Error:', jobError.toJSON());
@@ -592,11 +611,15 @@ async function configureDnsRecords(domain: string): Promise<void> {
       },
     });
 
-    // Set up standard DNS records pointing to Heroku
-    // Get Heroku app hostname from environment or use default pattern
-    const herokuHostname = process.env['HEROKU_APP_NAME']
-      ? `${process.env['HEROKU_APP_NAME']}.herokuapp.com`
-      : 'experience-marketplace.herokuapp.com';
+    // Set up standard DNS records pointing to Heroku.
+    // Use the full Heroku hostname (with hash suffix) to ensure correct region routing.
+    // The short hostname resolves to US ingress; the full hostname resolves to the
+    // app's actual region (EU). Cloudflare proxy handles SSL via its own certificates.
+    const herokuHostname =
+      process.env['HEROKU_HOSTNAME'] ||
+      (process.env['HEROKU_APP_NAME']
+        ? `${process.env['HEROKU_APP_NAME']}.herokuapp.com`
+        : 'experience-marketplace.herokuapp.com');
 
     await cloudflareBreaker.execute(async () => {
       const cloudflare = new CloudflareDNSService();
@@ -606,12 +629,10 @@ async function configureDnsRecords(domain: string): Promise<void> {
       });
     });
 
-    console.log(`[Domain] DNS records configured for ${domain}`);
+    console.log(`[Domain] DNS records configured for ${domain} -> ${herokuHostname}`);
 
-    // Cloudflare-registered domains automatically use Cloudflare DNS
-    // No need to update nameservers
-
-    // Add domain to Heroku so it accepts requests for this hostname
+    // Add domain to Heroku so it accepts requests for this hostname.
+    // Uses an existing SNI endpoint for routing (SSL handled by Cloudflare).
     await addDomainToHeroku(domain);
   } catch (error) {
     console.error(`[Domain] Error configuring DNS:`, error);
@@ -621,37 +642,29 @@ async function configureDnsRecords(domain: string): Promise<void> {
 
 /**
  * Add domain to Heroku
- * Heroku must have the custom domain configured to accept requests
+ * Heroku must have the custom domain configured to accept requests.
+ * This is a REQUIRED step - without it, Heroku returns "no such app" errors.
  */
 async function addDomainToHeroku(domain: string): Promise<void> {
   console.log(`[Domain] Adding ${domain} to Heroku`);
 
-  try {
-    const herokuService = new HerokuDomainsService();
-    const result = await herokuService.addDomainWithWww(domain);
+  // Let constructor throw if HEROKU_API_KEY / HEROKU_APP_NAME are missing.
+  // This surfaces as a configuration error that won't be retried.
+  const herokuService = new HerokuDomainsService();
+  const result = await herokuService.addDomainWithWww(domain);
 
-    if (!result.success) {
-      console.error(`[Domain] Failed to add domain to Heroku: ${result.error}`);
-      // Don't throw - Heroku domain can be added manually if needed
-      // The site will still work via the tenant fallback (subdomain matching)
-      return;
-    }
-
-    console.log(`[Domain] Added ${domain} and www.${domain} to Heroku`);
-
-    // Update domain record with Heroku configuration status
-    await prisma.domain.update({
-      where: { domain },
-      data: {
-        // Store that Heroku is configured (we can add a field later if needed)
-        // For now, just log success
-      },
-    });
-  } catch (error) {
-    // Log but don't fail the overall process
-    // Missing HEROKU_API_KEY or HEROKU_APP_NAME will throw
-    console.error(`[Domain] Error adding domain to Heroku (non-fatal):`, error);
+  if (!result.success) {
+    throw new ExternalApiError(
+      `Failed to add domain ${domain} to Heroku: ${result.error}`,
+      {
+        service: 'heroku-api',
+        statusCode: 500,
+        context: { domain },
+      }
+    );
   }
+
+  console.log(`[Domain] Added ${domain} and www.${domain} to Heroku`);
 }
 
 /**

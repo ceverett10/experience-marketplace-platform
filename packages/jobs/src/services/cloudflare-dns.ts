@@ -360,9 +360,11 @@ export class CloudflareDNSService {
       rootTarget: string; // Where @ should point (e.g., Heroku hostname)
       wwwTarget?: string; // Where www should point (defaults to rootTarget)
       enableWWW?: boolean; // Create www CNAME
+      proxied?: boolean; // Whether to enable Cloudflare proxy (default: true)
     }
   ): Promise<void> {
     try {
+      const proxied = options.proxied !== false;
       const records: DNSRecord[] = [];
 
       // Root domain - use CNAME if possible, otherwise A record
@@ -372,7 +374,7 @@ export class CloudflareDNSService {
           type: 'CNAME',
           name: '@',
           content: options.rootTarget,
-          proxied: true,
+          proxied,
         });
       } else {
         // A record (IP address)
@@ -380,7 +382,7 @@ export class CloudflareDNSService {
           type: 'A',
           name: '@',
           content: options.rootTarget,
-          proxied: true,
+          proxied,
         });
       }
 
@@ -390,7 +392,7 @@ export class CloudflareDNSService {
           type: 'CNAME',
           name: 'www',
           content: options.wwwTarget || options.rootTarget,
-          proxied: true,
+          proxied,
         });
       }
 

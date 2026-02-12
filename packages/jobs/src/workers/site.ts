@@ -682,17 +682,24 @@ export async function handleSiteDeploy(job: Job<SiteDeployPayload>): Promise<Job
             primaryDomain.domain
           );
 
-          // Update Cloudflare DNS to point to Heroku
-          if (primaryDomain.cloudflareZoneId && herokuDnsTargets.root) {
-            const cloudflare = new CloudflareDNSService();
-            await cloudflare.setupStandardRecords(primaryDomain.cloudflareZoneId, {
-              rootTarget: herokuDnsTargets.root,
-              wwwTarget: herokuDnsTargets.www || herokuDnsTargets.root,
-              enableWWW: true,
-            });
-            console.log(
-              `[Site Deploy] Cloudflare DNS configured for ${primaryDomain.domain} -> Heroku`
-            );
+          // Update Cloudflare DNS to point to Heroku.
+          // Use the full Heroku hostname for correct region routing —
+          // the short hostname resolves to US ingress; the full one routes to the app's region.
+          if (primaryDomain.cloudflareZoneId) {
+            const herokuHostname =
+              process.env['HEROKU_HOSTNAME'] ||
+              (herokuAppName ? `${herokuAppName}.herokuapp.com` : null);
+            const dnsTarget = herokuHostname || herokuDnsTargets.root;
+            if (dnsTarget) {
+              const cloudflare = new CloudflareDNSService();
+              await cloudflare.setupStandardRecords(primaryDomain.cloudflareZoneId, {
+                rootTarget: dnsTarget,
+                enableWWW: true,
+              });
+              console.log(
+                `[Site Deploy] Cloudflare DNS configured for ${primaryDomain.domain} -> ${dnsTarget}`
+              );
+            }
           }
         } catch (err) {
           // Log but don't fail the deploy — DNS can be configured manually
@@ -782,6 +789,7 @@ export async function handleSiteDeploy(job: Job<SiteDeployPayload>): Promise<Job
 /**
  * Add a custom domain (root + www) to a Heroku app via the Platform API.
  * Returns the DNS targets that Cloudflare CNAME records should point to.
+ * Uses an existing SNI endpoint for routing — SSL is handled by Cloudflare.
  */
 async function addDomainToHeroku(
   appName: string,
@@ -790,8 +798,37 @@ async function addDomainToHeroku(
 ): Promise<{ root: string | null; www: string | null }> {
   const targets: { root: string | null; www: string | null } = { root: null, www: null };
 
+  // Find an existing SNI endpoint — Heroku requires this parameter
+  // when the app already has endpoints configured.
+  let sniEndpointId: string | null = null;
+  try {
+    const listRes = await fetch(`https://api.heroku.com/apps/${appName}/domains`, {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        Accept: 'application/vnd.heroku+json; version=3',
+      },
+    });
+    if (listRes.ok) {
+      const domains = (await listRes.json()) as Array<{
+        sni_endpoint?: { id: string; name: string } | null;
+      }>;
+      const withEndpoint = domains.find((d) => d.sni_endpoint);
+      if (withEndpoint?.sni_endpoint) {
+        sniEndpointId = withEndpoint.sni_endpoint.id;
+        console.log(`[Site Deploy] Using existing SNI endpoint: ${withEndpoint.sni_endpoint.name}`);
+      }
+    }
+  } catch (err) {
+    console.warn('[Site Deploy] Could not fetch existing SNI endpoints:', err);
+  }
+
   for (const hostname of [domain, `www.${domain}`]) {
     try {
+      const body: Record<string, unknown> = { hostname };
+      if (sniEndpointId) {
+        body['sni_endpoint'] = sniEndpointId;
+      }
+
       const res = await fetch(`https://api.heroku.com/apps/${appName}/domains`, {
         method: 'POST',
         headers: {
@@ -799,7 +836,7 @@ async function addDomainToHeroku(
           'Content-Type': 'application/json',
           Accept: 'application/vnd.heroku+json; version=3',
         },
-        body: JSON.stringify({ hostname }),
+        body: JSON.stringify(body),
       });
 
       if (res.status === 422) {

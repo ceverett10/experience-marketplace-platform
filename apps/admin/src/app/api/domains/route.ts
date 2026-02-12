@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
 /**
- * Add domain to Heroku via API
+ * Add domain (root + www) to Heroku via API.
+ * Uses an existing SNI endpoint for routing — SSL is handled by Cloudflare.
  */
 async function addDomainToHeroku(domain: string): Promise<{ success: boolean; error?: string }> {
   const herokuApiKey = process.env['HEROKU_API_KEY'];
@@ -14,40 +15,48 @@ async function addDomainToHeroku(domain: string): Promise<{ success: boolean; er
   }
 
   try {
-    // Add root domain
-    const rootResponse = await fetch(`https://api.heroku.com/apps/${herokuAppName}/domains`, {
-      method: 'POST',
+    // Find an existing SNI endpoint — Heroku requires this parameter
+    // when the app already has endpoints configured.
+    let sniEndpointId: string | null = null;
+    const listResponse = await fetch(`https://api.heroku.com/apps/${herokuAppName}/domains`, {
       headers: {
         Authorization: `Bearer ${herokuApiKey}`,
         Accept: 'application/vnd.heroku+json; version=3',
-        'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ hostname: domain }),
     });
-
-    if (!rootResponse.ok && rootResponse.status !== 422) {
-      const error = await rootResponse.json().catch(() => ({}));
-      console.error(`[Heroku] Error adding ${domain}:`, error);
-    } else {
-      console.log(`[Heroku] Added ${domain}`);
+    if (listResponse.ok) {
+      const domains = (await listResponse.json()) as Array<{
+        sni_endpoint?: { id: string; name: string } | null;
+      }>;
+      const withEndpoint = domains.find((d) => d.sni_endpoint);
+      if (withEndpoint?.sni_endpoint) {
+        sniEndpointId = withEndpoint.sni_endpoint.id;
+        console.log(`[Heroku] Using existing SNI endpoint: ${withEndpoint.sni_endpoint.name}`);
+      }
     }
 
-    // Add www subdomain
-    const wwwResponse = await fetch(`https://api.heroku.com/apps/${herokuAppName}/domains`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${herokuApiKey}`,
-        Accept: 'application/vnd.heroku+json; version=3',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ hostname: `www.${domain}` }),
-    });
+    for (const hostname of [domain, `www.${domain}`]) {
+      const body: Record<string, unknown> = { hostname };
+      if (sniEndpointId) {
+        body['sni_endpoint'] = sniEndpointId;
+      }
 
-    if (!wwwResponse.ok && wwwResponse.status !== 422) {
-      const error = await wwwResponse.json().catch(() => ({}));
-      console.error(`[Heroku] Error adding www.${domain}:`, error);
-    } else {
-      console.log(`[Heroku] Added www.${domain}`);
+      const response = await fetch(`https://api.heroku.com/apps/${herokuAppName}/domains`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${herokuApiKey}`,
+          Accept: 'application/vnd.heroku+json; version=3',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (!response.ok && response.status !== 422) {
+        const error = await response.json().catch(() => ({}));
+        console.error(`[Heroku] Error adding ${hostname}:`, error);
+      } else {
+        console.log(`[Heroku] Added ${hostname}`);
+      }
     }
 
     return { success: true };
@@ -273,10 +282,13 @@ export async function POST(request: Request) {
       const unmatched = [];
       const dnsConfigured = [];
 
-      // Heroku app hostname for DNS configuration
-      const herokuHostname = process.env['HEROKU_APP_NAME']
-        ? `${process.env['HEROKU_APP_NAME']}.herokuapp.com`
-        : 'holibob-experiences-demand-gen-c27f61accbd2.herokuapp.com';
+      // Heroku app hostname for DNS configuration.
+      // Use the full hostname (with hash suffix) for correct region routing.
+      const herokuHostname =
+        process.env['HEROKU_HOSTNAME'] ||
+        (process.env['HEROKU_APP_NAME']
+          ? `${process.env['HEROKU_APP_NAME']}.herokuapp.com`
+          : 'holibob-experiences-demand-gen-c27f61accbd2.herokuapp.com');
 
       // Normalize a string for fuzzy matching: remove hyphens, lowercase
       const normalize = (s: string) => s.toLowerCase().replace(/-/g, '');
@@ -401,6 +413,10 @@ export async function POST(request: Request) {
                   dnsConfigured.push(cfDomain.name);
                 }
 
+                // Add domain to Heroku BEFORE marking active - without this, Heroku
+                // returns "no such app" errors even though DNS points to it
+                const herokuResult = await addDomainToHeroku(cfDomain.name);
+
                 // Update domain record with zone ID and set status
                 await prisma.domain.update({
                   where: { id: domainRecord.id },
@@ -409,12 +425,15 @@ export async function POST(request: Request) {
                     dnsConfigured: true,
                     sslEnabled: true, // Cloudflare proxy provides free SSL
                     verifiedAt: new Date(), // Mark as verified so roadmap DOMAIN_VERIFY passes
-                    status: 'ACTIVE',
+                    status: herokuResult.success ? 'ACTIVE' : 'SSL_PENDING',
                   },
                 });
 
-                // Add domain to Heroku so it accepts requests for this hostname
-                await addDomainToHeroku(cfDomain.name);
+                if (!herokuResult.success) {
+                  console.error(
+                    `[DNS] Domain ${cfDomain.name} DNS configured but Heroku failed: ${herokuResult.error}`
+                  );
+                }
               }
             } catch (dnsError) {
               console.error(`[DNS] Error configuring DNS for ${cfDomain.name}:`, dnsError);
@@ -531,6 +550,9 @@ export async function POST(request: Request) {
                   dnsConfigured.push(cfDomain.name);
                 }
 
+                // Add domain to Heroku BEFORE marking active
+                const herokuResult = await addDomainToHeroku(cfDomain.name);
+
                 await prisma.domain.update({
                   where: { id: orphanRecord.id },
                   data: {
@@ -538,11 +560,15 @@ export async function POST(request: Request) {
                     dnsConfigured: true,
                     sslEnabled: true,
                     verifiedAt: new Date(), // Mark as verified so roadmap DOMAIN_VERIFY passes
-                    status: 'ACTIVE',
+                    status: herokuResult.success ? 'ACTIVE' : 'SSL_PENDING',
                   },
                 });
 
-                await addDomainToHeroku(cfDomain.name);
+                if (!herokuResult.success) {
+                  console.error(
+                    `[DNS] Orphan domain ${cfDomain.name} DNS configured but Heroku failed: ${herokuResult.error}`
+                  );
+                }
               }
             } catch (dnsError) {
               console.error(`[DNS] Error configuring DNS for orphan ${cfDomain.name}:`, dnsError);

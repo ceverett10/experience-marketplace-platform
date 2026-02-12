@@ -9,6 +9,9 @@ interface HerokuDomainResponse {
   kind: string;
   cname: string | null;
   status: string;
+  acm_status: string | null;
+  acm_status_reason: string;
+  sni_endpoint: { id: string; name: string } | null;
   created_at: string;
   updated_at: string;
 }
@@ -30,6 +33,7 @@ export class HerokuDomainsService {
   private apiKey: string;
   private appName: string;
   private baseUrl = 'https://api.heroku.com';
+  private cachedSniEndpointId: string | null | undefined = undefined;
 
   constructor() {
     const apiKey = process.env['HEROKU_API_KEY'];
@@ -47,11 +51,52 @@ export class HerokuDomainsService {
   }
 
   /**
-   * Add a custom domain to Heroku
+   * Get an existing SNI endpoint from the app.
+   * Heroku requires sni_endpoint when the app already has endpoints.
+   * Since we use Cloudflare for SSL, domains can share any existing endpoint.
+   */
+  async getExistingSniEndpoint(): Promise<string | null> {
+    if (this.cachedSniEndpointId !== undefined) return this.cachedSniEndpointId;
+
+    try {
+      const result = await this.listDomains();
+      if (!result.success || !result.domains) {
+        this.cachedSniEndpointId = null;
+        return null;
+      }
+
+      for (const domain of result.domains) {
+        if (domain.sni_endpoint) {
+          console.log(`[Heroku] Using existing SNI endpoint: ${domain.sni_endpoint.name}`);
+          this.cachedSniEndpointId = domain.sni_endpoint.id;
+          return domain.sni_endpoint.id;
+        }
+      }
+      this.cachedSniEndpointId = null;
+      return null;
+    } catch {
+      this.cachedSniEndpointId = null;
+      return null;
+    }
+  }
+
+  /**
+   * Add a custom domain to Heroku.
+   * Automatically uses an existing SNI endpoint if the app has one,
+   * since SSL is handled by Cloudflare (not Heroku ACM).
    */
   async addDomain(hostname: string): Promise<AddDomainResult> {
     try {
       console.log(`[Heroku] Adding domain ${hostname} to app ${this.appName}`);
+
+      // Get an existing SNI endpoint — Heroku requires this parameter
+      // when the app already has endpoints configured.
+      const sniEndpointId = await this.getExistingSniEndpoint();
+
+      const body: Record<string, unknown> = { hostname };
+      if (sniEndpointId) {
+        body['sni_endpoint'] = sniEndpointId;
+      }
 
       const response = await fetch(`${this.baseUrl}/apps/${this.appName}/domains`, {
         method: 'POST',
@@ -60,7 +105,7 @@ export class HerokuDomainsService {
           Accept: 'application/vnd.heroku+json; version=3',
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ hostname }),
+        body: JSON.stringify(body),
       });
 
       if (!response.ok) {
@@ -181,6 +226,28 @@ export class HerokuDomainsService {
       return response.ok;
     } catch {
       return false;
+    }
+  }
+
+  /**
+   * Get detailed status for a single domain
+   */
+  async getDomainStatus(hostname: string): Promise<HerokuDomainResponse | null> {
+    try {
+      const response = await fetch(
+        `${this.baseUrl}/apps/${this.appName}/domains/${encodeURIComponent(hostname)}`,
+        {
+          headers: {
+            Authorization: `Bearer ${this.apiKey}`,
+            Accept: 'application/vnd.heroku+json; version=3',
+          },
+        }
+      );
+
+      if (!response.ok) return null;
+      return (await response.json()) as HerokuDomainResponse;
+    } catch {
+      return null;
     }
   }
 
