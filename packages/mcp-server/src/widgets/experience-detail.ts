@@ -78,7 +78,7 @@ export const EXPERIENCE_DETAIL_HTML = `<!DOCTYPE html>
   }
 
   function sendMessage(text) {
-    rpcNotify('ui/message', { role: 'user', content: [{ type: 'text', text: text }] });
+    return rpcRequest('ui/message', { role: 'user', content: [{ type: 'text', text: text }] }).catch(function() {});
   }
 
   function esc(s) { if (!s) return ''; var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }

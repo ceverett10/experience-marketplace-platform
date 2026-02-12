@@ -83,7 +83,7 @@ export const EXPERIENCE_CAROUSEL_HTML = `<!DOCTYPE html>
   }
 
   function sendMessage(text) {
-    rpcNotify('ui/message', { role: 'user', content: [{ type: 'text', text: text }] });
+    return rpcRequest('ui/message', { role: 'user', content: [{ type: 'text', text: text }] }).catch(function() {});
   }
 
   function callTool(name, args) {
