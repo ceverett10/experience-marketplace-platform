@@ -45,7 +45,20 @@ export function createServer(client: HolibobClient): McpServer {
   for (const [name, uri, html] of widgets) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- CJS/ESM type resolution mismatch
     registerAppResource(server as any, name, uri, { mimeType: RESOURCE_MIME_TYPE }, async () => ({
-      contents: [{ uri, mimeType: RESOURCE_MIME_TYPE, text: html }],
+      contents: [{
+        uri,
+        mimeType: RESOURCE_MIME_TYPE,
+        text: html,
+        _meta: {
+          ui: {
+            domain: 'https://holibob.com',
+            csp: {
+              connectDomains: [],
+              resourceDomains: [],
+            },
+          },
+        },
+      }],
     }));
   }
 
