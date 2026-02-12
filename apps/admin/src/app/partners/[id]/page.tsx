@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, use } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect } from 'react';
+import { useRouter, useParams } from 'next/navigation';
 import { Card, CardContent } from '@experience-marketplace/ui-components';
 
 interface McpApiKey {
@@ -30,8 +30,8 @@ interface PartnerDetail {
   updatedAt: string;
 }
 
-export default function PartnerDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
+export default function PartnerDetailPage() {
+  const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [partner, setPartner] = useState<PartnerDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -425,29 +425,29 @@ export default function PartnerDetailPage({ params }: { params: Promise<{ id: st
         </CardContent>
       </Card>
 
-      {/* Claude Desktop Config */}
+      {/* MCP Connection Details */}
       <Card>
         <CardContent className="pt-6">
-          <h2 className="text-lg font-semibold text-slate-900 mb-2">Claude Desktop Configuration</h2>
+          <h2 className="text-lg font-semibold text-slate-900 mb-2">MCP Connection Details</h2>
           <p className="text-sm text-slate-500 mb-4">
-            Add this to <code className="bg-slate-100 px-1.5 py-0.5 rounded text-xs">~/Library/Application Support/Claude/claude_desktop_config.json</code>
+            Use these credentials to connect via Claude Desktop (Settings &rarr; Connectors), ChatGPT, or any MCP client.
           </p>
-          <pre className="bg-slate-900 text-slate-100 rounded-lg p-4 text-xs overflow-x-auto">
-{`{
-  "mcpServers": {
-    "holibob": {
-      "command": "node",
-      "args": ["<path-to>/packages/mcp-server/dist/bin/serve.js", "--transport=stdio"],
-      "env": {
-        "HOLIBOB_API_URL": "${partner.holibobApiUrl}",
-        "HOLIBOB_PARTNER_ID": "${partner.holibobPartnerId}",
-        "HOLIBOB_API_KEY": "<your-holibob-api-key>",
-        "HOLIBOB_API_SECRET": "<your-holibob-api-secret>"
-      }
-    }
-  }
-}`}
-          </pre>
+          <div className="space-y-3">
+            <div className="flex items-center gap-3 bg-slate-50 rounded-lg p-3">
+              <span className="text-sm text-slate-500 min-w-[140px]">Server URL</span>
+              <code className="flex-1 font-mono text-xs text-slate-800 select-all">https://holibob-experiences-demand-gen-c27f61accbd2.herokuapp.com/mcp/sse</code>
+              <button onClick={() => copyToClipboard('https://holibob-experiences-demand-gen-c27f61accbd2.herokuapp.com/mcp/sse')} className="text-sky-600 hover:text-sky-700 text-xs font-medium whitespace-nowrap">Copy</button>
+            </div>
+            <div className="flex items-center gap-3 bg-slate-50 rounded-lg p-3">
+              <span className="text-sm text-slate-500 min-w-[140px]">OAuth Client ID</span>
+              <code className="flex-1 font-mono text-xs text-slate-800 select-all">{partner.id}</code>
+              <button onClick={() => copyToClipboard(partner.id)} className="text-sky-600 hover:text-sky-700 text-xs font-medium whitespace-nowrap">Copy</button>
+            </div>
+            <div className="flex items-center gap-3 bg-sky-50 border border-sky-200 rounded-lg p-3">
+              <span className="text-sm text-slate-500 min-w-[140px]">OAuth Client Secret</span>
+              <span className="flex-1 text-xs text-slate-600">Use the MCP API key (<code className="bg-white px-1 py-0.5 rounded">mcp_live_...</code>) shown when this partner was created</span>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>
