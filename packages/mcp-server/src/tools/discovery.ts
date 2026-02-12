@@ -1,5 +1,6 @@
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
+import { registerAppTool } from '@modelcontextprotocol/ext-apps/server';
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { HolibobClient } from '@experience-marketplace/holibob-api';
 import type { Product } from '@experience-marketplace/holibob-api/types';
 
@@ -24,6 +25,25 @@ function formatProduct(p: Product): string {
   return lines.join('\n');
 }
 
+function productToStructured(p: Product) {
+  const price =
+    p.guidePriceFormattedText || p.priceFromFormatted || (p.guidePrice ? `${p.guidePriceCurrency ?? 'GBP'} ${p.guidePrice}` : null);
+  const rating = p.reviewRating ?? p.rating;
+  const imgUrl = p.primaryImageUrl ?? p.imageUrl ?? p.imageList?.[0]?.url;
+
+  return {
+    id: p.id,
+    name: p.name,
+    price: price ?? undefined,
+    rating: rating ?? undefined,
+    reviewCount: p.reviewCount ?? undefined,
+    shortDescription: p.shortDescription ?? undefined,
+    imageUrl: imgUrl ?? undefined,
+    location: p.place?.name ?? undefined,
+    duration: p.durationText ?? undefined,
+  };
+}
+
 function formatProductDetails(p: Product): string {
   const sections: string[] = [];
 
@@ -42,7 +62,6 @@ function formatProductDetails(p: Product): string {
   if (p.place?.name) sections.push(`**Location:** ${p.place.name}`);
   if (p.startPlace?.formattedAddress) sections.push(`**Meeting Point:** ${p.startPlace.formattedAddress}`);
 
-  // Content sections from API
   if (p.contentList?.nodes) {
     const highlights = p.contentList.nodes.filter((n) => n.type === 'HIGHLIGHT');
     const inclusions = p.contentList.nodes.filter((n) => n.type === 'INCLUSION');
@@ -75,7 +94,6 @@ function formatProductDetails(p: Product): string {
     }
   }
 
-  // Cancellation policy
   if (p.cancellationPolicy) {
     sections.push('\n## Cancellation Policy');
     if (p.cancellationPolicy.penaltyList?.nodes?.length) {
@@ -87,7 +105,6 @@ function formatProductDetails(p: Product): string {
     }
   }
 
-  // Reviews
   if (p.reviewList?.nodes?.length) {
     sections.push(`\n## Reviews (${p.reviewList.recordCount ?? p.reviewList.nodes.length} total)`);
     p.reviewList.nodes.slice(0, 3).forEach((r) => {
@@ -95,7 +112,6 @@ function formatProductDetails(p: Product): string {
     });
   }
 
-  // Images
   if (p.imageList?.length) {
     sections.push('\n## Images');
     p.imageList.slice(0, 5).forEach((img) => {
@@ -103,13 +119,11 @@ function formatProductDetails(p: Product): string {
     });
   }
 
-  // Languages
   if (p.guideLanguageList?.nodes?.length) {
     const langs = p.guideLanguageList.nodes.map((l) => l.name).filter(Boolean);
     if (langs.length) sections.push(`**Languages:** ${langs.join(', ')}`);
   }
 
-  // Categories
   if (p.categoryList?.nodes?.length) {
     const cats = p.categoryList.nodes.map((c) => c.name);
     sections.push(`**Categories:** ${cats.join(', ')}`);
@@ -118,19 +132,73 @@ function formatProductDetails(p: Product): string {
   return sections.join('\n');
 }
 
+function productToDetailStructured(p: Product) {
+  const price =
+    p.guidePriceFormattedText || (p.guidePrice ? `${p.guidePriceCurrency ?? 'GBP'} ${p.guidePrice}` : null);
+  const rating = p.reviewRating ?? p.rating;
+  const imgUrl = p.primaryImageUrl ?? p.imageUrl ?? p.imageList?.[0]?.url;
+
+  const highlights = p.contentList?.nodes?.filter((n) => n.type === 'HIGHLIGHT').map((h) => h.name || h.description || '') ?? [];
+  const inclusions = p.contentList?.nodes?.filter((n) => n.type === 'INCLUSION').map((i) => i.name || i.description || '') ?? [];
+  const exclusions = p.contentList?.nodes?.filter((n) => n.type === 'EXCLUSION').map((e) => e.name || e.description || '') ?? [];
+
+  const reviews = p.reviewList?.nodes?.slice(0, 5).map((r) => ({
+    author: r.authorName ?? 'Anonymous',
+    rating: r.rating,
+    text: r.content ?? r.title ?? '',
+  })) ?? [];
+
+  const images = p.imageList?.slice(0, 6).map((img) => ({
+    url: img.url,
+    alt: img.altText ?? undefined,
+  })) ?? [];
+
+  let cancellationPolicy: string | undefined;
+  if (p.cancellationPolicy?.penaltyList?.nodes?.length) {
+    cancellationPolicy = p.cancellationPolicy.penaltyList.nodes.map((pen) => pen.formattedText).filter(Boolean).join('; ');
+  } else if (p.cancellationPolicy?.description) {
+    cancellationPolicy = p.cancellationPolicy.description;
+  }
+
+  const languages = p.guideLanguageList?.nodes?.map((l) => l.name).filter(Boolean).join(', ');
+
+  return {
+    id: p.id,
+    name: p.name,
+    description: p.description ?? undefined,
+    price: price ?? undefined,
+    rating: rating ?? undefined,
+    reviewCount: p.reviewCount ?? undefined,
+    imageUrl: imgUrl ?? undefined,
+    images,
+    location: p.place?.name ?? undefined,
+    duration: p.durationText ?? undefined,
+    highlights,
+    inclusions,
+    exclusions,
+    reviews,
+    cancellationPolicy,
+    languages,
+  };
+}
+
 export function registerDiscoveryTools(server: McpServer, client: HolibobClient): void {
-  server.tool(
+  registerAppTool(
+    server,
     'search_experiences',
-    'Search for experiences and activities by destination, dates, and interests. Returns a list of available experiences with pricing and ratings.',
     {
-      destination: z.string().describe('Destination to search (e.g., "Barcelona, Spain", "London, England")'),
-      startDate: z.string().optional().describe('Start date in YYYY-MM-DD format'),
-      endDate: z.string().optional().describe('End date in YYYY-MM-DD format'),
-      travelers: z.string().optional().describe('Number of travelers (e.g., "2 adults, 1 child")'),
-      searchTerm: z.string().optional().describe('Activity search term (e.g., "kayaking", "food tour", "museum")'),
+      title: 'Search Experiences',
+      description: 'Search for experiences and activities by destination, dates, and interests. Returns a list of available experiences with pricing and ratings.',
+      inputSchema: {
+        destination: z.string().describe('Destination to search (e.g., "Barcelona, Spain", "London, England")'),
+        startDate: z.string().optional().describe('Start date in YYYY-MM-DD format'),
+        endDate: z.string().optional().describe('End date in YYYY-MM-DD format'),
+        travelers: z.string().optional().describe('Number of travelers (e.g., "2 adults, 1 child")'),
+        searchTerm: z.string().optional().describe('Activity search term (e.g., "kayaking", "food tour", "museum")'),
+      },
+      _meta: { ui: { resourceUri: 'ui://holibob/search-results.html' } },
     },
     async ({ destination, startDate, endDate, travelers, searchTerm }) => {
-      // Parse travelers string into adults/children
       let adults = 2;
       let children = 0;
       if (travelers) {
@@ -156,6 +224,7 @@ export function registerDiscoveryTools(server: McpServer, client: HolibobClient)
       if (!result.products.length) {
         return {
           content: [{ type: 'text' as const, text: `No experiences found for "${destination}"${searchTerm ? ` matching "${searchTerm}"` : ''}. Try a different destination or broader search terms.` }],
+          structuredContent: { experiences: [], destination, hasMore: false },
         };
       }
 
@@ -164,15 +233,25 @@ export function registerDiscoveryTools(server: McpServer, client: HolibobClient)
 
       return {
         content: [{ type: 'text' as const, text: header + formatted }],
+        structuredContent: {
+          experiences: result.products.map(productToStructured),
+          destination,
+          hasMore: result.pageInfo.hasNextPage,
+        },
       };
     }
   );
 
-  server.tool(
+  registerAppTool(
+    server,
     'get_experience_details',
-    'Get full details for a specific experience including description, highlights, inclusions, exclusions, reviews, cancellation policy, and images.',
     {
-      experienceId: z.string().describe('The experience ID from search results'),
+      title: 'Experience Details',
+      description: 'Get full details for a specific experience including description, highlights, inclusions, exclusions, reviews, cancellation policy, and images.',
+      inputSchema: {
+        experienceId: z.string().describe('The experience ID from search results'),
+      },
+      _meta: { ui: { resourceUri: 'ui://holibob/experience-detail.html' } },
     },
     async ({ experienceId }) => {
       const product = await client.getProduct(experienceId);
@@ -185,16 +264,23 @@ export function registerDiscoveryTools(server: McpServer, client: HolibobClient)
 
       return {
         content: [{ type: 'text' as const, text: formatProductDetails(product) }],
+        structuredContent: { experience: productToDetailStructured(product) },
       };
     }
   );
 
-  server.tool(
+  // get_suggestions — text-only tool, no widget
+  registerAppTool(
+    server,
     'get_suggestions',
-    'Get destination and activity suggestions based on partial input. Useful for helping users refine their search.',
     {
-      destination: z.string().optional().describe('Partial destination name'),
-      searchTerm: z.string().optional().describe('Partial activity or interest'),
+      title: 'Get Suggestions',
+      description: 'Get destination and activity suggestions based on partial input. Useful for helping users refine their search.',
+      inputSchema: {
+        destination: z.string().optional().describe('Partial destination name'),
+        searchTerm: z.string().optional().describe('Partial activity or interest'),
+      },
+      _meta: {},
     },
     async ({ destination, searchTerm }) => {
       const suggestions = await client.getSuggestions({
@@ -204,47 +290,42 @@ export function registerDiscoveryTools(server: McpServer, client: HolibobClient)
       });
 
       const parts: string[] = [];
-
-      if (suggestions.destination) {
-        parts.push(`**Selected destination:** ${suggestions.destination.name}`);
-      }
-
+      if (suggestions.destination) parts.push(`**Selected destination:** ${suggestions.destination.name}`);
       if (suggestions.destinations.length) {
         parts.push('\n**Suggested destinations:**');
         suggestions.destinations.forEach((d) => parts.push(`- ${d.name}`));
       }
-
       if (suggestions.tags.length) {
         parts.push('\n**Suggested categories:**');
         suggestions.tags.forEach((t) => parts.push(`- ${t.name}`));
       }
-
       if (suggestions.searchTerms.length) {
         parts.push('\n**Suggested search terms:**');
         suggestions.searchTerms.forEach((s) => parts.push(`- ${s}`));
       }
 
       if (!parts.length) {
-        return {
-          content: [{ type: 'text' as const, text: 'No suggestions found. Try a different search.' }],
-        };
+        return { content: [{ type: 'text' as const, text: 'No suggestions found. Try a different search.' }] };
       }
 
-      return {
-        content: [{ type: 'text' as const, text: parts.join('\n') }],
-      };
+      return { content: [{ type: 'text' as const, text: parts.join('\n') }] };
     }
   );
 
-  server.tool(
+  registerAppTool(
+    server,
     'load_more_experiences',
-    'Load more experiences beyond the initial search results. Pass the IDs of experiences already seen to get new ones.',
     {
-      destination: z.string().describe('The destination from the original search'),
-      startDate: z.string().optional().describe('Start date in YYYY-MM-DD format'),
-      endDate: z.string().optional().describe('End date in YYYY-MM-DD format'),
-      searchTerm: z.string().optional().describe('Activity search term from original search'),
-      seenExperienceIds: z.array(z.string()).describe('IDs of experiences already displayed'),
+      title: 'Load More Experiences',
+      description: 'Load more experiences beyond the initial search results. Pass the IDs of experiences already seen to get new ones.',
+      inputSchema: {
+        destination: z.string().describe('The destination from the original search'),
+        startDate: z.string().optional().describe('Start date in YYYY-MM-DD format'),
+        endDate: z.string().optional().describe('End date in YYYY-MM-DD format'),
+        searchTerm: z.string().optional().describe('Activity search term from original search'),
+        seenExperienceIds: z.array(z.string()).describe('IDs of experiences already displayed'),
+      },
+      _meta: { ui: { resourceUri: 'ui://holibob/search-results.html' } },
     },
     async ({ destination, startDate, endDate, searchTerm, seenExperienceIds }) => {
       const result = await client.discoverProducts(
@@ -261,6 +342,7 @@ export function registerDiscoveryTools(server: McpServer, client: HolibobClient)
       if (!result.products.length) {
         return {
           content: [{ type: 'text' as const, text: 'No more experiences available for this search.' }],
+          structuredContent: { experiences: [], destination, hasMore: false },
         };
       }
 
@@ -269,6 +351,11 @@ export function registerDiscoveryTools(server: McpServer, client: HolibobClient)
 
       return {
         content: [{ type: 'text' as const, text: header + formatted }],
+        structuredContent: {
+          experiences: result.products.map(productToStructured),
+          destination,
+          hasMore: result.pageInfo.hasNextPage,
+        },
       };
     }
   );

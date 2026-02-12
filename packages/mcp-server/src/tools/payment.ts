@@ -1,13 +1,19 @@
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
+import { registerAppTool } from '@modelcontextprotocol/ext-apps/server';
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { HolibobClient } from '@experience-marketplace/holibob-api';
 
 export function registerPaymentTools(server: McpServer, client: HolibobClient): void {
-  server.tool(
+  registerAppTool(
+    server,
     'get_payment_info',
-    'Get payment information for a booking. Returns Stripe payment details if consumer payment is required, or indicates if the booking is on-account (no payment needed).',
     {
-      bookingId: z.string().describe('The booking ID'),
+      title: 'Payment Info',
+      description: 'Get payment information for a booking. Returns Stripe payment details if consumer payment is required, or indicates if the booking is on-account (no payment needed).',
+      inputSchema: {
+        bookingId: z.string().describe('The booking ID'),
+      },
+      _meta: { ui: { resourceUri: 'ui://holibob/booking-status.html' } },
     },
     async ({ bookingId }) => {
       try {
@@ -24,6 +30,17 @@ export function registerPaymentTools(server: McpServer, client: HolibobClient): 
 
         return {
           content: [{ type: 'text' as const, text: sections.join('\n') }],
+          structuredContent: {
+            bookingId,
+            status: 'payment_required' as const,
+            payment: {
+              amount: paymentIntent.amount / 100,
+              amountMinor: paymentIntent.amount,
+              paymentIntentId: paymentIntent.id,
+              clientSecret: paymentIntent.clientSecret,
+              publishableKey: paymentIntent.apiKey,
+            },
+          },
         };
       } catch (error) {
         // If no payment intent is available, it's likely on-account
@@ -36,6 +53,10 @@ export function registerPaymentTools(server: McpServer, client: HolibobClient): 
               type: 'text' as const,
               text: '## No Payment Required\n\nThis booking is on-account. No consumer payment is needed.\n\nUse commit_booking to finalize the booking directly.',
             }],
+            structuredContent: {
+              bookingId,
+              status: 'no_payment_required' as const,
+            },
           };
         }
 
@@ -47,12 +68,17 @@ export function registerPaymentTools(server: McpServer, client: HolibobClient): 
     }
   );
 
-  server.tool(
+  registerAppTool(
+    server,
     'commit_booking',
-    'Finalize and commit a booking. If payment is required, ensure payment is completed first. Returns the booking confirmation with voucher URL.',
     {
-      bookingId: z.string().describe('The booking ID to commit'),
-      waitForConfirmation: z.boolean().optional().describe('Wait for supplier confirmation (default: true, may take up to 60 seconds)'),
+      title: 'Commit Booking',
+      description: 'Finalize and commit a booking. If payment is required, ensure payment is completed first. Returns the booking confirmation with voucher URL.',
+      inputSchema: {
+        bookingId: z.string().describe('The booking ID to commit'),
+        waitForConfirmation: z.boolean().optional().describe('Wait for supplier confirmation (default: true, may take up to 60 seconds)'),
+      },
+      _meta: { ui: { resourceUri: 'ui://holibob/booking-status.html' } },
     },
     async ({ bookingId, waitForConfirmation = true }) => {
       try {
@@ -68,6 +94,16 @@ export function registerPaymentTools(server: McpServer, client: HolibobClient): 
           sections.push(`**Total:** ${booking.totalPrice.grossFormattedText ?? `${booking.totalPrice.currency} ${booking.totalPrice.gross}`}`);
         }
 
+        const items = booking.availabilityList?.nodes?.map((avail) => ({
+          name: avail.product?.name ?? 'Experience',
+          date: avail.date,
+          startTime: avail.startTime ?? undefined,
+          price: avail.totalPrice?.grossFormattedText ?? undefined,
+        })) ?? [];
+
+        let finalState = booking.state;
+        let voucherUrl = booking.voucherUrl;
+
         if (booking.state === 'PENDING' && waitForConfirmation) {
           sections.push('\nWaiting for supplier confirmation...');
           try {
@@ -76,7 +112,9 @@ export function registerPaymentTools(server: McpServer, client: HolibobClient): 
               intervalMs: 2000,
             });
             sections.push(`**Status updated:** ${confirmed.state}`);
+            finalState = confirmed.state;
             if (confirmed.voucherUrl) {
+              voucherUrl = confirmed.voucherUrl;
               sections.push(`\n**Voucher URL:** ${confirmed.voucherUrl}`);
               sections.push('The customer can download their booking voucher from this link.');
             }
@@ -89,6 +127,15 @@ export function registerPaymentTools(server: McpServer, client: HolibobClient): 
 
         return {
           content: [{ type: 'text' as const, text: sections.join('\n') }],
+          structuredContent: {
+            bookingId: booking.id,
+            bookingCode: booking.code ?? undefined,
+            status: finalState === 'CONFIRMED' ? 'confirmed' as const : 'pending' as const,
+            state: finalState,
+            totalPrice: booking.totalPrice?.grossFormattedText ?? undefined,
+            items,
+            voucherUrl: voucherUrl ?? undefined,
+          },
         };
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
@@ -111,11 +158,16 @@ export function registerPaymentTools(server: McpServer, client: HolibobClient): 
     }
   );
 
-  server.tool(
+  registerAppTool(
+    server,
     'get_booking_status',
-    'Check the current status of a booking. Use this to check if a pending booking has been confirmed.',
     {
-      bookingId: z.string().describe('The booking ID to check'),
+      title: 'Booking Status',
+      description: 'Check the current status of a booking. Use this to check if a pending booking has been confirmed.',
+      inputSchema: {
+        bookingId: z.string().describe('The booking ID to check'),
+      },
+      _meta: { ui: { resourceUri: 'ui://holibob/booking-status.html' } },
     },
     async ({ bookingId }) => {
       const booking = await client.getBooking(bookingId);
@@ -139,9 +191,16 @@ export function registerPaymentTools(server: McpServer, client: HolibobClient): 
         sections.push(`**Total:** ${booking.totalPrice.grossFormattedText ?? `${booking.totalPrice.currency} ${booking.totalPrice.gross}`}`);
       }
 
-      if (booking.availabilityList?.nodes?.length) {
+      const items = booking.availabilityList?.nodes?.map((avail) => ({
+        name: avail.product?.name ?? 'Experience',
+        date: avail.date,
+        startTime: avail.startTime ?? undefined,
+        price: avail.totalPrice?.grossFormattedText ?? undefined,
+      })) ?? [];
+
+      if (items.length) {
         sections.push('\n## Items');
-        booking.availabilityList.nodes.forEach((avail) => {
+        booking.availabilityList!.nodes!.forEach((avail) => {
           const name = avail.product?.name ?? 'Experience';
           const price = avail.totalPrice?.grossFormattedText ?? '';
           sections.push(`- ${name} on ${avail.date}${avail.startTime ? ` at ${avail.startTime}` : ''} ${price}`);
@@ -154,6 +213,20 @@ export function registerPaymentTools(server: McpServer, client: HolibobClient): 
 
       return {
         content: [{ type: 'text' as const, text: sections.join('\n') }],
+        structuredContent: {
+          bookingId: booking.id,
+          bookingCode: booking.code ?? undefined,
+          status: booking.state === 'CONFIRMED' ? 'confirmed' as const
+            : booking.state === 'PENDING' ? 'pending' as const
+            : booking.paymentState === 'AWAITING_PAYMENT' ? 'payment_required' as const
+            : 'open' as const,
+          state: booking.state,
+          leadPassenger: booking.leadPassengerName ?? undefined,
+          paymentState: booking.paymentState ?? undefined,
+          totalPrice: booking.totalPrice?.grossFormattedText ?? undefined,
+          items,
+          voucherUrl: booking.voucherUrl ?? undefined,
+        },
       };
     }
   );

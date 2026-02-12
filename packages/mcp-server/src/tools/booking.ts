@@ -1,5 +1,6 @@
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
+import { registerAppTool } from '@modelcontextprotocol/ext-apps/server';
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { HolibobClient } from '@experience-marketplace/holibob-api';
 import type { Booking, BookingQuestion } from '@experience-marketplace/holibob-api/types';
 
@@ -44,11 +45,70 @@ function formatBookingSummary(booking: Booking): string {
   return sections.join('\n');
 }
 
+function questionToStructured(q: BookingQuestion) {
+  return {
+    id: q.id,
+    label: q.label,
+    type: q.type ?? 'text',
+    isRequired: q.isRequired ?? false,
+    answerValue: q.answerValue ?? undefined,
+    autoCompleteValue: q.autoCompleteValue ?? undefined,
+    options: q.options?.map((o) => ({ value: o.value, label: o.label })) ?? [],
+  };
+}
+
+function bookingToStructured(booking: Booking) {
+  const items = booking.availabilityList?.nodes?.map((avail) => ({
+    name: avail.product?.name ?? 'Experience',
+    date: avail.date,
+    startTime: avail.startTime ?? undefined,
+    price: avail.totalPrice?.grossFormattedText ?? undefined,
+  })) ?? [];
+
+  const bookingQuestions = booking.questionList?.nodes?.map(questionToStructured) ?? [];
+
+  const availabilityQuestions: Array<{ experienceName: string; questions: ReturnType<typeof questionToStructured>[] }> = [];
+  const personQuestions: Array<{ personId: string; label: string; questions: ReturnType<typeof questionToStructured>[] }> = [];
+
+  booking.availabilityList?.nodes?.forEach((avail) => {
+    const name = avail.product?.name ?? 'Experience';
+    const aq = avail.questionList?.nodes?.map(questionToStructured) ?? [];
+    if (aq.length) availabilityQuestions.push({ experienceName: name, questions: aq });
+
+    avail.personList?.nodes?.forEach((person) => {
+      const pq = person.questionList?.nodes?.map(questionToStructured) ?? [];
+      if (pq.length) personQuestions.push({
+        personId: person.id,
+        label: person.pricingCategoryLabel ?? 'Guest',
+        questions: pq,
+      });
+    });
+  });
+
+  return {
+    bookingId: booking.id,
+    bookingCode: booking.code ?? undefined,
+    state: booking.state ?? 'OPEN',
+    canCommit: booking.canCommit ?? false,
+    totalPrice: booking.totalPrice?.grossFormattedText ?? undefined,
+    items,
+    bookingQuestions,
+    availabilityQuestions,
+    personQuestions,
+    voucherUrl: booking.voucherUrl ?? undefined,
+  };
+}
+
 export function registerBookingTools(server: McpServer, client: HolibobClient): void {
-  server.tool(
+  registerAppTool(
+    server,
     'create_booking',
-    'Create a new booking basket. This is the first step in the booking process after checking availability.',
-    {},
+    {
+      title: 'Create Booking',
+      description: 'Create a new booking basket. This is the first step in the booking process after checking availability.',
+      inputSchema: {},
+      _meta: { ui: { resourceUri: 'ui://holibob/booking.html' } },
+    },
     async () => {
       const booking = await client.createBooking({ autoFillQuestions: true });
 
@@ -57,16 +117,22 @@ export function registerBookingTools(server: McpServer, client: HolibobClient): 
           type: 'text' as const,
           text: `Booking created!\n\n${formatBookingSummary(booking)}\n\nNext: Use add_to_booking to add an availability slot to this booking.`,
         }],
+        structuredContent: bookingToStructured(booking),
       };
     }
   );
 
-  server.tool(
+  registerAppTool(
+    server,
     'add_to_booking',
-    'Add an availability slot (from check_availability results) to an existing booking.',
     {
-      bookingId: z.string().describe('The booking ID from create_booking'),
-      availabilityId: z.string().describe('The availability slot ID from check_availability results'),
+      title: 'Add to Booking',
+      description: 'Add an availability slot (from check_availability results) to an existing booking.',
+      inputSchema: {
+        bookingId: z.string().describe('The booking ID from create_booking'),
+        availabilityId: z.string().describe('The availability slot ID from check_availability results'),
+      },
+      _meta: { ui: { resourceUri: 'ui://holibob/booking.html' } },
     },
     async ({ bookingId, availabilityId }) => {
       const result = await client.addAvailabilityToBooking({
@@ -80,15 +146,26 @@ export function registerBookingTools(server: McpServer, client: HolibobClient): 
 
       return {
         content: [{ type: 'text' as const, text }],
+        structuredContent: {
+          bookingId: result.id,
+          bookingCode: result.code ?? undefined,
+          state: result.state ?? 'OPEN',
+          canCommit: result.canCommit ?? false,
+        },
       };
     }
   );
 
-  server.tool(
+  registerAppTool(
+    server,
     'get_booking_questions',
-    'Get all questions that need to be answered for a booking (guest details, contact info, etc.).',
     {
-      bookingId: z.string().describe('The booking ID'),
+      title: 'Booking Questions',
+      description: 'Get all questions that need to be answered for a booking (guest details, contact info, etc.).',
+      inputSchema: {
+        bookingId: z.string().describe('The booking ID'),
+      },
+      _meta: { ui: { resourceUri: 'ui://holibob/booking.html' } },
     },
     async ({ bookingId }) => {
       const booking = await client.getBookingQuestions(bookingId);
@@ -135,22 +212,28 @@ export function registerBookingTools(server: McpServer, client: HolibobClient): 
 
       return {
         content: [{ type: 'text' as const, text: sections.join('\n') }],
+        structuredContent: bookingToStructured(booking),
       };
     }
   );
 
-  server.tool(
+  registerAppTool(
+    server,
     'answer_booking_questions',
-    'Answer booking questions (guest name, email, phone, etc.). The lead passenger name is required. Provide answers as question ID + value pairs.',
     {
-      bookingId: z.string().describe('The booking ID'),
-      leadPassengerName: z.string().optional().describe('Full name of the lead passenger (e.g., "John Smith")'),
-      answers: z.array(
-        z.object({
-          questionId: z.string().describe('Question ID from get_booking_questions'),
-          value: z.string().describe('Answer value'),
-        })
-      ).optional().describe('Array of question answers'),
+      title: 'Answer Questions',
+      description: 'Answer booking questions (guest name, email, phone, etc.). The lead passenger name is required. Provide answers as question ID + value pairs.',
+      inputSchema: {
+        bookingId: z.string().describe('The booking ID'),
+        leadPassengerName: z.string().optional().describe('Full name of the lead passenger (e.g., "John Smith")'),
+        answers: z.array(
+          z.object({
+            questionId: z.string().describe('Question ID from get_booking_questions'),
+            value: z.string().describe('Answer value'),
+          })
+        ).optional().describe('Array of question answers'),
+      },
+      _meta: { ui: { resourceUri: 'ui://holibob/booking.html' } },
     },
     async ({ bookingId, leadPassengerName, answers }) => {
       const booking = await client.answerBookingQuestions(bookingId, {
@@ -189,6 +272,7 @@ export function registerBookingTools(server: McpServer, client: HolibobClient): 
 
       return {
         content: [{ type: 'text' as const, text: sections.join('\n') }],
+        structuredContent: bookingToStructured(booking),
       };
     }
   );

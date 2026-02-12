@@ -33,8 +33,10 @@ async function startStdio(): Promise<void> {
 
 async function startHttp(port: number): Promise<void> {
   const { SSEServerTransport } = await import('@modelcontextprotocol/sdk/server/sse.js');
+  const { StreamableHTTPServerTransport } = await import('@modelcontextprotocol/sdk/server/streamableHttp.js');
+  const { isInitializeRequest } = await import('@modelcontextprotocol/sdk/types.js');
   const { authenticateApiKey } = await import('../auth/api-key.js');
-  const { handleAuthorize, handleToken, validateAccessToken } = await import('../auth/oauth.js');
+  const { handleAuthorize, handleAuthorizePost, handleToken, handleRegister, validateAccessToken } = await import('../auth/oauth.js');
   const http = await import('node:http');
 
   // Determine the public base URL (used in OAuth metadata)
@@ -42,9 +44,16 @@ async function startHttp(port: number): Promise<void> {
   // Claude Desktop discovers OAuth metadata from the root origin
   const publicBaseUrl = (process.env['MCP_PUBLIC_URL'] ?? `http://localhost:${port}`).replace(/\/mcp\/?$/, '');
 
-  // Track per-session transports and their servers
-  const sessions = new Map<string, {
+  // Track per-session SSE transports
+  const sseSessions = new Map<string, {
     transport: InstanceType<typeof SSEServerTransport>;
+    partnerName: string;
+  }>();
+
+  // Track per-session Streamable HTTP transports
+  const streamableSessions = new Map<string, {
+    transport: InstanceType<typeof StreamableHTTPServerTransport>;
+    server: ReturnType<typeof createServer>;
     partnerName: string;
   }>();
 
@@ -69,7 +78,7 @@ async function startHttp(port: number): Promise<void> {
     res.end(JSON.stringify(body));
   }
 
-  function parseFormBody(req: import('node:http').IncomingMessage): Promise<Record<string, string>> {
+  function parseBody(req: import('node:http').IncomingMessage): Promise<Record<string, string>> {
     return new Promise((resolve, reject) => {
       let data = '';
       req.on('data', (chunk: Buffer) => { data += chunk.toString(); });
@@ -94,6 +103,21 @@ async function startHttp(port: number): Promise<void> {
     });
   }
 
+  function parseJsonBody(req: import('node:http').IncomingMessage): Promise<unknown> {
+    return new Promise((resolve, reject) => {
+      let data = '';
+      req.on('data', (chunk: Buffer) => { data += chunk.toString(); });
+      req.on('end', () => {
+        try {
+          resolve(data ? JSON.parse(data) : undefined);
+        } catch {
+          reject(new Error('Failed to parse JSON body'));
+        }
+      });
+      req.on('error', reject);
+    });
+  }
+
   /**
    * Authenticate a Bearer token — could be an MCP API key (mcp_live_...)
    * or an OAuth access token (hbmcp_...).
@@ -107,13 +131,43 @@ async function startHttp(port: number): Promise<void> {
     return authenticateApiKey(token);
   }
 
+  /**
+   * Authenticate request and create a partner-scoped MCP server,
+   * or fall back to env vars.
+   */
+  async function authenticateAndCreateServer(req: import('node:http').IncomingMessage): Promise<{
+    server: ReturnType<typeof createServer>;
+    partnerName: string;
+  } | null> {
+    const token = extractBearerToken(req);
+
+    if (token) {
+      const auth = await authenticateToken(token);
+      if (!auth) return null;
+      return { server: createServer(auth.client), partnerName: auth.partnerName };
+    }
+
+    if (envPartnerId && envApiKey) {
+      const client = createHolibobClient({
+        apiUrl: envApiUrl,
+        partnerId: envPartnerId,
+        apiKey: envApiKey,
+        apiSecret: envApiSecret,
+      });
+      return { server: createServer(client), partnerName: 'env' };
+    }
+
+    return null;
+  }
+
   const httpServer = http.createServer(async (req, res) => {
     const url = new URL(req.url ?? '/', `http://localhost:${port}`);
 
-    // CORS headers
+    // CORS headers (extended for Streamable HTTP)
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Mcp-Session-Id');
+    res.setHeader('Access-Control-Expose-Headers', 'Mcp-Session-Id');
 
     if (req.method === 'OPTIONS') {
       res.writeHead(204);
@@ -137,6 +191,7 @@ async function startHttp(port: number): Promise<void> {
         issuer: publicBaseUrl,
         authorization_endpoint: `${publicBaseUrl}/authorize`,
         token_endpoint: `${publicBaseUrl}/oauth/token`,
+        registration_endpoint: `${publicBaseUrl}/oauth/register`,
         response_types_supported: ['code'],
         grant_types_supported: ['authorization_code', 'client_credentials'],
         code_challenge_methods_supported: ['S256'],
@@ -146,15 +201,53 @@ async function startHttp(port: number): Promise<void> {
       return;
     }
 
-    // ── OAuth Authorization Endpoint ──
-    // Handle both /authorize (Claude Desktop default) and /oauth/authorize
+    // ── Dynamic Client Registration (RFC 7591) ──
+    if (url.pathname === '/oauth/register' && req.method === 'POST') {
+      try {
+        const body = await parseJsonBody(req) as Record<string, unknown>;
+        const result = handleRegister(body);
+        if (result.json) {
+          jsonResponse(res, result.statusCode ?? 201, result.json);
+        } else {
+          jsonResponse(res, result.statusCode ?? 400, { error: result.error });
+        }
+      } catch {
+        jsonResponse(res, 400, { error: 'invalid_request', error_description: 'Failed to parse request body' });
+      }
+      return;
+    }
+
+    // ── OAuth Authorization Endpoint (GET — show form or auto-redirect) ──
     if ((url.pathname === '/oauth/authorize' || url.pathname === '/authorize') && req.method === 'GET') {
       const result = await handleAuthorize(url.searchParams);
       if (result.redirect) {
         res.writeHead(302, { Location: result.redirect });
         res.end();
+      } else if (result.html) {
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end(result.html);
       } else {
         jsonResponse(res, result.statusCode ?? 400, { error: result.error });
+      }
+      return;
+    }
+
+    // ── OAuth Authorization Endpoint (POST — process login form) ──
+    if ((url.pathname === '/oauth/authorize' || url.pathname === '/authorize') && req.method === 'POST') {
+      try {
+        const body = await parseBody(req);
+        const result = await handleAuthorizePost(body, url.searchParams);
+        if (result.redirect) {
+          res.writeHead(302, { Location: result.redirect });
+          res.end();
+        } else if (result.html) {
+          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+          res.end(result.html);
+        } else {
+          jsonResponse(res, result.statusCode ?? 400, { error: result.error });
+        }
+      } catch {
+        jsonResponse(res, 400, { error: 'invalid_request', error_description: 'Failed to parse request body' });
       }
       return;
     }
@@ -162,7 +255,7 @@ async function startHttp(port: number): Promise<void> {
     // ── OAuth Token Endpoint ──
     if (url.pathname === '/oauth/token' && req.method === 'POST') {
       try {
-        const body = await parseFormBody(req);
+        const body = await parseBody(req);
         const result = await handleToken(body);
         if (result.json) {
           res.setHeader('Cache-Control', 'no-store');
@@ -181,6 +274,100 @@ async function startHttp(port: number): Promise<void> {
       jsonResponse(res, 200, { status: 'ok', server: 'holibob-mcp', version: '0.1.0' });
       return;
     }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // STREAMABLE HTTP TRANSPORT (protocol version 2025-03-26)
+    // Handles POST (JSON-RPC), GET (SSE stream), DELETE (session close) on /
+    // ══════════════════════════════════════════════════════════════════════
+    if (url.pathname === '/' && (req.method === 'POST' || req.method === 'GET' || req.method === 'DELETE')) {
+      const sessionId = req.headers['mcp-session-id'] as string | undefined;
+
+      // ── Existing session ──
+      if (sessionId && streamableSessions.has(sessionId)) {
+        const session = streamableSessions.get(sessionId)!;
+        if (req.method === 'POST') {
+          const body = await parseJsonBody(req);
+          await session.transport.handleRequest(req, res, body);
+        } else if (req.method === 'GET') {
+          await session.transport.handleRequest(req, res);
+        } else {
+          // DELETE — close session
+          await session.transport.handleRequest(req, res);
+          streamableSessions.delete(sessionId);
+          console.error(`[MCP] Streamable session ${sessionId} deleted (${session.partnerName})`);
+        }
+        return;
+      }
+
+      // ── New session (POST with initialize request) ──
+      if (req.method === 'POST' && !sessionId) {
+        const body = await parseJsonBody(req);
+        if (!isInitializeRequest(body)) {
+          jsonResponse(res, 400, {
+            jsonrpc: '2.0',
+            error: { code: -32000, message: 'Bad Request: first request must be an initialize request' },
+            id: null,
+          });
+          return;
+        }
+
+        const authResult = await authenticateAndCreateServer(req);
+        if (!authResult) {
+          res.writeHead(401, {
+            'Content-Type': 'application/json',
+            'WWW-Authenticate': `Bearer resource_metadata="${publicBaseUrl}/.well-known/oauth-protected-resource"`,
+          });
+          res.end(JSON.stringify({ error: 'Authentication required' }));
+          return;
+        }
+
+        const transport = new StreamableHTTPServerTransport({
+          sessionIdGenerator: () => `sh_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+          onsessioninitialized: (newSessionId: string) => {
+            streamableSessions.set(newSessionId, {
+              transport,
+              server: authResult.server,
+              partnerName: authResult.partnerName,
+            });
+            console.error(`[MCP] Streamable session ${newSessionId} created (${authResult.partnerName})`);
+          },
+        });
+
+        transport.onclose = () => {
+          const sid = transport.sessionId;
+          if (sid && streamableSessions.has(sid)) {
+            streamableSessions.delete(sid);
+            console.error(`[MCP] Streamable session ${sid} closed (${authResult.partnerName})`);
+          }
+        };
+
+        await authResult.server.connect(transport);
+        await transport.handleRequest(req, res, body);
+        return;
+      }
+
+      // ── Invalid request ──
+      if (sessionId && !streamableSessions.has(sessionId)) {
+        jsonResponse(res, 400, {
+          jsonrpc: '2.0',
+          error: { code: -32000, message: 'Bad Request: invalid or expired session ID' },
+          id: null,
+        });
+        return;
+      }
+
+      jsonResponse(res, 400, {
+        jsonrpc: '2.0',
+        error: { code: -32000, message: 'Bad Request: POST with initialize request required to create session' },
+        id: null,
+      });
+      return;
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // DEPRECATED SSE TRANSPORT (protocol version 2024-11-05)
+    // Kept for backward compatibility with Claude Desktop
+    // ══════════════════════════════════════════════════════════════════════
 
     // ── SSE endpoint — authenticate and create per-session MCP server ──
     if (url.pathname === '/sse' && req.method === 'GET') {
@@ -223,16 +410,16 @@ async function startHttp(port: number): Promise<void> {
       // Use /mcp/messages so the client POSTs through the proxy (which strips /mcp prefix)
       const messagesPath = publicBaseUrl.includes('localhost') ? '/messages' : '/mcp/messages';
       const transport = new SSEServerTransport(messagesPath, res);
-      sessions.set(transport.sessionId, { transport, partnerName });
+      sseSessions.set(transport.sessionId, { transport, partnerName });
       res.on('close', () => {
-        sessions.delete(transport.sessionId);
+        sseSessions.delete(transport.sessionId);
         console.error(`[MCP] Session ${transport.sessionId} disconnected (${partnerName})`);
       });
       await server.connect(transport);
       return;
     }
 
-    // ── Messages endpoint ──
+    // ── Messages endpoint (SSE transport) ──
     if (url.pathname === '/messages' && req.method === 'POST') {
       const sessionId = url.searchParams.get('sessionId');
       if (!sessionId) {
@@ -240,7 +427,7 @@ async function startHttp(port: number): Promise<void> {
         return;
       }
 
-      const session = sessions.get(sessionId);
+      const session = sseSessions.get(sessionId);
       if (!session) {
         jsonResponse(res, 404, { error: 'Session not found' });
         return;
@@ -255,10 +442,12 @@ async function startHttp(port: number): Promise<void> {
   });
 
   httpServer.listen(port, () => {
-    console.error(`Holibob MCP Server (HTTP/SSE) listening on port ${port}`);
+    console.error(`Holibob MCP Server listening on port ${port}`);
     console.error(`  Public URL: ${publicBaseUrl}`);
-    console.error(`  SSE endpoint: ${publicBaseUrl}/sse`);
-    console.error(`  OAuth authorize: ${publicBaseUrl}/oauth/authorize`);
+    console.error(`  Streamable HTTP: ${publicBaseUrl}/mcp (POST/GET/DELETE)`);
+    console.error(`  SSE endpoint: ${publicBaseUrl}/mcp/sse (deprecated, Claude Desktop)`);
+    console.error(`  DCR: ${publicBaseUrl}/oauth/register`);
+    console.error(`  OAuth authorize: ${publicBaseUrl}/authorize`);
     console.error(`  OAuth token: ${publicBaseUrl}/oauth/token`);
     console.error(`  Health check: ${publicBaseUrl}/health`);
   });
