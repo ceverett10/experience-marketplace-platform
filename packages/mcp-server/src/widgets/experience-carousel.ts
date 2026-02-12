@@ -53,6 +53,10 @@ export const EXPERIENCE_CAROUSEL_HTML = `<!DOCTYPE html>
 <div class="container" id="root"><div class="empty">Loading experiences...</div></div>
 <script>
 (function() {
+  // Global error handlers to prevent widget teardown
+  window.onerror = function() { return true; };
+  window.addEventListener('unhandledrejection', function(e) { e.preventDefault(); });
+
   var root = document.getElementById('root');
   var allExperiences = [];
   var seenIds = {};
@@ -69,22 +73,23 @@ export const EXPERIENCE_CAROUSEL_HTML = `<!DOCTYPE html>
     return new Promise(function(resolve, reject) {
       var id = ++rpcId;
       pending[id] = { resolve: resolve, reject: reject };
-      window.parent.postMessage({ jsonrpc: '2.0', id: id, method: method, params: params || {} }, '*');
+      try { window.parent.postMessage({ jsonrpc: '2.0', id: id, method: method, params: params || {} }, '*'); }
+      catch(e) { delete pending[id]; reject(e); }
     });
   }
 
   function rpcNotify(method, params) {
-    window.parent.postMessage({ jsonrpc: '2.0', method: method, params: params || {} }, '*');
+    try { window.parent.postMessage({ jsonrpc: '2.0', method: method, params: params || {} }, '*'); } catch(e) {}
   }
 
   function sendMessage(text) {
-    return rpcRequest('ui/message', { role: 'user', content: [{ type: 'text', text: text }] });
+    return rpcRequest('ui/message', { role: 'user', content: [{ type: 'text', text: text }] }).catch(function() {});
   }
 
   function callTool(name, args) {
     return rpcRequest('tools/call', { name: name, arguments: args }).then(function(result) {
       handleData(result && result.structuredContent);
-    });
+    }).catch(function() {});
   }
 
   window.addEventListener('message', function(event) {

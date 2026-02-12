@@ -53,7 +53,34 @@ export const EXPERIENCE_DETAIL_HTML = `<!DOCTYPE html>
 <div id="root"><div class="empty">Loading experience details...</div></div>
 <script>
 (function() {
+  // Global error handlers to prevent widget teardown
+  window.onerror = function() { return true; };
+  window.addEventListener('unhandledrejection', function(e) { e.preventDefault(); });
+
   var root = document.getElementById('root');
+
+  // === JSON-RPC bridge ===
+  var rpcId = 0;
+  var pending = {};
+  var bridgeReady = new Promise(function(resolve) { window._bridgeResolve = resolve; });
+
+  function rpcRequest(method, params) {
+    return new Promise(function(resolve, reject) {
+      var id = ++rpcId;
+      pending[id] = { resolve: resolve, reject: reject };
+      try { window.parent.postMessage({ jsonrpc: '2.0', id: id, method: method, params: params || {} }, '*'); }
+      catch(e) { delete pending[id]; reject(e); }
+    });
+  }
+
+  function rpcNotify(method, params) {
+    try { window.parent.postMessage({ jsonrpc: '2.0', method: method, params: params || {} }, '*'); } catch(e) {}
+  }
+
+  function sendMessage(text) {
+    return rpcRequest('ui/message', { role: 'user', content: [{ type: 'text', text: text }] }).catch(function() {});
+  }
+
   function esc(s) { if (!s) return ''; var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
   function starSvg(filled) {
     return '<svg viewBox="0 0 20 20" fill="' + (filled ? 'currentColor' : 'none') + '" stroke="currentColor" stroke-width="1"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>';
@@ -155,7 +182,7 @@ export const EXPERIENCE_DETAIL_HTML = `<!DOCTYPE html>
     var ctaBtn = document.getElementById('check-avail');
     if (ctaBtn) {
       ctaBtn.addEventListener('click', function() {
-        window.parent.postMessage({ jsonrpc: '2.0', method: 'ui/message', params: { message: 'Check availability for "' + exp.name + '" (ID: ' + exp.id + ')' } }, '*');
+        bridgeReady.then(function() { sendMessage('Check availability for "' + exp.name + '" (ID: ' + exp.id + ')'); });
       });
     }
   }
@@ -163,9 +190,31 @@ export const EXPERIENCE_DETAIL_HTML = `<!DOCTYPE html>
   window.addEventListener('message', function(event) {
     if (event.source !== window.parent) return;
     var msg = event.data;
-    if (msg && msg.method === 'ui/notifications/tool-result' && msg.params) render(msg.params.structuredContent || msg.params._meta);
+    if (!msg || msg.jsonrpc !== '2.0') return;
+
+    // Handle responses to our requests
+    if (msg.id && pending[msg.id]) {
+      var p = pending[msg.id];
+      delete pending[msg.id];
+      if (msg.error) p.reject(msg.error);
+      else p.resolve(msg.result);
+      return;
+    }
+
+    if (msg.method === 'ui/notifications/tool-result' && msg.params) render(msg.params.structuredContent || msg.params._meta);
   });
-  window.parent.postMessage({ jsonrpc: '2.0', method: 'ui/notifications/initialized', params: { appInfo: { name: 'Holibob Detail', version: '1.0.0' } } }, '*');
+
+  // Initialize bridge
+  rpcRequest('ui/initialize', {
+    appInfo: { name: 'Holibob Detail', version: '1.0.0' },
+    appCapabilities: {},
+    protocolVersion: '2026-01-26'
+  }).then(function() {
+    window._bridgeResolve();
+    rpcNotify('ui/notifications/initialized', {});
+  }).catch(function() {
+    window._bridgeResolve();
+  });
 })();
 </script>
 </body>

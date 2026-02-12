@@ -133,6 +133,10 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
   var sIcons = ['\\u{1F4CD}','\\u{1F4C5}','\\u{1F465}','\\u{2728}'];
   var sPlaceholders = ['Type a destination...','When are you going?','Who is travelling?','What do you want to do?'];
 
+  // Global error handlers to prevent widget teardown
+  window.onerror = function() { return true; };
+  window.addEventListener('unhandledrejection', function(e) { e.preventDefault(); });
+
   // === JSON-RPC bridge ===
   var rpcId = 0;
   var pending = {};
@@ -142,22 +146,23 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
     return new Promise(function(resolve, reject) {
       var id = ++rpcId;
       pending[id] = { resolve: resolve, reject: reject };
-      window.parent.postMessage({ jsonrpc: '2.0', id: id, method: method, params: params || {} }, '*');
+      try { window.parent.postMessage({ jsonrpc: '2.0', id: id, method: method, params: params || {} }, '*'); }
+      catch(e) { delete pending[id]; reject(e); }
     });
   }
 
   function rpcNotify(method, params) {
-    window.parent.postMessage({ jsonrpc: '2.0', method: method, params: params || {} }, '*');
+    try { window.parent.postMessage({ jsonrpc: '2.0', method: method, params: params || {} }, '*'); } catch(e) {}
   }
 
   function sendMessage(text) {
-    return rpcRequest('ui/message', { role: 'user', content: [{ type: 'text', text: text }] });
+    return rpcRequest('ui/message', { role: 'user', content: [{ type: 'text', text: text }] }).catch(function() {});
   }
 
   function callTool(name, args) {
     return rpcRequest('tools/call', { name: name, arguments: args }).then(function(result) {
       handleData(result && result.structuredContent);
-    });
+    }).catch(function() {});
   }
 
   window.addEventListener('message', function(event) {
