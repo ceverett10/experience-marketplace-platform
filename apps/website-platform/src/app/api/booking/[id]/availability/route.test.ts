@@ -40,7 +40,7 @@ describe('Booking Add Availability API Route - POST', () => {
     vi.clearAllMocks();
     // Default success responses
     mockAddAvailabilityToBooking.mockResolvedValue({
-      isComplete: true,
+      canCommit: true,
       booking: {
         id: 'booking-123',
         state: 'OPEN',
@@ -90,7 +90,7 @@ describe('Booking Add Availability API Route - POST', () => {
 
     expect(response.status).toBe(200);
     expect(data.success).toBe(true);
-    expect(data.data.isComplete).toBe(true);
+    expect(data.data.canCommit).toBe(true);
     expect(data.data.booking).toBeDefined();
     expect(mockAddAvailabilityToBooking).toHaveBeenCalledWith({
       bookingSelector: { id: 'booking-123' },

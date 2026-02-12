@@ -68,7 +68,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({
       success: true,
       data: {
-        isComplete: result.isComplete,
+        canCommit: result.canCommit,
         booking,
       },
     });

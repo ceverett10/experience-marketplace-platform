@@ -268,14 +268,14 @@ export async function createBooking(): Promise<Booking> {
 export async function addAvailabilityToBooking(
   bookingId: string,
   availabilityId: string
-): Promise<{ isComplete: boolean; booking: Booking }> {
+): Promise<{ canCommit: boolean; booking: Booking }> {
   const response = await fetch(`/api/booking/${bookingId}/availability`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ availabilityId }),
   });
 
-  const result: ApiResponse<{ isComplete: boolean; booking: Booking }> = await response.json();
+  const result: ApiResponse<{ canCommit: boolean; booking: Booking }> = await response.json();
 
   if (!response.ok || !result.success) {
     throw new Error(result.error ?? 'Failed to add availability to booking');
