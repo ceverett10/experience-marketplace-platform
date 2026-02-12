@@ -127,32 +127,52 @@ export function registerBookingTools(server: McpServer, client: HolibobClient): 
     'add_to_booking',
     {
       title: 'Add to Booking',
-      description: 'Add an availability slot (from check_availability results) to an existing booking.',
+      description: 'Add a fully configured availability slot to a booking. PREREQUISITE: The slot MUST have isValid=true (from `set_slot_pricing`) before calling this. The required flow is: check_availability → get_slot_options → answer_slot_options → get_slot_pricing → set_slot_pricing (isValid=true) → create_booking → add_to_booking.',
       inputSchema: {
         bookingId: z.string().describe('The booking ID from create_booking'),
-        availabilityId: z.string().describe('The availability slot ID from check_availability results'),
+        availabilityId: z.string().describe('The availability slot ID — must have isValid=true from set_slot_pricing'),
       },
       _meta: {},
     },
     async ({ bookingId, availabilityId }) => {
-      const result = await client.addAvailabilityToBooking({
-        bookingSelector: { id: bookingId },
-        id: availabilityId,
-      });
+      try {
+        const result = await client.addAvailabilityToBooking({
+          bookingSelector: { id: bookingId },
+          id: availabilityId,
+        });
 
-      const text = result.canCommit
-        ? `Availability added to booking ${result.code ?? bookingId}. The booking is ready — use commit_booking to finalize.`
-        : `Availability added to booking ${result.code ?? bookingId}. Questions need to be answered before the booking can be committed.\n\nUse get_booking_questions to see what information is needed.`;
+        const text = result.canCommit
+          ? `Availability added to booking ${result.code ?? bookingId}. The booking is ready — use commit_booking to finalize.`
+          : `Availability added to booking ${result.code ?? bookingId}. Questions need to be answered before the booking can be committed.\n\nUse get_booking_questions to see what information is needed.`;
 
-      return {
-        content: [{ type: 'text' as const, text }],
-        structuredContent: {
-          bookingId: result.id,
-          bookingCode: result.code ?? undefined,
-          state: result.state ?? 'OPEN',
-          canCommit: result.canCommit ?? false,
-        },
-      };
+        return {
+          content: [{ type: 'text' as const, text }],
+          structuredContent: {
+            bookingId: result.id,
+            bookingCode: result.code ?? undefined,
+            state: result.state ?? 'OPEN',
+            canCommit: result.canCommit ?? false,
+          },
+        };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        const isAvailabilityError = message.includes('availability') || message.includes('AVAILABILITY_ERROR');
+
+        if (isAvailabilityError) {
+          return {
+            content: [{
+              type: 'text' as const,
+              text: `## Slot Not Ready\n\nThe availability slot could not be added because it is not fully configured.\n\n**Required steps before add_to_booking:**\n1. \`get_slot_options\` — check/answer configuration options\n2. \`get_slot_pricing\` — get pricing categories\n3. \`set_slot_pricing\` — set participant counts (e.g., 2 Adults)\n4. Verify \`isValid = true\` in the response\n\nPlease complete these steps first, then try add_to_booking again.`,
+            }],
+            isError: true,
+          };
+        }
+
+        return {
+          content: [{ type: 'text' as const, text: `Error adding to booking: ${message}` }],
+          isError: true,
+        };
+      }
     }
   );
 

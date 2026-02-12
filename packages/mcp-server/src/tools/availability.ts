@@ -182,7 +182,7 @@ export function registerAvailabilityTools(server: McpServer, client: HolibobClie
     'answer_slot_options',
     {
       title: 'Answer Slot Options',
-      description: 'Answer configuration options for an availability slot (e.g., select time, variant, language). Call iteratively until "Options complete: YES". Then use `get_slot_pricing` to configure pricing.',
+      description: 'Answer configuration options for an availability slot (e.g., select time, variant, language). Call iteratively until "Options complete: YES". IMPORTANT: After options are complete you MUST call `get_slot_pricing` and then `set_slot_pricing` before the slot can be added to a booking.',
       inputSchema: {
         slotId: z.string().describe('The availability slot ID'),
         options: z.array(
@@ -230,7 +230,7 @@ export function registerAvailabilityTools(server: McpServer, client: HolibobClie
     'set_slot_pricing',
     {
       title: 'Set Pricing',
-      description: 'Set the number of participants for each pricing category (e.g., 2 Adults, 1 Child). After setting units, if isValid=true the slot is ready for `add_to_booking`.',
+      description: 'Set the number of participants for each pricing category (e.g., 2 Adults, 1 Child). This is REQUIRED before adding to a booking. After setting units, check isValid — only when isValid=true can you call `create_booking` then `add_to_booking`.',
       inputSchema: {
         slotId: z.string().describe('The availability slot ID'),
         pricingCategories: z.array(
