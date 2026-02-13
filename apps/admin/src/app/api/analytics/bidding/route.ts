@@ -109,6 +109,76 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         commission: Number(b._sum.commissionAmount || 0),
       }));
 
+    // --- PAID_CANDIDATE keyword opportunities per site ---
+    const kwWhere: Record<string, unknown> = { status: 'PAID_CANDIDATE' as any };
+    if (siteId) kwWhere['siteId'] = siteId;
+
+    const keywords = await prisma.sEOOpportunity.findMany({
+      where: kwWhere as any,
+      select: {
+        id: true,
+        keyword: true,
+        searchVolume: true,
+        cpc: true,
+        difficulty: true,
+        intent: true,
+        priorityScore: true,
+        location: true,
+        niche: true,
+        siteId: true,
+        site: { select: { name: true } },
+      },
+      orderBy: { priorityScore: 'desc' },
+      take: 500,
+    });
+
+    // Group keywords by site for the response
+    const keywordsBySite: Record<string, {
+      siteName: string;
+      keywords: Array<{
+        id: string;
+        keyword: string;
+        searchVolume: number;
+        cpc: number;
+        difficulty: number;
+        intent: string;
+        priorityScore: number;
+        location: string | null;
+        niche: string;
+        estimatedMonthlyClicks: number;
+        estimatedMonthlyCost: number;
+        maxBid: number | null;
+      }>;
+    }> = {};
+
+    for (const kw of keywords) {
+      const sid = kw.siteId || 'unassigned';
+      if (!keywordsBySite[sid]) {
+        keywordsBySite[sid] = {
+          siteName: kw.site?.name || 'Unassigned',
+          keywords: [],
+        };
+      }
+      const cpc = Number(kw.cpc || 0);
+      const estClicks = Math.round((kw.searchVolume / 30) * 0.04 * 30); // 4% CTR
+      const profile = profiles.find((p) => p.siteId === sid);
+      const maxProfitCpc = profile ? Number(profile.maxProfitableCpc) : null;
+      keywordsBySite[sid].keywords.push({
+        id: kw.id,
+        keyword: kw.keyword,
+        searchVolume: kw.searchVolume,
+        cpc,
+        difficulty: kw.difficulty,
+        intent: kw.intent,
+        priorityScore: kw.priorityScore,
+        location: kw.location,
+        niche: kw.niche,
+        estimatedMonthlyClicks: estClicks,
+        estimatedMonthlyCost: Math.round(estClicks * cpc * 100) / 100,
+        maxBid: maxProfitCpc ? Math.min(maxProfitCpc, cpc * 1.2) : null,
+      });
+    }
+
     // --- Budget utilization ---
     const activeCampaigns = campaigns.filter((c) => c.status === 'ACTIVE');
     const totalDailyBudget = activeCampaigns.reduce(
@@ -150,6 +220,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       })),
       campaigns: campaignSummaries,
       attribution: paidBookings,
+      keywordsBySite,
     });
   } catch (error) {
     console.error('[API] Error fetching bidding analytics:', error);

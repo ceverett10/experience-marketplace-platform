@@ -42,6 +42,26 @@ interface Attribution {
   commission: number;
 }
 
+interface SiteKeyword {
+  id: string;
+  keyword: string;
+  searchVolume: number;
+  cpc: number;
+  difficulty: number;
+  intent: string;
+  priorityScore: number;
+  location: string | null;
+  niche: string;
+  estimatedMonthlyClicks: number;
+  estimatedMonthlyCost: number;
+  maxBid: number | null;
+}
+
+interface SiteKeywords {
+  siteName: string;
+  keywords: SiteKeyword[];
+}
+
 interface BiddingData {
   period: { days: number; since: string };
   portfolio: {
@@ -63,6 +83,7 @@ interface BiddingData {
   profiles: Profile[];
   campaigns: Campaign[];
   attribution: Attribution[];
+  keywordsBySite: Record<string, SiteKeywords>;
 }
 
 export default function BiddingDashboardPage() {
@@ -71,6 +92,7 @@ export default function BiddingDashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [days, setDays] = useState('30');
+  const [expandedSites, setExpandedSites] = useState<Set<string>>(new Set());
 
   const fetchData = useCallback(async () => {
     try {
@@ -129,6 +151,22 @@ export default function BiddingDashboardPage() {
     PAUSED: 'bg-amber-100 text-amber-800',
     DRAFT: 'bg-slate-100 text-slate-800',
     ENDED: 'bg-red-100 text-red-800',
+  };
+
+  const intentColors: Record<string, string> = {
+    TRANSACTIONAL: 'bg-green-100 text-green-800',
+    COMMERCIAL: 'bg-blue-100 text-blue-800',
+    NAVIGATIONAL: 'bg-purple-100 text-purple-800',
+    INFORMATIONAL: 'bg-slate-100 text-slate-800',
+  };
+
+  const toggleSite = (siteId: string) => {
+    setExpandedSites((prev) => {
+      const next = new Set(prev);
+      if (next.has(siteId)) next.delete(siteId);
+      else next.add(siteId);
+      return next;
+    });
   };
 
   const platformColors: Record<string, string> = {
@@ -343,6 +381,145 @@ export default function BiddingDashboardPage() {
                       ))}
                     </tbody>
                   </table>
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {/* Keyword Opportunities by Site */}
+          {data.keywordsBySite && Object.keys(data.keywordsBySite).length > 0 && (
+            <Card>
+              <div className="p-4">
+                <h3 className="text-sm font-semibold text-slate-900 mb-1">
+                  Keyword Opportunities by Site
+                </h3>
+                <p className="text-xs text-slate-500 mb-4">
+                  PAID_CANDIDATE keywords ranked by priority score. Click a site to expand.
+                </p>
+                <div className="space-y-2">
+                  {Object.entries(data.keywordsBySite)
+                    .sort((a, b) => b[1].keywords.length - a[1].keywords.length)
+                    .map(([siteId, site]) => {
+                      const isExpanded = expandedSites.has(siteId);
+                      const totalVolume = site.keywords.reduce((s, k) => s + k.searchVolume, 0);
+                      const totalEstCost = site.keywords.reduce((s, k) => s + k.estimatedMonthlyCost, 0);
+                      const avgCpc = site.keywords.length > 0
+                        ? site.keywords.reduce((s, k) => s + k.cpc, 0) / site.keywords.length
+                        : 0;
+                      const profile = data.profiles.find((p) => p.siteId === siteId);
+
+                      return (
+                        <div key={siteId} className="border border-slate-200 rounded-lg overflow-hidden">
+                          <button
+                            onClick={() => toggleSite(siteId)}
+                            className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors text-left"
+                          >
+                            <div className="flex items-center gap-3">
+                              <span className="text-sm font-medium text-slate-900">{site.siteName}</span>
+                              <span className="text-xs px-2 py-0.5 bg-sky-100 text-sky-800 rounded">
+                                {site.keywords.length} keywords
+                              </span>
+                              <span className="text-xs text-slate-500">
+                                {totalVolume.toLocaleString()} vol/mo
+                              </span>
+                              <span className="text-xs text-slate-500">
+                                avg CPC ${avgCpc.toFixed(3)}
+                              </span>
+                              <span className="text-xs text-slate-500">
+                                est. ${totalEstCost.toFixed(2)}/mo
+                              </span>
+                              {profile && (
+                                <span className={`text-xs px-2 py-0.5 rounded ${
+                                  profile.maxProfitableCpc > avgCpc
+                                    ? 'bg-green-100 text-green-800'
+                                    : 'bg-red-100 text-red-800'
+                                }`}>
+                                  max CPC &pound;{profile.maxProfitableCpc.toFixed(4)}
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-slate-400 text-sm">{isExpanded ? '\u25B2' : '\u25BC'}</span>
+                          </button>
+                          {isExpanded && (
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-sm">
+                                <thead>
+                                  <tr className="border-b border-slate-200 bg-slate-50/50">
+                                    <th className="text-left px-4 py-2 font-medium text-slate-600">Keyword</th>
+                                    <th className="text-right px-4 py-2 font-medium text-slate-600">CPC</th>
+                                    <th className="text-right px-4 py-2 font-medium text-slate-600">Volume</th>
+                                    <th className="text-right px-4 py-2 font-medium text-slate-600">Difficulty</th>
+                                    <th className="text-right px-4 py-2 font-medium text-slate-600">Score</th>
+                                    <th className="text-center px-4 py-2 font-medium text-slate-600">Intent</th>
+                                    <th className="text-right px-4 py-2 font-medium text-slate-600">Est. Clicks</th>
+                                    <th className="text-right px-4 py-2 font-medium text-slate-600">Est. Cost</th>
+                                    <th className="text-right px-4 py-2 font-medium text-slate-600">Max Bid</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {site.keywords.map((kw) => (
+                                    <tr key={kw.id} className="border-b border-slate-100 hover:bg-slate-50">
+                                      <td className="px-4 py-2">
+                                        <div className="font-medium text-slate-900">{kw.keyword}</div>
+                                        {kw.location && (
+                                          <div className="text-xs text-slate-500">{kw.location}</div>
+                                        )}
+                                        {kw.niche && (
+                                          <div className="text-xs text-slate-400">{kw.niche}</div>
+                                        )}
+                                      </td>
+                                      <td className="px-4 py-2 text-right">
+                                        <span className={`font-mono ${
+                                          profile && kw.cpc <= profile.maxProfitableCpc
+                                            ? 'text-green-700'
+                                            : 'text-red-700'
+                                        }`}>
+                                          ${kw.cpc.toFixed(3)}
+                                        </span>
+                                      </td>
+                                      <td className="px-4 py-2 text-right font-mono">
+                                        {kw.searchVolume.toLocaleString()}
+                                      </td>
+                                      <td className="px-4 py-2 text-right">
+                                        <span className={`font-mono ${
+                                          kw.difficulty > 70 ? 'text-red-600' :
+                                          kw.difficulty > 40 ? 'text-amber-600' : 'text-green-600'
+                                        }`}>
+                                          {kw.difficulty}
+                                        </span>
+                                      </td>
+                                      <td className="px-4 py-2 text-right font-mono">{kw.priorityScore}</td>
+                                      <td className="px-4 py-2 text-center">
+                                        <span className={`text-xs px-2 py-0.5 rounded font-medium ${
+                                          intentColors[kw.intent] || 'bg-slate-100 text-slate-800'
+                                        }`}>
+                                          {kw.intent}
+                                        </span>
+                                      </td>
+                                      <td className="px-4 py-2 text-right font-mono text-slate-600">
+                                        {kw.estimatedMonthlyClicks.toLocaleString()}
+                                      </td>
+                                      <td className="px-4 py-2 text-right font-mono text-slate-600">
+                                        ${kw.estimatedMonthlyCost.toFixed(2)}
+                                      </td>
+                                      <td className="px-4 py-2 text-right">
+                                        {kw.maxBid !== null ? (
+                                          <span className="font-mono text-sky-700">
+                                            &pound;{kw.maxBid.toFixed(4)}
+                                          </span>
+                                        ) : (
+                                          <span className="text-slate-400">-</span>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                 </div>
               </div>
             </Card>
