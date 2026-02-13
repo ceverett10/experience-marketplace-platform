@@ -11,6 +11,7 @@ import { TRIP_PLANNER_HTML } from './widgets/trip-planner.js';
 import { EXPERIENCE_CAROUSEL_HTML } from './widgets/experience-carousel.js';
 import { EXPERIENCE_DETAIL_HTML } from './widgets/experience-detail.js';
 import { COMBINED_EXPERIENCE_HTML } from './widgets/combined-experience.js';
+import { WIDGET_RESOURCE_DOMAINS } from './constants.js';
 
 export function createServer(client: HolibobClient): McpServer {
   const server = new McpServer({
@@ -46,18 +47,18 @@ export function createServer(client: HolibobClient): McpServer {
         mimeType: RESOURCE_MIME_TYPE,
         text: html,
         _meta: {
+          // Modern format (dev mode)
           ui: {
             domain: 'https://holibob.com',
             csp: {
               connectDomains: [],
-              resourceDomains: [
-                'https://holibob.com',
-                'https://www.holibob.tech',
-                'https://images.holibob.tech',
-                'https://images.unsplash.com',
-                'https://hblb.s3.eu-west-1.amazonaws.com',
-              ],
+              resourceDomains: WIDGET_RESOURCE_DOMAINS,
             },
+          },
+          // Legacy format (published mode)
+          'openai/widgetCSP': {
+            connect_domains: [] as string[],
+            resource_domains: WIDGET_RESOURCE_DOMAINS,
           },
         },
       }],

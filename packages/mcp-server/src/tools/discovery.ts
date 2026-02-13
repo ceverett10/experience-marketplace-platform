@@ -4,6 +4,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { HolibobClient } from '@experience-marketplace/holibob-api';
 import type { Product } from '@experience-marketplace/holibob-api/types';
 import type { NextAction } from './helpers.js';
+import { WIDGET_RESOURCE_DOMAINS } from '../constants.js';
 
 function formatProduct(p: Product): string {
   const lines: string[] = [];
@@ -182,14 +183,6 @@ function productToDetailStructured(p: Product) {
     languages,
   };
 }
-
-const WIDGET_RESOURCE_DOMAINS = [
-  'https://holibob.com',
-  'https://www.holibob.tech',
-  'https://images.holibob.tech',
-  'https://images.unsplash.com',
-  'https://hblb.s3.eu-west-1.amazonaws.com',
-];
 
 const WIDGET_META = {
   ui: { resourceUri: 'ui://holibob/combined-experience.html' },
