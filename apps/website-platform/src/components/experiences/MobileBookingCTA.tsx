@@ -5,6 +5,7 @@ import { useBrand } from '@/lib/site-context';
 import type { BookingStats } from '@/lib/booking-analytics';
 import { AvailabilityModal } from './AvailabilityModal';
 import { PriceDisplay } from '@/components/ui/PriceDisplay';
+import { getProductPricingConfig } from '@/lib/pricing';
 
 interface MobileBookingCTAProps {
   productId: string;
@@ -28,6 +29,7 @@ export function MobileBookingCTA({
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const primaryColor = brand?.primaryColor ?? '#0d9488';
+  const pricingConfig = getProductPricingConfig(productId);
 
   // Show urgency banner for high-demand experiences
   const showUrgencyBanner = bookingStats?.isHighDemand || bookingStats?.isTrending;
@@ -55,6 +57,7 @@ export function MobileBookingCTA({
               priceFormatted={priceFormatted}
               priceAmount={priceAmount}
               currency={priceCurrency}
+              pricingConfig={pricingConfig}
               variant="compact"
               primaryColor={primaryColor}
             />

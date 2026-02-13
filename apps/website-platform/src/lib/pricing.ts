@@ -33,15 +33,44 @@ export interface PromoPrice {
 }
 
 /**
- * Default pricing config - 5% markup with discount badge
- * This is used when no site-specific config is available.
- * Set markupPercentage to 0 to disable promotional pricing.
+ * Default pricing config - used as fallback when no product ID is available.
+ * Prefer getProductPricingConfig(productId) for per-product varied discounts.
  */
 export const DEFAULT_PRICING_CONFIG: PricingConfig = {
   markupPercentage: 5,
   showDiscountBadge: true,
   discountLabel: 'SAVE 5%',
 };
+
+/** Min/max markup range for per-product variation */
+const MIN_MARKUP = 5;
+const MAX_MARKUP = 15;
+
+/**
+ * Simple deterministic hash from a product ID string.
+ * Returns a positive integer.
+ */
+function hashString(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
+
+/**
+ * Get a per-product pricing config with a varied markup percentage (5–15%).
+ * The discount is deterministic — the same product ID always yields the same %.
+ */
+export function getProductPricingConfig(productId: string): PricingConfig {
+  const markup = MIN_MARKUP + (hashString(productId) % (MAX_MARKUP - MIN_MARKUP + 1));
+  return {
+    markupPercentage: markup,
+    showDiscountBadge: true,
+    discountLabel: `SAVE ${markup}%`,
+  };
+}
 
 /**
  * Calculate promotional pricing from actual price + markup percentage.

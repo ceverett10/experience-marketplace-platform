@@ -6,6 +6,7 @@ import type { Experience } from '@/lib/holibob';
 import type { BookingStats } from '@/lib/booking-analytics';
 import { AvailabilityModal } from './AvailabilityModal';
 import { PriceDisplay } from '@/components/ui/PriceDisplay';
+import { getProductPricingConfig } from '@/lib/pricing';
 
 interface BookingWidgetProps {
   experience: Experience;
@@ -32,6 +33,7 @@ export function BookingWidget({ experience, bookingStats }: BookingWidgetProps) 
   const showBookingCount = bookingStats && bookingStats.bookingsThisWeek >= 3;
 
   const primaryColor = brand?.primaryColor ?? '#0d9488'; // teal-600
+  const pricingConfig = getProductPricingConfig(experience.id);
 
   return (
     <div className="rounded-2xl border border-gray-200 bg-white shadow-xl">
@@ -52,6 +54,7 @@ export function BookingWidget({ experience, bookingStats }: BookingWidgetProps) 
             priceFormatted={experience.price.formatted}
             priceAmount={experience.price.amount}
             currency={experience.price.currency}
+            pricingConfig={pricingConfig}
             variant="detail"
             primaryColor={primaryColor}
             showFrom={false}

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useBrand } from '@/lib/site-context';
 import { BLUR_PLACEHOLDER, isHolibobImage } from '@/lib/image-utils';
 import { PriceDisplay, DiscountBadge } from '@/components/ui/PriceDisplay';
-import { DEFAULT_PRICING_CONFIG } from '@/lib/pricing';
+import { getProductPricingConfig } from '@/lib/pricing';
 import type { ExperienceListItem } from '@/lib/holibob';
 
 interface ExperienceCardProps {
@@ -20,6 +20,7 @@ export function ExperienceCard({
   priority = false,
 }: ExperienceCardProps) {
   const brand = useBrand();
+  const pricingConfig = getProductPricingConfig(experience.id);
 
   if (variant === 'compact') {
     return (
@@ -50,6 +51,7 @@ export function ExperienceCard({
               priceFormatted={experience.price.formatted}
               priceAmount={experience.price.amount}
               currency={experience.price.currency}
+              pricingConfig={pricingConfig}
               variant="compact"
               primaryColor={brand?.primaryColor ?? '#6366f1'}
             />
@@ -98,10 +100,10 @@ export function ExperienceCard({
           <div className="mt-2 flex items-center justify-between">
             <span className="text-sm text-white/80">{experience.duration.formatted}</span>
             <div className="text-right">
-              {DEFAULT_PRICING_CONFIG.markupPercentage > 0 && (
+              {pricingConfig.markupPercentage > 0 && (
                 <span className="block text-xs text-white/60 line-through">
                   {(() => {
-                    const rrp = experience.price.amount * (1 + DEFAULT_PRICING_CONFIG.markupPercentage / 100);
+                    const rrp = experience.price.amount * (1 + pricingConfig.markupPercentage / 100);
                     return new Intl.NumberFormat('en-GB', { style: 'currency', currency: experience.price.currency }).format(Math.ceil(rrp) - 0.01);
                   })()}
                 </span>
@@ -149,7 +151,7 @@ export function ExperienceCard({
           </div>
         )}
         {/* Discount Badge */}
-        <DiscountBadge className="absolute right-3 top-3" />
+        <DiscountBadge pricingConfig={pricingConfig} className="absolute right-3 top-3" />
       </div>
 
       {/* Content */}
@@ -192,6 +194,7 @@ export function ExperienceCard({
             priceFormatted={experience.price.formatted}
             priceAmount={experience.price.amount}
             currency={experience.price.currency}
+            pricingConfig={pricingConfig}
             variant="card"
             primaryColor={brand?.primaryColor ?? '#6366f1'}
           />

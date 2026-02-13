@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useBrand } from '@/lib/site-context';
 import { BLUR_PLACEHOLDER, isHolibobImage } from '@/lib/image-utils';
 import { PriceDisplay, DiscountBadge } from '@/components/ui/PriceDisplay';
+import { getProductPricingConfig } from '@/lib/pricing';
 import type { ExperienceListItem } from '@/lib/holibob';
 
 type BadgeType =
@@ -140,6 +141,7 @@ export function PremiumExperienceCard({
 }: PremiumExperienceCardProps) {
   const brand = useBrand();
   const primaryColor = brand?.primaryColor ?? '#0F766E';
+  const pricingConfig = getProductPricingConfig(experience.id);
 
   // Featured full-width card
   if (variant === 'featured') {
@@ -253,6 +255,7 @@ export function PremiumExperienceCard({
                 priceFormatted={experience.price.formatted}
                 priceAmount={experience.price.amount}
                 currency={experience.price.currency}
+                pricingConfig={pricingConfig}
                 variant="compact"
                 primaryColor="#ffffff"
                 showFrom={false}
@@ -397,6 +400,7 @@ export function PremiumExperienceCard({
               priceFormatted={experience.price.formatted}
               priceAmount={experience.price.amount}
               currency={experience.price.currency}
+              pricingConfig={pricingConfig}
               variant="compact"
               primaryColor={primaryColor}
             />
@@ -445,7 +449,7 @@ export function PremiumExperienceCard({
 
         {/* Discount Badge - Top Right */}
         <div className="absolute right-3 top-3">
-          <DiscountBadge />
+          <DiscountBadge pricingConfig={pricingConfig} />
         </div>
 
         {/* Quick Actions (hover) - Bottom Right */}
@@ -516,6 +520,7 @@ export function PremiumExperienceCard({
             priceFormatted={experience.price.formatted}
             priceAmount={experience.price.amount}
             currency={experience.price.currency}
+            pricingConfig={pricingConfig}
             variant="card"
             primaryColor={primaryColor}
             showFrom={false}
