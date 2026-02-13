@@ -232,6 +232,7 @@ export class MetaAdsClient {
         daily_budget: Math.round(config.dailyBudget * 100).toString(), // Convert to pennies/cents
         status: config.status || 'PAUSED',
         special_ad_categories: JSON.stringify(config.specialAdCategories || []),
+        is_adset_budget_sharing_enabled: 'false',
         access_token: this.accessToken,
       });
 
