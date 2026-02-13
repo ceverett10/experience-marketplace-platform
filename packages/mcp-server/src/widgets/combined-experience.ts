@@ -132,6 +132,8 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
   .copy-input-row { display: flex; gap: 6px; align-items: center; margin-top: 8px; width: 100%; }
   .copy-input-row input { flex: 1; padding: 8px 10px; font-size: 12px; font-weight: 600; color: var(--primary); background: var(--surface); border: 1px solid var(--primary); border-radius: 6px; outline: none; }
   .copy-hint { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+  .toast { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); padding: 10px 20px; background: var(--green); color: #111; font-size: 13px; font-weight: 700; border-radius: 8px; box-shadow: var(--shadow-lg); z-index: 200; animation: toastIn 0.25s ease-out; pointer-events: none; }
+  @keyframes toastIn { from { opacity: 0; transform: translateX(-50%) translateY(-10px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
   /* === DIVIDER === */
   .section-divider { height: 1px; background: linear-gradient(90deg, transparent, var(--border), transparent); margin: 0 16px; }
 </style>
@@ -388,13 +390,14 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
     }
 
     if (exp.cancellationPolicy) h += '<div class="cancel-policy">\\u2713 ' + esc(exp.cancellationPolicy) + '</div>';
-    var suggestText = 'Book "' + (exp.name || '') + '"';
+    var displayText = 'Book "' + (exp.name || '') + '"';
+    var copyText = 'Check availability and book "' + (exp.name || '') + '" (experience ID: ' + (exp.id || '') + ')';
     h += '<div class="chat-handoff">';
     h += '<div class="handoff-icon">\\u{1F4AC}</div>';
     h += '<div class="handoff-title">Ready to book?</div>';
-    h += '<div class="handoff-desc">Type in the chat below to check availability and complete your booking.</div>';
-    h += '<div class="handoff-suggestion" data-action="copy-suggestion" data-text="' + esc(suggestText) + '">';
-    h += '<span class="suggestion-text">\\u201C' + esc(suggestText) + '\\u201D</span>';
+    h += '<div class="handoff-desc">Click below to copy, then paste into the chat to start booking.</div>';
+    h += '<div class="handoff-suggestion" data-action="copy-suggestion" data-text="' + esc(copyText) + '">';
+    h += '<span class="suggestion-text">\\u201C' + esc(displayText) + '\\u201D</span>';
     h += '<span class="copy-icon">\\u{1F4CB}</span>';
     h += '</div></div>';
     return h;
@@ -500,12 +503,16 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
       case 'copy-suggestion':
         var copyText = actionEl.getAttribute('data-text');
         if (copyText) {
-          var showSuccess = function() {
-            var ci = actionEl.querySelector('.copy-icon');
-            if (ci) { ci.textContent = '\\u2713'; setTimeout(function(){ ci.textContent = '\\u{1F4CB}'; }, 2000); }
+          var showToast = function(msg) {
+            var existing = document.querySelector('.toast');
+            if (existing) existing.remove();
+            var t = document.createElement('div');
+            t.className = 'toast';
+            t.textContent = msg;
+            document.body.appendChild(t);
+            setTimeout(function(){ t.remove(); }, 2500);
           };
           var showSelectFallback = function() {
-            // Clipboard blocked in iframe — show a selectable input
             var existing = actionEl.parentElement.querySelector('.copy-input-row');
             if (existing) { existing.querySelector('input').select(); return; }
             var row = document.createElement('div');
@@ -514,7 +521,7 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
             actionEl.parentElement.appendChild(row);
             var hint = document.createElement('div');
             hint.className = 'copy-hint';
-            hint.textContent = 'Select the text above, then press Ctrl+C (or Cmd+C on Mac) to copy';
+            hint.textContent = 'Select all text above, then Ctrl+C / Cmd+C to copy';
             actionEl.parentElement.appendChild(hint);
             var inp = row.querySelector('input');
             if (inp) { inp.focus(); inp.select(); }
@@ -524,7 +531,7 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
             ? navigator.clipboard.writeText(copyText).then(function(){ return true; }).catch(function(){ return false; })
             : Promise.resolve(false);
           tryClipboard.then(function(ok) {
-            if (ok) { showSuccess(); return; }
+            if (ok) { showToast('Copied! Paste into the chat below'); return; }
             // Method 2: execCommand fallback
             try {
               var ta = document.createElement('textarea');
@@ -534,7 +541,7 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
               ta.select();
               var cmdOk = document.execCommand('copy');
               document.body.removeChild(ta);
-              if (cmdOk) { showSuccess(); return; }
+              if (cmdOk) { showToast('Copied! Paste into the chat below'); return; }
             } catch(e) {}
             // Method 3: Show visible input for manual copy
             showSelectFallback();
