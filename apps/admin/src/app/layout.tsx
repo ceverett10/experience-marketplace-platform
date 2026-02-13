@@ -39,6 +39,7 @@ const navItems: NavItem[] = [
       { href: '/operations', label: 'Dashboard', icon: '📈' },
       { href: '/operations/suppliers', label: 'Suppliers', icon: '🏢' },
       { href: '/operations/paid-opportunities', label: 'Paid Traffic', icon: '💰' },
+      { href: '/operations/bidding', label: 'Bidding Engine', icon: '🎯' },
       { href: '/operations/jobs', label: 'Jobs', icon: '📋' },
       { href: '/operations/errors', label: 'Errors', icon: '🚨' },
       { href: '/operations/schedules', label: 'Schedules', icon: '🕐' },
