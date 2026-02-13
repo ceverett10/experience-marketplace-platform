@@ -231,6 +231,12 @@ export default function BiddingDashboardPage() {
             Run Engine
           </button>
           <button
+            onClick={() => triggerAction('deploy_drafts')}
+            className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm font-medium"
+          >
+            Deploy Drafts
+          </button>
+          <button
             onClick={() => triggerAction('pause_all')}
             className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 text-sm font-medium"
           >

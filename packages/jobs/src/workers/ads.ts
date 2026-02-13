@@ -23,6 +23,9 @@ import { MetaAdsClient } from '../services/social/meta-ads-client';
 import { refreshTokenIfNeeded } from '../services/social/token-refresh';
 import {
   isGoogleAdsConfigured,
+  createSearchCampaign,
+  createKeywordAdGroup,
+  createResponsiveSearchAd,
   getCampaignPerformance as getGoogleCampaignPerformance,
   setCampaignStatus as setGoogleCampaignStatus,
 } from '../services/google-ads-client';
@@ -492,12 +495,333 @@ export async function handleAdBudgetOptimizer(job: Job): Promise<JobResult> {
   };
 }
 
+// --- Campaign Deployment to Platforms -----------------------------------------
+
+/**
+ * Deploy a DRAFT AdCampaign to its target platform (Meta or Google Ads).
+ * Creates the campaign, ad set/ad group, and ad creative on the platform,
+ * then updates the DB record with the platform campaign ID.
+ *
+ * Returns the platform campaign ID, or null if deployment failed.
+ */
+async function deployCampaignToPlatform(campaign: {
+  id: string;
+  platform: string;
+  name: string;
+  dailyBudget: number;
+  maxCpc: number;
+  keywords: string[];
+  targetUrl: string;
+  geoTargets: string[];
+  utmSource: string | null;
+  utmMedium: string | null;
+  utmCampaign: string | null;
+  site?: { name: string; primaryDomain: string | null } | null;
+}): Promise<string | null> {
+  const landingUrl = buildLandingUrl(campaign);
+
+  if (campaign.platform === 'FACEBOOK') {
+    return deployToMeta(campaign, landingUrl);
+  } else if (campaign.platform === 'GOOGLE_SEARCH') {
+    return deployToGoogle(campaign, landingUrl);
+  }
+
+  console.log(`[Ads Worker] Unsupported platform: ${campaign.platform}`);
+  return null;
+}
+
+function buildLandingUrl(campaign: {
+  targetUrl: string;
+  utmSource: string | null;
+  utmMedium: string | null;
+  utmCampaign: string | null;
+}): string {
+  const url = new URL(campaign.targetUrl);
+  if (campaign.utmSource) url.searchParams.set('utm_source', campaign.utmSource);
+  if (campaign.utmMedium) url.searchParams.set('utm_medium', campaign.utmMedium);
+  if (campaign.utmCampaign) url.searchParams.set('utm_campaign', campaign.utmCampaign);
+  return url.toString();
+}
+
+/**
+ * Deploy campaign to Meta (Facebook) Ads:
+ * 1. Create campaign shell
+ * 2. Create ad set with interest targeting + CPC bid
+ * 3. Create ad with landing page link
+ */
+async function deployToMeta(
+  campaign: {
+    id: string;
+    name: string;
+    dailyBudget: number;
+    maxCpc: number;
+    keywords: string[];
+    geoTargets: string[];
+    site?: { name: string } | null;
+  },
+  landingUrl: string
+): Promise<string | null> {
+  const metaClient = await getMetaAdsClient();
+  if (!metaClient) {
+    console.log('[Ads Worker] Meta Ads not configured, skipping deployment');
+    return null;
+  }
+
+  const pageId = process.env['META_PAGE_ID'];
+  if (!pageId) {
+    console.log('[Ads Worker] META_PAGE_ID not set, cannot create Meta ads');
+    return null;
+  }
+
+  try {
+    // Step 1: Create campaign (PAUSED for safety — activate manually or via optimizer)
+    const campaignResult = await metaClient.createCampaign({
+      name: campaign.name,
+      objective: 'OUTCOME_TRAFFIC',
+      dailyBudget: campaign.dailyBudget,
+      status: 'PAUSED',
+    });
+
+    if (!campaignResult) {
+      console.error(`[Ads Worker] Failed to create Meta campaign: ${campaign.name}`);
+      return null;
+    }
+
+    // Step 2: Create ad set with geo + interest targeting
+    // Map geoTargets to country codes (simplified — expand as needed)
+    const countryMap: Record<string, string> = {
+      'United Kingdom': 'GB', 'United States': 'US', 'UK': 'GB', 'US': 'US',
+      'Canada': 'CA', 'Australia': 'AU', 'Germany': 'DE', 'France': 'FR',
+      'Spain': 'ES', 'Italy': 'IT', 'Netherlands': 'NL', 'Portugal': 'PT',
+      'Greece': 'GR', 'Croatia': 'HR', 'Thailand': 'TH', 'Japan': 'JP',
+      'Mexico': 'MX', 'Brazil': 'BR', 'India': 'IN', 'UAE': 'AE',
+    };
+    const countries = campaign.geoTargets
+      .map((g) => countryMap[g] || null)
+      .filter((c): c is string => c !== null);
+    if (countries.length === 0) countries.push('GB', 'US'); // Default markets
+
+    // Search for relevant interests based on the keyword
+    const keyword = campaign.keywords[0] || 'travel';
+    const interests = await metaClient.searchInterests(keyword);
+    const interestTargeting = interests.map((i) => ({ id: i.id, name: i.name }));
+
+    const adSetResult = await metaClient.createAdSet({
+      campaignId: campaignResult.campaignId,
+      name: `${campaign.name} - Ad Set`,
+      dailyBudget: campaign.dailyBudget,
+      bidAmount: campaign.maxCpc,
+      targeting: {
+        countries,
+        interests: interestTargeting.length > 0 ? interestTargeting : undefined,
+        ageMin: 18,
+        ageMax: 65,
+      },
+      optimizationGoal: 'LINK_CLICKS',
+      billingEvent: 'LINK_CLICKS',
+      status: 'PAUSED',
+    });
+
+    if (!adSetResult) {
+      console.error(`[Ads Worker] Failed to create Meta ad set for campaign: ${campaignResult.campaignId}`);
+      return campaignResult.campaignId; // Still return — campaign was created
+    }
+
+    // Step 3: Create ad creative
+    const siteName = campaign.site?.name || 'Holibob';
+    const headline = `${keyword.charAt(0).toUpperCase() + keyword.slice(1)} | ${siteName}`.substring(0, 40);
+    const body = `Discover and book amazing ${keyword} experiences. Best prices, instant confirmation.`;
+
+    await metaClient.createAd({
+      adSetId: adSetResult.adSetId,
+      name: `${campaign.name} - Ad`,
+      pageId,
+      linkUrl: landingUrl,
+      headline,
+      body,
+      callToAction: 'BOOK_TRAVEL',
+      status: 'PAUSED',
+    });
+
+    console.log(`[Ads Worker] Deployed Meta campaign ${campaignResult.campaignId}: "${campaign.name}"`);
+    return campaignResult.campaignId;
+  } catch (err) {
+    console.error(`[Ads Worker] Meta deployment failed for "${campaign.name}":`, err);
+    return null;
+  }
+}
+
+/**
+ * Deploy campaign to Google Search Ads:
+ * 1. Create search campaign with budget
+ * 2. Create ad group with keywords
+ * 3. Create responsive search ad
+ */
+async function deployToGoogle(
+  campaign: {
+    id: string;
+    name: string;
+    dailyBudget: number;
+    maxCpc: number;
+    keywords: string[];
+    site?: { name: string } | null;
+  },
+  landingUrl: string
+): Promise<string | null> {
+  if (!isGoogleAdsConfigured()) {
+    console.log('[Ads Worker] Google Ads not configured, skipping deployment');
+    return null;
+  }
+
+  try {
+    // Step 1: Create campaign (PAUSED for safety)
+    const dailyBudgetMicros = Math.round(campaign.dailyBudget * 1_000_000);
+    const campaignResult = await createSearchCampaign({
+      name: campaign.name,
+      dailyBudgetMicros,
+      status: 'PAUSED',
+    });
+
+    if (!campaignResult) {
+      console.error(`[Ads Worker] Failed to create Google campaign: ${campaign.name}`);
+      return null;
+    }
+
+    // Step 2: Create ad group with keywords (exact + phrase match)
+    const cpcBidMicros = Math.round(campaign.maxCpc * 1_000_000);
+    const keywords = campaign.keywords.flatMap((kw) => [
+      { text: kw, matchType: 'PHRASE' as const },
+      { text: kw, matchType: 'EXACT' as const },
+    ]);
+
+    const adGroupResult = await createKeywordAdGroup({
+      campaignId: campaignResult.campaignId,
+      name: `${campaign.name} - Ad Group`,
+      cpcBidMicros,
+      keywords,
+    });
+
+    if (!adGroupResult) {
+      console.error(`[Ads Worker] Failed to create Google ad group for: ${campaignResult.campaignId}`);
+      return campaignResult.campaignId;
+    }
+
+    // Step 3: Create responsive search ad
+    const keyword = campaign.keywords[0] || 'experiences';
+    const siteName = campaign.site?.name || 'Holibob';
+    const kwTitle = keyword.charAt(0).toUpperCase() + keyword.slice(1);
+
+    await createResponsiveSearchAd({
+      adGroupId: adGroupResult.adGroupId,
+      headlines: [
+        `${kwTitle}`.substring(0, 30),
+        `Book ${kwTitle}`.substring(0, 30),
+        `${kwTitle} | ${siteName}`.substring(0, 30),
+        'Best Prices Guaranteed',
+        'Instant Confirmation',
+        'Book Online Today',
+      ],
+      descriptions: [
+        `Discover and book amazing ${keyword} experiences. Best prices, instant confirmation.`.substring(0, 90),
+        `Browse ${keyword} from top-rated local providers. Free cancellation available.`.substring(0, 90),
+      ],
+      finalUrl: landingUrl,
+      path1: 'experiences',
+      path2: keyword.split(' ')[0]?.substring(0, 15),
+    });
+
+    console.log(`[Ads Worker] Deployed Google campaign ${campaignResult.campaignId}: "${campaign.name}"`);
+    return campaignResult.campaignId;
+  } catch (err) {
+    console.error(`[Ads Worker] Google deployment failed for "${campaign.name}":`, err);
+    return null;
+  }
+}
+
+/**
+ * Deploy all DRAFT campaigns to their respective platforms.
+ * Called after the bidding engine creates campaign records.
+ * Campaigns are created as PAUSED for safety — use the budget optimizer
+ * or dashboard to activate them after review.
+ */
+export async function deployDraftCampaigns(): Promise<{
+  deployed: number;
+  failed: number;
+  skipped: number;
+}> {
+  const drafts = await prisma.adCampaign.findMany({
+    where: { status: 'DRAFT' },
+    include: {
+      site: { select: { name: true, primaryDomain: true } },
+    },
+  });
+
+  if (drafts.length === 0) {
+    console.log('[Ads Worker] No DRAFT campaigns to deploy');
+    return { deployed: 0, failed: 0, skipped: 0 };
+  }
+
+  console.log(`[Ads Worker] Deploying ${drafts.length} DRAFT campaigns to ad platforms`);
+
+  let deployed = 0;
+  let failed = 0;
+  let skipped = 0;
+
+  for (const draft of drafts) {
+    const platformCampaignId = await deployCampaignToPlatform({
+      id: draft.id,
+      platform: draft.platform,
+      name: draft.name,
+      dailyBudget: Number(draft.dailyBudget),
+      maxCpc: Number(draft.maxCpc),
+      keywords: draft.keywords,
+      targetUrl: draft.targetUrl || `https://${draft.site?.primaryDomain || 'holibob.com'}`,
+      geoTargets: draft.geoTargets,
+      utmSource: draft.utmSource,
+      utmMedium: draft.utmMedium,
+      utmCampaign: draft.utmCampaign,
+      site: draft.site,
+    });
+
+    if (platformCampaignId) {
+      // Update DB with platform ID and set to PAUSED (ready for activation)
+      await prisma.adCampaign.update({
+        where: { id: draft.id },
+        data: {
+          platformCampaignId,
+          status: 'PAUSED', // Created as PAUSED — activate via dashboard or optimizer
+        },
+      });
+      deployed++;
+      console.log(`[Ads Worker] Campaign "${draft.name}" deployed → ${platformCampaignId}`);
+    } else {
+      // Platform not configured or deployment failed — skip but don't fail
+      const isConfigured = draft.platform === 'FACEBOOK'
+        ? !!process.env['META_AD_ACCOUNT_ID']
+        : isGoogleAdsConfigured();
+
+      if (!isConfigured) {
+        skipped++;
+      } else {
+        failed++;
+        console.error(`[Ads Worker] Failed to deploy "${draft.name}" to ${draft.platform}`);
+      }
+    }
+  }
+
+  console.log(
+    `[Ads Worker] Deployment complete: ${deployed} deployed, ${failed} failed, ${skipped} skipped (platform not configured)`
+  );
+
+  return { deployed, failed, skipped };
+}
+
 // --- BIDDING_ENGINE_RUN ------------------------------------------------------
 
 /**
- * Full bidding engine orchestration: profitability → scoring → campaign creation.
+ * Full bidding engine orchestration: profitability → scoring → campaign creation → deployment.
  * Modes:
- *   full — Calculate profitability, score opportunities, create/update campaigns
+ *   full — Calculate profitability, score opportunities, create/update campaigns, deploy to platforms
  *   optimize_only — Only optimize existing campaigns (no new creation)
  *   report_only — Only calculate profitability and report
  */
@@ -549,7 +873,24 @@ export async function handleBiddingEngineRun(job: Job): Promise<JobResult> {
     }
 
     console.log(`[Ads Worker] Created ${campaignsCreated} new campaign records`);
+
+    // Deploy DRAFT campaigns to ad platforms (Meta, Google)
+    if (campaignsCreated > 0) {
+      const deployment = await deployDraftCampaigns();
+      console.log(
+        `[Ads Worker] Deployment: ${deployment.deployed} live, ${deployment.failed} failed, ${deployment.skipped} skipped`
+      );
+    }
   }
+
+  // Count final campaign states
+  const finalCounts = await prisma.adCampaign.groupBy({
+    by: ['status'],
+    _count: true,
+  });
+  const statusSummary = Object.fromEntries(
+    finalCounts.map((c) => [c.status, c._count])
+  );
 
   return {
     success: true,
@@ -561,6 +902,7 @@ export async function handleBiddingEngineRun(job: Job): Promise<JobResult> {
       campaignsCreated,
       budgetAllocated: result.budgetAllocated,
       budgetRemaining: result.budgetRemaining,
+      campaignStatuses: statusSummary,
       profiles: result.profiles.map((p) => ({
         site: p.siteName,
         aov: p.avgOrderValue,

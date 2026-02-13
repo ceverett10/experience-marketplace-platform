@@ -358,6 +358,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       });
     }
 
+    if (action === 'deploy_drafts') {
+      const jobs = await import('@experience-marketplace/jobs') as any;
+      const deployDraftCampaigns = jobs.deployDraftCampaigns as () => Promise<{
+        deployed: number; failed: number; skipped: number;
+      }>;
+      const result = await deployDraftCampaigns();
+      return NextResponse.json({
+        success: true,
+        message: `Deployed ${result.deployed} campaigns (${result.failed} failed, ${result.skipped} skipped)`,
+        data: result,
+      });
+    }
+
     if (action === 'adjust_budget') {
       const { siteId: targetSiteId, dailyBudgetCap } = body as {
         siteId?: string;
