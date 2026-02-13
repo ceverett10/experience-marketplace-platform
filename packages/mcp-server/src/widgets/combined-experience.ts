@@ -274,23 +274,38 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
     else if (data.experiences) { setTimeout(function(){ var cs = document.getElementById('carouselSection'); if (cs) cs.scrollIntoView({behavior:'smooth'}); }, 50); }
   }
 
+  function loadImageUrl(url, callback) {
+    // Method 1: fetch → blob URL (bypasses ChatGPT URL rewriting & iframe CSP img-src)
+    if (typeof fetch === 'function') {
+      fetch(url, { mode: 'cors', credentials: 'omit' })
+        .then(function(r) { if (!r.ok) throw new Error(r.status); return r.blob(); })
+        .then(function(blob) { callback(URL.createObjectURL(blob)); })
+        .catch(function() {
+          // Method 2: new Image() direct (works if CSP allows the domain)
+          var img = new Image();
+          img.onload = function() { callback(url); };
+          img.src = url;
+        });
+    } else {
+      var img = new Image();
+      img.onload = function() { callback(url); };
+      img.src = url;
+    }
+  }
+
   function loadImages() {
     state.experiences.forEach(function(exp) {
       if (!exp.imageUrl) return;
-      var img = new Image();
-      img.onload = function() {
+      loadImageUrl(exp.imageUrl, function(displayUrl) {
         var card = root.querySelector('.card[data-id="' + exp.id + '"] .card-img');
-        if (card) { card.style.backgroundImage = 'url(' + exp.imageUrl + ')'; card.classList.add('img-loaded'); }
-      };
-      img.src = exp.imageUrl;
+        if (card) { card.style.backgroundImage = 'url(' + displayUrl + ')'; card.classList.add('img-loaded'); }
+      });
     });
     if (state.detail && state.detail.imageUrl) {
-      var img = new Image();
-      img.onload = function() {
+      loadImageUrl(state.detail.imageUrl, function(displayUrl) {
         var hero = root.querySelector('.detail-hero');
-        if (hero) { hero.style.backgroundImage = 'url(' + state.detail.imageUrl + ')'; hero.classList.add('img-loaded'); }
-      };
-      img.src = state.detail.imageUrl;
+        if (hero) { hero.style.backgroundImage = 'url(' + displayUrl + ')'; hero.classList.add('img-loaded'); }
+      });
     }
   }
 
