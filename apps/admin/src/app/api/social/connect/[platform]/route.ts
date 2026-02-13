@@ -69,7 +69,7 @@ export async function GET(
         `https://www.facebook.com/v18.0/dialog/oauth?response_type=code` +
         `&client_id=${appId}` +
         `&redirect_uri=${encodeURIComponent(callbackUrl)}` +
-        `&scope=pages_manage_posts,pages_read_engagement,ads_read` +
+        `&scope=pages_manage_posts,pages_read_engagement,ads_management,ads_read` +
         `&state=${state}`;
       break;
     }

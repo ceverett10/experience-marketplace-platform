@@ -2,7 +2,7 @@
  * Google Ads API Client
  *
  * Manages Google Search campaigns for paid traffic acquisition.
- * Uses the Google Ads REST API v17 directly (no npm wrapper needed).
+ * Uses the Google Ads REST API v19 directly (no npm wrapper needed).
  *
  * Required env vars:
  *   GOOGLE_ADS_DEVELOPER_TOKEN - From Google Ads API Center
@@ -14,7 +14,7 @@
  * Docs: https://developers.google.com/google-ads/api/docs/start
  */
 
-const GOOGLE_ADS_API_BASE = 'https://googleads.googleapis.com/v17';
+const GOOGLE_ADS_API_BASE = 'https://googleads.googleapis.com/v19';
 const GOOGLE_OAUTH_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 
 interface GoogleAdsConfig {
