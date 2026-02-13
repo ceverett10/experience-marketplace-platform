@@ -64,7 +64,7 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
   .card:hover { box-shadow: var(--shadow-lg); transform: translateY(-3px); border-color: var(--border-hover); }
   .card-img { position: relative; width: 100%; aspect-ratio: 4/3; background: rgba(255,255,255,0.03); overflow: hidden; }
   .img-fallback { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #1e293b, #0f172a); color: var(--primary); font-size: 42px; font-weight: 700; letter-spacing: 1px; }
-  .card-img img, .detail-hero img { width: 100%; height: 100%; object-fit: cover; position: relative; z-index: 1; transition: transform 0.3s; }
+  .card-img img, .detail-hero img { width: 100%; height: 100%; object-fit: cover; position: relative; z-index: 1; transition: transform 0.3s; display: none; }
   .card:hover .card-img img { transform: scale(1.05); }
   .badge { position: absolute; top: 8px; left: 8px; padding: 4px 8px; border-radius: 6px; font-size: 10px; font-weight: 700; background: var(--primary); color: white; letter-spacing: 0.3px; }
   .rating-badge { position: absolute; top: 8px; right: 8px; display: flex; align-items: center; gap: 3px; padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; background: rgba(0,0,0,0.5); color: white; backdrop-filter: blur(4px); }
@@ -330,9 +330,9 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
     state.experiences.forEach(function(exp){
       h += '<div class="card" data-action="card-click" data-id="' + esc(exp.id) + '" data-name="' + esc(exp.name) + '"><div class="card-img">';
       h += '<div class="img-fallback">' + esc(exp.name || '').charAt(0).toUpperCase() + '</div>';
-      if (exp.imageUrl) h += '<img src="' + esc(exp.imageUrl) + '" alt="" loading="lazy" referrerpolicy="no-referrer" crossorigin="anonymous" onerror="this.style.display=\\'none\\'">';
+      if (exp.imageUrl) h += '<img src="' + esc(exp.imageUrl) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onload="this.style.display=\\'block\\'">';
       if (exp.isBestSeller) h += '<div class="badge">Best Seller</div>';
-      if (exp.rating) h += '<div class="rating-badge"><span class="star">\\u2605</span>' + exp.rating + '</div>';
+      if (exp.rating) h += '<div class="rating-badge"><span class="star">\\u2605</span>' + parseFloat(exp.rating).toFixed(1) + '</div>';
       h += '</div><div class="card-body"><div class="card-title">' + esc(exp.name) + '</div>';
       if (exp.location) h += '<div class="card-loc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>' + esc(exp.location) + '</div>';
       h += '<div class="card-meta">';
@@ -355,11 +355,11 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
     var h = '<div class="back-link" data-action="back-to-results"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>Back to results</div>';
     h += '<div class="detail-hero">';
     h += '<div class="img-fallback">' + esc(exp.name || '').charAt(0).toUpperCase() + '</div>';
-    if (exp.imageUrl) h += '<img src="' + esc(exp.imageUrl) + '" alt="" referrerpolicy="no-referrer" crossorigin="anonymous" onerror="this.style.display=\\'none\\'">';
+    if (exp.imageUrl) h += '<img src="' + esc(exp.imageUrl) + '" alt="" referrerpolicy="no-referrer" onload="this.style.display=\\'block\\'">';
     h += '<div class="overlay"><h2>' + esc(exp.name) + '</h2></div></div>';
     h += '<div class="detail-meta">';
     if (exp.location) h += '<span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>' + esc(exp.location) + '</span>';
-    if (exp.rating) h += '<span><span style="color:var(--yellow)">\\u2605</span> ' + exp.rating + (exp.reviewCount ? ' (' + exp.reviewCount + ')' : '') + '</span>';
+    if (exp.rating) h += '<span><span style="color:var(--yellow)">\\u2605</span> ' + parseFloat(exp.rating).toFixed(1) + (exp.reviewCount ? ' (' + exp.reviewCount + ')' : '') + '</span>';
     if (exp.duration) h += '<span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>' + esc(exp.duration) + '</span>';
     if (exp.price) h += '<span style="font-weight:700;color:var(--primary)">' + esc(exp.price) + '</span>';
     h += '</div>';
