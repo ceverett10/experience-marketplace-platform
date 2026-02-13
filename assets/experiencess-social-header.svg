@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 500" width="1500" height="500">
+  <defs>
+    <linearGradient id="headerBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4338ca" />
+      <stop offset="50%" style="stop-color:#6366f1" />
+      <stop offset="100%" style="stop-color:#818cf8" />
+    </linearGradient>
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.15" />
+      <stop offset="100%" style="stop-color:#ffffff;stop-opacity:0" />
+    </linearGradient>
+    <!-- Dot pattern -->
+    <pattern id="dots" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
+      <circle cx="20" cy="20" r="1.5" fill="white" opacity="0.12" />
+    </pattern>
+  </defs>
+
+  <!-- Background gradient -->
+  <rect width="1500" height="500" fill="url(#headerBg)" />
+
+  <!-- Subtle dot pattern overlay -->
+  <rect width="1500" height="500" fill="url(#dots)" />
+
+  <!-- Decorative circles (abstract globe/travel motif) -->
+  <circle cx="1250" cy="250" r="280" fill="none" stroke="white" stroke-width="1.5" opacity="0.08" />
+  <circle cx="1250" cy="250" r="200" fill="none" stroke="white" stroke-width="1" opacity="0.06" />
+  <circle cx="1250" cy="250" r="120" fill="none" stroke="white" stroke-width="1" opacity="0.05" />
+
+  <!-- Small decorative circles top-left -->
+  <circle cx="100" cy="80" r="180" fill="none" stroke="white" stroke-width="1" opacity="0.06" />
+  <circle cx="100" cy="80" r="100" fill="none" stroke="white" stroke-width="1" opacity="0.04" />
+
+  <!-- Compass icon (smaller, left side) -->
+  <g transform="translate(180, 250)">
+    <circle cx="0" cy="0" r="65" fill="none" stroke="white" stroke-width="4" opacity="0.8" />
+    <circle cx="0" cy="0" r="44" fill="none" stroke="white" stroke-width="2.5" opacity="0.4" />
+    <line x1="-65" y1="0" x2="65" y2="0" stroke="white" stroke-width="2.5" opacity="0.35" />
+    <line x1="0" y1="-65" x2="0" y2="65" stroke="white" stroke-width="2.5" opacity="0.35" />
+    <polygon points="0,-28 9,0 0,28 -9,0" fill="white" opacity="0.9" />
+    <polygon points="0,-28 5,0 0,-5 -5,0" fill="#a5b4fc" opacity="0.7" />
+    <circle cx="0" cy="0" r="4" fill="white" />
+    <ellipse cx="0" cy="0" rx="25" ry="65" fill="none" stroke="white" stroke-width="1.5" opacity="0.25" />
+  </g>
+
+  <!-- Brand name -->
+  <text x="310" y="232" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="90" font-weight="700" fill="white" letter-spacing="-1">
+    experiencess
+  </text>
+
+  <!-- Divider line -->
+  <line x1="315" y1="258" x2="640" y2="258" stroke="#a5b4fc" stroke-width="2" opacity="0.5" />
+
+  <!-- Tagline -->
+  <text x="315" y="300" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="26" font-weight="400" fill="#c7d2fe" letter-spacing="2">
+    A network of experience brands
+  </text>
+
+  <!-- Sub-tagline -->
+  <text x="315" y="340" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="18" font-weight="400" fill="#a5b4fc" letter-spacing="1">
+    Tours, activities &amp; attractions worldwide
+  </text>
+
+  <!-- Accent travel icons (right side, subtle) -->
+  <!-- Pin icon -->
+  <g transform="translate(1150, 160)" opacity="0.15">
+    <path d="M0-30C-16.5-30-30-16.5-30 0c0 22 30 50 30 50s30-28 30-50C30-16.5 16.5-30 0-30z" fill="white" />
+    <circle cx="0" cy="0" r="10" fill="#4338ca" />
+  </g>
+
+  <!-- Plane icon -->
+  <g transform="translate(1320, 120) rotate(30)" opacity="0.12">
+    <path d="M0-5L30-15L5 0L30 15L0 5L-25 30L-10 5L-25-30L-10-5Z" fill="white" />
+  </g>
+
+  <!-- Star icon -->
+  <g transform="translate(1080, 380)" opacity="0.12">
+    <polygon points="0,-20 5,-7 18,-7 8,2 12,16 0,8 -12,16 -8,2 -18,-7 -5,-7" fill="white" />
+  </g>
+
+  <!-- Camera icon -->
+  <g transform="translate(1350, 350)" opacity="0.1">
+    <rect x="-20" y="-12" width="40" height="28" rx="4" fill="white" />
+    <circle cx="0" cy="2" r="8" fill="#4338ca" />
+    <rect x="-6" y="-16" width="12" height="6" rx="2" fill="white" />
+  </g>
+</svg>

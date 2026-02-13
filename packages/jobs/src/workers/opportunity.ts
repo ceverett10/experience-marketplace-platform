@@ -223,9 +223,11 @@ async function runIntegratedOptimization(
     `[Integrated Scan] Stored ${storedCount} opportunities, generated ${explanationsGenerated} explanations`
   );
 
-  // NOTE: Auto-action disabled - opportunities stay in IDENTIFIED status
-  // Sites are created manually after domains are purchased via Cloudflare
-  // await autoActionOpportunities();
+  // Auto-action: route high-score opportunities to main sites
+  await autoActionOpportunities();
+  // Auto-action: route mid-score opportunities to microsites
+  const micrositesQueued = await autoActionMicrositeOpportunities();
+  console.log(`[Integrated Scan] Queued ${micrositesQueued} opportunity microsites (score 50-69)`);
 
   return {
     success: true,
@@ -464,9 +466,11 @@ export async function handleOpportunityScan(
         `[Opportunity Scan] Stored ${storedCount}/${discoveryResult.opportunities.length} segment opportunities`
       );
 
-      // NOTE: Auto-action disabled - opportunities stay in IDENTIFIED status
-      // Sites are created manually after domains are purchased via Cloudflare
-      // await autoActionOpportunities();
+      // Auto-action: route high-score opportunities to main sites
+      await autoActionOpportunities();
+      // Auto-action: route mid-score opportunities to microsites
+      const micrositesQueued = await autoActionMicrositeOpportunities();
+      console.log(`[Audience-First Scan] Queued ${micrositesQueued} opportunity microsites (score 50-69)`);
 
       return {
         success: true,
@@ -535,6 +539,11 @@ export async function handleOpportunityScan(
     let stored = 0;
     let explanationsGenerated = 0;
     for (const opp of opportunities) {
+      // Filter out "free" keywords — they don't convert to bookings
+      if (/\bfree\b/i.test(opp.keyword)) {
+        continue;
+      }
+
       const priorityScore = calculateOpportunityScore(opp);
 
       // Only store opportunities with score > 50
@@ -615,9 +624,11 @@ export async function handleOpportunityScan(
       `[Opportunity Scan] Generated ${explanationsGenerated} AI explanations for high-priority opportunities`
     );
 
-    // NOTE: Auto-action disabled - opportunities stay in IDENTIFIED status
-    // Sites are created manually after domains are purchased via Cloudflare
-    // await autoActionOpportunities();
+    // Auto-action: route high-score opportunities to main sites
+    await autoActionOpportunities();
+    // Auto-action: route mid-score opportunities to microsites
+    const micrositesQueued = await autoActionMicrositeOpportunities();
+    console.log(`[Direct Scan] Queued ${micrositesQueued} opportunity microsites (score 50-69)`);
 
     return {
       success: true,
@@ -627,7 +638,7 @@ export async function handleOpportunityScan(
         totalFound: opportunities.length,
         stored,
         explanationsGenerated,
-        highPriority: opportunities.filter((o) => calculateOpportunityScore(o) > 75).length,
+        highPriority: opportunities.filter((o) => calculateOpportunityScore(o) >= 70).length,
       },
       timestamp: new Date(),
     };
@@ -1440,13 +1451,13 @@ function calculateOpportunityScore(opp: {
 }
 
 /**
- * Auto-action high-priority opportunities (score > 75)
+ * Auto-action high-priority opportunities (score >= 70)
  * Creates sites and generates content automatically
  */
 async function autoActionOpportunities(): Promise<void> {
   const highPriorityOpps = await prisma.sEOOpportunity.findMany({
     where: {
-      priorityScore: { gte: 75 },
+      priorityScore: { gte: 70 },
       status: 'IDENTIFIED',
       siteId: null, // Not yet assigned to a site
     },
@@ -1507,6 +1518,78 @@ async function autoActionOpportunities(): Promise<void> {
       });
     }
   }
+}
+
+/**
+ * Auto-action mid-priority opportunities (score 50-69)
+ * Routes them to opportunity microsites on subdomains
+ */
+async function autoActionMicrositeOpportunities(): Promise<number> {
+  const micrositeOpps = await prisma.sEOOpportunity.findMany({
+    where: {
+      priorityScore: { gte: 50, lt: 70 },
+      status: 'IDENTIFIED',
+      siteId: null,
+      micrositeConfig: null, // No microsite already created
+    },
+    orderBy: { priorityScore: 'desc' },
+    take: 10, // Process 10 per scan run
+  });
+
+  console.log(
+    `[Opportunity] Found ${micrositeOpps.length} mid-priority opportunities for microsites (score 50-69)`
+  );
+
+  let queued = 0;
+  for (const opp of micrositeOpps) {
+    // Generate subdomain from keyword (e.g., "london-food-tours")
+    const subdomain = opp.keyword
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+      .substring(0, 50);
+
+    // Check if subdomain already exists
+    const existing = await prisma.micrositeConfig.findFirst({
+      where: { subdomain, parentDomain: 'experiencess.com' },
+    });
+    if (existing) {
+      console.log(`[Opportunity] Subdomain ${subdomain}.experiencess.com already exists, skipping`);
+      continue;
+    }
+
+    try {
+      await addJob('MICROSITE_CREATE', {
+        opportunityId: opp.id,
+        parentDomain: 'experiencess.com',
+        subdomain,
+        entityType: 'OPPORTUNITY',
+        discoveryConfig: {
+          keyword: opp.keyword,
+          destination: opp.location || undefined,
+          niche: opp.niche,
+          searchTerms: [opp.keyword],
+        },
+      });
+
+      await prisma.sEOOpportunity.update({
+        where: { id: opp.id },
+        data: { status: 'MICROSITE_ASSIGNED' },
+      });
+
+      console.log(
+        `[Opportunity] Queued MICROSITE_CREATE for "${opp.keyword}" → ${subdomain}.experiencess.com (score: ${opp.priorityScore})`
+      );
+      queued++;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(
+        `[Opportunity] Failed to queue MICROSITE_CREATE for "${opp.keyword}":`,
+        errorMessage
+      );
+    }
+  }
+  return queued;
 }
 
 /**

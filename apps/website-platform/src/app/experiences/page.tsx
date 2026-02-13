@@ -45,7 +45,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 
   const destination = resolvedParams.destination || resolvedParams.location;
   const searchQuery = resolvedParams.q;
-  const isMicrosite = !!site.micrositeContext?.supplierId || isTickittoSite(site);
+  const isMicrosite = !!site.micrositeContext?.supplierId || !!site.micrositeContext?.discoveryConfig || isTickittoSite(site);
 
   let title = 'Experiences & Tours';
   let description = `Browse and book unique experiences, tours, and activities.`;
@@ -1010,7 +1010,7 @@ export default async function ExperiencesPage({ searchParams }: Props) {
   );
 
   const destination = resolvedSearchParams.destination || resolvedSearchParams.location;
-  const isMicrosite = !!site.micrositeContext?.supplierId || isTickittoSite(site);
+  const isMicrosite = !!site.micrositeContext?.supplierId || !!site.micrositeContext?.discoveryConfig || isTickittoSite(site);
 
   // For MARKETPLACE microsites (50+ products), show filter sidebar
   if (isMicrosite && site.micrositeContext?.supplierId) {

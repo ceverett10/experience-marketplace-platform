@@ -125,11 +125,11 @@ async function generateUniqueSlug(
  * Creates a new microsite for a supplier or product
  */
 export async function handleMicrositeCreate(job: Job<MicrositeCreatePayload>): Promise<JobResult> {
-  const { supplierId, productId, parentDomain } = job.data;
+  const { supplierId, productId, opportunityId, parentDomain, subdomain: preGeneratedSubdomain, entityType: payloadEntityType, discoveryConfig } = job.data;
 
   try {
     console.log(
-      `[Microsite Create] Starting microsite creation for ${supplierId ? `supplier ${supplierId}` : `product ${productId}`}`
+      `[Microsite Create] Starting microsite creation for ${supplierId ? `supplier ${supplierId}` : productId ? `product ${productId}` : `opportunity ${opportunityId}`}`
     );
 
     // Check if autonomous microsite creation is allowed
@@ -147,19 +147,20 @@ export async function handleMicrositeCreate(job: Job<MicrositeCreatePayload>): P
       };
     }
 
-    // Validate: must have either supplierId or productId
-    if (!supplierId && !productId) {
-      throw new Error('Either supplierId or productId is required');
+    // Validate: must have supplierId, productId, or opportunityId
+    if (!supplierId && !productId && !opportunityId) {
+      throw new Error('Either supplierId, productId, or opportunityId is required');
     }
 
     // Get entity data
     let entityName: string;
     let entitySlug: string;
-    let entityType: 'SUPPLIER' | 'PRODUCT';
+    let entityType: 'SUPPLIER' | 'PRODUCT' | 'OPPORTUNITY';
     let categories: string[] = [];
     let cities: string[] = [];
     let description: string | null = null;
     let productCount = 0; // For determining layout type
+    let opportunityData: { id: string; keyword: string; niche: string; location: string | null } | null = null;
 
     if (supplierId) {
       const supplier = await prisma.supplier.findUnique({ where: { id: supplierId } });
@@ -186,7 +187,7 @@ export async function handleMicrositeCreate(job: Job<MicrositeCreatePayload>): P
       cities = supplier.cities || [];
       description = supplier.description;
       productCount = supplier.productCount;
-    } else {
+    } else if (productId) {
       const product = await prisma.product.findUnique({
         where: { id: productId },
         include: { supplier: true },
@@ -214,14 +215,48 @@ export async function handleMicrositeCreate(job: Job<MicrositeCreatePayload>): P
       cities = product.city ? [product.city] : [];
       description = product.shortDescription || product.description;
       productCount = 1; // Single product microsite = PRODUCT_SPOTLIGHT
+    } else if (opportunityId) {
+      // OPPORTUNITY entity type — discovery-based microsite
+      const opportunity = await prisma.sEOOpportunity.findUnique({ where: { id: opportunityId } });
+      if (!opportunity) throw new Error(`Opportunity ${opportunityId} not found`);
+
+      // Check if microsite already exists for this opportunity
+      const existingMicrosite = await prisma.micrositeConfig.findFirst({
+        where: { opportunityId },
+      });
+      if (existingMicrosite) {
+        console.log(`[Microsite Create] Microsite already exists for opportunity ${opportunityId}`);
+        return {
+          success: true,
+          message: 'Microsite already exists (idempotent)',
+          data: { micrositeId: existingMicrosite.id, recovered: true },
+          timestamp: new Date(),
+        };
+      }
+
+      opportunityData = {
+        id: opportunity.id,
+        keyword: opportunity.keyword,
+        niche: opportunity.niche,
+        location: opportunity.location,
+      };
+      entityName = opportunity.keyword;
+      entitySlug = preGeneratedSubdomain || opportunity.keyword.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').substring(0, 50);
+      entityType = 'OPPORTUNITY';
+      categories = [opportunity.niche];
+      cities = opportunity.location ? [opportunity.location.split(',')[0]!.trim()] : [];
+      description = `Discover the best ${opportunity.niche} experiences${opportunity.location ? ` in ${opportunity.location}` : ''}`;
+      productCount = 100; // Discovery-based = always MARKETPLACE layout
+    } else {
+      throw new Error('Either supplierId, productId, or opportunityId is required');
     }
 
     // Determine layout type based on product count
     const layoutType = determineLayoutType(productCount);
     console.log(`[Microsite Create] Layout type: ${layoutType} (${productCount} products)`);
 
-    // Generate subdomain (use entity slug, ensure uniqueness)
-    const subdomain = await generateUniqueSlug(entitySlug, 'micrositeConfig');
+    // Generate subdomain (use pre-generated or entity slug, ensure uniqueness)
+    const subdomain = preGeneratedSubdomain || await generateUniqueSlug(entitySlug, 'micrositeConfig');
     const fullDomain = `${subdomain}.${parentDomain}`;
 
     console.log(`[Microsite Create] Creating microsite at ${fullDomain}`);
@@ -276,6 +311,8 @@ export async function handleMicrositeCreate(job: Job<MicrositeCreatePayload>): P
         entityType,
         supplierId: supplierId || null,
         productId: productId || null,
+        opportunityId: opportunityId || null,
+        ...(discoveryConfig ? { discoveryConfig } : {}),
         brandId: brand.id,
         siteName: brandIdentity.name,
         tagline: brandIdentity.tagline,
@@ -296,6 +333,14 @@ export async function handleMicrositeCreate(job: Job<MicrositeCreatePayload>): P
             title: brandIdentity.name,
             subtitle: brandIdentity.tagline,
           },
+          // For opportunity microsites, include product discovery config
+          ...(entityType === 'OPPORTUNITY' && discoveryConfig ? {
+            popularExperiences: {
+              title: `Popular ${discoveryConfig.niche || categories[0] || ''} Experiences`,
+              destination: discoveryConfig.destination || cities[0] || undefined,
+              searchTerms: discoveryConfig.searchTerms || [entityName],
+            },
+          } : {}),
         },
         status: 'GENERATING',
       },
@@ -334,11 +379,13 @@ export async function handleMicrositeCreate(job: Job<MicrositeCreatePayload>): P
     // Logo generation disabled - using text-only branding for now
     // TODO: Re-enable with higher quality logo generation when available
 
-    // Queue content generation
+    // Queue content generation (opportunity microsites get blog posts too)
     const { addJob } = await import('../queues/index.js');
     await addJob('MICROSITE_CONTENT_GENERATE', {
       micrositeId: microsite.id,
-      contentTypes: ['homepage', 'about', 'experiences'],
+      contentTypes: entityType === 'OPPORTUNITY'
+        ? ['homepage', 'about', 'experiences', 'blog']
+        : ['homepage', 'about', 'experiences'],
     });
 
     console.log('[Microsite Create] Queued content generation');

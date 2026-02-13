@@ -3,10 +3,11 @@ import { cookies, headers } from 'next/headers';
 import { Inter, Playfair_Display } from 'next/font/google';
 import { getSiteFromHostname, generateBrandCSSVariables } from '@/lib/tenant';
 import { SiteProvider } from '@/lib/site-context';
-import { Header } from '@/components/layout/Header';
+import { Header, TrustBar } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { GoogleAnalytics } from '@/components/analytics/GoogleAnalytics';
 import { EmailPopup } from '@/components/marketing/EmailPopup';
+import { SocialProofToast } from '@/components/marketing/SocialProofToast';
 import './globals.css';
 
 // Load fonts
@@ -106,10 +107,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <SiteProvider site={site}>
           <div className="flex min-h-screen flex-col">
             <Header />
+            <TrustBar />
             <main className="flex-1">{children}</main>
             <Footer />
           </div>
           <EmailPopup />
+          <SocialProofToast />
         </SiteProvider>
         {/* Google Analytics - Dynamic per site */}
         <GoogleAnalytics measurementId={site.seoConfig?.gaMeasurementId} />

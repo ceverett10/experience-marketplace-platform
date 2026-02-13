@@ -193,3 +193,51 @@ export function Header() {
     </header>
   );
 }
+
+/**
+ * Sitewide trust bar displayed below the header
+ * Shows key USPs on every page to reinforce trust
+ */
+export function TrustBar() {
+  const trustItems = [
+    { icon: 'check', text: 'Free Cancellation' },
+    { icon: 'bolt', text: 'Instant Confirmation' },
+    { icon: 'shield', text: 'Secure Payments' },
+    { icon: 'headset', text: '24/7 Support' },
+  ];
+
+  return (
+    <div className="border-b border-gray-100 bg-gray-50">
+      {/* Desktop: show all items */}
+      <div className="mx-auto hidden max-w-7xl items-center justify-center gap-6 px-4 py-2 sm:flex sm:px-6 lg:gap-8 lg:px-8">
+        {trustItems.map((item) => (
+          <div key={item.text} className="flex items-center gap-1.5 text-xs font-medium text-gray-600">
+            <svg className="h-3.5 w-3.5 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
+              <path
+                fillRule="evenodd"
+                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
+                clipRule="evenodd"
+              />
+            </svg>
+            {item.text}
+          </div>
+        ))}
+      </div>
+      {/* Mobile: scrollable row */}
+      <div className="flex items-center gap-4 overflow-x-auto px-4 py-2 sm:hidden">
+        {trustItems.map((item) => (
+          <div key={item.text} className="flex flex-shrink-0 items-center gap-1.5 text-xs font-medium text-gray-600">
+            <svg className="h-3.5 w-3.5 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
+              <path
+                fillRule="evenodd"
+                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
+                clipRule="evenodd"
+              />
+            </svg>
+            {item.text}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

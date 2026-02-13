@@ -4,6 +4,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useBrand } from '@/lib/site-context';
 import { BLUR_PLACEHOLDER, isHolibobImage } from '@/lib/image-utils';
+import { PriceDisplay, DiscountBadge } from '@/components/ui/PriceDisplay';
+import { DEFAULT_PRICING_CONFIG } from '@/lib/pricing';
 import type { ExperienceListItem } from '@/lib/holibob';
 
 interface ExperienceCardProps {
@@ -43,12 +45,15 @@ export function ExperienceCard({
             {experience.title}
           </h3>
           <p className="mt-1 text-xs text-gray-500">{experience.duration.formatted}</p>
-          <p
-            className="mt-1 text-sm font-semibold"
-            style={{ color: brand?.primaryColor ?? '#6366f1' }}
-          >
-            From {experience.price.formatted}
-          </p>
+          <div className="mt-1">
+            <PriceDisplay
+              priceFormatted={experience.price.formatted}
+              priceAmount={experience.price.amount}
+              currency={experience.price.currency}
+              variant="compact"
+              primaryColor={brand?.primaryColor ?? '#6366f1'}
+            />
+          </div>
         </div>
       </Link>
     );
@@ -92,7 +97,17 @@ export function ExperienceCard({
 
           <div className="mt-2 flex items-center justify-between">
             <span className="text-sm text-white/80">{experience.duration.formatted}</span>
-            <span className="text-lg font-bold text-white">From {experience.price.formatted}</span>
+            <div className="text-right">
+              {DEFAULT_PRICING_CONFIG.markupPercentage > 0 && (
+                <span className="block text-xs text-white/60 line-through">
+                  {(() => {
+                    const rrp = experience.price.amount * (1 + DEFAULT_PRICING_CONFIG.markupPercentage / 100);
+                    return new Intl.NumberFormat('en-GB', { style: 'currency', currency: experience.price.currency }).format(Math.ceil(rrp) - 0.01);
+                  })()}
+                </span>
+              )}
+              <span className="text-lg font-bold text-white">From {experience.price.formatted}</span>
+            </div>
           </div>
         </div>
       </Link>
@@ -133,29 +148,8 @@ export function ExperienceCard({
             )}
           </div>
         )}
-        {/* Wishlist Heart */}
-        <button
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-          }}
-          className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-gray-500 backdrop-blur-sm transition-all hover:bg-white hover:text-rose-500 hover:scale-110"
-          aria-label="Add to wishlist"
-        >
-          <svg
-            className="h-4 w-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth="2"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z"
-            />
-          </svg>
-        </button>
+        {/* Discount Badge */}
+        <DiscountBadge className="absolute right-3 top-3" />
       </div>
 
       {/* Content */}
@@ -194,9 +188,13 @@ export function ExperienceCard({
         )}
         <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-4">
           <span className="text-sm text-gray-500">{experience.duration.formatted}</span>
-          <span className="font-semibold" style={{ color: brand?.primaryColor ?? '#6366f1' }}>
-            From {experience.price.formatted}
-          </span>
+          <PriceDisplay
+            priceFormatted={experience.price.formatted}
+            priceAmount={experience.price.amount}
+            currency={experience.price.currency}
+            variant="card"
+            primaryColor={brand?.primaryColor ?? '#6366f1'}
+          />
         </div>
       </div>
     </Link>

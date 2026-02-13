@@ -450,6 +450,9 @@ model SEOOpportunity {
   // Paid traffic campaigns linked to this opportunity
   adCampaigns AdCampaign[]
 
+  // Linked microsite (for score < 70 opportunities)
+  micrositeConfig MicrositeConfig?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -472,6 +475,7 @@ enum OpportunityStatus {
   IDENTIFIED
   EVALUATED
   ASSIGNED
+  MICROSITE_ASSIGNED // Routed to opportunity microsite (score 50-69)
   CONTENT_CREATING
   CONTENT_REVIEW
   PUBLISHED
@@ -1417,12 +1421,18 @@ model MicrositeConfig {
   parentDomain String // e.g., "experiencess.com"
   fullDomain   String @unique // e.g., "adventure-co.experiencess.com" (computed)
 
-  // Entity reference (either supplier OR product, not both)
-  entityType MicrositeEntityType
-  supplier   Supplier?           @relation(fields: [supplierId], references: [id])
-  supplierId String?             @unique
-  product    Product?            @relation(fields: [productId], references: [id])
-  productId  String?             @unique
+  // Entity reference (supplier, product, or opportunity)
+  entityType  MicrositeEntityType
+  supplier    Supplier?           @relation(fields: [supplierId], references: [id])
+  supplierId  String?             @unique
+  product     Product?            @relation(fields: [productId], references: [id])
+  productId   String?             @unique
+  opportunity   SEOOpportunity? @relation(fields: [opportunityId], references: [id])
+  opportunityId String?         @unique
+
+  // Discovery config — how this microsite finds products (for OPPORTUNITY type)
+  // { keyword: string, destination?: string, niche?: string, searchTerms?: string[] }
+  discoveryConfig Json?
 
   // Brand (one-to-one, reuses existing Brand model)
   brand   Brand  @relation(fields: [brandId], references: [id])
@@ -1482,12 +1492,14 @@ model MicrositeConfig {
   @@index([status])
   @@index([entityType])
   @@index([parentDomain])
+  @@index([opportunityId])
   @@map("microsite_configs")
 }
 
 enum MicrositeEntityType {
   SUPPLIER
   PRODUCT
+  OPPORTUNITY
 }
 
 enum MicrositeSupplierType {

@@ -4,11 +4,14 @@ import { useState } from 'react';
 import { useBrand } from '@/lib/site-context';
 import type { BookingStats } from '@/lib/booking-analytics';
 import { AvailabilityModal } from './AvailabilityModal';
+import { PriceDisplay } from '@/components/ui/PriceDisplay';
 
 interface MobileBookingCTAProps {
   productId: string;
   productName: string;
   priceFormatted: string;
+  priceAmount?: number;
+  priceCurrency?: string;
   /** Booking statistics for urgency messaging */
   bookingStats?: BookingStats;
 }
@@ -17,6 +20,8 @@ export function MobileBookingCTA({
   productId,
   productName,
   priceFormatted,
+  priceAmount = 0,
+  priceCurrency = 'GBP',
   bookingStats,
 }: MobileBookingCTAProps) {
   const brand = useBrand();
@@ -46,8 +51,14 @@ export function MobileBookingCTA({
         )}
         <div className="flex items-center justify-between p-4">
           <div>
-            <p className="text-xs text-gray-500">From</p>
-            <p className="text-xl font-bold text-gray-900">{priceFormatted}</p>
+            <PriceDisplay
+              priceFormatted={priceFormatted}
+              priceAmount={priceAmount}
+              currency={priceCurrency}
+              variant="compact"
+              primaryColor={primaryColor}
+            />
+            <p className="mt-0.5 text-xs text-emerald-600">Free cancellation</p>
           </div>
           <button
             type="button"

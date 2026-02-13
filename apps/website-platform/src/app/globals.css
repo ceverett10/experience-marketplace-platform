@@ -137,6 +137,22 @@
   animation-fill-mode: both;
 }
 
+/* Social proof toast slide up */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.3s ease-out;
+}
+
 /* Accessibility: disable animations for users who prefer reduced motion */
 @media (prefers-reduced-motion: reduce) {
   .hero-animate-title,
@@ -151,6 +167,10 @@
   .search-glow {
     animation: none;
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  }
+  .animate-slide-up {
+    animation: none;
+    opacity: 1;
   }
 }
 

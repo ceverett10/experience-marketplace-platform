@@ -59,9 +59,11 @@ interface MicrositeConfig {
   subdomain: string;
   parentDomain: string;
   fullDomain: string;
-  entityType: 'SUPPLIER' | 'PRODUCT';
+  entityType: 'SUPPLIER' | 'PRODUCT' | 'OPPORTUNITY';
   supplierId: string | null;
   productId: string | null;
+  opportunityId: string | null;
+  discoveryConfig: unknown | null;
   brandId: string;
   siteName: string;
   tagline: string | null;
@@ -148,7 +150,7 @@ export interface HomepageConfig {
 // Microsite-specific context (only present for microsites)
 export interface MicrositeContext {
   micrositeId: string; // The MicrositeConfig ID
-  entityType: 'SUPPLIER' | 'PRODUCT';
+  entityType: 'SUPPLIER' | 'PRODUCT' | 'OPPORTUNITY';
   supplierId: string | null;
   productId: string | null;
   holibobSupplierId?: string | null; // For filtering Holibob API calls
@@ -164,6 +166,13 @@ export interface MicrositeContext {
   layoutConfig: MicrositeLayoutConfig;
   // Cached product count from database (for accurate per-supplier counts)
   cachedProductCount: number;
+  // Discovery config for opportunity microsites (uses productDiscovery API)
+  discoveryConfig?: {
+    keyword: string;
+    destination?: string;
+    niche?: string;
+    searchTerms?: string[];
+  } | null;
 }
 
 // Site configuration with brand info
@@ -614,7 +623,7 @@ function mapMicrositeToSiteConfig(microsite: MicrositeConfigWithEntity): SiteCon
     // Include microsite context for supplier/product filtering and layout
     micrositeContext: {
       micrositeId: microsite.id,
-      entityType: microsite.entityType,
+      entityType: microsite.entityType as 'SUPPLIER' | 'PRODUCT' | 'OPPORTUNITY',
       supplierId: microsite.supplierId,
       productId: microsite.productId,
       holibobSupplierId: microsite.supplier?.holibobSupplierId ?? null,
@@ -632,6 +641,8 @@ function mapMicrositeToSiteConfig(microsite: MicrositeConfigWithEntity): SiteCon
         microsite.layoutType ?? 'AUTO',
         microsite.cachedProductCount ?? 0
       ),
+      // Discovery config for opportunity microsites
+      discoveryConfig: microsite.discoveryConfig as MicrositeContext['discoveryConfig'] ?? null,
     },
   };
 }

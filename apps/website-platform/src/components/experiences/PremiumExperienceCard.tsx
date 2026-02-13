@@ -4,6 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useBrand } from '@/lib/site-context';
 import { BLUR_PLACEHOLDER, isHolibobImage } from '@/lib/image-utils';
+import { PriceDisplay, DiscountBadge } from '@/components/ui/PriceDisplay';
 import type { ExperienceListItem } from '@/lib/holibob';
 
 type BadgeType =
@@ -248,7 +249,14 @@ export function PremiumExperienceCard({
 
             <div className="text-right">
               <p className="text-sm text-white/70">From</p>
-              <p className="text-3xl font-bold text-white">{experience.price.formatted}</p>
+              <PriceDisplay
+                priceFormatted={experience.price.formatted}
+                priceAmount={experience.price.amount}
+                currency={experience.price.currency}
+                variant="compact"
+                primaryColor="#ffffff"
+                showFrom={false}
+              />
             </div>
           </div>
         </div>
@@ -321,7 +329,13 @@ export function PremiumExperienceCard({
 
           <div className="flex items-center justify-between">
             <span className="text-sm text-white/80">{experience.duration.formatted}</span>
-            <span className="text-lg font-bold text-white">From {experience.price.formatted}</span>
+            <PriceDisplay
+              priceFormatted={experience.price.formatted}
+              priceAmount={experience.price.amount}
+              currency={experience.price.currency}
+              variant="compact"
+              primaryColor="#ffffff"
+            />
           </div>
         </div>
       </Link>
@@ -379,9 +393,13 @@ export function PremiumExperienceCard({
 
           <div className="mt-auto flex items-center justify-between pt-2">
             <span className="text-xs text-gray-500">{experience.duration.formatted}</span>
-            <span className="text-base font-bold" style={{ color: primaryColor }}>
-              From {experience.price.formatted}
-            </span>
+            <PriceDisplay
+              priceFormatted={experience.price.formatted}
+              priceAmount={experience.price.amount}
+              currency={experience.price.currency}
+              variant="compact"
+              primaryColor={primaryColor}
+            />
           </div>
         </div>
       </Link>
@@ -425,12 +443,10 @@ export function PremiumExperienceCard({
           ))}
         </div>
 
-        {/* Wishlist Heart - Top Right, Always Visible */}
-        {showHeartAlways && (
-          <div className="absolute right-3 top-3">
-            <WishlistButton size="small" />
-          </div>
-        )}
+        {/* Discount Badge - Top Right */}
+        <div className="absolute right-3 top-3">
+          <DiscountBadge />
+        </div>
 
         {/* Quick Actions (hover) - Bottom Right */}
         {showQuickActions && !showHeartAlways && (
@@ -496,9 +512,14 @@ export function PremiumExperienceCard({
         {/* Price - Primary CTA anchor */}
         <div className="mt-3 flex items-baseline justify-between border-t border-gray-100 pt-3">
           <span className="text-xs text-gray-500">From</span>
-          <span className="text-lg font-bold" style={{ color: primaryColor }}>
-            {experience.price.formatted}
-          </span>
+          <PriceDisplay
+            priceFormatted={experience.price.formatted}
+            priceAmount={experience.price.amount}
+            currency={experience.price.currency}
+            variant="card"
+            primaryColor={primaryColor}
+            showFrom={false}
+          />
         </div>
       </div>
     </Link>

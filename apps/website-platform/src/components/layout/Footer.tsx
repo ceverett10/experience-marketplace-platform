@@ -186,14 +186,60 @@ export function Footer() {
           </div>
         </div>
 
+        {/* Payment Methods */}
+        <PaymentLogos />
+
         {/* Bottom section */}
-        <div className="mt-16 border-t border-white/10 pt-8 sm:mt-20 lg:mt-24">
+        <div className="mt-8 border-t border-white/10 pt-8">
           <p className="text-xs leading-5 text-gray-400">
             &copy; {new Date().getFullYear()} Holibob. All rights reserved.
           </p>
         </div>
       </div>
     </footer>
+  );
+}
+
+/**
+ * Payment provider logos shown in footer
+ */
+function PaymentLogos() {
+  return (
+    <div className="mt-12 border-t border-white/10 pt-8">
+      <p className="mb-4 text-xs font-medium uppercase tracking-wider text-gray-500">We accept</p>
+      <div className="flex flex-wrap items-center gap-3">
+        {/* Visa */}
+        <div className="flex h-8 items-center rounded bg-white/10 px-3">
+          <span className="text-xs font-bold tracking-wide text-gray-400">VISA</span>
+        </div>
+        {/* Mastercard */}
+        <div className="flex h-8 items-center rounded bg-white/10 px-3">
+          <svg className="h-5 w-auto" viewBox="0 0 32 20" fill="none">
+            <circle cx="12" cy="10" r="7" fill="#6B7280" fillOpacity="0.4"/>
+            <circle cx="20" cy="10" r="7" fill="#6B7280" fillOpacity="0.4"/>
+          </svg>
+        </div>
+        {/* Amex */}
+        <div className="flex h-8 items-center rounded bg-white/10 px-3">
+          <span className="text-xs font-bold tracking-wide text-gray-400">AMEX</span>
+        </div>
+        {/* Apple Pay */}
+        <div className="flex h-8 items-center rounded bg-white/10 px-3">
+          <span className="text-xs font-semibold text-gray-400">Apple Pay</span>
+        </div>
+        {/* Google Pay */}
+        <div className="flex h-8 items-center rounded bg-white/10 px-3">
+          <span className="text-xs font-semibold text-gray-400">Google Pay</span>
+        </div>
+        {/* Secured by Stripe */}
+        <div className="flex h-8 items-center gap-1.5 rounded bg-white/10 px-3">
+          <svg className="h-3.5 w-3.5 text-gray-500" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+          </svg>
+          <span className="text-xs text-gray-500">Secured by Stripe</span>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -283,8 +329,11 @@ function ParentDomainFooter() {
           </div>
         </div>
 
+        {/* Payment Methods */}
+        <PaymentLogos />
+
         {/* Bottom section */}
-        <div className="mt-16 border-t border-white/10 pt-8 sm:mt-20 lg:mt-24">
+        <div className="mt-8 border-t border-white/10 pt-8">
           <p className="text-xs leading-5 text-gray-400">
             &copy; {new Date().getFullYear()} Holibob. All rights reserved.
           </p>

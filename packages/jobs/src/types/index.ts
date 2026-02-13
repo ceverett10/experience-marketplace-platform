@@ -297,7 +297,16 @@ export interface LinkAssetGeneratePayload {
 export interface MicrositeCreatePayload {
   supplierId?: string;
   productId?: string;
+  opportunityId?: string;
   parentDomain: string; // e.g., 'experiencess.com'
+  subdomain?: string; // Pre-generated subdomain (for opportunity microsites)
+  entityType?: 'SUPPLIER' | 'PRODUCT' | 'OPPORTUNITY';
+  discoveryConfig?: {
+    keyword: string;
+    destination?: string;
+    niche?: string;
+    searchTerms?: string[];
+  };
 }
 
 export interface MicrositeBrandGeneratePayload {

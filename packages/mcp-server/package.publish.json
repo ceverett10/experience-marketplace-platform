@@ -1,0 +1,38 @@
+{
+  "name": "holibob-mcp",
+  "version": "0.1.0",
+  "description": "Holibob MCP Server — Search, discover, and book travel experiences through AI assistants (Perplexity, Claude, ChatGPT)",
+  "license": "MIT",
+  "main": "publish-dist/bin/serve.mjs",
+  "type": "module",
+  "bin": {
+    "holibob-mcp": "./publish-dist/bin/serve.mjs"
+  },
+  "files": [
+    "publish-dist",
+    "README.md"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.26.0",
+    "@modelcontextprotocol/ext-apps": "^1.0.0",
+    "zod": "^3.22.0"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "mcp",
+    "holibob",
+    "travel",
+    "experiences",
+    "booking",
+    "perplexity",
+    "claude",
+    "chatgpt",
+    "model-context-protocol"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/holibob/mcp-server"
+  }
+}

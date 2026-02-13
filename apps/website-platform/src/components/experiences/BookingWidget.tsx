@@ -5,6 +5,7 @@ import { useBrand } from '@/lib/site-context';
 import type { Experience } from '@/lib/holibob';
 import type { BookingStats } from '@/lib/booking-analytics';
 import { AvailabilityModal } from './AvailabilityModal';
+import { PriceDisplay } from '@/components/ui/PriceDisplay';
 
 interface BookingWidgetProps {
   experience: Experience;
@@ -47,12 +48,14 @@ export function BookingWidget({ experience, bookingStats }: BookingWidgetProps) 
           <div className="flex items-baseline gap-2">
             <span className="text-sm text-gray-500">From</span>
           </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-bold" style={{ color: primaryColor }}>
-              {experience.price.formatted}
-            </span>
-            <span className="text-gray-500">per person</span>
-          </div>
+          <PriceDisplay
+            priceFormatted={experience.price.formatted}
+            priceAmount={experience.price.amount}
+            currency={experience.price.currency}
+            variant="detail"
+            primaryColor={primaryColor}
+            showFrom={false}
+          />
           {/* Social proof: Booking count */}
           {showBookingCount && (
             <p className="mt-2 flex items-center gap-1.5 text-sm text-gray-600">
@@ -123,6 +126,14 @@ export function BookingWidget({ experience, bookingStats }: BookingWidgetProps) 
               </p>
             </div>
           </div>
+        </div>
+
+        {/* Secured by Stripe */}
+        <div className="mt-4 flex items-center justify-center gap-1.5 text-xs text-gray-400">
+          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+          </svg>
+          Payments secured by Stripe
         </div>
 
         {/* Duration & Language Quick Info */}

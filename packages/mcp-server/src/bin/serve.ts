@@ -35,8 +35,23 @@ async function startHttp(port: number): Promise<void> {
   const { SSEServerTransport } = await import('@modelcontextprotocol/sdk/server/sse.js');
   const { StreamableHTTPServerTransport } = await import('@modelcontextprotocol/sdk/server/streamableHttp.js');
   const { isInitializeRequest } = await import('@modelcontextprotocol/sdk/types.js');
-  const { authenticateApiKey } = await import('../auth/api-key.js');
-  const { handleAuthorize, handleAuthorizePost, handleToken, handleRegister, validateAccessToken } = await import('../auth/oauth.js');
+
+  let authenticateApiKey: Awaited<typeof import('../auth/api-key.js')>['authenticateApiKey'];
+  let handleAuthorize: Awaited<typeof import('../auth/oauth.js')>['handleAuthorize'];
+  let handleAuthorizePost: Awaited<typeof import('../auth/oauth.js')>['handleAuthorizePost'];
+  let handleToken: Awaited<typeof import('../auth/oauth.js')>['handleToken'];
+  let handleRegister: Awaited<typeof import('../auth/oauth.js')>['handleRegister'];
+  let validateAccessToken: Awaited<typeof import('../auth/oauth.js')>['validateAccessToken'];
+
+  try {
+    ({ authenticateApiKey } = await import('../auth/api-key.js'));
+    ({ handleAuthorize, handleAuthorizePost, handleToken, handleRegister, validateAccessToken } = await import('../auth/oauth.js'));
+  } catch {
+    console.error('HTTP transport requires database dependencies (@prisma/client) which are not installed.');
+    console.error('Use STDIO transport for local/standalone mode: holibob-mcp (no --transport flag)');
+    process.exit(1);
+  }
+
   const http = await import('node:http');
 
   // Determine the public base URL (used in OAuth metadata)

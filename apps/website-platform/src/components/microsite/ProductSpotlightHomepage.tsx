@@ -391,6 +391,8 @@ export function ProductSpotlightHomepage({ site, experience }: ProductSpotlightH
           productId={experience.id}
           productName={experience.title}
           priceFormatted={experience.price.formatted}
+          priceAmount={experience.price.amount}
+          priceCurrency={experience.price.currency}
         />
       </div>
     </>

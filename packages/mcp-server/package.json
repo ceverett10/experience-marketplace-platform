@@ -23,7 +23,8 @@
     "start:stdio": "node dist/bin/serve.js --transport=stdio",
     "start:http": "node dist/bin/serve.js --transport=http --port=3100",
     "typecheck": "tsc --noEmit",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "build:publish": "tsup"
   },
   "dependencies": {
     "@experience-marketplace/holibob-api": "*",
@@ -35,6 +36,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
+    "tsup": "^8.0.0",
     "typescript": "^5.3.0"
   }
 }
