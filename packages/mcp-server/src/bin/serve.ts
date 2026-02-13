@@ -208,7 +208,7 @@ async function startHttp(port: number): Promise<void> {
         token_endpoint: `${publicBaseUrl}/oauth/token`,
         registration_endpoint: `${publicBaseUrl}/oauth/register`,
         response_types_supported: ['code'],
-        grant_types_supported: ['authorization_code', 'client_credentials'],
+        grant_types_supported: ['authorization_code', 'refresh_token', 'client_credentials'],
         code_challenge_methods_supported: ['S256'],
         scopes_supported: ['mcp'],
         token_endpoint_auth_methods_supported: ['none', 'client_secret_post'],

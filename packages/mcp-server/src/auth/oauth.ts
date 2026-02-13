@@ -23,6 +23,14 @@ interface AccessToken {
   expiresAt: number;
 }
 
+interface RefreshToken {
+  token: string;
+  clientId: string;
+  mcpApiKey: string;
+  scope: string;
+  expiresAt: number;
+}
+
 // ── DCR (Dynamic Client Registration) store ──
 interface DcrClient {
   clientId: string;
@@ -33,6 +41,7 @@ interface DcrClient {
 
 const authCodes = new Map<string, AuthCode>();
 const accessTokens = new Map<string, AccessToken>();
+const refreshTokens = new Map<string, RefreshToken>();
 const dcrClients = new Map<string, DcrClient>();
 
 // Clean up expired entries every 5 minutes
@@ -43,6 +52,9 @@ setInterval(() => {
   }
   for (const [token, data] of accessTokens) {
     if (data.expiresAt < now) accessTokens.delete(token);
+  }
+  for (const [token, data] of refreshTokens) {
+    if (data.expiresAt < now) refreshTokens.delete(token);
   }
 }, 5 * 60 * 1000);
 
@@ -99,12 +111,44 @@ export function createAuthorizationCode(
  * Exchange an authorization code for an access token.
  * Validates PKCE code_verifier against stored code_challenge.
  */
+/**
+ * Issue an access token + refresh token pair.
+ */
+function issueTokenPair(clientId: string, mcpApiKey: string, scope: string): {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+  scope: string;
+} {
+  const accessToken = `hbmcp_${randomBytes(32).toString('hex')}`;
+  const refreshToken = `hbrt_${randomBytes(32).toString('hex')}`;
+  const expiresIn = 3600; // 1 hour
+
+  accessTokens.set(accessToken, {
+    token: accessToken,
+    clientId,
+    mcpApiKey,
+    scope,
+    expiresAt: Date.now() + expiresIn * 1000,
+  });
+
+  refreshTokens.set(refreshToken, {
+    token: refreshToken,
+    clientId,
+    mcpApiKey,
+    scope,
+    expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000, // 30 days
+  });
+
+  return { accessToken, refreshToken, expiresIn, scope };
+}
+
 export function exchangeAuthorizationCode(
   code: string,
   clientId: string,
   codeVerifier: string,
   redirectUri: string,
-): { accessToken: string; expiresIn: number; scope: string } | null {
+): { accessToken: string; refreshToken: string; expiresIn: number; scope: string } | null {
   const authCode = authCodes.get(code);
   if (!authCode) return null;
 
@@ -129,18 +173,7 @@ export function exchangeAuthorizationCode(
   // Consume the code (one-time use)
   authCodes.delete(code);
 
-  // Issue access token
-  const token = `hbmcp_${randomBytes(32).toString('hex')}`;
-  const expiresIn = 3600; // 1 hour
-  accessTokens.set(token, {
-    token,
-    clientId,
-    mcpApiKey: authCode.mcpApiKey ?? '',
-    scope: authCode.scope,
-    expiresAt: Date.now() + expiresIn * 1000,
-  });
-
-  return { accessToken: token, expiresIn, scope: authCode.scope };
+  return issueTokenPair(clientId, authCode.mcpApiKey ?? '', authCode.scope);
 }
 
 /**
@@ -375,6 +408,50 @@ export async function handleToken(body: Record<string, string>): Promise<{
     return {
       json: {
         access_token: result.accessToken,
+        refresh_token: result.refreshToken,
+        token_type: 'Bearer',
+        expires_in: result.expiresIn,
+        scope: result.scope,
+      },
+    };
+  }
+
+  if (grantType === 'refresh_token') {
+    const incomingRefreshToken = body['refresh_token'];
+    const clientId = body['client_id'];
+
+    if (!incomingRefreshToken) {
+      return {
+        json: { error: 'invalid_request', error_description: 'refresh_token is required' },
+        statusCode: 400,
+      };
+    }
+
+    const stored = refreshTokens.get(incomingRefreshToken);
+    if (!stored || stored.expiresAt < Date.now()) {
+      if (stored) refreshTokens.delete(incomingRefreshToken);
+      return {
+        json: { error: 'invalid_grant', error_description: 'Invalid or expired refresh token' },
+        statusCode: 400,
+      };
+    }
+
+    // Verify client_id if provided
+    if (clientId && stored.clientId !== clientId) {
+      return {
+        json: { error: 'invalid_grant', error_description: 'client_id mismatch' },
+        statusCode: 400,
+      };
+    }
+
+    // Rotate: consume old refresh token, issue new pair
+    refreshTokens.delete(incomingRefreshToken);
+    const result = issueTokenPair(stored.clientId, stored.mcpApiKey, stored.scope);
+
+    return {
+      json: {
+        access_token: result.accessToken,
+        refresh_token: result.refreshToken,
         token_type: 'Bearer',
         expires_in: result.expiresIn,
         scope: result.scope,
@@ -383,7 +460,6 @@ export async function handleToken(body: Record<string, string>): Promise<{
   }
 
   if (grantType === 'client_credentials') {
-    // Also support client_credentials for M2M (e.g., ChatGPT)
     const clientId = body['client_id'];
     const clientSecret = body['client_secret'];
 
@@ -402,28 +478,21 @@ export async function handleToken(body: Record<string, string>): Promise<{
       };
     }
 
-    const token = `hbmcp_${randomBytes(32).toString('hex')}`;
-    const expiresIn = 3600;
-    accessTokens.set(token, {
-      token,
-      clientId,
-      mcpApiKey: clientSecret,
-      scope: 'mcp',
-      expiresAt: Date.now() + expiresIn * 1000,
-    });
+    const result = issueTokenPair(clientId, clientSecret, 'mcp');
 
     return {
       json: {
-        access_token: token,
+        access_token: result.accessToken,
+        refresh_token: result.refreshToken,
         token_type: 'Bearer',
-        expires_in: expiresIn,
-        scope: 'mcp',
+        expires_in: result.expiresIn,
+        scope: result.scope,
       },
     };
   }
 
   return {
-    json: { error: 'unsupported_grant_type', error_description: 'Supported: authorization_code, client_credentials' },
+    json: { error: 'unsupported_grant_type', error_description: 'Supported: authorization_code, refresh_token, client_credentials' },
     statusCode: 400,
   };
 }
