@@ -200,9 +200,9 @@ export function TickittoBookingWidget({ eventId, experience }: TickittoBookingWi
         </div>
       </div>
 
-      {/* Tickitto Widget Modal - Full screen overlay */}
+      {/* Tickitto Widget - Full page below header */}
       {isWidgetOpen && widgetUrl && (
-        <div className="fixed inset-0 z-50 bg-white">
+        <div className="fixed inset-x-0 bottom-0 top-[73px] z-40 bg-white">
           {/* Close button - floating top-right */}
           <button
             onClick={() => setIsWidgetOpen(false)}
@@ -214,7 +214,7 @@ export function TickittoBookingWidget({ eventId, experience }: TickittoBookingWi
             </svg>
           </button>
 
-          {/* Widget iframe - takes full viewport */}
+          {/* Widget iframe - fills space below header */}
           <iframe
             src={widgetUrl}
             className="h-full w-full border-0"
