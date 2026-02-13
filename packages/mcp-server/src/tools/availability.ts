@@ -121,7 +121,7 @@ export function registerAvailabilityTools(server: McpServer, client: HolibobClie
     'check_availability',
     {
       title: 'Check Availability',
-      description: 'Check which dates an experience is available within a date range. Returns date slots with guide prices. After picking a slot, use `get_slot_options` to configure it before booking.',
+      description: 'Check which dates an experience is available within a date range. Use this when the user has already selected an experience and wants to book it — do NOT search again. Ask the user for their preferred dates first, then call this tool. Returns date slots with guide prices. After picking a slot, use `get_slot_options` to configure it before booking.',
       inputSchema: {
         experienceId: z.string().describe('The experience ID to check availability for'),
         dateFrom: z.string().describe('Start date in YYYY-MM-DD format'),
