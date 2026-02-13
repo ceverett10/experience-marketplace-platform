@@ -53,6 +53,7 @@ export function createServer(client: HolibobClient): McpServer {
               resourceDomains: [
                 'https://holibob.com',
                 'https://*.holibob.com',
+                'https://*.holibob.tech',
                 'https://images.unsplash.com',
                 'https://hblb.s3.eu-west-1.amazonaws.com',
                 'https://*.amazonaws.com',
