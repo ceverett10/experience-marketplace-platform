@@ -390,8 +390,8 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
     }
 
     if (exp.cancellationPolicy) h += '<div class="cancel-policy">\\u2713 ' + esc(exp.cancellationPolicy) + '</div>';
-    var displayText = 'Book "' + (exp.name || '') + '"';
-    var copyText = 'Check availability and book "' + (exp.name || '') + '" (experience ID: ' + (exp.id || '') + ')';
+    var displayText = 'Book ' + (exp.name || '');
+    var copyText = 'Check availability and book ' + (exp.name || '') + ' (experience ID: ' + (exp.id || '') + ')';
     h += '<div class="chat-handoff">';
     h += '<div class="handoff-icon">\\u{1F4AC}</div>';
     h += '<div class="handoff-title">Ready to book?</div>';
