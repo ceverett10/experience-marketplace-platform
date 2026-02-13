@@ -84,6 +84,11 @@ interface BiddingData {
   campaigns: Campaign[];
   attribution: Attribution[];
   keywordsBySite: Record<string, SiteKeywords>;
+  keywordSummary?: {
+    total: number;
+    assigned: number;
+    unassigned: number;
+  };
 }
 
 export default function BiddingDashboardPage() {
@@ -390,11 +395,33 @@ export default function BiddingDashboardPage() {
           {data.keywordsBySite && Object.keys(data.keywordsBySite).length > 0 && (
             <Card>
               <div className="p-4">
-                <h3 className="text-sm font-semibold text-slate-900 mb-1">
-                  Keyword Opportunities by Site
-                </h3>
+                <div className="flex items-center justify-between mb-1">
+                  <h3 className="text-sm font-semibold text-slate-900">
+                    Keyword Opportunities by Site
+                  </h3>
+                  {data.keywordSummary && (
+                    <div className="flex items-center gap-3 text-xs">
+                      <span className="text-slate-500">
+                        {data.keywordSummary.total} total keywords
+                      </span>
+                      <span className="text-green-700">
+                        {data.keywordSummary.assigned} assigned
+                      </span>
+                      {data.keywordSummary.unassigned > 0 && (
+                        <span className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded">
+                          {data.keywordSummary.unassigned} unassigned
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
                 <p className="text-xs text-slate-500 mb-4">
                   PAID_CANDIDATE keywords ranked by priority score. Click a site to expand.
+                  {data.keywordSummary && data.keywordSummary.unassigned > 0 && (
+                    <span className="text-amber-700 ml-1">
+                      Run the engine to auto-assign unassigned keywords to sites.
+                    </span>
+                  )}
                 </p>
                 <div className="space-y-2">
                   {Object.entries(data.keywordsBySite)

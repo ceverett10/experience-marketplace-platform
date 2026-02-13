@@ -370,8 +370,8 @@ async function discoverCategoryKeywords(
     take: 20,
   });
 
-  // Build seed queries from site configs
-  const seedQueries: string[] = [];
+  // Build seed queries from site configs, tracking which site each seed came from
+  const seedQueries: Array<{ query: string; siteId: string }> = [];
 
   for (const site of sites) {
     const homepage = site.homepageConfig as {
@@ -393,16 +393,25 @@ async function discoverCategoryKeywords(
     // Build seed queries: "category in destination"
     for (const dest of destinations.slice(0, 4)) {
       for (const cat of categories.slice(0, 3)) {
-        seedQueries.push(`${cat} in ${dest}`);
+        seedQueries.push({ query: `${cat} in ${dest}`, siteId: site.id });
       }
       // Also add broad queries
-      seedQueries.push(`things to do in ${dest}`);
-      seedQueries.push(`best tours ${dest}`);
+      seedQueries.push({ query: `things to do in ${dest}`, siteId: site.id });
+      seedQueries.push({ query: `best tours ${dest}`, siteId: site.id });
     }
   }
 
-  // Deduplicate and cap at 20 seeds ($0.003 each = $0.06 max)
-  const uniqueSeeds = [...new Set(seedQueries.map((s) => s.toLowerCase()))].slice(0, 20);
+  // Deduplicate by query string, keeping first site association, cap at 20 ($0.003 each = $0.06 max)
+  const seen = new Set<string>();
+  const uniqueSeeds: Array<{ query: string; siteId: string }> = [];
+  for (const seed of seedQueries) {
+    const key = seed.query.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      uniqueSeeds.push({ query: key, siteId: seed.siteId });
+    }
+    if (uniqueSeeds.length >= 20) break;
+  }
 
   if (uniqueSeeds.length === 0) {
     console.log('[PaidKeywordScan/Discovery] No seed queries generated from site configs');
@@ -418,7 +427,7 @@ async function discoverCategoryKeywords(
 
   for (const seed of uniqueSeeds) {
     try {
-      const keywords = await dataForSeo.discoverKeywords(seed, 'United Kingdom', 'English', 30);
+      const keywords = await dataForSeo.discoverKeywords(seed.query, 'United Kingdom', 'English', 30);
       apiCost += 0.003;
 
       const newKeywords = keywords.filter((kw) => {
@@ -440,10 +449,12 @@ async function discoverCategoryKeywords(
           cpc: kw.cpc,
           priorityScore: score,
           source: 'paid_keyword_scan_discovery',
+          siteId: seed.siteId,
           sourceData: {
             scanMode: 'category_discovery',
             paidCandidate: true,
-            seedQuery: seed,
+            seedQuery: seed.query,
+            sourceSiteId: seed.siteId,
             competition: kw.competition,
             competitionLevel: kw.competitionLevel ?? 'MEDIUM',
           },
@@ -453,7 +464,7 @@ async function discoverCategoryKeywords(
         stored++;
       }
     } catch (error) {
-      console.error(`[PaidKeywordScan/Discovery] Failed for seed "${seed}":`, error);
+      console.error(`[PaidKeywordScan/Discovery] Failed for seed "${seed.query}":`, error);
     }
   }
 
@@ -814,6 +825,7 @@ async function upsertOpportunity(data: {
   source: string;
   sourceData: Record<string, unknown>;
   location?: string;
+  siteId?: string;
 }): Promise<void> {
   try {
     await prisma.sEOOpportunity.upsert({
@@ -835,6 +847,7 @@ async function upsertOpportunity(data: {
         status: 'PAID_CANDIDATE',
         source: data.source,
         sourceData: data.sourceData as object,
+        ...(data.siteId ? { siteId: data.siteId } : {}),
       },
       update: {
         searchVolume: data.searchVolume,
@@ -843,6 +856,8 @@ async function upsertOpportunity(data: {
         priorityScore: data.priorityScore,
         sourceData: data.sourceData as object,
         updatedAt: new Date(),
+        // Assign site if not already assigned (first-write-wins)
+        ...(data.siteId ? { siteId: data.siteId } : {}),
       },
     });
   } catch (error) {

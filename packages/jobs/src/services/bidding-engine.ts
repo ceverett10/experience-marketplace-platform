@@ -226,6 +226,160 @@ export async function calculateAllSiteProfitability(): Promise<SiteProfitability
   return profiles;
 }
 
+// --- Keyword-to-Site Assignment -----------------------------------------------
+
+/**
+ * Assign unassigned PAID_CANDIDATE keywords to the best-matching site.
+ * Uses site homepage config (destinations, categories) and niche matching.
+ * Returns count of newly assigned keywords.
+ */
+export async function assignKeywordsToSites(): Promise<number> {
+  // Load all unassigned PAID_CANDIDATE keywords
+  const unassigned = await prisma.sEOOpportunity.findMany({
+    where: { status: 'PAID_CANDIDATE', siteId: null },
+    select: { id: true, keyword: true, location: true, niche: true, sourceData: true },
+  });
+
+  if (unassigned.length === 0) {
+    console.log('[BiddingEngine] No unassigned PAID_CANDIDATE keywords to assign');
+    return 0;
+  }
+
+  console.log(`[BiddingEngine] Assigning ${unassigned.length} unassigned keywords to sites...`);
+
+  // Load all active sites with their homepage config for matching
+  const sites = await prisma.site.findMany({
+    where: { status: 'ACTIVE' },
+    select: {
+      id: true,
+      name: true,
+      primaryDomain: true,
+      homepageConfig: true,
+    },
+  });
+
+  // Build site matching profiles: destinations, categories, searchTerms
+  interface SiteMatchProfile {
+    id: string;
+    name: string;
+    destinations: string[];
+    categories: string[];
+    searchTerms: string[];
+    allTerms: string[]; // Lowercase terms for matching
+  }
+
+  const siteProfiles: SiteMatchProfile[] = sites.map((site) => {
+    const config = site.homepageConfig as {
+      destinations?: Array<{ name: string }>;
+      categories?: Array<{ name: string }>;
+      popularExperiences?: { destination?: string; searchTerms?: string[] };
+    } | null;
+
+    const destinations = config?.destinations?.map((d) => d.name) ?? [];
+    const primaryDest = config?.popularExperiences?.destination;
+    if (primaryDest && !destinations.includes(primaryDest)) {
+      destinations.unshift(primaryDest);
+    }
+    const categories = config?.categories?.map((c) => c.name) ?? [];
+    const searchTerms = config?.popularExperiences?.searchTerms ?? [];
+
+    const allTerms = [
+      ...destinations,
+      ...categories,
+      ...searchTerms,
+      site.name,
+    ].map((t) => t.toLowerCase());
+
+    return { id: site.id, name: site.name, destinations, categories, searchTerms, allTerms };
+  });
+
+  let assigned = 0;
+
+  for (const kw of unassigned) {
+    const kwLower = kw.keyword.toLowerCase();
+    const locationLower = (kw.location || '').toLowerCase();
+
+    // Score each site for this keyword
+    let bestSiteId: string | null = null;
+    let bestScore = 0;
+
+    for (const site of siteProfiles) {
+      let score = 0;
+
+      // Check if keyword contains any of the site's destinations (strongest signal)
+      for (const dest of site.destinations) {
+        if (kwLower.includes(dest.toLowerCase())) {
+          score += 10;
+          break;
+        }
+      }
+
+      // Check if location matches a destination
+      if (locationLower) {
+        for (const dest of site.destinations) {
+          if (locationLower.includes(dest.toLowerCase()) || dest.toLowerCase().includes(locationLower)) {
+            score += 8;
+            break;
+          }
+        }
+      }
+
+      // Check categories match
+      for (const cat of site.categories) {
+        if (kwLower.includes(cat.toLowerCase())) {
+          score += 5;
+          break;
+        }
+      }
+
+      // Check search terms match
+      for (const term of site.searchTerms) {
+        if (kwLower.includes(term.toLowerCase())) {
+          score += 3;
+          break;
+        }
+      }
+
+      // Check site name match
+      if (kwLower.includes(site.name.toLowerCase())) {
+        score += 7;
+      }
+
+      // Check if the keyword's sourceData.seedQuery hints at which site generated it
+      const seedQuery = (kw.sourceData as { seedQuery?: string } | null)?.seedQuery;
+      if (seedQuery) {
+        for (const term of site.allTerms) {
+          if (seedQuery.toLowerCase().includes(term)) {
+            score += 4;
+            break;
+          }
+        }
+      }
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestSiteId = site.id;
+      }
+    }
+
+    // Only assign if we have at least a minimal match
+    if (bestSiteId && bestScore >= 3) {
+      try {
+        await prisma.sEOOpportunity.update({
+          where: { id: kw.id },
+          data: { siteId: bestSiteId },
+        });
+        assigned++;
+      } catch {
+        // Skip errors (e.g. concurrent updates)
+      }
+    }
+  }
+
+  console.log(`[BiddingEngine] Assigned ${assigned}/${unassigned.length} keywords to sites`);
+  return assigned;
+}
+
 // --- Opportunity Scoring -----------------------------------------------------
 
 /**
@@ -372,6 +526,12 @@ export async function runBiddingEngine(options?: {
   const maxBudget = options?.maxDailyBudget || MAX_DAILY_BUDGET;
 
   console.log(`[BiddingEngine] Starting in ${mode} mode (budget cap: £${maxBudget}/day)`);
+
+  // Step 0: Assign unassigned PAID_CANDIDATE keywords to sites
+  const assignedCount = await assignKeywordsToSites();
+  if (assignedCount > 0) {
+    console.log(`[BiddingEngine] Assigned ${assignedCount} keywords to sites`);
+  }
 
   // Step 1: Calculate profitability for all sites
   const profiles = await calculateAllSiteProfitability();

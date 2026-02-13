@@ -110,6 +110,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       }));
 
     // --- PAID_CANDIDATE keyword opportunities per site ---
+    // Count total and unassigned for summary
+    const totalPaidCandidates = await prisma.sEOOpportunity.count({
+      where: { status: 'PAID_CANDIDATE' as any },
+    });
+    const unassignedCount = await prisma.sEOOpportunity.count({
+      where: { status: 'PAID_CANDIDATE' as any, siteId: null },
+    });
+
     const kwWhere: Record<string, unknown> = { status: 'PAID_CANDIDATE' as any };
     if (siteId) kwWhere['siteId'] = siteId;
 
@@ -221,6 +229,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       campaigns: campaignSummaries,
       attribution: paidBookings,
       keywordsBySite,
+      keywordSummary: {
+        total: totalPaidCandidates,
+        assigned: totalPaidCandidates - unassignedCount,
+        unassigned: unassignedCount,
+      },
     });
   } catch (error) {
     console.error('[API] Error fetching bidding analytics:', error);
