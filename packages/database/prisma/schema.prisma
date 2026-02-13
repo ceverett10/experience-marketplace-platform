@@ -177,6 +177,7 @@ model Site {
   socialAccounts     SocialAccount[]
   socialPosts        SocialPost[]
   adCampaigns        AdCampaign[]
+  biddingProfile     BiddingProfile?
 
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -951,6 +952,7 @@ enum JobType {
   AD_PERFORMANCE_REPORT
   AD_BUDGET_OPTIMIZER
   PAID_KEYWORD_SCAN
+  BIDDING_ENGINE_RUN
 }
 
 enum JobStatus {
@@ -1042,6 +1044,7 @@ enum AdPlatform {
   PINTEREST
   FACEBOOK
   GOOGLE_DISPLAY
+  GOOGLE_SEARCH
   BING
   OUTBRAIN
   REDDIT
@@ -1121,6 +1124,36 @@ model AdDailyMetric {
   @@index([campaignId])
   @@index([date])
   @@map("ad_daily_metrics")
+}
+
+model BiddingProfile {
+  id                String   @id @default(cuid())
+  siteId            String   @unique
+  site              Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  // Profitability metrics (recalculated daily)
+  avgOrderValue     Decimal  @db.Decimal(10, 2)
+  avgCommissionRate Float                        // Percentage (e.g., 15.0)
+  conversionRate    Float                        // Sessions → bookings (e.g., 0.02 = 2%)
+  maxProfitableCpc  Decimal  @db.Decimal(10, 4)  // Max CPC that maintains target ROAS
+
+  // Aggregate ad performance
+  totalAdSpend      Decimal  @default(0) @db.Decimal(10, 2)
+  totalAdRevenue    Decimal  @default(0) @db.Decimal(10, 2)
+  portfolioRoas     Float?
+
+  // Budget controls
+  dailyBudgetCap    Decimal? @db.Decimal(10, 2)
+  isAutoBidding     Boolean  @default(false)
+
+  // Calculation metadata
+  lastCalculatedAt  DateTime?
+  calculationData   Json?    // Detailed breakdown: sample sizes, confidence, fallbacks used
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("bidding_profiles")
 }
 
 // ============================================================================

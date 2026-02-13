@@ -157,6 +157,34 @@ export async function POST(request: NextRequest) {
     // This enables "Booked X times this week" social proof
     if (booking.state === 'CONFIRMED' || booking.state === 'PENDING') {
       try {
+        // Read UTM attribution from cookie (set by middleware on paid traffic landing)
+        let utmSource: string | undefined;
+        let utmMedium: string | undefined;
+        let utmCampaign: string | undefined;
+        let landingPage: string | undefined;
+        const utmCookie = request.cookies.get('utm_params')?.value;
+        if (utmCookie) {
+          try {
+            const utm = JSON.parse(utmCookie);
+            utmSource = utm.source || undefined;
+            utmMedium = utm.medium || undefined;
+            utmCampaign = utm.campaign || undefined;
+            landingPage = utm.landingPage || undefined;
+          } catch {
+            // Invalid cookie JSON — ignore
+          }
+        }
+
+        // Calculate commission from Holibob gross/net price split
+        const gross = booking.totalPrice?.gross;
+        const net = booking.totalPrice?.net;
+        let commissionAmount: number | undefined;
+        let commissionRate: number | undefined;
+        if (gross && net && gross > 0) {
+          commissionAmount = gross - net;
+          commissionRate = (commissionAmount / gross) * 100;
+        }
+
         await prisma.booking.upsert({
           where: { holibobBookingId: booking.id },
           create: {
@@ -164,16 +192,27 @@ export async function POST(request: NextRequest) {
             holibobBasketId: booking.code || null,
             holibobProductId: productId || null,
             status: booking.state === 'CONFIRMED' ? 'CONFIRMED' : 'PENDING',
-            totalAmount: booking.totalPrice?.gross || 0,
+            totalAmount: gross || 0,
             currency: booking.currency || 'GBP',
             siteId: site.id,
+            utmSource,
+            utmMedium,
+            utmCampaign,
+            landingPage,
+            commissionAmount: commissionAmount ?? null,
+            commissionRate: commissionRate ?? null,
           },
           update: {
             status: booking.state === 'CONFIRMED' ? 'CONFIRMED' : 'PENDING',
             holibobProductId: productId || undefined,
+            // Update UTM/commission if not already set (first write wins)
+            ...(utmSource ? { utmSource } : {}),
+            ...(commissionAmount != null ? { commissionAmount, commissionRate } : {}),
           },
         });
-        console.log('[Commit API] Saved booking to local database:', booking.id);
+        console.log(
+          `[Commit API] Saved booking ${booking.id} (${utmSource ? `utm=${utmSource}/${utmMedium}/${utmCampaign}` : 'organic'}, commission=${commissionRate?.toFixed(1) ?? 'N/A'}%)`
+        );
       } catch (dbError) {
         // Log but don't fail the request if DB save fails
         console.error('[Commit API] Failed to save booking to local DB:', dbError);

@@ -350,6 +350,42 @@ export async function initializeScheduledJobs(): Promise<void> {
   );
   console.log('[Scheduler] ✓ Paid Keyword Scanner - Tuesdays & Fridays at 4 AM');
 
+  // Bidding Engine Run — Daily at 3 AM
+  // Calculates site profitability, scores keyword opportunities, creates campaigns
+  await scheduleJob(
+    'BIDDING_ENGINE_RUN' as any,
+    { mode: 'full' },
+    '0 3 * * *' // Daily at 3 AM
+  );
+  console.log('[Scheduler] ✓ Bidding Engine Run - Daily at 3 AM');
+
+  // Ad Campaign Sync — Every 6 hours
+  // Syncs performance data from Meta + Google Ads into AdCampaign/AdDailyMetric
+  await scheduleJob(
+    'AD_CAMPAIGN_SYNC' as any,
+    {},
+    '0 */6 * * *' // Every 6 hours
+  );
+  console.log('[Scheduler] ✓ Ad Campaign Sync - Every 6 hours');
+
+  // Ad Performance Report — Daily at 9 AM
+  // Portfolio-wide performance analysis: top/under performers, opportunities
+  await scheduleJob(
+    'AD_PERFORMANCE_REPORT' as any,
+    {},
+    '0 9 * * *' // Daily at 9 AM
+  );
+  console.log('[Scheduler] ✓ Ad Performance Report - Daily at 9 AM');
+
+  // Ad Budget Optimizer — Daily at 10 AM (after report)
+  // Pauses underperformers, scales up winners, respects budget caps
+  await scheduleJob(
+    'AD_BUDGET_OPTIMIZER' as any,
+    {},
+    '0 10 * * *' // Daily at 10 AM
+  );
+  console.log('[Scheduler] ✓ Ad Budget Optimizer - Daily at 10 AM');
+
   console.log('[Scheduler] All scheduled jobs initialized successfully');
 }
 
@@ -886,6 +922,32 @@ export function getScheduledJobs(): Array<{
       jobType: 'SOCIAL_DAILY_POSTING',
       schedule: '0 5 * * *',
       description: 'Smart staggered social posting: 7/day cap, timezone-aware, content rotation',
+    },
+    // Paid Traffic & Bidding Engine
+    {
+      jobType: 'PAID_KEYWORD_SCAN',
+      schedule: '0 4 * * 2,5',
+      description: 'Discover low-CPC keyword opportunities from GSC, DataForSEO, Meta, Pinterest',
+    },
+    {
+      jobType: 'BIDDING_ENGINE_RUN',
+      schedule: '0 3 * * *',
+      description: 'Calculate site profitability, score keywords, create ad campaigns',
+    },
+    {
+      jobType: 'AD_CAMPAIGN_SYNC',
+      schedule: '0 */6 * * *',
+      description: 'Sync Meta + Google Ads performance into AdCampaign/AdDailyMetric',
+    },
+    {
+      jobType: 'AD_PERFORMANCE_REPORT',
+      schedule: '0 9 * * *',
+      description: 'Portfolio-wide ad performance analysis and ROAS reporting',
+    },
+    {
+      jobType: 'AD_BUDGET_OPTIMIZER',
+      schedule: '0 10 * * *',
+      description: 'Auto-pause underperformers, scale winners, reallocate budget',
     },
   ];
 }

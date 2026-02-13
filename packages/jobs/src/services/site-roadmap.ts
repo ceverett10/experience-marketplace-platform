@@ -274,6 +274,7 @@ async function validateTaskArtifacts(
     AD_PERFORMANCE_REPORT: { valid: true },
     AD_BUDGET_OPTIMIZER: { valid: true },
     PAID_KEYWORD_SCAN: { valid: true },
+    BIDDING_ENGINE_RUN: { valid: true },
   };
 }
 
@@ -514,6 +515,10 @@ export const TASK_DESCRIPTIONS: Record<JobType, { label: string; description: st
   PAID_KEYWORD_SCAN: {
     label: 'Scan Paid Keywords',
     description: 'Discover new low-CPC keyword opportunities for paid traffic',
+  },
+  BIDDING_ENGINE_RUN: {
+    label: 'Bidding Engine',
+    description: 'Calculate site profitability and create/optimize ad campaigns',
   },
 };
 

@@ -139,6 +139,10 @@ export async function POST(request: Request): Promise<NextResponse> {
       MICROSITE_GA4_SYNC: {},
       SOCIAL_DAILY_POSTING: {},
       PAID_KEYWORD_SCAN: { maxCpc: 3.0, minVolume: 100, modes: ['gsc', 'expansion', 'discovery', 'pinterest', 'meta'] },
+      BIDDING_ENGINE_RUN: { mode: 'full' },
+      AD_CAMPAIGN_SYNC: {},
+      AD_PERFORMANCE_REPORT: {},
+      AD_BUDGET_OPTIMIZER: {},
     };
 
     // Clean job type name (remove " (deep)" suffix)

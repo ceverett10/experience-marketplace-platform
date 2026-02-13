@@ -69,6 +69,7 @@ import {
   handleAdCampaignSync,
   handleAdPerformanceReport,
   handleAdBudgetOptimizer,
+  handleBiddingEngineRun,
 } from '@experience-marketplace/jobs';
 import { prisma, JobStatus } from '@experience-marketplace/database';
 import type { JobType } from '@experience-marketplace/database';
@@ -471,11 +472,13 @@ const adsWorker = new Worker(
         return await handleAdPerformanceReport(job);
       case 'AD_BUDGET_OPTIMIZER':
         return await handleAdBudgetOptimizer(job);
+      case 'BIDDING_ENGINE_RUN':
+        return await handleBiddingEngineRun(job);
       default:
         throw new Error(`Unknown job type: ${job.name}`);
     }
   },
-  makeWorkerOptions(QUEUE_NAMES.ADS, 2) // Low: DataForSEO rate limits
+  makeWorkerOptions(QUEUE_NAMES.ADS, 2) // Low: ad platform API rate limits
 );
 
 // Worker event handlers

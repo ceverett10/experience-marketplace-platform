@@ -208,6 +208,359 @@ export class MetaAdsClient {
     }
   }
 
+  // =========================================================================
+  // Campaign Management (CRUD)
+  // =========================================================================
+
+  /**
+   * Create a campaign in the ad account.
+   * Docs: https://developers.facebook.com/docs/marketing-api/reference/ad-campaign-group
+   */
+  async createCampaign(config: {
+    name: string;
+    objective?: string;
+    dailyBudget: number; // In account currency (e.g., GBP pennies)
+    status?: 'ACTIVE' | 'PAUSED';
+    specialAdCategories?: string[];
+  }): Promise<{ campaignId: string } | null> {
+    try {
+      await this.enforceRateLimit();
+
+      const params = new URLSearchParams({
+        name: config.name,
+        objective: config.objective || 'OUTCOME_TRAFFIC',
+        daily_budget: Math.round(config.dailyBudget * 100).toString(), // Convert to pennies/cents
+        status: config.status || 'PAUSED',
+        special_ad_categories: JSON.stringify(config.specialAdCategories || []),
+        access_token: this.accessToken,
+      });
+
+      const response = await fetch(`${META_API_BASE}/${this.adAccountId}/campaigns`, {
+        method: 'POST',
+        body: params,
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        console.error(`[MetaAds] Create campaign error (${response.status}): ${error.substring(0, 300)}`);
+        return null;
+      }
+
+      const data = (await response.json()) as { id: string };
+      console.log(`[MetaAds] Created campaign ${data.id}: "${config.name}"`);
+      return { campaignId: data.id };
+    } catch (error) {
+      console.error('[MetaAds] Create campaign failed:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Create an ad set with interest targeting and bid control.
+   * Docs: https://developers.facebook.com/docs/marketing-api/reference/ad-campaign
+   */
+  async createAdSet(config: {
+    campaignId: string;
+    name: string;
+    dailyBudget: number;
+    bidAmount: number; // Max CPC bid in account currency
+    targeting: {
+      countries: string[];
+      interests?: Array<{ id: string; name: string }>;
+      ageMin?: number;
+      ageMax?: number;
+    };
+    optimizationGoal?: string;
+    billingEvent?: string;
+    status?: 'ACTIVE' | 'PAUSED';
+  }): Promise<{ adSetId: string } | null> {
+    try {
+      await this.enforceRateLimit();
+
+      const targetingSpec: Record<string, unknown> = {
+        geo_locations: { countries: config.targeting.countries },
+      };
+      if (config.targeting.interests?.length) {
+        targetingSpec['flexible_spec'] = [
+          { interests: config.targeting.interests.map((i) => ({ id: i.id, name: i.name })) },
+        ];
+      }
+      if (config.targeting.ageMin) targetingSpec['age_min'] = config.targeting.ageMin;
+      if (config.targeting.ageMax) targetingSpec['age_max'] = config.targeting.ageMax;
+
+      const params = new URLSearchParams({
+        name: config.name,
+        campaign_id: config.campaignId,
+        daily_budget: Math.round(config.dailyBudget * 100).toString(),
+        bid_amount: Math.round(config.bidAmount * 100).toString(),
+        billing_event: config.billingEvent || 'LINK_CLICKS',
+        optimization_goal: config.optimizationGoal || 'LINK_CLICKS',
+        targeting: JSON.stringify(targetingSpec),
+        status: config.status || 'PAUSED',
+        access_token: this.accessToken,
+      });
+
+      const response = await fetch(`${META_API_BASE}/${this.adAccountId}/adsets`, {
+        method: 'POST',
+        body: params,
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        console.error(`[MetaAds] Create ad set error (${response.status}): ${error.substring(0, 300)}`);
+        return null;
+      }
+
+      const data = (await response.json()) as { id: string };
+      console.log(`[MetaAds] Created ad set ${data.id}: "${config.name}"`);
+      return { adSetId: data.id };
+    } catch (error) {
+      console.error('[MetaAds] Create ad set failed:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Create an ad (creative + placement) within an ad set.
+   * Uses a link ad with image for driving traffic to a landing page.
+   */
+  async createAd(config: {
+    adSetId: string;
+    name: string;
+    pageId: string; // Facebook Page ID
+    linkUrl: string;
+    headline: string;
+    body: string;
+    imageUrl?: string;
+    callToAction?: string;
+    status?: 'ACTIVE' | 'PAUSED';
+  }): Promise<{ adId: string } | null> {
+    try {
+      await this.enforceRateLimit();
+
+      const creative: Record<string, unknown> = {
+        object_story_spec: {
+          page_id: config.pageId,
+          link_data: {
+            link: config.linkUrl,
+            message: config.body,
+            name: config.headline,
+            call_to_action: {
+              type: config.callToAction || 'LEARN_MORE',
+            },
+            ...(config.imageUrl ? { picture: config.imageUrl } : {}),
+          },
+        },
+      };
+
+      const params = new URLSearchParams({
+        name: config.name,
+        adset_id: config.adSetId,
+        creative: JSON.stringify(creative),
+        status: config.status || 'PAUSED',
+        access_token: this.accessToken,
+      });
+
+      const response = await fetch(`${META_API_BASE}/${this.adAccountId}/ads`, {
+        method: 'POST',
+        body: params,
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        console.error(`[MetaAds] Create ad error (${response.status}): ${error.substring(0, 300)}`);
+        return null;
+      }
+
+      const data = (await response.json()) as { id: string };
+      console.log(`[MetaAds] Created ad ${data.id}: "${config.name}"`);
+      return { adId: data.id };
+    } catch (error) {
+      console.error('[MetaAds] Create ad failed:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Update bid amount on an ad set.
+   */
+  async updateBid(adSetId: string, newBidAmount: number): Promise<boolean> {
+    try {
+      await this.enforceRateLimit();
+
+      const params = new URLSearchParams({
+        bid_amount: Math.round(newBidAmount * 100).toString(),
+        access_token: this.accessToken,
+      });
+
+      const response = await fetch(`${META_API_BASE}/${adSetId}`, {
+        method: 'POST',
+        body: params,
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        console.error(`[MetaAds] Update bid error (${response.status}): ${error.substring(0, 200)}`);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('[MetaAds] Update bid failed:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Pause or resume a campaign.
+   */
+  async setCampaignStatus(campaignId: string, status: 'ACTIVE' | 'PAUSED'): Promise<boolean> {
+    try {
+      await this.enforceRateLimit();
+
+      const params = new URLSearchParams({
+        status,
+        access_token: this.accessToken,
+      });
+
+      const response = await fetch(`${META_API_BASE}/${campaignId}`, {
+        method: 'POST',
+        body: params,
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        console.error(`[MetaAds] Set status error (${response.status}): ${error.substring(0, 200)}`);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('[MetaAds] Set campaign status failed:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Get campaign performance insights.
+   * Returns spend, clicks, impressions, CPC, CPM, reach, actions.
+   */
+  async getCampaignInsights(
+    campaignId: string,
+    dateRange?: { since: string; until: string }
+  ): Promise<{
+    spend: number;
+    clicks: number;
+    impressions: number;
+    cpc: number;
+    cpm: number;
+    reach: number;
+    actions: number;
+  } | null> {
+    try {
+      await this.enforceRateLimit();
+
+      const params = new URLSearchParams({
+        fields: 'spend,clicks,impressions,cpc,cpm,reach,actions',
+        access_token: this.accessToken,
+      });
+
+      if (dateRange) {
+        params.set('time_range', JSON.stringify(dateRange));
+      }
+
+      const response = await fetch(`${META_API_BASE}/${campaignId}/insights?${params}`);
+
+      if (!response.ok) {
+        const error = await response.text();
+        console.error(`[MetaAds] Insights error (${response.status}): ${error.substring(0, 200)}`);
+        return null;
+      }
+
+      const data = (await response.json()) as {
+        data?: Array<{
+          spend?: string;
+          clicks?: string;
+          impressions?: string;
+          cpc?: string;
+          cpm?: string;
+          reach?: string;
+          actions?: Array<{ action_type: string; value: string }>;
+        }>;
+      };
+
+      if (!data.data || data.data.length === 0) return null;
+
+      const row = data.data[0]!;
+      const linkClicks = row.actions?.find(
+        (a) => a.action_type === 'link_click'
+      );
+
+      return {
+        spend: parseFloat(row.spend || '0'),
+        clicks: parseInt(row.clicks || '0'),
+        impressions: parseInt(row.impressions || '0'),
+        cpc: parseFloat(row.cpc || '0'),
+        cpm: parseFloat(row.cpm || '0'),
+        reach: parseInt(row.reach || '0'),
+        actions: linkClicks ? parseInt(linkClicks.value) : parseInt(row.clicks || '0'),
+      };
+    } catch (error) {
+      console.error('[MetaAds] Get insights failed:', error);
+      return null;
+    }
+  }
+
+  /**
+   * List all campaigns in the ad account with basic metrics.
+   */
+  async listCampaigns(status?: 'ACTIVE' | 'PAUSED'): Promise<
+    Array<{
+      id: string;
+      name: string;
+      status: string;
+      dailyBudget: number;
+    }>
+  > {
+    try {
+      await this.enforceRateLimit();
+
+      const params = new URLSearchParams({
+        fields: 'id,name,status,daily_budget',
+        access_token: this.accessToken,
+        limit: '100',
+      });
+
+      if (status) {
+        params.set('effective_status', JSON.stringify([status]));
+      }
+
+      const response = await fetch(
+        `${META_API_BASE}/${this.adAccountId}/campaigns?${params}`
+      );
+
+      if (!response.ok) {
+        const error = await response.text();
+        console.error(`[MetaAds] List campaigns error (${response.status}): ${error.substring(0, 200)}`);
+        return [];
+      }
+
+      const data = (await response.json()) as {
+        data?: Array<{ id: string; name: string; status: string; daily_budget: string }>;
+      };
+
+      return (data.data || []).map((c) => ({
+        id: c.id,
+        name: c.name,
+        status: c.status,
+        dailyBudget: parseInt(c.daily_budget || '0') / 100,
+      }));
+    } catch (error) {
+      console.error('[MetaAds] List campaigns failed:', error);
+      return [];
+    }
+  }
+
   private async enforceRateLimit(): Promise<void> {
     const now = Date.now();
     MetaAdsClient.requestTimestamps = MetaAdsClient.requestTimestamps.filter(

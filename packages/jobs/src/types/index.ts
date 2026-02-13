@@ -383,6 +383,11 @@ export interface PaidKeywordScanPayload {
   modes?: ('gsc' | 'expansion' | 'discovery' | 'pinterest' | 'meta')[]; // Default: all five
 }
 
+export interface BiddingEngineRunPayload {
+  mode?: 'full' | 'optimize_only' | 'report_only';
+  maxDailyBudget?: number; // Default: £200/day
+}
+
 /**
  * Union type of all job payloads
  */
@@ -430,7 +435,8 @@ export type JobPayload =
   | AdCampaignSyncPayload
   | AdPerformanceReportPayload
   | AdBudgetOptimizerPayload
-  | PaidKeywordScanPayload;
+  | PaidKeywordScanPayload
+  | BiddingEngineRunPayload;
 
 /**
  * Job configuration options
@@ -563,4 +569,5 @@ export const JOB_TYPE_TO_QUEUE: Record<JobType, QueueName> = {
   AD_PERFORMANCE_REPORT: QUEUE_NAMES.ADS,
   AD_BUDGET_OPTIMIZER: QUEUE_NAMES.ADS,
   PAID_KEYWORD_SCAN: QUEUE_NAMES.ADS,
+  BIDDING_ENGINE_RUN: QUEUE_NAMES.ADS,
 };
