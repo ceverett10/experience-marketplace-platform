@@ -31,9 +31,11 @@ export function TickittoBookingWidget({ eventId, experience }: TickittoBookingWi
         // Handle widget events (close, complete, resize, etc.)
         if (data.type === 'tickitto:close' || data.action === 'close') {
           setIsWidgetOpen(false);
+          setWidgetUrl(null);
         }
         if (data.type === 'tickitto:complete' || data.action === 'complete') {
           setIsWidgetOpen(false);
+          setWidgetUrl(null);
         }
       }
     }
@@ -59,6 +61,7 @@ export function TickittoBookingWidget({ eventId, experience }: TickittoBookingWi
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape' && isWidgetOpen) {
         setIsWidgetOpen(false);
+        setWidgetUrl(null);
       }
     }
     window.addEventListener('keydown', handleKeyDown);
@@ -66,15 +69,11 @@ export function TickittoBookingWidget({ eventId, experience }: TickittoBookingWi
   }, [isWidgetOpen]);
 
   async function loadWidget() {
-    if (widgetUrl) {
-      setIsWidgetOpen(true);
-      return;
-    }
-
     setIsLoading(true);
     setError(null);
 
     try {
+      // Always fetch a fresh session - Tickitto sessions expire after ~5 minutes
       const response = await fetch(`/api/tickitto-availability?eventId=${encodeURIComponent(eventId)}`);
       const data = await response.json();
 
@@ -205,7 +204,7 @@ export function TickittoBookingWidget({ eventId, experience }: TickittoBookingWi
         <div className="fixed inset-x-0 bottom-0 top-[73px] z-40 bg-white">
           {/* Close button - floating top-right */}
           <button
-            onClick={() => setIsWidgetOpen(false)}
+            onClick={() => { setIsWidgetOpen(false); setWidgetUrl(null); }}
             className="absolute right-3 top-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 shadow-md hover:bg-gray-200 transition-colors"
             aria-label="Close ticket selection"
           >
