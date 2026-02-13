@@ -254,16 +254,18 @@ async function exchangeFacebookCode(code: string) {
     throw new Error('No Facebook Pages found. Please create a Facebook Page first.');
   }
 
-  // Use the Page Access Token (long-lived, doesn't expire)
+  // Use the long-lived User Access Token (carries ads_management permission).
+  // Page tokens are only for posting — user tokens are needed for Marketing API.
   return {
-    accessToken: firstPage.access_token,
-    expiresIn: 5184000, // 60 days
+    accessToken: longLivedToken.access_token,
+    expiresIn: longLivedToken.expires_in || 5184000, // 60 days
     accountId: firstPage.id,
     accountName: firstPage.name,
     accountUrl: `https://facebook.com/${firstPage.id}`,
     metadata: {
       pageId: firstPage.id,
       pageName: firstPage.name,
+      pageAccessToken: firstPage.access_token, // Keep page token for posting
       pages: (pagesData.data || []).map(
         (p: { id: string; name: string; category: string }) => ({
           id: p.id,
