@@ -6,11 +6,11 @@ declare global {
 }
 
 const prismaClientSingleton = (): PrismaClient => {
-  // Ensure connection pool fits within Heroku Postgres essential-0 limit (20 connections).
-  // With web + worker dynos, each process should use at most 8 connections.
+  // Ensure connection pool fits within Heroku Postgres essential-1 limit (20 connections).
+  // With web + worker dynos + BullMQ, each Prisma pool should use at most 4 connections.
   let datasourceUrl = process.env['DATABASE_URL'];
   if (datasourceUrl && !datasourceUrl.includes('connection_limit')) {
-    datasourceUrl += (datasourceUrl.includes('?') ? '&' : '?') + 'connection_limit=8';
+    datasourceUrl += (datasourceUrl.includes('?') ? '&' : '?') + 'connection_limit=4';
   }
 
   return new PrismaClient({
