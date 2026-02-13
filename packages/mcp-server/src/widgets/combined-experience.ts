@@ -64,8 +64,8 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
   .card:hover { box-shadow: var(--shadow-lg); transform: translateY(-3px); border-color: var(--border-hover); }
   .card-img { position: relative; width: 100%; aspect-ratio: 4/3; background: rgba(255,255,255,0.03); overflow: hidden; }
   .img-fallback { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #1e293b, #0f172a); color: var(--primary); font-size: 42px; font-weight: 700; letter-spacing: 1px; }
-  .card-img img, .detail-hero img { width: 100%; height: 100%; object-fit: cover; position: relative; z-index: 1; transition: transform 0.3s; display: none; }
-  .card:hover .card-img img { transform: scale(1.05); }
+  .card-img, .detail-hero { background-size: cover; background-position: center; background-repeat: no-repeat; }
+  .img-loaded .img-fallback { display: none; }
   .badge { position: absolute; top: 8px; left: 8px; padding: 4px 8px; border-radius: 6px; font-size: 10px; font-weight: 700; background: var(--primary); color: white; letter-spacing: 0.3px; }
   .rating-badge { position: absolute; top: 8px; right: 8px; display: flex; align-items: center; gap: 3px; padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; background: rgba(0,0,0,0.5); color: white; backdrop-filter: blur(4px); }
   .star { color: var(--yellow); }
@@ -101,7 +101,7 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
   .back-link:hover { text-decoration: underline; }
   .back-link svg { width: 14px; height: 14px; }
   .detail-hero { width: 100%; height: 200px; border-radius: var(--radius); overflow: hidden; position: relative; background: rgba(255,255,255,0.03); margin-bottom: 16px; }
-  .detail-hero img { width: 100%; height: 100%; object-fit: cover; }
+  .detail-hero { background-size: cover; background-position: center; }
   .detail-hero .overlay { position: absolute; bottom: 0; left: 0; right: 0; padding: 16px; background: linear-gradient(transparent, rgba(0,0,0,0.75)); color: white; }
   .detail-hero .overlay h2 { font-size: 18px; font-weight: 700; line-height: 1.3; }
   .detail-meta { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 16px; font-size: 13px; color: var(--text-secondary); }
@@ -133,7 +133,7 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
   .copy-input-row { display: flex; gap: 6px; align-items: center; margin-top: 8px; width: 100%; }
   .copy-input-row input { flex: 1; padding: 8px 10px; font-size: 12px; font-weight: 600; color: var(--primary); background: var(--surface); border: 1px solid var(--primary); border-radius: 6px; outline: none; }
   .copy-hint { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
-  .detail-hero .img-fallback { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #1e293b, #0f172a); color: var(--primary); font-size: 56px; font-weight: 700; z-index: 0; }
+  .detail-hero .img-fallback { font-size: 56px; }
 
   /* === DIVIDER === */
   .section-divider { height: 1px; background: linear-gradient(90deg, transparent, var(--border), transparent); margin: 0 16px; }
@@ -274,6 +274,26 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
     else if (data.experiences) { setTimeout(function(){ var cs = document.getElementById('carouselSection'); if (cs) cs.scrollIntoView({behavior:'smooth'}); }, 50); }
   }
 
+  function loadImages() {
+    state.experiences.forEach(function(exp) {
+      if (!exp.imageUrl) return;
+      var img = new Image();
+      img.onload = function() {
+        var card = root.querySelector('.card[data-id="' + exp.id + '"] .card-img');
+        if (card) { card.style.backgroundImage = 'url(' + exp.imageUrl + ')'; card.classList.add('img-loaded'); }
+      };
+      img.src = exp.imageUrl;
+    });
+    if (state.detail && state.detail.imageUrl) {
+      var img = new Image();
+      img.onload = function() {
+        var hero = root.querySelector('.detail-hero');
+        if (hero) { hero.style.backgroundImage = 'url(' + state.detail.imageUrl + ')'; hero.classList.add('img-loaded'); }
+      };
+      img.src = state.detail.imageUrl;
+    }
+  }
+
   function render() {
     var html = '';
 
@@ -297,6 +317,7 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
 
     root.innerHTML = html;
     updateCarouselScroll();
+    loadImages();
   }
 
   function renderPlanner() {
@@ -330,7 +351,6 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
     state.experiences.forEach(function(exp){
       h += '<div class="card" data-action="card-click" data-id="' + esc(exp.id) + '" data-name="' + esc(exp.name) + '"><div class="card-img">';
       h += '<div class="img-fallback">' + esc(exp.name || '').charAt(0).toUpperCase() + '</div>';
-      if (exp.imageUrl) h += '<img src="' + esc(exp.imageUrl) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onload="this.style.display=\\'block\\'">';
       if (exp.isBestSeller) h += '<div class="badge">Best Seller</div>';
       if (exp.rating) h += '<div class="rating-badge"><span class="star">\\u2605</span>' + parseFloat(exp.rating).toFixed(1) + '</div>';
       h += '</div><div class="card-body"><div class="card-title">' + esc(exp.name) + '</div>';
@@ -355,7 +375,6 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
     var h = '<div class="back-link" data-action="back-to-results"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>Back to results</div>';
     h += '<div class="detail-hero">';
     h += '<div class="img-fallback">' + esc(exp.name || '').charAt(0).toUpperCase() + '</div>';
-    if (exp.imageUrl) h += '<img src="' + esc(exp.imageUrl) + '" alt="" referrerpolicy="no-referrer" onload="this.style.display=\\'block\\'">';
     h += '<div class="overlay"><h2>' + esc(exp.name) + '</h2></div></div>';
     h += '<div class="detail-meta">';
     if (exp.location) h += '<span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>' + esc(exp.location) + '</span>';
