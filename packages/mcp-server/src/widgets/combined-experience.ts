@@ -140,7 +140,7 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
 </head>
 <body>
 <div id="root"></div>
-<div class="loading-overlay" id="loader"><div class="spinner"></div><div class="loading-text">Searching experiences...</div></div>
+<div class="loading-overlay active" id="loader"><div class="spinner"></div><div class="loading-text">Loading experiences...</div></div>
 <script>
 (function() {
   var root = document.getElementById('root');
@@ -563,8 +563,28 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
     render();
   });
 
-  // Initial render
-  render();
+  // Hide root until first data arrives — prevents empty planner flash
+  var dataReceived = false;
+  root.style.display = 'none';
+
+  var origHandleData = handleData;
+  handleData = function(data) {
+    if (!dataReceived && data) {
+      dataReceived = true;
+      root.style.display = '';
+    }
+    origHandleData(data);
+  };
+
+  // Safety timeout: if no data within 8s, show the planner anyway
+  setTimeout(function() {
+    if (!dataReceived) {
+      dataReceived = true;
+      root.style.display = '';
+      hideLoading();
+      render();
+    }
+  }, 8000);
 })();
 </script>
 </body>
