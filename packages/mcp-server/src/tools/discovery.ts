@@ -183,6 +183,23 @@ function productToDetailStructured(p: Product) {
   };
 }
 
+const WIDGET_RESOURCE_DOMAINS = [
+  'https://holibob.com',
+  'https://www.holibob.tech',
+  'https://images.holibob.tech',
+  'https://images.unsplash.com',
+  'https://hblb.s3.eu-west-1.amazonaws.com',
+];
+
+const WIDGET_META = {
+  ui: { resourceUri: 'ui://holibob/combined-experience.html' },
+  // Legacy format for published mode CSP enforcement
+  'openai/widgetCSP': {
+    connect_domains: [] as string[],
+    resource_domains: WIDGET_RESOURCE_DOMAINS,
+  },
+};
+
 export function registerDiscoveryTools(server: McpServer, client: HolibobClient): void {
   registerAppTool(
     server,
@@ -197,7 +214,7 @@ export function registerDiscoveryTools(server: McpServer, client: HolibobClient)
         travelers: z.string().optional().describe('Number of travelers (e.g., "2 adults, 1 child")'),
         searchTerm: z.string().optional().describe('Activity search term (e.g., "kayaking", "food tour", "museum")'),
       },
-      _meta: { ui: { resourceUri: 'ui://holibob/combined-experience.html' } },
+      _meta: WIDGET_META,
     },
     async ({ destination, startDate, endDate, travelers, searchTerm }) => {
       let adults = 2;
@@ -263,7 +280,7 @@ export function registerDiscoveryTools(server: McpServer, client: HolibobClient)
       inputSchema: {
         experienceId: z.string().describe('The experience ID from search results'),
       },
-      _meta: { ui: { resourceUri: 'ui://holibob/combined-experience.html' } },
+      _meta: WIDGET_META,
     },
     async ({ experienceId }) => {
       const product = await client.getProduct(experienceId);
@@ -340,7 +357,7 @@ export function registerDiscoveryTools(server: McpServer, client: HolibobClient)
         searchTerm: z.string().optional().describe('Activity search term from original search'),
         seenExperienceIds: z.array(z.string()).describe('IDs of experiences already displayed'),
       },
-      _meta: { ui: { resourceUri: 'ui://holibob/combined-experience.html' } },
+      _meta: WIDGET_META,
     },
     async ({ destination, startDate, endDate, searchTerm, seenExperienceIds }) => {
       const result = await client.discoverProducts(
@@ -387,7 +404,7 @@ export function registerDiscoveryTools(server: McpServer, client: HolibobClient)
         knownWho: z.string().optional().describe('ALWAYS set this if user mentions group type. Map to: "Solo Traveller", "Couple", "Family with Kids", or "Group of Friends"'),
         knownWhat: z.string().optional().describe('ALWAYS set this if user mentions activity type (e.g., "Walking Tours", "Food & Drink", "Museums")'),
       },
-      _meta: { ui: { resourceUri: 'ui://holibob/combined-experience.html' } },
+      _meta: WIDGET_META,
     },
     async ({ knownDestination, knownWhen, knownWho, knownWhat }) => {
       let suggestions: {
