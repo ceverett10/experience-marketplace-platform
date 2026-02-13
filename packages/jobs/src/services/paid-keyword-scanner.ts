@@ -22,6 +22,29 @@ import { refreshTokenIfNeeded } from './social/token-refresh';
 
 type ScanMode = 'gsc' | 'expansion' | 'discovery' | 'pinterest' | 'meta';
 
+/**
+ * Words that indicate zero purchase intent for paid experiences.
+ * Keywords containing these terms are excluded from PAID_CANDIDATE consideration.
+ */
+const LOW_INTENT_TERMS = [
+  'free',
+  'gratis',
+  'no cost',
+  'complimentary',
+  'freebie',
+  'for nothing',
+];
+
+/** Returns true if the keyword should be rejected due to low intent terms. */
+function isLowIntentKeyword(keyword: string): boolean {
+  const kw = keyword.toLowerCase();
+  return LOW_INTENT_TERMS.some((term) => {
+    // Match as whole word to avoid false positives like "freestyle"
+    const regex = new RegExp(`\\b${term}\\b`, 'i');
+    return regex.test(kw);
+  });
+}
+
 interface ScanConfig {
   siteId?: string;
   maxCpc: number;
@@ -176,6 +199,7 @@ async function mineGSCKeywords(
   // Filter to poorly ranking keywords (position > 15) and not already in DB
   const candidates = gscKeywords.filter((kw) => {
     if (!kw.query) return false;
+    if (isLowIntentKeyword(kw.query)) return false;
     const avgPosition = kw._avg.position ?? 0;
     if (avgPosition <= 15) return false; // Already ranking well — skip
     const key = `${kw.query.toLowerCase()}|`;
@@ -204,6 +228,7 @@ async function mineGSCKeywords(
       for (const metric of metrics) {
         if (metric.cpc <= 0 || metric.cpc > config.maxCpc) continue;
         if (metric.searchVolume < config.minVolume) continue;
+        if (isLowIntentKeyword(metric.keyword)) continue;
 
         const key = `${metric.keyword.toLowerCase()}|`;
         if (existingKeys.has(key)) continue;
@@ -299,6 +324,7 @@ async function expandExistingKeywords(
       const newKeywords = related.filter((kw) => {
         if (kw.cpc <= 0 || kw.cpc > config.maxCpc) return false;
         if (kw.searchVolume < config.minVolume) return false;
+        if (isLowIntentKeyword(kw.keyword)) return false;
         const key = `${kw.keyword.toLowerCase()}|`;
         return !existingKeys.has(key);
       });
@@ -433,6 +459,7 @@ async function discoverCategoryKeywords(
       const newKeywords = keywords.filter((kw) => {
         if (kw.cpc <= 0 || kw.cpc > config.maxCpc) return false;
         if (kw.searchVolume < config.minVolume) return false;
+        if (isLowIntentKeyword(kw.keyword)) return false;
         const key = `${kw.keyword.toLowerCase()}|`;
         return !existingKeys.has(key);
       });
@@ -572,7 +599,7 @@ async function scanPinterestCpc(
 
         // Store as new opportunity if it's a novel keyword
         const key = `${metric.keyword.toLowerCase()}|`;
-        if (!existingKeys.has(key) && metric.bidSuggested <= config.maxCpc) {
+        if (!existingKeys.has(key) && metric.bidSuggested <= config.maxCpc && !isLowIntentKeyword(metric.keyword)) {
           const score = calculatePaidScore(metric.monthlySearches, metric.bidSuggested, 50);
           await upsertOpportunity({
             keyword: metric.keyword,
@@ -718,6 +745,7 @@ async function scanMetaAudiences(
 
       // Create new opportunities for interest-based keywords not already in DB
       for (const interest of topInterests) {
+        if (isLowIntentKeyword(interest.name)) continue;
         const key = `${interest.name.toLowerCase()}|`;
         if (existingKeys.has(key)) continue;
 
@@ -827,6 +855,9 @@ async function upsertOpportunity(data: {
   location?: string;
   siteId?: string;
 }): Promise<void> {
+  // Final safety net: reject low-intent keywords
+  if (isLowIntentKeyword(data.keyword)) return;
+
   try {
     await prisma.sEOOpportunity.upsert({
       where: {

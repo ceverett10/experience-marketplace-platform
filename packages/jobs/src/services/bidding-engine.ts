@@ -226,6 +226,41 @@ export async function calculateAllSiteProfitability(): Promise<SiteProfitability
   return profiles;
 }
 
+// --- Low-Intent Keyword Cleanup -----------------------------------------------
+
+/**
+ * Words indicating zero purchase intent — keywords with these terms are
+ * archived out of the PAID_CANDIDATE pool.
+ */
+const LOW_INTENT_TERMS = ['free', 'gratis', 'no cost', 'complimentary', 'freebie', 'for nothing'];
+
+/**
+ * Archive PAID_CANDIDATE keywords containing low-intent terms like "free".
+ * These have no conversion potential for a paid experiences marketplace.
+ */
+export async function archiveLowIntentKeywords(): Promise<number> {
+  // Build OR conditions for each term using word-boundary matching
+  const conditions = LOW_INTENT_TERMS.flatMap((term) => [
+    { keyword: { contains: ` ${term} `, mode: 'insensitive' as const } },
+    { keyword: { startsWith: `${term} `, mode: 'insensitive' as const } },
+    { keyword: { endsWith: ` ${term}`, mode: 'insensitive' as const } },
+  ]);
+
+  const result = await prisma.sEOOpportunity.updateMany({
+    where: {
+      status: 'PAID_CANDIDATE' as any,
+      OR: conditions as any,
+    },
+    data: { status: 'ARCHIVED' as any },
+  });
+
+  if (result.count > 0) {
+    console.log(`[BiddingEngine] Archived ${result.count} low-intent PAID_CANDIDATE keywords (containing "free" etc.)`);
+  }
+
+  return result.count;
+}
+
 // --- Keyword-to-Site Assignment -----------------------------------------------
 
 /**
@@ -527,7 +562,10 @@ export async function runBiddingEngine(options?: {
 
   console.log(`[BiddingEngine] Starting in ${mode} mode (budget cap: £${maxBudget}/day)`);
 
-  // Step 0: Assign unassigned PAID_CANDIDATE keywords to sites
+  // Step 0a: Archive low-intent keywords (e.g. "free")
+  await archiveLowIntentKeywords();
+
+  // Step 0b: Assign unassigned PAID_CANDIDATE keywords to sites
   const assignedCount = await assignKeywordsToSites();
   if (assignedCount > 0) {
     console.log(`[BiddingEngine] Assigned ${assignedCount} keywords to sites`);
