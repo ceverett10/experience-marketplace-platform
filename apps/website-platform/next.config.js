@@ -81,10 +81,7 @@ const nextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: [
-              "frame-src 'self' https://*.tickitto.tech https://*.tickitto.com",
-              "connect-src 'self' https://*.tickitto.tech https://*.holibob.tech https://*.holibob.com",
-            ].join('; '),
+            value: "frame-src 'self' https://*.tickitto.tech https://*.tickitto.com",
           },
         ],
       },

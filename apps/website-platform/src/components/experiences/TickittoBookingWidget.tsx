@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useBrand } from '@/lib/site-context';
 import type { Experience } from '@/lib/holibob';
 
@@ -17,6 +17,53 @@ export function TickittoBookingWidget({ eventId, experience }: TickittoBookingWi
   const [error, setError] = useState<string | null>(null);
 
   const primaryColor = brand?.primaryColor ?? '#0d9488';
+
+  // Listen for postMessage events from the Tickitto widget
+  useEffect(() => {
+    function handleMessage(event: MessageEvent) {
+      // Only accept messages from Tickitto domains
+      if (!event.origin.includes('tickitto.tech') && !event.origin.includes('tickitto.com')) {
+        return;
+      }
+
+      const data = event.data;
+      if (typeof data === 'object' && data !== null) {
+        // Handle widget events (close, complete, resize, etc.)
+        if (data.type === 'tickitto:close' || data.action === 'close') {
+          setIsWidgetOpen(false);
+        }
+        if (data.type === 'tickitto:complete' || data.action === 'complete') {
+          setIsWidgetOpen(false);
+        }
+      }
+    }
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (isWidgetOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isWidgetOpen]);
+
+  // Close on Escape key
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape' && isWidgetOpen) {
+        setIsWidgetOpen(false);
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isWidgetOpen]);
 
   async function loadWidget() {
     if (widgetUrl) {
@@ -153,16 +200,23 @@ export function TickittoBookingWidget({ eventId, experience }: TickittoBookingWi
         </div>
       </div>
 
-      {/* Tickitto Widget Modal */}
+      {/* Tickitto Widget Modal - Full screen on mobile, large modal on desktop */}
       {isWidgetOpen && widgetUrl && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="relative h-[90vh] w-full max-w-2xl rounded-2xl bg-white shadow-2xl">
-            {/* Close button */}
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsWidgetOpen(false);
+          }}
+        >
+          {/* Mobile: full screen. Desktop: large centered modal */}
+          <div className="relative h-full w-full sm:h-[92vh] sm:max-h-[900px] sm:w-[95vw] sm:max-w-4xl sm:rounded-2xl sm:shadow-2xl">
+            {/* Close button - always visible */}
             <button
               onClick={() => setIsWidgetOpen(false)}
-              className="absolute -right-3 -top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-lg hover:bg-gray-100"
+              className="absolute right-2 top-2 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 shadow-lg backdrop-blur-sm hover:bg-white sm:right-3 sm:top-3"
+              aria-label="Close ticket selection"
             >
-              <svg className="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+              <svg className="h-6 w-6 text-gray-700" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
@@ -170,9 +224,10 @@ export function TickittoBookingWidget({ eventId, experience }: TickittoBookingWi
             {/* Widget iframe */}
             <iframe
               src={widgetUrl}
-              className="h-full w-full rounded-2xl"
+              className="h-full w-full bg-white sm:rounded-2xl"
               title="Select tickets"
-              allow="payment"
+              allow="payment; clipboard-write"
+              referrerPolicy="no-referrer-when-downgrade"
             />
           </div>
         </div>
