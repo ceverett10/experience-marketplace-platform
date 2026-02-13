@@ -55,11 +55,27 @@ interface SiteKeyword {
   estimatedMonthlyClicks: number;
   estimatedMonthlyCost: number;
   maxBid: number | null;
+  aiScore: number | null;
+  aiDecision: string | null;
+  aiReasoning: string | null;
 }
 
 interface SiteKeywords {
   siteName: string;
   keywords: SiteKeyword[];
+}
+
+interface MicrositeSummary {
+  id: string;
+  siteName: string;
+  fullDomain: string;
+  entityType: string;
+  keyword: string | null;
+  destination: string | null;
+  niche: string | null;
+  productCount: number;
+  sessions: number;
+  pageviews: number;
 }
 
 interface BiddingData {
@@ -88,7 +104,11 @@ interface BiddingData {
     total: number;
     assigned: number;
     unassigned: number;
+    aiEvaluated: number;
+    aiBid: number;
+    aiReview: number;
   };
+  microsites?: MicrositeSummary[];
 }
 
 export default function BiddingDashboardPage() {
@@ -125,7 +145,6 @@ export default function BiddingDashboardPage() {
       const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
 
       if (action === 'run_engine') {
-        // Trigger via schedules endpoint
         const response = await fetch(`${basePath}/api/operations/schedules`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -134,7 +153,6 @@ export default function BiddingDashboardPage() {
         const result = await response.json();
         setActionMessage(result.success ? `Engine triggered (Job: ${result.jobId})` : result.error);
       } else {
-        // Use bidding API for other actions
         const response = await fetch(`${basePath}/api/analytics/bidding`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -144,7 +162,6 @@ export default function BiddingDashboardPage() {
         setActionMessage(result.message || result.error);
       }
 
-      // Refresh data after 2s
       setTimeout(fetchData, 2000);
     } catch (err) {
       setActionMessage(err instanceof Error ? err.message : 'Action failed');
@@ -163,6 +180,12 @@ export default function BiddingDashboardPage() {
     COMMERCIAL: 'bg-blue-100 text-blue-800',
     NAVIGATIONAL: 'bg-purple-100 text-purple-800',
     INFORMATIONAL: 'bg-slate-100 text-slate-800',
+  };
+
+  const aiDecisionColors: Record<string, string> = {
+    BID: 'bg-green-100 text-green-800',
+    REVIEW: 'bg-amber-100 text-amber-800',
+    SKIP: 'bg-red-100 text-red-800',
   };
 
   const toggleSite = (siteId: string) => {
@@ -187,7 +210,7 @@ export default function BiddingDashboardPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Bidding Engine Dashboard</h1>
           <p className="text-slate-500 mt-1">
-            Automated paid traffic acquisition — profitability-driven bidding
+            Automated paid traffic acquisition — profitability-driven bidding with AI keyword evaluation
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -357,7 +380,7 @@ export default function BiddingDashboardPage() {
                             &pound;{p.avgOrderValue.toFixed(2)}
                           </td>
                           <td className="px-4 py-2 text-right font-mono">
-                            {(p.avgCommissionRate * 100).toFixed(1)}%
+                            {p.avgCommissionRate.toFixed(1)}%
                           </td>
                           <td className="px-4 py-2 text-right font-mono">
                             {(p.conversionRate * 100).toFixed(2)}%
@@ -402,7 +425,7 @@ export default function BiddingDashboardPage() {
                   {data.keywordSummary && (
                     <div className="flex items-center gap-3 text-xs">
                       <span className="text-slate-500">
-                        {data.keywordSummary.total} total keywords
+                        {data.keywordSummary.total} total
                       </span>
                       <span className="text-green-700">
                         {data.keywordSummary.assigned} assigned
@@ -412,14 +435,28 @@ export default function BiddingDashboardPage() {
                           {data.keywordSummary.unassigned} unassigned
                         </span>
                       )}
+                      {data.keywordSummary.aiEvaluated > 0 && (
+                        <>
+                          <span className="text-slate-400">|</span>
+                          <span className="text-slate-500">
+                            AI: {data.keywordSummary.aiEvaluated} evaluated
+                          </span>
+                          <span className="px-2 py-0.5 bg-green-100 text-green-800 rounded">
+                            {data.keywordSummary.aiBid} bid
+                          </span>
+                          <span className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded">
+                            {data.keywordSummary.aiReview} review
+                          </span>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
                 <p className="text-xs text-slate-500 mb-4">
-                  PAID_CANDIDATE keywords ranked by priority score. Click a site to expand.
+                  PAID_CANDIDATE keywords ranked by AI quality score, then priority score. Click a site to expand.
                   {data.keywordSummary && data.keywordSummary.unassigned > 0 && (
                     <span className="text-amber-700 ml-1">
-                      Run the engine to auto-assign unassigned keywords to sites.
+                      Run the engine to auto-assign and AI-evaluate keywords.
                     </span>
                   )}
                 </p>
@@ -434,6 +471,9 @@ export default function BiddingDashboardPage() {
                         ? site.keywords.reduce((s, k) => s + k.cpc, 0) / site.keywords.length
                         : 0;
                       const profile = data.profiles.find((p) => p.siteId === siteId);
+                      const bidKws = site.keywords.filter((k) => k.aiDecision === 'BID').length;
+                      const reviewKws = site.keywords.filter((k) => k.aiDecision === 'REVIEW').length;
+                      const unevaluated = site.keywords.filter((k) => k.aiScore === null).length;
 
                       return (
                         <div key={siteId} className="border border-slate-200 rounded-lg overflow-hidden">
@@ -441,19 +481,31 @@ export default function BiddingDashboardPage() {
                             onClick={() => toggleSite(siteId)}
                             className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors text-left"
                           >
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-3 flex-wrap">
                               <span className="text-sm font-medium text-slate-900">{site.siteName}</span>
                               <span className="text-xs px-2 py-0.5 bg-sky-100 text-sky-800 rounded">
                                 {site.keywords.length} keywords
                               </span>
+                              {bidKws > 0 && (
+                                <span className="text-xs px-2 py-0.5 bg-green-100 text-green-800 rounded">
+                                  {bidKws} bid
+                                </span>
+                              )}
+                              {reviewKws > 0 && (
+                                <span className="text-xs px-2 py-0.5 bg-amber-100 text-amber-800 rounded">
+                                  {reviewKws} review
+                                </span>
+                              )}
+                              {unevaluated > 0 && (
+                                <span className="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 rounded">
+                                  {unevaluated} pending AI
+                                </span>
+                              )}
                               <span className="text-xs text-slate-500">
                                 {totalVolume.toLocaleString()} vol/mo
                               </span>
                               <span className="text-xs text-slate-500">
-                                avg CPC ${avgCpc.toFixed(3)}
-                              </span>
-                              <span className="text-xs text-slate-500">
-                                est. ${totalEstCost.toFixed(2)}/mo
+                                est. &pound;{totalEstCost.toFixed(2)}/mo
                               </span>
                               {profile && (
                                 <span className={`text-xs px-2 py-0.5 rounded ${
@@ -473,26 +525,50 @@ export default function BiddingDashboardPage() {
                                 <thead>
                                   <tr className="border-b border-slate-200 bg-slate-50/50">
                                     <th className="text-left px-4 py-2 font-medium text-slate-600">Keyword</th>
+                                    <th className="text-center px-4 py-2 font-medium text-slate-600">AI</th>
                                     <th className="text-right px-4 py-2 font-medium text-slate-600">CPC</th>
                                     <th className="text-right px-4 py-2 font-medium text-slate-600">Volume</th>
                                     <th className="text-right px-4 py-2 font-medium text-slate-600">Difficulty</th>
                                     <th className="text-right px-4 py-2 font-medium text-slate-600">Score</th>
                                     <th className="text-center px-4 py-2 font-medium text-slate-600">Intent</th>
-                                    <th className="text-right px-4 py-2 font-medium text-slate-600">Est. Clicks</th>
                                     <th className="text-right px-4 py-2 font-medium text-slate-600">Est. Cost</th>
                                     <th className="text-right px-4 py-2 font-medium text-slate-600">Max Bid</th>
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  {site.keywords.map((kw) => (
-                                    <tr key={kw.id} className="border-b border-slate-100 hover:bg-slate-50">
+                                  {site.keywords
+                                    .sort((a, b) => {
+                                      // Sort: BID first, then REVIEW, then unevaluated, by score desc
+                                      const orderA = a.aiDecision === 'BID' ? 0 : a.aiDecision === 'REVIEW' ? 1 : 2;
+                                      const orderB = b.aiDecision === 'BID' ? 0 : b.aiDecision === 'REVIEW' ? 1 : 2;
+                                      if (orderA !== orderB) return orderA - orderB;
+                                      return (b.aiScore || 0) - (a.aiScore || 0);
+                                    })
+                                    .map((kw) => (
+                                    <tr key={kw.id} className={`border-b border-slate-100 hover:bg-slate-50 ${
+                                      kw.aiDecision === 'BID' ? 'bg-green-50/30' : ''
+                                    }`}>
                                       <td className="px-4 py-2">
                                         <div className="font-medium text-slate-900">{kw.keyword}</div>
                                         {kw.location && (
                                           <div className="text-xs text-slate-500">{kw.location}</div>
                                         )}
-                                        {kw.niche && (
-                                          <div className="text-xs text-slate-400">{kw.niche}</div>
+                                        {kw.aiReasoning && (
+                                          <div className="text-xs text-slate-400 italic mt-0.5">{kw.aiReasoning}</div>
+                                        )}
+                                      </td>
+                                      <td className="px-4 py-2 text-center">
+                                        {kw.aiDecision ? (
+                                          <div className="flex flex-col items-center gap-0.5">
+                                            <span className={`text-xs px-2 py-0.5 rounded font-medium ${
+                                              aiDecisionColors[kw.aiDecision] || 'bg-slate-100 text-slate-800'
+                                            }`}>
+                                              {kw.aiDecision}
+                                            </span>
+                                            <span className="text-xs text-slate-400">{kw.aiScore}</span>
+                                          </div>
+                                        ) : (
+                                          <span className="text-xs text-slate-300">--</span>
                                         )}
                                       </td>
                                       <td className="px-4 py-2 text-right">
@@ -501,7 +577,7 @@ export default function BiddingDashboardPage() {
                                             ? 'text-green-700'
                                             : 'text-red-700'
                                         }`}>
-                                          ${kw.cpc.toFixed(3)}
+                                          &pound;{kw.cpc.toFixed(3)}
                                         </span>
                                       </td>
                                       <td className="px-4 py-2 text-right font-mono">
@@ -524,10 +600,7 @@ export default function BiddingDashboardPage() {
                                         </span>
                                       </td>
                                       <td className="px-4 py-2 text-right font-mono text-slate-600">
-                                        {kw.estimatedMonthlyClicks.toLocaleString()}
-                                      </td>
-                                      <td className="px-4 py-2 text-right font-mono text-slate-600">
-                                        ${kw.estimatedMonthlyCost.toFixed(2)}
+                                        &pound;{kw.estimatedMonthlyCost.toFixed(2)}
                                       </td>
                                       <td className="px-4 py-2 text-right">
                                         {kw.maxBid !== null ? (
@@ -547,6 +620,67 @@ export default function BiddingDashboardPage() {
                         </div>
                       );
                     })}
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {/* Microsites */}
+          {data.microsites && data.microsites.length > 0 && (
+            <Card>
+              <div className="p-4">
+                <h3 className="text-sm font-semibold text-slate-900 mb-1">
+                  Microsites ({data.microsites.length})
+                </h3>
+                <p className="text-xs text-slate-500 mb-3">
+                  Active microsites on experiencess.com — potential landing pages for paid campaigns.
+                </p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-200 bg-slate-50">
+                        <th className="text-left px-4 py-2 font-medium text-slate-600">Microsite</th>
+                        <th className="text-left px-4 py-2 font-medium text-slate-600">Keyword / Niche</th>
+                        <th className="text-center px-4 py-2 font-medium text-slate-600">Type</th>
+                        <th className="text-right px-4 py-2 font-medium text-slate-600">Products</th>
+                        <th className="text-right px-4 py-2 font-medium text-slate-600">Sessions</th>
+                        <th className="text-right px-4 py-2 font-medium text-slate-600">Pageviews</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.microsites.map((ms) => (
+                        <tr key={ms.id} className="border-b border-slate-100 hover:bg-slate-50">
+                          <td className="px-4 py-2">
+                            <div className="font-medium text-slate-900">{ms.siteName}</div>
+                            <div className="text-xs text-slate-400">{ms.fullDomain}</div>
+                          </td>
+                          <td className="px-4 py-2">
+                            {ms.keyword && (
+                              <div className="text-sm text-slate-700">{ms.keyword}</div>
+                            )}
+                            {ms.destination && (
+                              <div className="text-xs text-slate-500">{ms.destination}</div>
+                            )}
+                            {ms.niche && (
+                              <div className="text-xs text-slate-400">{ms.niche}</div>
+                            )}
+                          </td>
+                          <td className="px-4 py-2 text-center">
+                            <span className={`text-xs px-2 py-0.5 rounded font-medium ${
+                              ms.entityType === 'SUPPLIER' ? 'bg-blue-100 text-blue-800' :
+                              ms.entityType === 'PRODUCT' ? 'bg-purple-100 text-purple-800' :
+                              'bg-sky-100 text-sky-800'
+                            }`}>
+                              {ms.entityType}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2 text-right font-mono">{ms.productCount}</td>
+                          <td className="px-4 py-2 text-right font-mono">{ms.sessions}</td>
+                          <td className="px-4 py-2 text-right font-mono">{ms.pageviews}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </Card>
@@ -683,7 +817,7 @@ export default function BiddingDashboardPage() {
             <Card>
               <div className="p-6">
                 <h3 className="text-sm font-semibold text-slate-900 mb-4">How the Bidding Engine Works</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 text-sm">
                   <div>
                     <div className="font-medium text-slate-900 mb-1">1. Profitability Analysis</div>
                     <p className="text-slate-500">
@@ -692,14 +826,21 @@ export default function BiddingDashboardPage() {
                     </p>
                   </div>
                   <div>
-                    <div className="font-medium text-slate-900 mb-1">2. Opportunity Scoring</div>
+                    <div className="font-medium text-slate-900 mb-1">2. AI Quality Evaluation</div>
                     <p className="text-slate-500">
-                      Scans PAID_CANDIDATE keywords, matches to sites, and scores by expected profit
-                      (search volume &times; CTR &times; profit per click).
+                      Claude Haiku evaluates each keyword for relevance, commercial intent, competition
+                      viability, and landing page fit. Keywords scoring below 30 are auto-archived.
                     </p>
                   </div>
                   <div>
-                    <div className="font-medium text-slate-900 mb-1">3. Campaign Management</div>
+                    <div className="font-medium text-slate-900 mb-1">3. Opportunity Scoring</div>
+                    <p className="text-slate-500">
+                      Scans PAID_CANDIDATE keywords, matches to sites &amp; microsites, and scores by
+                      expected profit (volume &times; CTR &times; profit per click).
+                    </p>
+                  </div>
+                  <div>
+                    <div className="font-medium text-slate-900 mb-1">4. Campaign Management</div>
                     <p className="text-slate-500">
                       Creates campaigns on Meta and Google Ads with UTM tracking.
                       Daily sync pulls performance data, optimizer scales winners and pauses losers.

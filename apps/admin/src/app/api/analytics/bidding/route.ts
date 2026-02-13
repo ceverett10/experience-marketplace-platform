@@ -3,7 +3,8 @@ import { prisma } from '@/lib/prisma';
 
 /**
  * GET /api/analytics/bidding
- * Returns bidding engine analytics: portfolio ROAS, campaign performance, site profitability.
+ * Returns bidding engine analytics: portfolio ROAS, campaign performance, site profitability,
+ * keyword opportunities with AI quality scores, and microsite data.
  *
  * Query params:
  *   siteId - Filter to a specific site
@@ -134,6 +135,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         location: true,
         niche: true,
         siteId: true,
+        sourceData: true,
         site: { select: { name: true } },
       },
       orderBy: { priorityScore: 'desc' },
@@ -156,8 +158,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         estimatedMonthlyClicks: number;
         estimatedMonthlyCost: number;
         maxBid: number | null;
+        aiScore: number | null;
+        aiDecision: string | null;
+        aiReasoning: string | null;
       }>;
     }> = {};
+
+    // Count AI evaluation stats
+    let aiEvaluatedCount = 0;
+    let aiBidCount = 0;
+    let aiReviewCount = 0;
 
     for (const kw of keywords) {
       const sid = kw.siteId || 'unassigned';
@@ -171,6 +181,24 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       const estClicks = Math.round((kw.searchVolume / 30) * 0.04 * 30); // 4% CTR
       const profile = profiles.find((p) => p.siteId === sid);
       const maxProfitCpc = profile ? Number(profile.maxProfitableCpc) : null;
+
+      // Extract AI evaluation from sourceData
+      const sd = kw.sourceData as { aiEvaluation?: {
+        score?: number;
+        decision?: string;
+        reasoning?: string;
+      } } | null;
+      const aiEval = sd?.aiEvaluation;
+      const aiScore = aiEval?.score ?? null;
+      const aiDecision = aiEval?.decision ?? null;
+      const aiReasoning = aiEval?.reasoning ?? null;
+
+      if (aiScore !== null) {
+        aiEvaluatedCount++;
+        if (aiDecision === 'BID') aiBidCount++;
+        else if (aiDecision === 'REVIEW') aiReviewCount++;
+      }
+
       keywordsBySite[sid].keywords.push({
         id: kw.id,
         keyword: kw.keyword,
@@ -184,8 +212,51 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         estimatedMonthlyClicks: estClicks,
         estimatedMonthlyCost: Math.round(estClicks * cpc * 100) / 100,
         maxBid: maxProfitCpc ? Math.min(maxProfitCpc, cpc * 1.2) : null,
+        aiScore,
+        aiDecision,
+        aiReasoning,
       });
     }
+
+    // --- Active Microsites ---
+    const microsites = await prisma.micrositeConfig.findMany({
+      where: { status: 'ACTIVE' },
+      select: {
+        id: true,
+        siteName: true,
+        fullDomain: true,
+        entityType: true,
+        discoveryConfig: true,
+        homepageConfig: true,
+        cachedProductCount: true,
+        analyticsSnapshots: {
+          where: { date: { gte: lookback } },
+          orderBy: { date: 'desc' },
+          take: 1,
+        },
+      },
+      orderBy: { siteName: 'asc' },
+    });
+
+    const micrositeSummaries = microsites.map((ms) => {
+      const disco = ms.discoveryConfig as {
+        keyword?: string; destination?: string; niche?: string;
+      } | null;
+      const latestSnapshot = ms.analyticsSnapshots[0];
+
+      return {
+        id: ms.id,
+        siteName: ms.siteName,
+        fullDomain: ms.fullDomain,
+        entityType: ms.entityType,
+        keyword: disco?.keyword || null,
+        destination: disco?.destination || null,
+        niche: disco?.niche || null,
+        productCount: ms.cachedProductCount,
+        sessions: latestSnapshot?.sessions || 0,
+        pageviews: latestSnapshot?.pageviews || 0,
+      };
+    });
 
     // --- Budget utilization ---
     const activeCampaigns = campaigns.filter((c) => c.status === 'ACTIVE');
@@ -233,7 +304,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         total: totalPaidCandidates,
         assigned: totalPaidCandidates - unassignedCount,
         unassigned: unassignedCount,
+        aiEvaluated: aiEvaluatedCount,
+        aiBid: aiBidCount,
+        aiReview: aiReviewCount,
       },
+      microsites: micrositeSummaries,
     });
   } catch (error) {
     console.error('[API] Error fetching bidding analytics:', error);
