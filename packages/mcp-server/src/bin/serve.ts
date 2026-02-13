@@ -135,15 +135,17 @@ async function startHttp(port: number): Promise<void> {
 
   /**
    * Authenticate a Bearer token — could be an MCP API key (mcp_live_...)
-   * or an OAuth access token (hbmcp_...).
+   * or an encrypted OAuth access token (base64url).
    */
   async function authenticateToken(token: string) {
-    if (token.startsWith('hbmcp_')) {
-      const tokenData = validateAccessToken(token);
-      if (!tokenData) return null;
-      return authenticateApiKey(tokenData.mcpApiKey);
+    // MCP API keys have a known prefix — try direct auth
+    if (token.startsWith('mcp_live_') || token.startsWith('mcp_test_')) {
+      return authenticateApiKey(token);
     }
-    return authenticateApiKey(token);
+    // Otherwise treat as encrypted OAuth access token
+    const tokenData = validateAccessToken(token);
+    if (!tokenData) return null;
+    return authenticateApiKey(tokenData.mcpApiKey);
   }
 
   /**

@@ -1,10 +1,62 @@
-import { randomBytes, createHash, randomUUID } from 'crypto';
+import { randomBytes, createHash, randomUUID, createCipheriv, createDecipheriv } from 'crypto';
 import { PrismaClient } from '@prisma/client';
 import { authenticateApiKey } from './api-key.js';
 
 const prisma = new PrismaClient();
 
-// In-memory stores (single dyno — fine for auth codes and tokens)
+// ── Encrypted stateless token helpers ──
+// Tokens are AES-256-GCM encrypted payloads — no server-side storage needed.
+// Survive dyno restarts because the secret key is in env vars.
+
+function getTokenSecret(): Buffer {
+  const secret = process.env['TOKEN_SECRET'] ?? process.env['HOLIBOB_API_SECRET'];
+  if (!secret) throw new Error('TOKEN_SECRET or HOLIBOB_API_SECRET env var required for token encryption');
+  // Derive a 32-byte key via SHA-256
+  return createHash('sha256').update(secret).digest();
+}
+
+interface TokenPayload {
+  /** 'access' or 'refresh' */
+  typ: string;
+  clientId: string;
+  mcpApiKey: string;
+  scope: string;
+  /** Expiry as unix timestamp (ms) */
+  exp: number;
+}
+
+function encryptToken(payload: TokenPayload): string {
+  const key = getTokenSecret();
+  const iv = randomBytes(12);
+  const cipher = createCipheriv('aes-256-gcm', key, iv);
+  const plaintext = JSON.stringify(payload);
+  const encrypted = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  // Format: base64url(iv + tag + ciphertext)
+  const combined = Buffer.concat([iv, tag, encrypted]);
+  return combined.toString('base64url');
+}
+
+function decryptToken(token: string): TokenPayload | null {
+  try {
+    const key = getTokenSecret();
+    const combined = Buffer.from(token, 'base64url');
+    if (combined.length < 28) return null; // 12 iv + 16 tag minimum
+    const iv = combined.subarray(0, 12);
+    const tag = combined.subarray(12, 28);
+    const encrypted = combined.subarray(28);
+    const decipher = createDecipheriv('aes-256-gcm', key, iv);
+    decipher.setAuthTag(tag);
+    const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
+    const payload = JSON.parse(decrypted.toString('utf8')) as TokenPayload;
+    if (payload.exp < Date.now()) return null; // expired
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+// ── In-memory stores (only for short-lived auth codes and DCR registrations) ──
 interface AuthCode {
   code: string;
   clientId: string;
@@ -15,23 +67,6 @@ interface AuthCode {
   mcpApiKey?: string;
 }
 
-interface AccessToken {
-  token: string;
-  clientId: string;
-  mcpApiKey: string; // The actual MCP API key for partner lookup
-  scope: string;
-  expiresAt: number;
-}
-
-interface RefreshToken {
-  token: string;
-  clientId: string;
-  mcpApiKey: string;
-  scope: string;
-  expiresAt: number;
-}
-
-// ── DCR (Dynamic Client Registration) store ──
 interface DcrClient {
   clientId: string;
   clientName: string;
@@ -40,21 +75,13 @@ interface DcrClient {
 }
 
 const authCodes = new Map<string, AuthCode>();
-const accessTokens = new Map<string, AccessToken>();
-const refreshTokens = new Map<string, RefreshToken>();
 const dcrClients = new Map<string, DcrClient>();
 
-// Clean up expired entries every 5 minutes
+// Clean up expired auth codes every 5 minutes
 setInterval(() => {
   const now = Date.now();
   for (const [code, data] of authCodes) {
     if (data.expiresAt < now) authCodes.delete(code);
-  }
-  for (const [token, data] of accessTokens) {
-    if (data.expiresAt < now) accessTokens.delete(token);
-  }
-  for (const [token, data] of refreshTokens) {
-    if (data.expiresAt < now) refreshTokens.delete(token);
   }
 }, 5 * 60 * 1000);
 
@@ -108,11 +135,8 @@ export function createAuthorizationCode(
 }
 
 /**
- * Exchange an authorization code for an access token.
- * Validates PKCE code_verifier against stored code_challenge.
- */
-/**
- * Issue an access token + refresh token pair.
+ * Issue an access token + refresh token pair as encrypted stateless tokens.
+ * No server-side storage — tokens survive dyno restarts.
  */
 function issueTokenPair(clientId: string, mcpApiKey: string, scope: string): {
   accessToken: string;
@@ -120,29 +144,31 @@ function issueTokenPair(clientId: string, mcpApiKey: string, scope: string): {
   expiresIn: number;
   scope: string;
 } {
-  const accessToken = `hbmcp_${randomBytes(32).toString('hex')}`;
-  const refreshToken = `hbrt_${randomBytes(32).toString('hex')}`;
   const expiresIn = 3600; // 1 hour
 
-  accessTokens.set(accessToken, {
-    token: accessToken,
+  const accessToken = encryptToken({
+    typ: 'access',
     clientId,
     mcpApiKey,
     scope,
-    expiresAt: Date.now() + expiresIn * 1000,
+    exp: Date.now() + expiresIn * 1000,
   });
 
-  refreshTokens.set(refreshToken, {
-    token: refreshToken,
+  const refreshToken = encryptToken({
+    typ: 'refresh',
     clientId,
     mcpApiKey,
     scope,
-    expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000, // 30 days
+    exp: Date.now() + 30 * 24 * 60 * 60 * 1000, // 30 days
   });
 
   return { accessToken, refreshToken, expiresIn, scope };
 }
 
+/**
+ * Exchange an authorization code for an access token.
+ * Validates PKCE code_verifier against stored code_challenge.
+ */
 export function exchangeAuthorizationCode(
   code: string,
   clientId: string,
@@ -178,15 +204,12 @@ export function exchangeAuthorizationCode(
 
 /**
  * Validate an access token and return the MCP API key for partner lookup.
+ * Stateless — decrypts the token, checks expiry, no server storage needed.
  */
 export function validateAccessToken(token: string): { mcpApiKey: string; clientId: string } | null {
-  const data = accessTokens.get(token);
-  if (!data) return null;
-  if (data.expiresAt < Date.now()) {
-    accessTokens.delete(token);
-    return null;
-  }
-  return { mcpApiKey: data.mcpApiKey, clientId: data.clientId };
+  const payload = decryptToken(token);
+  if (!payload || payload.typ !== 'access') return null;
+  return { mcpApiKey: payload.mcpApiKey, clientId: payload.clientId };
 }
 
 /**
@@ -427,9 +450,9 @@ export async function handleToken(body: Record<string, string>): Promise<{
       };
     }
 
-    const stored = refreshTokens.get(incomingRefreshToken);
-    if (!stored || stored.expiresAt < Date.now()) {
-      if (stored) refreshTokens.delete(incomingRefreshToken);
+    // Stateless: decrypt and validate the refresh token
+    const payload = decryptToken(incomingRefreshToken);
+    if (!payload || payload.typ !== 'refresh') {
       return {
         json: { error: 'invalid_grant', error_description: 'Invalid or expired refresh token' },
         statusCode: 400,
@@ -437,16 +460,15 @@ export async function handleToken(body: Record<string, string>): Promise<{
     }
 
     // Verify client_id if provided
-    if (clientId && stored.clientId !== clientId) {
+    if (clientId && payload.clientId !== clientId) {
       return {
         json: { error: 'invalid_grant', error_description: 'client_id mismatch' },
         statusCode: 400,
       };
     }
 
-    // Rotate: consume old refresh token, issue new pair
-    refreshTokens.delete(incomingRefreshToken);
-    const result = issueTokenPair(stored.clientId, stored.mcpApiKey, stored.scope);
+    // Issue new token pair (old refresh token naturally expires)
+    const result = issueTokenPair(payload.clientId, payload.mcpApiKey, payload.scope);
 
     return {
       json: {
