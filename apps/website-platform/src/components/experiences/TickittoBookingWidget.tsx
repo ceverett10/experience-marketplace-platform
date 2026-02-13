@@ -200,36 +200,28 @@ export function TickittoBookingWidget({ eventId, experience }: TickittoBookingWi
         </div>
       </div>
 
-      {/* Tickitto Widget Modal - Full screen on mobile, large modal on desktop */}
+      {/* Tickitto Widget Modal - Full screen overlay */}
       {isWidgetOpen && widgetUrl && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setIsWidgetOpen(false);
-          }}
-        >
-          {/* Mobile: full screen. Desktop: large centered modal */}
-          <div className="relative h-full w-full sm:h-[92vh] sm:max-h-[900px] sm:w-[95vw] sm:max-w-4xl sm:rounded-2xl sm:shadow-2xl">
-            {/* Close button - always visible */}
-            <button
-              onClick={() => setIsWidgetOpen(false)}
-              className="absolute right-2 top-2 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 shadow-lg backdrop-blur-sm hover:bg-white sm:right-3 sm:top-3"
-              aria-label="Close ticket selection"
-            >
-              <svg className="h-6 w-6 text-gray-700" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+        <div className="fixed inset-0 z-50 bg-white">
+          {/* Close button - floating top-right */}
+          <button
+            onClick={() => setIsWidgetOpen(false)}
+            className="absolute right-3 top-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 shadow-md hover:bg-gray-200 transition-colors"
+            aria-label="Close ticket selection"
+          >
+            <svg className="h-6 w-6 text-gray-700" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
 
-            {/* Widget iframe */}
-            <iframe
-              src={widgetUrl}
-              className="h-full w-full bg-white sm:rounded-2xl"
-              title="Select tickets"
-              allow="payment; clipboard-write"
-              referrerPolicy="no-referrer-when-downgrade"
-            />
-          </div>
+          {/* Widget iframe - takes full viewport */}
+          <iframe
+            src={widgetUrl}
+            className="h-full w-full border-0"
+            title="Select tickets"
+            allow="payment; clipboard-write; encrypted-media"
+            referrerPolicy="no-referrer-when-downgrade"
+          />
         </div>
       )}
     </div>
