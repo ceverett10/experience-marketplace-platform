@@ -18,6 +18,7 @@
   "dependencies": {
     "@experience-marketplace/database": "*",
     "@experience-marketplace/holibob-api": "*",
+    "@experience-marketplace/tickitto-api": "*",
     "@experience-marketplace/shared": "*",
     "@experience-marketplace/ui-components": "*",
     "@prisma/client": "^5.22.0",

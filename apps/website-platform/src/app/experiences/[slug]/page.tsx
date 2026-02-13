@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getSiteFromHostname } from '@/lib/tenant';
 import { isMicrosite } from '@/lib/microsite-experiences';
+import { isTickittoSite } from '@/lib/supplier';
 import {
   getHolibobClient,
   mapProductToExperience,
@@ -11,9 +12,11 @@ import {
   type Experience,
   type ExperienceListItem,
 } from '@/lib/holibob';
+import { getTickittoClient, mapTickittoEventToExperience, mapTickittoEventToExperienceListItem } from '@/lib/tickitto';
 import { prisma } from '@/lib/prisma';
 import { ExperienceGallery } from '@/components/experiences/ExperienceGallery';
 import { BookingWidget } from '@/components/experiences/BookingWidget';
+import { TickittoBookingWidget } from '@/components/experiences/TickittoBookingWidget';
 import { ReviewsCarousel } from '@/components/experiences/ReviewsCarousel';
 import { AboutActivity } from '@/components/experiences/AboutActivity';
 import { MobileBookingCTA } from '@/components/experiences/MobileBookingCTA';
@@ -37,11 +40,22 @@ async function getExperience(
   slug: string
 ): Promise<ExperienceResult> {
   try {
+    // Tickitto events: fetch from Tickitto API
+    if (isTickittoSite(site)) {
+      const client = getTickittoClient();
+      const event = await client.getEvent(slug);
+      if (!event) {
+        console.error('Tickitto event not found:', slug);
+        return { experience: null, isUsingMockData: false };
+      }
+      return { experience: mapTickittoEventToExperience(event), isUsingMockData: false };
+    }
+
+    // Holibob products: existing flow
     const client = getHolibobClient(site);
     const product = await client.getProduct(slug);
 
     if (!product) {
-      // Product not found in Holibob - return null (no mock data)
       console.error('Product not found:', slug);
       return {
         experience: null,
@@ -54,11 +68,10 @@ async function getExperience(
       isUsingMockData: false,
     };
   } catch (error) {
-    // Log the error but don't fall back to mock data
     console.error('Error fetching experience:', {
       slug,
       error: error instanceof Error ? error.message : error,
-      partnerId: site.holibobPartnerId,
+      supplierType: isTickittoSite(site) ? 'TICKITTO' : 'HOLIBOB',
     });
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return {
@@ -74,6 +87,20 @@ async function getRelatedExperiences(
   experience: Experience
 ): Promise<ExperienceListItem[]> {
   try {
+    // === TICKITTO: Fetch related events from Tickitto API ===
+    if (isTickittoSite(site)) {
+      const tickittoClient = getTickittoClient();
+      const result = await tickittoClient.searchEvents({
+        city: experience.location.name ? [experience.location.name] : undefined,
+        limit: 5,
+        currency: 'GBP',
+      });
+      return result.events
+        .filter((e) => e.event_id !== experience.id)
+        .slice(0, 4)
+        .map(mapTickittoEventToExperienceListItem);
+    }
+
     const client = getHolibobClient(site);
 
     // === MICROSITE: Show other products from the SAME provider ===
@@ -1005,7 +1032,11 @@ export default async function ExperienceDetailPage({ params }: Props) {
             {/* Right Column - Booking Widget (Sticky) */}
             <div className="mt-8 lg:mt-0">
               <div className="sticky top-24">
-                <BookingWidget experience={experience} bookingStats={bookingStats} />
+                {isTickittoSite(site) ? (
+                  <TickittoBookingWidget eventId={experience.id} experience={experience} />
+                ) : (
+                  <BookingWidget experience={experience} bookingStats={bookingStats} />
+                )}
               </div>
             </div>
           </div>
@@ -1131,13 +1162,15 @@ export default async function ExperienceDetailPage({ params }: Props) {
           }
         />
 
-        {/* Mobile Sticky CTA with Availability Modal */}
-        <MobileBookingCTA
-          productId={experience.id}
-          productName={experience.title}
-          priceFormatted={experience.price.formatted}
-          bookingStats={bookingStats}
-        />
+        {/* Mobile Sticky CTA with Availability Modal (Holibob only) */}
+        {!isTickittoSite(site) && (
+          <MobileBookingCTA
+            productId={experience.id}
+            productName={experience.title}
+            priceFormatted={experience.price.formatted}
+            bookingStats={bookingStats}
+          />
+        )}
       </div>
     </>
   );

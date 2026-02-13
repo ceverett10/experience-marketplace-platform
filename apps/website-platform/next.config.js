@@ -13,6 +13,7 @@ const nextConfig = {
     '@experience-marketplace/shared',
     '@experience-marketplace/ui-components',
     '@experience-marketplace/holibob-api',
+    '@experience-marketplace/tickitto-api',
   ],
   experimental: {
     serverComponentsExternalPackages: ['@prisma/client'],
@@ -36,6 +37,14 @@ const nextConfig = {
       {
         protocol: 'https',
         hostname: '**.r2.dev',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.tickitto.tech',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.tickitto.com',
       },
     ],
     formats: ['image/avif', 'image/webp'],
@@ -69,6 +78,13 @@ const nextConfig = {
           {
             key: 'Referrer-Policy',
             value: 'origin-when-cross-origin',
+          },
+          {
+            key: 'Content-Security-Policy',
+            value: [
+              "frame-src 'self' https://*.tickitto.tech https://*.tickitto.com",
+              "connect-src 'self' https://*.tickitto.tech https://*.holibob.tech https://*.holibob.com",
+            ].join('; '),
           },
         ],
       },

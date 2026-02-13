@@ -10,6 +10,7 @@ import {
   type MicrositeLayoutConfig,
   getLayoutConfig,
 } from './microsite-layout';
+import type { SupplierType } from './supplier';
 
 // Local type declarations matching Prisma schema
 // (to avoid dependency on @prisma/client generation)
@@ -66,6 +67,9 @@ interface MicrositeConfig {
   tagline: string | null;
   seoConfig: unknown;
   homepageConfig: unknown;
+  // Supplier type determines which API to use
+  supplierType: 'HOLIBOB' | 'TICKITTO';
+  tickittoConfig: unknown | null;
   // Layout configuration for microsite homepage
   layoutType: MicrositeLayoutType;
   cachedProductCount: number;
@@ -152,6 +156,10 @@ export interface MicrositeContext {
   supplierCities?: string[]; // Cities where supplier operates (for Holibob API search)
   supplierCategories?: string[]; // Categories the supplier operates in (for cross-linking)
   supplierName?: string | null; // Supplier name for search fallback
+  // Supplier type - determines which API to use (default: HOLIBOB)
+  supplierType: SupplierType;
+  // Tickitto-specific config (only for TICKITTO supplier type)
+  tickittoConfig?: { apiUrl?: string; eventFilters?: Record<string, unknown> } | null;
   // Layout configuration for microsite homepage
   layoutConfig: MicrositeLayoutConfig;
   // Cached product count from database (for accurate per-supplier counts)
@@ -614,6 +622,9 @@ function mapMicrositeToSiteConfig(microsite: MicrositeConfigWithEntity): SiteCon
       supplierCities: microsite.supplier?.cities ?? [],
       supplierCategories: microsite.supplier?.categories ?? [],
       supplierName: microsite.supplier?.name ?? null,
+      // Supplier type - determines which API to use
+      supplierType: (microsite.supplierType as SupplierType) ?? 'HOLIBOB',
+      tickittoConfig: microsite.tickittoConfig as { apiUrl?: string; eventFilters?: Record<string, unknown> } | null,
       // Cached product count from database (for accurate per-supplier counts in UI)
       cachedProductCount: microsite.cachedProductCount ?? 0,
       // Layout configuration based on product count

@@ -9,6 +9,8 @@ import { ExperienceListSchema, BreadcrumbSchema } from '@/components/seo/Structu
 import { prisma } from '@/lib/prisma';
 import { MarketplaceExperiencesPage } from './MarketplaceExperiencesPage';
 import type { FilterOptions } from '@/components/experiences/FilterSidebar';
+import { isTickittoSite } from '@/lib/supplier';
+import { getTickittoClient, mapTickittoEventToExperienceListItem } from '@/lib/tickitto';
 
 interface SearchParams {
   [key: string]: string | undefined;
@@ -43,7 +45,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 
   const destination = resolvedParams.destination || resolvedParams.location;
   const searchQuery = resolvedParams.q;
-  const isMicrosite = !!site.micrositeContext?.supplierId;
+  const isMicrosite = !!site.micrositeContext?.supplierId || isTickittoSite(site);
 
   let title = 'Experiences & Tours';
   let description = `Browse and book unique experiences, tours, and activities.`;
@@ -125,6 +127,11 @@ async function getExperiences(
 }> {
   const page = parseInt(searchParams.page ?? '1', 10);
   const offset = (page - 1) * ITEMS_PER_PAGE;
+
+  // For Tickitto microsites, fetch from Tickitto API
+  if (isTickittoSite(site)) {
+    return getExperiencesFromTickitto(searchParams, page, offset);
+  }
 
   // For microsites (operator-specific), fetch from Holibob API or local database
   if (site.micrositeContext?.supplierId) {
@@ -579,6 +586,56 @@ async function getExperiencesFromHolibobAPI(
 }
 
 /**
+ * Fetch experiences from Tickitto API
+ * Used for microsites with supplierType=TICKITTO
+ */
+async function getExperiencesFromTickitto(
+  searchParams: SearchParams,
+  page: number,
+  offset: number
+): Promise<{
+  experiences: ExperienceListItem[];
+  totalCount: number;
+  filteredCount: number;
+  hasMore: boolean;
+  isUsingMockData: boolean;
+  apiError?: string;
+}> {
+  try {
+    const client = getTickittoClient();
+
+    const result = await client.searchEvents({
+      text: searchParams.q ?? undefined,
+      category: searchParams.categories?.split(',').filter(Boolean),
+      city: searchParams.cities?.split(',').filter(Boolean),
+      currency: 'GBP',
+      skip: offset,
+      limit: ITEMS_PER_PAGE,
+    });
+
+    const experiences = result.events.map(mapTickittoEventToExperienceListItem);
+
+    return {
+      experiences,
+      totalCount: result.totalCount,
+      filteredCount: result.totalCount,
+      hasMore: offset + ITEMS_PER_PAGE < result.totalCount,
+      isUsingMockData: false,
+    };
+  } catch (error) {
+    console.error('Error fetching experiences from Tickitto API:', error);
+    return {
+      experiences: [],
+      totalCount: 0,
+      filteredCount: 0,
+      hasMore: false,
+      isUsingMockData: false,
+      apiError: error instanceof Error ? error.message : 'Tickitto API error',
+    };
+  }
+}
+
+/**
  * Apply client-side filtering to experiences
  * Used when the API doesn't support server-side filtering
  */
@@ -953,7 +1010,7 @@ export default async function ExperiencesPage({ searchParams }: Props) {
   );
 
   const destination = resolvedSearchParams.destination || resolvedSearchParams.location;
-  const isMicrosite = !!site.micrositeContext?.supplierId;
+  const isMicrosite = !!site.micrositeContext?.supplierId || isTickittoSite(site);
 
   // For MARKETPLACE microsites (50+ products), show filter sidebar
   if (isMicrosite && site.micrositeContext?.supplierId) {
@@ -1103,7 +1160,7 @@ export default async function ExperiencesPage({ searchParams }: Props) {
             <p className="mt-2 text-lg text-gray-600">{pageSubtitle}</p>
 
             {/* Search Bar - Only show on main site, not on operator microsites */}
-            {!site.micrositeContext?.supplierId && (
+            {!isMicrosite && (
               <div className="mt-6">
                 <ProductDiscoverySearch
                   variant="hero"

@@ -1405,6 +1405,10 @@ model MicrositeConfig {
   // Homepage configuration (similar to Site.homepageConfig)
   homepageConfig Json?
 
+  // Supplier type determines which API to use for this microsite
+  supplierType   MicrositeSupplierType @default(HOLIBOB)
+  tickittoConfig Json? // { apiUrl, eventFilters, etc. } - only for TICKITTO supplier type
+
   // Layout type determines homepage structure based on product count
   layoutType            MicrositeLayoutType @default(AUTO)
   cachedProductCount    Int                 @default(0)
@@ -1451,6 +1455,11 @@ model MicrositeConfig {
 enum MicrositeEntityType {
   SUPPLIER
   PRODUCT
+}
+
+enum MicrositeSupplierType {
+  HOLIBOB
+  TICKITTO
 }
 
 enum MicrositeStatus {
