@@ -112,18 +112,26 @@ describe('Footer', () => {
       'href',
       'https://instagram.com/test'
     );
-    expect(screen.getByRole('link', { name: 'Twitter' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'X (Twitter)' })).toHaveAttribute(
       'href',
       'https://twitter.com/test'
     );
   });
 
-  it('should not render social links when not provided', () => {
+  it('should render default social links when none configured', () => {
     renderWithProviders(<Footer />);
 
-    expect(screen.queryByRole('link', { name: 'Facebook' })).not.toBeInTheDocument();
+    // DEFAULT_SOCIAL_LINKS provides Facebook and X (Twitter) as fallbacks
+    expect(screen.getByRole('link', { name: 'Facebook' })).toHaveAttribute(
+      'href',
+      'https://www.facebook.com/experiencess'
+    );
+    expect(screen.getByRole('link', { name: 'X (Twitter)' })).toHaveAttribute(
+      'href',
+      'https://x.com/experiencess'
+    );
+    // Instagram is NOT in defaults
     expect(screen.queryByRole('link', { name: 'Instagram' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: 'Twitter' })).not.toBeInTheDocument();
   });
 
   it('should render copyright with current year and Holibob', () => {

@@ -68,19 +68,19 @@ describe('Header', () => {
     expect(navLinks.length).toBeGreaterThan(0);
   });
 
-  it('should render white text on homepage (transparent header)', () => {
-    // usePathname mock returns '/' so header is transparent
+  it('should apply brand color to site name', () => {
     renderWithProviders(<Header />);
 
     const siteName = screen.getByText('Experience Marketplace');
-    expect(siteName).toHaveClass('text-white');
+    // Default brand primaryColor is #6366f1
+    expect(siteName).toHaveStyle({ color: '#6366f1' });
   });
 
-  it('should render transparent header on homepage', () => {
+  it('should render sticky header with white background', () => {
     renderWithProviders(<Header />);
 
     const header = screen.getByRole('banner');
-    expect(header).toHaveClass('bg-transparent');
+    expect(header).toHaveClass('sticky', 'bg-white/95');
   });
 
   it('should have correct href for logo link', () => {

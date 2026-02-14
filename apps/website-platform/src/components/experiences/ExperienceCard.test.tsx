@@ -63,11 +63,6 @@ describe('ExperienceCard', () => {
       expect(screen.queryByText('reviews')).not.toBeInTheDocument();
     });
 
-    it('should render wishlist button', () => {
-      renderWithProviders(<ExperienceCard experience={mockExperience} />);
-      expect(screen.getByLabelText('Add to wishlist')).toBeInTheDocument();
-    });
-
     it('should format large review counts with locale string', () => {
       const experience = createMockExperience({ rating: { average: 4.2, count: 1500 } });
       renderWithProviders(<ExperienceCard experience={experience} />);

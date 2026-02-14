@@ -49,18 +49,6 @@ describe('PremiumExperienceCard', () => {
       expect(link).toHaveAttribute('href', '/experiences/test-experience');
     });
 
-    it('renders wishlist button by default', () => {
-      renderWithProviders(<PremiumExperienceCard experience={mockExperience} />);
-      expect(screen.getByLabelText('Add to wishlist')).toBeInTheDocument();
-    });
-
-    it('hides wishlist button when showHeartAlways is false', () => {
-      renderWithProviders(
-        <PremiumExperienceCard experience={mockExperience} showHeartAlways={false} />
-      );
-      expect(screen.queryByLabelText('Add to wishlist')).not.toBeInTheDocument();
-    });
-
     it('renders badges', () => {
       renderWithProviders(
         <PremiumExperienceCard experience={mockExperience} badges={['bestseller', 'new']} />

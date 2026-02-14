@@ -115,6 +115,59 @@ jobs:
             apps/admin/coverage/lcov.info
             apps/website-platform/coverage/lcov.info
 
+  test-e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: [test]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --include=optional
+
+      - name: Install Rollup native binary (workaround for npm bug)
+        run: npm install @rollup/rollup-linux-x64-gnu
+
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium --with-deps
+        working-directory: apps/website-platform
+
+      - name: Generate Prisma Client
+        run: npm run db:generate --workspace=@experience-marketplace/database
+        env:
+          DATABASE_URL: 'postgresql://dummy:dummy@localhost:5432/dummy'
+
+      - name: Build packages (for type definitions)
+        run: npm run build:packages
+        env:
+          DATABASE_URL: 'postgresql://dummy:dummy@localhost:5432/dummy'
+
+      - name: Run E2E tests
+        run: npm run test:e2e --workspace=@experience-marketplace/website-platform
+        env:
+          DATABASE_URL: 'postgresql://dummy:dummy@localhost:5432/dummy'
+          HOLIBOB_API_URL: 'https://api.sandbox.holibob.tech/graphql'
+          HOLIBOB_PARTNER_ID: 'demo'
+          HOLIBOB_API_KEY: 'dummy-key'
+          HOLIBOB_API_SECRET: 'dummy-secret'
+          STRIPE_SECRET_KEY: 'sk_test_dummy'
+          STRIPE_WEBHOOK_SECRET: 'whsec_dummy'
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: apps/website-platform/playwright-report/
+          retention-days: 7
+
   build:
     name: Build
     runs-on: ubuntu-latest
