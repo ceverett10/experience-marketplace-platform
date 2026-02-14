@@ -30,6 +30,7 @@ import {
 } from '@/lib/parent-domain';
 import { ParentDomainHomepage } from '@/components/parent-domain/ParentDomainHomepage';
 import { TourOperatorSchema, WebSiteSchema } from '@/components/seo/StructuredData';
+import type { SiteConfig } from '@/lib/tenant';
 
 // Revalidate every 5 minutes for fresh content
 export const revalidate = 300;
@@ -399,6 +400,81 @@ async function getLatestBlogPosts(siteId: string, micrositeId?: string) {
 }
 
 /**
+ * Build a compelling SEO title for the homepage.
+ * Uses seoConfig.defaultTitle if it's already well-optimized (>30 chars, not just site name).
+ * Otherwise generates dynamically from categories, cities, and keywords.
+ */
+function buildHomepageTitle(site: SiteConfig): string {
+  const existing = site.seoConfig?.defaultTitle;
+  // Use existing title if it's well-optimized (not just the site name, >30 chars)
+  if (existing && existing !== site.name && existing.length > 30) {
+    return existing;
+  }
+
+  const ctx = site.micrositeContext;
+  const categories = ctx?.supplierCategories ?? site.homepageConfig?.categories?.map((c) => c.name) ?? [];
+  const cities = ctx?.supplierCities ?? site.homepageConfig?.destinations?.map((d) => d.name) ?? [];
+  const topCategory = categories[0];
+  const topCity = cities[0];
+
+  if (topCategory && topCity) {
+    const title = `Best ${topCategory} in ${topCity} | ${site.name}`;
+    return title.length <= 60 ? title : `${topCategory} in ${topCity} | ${site.name}`;
+  }
+  if (topCategory) {
+    return `${site.name} | Book ${topCategory} Online`;
+  }
+  return `${site.name} - Book Unique Experiences & Tours`;
+}
+
+/**
+ * Build a compelling SEO description for the homepage.
+ * Uses seoConfig.defaultDescription if it's already detailed (>80 chars).
+ * Otherwise generates dynamically from experience count, categories, and cities.
+ */
+function buildHomepageDescription(site: SiteConfig): string {
+  const existing = site.seoConfig?.defaultDescription;
+  if (existing && existing.length > 80) {
+    return existing;
+  }
+
+  const ctx = site.micrositeContext;
+  const count = ctx?.cachedProductCount ?? 0;
+  const categories = ctx?.supplierCategories ?? site.homepageConfig?.categories?.map((c) => c.name) ?? [];
+  const cities = ctx?.supplierCities ?? site.homepageConfig?.destinations?.map((d) => d.name) ?? [];
+
+  const parts: string[] = [];
+
+  // Opening with count + category + city
+  const topCategories = categories.slice(0, 3);
+  const topCity = cities[0];
+  if (count > 0 && topCity) {
+    parts.push(`Explore ${count}+ experiences in ${topCity}`);
+  } else if (count > 0) {
+    parts.push(`Explore ${count}+ unique experiences with ${site.name}`);
+  } else if (topCity) {
+    parts.push(`Discover the best experiences in ${topCity}`);
+  } else {
+    parts.push(`Discover unique experiences with ${site.name}`);
+  }
+
+  // Add category examples
+  if (topCategories.length > 1) {
+    parts.push(`including ${topCategories.join(', ')}`);
+  }
+
+  // Trust signals + CTA
+  parts.push('- free cancellation, instant confirmation. Book online today!');
+
+  let description = parts.join(' ');
+  // Trim to ~160 chars at word boundary
+  if (description.length > 160) {
+    description = description.substring(0, 157).replace(/\s+\S*$/, '') + '...';
+  }
+  return description;
+}
+
+/**
  * Generate metadata for homepage including canonical URL
  * Handles regular sites, microsites, and parent domain
  */
@@ -420,11 +496,18 @@ export async function generateMetadata() {
   const site = await getSiteFromHostname(hostname);
   const baseUrl = `https://${site.primaryDomain || hostname}`;
 
+  const ogImage = site.brand?.ogImageUrl || site.homepageConfig?.hero?.backgroundImage || undefined;
+
   return {
-    title: site.seoConfig?.defaultTitle || site.name,
-    description: site.seoConfig?.defaultDescription || site.description,
+    title: buildHomepageTitle(site),
+    description: buildHomepageDescription(site),
     alternates: {
       canonical: baseUrl,
+    },
+    openGraph: {
+      title: buildHomepageTitle(site),
+      description: buildHomepageDescription(site),
+      ...(ogImage ? { images: [ogImage] } : {}),
     },
   };
 }
@@ -612,6 +695,9 @@ export default async function HomePage() {
   // Build areaServed from destinations
   const areaServed = destinations.slice(0, 5).map((d) => d.name);
 
+  // Build enriched description for structured data (same logic as meta description)
+  const enrichedDescription = buildHomepageDescription(site);
+
   // Preload hero image URL so browser fetches it immediately
   // R2 images are pre-optimized, Unsplash images need URL optimization
   const heroImageUrl = heroConfig?.backgroundImage
@@ -630,14 +716,14 @@ export default async function HomePage() {
         name={site.name}
         url={siteUrl}
         logo={logoUrl}
-        description={site.description || `Book amazing experiences and tours with ${site.name}`}
+        description={enrichedDescription}
         areaServed={areaServed}
         priceRange="$$"
         aggregateRating={aggregateRating}
       />
 
       {/* WebSite schema with search action for sitelinks searchbox */}
-      <WebSiteSchema name={site.name} url={siteUrl} description={site.description || undefined} />
+      <WebSiteSchema name={site.name} url={siteUrl} description={enrichedDescription} />
 
       {/* Hero Section */}
       <Hero
