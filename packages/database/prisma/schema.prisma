@@ -958,6 +958,7 @@ enum JobType {
   AD_BUDGET_OPTIMIZER
   PAID_KEYWORD_SCAN
   BIDDING_ENGINE_RUN
+  KEYWORD_ENRICHMENT
 }
 
 enum JobStatus {
@@ -1343,6 +1344,10 @@ model Supplier {
 
   // Sync tracking
   lastSyncedAt DateTime?
+
+  // Keyword enrichment (bulk product analysis)
+  extractedKeywords  Json?     // Cached keyword seeds from product analysis
+  keywordsEnrichedAt DateTime? // When bulk enrichment last ran for this supplier
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

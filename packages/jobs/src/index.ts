@@ -36,6 +36,8 @@ export * from './services/internal-linking';
 export * from './services/opportunity-optimizer';
 export { runPaidKeywordScan } from './services/paid-keyword-scanner';
 export type { PaidKeywordScanResult } from './services/paid-keyword-scanner';
+export { runBulkEnrichment } from './services/keyword-enrichment';
+export type { EnrichmentResult, EnrichmentOptions } from './services/keyword-enrichment';
 export * from './services/seo-health';
 export * from './services/seo-issues';
 export * from './services/seo-optimizer';

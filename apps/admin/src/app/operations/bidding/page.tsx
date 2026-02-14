@@ -385,6 +385,12 @@ export default function BiddingDashboardPage() {
             <option value="90">Last 90 days</option>
           </select>
           <button
+            onClick={() => triggerAction('run_enrichment')}
+            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm font-medium"
+          >
+            Enrich Keywords
+          </button>
+          <button
             onClick={() => triggerAction('run_engine')}
             className="px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700 text-sm font-medium"
           >

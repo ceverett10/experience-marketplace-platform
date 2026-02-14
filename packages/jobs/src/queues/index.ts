@@ -129,6 +129,7 @@ class QueueRegistry {
       'SOCIAL_DAILY_POSTING', // Fan-out job, siteId is optional
       'PAID_KEYWORD_SCAN', // Cross-site keyword discovery, no single siteId
       'BIDDING_ENGINE_RUN', // Portfolio-wide bidding engine, no single siteId
+      'KEYWORD_ENRICHMENT', // Bulk keyword extraction from products, no single siteId
     ];
     if (!siteId && rawSiteId !== 'all' && !siteOptionalTypes.includes(jobType)) {
       const hasDomainId = !!(payload as { domainId?: string }).domainId;

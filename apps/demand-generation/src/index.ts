@@ -71,6 +71,7 @@ import {
   handleAdPerformanceReport,
   handleAdBudgetOptimizer,
   handleBiddingEngineRun,
+  handleKeywordEnrichment,
 } from '@experience-marketplace/jobs';
 import { prisma, JobStatus } from '@experience-marketplace/database';
 import type { JobType } from '@experience-marketplace/database';
@@ -408,7 +409,7 @@ const micrositeWorker = new Worker(
 
 /**
  * Holibob Sync Queue Worker
- * Handles: SUPPLIER_SYNC, SUPPLIER_SYNC_INCREMENTAL, PRODUCT_SYNC, PRODUCT_SYNC_INCREMENTAL
+ * Handles: SUPPLIER_SYNC, SUPPLIER_SYNC_INCREMENTAL, PRODUCT_SYNC, PRODUCT_SYNC_INCREMENTAL, KEYWORD_ENRICHMENT
  */
 const syncWorker = new Worker(
   QUEUE_NAMES.SYNC,
@@ -425,6 +426,8 @@ const syncWorker = new Worker(
         return await handleProductSync(job);
       case 'PRODUCT_SYNC_INCREMENTAL':
         return await handleProductSyncIncremental(job);
+      case 'KEYWORD_ENRICHMENT':
+        return await handleKeywordEnrichment(job);
       default:
         throw new Error(`Unknown job type: ${job.name}`);
     }

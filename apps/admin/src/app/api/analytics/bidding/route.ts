@@ -399,6 +399,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       });
     }
 
+    if (action === 'run_enrichment') {
+      const { addJob } = await import('@experience-marketplace/jobs');
+      const jobId = await addJob('KEYWORD_ENRICHMENT' as any, {
+        maxProductsPerSupplier: body.maxProducts || 100,
+        maxSuppliersPerRun: body.maxSuppliers,
+        skipDataForSeo: body.skipValidation || false,
+        dryRun: body.dryRun || false,
+        location: body.location || 'United Kingdom',
+      });
+      return NextResponse.json({
+        success: true,
+        message: 'Bulk keyword enrichment started',
+        jobId,
+      });
+    }
+
     if (action === 'adjust_budget') {
       const { siteId: targetSiteId, dailyBudgetCap } = body as {
         siteId?: string;

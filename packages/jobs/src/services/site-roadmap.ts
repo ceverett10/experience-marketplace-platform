@@ -276,6 +276,7 @@ async function validateTaskArtifacts(
     AD_BUDGET_OPTIMIZER: { valid: true },
     PAID_KEYWORD_SCAN: { valid: true },
     BIDDING_ENGINE_RUN: { valid: true },
+    KEYWORD_ENRICHMENT: { valid: true },
   };
 }
 
@@ -524,6 +525,10 @@ export const TASK_DESCRIPTIONS: Record<JobType, { label: string; description: st
   BIDDING_ENGINE_RUN: {
     label: 'Bidding Engine',
     description: 'Calculate site profitability and create/optimize ad campaigns',
+  },
+  KEYWORD_ENRICHMENT: {
+    label: 'Keyword Enrichment',
+    description: 'Extract keyword seeds from product data and validate via DataForSEO',
   },
 };
 

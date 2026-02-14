@@ -401,6 +401,15 @@ export interface BiddingEngineRunPayload {
   maxDailyBudget?: number; // Default: £200/day
 }
 
+export interface KeywordEnrichmentPayload {
+  supplierIds?: string[];
+  maxSuppliersPerRun?: number;
+  maxProductsPerSupplier?: number;
+  skipDataForSeo?: boolean;
+  dryRun?: boolean;
+  location?: string;
+}
+
 /**
  * Union type of all job payloads
  */
@@ -449,7 +458,8 @@ export type JobPayload =
   | AdPerformanceReportPayload
   | AdBudgetOptimizerPayload
   | PaidKeywordScanPayload
-  | BiddingEngineRunPayload;
+  | BiddingEngineRunPayload
+  | KeywordEnrichmentPayload;
 
 /**
  * Job configuration options
@@ -584,4 +594,5 @@ export const JOB_TYPE_TO_QUEUE: Record<JobType, QueueName> = {
   AD_BUDGET_OPTIMIZER: QUEUE_NAMES.ADS,
   PAID_KEYWORD_SCAN: QUEUE_NAMES.ADS,
   BIDDING_ENGINE_RUN: QUEUE_NAMES.ADS,
+  KEYWORD_ENRICHMENT: QUEUE_NAMES.SYNC, // Long-running: uses SYNC queue (4hr timeout)
 };

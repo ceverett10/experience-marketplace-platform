@@ -7,6 +7,7 @@
  * - AD_PERFORMANCE_REPORT: Generate cross-platform performance reports
  * - AD_BUDGET_OPTIMIZER: Auto-reallocate budget based on ROAS
  * - BIDDING_ENGINE_RUN: Full profitability-driven campaign orchestration
+ * - KEYWORD_ENRICHMENT: Bulk keyword extraction from product data
  */
 
 import type { Job } from 'bullmq';
@@ -19,6 +20,7 @@ import type {
 import { prisma } from '@experience-marketplace/database';
 import { runPaidKeywordScan } from '../services/paid-keyword-scanner';
 import { runBiddingEngine } from '../services/bidding-engine';
+import { runBulkEnrichment, type EnrichmentResult } from '../services/keyword-enrichment';
 import { MetaAdsClient } from '../services/social/meta-ads-client';
 import { refreshTokenIfNeeded } from '../services/social/token-refresh';
 import {
@@ -924,6 +926,34 @@ export async function handleBiddingEngineRun(job: Job): Promise<JobResult> {
         maxCpc: p.maxProfitableCpc,
       })),
     },
+    timestamp: new Date(),
+  };
+}
+
+// --- KEYWORD_ENRICHMENT ------------------------------------------------------
+
+/**
+ * Bulk keyword extraction from Holibob product data.
+ * Extracts keyword seeds → validates via DataForSEO → stores as PAID_CANDIDATE.
+ */
+export async function handleKeywordEnrichment(job: Job): Promise<JobResult> {
+  const payload = job.data as {
+    supplierIds?: string[];
+    maxSuppliersPerRun?: number;
+    maxProductsPerSupplier?: number;
+    skipDataForSeo?: boolean;
+    dryRun?: boolean;
+    location?: string;
+  };
+
+  console.log('[Ads Worker] Starting bulk keyword enrichment');
+
+  const result: EnrichmentResult = await runBulkEnrichment(payload);
+
+  return {
+    success: result.errors.length === 0,
+    message: `Enrichment: ${result.suppliersProcessed} suppliers, ${result.keywordsStored} keywords stored, $${result.estimatedCost.toFixed(2)} cost`,
+    data: result as unknown as Record<string, unknown>,
     timestamp: new Date(),
   };
 }
