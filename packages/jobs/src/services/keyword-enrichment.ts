@@ -110,8 +110,8 @@ export async function runBulkEnrichment(
   const client = getHolibobClient();
 
   // ----- Load suppliers -----
+  // Only process suppliers with active microsites (these are the sites we can drive traffic to)
   const supplierWhere: Record<string, unknown> = {
-    holibobSupplierId: { not: null },
     microsite: { status: 'ACTIVE' },
   };
   if (supplierIds?.length) {
