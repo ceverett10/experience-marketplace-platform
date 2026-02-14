@@ -264,7 +264,7 @@ function DynamicQuestionField({
   };
 
   return (
-    <div>
+    <div data-testid={`dynamic-question-${question.id}`}>
       {renderField()}
       {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
     </div>
@@ -414,7 +414,7 @@ export function QuestionsForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-6" data-testid="questions-form">
       {/* Lead Person Details */}
       <div className="rounded-xl bg-white p-6 shadow-lg">
         <h2 className="mb-6 text-lg font-semibold" style={{ color: primaryColor }}>
@@ -433,6 +433,7 @@ export function QuestionsForm({
                   : 'border-gray-300 focus:border-teal-500 focus:ring-teal-500'
               }`}
               placeholder="First name *"
+              data-testid="lead-first-name"
             />
             {errors['firstName'] && (
               <p className="mt-1 text-xs text-red-500">{errors['firstName']}</p>
@@ -450,6 +451,7 @@ export function QuestionsForm({
                   : 'border-gray-300 focus:border-teal-500 focus:ring-teal-500'
               }`}
               placeholder="Last name *"
+              data-testid="lead-last-name"
             />
             {errors['lastName'] && (
               <p className="mt-1 text-xs text-red-500">{errors['lastName']}</p>
@@ -467,6 +469,7 @@ export function QuestionsForm({
                   : 'border-gray-300 focus:border-teal-500 focus:ring-teal-500'
               }`}
               placeholder="Email Address *"
+              data-testid="lead-email"
             />
             {errors['email'] && <p className="mt-1 text-xs text-red-500">{errors['email']}</p>}
           </div>
@@ -506,6 +509,7 @@ export function QuestionsForm({
                   : 'border-gray-300 focus:border-teal-500 focus:ring-teal-500'
               }`}
               placeholder="Phone Number *"
+              data-testid="lead-phone"
             />
           </div>
           {errors['phone'] && <p className="-mt-2 text-xs text-red-500">{errors['phone']}</p>}
@@ -566,7 +570,7 @@ export function QuestionsForm({
                 `Guest ${guestIndex + 1}`;
 
               return (
-                <div key={person.id} className="rounded-lg border border-gray-200">
+                <div key={person.id} className="rounded-lg border border-gray-200" data-testid={`person-section-${person.id}`}>
                   <button
                     type="button"
                     onClick={() => togglePerson(person.id)}
@@ -632,6 +636,7 @@ export function QuestionsForm({
             checked={termsAccepted}
             onChange={(e) => setTermsAccepted(e.target.checked)}
             className="mt-1 h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+            data-testid="terms-checkbox"
           />
           <span className="text-sm text-gray-700">I accept the Terms and Conditions.</span>
         </label>
@@ -652,6 +657,7 @@ export function QuestionsForm({
         disabled={isSubmitting}
         className="w-full rounded-xl py-4 text-base font-semibold text-white transition-all hover:shadow-lg disabled:opacity-50"
         style={{ backgroundColor: primaryColor }}
+        data-testid="submit-questions"
       >
         {isSubmitting ? (
           <span className="flex items-center justify-center gap-2">

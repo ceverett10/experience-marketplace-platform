@@ -10,6 +10,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
     "typecheck": "tsc --noEmit",
@@ -18,8 +20,8 @@
   "dependencies": {
     "@experience-marketplace/database": "*",
     "@experience-marketplace/holibob-api": "*",
-    "@experience-marketplace/tickitto-api": "*",
     "@experience-marketplace/shared": "*",
+    "@experience-marketplace/tickitto-api": "*",
     "@experience-marketplace/ui-components": "*",
     "@prisma/client": "^5.22.0",
     "@stripe/react-stripe-js": "^2.4.0",
@@ -35,6 +37,7 @@
     "zod": "^3.22.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@testing-library/jest-dom": "^6.1.0",
     "@testing-library/react": "^14.1.0",
     "@types/node": "^20.10.0",

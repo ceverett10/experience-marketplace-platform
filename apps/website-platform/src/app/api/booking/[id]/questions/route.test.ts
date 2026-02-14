@@ -203,4 +203,165 @@ describe('Booking Questions API Route - POST', () => {
       })
     );
   });
+
+  it('merges questionAnswers into answerList', async () => {
+    const mockBooking = {
+      id: 'booking-123',
+      canCommit: false,
+      questionList: { nodes: [] },
+      availabilityList: {
+        nodes: [
+          {
+            id: 'avail-1',
+            questionList: { nodes: [] },
+            personList: {
+              nodes: [
+                {
+                  id: 'person-1',
+                  questionList: {
+                    nodes: [
+                      { id: 'pq1', label: 'First name', answerValue: null },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    };
+    const mockAnsweredBooking = { ...mockBooking, canCommit: true };
+    mockGetBookingQuestions.mockResolvedValue(mockBooking);
+    mockAnswerBookingQuestions.mockResolvedValue(mockAnsweredBooking);
+
+    const request = new NextRequest('http://localhost:3000/api/booking/booking-123/questions', {
+      method: 'POST',
+      body: JSON.stringify({
+        termsAccepted: true,
+        guests: [{ firstName: 'John', lastName: 'Doe', isLeadGuest: true }],
+        questionAnswers: [
+          { questionId: 'aq-pickup', value: 'Hotel Lobby' },
+        ],
+      }),
+    });
+
+    const response = await POST(request, { params: Promise.resolve({ id: 'booking-123' }) });
+    expect(response.status).toBe(200);
+
+    // Verify questionAnswers merged into answerList
+    const callArgs = mockAnswerBookingQuestions.mock.calls[0]![1];
+    const answerList = callArgs.answerList as Array<{ questionId: string; value: string }>;
+    expect(answerList).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ questionId: 'aq-pickup', value: 'Hotel Lobby' }),
+      ])
+    );
+  });
+
+  it('deduplicates questionAnswers against label-matched answers', async () => {
+    const mockBooking = {
+      id: 'booking-123',
+      canCommit: false,
+      questionList: { nodes: [] },
+      availabilityList: {
+        nodes: [
+          {
+            id: 'avail-1',
+            questionList: { nodes: [] },
+            personList: {
+              nodes: [
+                {
+                  id: 'person-1',
+                  questionList: {
+                    nodes: [
+                      { id: 'pq1', label: 'First name', answerValue: null },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    };
+    const mockAnsweredBooking = { ...mockBooking, canCommit: true };
+    mockGetBookingQuestions.mockResolvedValue(mockBooking);
+    mockAnswerBookingQuestions.mockResolvedValue(mockAnsweredBooking);
+
+    const request = new NextRequest('http://localhost:3000/api/booking/booking-123/questions', {
+      method: 'POST',
+      body: JSON.stringify({
+        termsAccepted: true,
+        guests: [{ firstName: 'John', lastName: 'Doe', isLeadGuest: true }],
+        // Try to send a questionAnswer for the same question ID that label-matching would resolve
+        questionAnswers: [
+          { questionId: 'pq1', value: 'Manual Override' },
+        ],
+      }),
+    });
+
+    const response = await POST(request, { params: Promise.resolve({ id: 'booking-123' }) });
+    expect(response.status).toBe(200);
+
+    // pq1 should appear only once in answerList (from label matching, not from questionAnswers)
+    const callArgs = mockAnswerBookingQuestions.mock.calls[0]![1];
+    const answerList = callArgs.answerList as Array<{ questionId: string; value: string }>;
+    const pq1Entries = answerList.filter((a) => a.questionId === 'pq1');
+    expect(pq1Entries).toHaveLength(1);
+    // The label-matched value ('John') should win over the manual override
+    expect(pq1Entries[0]!.value).toBe('John');
+  });
+
+  it('merges availabilityAnswers into answerList', async () => {
+    const mockBooking = {
+      id: 'booking-123',
+      canCommit: false,
+      questionList: { nodes: [] },
+      availabilityList: {
+        nodes: [
+          {
+            id: 'avail-1',
+            questionList: { nodes: [] },
+            personList: {
+              nodes: [
+                {
+                  id: 'person-1',
+                  questionList: {
+                    nodes: [
+                      { id: 'pq1', label: 'First name', answerValue: null },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    };
+    const mockAnsweredBooking = { ...mockBooking, canCommit: true };
+    mockGetBookingQuestions.mockResolvedValue(mockBooking);
+    mockAnswerBookingQuestions.mockResolvedValue(mockAnsweredBooking);
+
+    const request = new NextRequest('http://localhost:3000/api/booking/booking-123/questions', {
+      method: 'POST',
+      body: JSON.stringify({
+        termsAccepted: true,
+        guests: [{ firstName: 'John', lastName: 'Doe', isLeadGuest: true }],
+        availabilityAnswers: [
+          { questionId: 'aq-waiver', value: 'Yes' },
+        ],
+      }),
+    });
+
+    const response = await POST(request, { params: Promise.resolve({ id: 'booking-123' }) });
+    expect(response.status).toBe(200);
+
+    const callArgs = mockAnswerBookingQuestions.mock.calls[0]![1];
+    const answerList = callArgs.answerList as Array<{ questionId: string; value: string }>;
+    expect(answerList).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ questionId: 'aq-waiver', value: 'Yes' }),
+      ])
+    );
+  });
 });

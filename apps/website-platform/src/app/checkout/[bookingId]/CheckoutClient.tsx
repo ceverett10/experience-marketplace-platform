@@ -196,7 +196,7 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
     return (
       <main className="min-h-screen bg-gray-50 py-8">
         <div className="mx-auto max-w-4xl px-4">
-          <div className="flex items-center justify-center py-20">
+          <div className="flex items-center justify-center py-20" data-testid="checkout-loading">
             <svg className="h-8 w-8 animate-spin text-gray-400" fill="none" viewBox="0 0 24 24">
               <circle
                 className="opacity-25"
@@ -316,11 +316,12 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
           <div className="lg:col-span-2">
             {/* Error Message */}
             {error && (
-              <div className="mb-6 rounded-xl bg-red-50 p-4 text-sm text-red-600">{error}</div>
+              <div className="mb-6 rounded-xl bg-red-50 p-4 text-sm text-red-600" data-testid="checkout-error">{error}</div>
             )}
 
             {/* Questions Form (if not completed) */}
             {!questionsAnswered && (
+              <div data-testid="checkout-questions-step">
               <QuestionsForm
                 bookingId={initialBooking.id}
                 bookingQuestions={bookingQuestions}
@@ -331,11 +332,12 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
                 totalPrice={booking.totalPrice?.grossFormattedText}
                 isResubmission={submitAttempts > 0}
               />
+              </div>
             )}
 
             {/* Review Section (if questions completed) */}
             {questionsAnswered && (
-              <div className="space-y-6">
+              <div className="space-y-6" data-testid="checkout-review-step">
                 {/* Booking Details */}
                 <div className="rounded-xl bg-white p-6 shadow-lg">
                   <h2 className="mb-4 text-lg font-semibold text-gray-900">Booking Details</h2>
@@ -465,7 +467,7 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
 
                 {/* Payment Section */}
                 {showPayment ? (
-                  <div ref={paymentSectionRef} className="rounded-xl bg-white p-6 shadow-lg">
+                  <div ref={paymentSectionRef} className="rounded-xl bg-white p-6 shadow-lg" data-testid="checkout-payment-step">
                     <h2 className="mb-4 text-lg font-semibold text-gray-900">Payment</h2>
                     {paymentComplete ? (
                       <div className="flex items-center justify-center py-8">
@@ -603,6 +605,7 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
                     onClick={handleProceedToPayment}
                     className="mt-6 w-full rounded-xl py-4 text-base font-semibold text-white transition-all hover:shadow-lg"
                     style={{ backgroundColor: primaryColor }}
+                    data-testid="proceed-to-payment"
                   >
                     Proceed to Payment
                   </button>

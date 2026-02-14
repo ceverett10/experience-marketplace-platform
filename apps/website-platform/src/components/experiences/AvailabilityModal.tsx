@@ -286,7 +286,7 @@ export function AvailabilityModal({
       <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden="true" />
 
       {/* Modal */}
-      <div className="relative z-10 mx-4 max-h-[90vh] w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl">
+      <div className="relative z-10 mx-4 max-h-[90vh] w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl" data-testid="availability-modal">
         {/* Header */}
         <div className="border-b border-gray-200 px-6 py-4">
           <div className="flex items-center justify-between">
@@ -420,6 +420,7 @@ export function AvailabilityModal({
                       <button
                         key={slot.id}
                         onClick={() => setSelectedSlot(slot)}
+                        data-testid={`date-slot-${slot.id}`}
                         className={`flex items-center justify-between rounded-xl border-2 p-4 text-left transition-all ${
                           selectedSlot?.id === slot.id
                             ? 'border-teal-500 bg-teal-50'
@@ -458,6 +459,7 @@ export function AvailabilityModal({
                       {formatLabel(option.label)}
                     </label>
                     <select
+                      data-testid={`option-select-${option.id}`}
                       value={optionSelections[option.id] ?? ''}
                       onChange={(e) => handleOptionChange(option.id, e.target.value)}
                       className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
@@ -487,6 +489,7 @@ export function AvailabilityModal({
                 <div
                   key={category.id}
                   className="flex items-center justify-between rounded-xl border border-gray-200 p-4"
+                  data-testid={`guest-category-${category.id}`}
                 >
                   <div>
                     <p className="font-medium text-gray-900">{formatLabel(category.label)}</p>
@@ -513,6 +516,7 @@ export function AvailabilityModal({
                       onClick={() => handleUnitChange(category.id, -1)}
                       disabled={(categoryUnits[category.id] ?? 0) <= 0}
                       className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                      data-testid={`guest-decrement-${category.id}`}
                     >
                       <svg
                         className="h-4 w-4"
@@ -533,6 +537,7 @@ export function AvailabilityModal({
                         (categoryUnits[category.id] ?? 0) >= (category.maxParticipants || 99)
                       }
                       className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                      data-testid={`guest-increment-${category.id}`}
                     >
                       <svg
                         className="h-4 w-4"
@@ -627,6 +632,7 @@ export function AvailabilityModal({
                   disabled={!isValid || totalGuests === 0 || isBooking}
                   className="rounded-lg px-6 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
                   style={{ backgroundColor: primaryColor }}
+                  data-testid="book-now-button"
                 >
                   {isBooking ? (
                     <span className="flex items-center gap-2">
