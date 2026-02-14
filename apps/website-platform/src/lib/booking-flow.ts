@@ -89,7 +89,7 @@ export interface BookingQuestion {
   answerValue?: string;
   isRequired: boolean;
   autoCompleteValue?: string;
-  options?: Array<{ label: string; value: string }>;
+  availableOptions?: Array<{ label: string; value: string }>;
 }
 
 export interface BookingPerson {

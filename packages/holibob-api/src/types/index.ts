@@ -526,7 +526,7 @@ export const BookingQuestionSchema = z.object({
   answerValue: z.string().nullable().optional(),
   autoCompleteValue: z.string().nullable().optional(),
   isRequired: z.boolean().optional(),
-  options: z.array(AvailableOptionChoiceSchema).optional(),
+  availableOptions: z.array(AvailableOptionChoiceSchema).optional(),
 });
 
 export type BookingQuestion = z.infer<typeof BookingQuestionSchema>;

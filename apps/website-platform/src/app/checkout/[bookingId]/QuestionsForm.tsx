@@ -12,7 +12,7 @@ interface BookingQuestion {
   answerValue?: string;
   isRequired: boolean;
   autoCompleteValue?: string;
-  options?: Array<{ label: string; value: string }>;
+  availableOptions?: Array<{ label: string; value: string }>;
 }
 
 interface BookingPerson {
@@ -151,7 +151,7 @@ function DynamicQuestionField({
               className={`${inputClass} bg-white`}
             >
               <option value="">Select...</option>
-              {(question.options ?? []).map((opt) => (
+              {(question.availableOptions ?? []).map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.label}
                 </option>
@@ -169,7 +169,7 @@ function DynamicQuestionField({
               {question.isRequired && <span className="text-red-500"> *</span>}
             </label>
             <div className="space-y-2">
-              {(question.options ?? []).map((opt) => (
+              {(question.availableOptions ?? []).map((opt) => (
                 <label key={opt.value} className="flex cursor-pointer items-center gap-2">
                   <input
                     type="checkbox"

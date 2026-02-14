@@ -27,7 +27,7 @@ interface BookingQuestionNode {
   dataType?: string;
   dataFormat?: string;
   isRequired?: boolean;
-  options?: Array<{ label: string; value: string }>;
+  availableOptions?: Array<{ label: string; value: string }>;
 }
 
 interface BookingAvailabilityNode {

@@ -10,9 +10,9 @@ function formatQuestion(q: BookingQuestion, prefix = ''): string {
   const parts = [`${prefix}- **${q.label}** (ID: ${q.id}, Type: ${q.type ?? 'text'})${q.isRequired ? ' *required*' : ''}`];
   if (q.answerValue) parts.push(`${prefix}  Current answer: ${q.answerValue}`);
   if (q.autoCompleteValue && !q.answerValue) parts.push(`${prefix}  Suggested: ${q.autoCompleteValue}`);
-  if (q.options?.length) {
+  if (q.availableOptions?.length) {
     parts.push(`${prefix}  Options:`);
-    q.options.forEach((o) => parts.push(`${prefix}    - "${o.value}" — ${o.label}`));
+    q.availableOptions.forEach((o) => parts.push(`${prefix}    - "${o.value}" — ${o.label}`));
   }
   return parts.join('\n');
 }
@@ -55,7 +55,7 @@ function questionToStructured(q: BookingQuestion) {
     isRequired: q.isRequired ?? false,
     answerValue: q.answerValue ?? undefined,
     autoCompleteValue: q.autoCompleteValue ?? undefined,
-    options: q.options?.map((o) => ({ value: o.value, label: o.label })) ?? [],
+    options: q.availableOptions?.map((o) => ({ value: o.value, label: o.label })) ?? [],
   };
 }
 

@@ -410,7 +410,7 @@ export const BOOKING_QUESTIONS_QUERY = gql`
           dataFormat
           answerValue
           isRequired
-          options {
+          availableOptions {
             label
             value
           }
@@ -496,7 +496,7 @@ export const BOOKING_ANSWER_QUESTIONS_QUERY = gql`
           dataFormat
           answerValue
           isRequired
-          options {
+          availableOptions {
             label
             value
           }
