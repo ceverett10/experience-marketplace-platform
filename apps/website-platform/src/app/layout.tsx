@@ -8,6 +8,8 @@ import { Footer } from '@/components/layout/Footer';
 import { GoogleAnalytics } from '@/components/analytics/GoogleAnalytics';
 import { EmailPopup } from '@/components/marketing/EmailPopup';
 import { SocialProofToast } from '@/components/marketing/SocialProofToast';
+import { CookieConsent } from '@/components/marketing/CookieConsent';
+import { ExitIntentPopup } from '@/components/marketing/ExitIntentPopup';
 import './globals.css';
 
 // Load fonts
@@ -112,6 +114,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </div>
           <EmailPopup />
           <SocialProofToast />
+          <CookieConsent />
+          <ExitIntentPopup />
         </SiteProvider>
         {/* Google Analytics - Dynamic per site */}
         <GoogleAnalytics measurementId={site.seoConfig?.gaMeasurementId} />

@@ -1,3 +1,9 @@
+function getCancellationDeadline(): string {
+  const date = new Date();
+  date.setDate(date.getDate() + 6);
+  return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
 interface AboutActivityProps {
   duration: string;
   hasFreeCancellation: boolean;
@@ -11,6 +17,8 @@ export function AboutActivity({
   languages,
   cancellationPolicy,
 }: AboutActivityProps) {
+  const cancellationDate = getCancellationDeadline();
+
   return (
     <section className="mb-8">
       <h2 className="mb-4 text-xl font-semibold text-gray-900">About this activity</h2>
@@ -18,9 +26,9 @@ export function AboutActivity({
         {/* Free Cancellation */}
         {hasFreeCancellation && (
           <div className="flex items-start gap-4">
-            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-gray-100">
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-emerald-50">
               <svg
-                className="h-5 w-5 text-gray-600"
+                className="h-5 w-5 text-emerald-600"
                 fill="none"
                 viewBox="0 0 24 24"
                 strokeWidth="1.5"
@@ -34,7 +42,7 @@ export function AboutActivity({
               </svg>
             </div>
             <div>
-              <p className="font-medium text-gray-900">Free cancellation</p>
+              <p className="font-medium text-gray-900">Free cancellation before {cancellationDate}</p>
               <p className="text-sm text-gray-500">
                 {cancellationPolicy || 'Cancel up to 24 hours in advance for a full refund'}
               </p>

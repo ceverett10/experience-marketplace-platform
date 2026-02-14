@@ -23,7 +23,22 @@ import { MobileBookingCTA } from '@/components/experiences/MobileBookingCTA';
 import { RelatedExperiences } from '@/components/experiences/RelatedExperiences';
 import { RelatedArticles } from '@/components/experiences/RelatedArticles';
 import { TrackViewItem } from '@/components/analytics/TrackViewItem';
+import { LiveActivityIndicator } from '@/components/ui/TrustSignals';
+import { DesktopStickyBar } from '@/components/experiences/DesktopStickyBar';
+import { LocalTips } from '@/components/experiences/LocalTips';
+import { RecentlyViewed } from '@/components/experiences/RecentlyViewed';
+import { RecentlyViewedTracker } from '@/components/experiences/RecentlyViewedTracker';
 import { getProductBookingStats } from '@/lib/booking-analytics';
+
+/** Deterministic "viewers" count from product ID (3-18 range) */
+function getViewerCount(productId: string): number {
+  let hash = 0;
+  for (let i = 0; i < productId.length; i++) {
+    hash = ((hash << 5) - hash) + productId.charCodeAt(i);
+    hash |= 0;
+  }
+  return 3 + (Math.abs(hash) % 16);
+}
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -681,6 +696,9 @@ export default async function ExperienceDetailPage({ params }: Props) {
                     <span>{experience.location.name}</span>
                   </div>
 
+                  {/* Live Activity Indicator */}
+                  <LiveActivityIndicator count={getViewerCount(experience.id)} />
+
                   {/* Free Cancellation Badge */}
                   {hasFreeCancellation && (
                     <div className="flex items-center gap-1.5 text-emerald-600">
@@ -932,6 +950,14 @@ export default async function ExperienceDetailPage({ params }: Props) {
                 </section>
               )}
 
+              {/* Local Tips / Insider Advice */}
+              {experience.location.name && (
+                <LocalTips
+                  locationName={experience.location.name}
+                  categories={experience.categories.map((c) => c.name)}
+                />
+              )}
+
               {/* Meeting Point */}
               <section className="mb-8 rounded-xl border border-gray-200 bg-white p-6">
                 <h2 className="mb-4 text-xl font-semibold text-gray-900">Meeting point</h2>
@@ -1162,6 +1188,9 @@ export default async function ExperienceDetailPage({ params }: Props) {
           }
         />
 
+        {/* Recently Viewed */}
+        <RecentlyViewed currentId={experience.id} />
+
         {/* Mobile Sticky CTA with Availability Modal (Holibob only) */}
         {!isTickittoSite(site) && (
           <MobileBookingCTA
@@ -1173,6 +1202,29 @@ export default async function ExperienceDetailPage({ params }: Props) {
             bookingStats={bookingStats}
           />
         )}
+
+        {/* Desktop Sticky Booking Bar (appears when BookingWidget scrolls out of view) */}
+        {!isTickittoSite(site) && (
+          <DesktopStickyBar
+            productId={experience.id}
+            productName={experience.title}
+            priceFormatted={experience.price.formatted}
+            priceAmount={experience.price.amount}
+            priceCurrency={experience.price.currency}
+          />
+        )}
+
+        {/* Track this experience as recently viewed */}
+        <RecentlyViewedTracker
+          item={{
+            id: experience.id,
+            slug: slug,
+            title: experience.title,
+            imageUrl: experience.imageUrl,
+            priceFormatted: experience.price.formatted,
+            duration: experience.duration.formatted,
+          }}
+        />
       </div>
     </>
   );

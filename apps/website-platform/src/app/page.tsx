@@ -656,6 +656,7 @@ export default async function HomePage() {
         }
         experiences={experiences}
         variant="grid"
+        staffPickCount={3}
       />
 
       {/* Categories */}

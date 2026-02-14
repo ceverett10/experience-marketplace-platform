@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { ExperienceCard } from './ExperienceCard';
+import { PremiumExperienceCard } from './PremiumExperienceCard';
 import type { ExperienceListItem } from '@/lib/holibob';
 
 interface FeaturedExperiencesProps {
@@ -8,6 +9,8 @@ interface FeaturedExperiencesProps {
   experiences: ExperienceListItem[];
   viewAllHref?: string;
   variant?: 'grid' | 'featured';
+  /** Mark the top N experiences as Staff Picks (default: 0 = no badges) */
+  staffPickCount?: number;
 }
 
 export function FeaturedExperiences({
@@ -16,6 +19,7 @@ export function FeaturedExperiences({
   experiences,
   viewAllHref = '/experiences',
   variant = 'grid',
+  staffPickCount = 0,
 }: FeaturedExperiencesProps) {
   if (experiences.length === 0) {
     return null;
@@ -42,23 +46,42 @@ export function FeaturedExperiences({
         {variant === 'featured' ? (
           <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {experiences.slice(0, 6).map((experience, index) => (
-              <ExperienceCard
-                key={experience.id}
-                experience={experience}
-                variant="featured"
-                priority={index < 3}
-              />
+              index < staffPickCount ? (
+                <PremiumExperienceCard
+                  key={experience.id}
+                  experience={experience}
+                  variant="featured"
+                  badges={['staffPick']}
+                  priority={index < 3}
+                />
+              ) : (
+                <ExperienceCard
+                  key={experience.id}
+                  experience={experience}
+                  variant="featured"
+                  priority={index < 3}
+                />
+              )
             ))}
           </div>
         ) : (
           <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {experiences.slice(0, 8).map((experience, index) => (
-              <ExperienceCard
-                key={experience.id}
-                experience={experience}
-                variant="default"
-                priority={index < 4}
-              />
+              index < staffPickCount ? (
+                <PremiumExperienceCard
+                  key={experience.id}
+                  experience={experience}
+                  badges={['staffPick']}
+                  priority={index < 4}
+                />
+              ) : (
+                <ExperienceCard
+                  key={experience.id}
+                  experience={experience}
+                  variant="default"
+                  priority={index < 4}
+                />
+              )
             ))}
           </div>
         )}

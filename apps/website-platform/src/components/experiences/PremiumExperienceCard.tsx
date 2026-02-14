@@ -16,7 +16,8 @@ type BadgeType =
   | 'likelyToSellOut'
   | 'freeCancellation'
   | 'topPick'
-  | 'skipTheLine';
+  | 'skipTheLine'
+  | 'staffPick';
 
 interface PremiumExperienceCardProps {
   experience: ExperienceListItem;
@@ -39,6 +40,7 @@ const BADGE_STYLES: Record<BadgeType, { bg: string; text: string; icon?: string;
     freeCancellation: { bg: 'bg-emerald-600', text: 'text-white', label: 'Free Cancellation' },
     topPick: { bg: 'bg-indigo-700', text: 'text-white', label: 'Top Pick' },
     skipTheLine: { bg: 'bg-orange-500', text: 'text-white', label: 'Skip the Line' },
+    staffPick: { bg: 'bg-violet-600', text: 'text-white', label: "Staff Pick" },
   };
 
 // StarRating component - can be used for detailed rating display

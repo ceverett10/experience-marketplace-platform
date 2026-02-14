@@ -14,6 +14,7 @@ export function Header() {
     { icon: 'check', text: 'Free Cancellation' },
     { icon: 'bolt', text: 'Instant Confirmation' },
     { icon: 'shield', text: 'Secure Payments' },
+    { icon: 'guarantee', text: 'Best Price Guarantee' },
     { icon: 'headset', text: '24/7 Support' },
   ];
 
