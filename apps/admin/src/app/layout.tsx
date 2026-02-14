@@ -37,7 +37,7 @@ const navItems: NavItem[] = [
     icon: '⚡',
     children: [
       { href: '/operations', label: 'Dashboard', icon: '📈' },
-      { href: '/operations/suppliers', label: 'Suppliers', icon: '🏢' },
+      { href: '/operations/microsites', label: 'Microsites', icon: '🏢' },
       { href: '/operations/paid-opportunities', label: 'Paid Traffic', icon: '💰' },
       { href: '/operations/bidding', label: 'Bidding Engine', icon: '🎯' },
       { href: '/operations/jobs', label: 'Jobs', icon: '📋' },
