@@ -38,6 +38,8 @@ export const mockPrisma = {
   booking: createMockModel(),
   seoOpportunity: createMockModel(),
   performanceMetric: createMockModel(),
+  micrositeConfig: createMockModel(),
+  micrositePerformanceMetric: createMockModel(),
   aBTest: createMockModel(),
   aBTestVariant: createMockModel(),
   manualTask: createMockModel(),
