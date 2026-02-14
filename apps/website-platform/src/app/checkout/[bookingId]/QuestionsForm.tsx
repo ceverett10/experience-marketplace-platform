@@ -12,6 +12,7 @@ interface BookingQuestion {
   answerValue?: string;
   isRequired: boolean;
   autoCompleteValue?: string;
+  options?: Array<{ label: string; value: string }>;
 }
 
 interface BookingPerson {
@@ -45,6 +46,7 @@ interface QuestionsFormProps {
   isSubmitting: boolean;
   primaryColor?: string;
   totalPrice?: string;
+  isResubmission?: boolean;
 }
 
 export interface GuestData {
@@ -62,6 +64,211 @@ export interface GuestData {
     questionId: string;
     value: string;
   }>;
+  questionAnswers?: Array<{
+    questionId: string;
+    value: string;
+  }>;
+}
+
+/**
+ * Check if a question will be auto-filled by the lead person data
+ * (the backend label-matching handles these from firstName/lastName/email/phone)
+ */
+function isAutoFillableQuestion(label: string): boolean {
+  const l = label.toLowerCase();
+  return (
+    (l.includes('first') && l.includes('name')) ||
+    (l.includes('last') && l.includes('name')) ||
+    l.includes('surname') ||
+    l.includes('family name') ||
+    l === 'name' ||
+    l.includes('full name') ||
+    l.includes('email') ||
+    l.includes('phone') ||
+    l.includes('tel') ||
+    l.includes('mobile')
+  );
+}
+
+/** Get unanswered questions that can't be auto-filled from lead person data */
+function getAdditionalQuestions(
+  questions: BookingQuestion[],
+  skipAutoFillable: boolean
+): BookingQuestion[] {
+  return questions.filter(
+    (q) => !q.answerValue && (!skipAutoFillable || !isAutoFillableQuestion(q.label))
+  );
+}
+
+/** Render a single dynamic question field based on its type */
+function DynamicQuestionField({
+  question,
+  value,
+  onChange,
+  error,
+}: {
+  question: BookingQuestion;
+  value: string;
+  onChange: (value: string) => void;
+  error?: string;
+}) {
+  const inputClass = `w-full rounded-lg border px-4 py-3 text-sm transition-colors focus:outline-none focus:ring-2 ${
+    error
+      ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
+      : 'border-gray-300 focus:border-teal-500 focus:ring-teal-500'
+  }`;
+
+  const type = question.type?.toUpperCase() ?? 'TEXT';
+
+  const renderField = () => {
+    switch (type) {
+      case 'BOOLEAN':
+        return (
+          <label className="flex cursor-pointer items-start gap-3">
+            <input
+              type="checkbox"
+              checked={value === 'true'}
+              onChange={(e) => onChange(e.target.checked ? 'true' : 'false')}
+              className="mt-1 h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+            />
+            <span className="text-sm text-gray-700">
+              {question.label}
+              {question.isRequired && <span className="text-red-500"> *</span>}
+            </span>
+          </label>
+        );
+
+      case 'SELECT':
+        return (
+          <>
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              {question.label}
+              {question.isRequired && <span className="text-red-500"> *</span>}
+            </label>
+            <select
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              className={`${inputClass} bg-white`}
+            >
+              <option value="">Select...</option>
+              {(question.options ?? []).map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </>
+        );
+
+      case 'MULTISELECT': {
+        const selectedValues = value ? value.split(',').filter(Boolean) : [];
+        return (
+          <>
+            <label className="mb-2 block text-sm font-medium text-gray-700">
+              {question.label}
+              {question.isRequired && <span className="text-red-500"> *</span>}
+            </label>
+            <div className="space-y-2">
+              {(question.options ?? []).map((opt) => (
+                <label key={opt.value} className="flex cursor-pointer items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={selectedValues.includes(opt.value)}
+                    onChange={(e) => {
+                      const next = e.target.checked
+                        ? [...selectedValues, opt.value]
+                        : selectedValues.filter((v) => v !== opt.value);
+                      onChange(next.join(','));
+                    }}
+                    className="h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+                  />
+                  <span className="text-sm text-gray-700">{opt.label}</span>
+                </label>
+              ))}
+            </div>
+          </>
+        );
+      }
+
+      case 'TEXTAREA':
+        return (
+          <>
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              {question.label}
+              {question.isRequired && <span className="text-red-500"> *</span>}
+            </label>
+            <textarea
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              rows={3}
+              className={inputClass}
+              placeholder={question.label}
+            />
+          </>
+        );
+
+      case 'DATE':
+        return (
+          <>
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              {question.label}
+              {question.isRequired && <span className="text-red-500"> *</span>}
+            </label>
+            <input
+              type="date"
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              className={inputClass}
+            />
+          </>
+        );
+
+      case 'NUMBER':
+        return (
+          <>
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              {question.label}
+              {question.isRequired && <span className="text-red-500"> *</span>}
+            </label>
+            <input
+              type="number"
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              className={inputClass}
+              placeholder={question.label}
+            />
+          </>
+        );
+
+      default: {
+        // TEXT, EMAIL, PHONE, or unknown
+        const inputType =
+          type === 'EMAIL' ? 'email' : type === 'PHONE' ? 'tel' : 'text';
+        return (
+          <>
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              {question.label}
+              {question.isRequired && <span className="text-red-500"> *</span>}
+            </label>
+            <input
+              type={inputType}
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              className={inputClass}
+              placeholder={question.label}
+            />
+          </>
+        );
+      }
+    }
+  };
+
+  return (
+    <div>
+      {renderField()}
+      {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
+    </div>
+  );
 }
 
 export function QuestionsForm({
@@ -71,14 +278,14 @@ export function QuestionsForm({
   isSubmitting,
   primaryColor = '#0d9488',
   totalPrice,
+  isResubmission = false,
 }: QuestionsFormProps) {
-  // Extract total number of persons for display
   const totalGuests = availabilities.reduce(
     (sum, avail) => sum + (avail.personList?.nodes.length ?? 0),
     0
   );
 
-  // Simple form state - just lead person details (like Classictic)
+  // Lead person details
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
@@ -87,41 +294,90 @@ export function QuestionsForm({
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
 
-  // Availability-level questions (e.g., risk acceptance waivers)
-  const availabilityQuestions = availabilities.flatMap((avail) =>
-    (avail.questionList?.nodes ?? []).filter((q) => !q.answerValue)
-  );
-  const [availabilityAnswers, setAvailabilityAnswers] = useState<Record<string, boolean>>({});
+  // Dynamic question answers (keyed by question ID)
+  const [dynamicAnswers, setDynamicAnswers] = useState<Record<string, string>>({});
 
-  // Form validation
+  // Collapsible person sections
+  const [expandedPersons, setExpandedPersons] = useState<Record<string, boolean>>({});
+
+  // Validation errors
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const setDynamicAnswer = (questionId: string, value: string) => {
+    setDynamicAnswers((prev) => ({ ...prev, [questionId]: value }));
+  };
+
+  const togglePerson = (personId: string) => {
+    setExpandedPersons((prev) => ({ ...prev, [personId]: !prev[personId] }));
+  };
+
+  // Compute additional questions at each level (unanswered, not auto-fillable)
+  const additionalBookingQuestions = getAdditionalQuestions(bookingQuestions, true);
+
+  const availabilityQuestionSections = availabilities
+    .map((avail) => ({
+      availability: avail,
+      questions: getAdditionalQuestions(avail.questionList?.nodes ?? [], true),
+    }))
+    .filter((s) => s.questions.length > 0);
+
+  const personQuestionSections = availabilities.flatMap((avail) =>
+    (avail.personList?.nodes ?? [])
+      .filter((person) => !person.isQuestionsComplete)
+      .map((person, index) => ({
+        person,
+        guestIndex: index,
+        productName: avail.product?.name,
+        // For person questions, don't skip auto-fillable for non-lead guests
+        // (lead guest auto-fill from our form, but additional guests may need their own details)
+        questions: getAdditionalQuestions(
+          person.questionList?.nodes ?? [],
+          index === 0 // skip auto-fillable only for lead guest (index 0)
+        ),
+      }))
+      .filter((s) => s.questions.length > 0)
+  );
+
+  const hasAdditionalQuestions =
+    additionalBookingQuestions.length > 0 ||
+    availabilityQuestionSections.length > 0 ||
+    personQuestionSections.length > 0;
+
+  // Gather all dynamic questions for validation
+  const allDynamicQuestions = [
+    ...additionalBookingQuestions,
+    ...availabilityQuestionSections.flatMap((s) => s.questions),
+    ...personQuestionSections.flatMap((s) => s.questions),
+  ];
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
-    if (!firstName.trim()) {
-      newErrors['firstName'] = 'First name is required';
-    }
-    if (!lastName.trim()) {
-      newErrors['lastName'] = 'Last name is required';
-    }
+    if (!firstName.trim()) newErrors['firstName'] = 'First name is required';
+    if (!lastName.trim()) newErrors['lastName'] = 'Last name is required';
     if (!email) {
       newErrors['email'] = 'Email is required';
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       newErrors['email'] = 'Invalid email address';
     }
-    if (!phone.trim()) {
-      newErrors['phone'] = 'Phone number is required';
-    }
-    // Check availability questions (e.g., risk waivers)
-    for (const question of availabilityQuestions) {
-      if (question.isRequired && !availabilityAnswers[question.id]) {
-        newErrors[`avail_${question.id}`] = 'This acknowledgment is required';
+    if (!phone.trim()) newErrors['phone'] = 'Phone number is required';
+
+    // Validate dynamic questions
+    for (const question of allDynamicQuestions) {
+      if (!question.isRequired) continue;
+      const answer = dynamicAnswers[question.id];
+      const type = question.type?.toUpperCase() ?? 'TEXT';
+
+      if (type === 'BOOLEAN') {
+        if (answer !== 'true') {
+          newErrors[`q_${question.id}`] = 'This acknowledgment is required';
+        }
+      } else if (!answer || !answer.trim()) {
+        newErrors[`q_${question.id}`] = `${question.label} is required`;
       }
     }
-    if (!termsAccepted) {
-      newErrors['terms'] = 'You must accept the terms and conditions';
-    }
+
+    if (!termsAccepted) newErrors['terms'] = 'You must accept the terms and conditions';
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -129,19 +385,14 @@ export function QuestionsForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!validateForm()) return;
 
-    // Build guest data - use lead person details for all guests (API will auto-fill)
     const fullPhone = `${phoneCountryCode} ${phone}`.trim();
 
-    // Build availability answers for submission
-    const availAnswers = Object.entries(availabilityAnswers)
-      .filter(([_, accepted]) => accepted)
-      .map(([questionId]) => ({
-        questionId,
-        value: 'true', // Boolean questions expect string 'true'
-      }));
+    // Build question answers from dynamic fields
+    const questionAnswers = Object.entries(dynamicAnswers)
+      .filter(([, value]) => value !== '' && value !== undefined)
+      .map(([questionId, value]) => ({ questionId, value }));
 
     const data: GuestData = {
       customerEmail: email,
@@ -156,7 +407,7 @@ export function QuestionsForm({
         }))
       ),
       termsAccepted,
-      availabilityAnswers: availAnswers,
+      questionAnswers,
     };
 
     await onSubmit(data);
@@ -164,14 +415,13 @@ export function QuestionsForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Lead Person Details - simplified like Classictic */}
+      {/* Lead Person Details */}
       <div className="rounded-xl bg-white p-6 shadow-lg">
         <h2 className="mb-6 text-lg font-semibold" style={{ color: primaryColor }}>
           Lead Person Details
         </h2>
 
         <div className="space-y-4">
-          {/* First Name */}
           <div>
             <input
               type="text"
@@ -189,7 +439,6 @@ export function QuestionsForm({
             )}
           </div>
 
-          {/* Last Name */}
           <div>
             <input
               type="text"
@@ -207,7 +456,6 @@ export function QuestionsForm({
             )}
           </div>
 
-          {/* Email */}
           <div>
             <input
               type="email"
@@ -223,7 +471,6 @@ export function QuestionsForm({
             {errors['email'] && <p className="mt-1 text-xs text-red-500">{errors['email']}</p>}
           </div>
 
-          {/* Phone with Country Code */}
           <div className="flex gap-2">
             <select
               value={phoneCountryCode}
@@ -265,41 +512,107 @@ export function QuestionsForm({
         </div>
       </div>
 
+      {/* Additional Booking-Level Questions */}
+      {additionalBookingQuestions.length > 0 && (
+        <div className="rounded-xl bg-white p-6 shadow-lg">
+          <h2 className="mb-4 text-lg font-semibold" style={{ color: primaryColor }}>
+            Additional Information
+          </h2>
+          <div className="space-y-4">
+            {additionalBookingQuestions.map((question) => (
+              <DynamicQuestionField
+                key={question.id}
+                question={question}
+                value={dynamicAnswers[question.id] ?? ''}
+                onChange={(val) => setDynamicAnswer(question.id, val)}
+                error={errors[`q_${question.id}`]}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Availability-Level Questions (per experience) */}
+      {availabilityQuestionSections.map(({ availability, questions }) => (
+        <div key={availability.id} className="rounded-xl bg-white p-6 shadow-lg">
+          <h2 className="mb-4 text-lg font-semibold" style={{ color: primaryColor }}>
+            {availability.product?.name ?? 'Experience'} — Additional Questions
+          </h2>
+          <div className="space-y-4">
+            {questions.map((question) => (
+              <DynamicQuestionField
+                key={question.id}
+                question={question}
+                value={dynamicAnswers[question.id] ?? ''}
+                onChange={(val) => setDynamicAnswer(question.id, val)}
+                error={errors[`q_${question.id}`]}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
+
+      {/* Per-Person Questions */}
+      {personQuestionSections.length > 0 && (
+        <div className="rounded-xl bg-white p-6 shadow-lg">
+          <h2 className="mb-4 text-lg font-semibold" style={{ color: primaryColor }}>
+            Guest Details
+          </h2>
+          <div className="space-y-3">
+            {personQuestionSections.map(({ person, guestIndex, questions }) => {
+              const isExpanded = expandedPersons[person.id] ?? true; // default open
+              const label =
+                person.pricingCategoryLabel ??
+                `Guest ${guestIndex + 1}`;
+
+              return (
+                <div key={person.id} className="rounded-lg border border-gray-200">
+                  <button
+                    type="button"
+                    onClick={() => togglePerson(person.id)}
+                    className="flex w-full items-center justify-between px-4 py-3 text-left"
+                  >
+                    <span className="text-sm font-medium text-gray-900">
+                      {label}
+                      {guestIndex === 0 && (
+                        <span className="ml-2 text-xs text-gray-500">(Lead guest)</span>
+                      )}
+                    </span>
+                    <svg
+                      className={`h-4 w-4 text-gray-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth="2"
+                      stroke="currentColor"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                    </svg>
+                  </button>
+                  {isExpanded && (
+                    <div className="space-y-4 border-t border-gray-200 px-4 py-4">
+                      {questions.map((question) => (
+                        <DynamicQuestionField
+                          key={question.id}
+                          question={question}
+                          value={dynamicAnswers[question.id] ?? ''}
+                          onChange={(val) => setDynamicAnswer(question.id, val)}
+                          error={errors[`q_${question.id}`]}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Completion Section - Terms and Conditions */}
       <div className="rounded-xl bg-white p-6 shadow-lg">
         <h2 className="mb-4 text-lg font-semibold" style={{ color: primaryColor }}>
           Completion
         </h2>
-
-        {/* Availability-level questions (risk waivers, etc.) */}
-        {availabilityQuestions.length > 0 && (
-          <div className="mb-4 space-y-3">
-            {availabilityQuestions.map((question) => (
-              <div key={question.id}>
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={availabilityAnswers[question.id] ?? false}
-                    onChange={(e) =>
-                      setAvailabilityAnswers((prev) => ({
-                        ...prev,
-                        [question.id]: e.target.checked,
-                      }))
-                    }
-                    className="mt-1 h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
-                  />
-                  <span className="text-sm text-gray-700">
-                    {question.label}
-                    {question.isRequired && <span className="text-red-500"> *</span>}
-                  </span>
-                </label>
-                {errors[`avail_${question.id}`] && (
-                  <p className="mt-1 ml-7 text-xs text-red-500">{errors[`avail_${question.id}`]}</p>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
 
         <p className="mb-4 text-sm text-gray-600">
           You just need to accept Holibob{' '}
@@ -313,7 +626,7 @@ export function QuestionsForm({
           to continue.
         </p>
 
-        <label className="flex items-start gap-3 cursor-pointer">
+        <label className="flex cursor-pointer items-start gap-3">
           <input
             type="checkbox"
             checked={termsAccepted}
@@ -359,13 +672,15 @@ export function QuestionsForm({
             </svg>
             Processing...
           </span>
+        ) : isResubmission ? (
+          'Submit Answers'
         ) : (
           'Continue to Payment'
         )}
       </button>
 
       {/* Guest count info */}
-      {totalGuests > 1 && (
+      {totalGuests > 1 && !hasAdditionalQuestions && (
         <p className="text-center text-sm text-gray-500">
           Booking for {totalGuests} guests. Lead person details will be used for the booking.
         </p>

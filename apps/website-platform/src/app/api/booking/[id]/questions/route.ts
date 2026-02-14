@@ -25,7 +25,9 @@ interface BookingQuestionNode {
   answerValue?: string | null;
   type?: string;
   dataType?: string;
+  dataFormat?: string;
   isRequired?: boolean;
+  options?: Array<{ label: string; value: string }>;
 }
 
 interface BookingAvailabilityNode {
@@ -75,6 +77,8 @@ const AnswerQuestionsSchema = z.object({
   termsAccepted: z.boolean().optional(),
   // Availability-level answers (e.g., risk waivers)
   availabilityAnswers: z.array(AvailabilityAnswerSchema).optional(),
+  // Arbitrary question answers from dynamic form fields
+  questionAnswers: z.array(AvailabilityAnswerSchema).optional(),
 });
 
 interface RouteParams {
@@ -286,6 +290,19 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             questionId: answer.questionId,
             value: answer.value,
           });
+        }
+      }
+
+      // Add arbitrary question answers from dynamic form fields
+      if (input.questionAnswers && input.questionAnswers.length > 0) {
+        for (const answer of input.questionAnswers) {
+          // Avoid duplicating answers already set by label-matching
+          if (!answerList.some((a) => a.questionId === answer.questionId)) {
+            answerList.push({
+              questionId: answer.questionId,
+              value: answer.value,
+            });
+          }
         }
       }
 

@@ -34,6 +34,7 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
   const [questionsAnswered, setQuestionsAnswered] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
   const [paymentComplete, setPaymentComplete] = useState(false);
+  const [submitAttempts, setSubmitAttempts] = useState(0);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -71,7 +72,7 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
     loadQuestions();
   }, [initialBooking.id]);
 
-  // Handle questions form submission
+  // Handle questions form submission with iterative re-fetch for conditional questions
   const handleQuestionsSubmit = async (data: GuestData) => {
     setIsSubmitting(true);
     setError(null);
@@ -81,11 +82,39 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
       setBooking(result.booking);
       setCanCommit(result.canCommit);
 
-      // Only proceed to review if canCommit is true
       if (result.canCommit) {
         setQuestionsAnswered(true);
       } else {
-        setError('Please complete all required information');
+        // Re-fetch questions to discover newly revealed conditional questions
+        const refreshed = await getBookingQuestions(initialBooking.id);
+        setBooking(refreshed.booking);
+        setBookingQuestions(refreshed.summary.bookingQuestions);
+        setAvailabilities(refreshed.booking.availabilityList?.nodes ?? []);
+        setCanCommit(refreshed.summary.canCommit);
+
+        if (refreshed.summary.canCommit) {
+          setQuestionsAnswered(true);
+        } else {
+          // Count remaining unanswered required questions
+          let unanswered = 0;
+          unanswered += refreshed.summary.bookingQuestions.filter((q) => !q.answerValue).length;
+          for (const avail of refreshed.summary.availabilityQuestions) {
+            unanswered += avail.questions.filter((q) => !q.answerValue).length;
+            for (const person of avail.personQuestions) {
+              if (!person.isComplete) {
+                unanswered += person.questions.filter((q) => !q.answerValue).length;
+              }
+            }
+          }
+
+          setSubmitAttempts((prev) => prev + 1);
+          setError(
+            unanswered > 0
+              ? `There ${unanswered === 1 ? 'is' : 'are'} ${unanswered} additional question${unanswered === 1 ? '' : 's'} that require${unanswered === 1 ? 's' : ''} your attention. Please complete all fields below.`
+              : 'Please complete all required information to continue.'
+          );
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save guest information');
@@ -299,6 +328,7 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
                 isSubmitting={isSubmitting}
                 primaryColor={primaryColor}
                 totalPrice={booking.totalPrice?.grossFormattedText}
+                isResubmission={submitAttempts > 0}
               />
             )}
 

@@ -89,6 +89,7 @@ export interface BookingQuestion {
   answerValue?: string;
   isRequired: boolean;
   autoCompleteValue?: string;
+  options?: Array<{ label: string; value: string }>;
 }
 
 export interface BookingPerson {
@@ -332,6 +333,8 @@ export async function answerBookingQuestions(
       isLeadGuest?: boolean;
     }>;
     termsAccepted?: boolean;
+    availabilityAnswers?: Array<{ questionId: string; value: string }>;
+    questionAnswers?: Array<{ questionId: string; value: string }>;
   }
 ): Promise<{ canCommit: boolean; booking: Booking }> {
   const response = await fetch(`/api/booking/${bookingId}/questions`, {

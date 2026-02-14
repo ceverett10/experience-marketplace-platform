@@ -410,6 +410,10 @@ export const BOOKING_QUESTIONS_QUERY = gql`
           dataFormat
           answerValue
           isRequired
+          options {
+            label
+            value
+          }
         }
       }
       availabilityList {
@@ -434,6 +438,10 @@ export const BOOKING_QUESTIONS_QUERY = gql`
               dataFormat
               answerValue
               isRequired
+              options {
+                label
+                value
+              }
             }
           }
           personList {
@@ -450,6 +458,10 @@ export const BOOKING_QUESTIONS_QUERY = gql`
                   dataFormat
                   answerValue
                   isRequired
+                  options {
+                    label
+                    value
+                  }
                 }
               }
             }
@@ -479,8 +491,15 @@ export const BOOKING_ANSWER_QUESTIONS_QUERY = gql`
         nodes {
           id
           label
+          type
+          dataType
+          dataFormat
           answerValue
           isRequired
+          options {
+            label
+            value
+          }
         }
       }
       availabilityList {
@@ -490,8 +509,15 @@ export const BOOKING_ANSWER_QUESTIONS_QUERY = gql`
             nodes {
               id
               label
+              type
+              dataType
+              dataFormat
               answerValue
               isRequired
+              options {
+                label
+                value
+              }
             }
           }
           personList {
@@ -503,8 +529,15 @@ export const BOOKING_ANSWER_QUESTIONS_QUERY = gql`
                 nodes {
                   id
                   label
+                  type
+                  dataType
+                  dataFormat
                   answerValue
                   isRequired
+                  options {
+                    label
+                    value
+                  }
                 }
               }
             }
