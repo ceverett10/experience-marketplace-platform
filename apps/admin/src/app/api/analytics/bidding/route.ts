@@ -83,6 +83,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         ctr: impressions > 0 ? clicks / impressions : 0,
         avgCpc: clicks > 0 ? spend / clicks : 0,
         daysWithData: c.dailyMetrics.length,
+        proposalData: c.proposalData || null,
       };
     });
 
@@ -368,6 +369,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         success: true,
         message: `Deployed ${result.deployed} campaigns (${result.failed} failed, ${result.skipped} skipped)`,
         data: result,
+      });
+    }
+
+    if (action === 'reject_drafts') {
+      const deleted = await prisma.adCampaign.deleteMany({
+        where: { status: 'DRAFT' },
+      });
+      return NextResponse.json({
+        success: true,
+        message: `Rejected and deleted ${deleted.count} draft campaign${deleted.count !== 1 ? 's' : ''}`,
       });
     }
 

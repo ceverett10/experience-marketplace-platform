@@ -1078,7 +1078,8 @@ model AdCampaign {
   // Targeting
   keywords   String[] // Target keywords
   targetUrl  String   // Landing page URL
-  audiences  Json?    // Platform-specific audience config
+  audiences    Json?    // Platform-specific audience config
+  proposalData Json?    // Estimated CPC, CPA, clicks, revenue at proposal time
   geoTargets String[] // Country/region codes
 
   // UTM Tracking (auto-generated)

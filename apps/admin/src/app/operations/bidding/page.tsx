@@ -15,6 +15,24 @@ interface Profile {
   lastCalculatedAt: string | null;
 }
 
+interface ProposalEstimates {
+  estimatedCpc: number;
+  maxBid: number;
+  searchVolume: number;
+  expectedClicksPerDay: number;
+  expectedDailyCost: number;
+  expectedDailyRevenue: number;
+  profitabilityScore: number;
+  intent: string;
+  assumptions: {
+    avgOrderValue: number;
+    commissionRate: number;
+    conversionRate: number;
+    targetRoas: number;
+    revenuePerClick: number;
+  };
+}
+
 interface Campaign {
   id: string;
   name: string;
@@ -33,6 +51,7 @@ interface Campaign {
   ctr: number;
   avgCpc: number;
   daysWithData: number;
+  proposalData: ProposalEstimates | null;
 }
 
 interface Attribution {
@@ -281,6 +300,56 @@ export default function BiddingDashboardPage() {
 
   const draftCount = data?.campaigns.filter((c) => c.status === 'DRAFT').length || 0;
 
+  // Computed: proposal metrics from DRAFT campaigns with proposalData
+  const proposalMetrics = useMemo(() => {
+    if (!data) return null;
+    const drafts = data.campaigns.filter(
+      (c) => c.status === 'DRAFT' && c.proposalData
+    );
+    if (drafts.length === 0) return null;
+
+    // Group by site
+    const bySite = new Map<string, Campaign[]>();
+    for (const d of drafts) {
+      const existing = bySite.get(d.siteName) || [];
+      existing.push(d);
+      bySite.set(d.siteName, existing);
+    }
+
+    // Calculate totals
+    let totalDailySpend = 0;
+    let totalClicksPerDay = 0;
+    let totalDailyRevenue = 0;
+    for (const d of drafts) {
+      const p = d.proposalData!;
+      totalDailySpend += p.expectedDailyCost;
+      totalClicksPerDay += p.expectedClicksPerDay;
+      totalDailyRevenue += p.expectedDailyRevenue;
+    }
+
+    // Get assumptions from first draft (they share the same model params)
+    const firstAssumptions = drafts[0]!.proposalData!.assumptions;
+    const avgCpc = totalClicksPerDay > 0 ? totalDailySpend / totalClicksPerDay : 0;
+    const conversionRate = firstAssumptions.conversionRate;
+    const dailyBookings = totalClicksPerDay * conversionRate;
+    const cpa = dailyBookings > 0 ? totalDailySpend / dailyBookings : 0;
+    const roas = totalDailySpend > 0 ? totalDailyRevenue / totalDailySpend : 0;
+
+    return {
+      drafts,
+      bySite,
+      siteCount: bySite.size,
+      totalDailySpend,
+      totalClicksPerDay,
+      totalDailyRevenue,
+      avgCpc,
+      dailyBookings,
+      cpa,
+      roas,
+      assumptions: firstAssumptions,
+    };
+  }, [data]);
+
   return (
     <div className="space-y-6">
       {/* Shared Header */}
@@ -372,6 +441,181 @@ export default function BiddingDashboardPage() {
           {/* ==================== PLANNING TAB ==================== */}
           {activeTab === 'planning' && (
             <div className="space-y-6">
+              {/* Test Proposal — shows when DRAFT campaigns with proposal data exist */}
+              {proposalMetrics && (
+                <Card className="border-2 border-sky-300 bg-sky-50/30">
+                  <div className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h3 className="text-lg font-bold text-slate-900">
+                          Test Proposal
+                        </h3>
+                        <p className="text-sm text-slate-600 mt-0.5">
+                          {proposalMetrics.drafts.length} campaign{proposalMetrics.drafts.length !== 1 ? 's' : ''} across {proposalMetrics.siteCount} site{proposalMetrics.siteCount !== 1 ? 's' : ''} — review and approve before any money is spent.
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => triggerAction('deploy_drafts')}
+                          className="px-5 py-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm font-semibold"
+                        >
+                          Approve &amp; Deploy
+                        </button>
+                        <button
+                          onClick={() => triggerAction('reject_drafts')}
+                          className="px-5 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-semibold"
+                        >
+                          Reject All
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Assumptions */}
+                    <div className="flex items-center gap-4 text-xs text-slate-500 mb-5 bg-white/60 rounded-lg px-4 py-2.5 border border-slate-200">
+                      <span className="font-medium text-slate-700">Assumptions:</span>
+                      <span>AOV &pound;{proposalMetrics.assumptions.avgOrderValue.toFixed(0)}</span>
+                      <span>&middot;</span>
+                      <span>Commission {proposalMetrics.assumptions.commissionRate.toFixed(0)}%</span>
+                      <span>&middot;</span>
+                      <span>CVR {(proposalMetrics.assumptions.conversionRate * 100).toFixed(1)}%</span>
+                      <span>&middot;</span>
+                      <span>Target ROAS {proposalMetrics.assumptions.targetRoas}x</span>
+                      <span>&middot;</span>
+                      <span>Budget cap &pound;{data.budget.dailyCap.toFixed(0)}/day</span>
+                    </div>
+
+                    {/* Per-site campaign groups */}
+                    <div className="space-y-3 mb-6">
+                      {Array.from(proposalMetrics.bySite.entries()).map(([siteName, campaigns]) => {
+                        const siteSpend = campaigns.reduce((s, c) => s + (c.proposalData?.expectedDailyCost || 0), 0);
+                        const siteClicks = campaigns.reduce((s, c) => s + (c.proposalData?.expectedClicksPerDay || 0), 0);
+                        return (
+                          <div key={siteName} className="border border-slate-200 rounded-lg bg-white overflow-hidden">
+                            <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                              <span className="text-sm font-semibold text-slate-900">{siteName}</span>
+                              <div className="flex items-center gap-3 text-xs text-slate-500">
+                                <span>&pound;{siteSpend.toFixed(2)}/day</span>
+                                <span>~{Math.round(siteClicks)} clicks/day</span>
+                              </div>
+                            </div>
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="border-b border-slate-100">
+                                  <th className="text-left px-4 py-1.5 text-xs font-medium text-slate-500">Keyword</th>
+                                  <th className="text-center px-3 py-1.5 text-xs font-medium text-slate-500">Platform</th>
+                                  <th className="text-right px-3 py-1.5 text-xs font-medium text-slate-500">CPC</th>
+                                  <th className="text-right px-3 py-1.5 text-xs font-medium text-slate-500">Budget/day</th>
+                                  <th className="text-right px-3 py-1.5 text-xs font-medium text-slate-500">Est. Clicks/day</th>
+                                  <th className="text-right px-3 py-1.5 text-xs font-medium text-slate-500">Score</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {campaigns.map((c) => {
+                                  const p = c.proposalData!;
+                                  return (
+                                    <tr key={c.id} className="border-b border-slate-50 hover:bg-slate-50">
+                                      <td className="px-4 py-2">
+                                        <div className="font-medium text-slate-900">{c.keywords[0] || c.name}</div>
+                                      </td>
+                                      <td className="px-3 py-2 text-center">
+                                        <span className={`text-xs px-2 py-0.5 rounded font-medium ${
+                                          platformColors[c.platform] || 'bg-slate-100 text-slate-800'
+                                        }`}>
+                                          {c.platform === 'FACEBOOK' ? 'Meta' : c.platform === 'GOOGLE_SEARCH' ? 'Google' : c.platform}
+                                        </span>
+                                      </td>
+                                      <td className="px-3 py-2 text-right font-mono text-slate-700">
+                                        &pound;{p.estimatedCpc.toFixed(3)}
+                                      </td>
+                                      <td className="px-3 py-2 text-right font-mono text-slate-700">
+                                        &pound;{c.dailyBudget.toFixed(2)}
+                                      </td>
+                                      <td className="px-3 py-2 text-right font-mono text-slate-600">
+                                        ~{Math.round(p.expectedClicksPerDay)}
+                                      </td>
+                                      <td className="px-3 py-2 text-right font-mono text-slate-500">
+                                        {p.profitabilityScore.toFixed(0)}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Portfolio Summary */}
+                    <div className="bg-white border border-slate-200 rounded-lg p-4">
+                      <h4 className="text-sm font-semibold text-slate-900 mb-3">Portfolio Summary</h4>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+                        <div>
+                          <p className="text-xs text-slate-500">Daily Spend</p>
+                          <p className="text-lg font-bold text-sky-700">
+                            &pound;{proposalMetrics.totalDailySpend.toFixed(2)}<span className="text-xs font-normal text-slate-400">/day</span>
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-500">Expected Clicks</p>
+                          <p className="text-lg font-bold text-blue-700">
+                            ~{Math.round(proposalMetrics.totalClicksPerDay)}<span className="text-xs font-normal text-slate-400">/day</span>
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-500">Expected CPC</p>
+                          <p className="text-lg font-bold text-slate-700">
+                            &pound;{proposalMetrics.avgCpc.toFixed(3)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-500">Expected CPA</p>
+                          <p className="text-lg font-bold text-amber-700">
+                            &pound;{proposalMetrics.cpa.toFixed(2)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-500">Daily Bookings</p>
+                          <p className="text-lg font-bold text-green-700">
+                            ~{proposalMetrics.dailyBookings.toFixed(1)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-500">Projected ROAS</p>
+                          <p className={`text-lg font-bold ${
+                            proposalMetrics.roas >= 3 ? 'text-green-700' :
+                            proposalMetrics.roas >= 1 ? 'text-amber-700' : 'text-red-700'
+                          }`}>
+                            {proposalMetrics.roas.toFixed(1)}x
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bottom approve/reject */}
+                    <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-200">
+                      <p className="text-xs text-slate-400">
+                        Campaigns will be created as PAUSED on the ad platform. You can activate them individually or let the budget optimizer manage them.
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => triggerAction('deploy_drafts')}
+                          className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm font-medium"
+                        >
+                          Approve &amp; Deploy
+                        </button>
+                        <button
+                          onClick={() => triggerAction('reject_drafts')}
+                          className="px-4 py-2 bg-white text-red-600 border border-red-300 rounded-lg hover:bg-red-50 text-sm font-medium"
+                        >
+                          Reject All
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              )}
+
               {/* Keyword Pipeline Summary */}
               {data.keywordSummary && (
                 <Card>

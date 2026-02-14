@@ -849,8 +849,9 @@ export async function handleBiddingEngineRun(job: Job): Promise<JobResult> {
       });
       if (existing) continue;
 
-      // Create campaign record (DRAFT — actual platform creation happens on first sync)
+      // Create campaign record as DRAFT with proposal estimates for user review
       const campaignName = `${candidate.siteName} - ${candidate.keyword}`;
+      const profile = result.profiles.find((p) => p.siteId === candidate.siteId);
       await prisma.adCampaign.create({
         data: {
           siteId: candidate.siteId,
@@ -866,21 +867,30 @@ export async function handleBiddingEngineRun(job: Job): Promise<JobResult> {
           utmMedium: candidate.utmParams.medium,
           utmCampaign: candidate.utmParams.campaign,
           opportunityId: candidate.opportunityId,
+          proposalData: {
+            estimatedCpc: candidate.estimatedCpc,
+            maxBid: candidate.maxBid,
+            searchVolume: candidate.searchVolume,
+            expectedClicksPerDay: candidate.expectedClicksPerDay,
+            expectedDailyCost: candidate.expectedDailyCost,
+            expectedDailyRevenue: candidate.expectedDailyRevenue,
+            profitabilityScore: candidate.profitabilityScore,
+            intent: candidate.intent,
+            assumptions: {
+              avgOrderValue: profile?.avgOrderValue ?? 60,
+              commissionRate: profile?.avgCommissionRate ?? 18,
+              conversionRate: profile?.conversionRate ?? 0.015,
+              targetRoas: 3.0,
+              revenuePerClick: profile?.revenuePerClick ?? 0,
+            },
+          },
         },
       });
 
       campaignsCreated++;
     }
 
-    console.log(`[Ads Worker] Created ${campaignsCreated} new campaign records`);
-
-    // Deploy DRAFT campaigns to ad platforms (Meta, Google)
-    if (campaignsCreated > 0) {
-      const deployment = await deployDraftCampaigns();
-      console.log(
-        `[Ads Worker] Deployment: ${deployment.deployed} live, ${deployment.failed} failed, ${deployment.skipped} skipped`
-      );
-    }
+    console.log(`[Ads Worker] Created ${campaignsCreated} draft campaigns (awaiting user approval)`)
   }
 
   // Count final campaign states
