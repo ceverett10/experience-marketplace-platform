@@ -602,8 +602,9 @@ export async function scoreCampaignOpportunities(
   });
 
   // Load active microsites for keyword→microsite matching
-  const microsites = await prisma.micrositeConfig.findMany({
-    where: { status: 'ACTIVE' },
+  // 1) OPPORTUNITY microsites: have discoveryConfig with keywords
+  const opportunityMicrosites = await prisma.micrositeConfig.findMany({
+    where: { status: 'ACTIVE', entityType: 'OPPORTUNITY' },
     select: {
       id: true,
       siteName: true,
@@ -613,17 +614,53 @@ export async function scoreCampaignOpportunities(
     },
   });
 
-  // Build keyword→microsite lookup for matching
-  const micrositeByTerm = new Map<string, typeof microsites[0]>();
-  for (const ms of microsites) {
+  // 2) SUPPLIER microsites: match via supplier cities + categories
+  const supplierMicrosites = await prisma.micrositeConfig.findMany({
+    where: { status: 'ACTIVE', entityType: 'SUPPLIER' },
+    select: {
+      id: true,
+      siteName: true,
+      fullDomain: true,
+      cachedProductCount: true,
+      supplier: { select: { cities: true, categories: true } },
+    },
+  });
+
+  // Merge for unified type
+  type MicrositeMatch = { id: string; siteName: string; fullDomain: string; productCount: number };
+
+  // Build keyword→microsite lookup from OPPORTUNITY discoveryConfig
+  const micrositeByTerm = new Map<string, MicrositeMatch>();
+  for (const ms of opportunityMicrosites) {
     const disco = ms.discoveryConfig as {
       keyword?: string; destination?: string; niche?: string; searchTerms?: string[];
     } | null;
-    if (disco?.keyword) micrositeByTerm.set(disco.keyword.toLowerCase(), ms);
+    const entry: MicrositeMatch = { id: ms.id, siteName: ms.siteName, fullDomain: ms.fullDomain, productCount: 0 };
+    if (disco?.keyword) micrositeByTerm.set(disco.keyword.toLowerCase(), entry);
     for (const term of disco?.searchTerms ?? []) {
-      micrositeByTerm.set(term.toLowerCase(), ms);
+      micrositeByTerm.set(term.toLowerCase(), entry);
     }
   }
+
+  // Build city→microsite[] lookup from SUPPLIER microsites
+  // When a keyword mentions a city, we can route to a supplier microsite in that city
+  const micrositesByCity = new Map<string, MicrositeMatch[]>();
+  for (const ms of supplierMicrosites) {
+    const cities = ms.supplier?.cities ?? [];
+    if (cities.length === 0) continue;
+    const entry: MicrositeMatch = {
+      id: ms.id, siteName: ms.siteName, fullDomain: ms.fullDomain,
+      productCount: ms.cachedProductCount,
+    };
+    for (const city of cities) {
+      const cityLower = city.toLowerCase();
+      const existing = micrositesByCity.get(cityLower) || [];
+      existing.push(entry);
+      micrositesByCity.set(cityLower, existing);
+    }
+  }
+
+  console.log(`[BiddingEngine] Microsite lookup: ${micrositeByTerm.size} keyword terms, ${micrositesByCity.size} cities (${supplierMicrosites.length} supplier microsites)`);
 
   const candidates: CampaignCandidate[] = [];
 
@@ -647,16 +684,30 @@ export async function scoreCampaignOpportunities(
 
     // Check if keyword matches a microsite for better landing page relevance
     const kwLower = opp.keyword.toLowerCase();
-    let matchedMicrosite: typeof microsites[0] | undefined;
+    let matchedMicrosite: MicrositeMatch | undefined;
 
-    // Exact match on microsite keyword/searchTerms
+    // 1) Exact match on OPPORTUNITY microsite keyword/searchTerms
     matchedMicrosite = micrositeByTerm.get(kwLower);
 
-    // If no exact match, check if keyword contains a microsite keyword
+    // 2) Substring match on OPPORTUNITY microsite terms
     if (!matchedMicrosite) {
       for (const [term, ms] of micrositeByTerm) {
         if (kwLower.includes(term) || term.includes(kwLower)) {
           matchedMicrosite = ms;
+          break;
+        }
+      }
+    }
+
+    // 3) City-based match on SUPPLIER microsites — if keyword mentions a city,
+    //    route to a supplier in that city (prefer highest product count)
+    if (!matchedMicrosite) {
+      for (const [city, micrositesInCity] of micrositesByCity) {
+        if (kwLower.includes(city)) {
+          // Pick the supplier with the most products in this city
+          matchedMicrosite = micrositesInCity.reduce((best, ms) =>
+            ms.productCount > best.productCount ? ms : best
+          );
           break;
         }
       }
