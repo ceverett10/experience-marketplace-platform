@@ -232,6 +232,8 @@ class QueueRegistry {
       priority: options?.priority,
       attempts: options?.attempts,
       backoff: options?.backoff,
+      removeOnComplete: { age: 3600, count: 50 },  // Keep last 50 or 1 hour
+      removeOnFail: { age: 86400, count: 200 },     // Keep last 200 or 24 hours
     });
   }
 
