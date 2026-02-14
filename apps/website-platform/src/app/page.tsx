@@ -544,13 +544,13 @@ export default async function HomePage() {
   const site = await getSiteFromHostname(hostname);
 
   // === MICROSITE LAYOUT ROUTING ===
-  // For ALL microsites, use Product List by Provider (not Product Discovery)
-  // Microsites are single-operator sites with a specific set of products
   if (isMicrosite(site.micrositeContext)) {
     const layoutConfig = site.micrositeContext.layoutConfig;
     console.log(
       '[Homepage] Microsite detected with layout:',
       layoutConfig.resolvedType,
+      'entityType:',
+      site.micrositeContext.entityType,
       'productCount:',
       layoutConfig.productCount
     );
@@ -573,47 +573,56 @@ export default async function HomePage() {
       // Fall through to catalog if product fetch fails
     }
 
-    // ALL microsites (CATALOG, MARKETPLACE, or PRODUCT_SPOTLIGHT fallback) use CatalogHomepage
-    // This ensures we use Product List by Provider and don't show irrelevant destinations/categories
-    // getFeaturedExperiences() uses getProductsByProvider() for microsites
-    const { experiences, totalCount } = await getFeaturedExperiences(
-      site,
-      site.homepageConfig?.popularExperiences
-    );
+    // OPPORTUNITY microsites with rich homepageConfig → full Site-style homepage
+    // These represent global categories (e.g. "small group travel for seniors") with 100K+ products
+    // They use Product Discovery API (not Product List by Provider) so they work like main Sites
+    const hasRichConfig = site.micrositeContext.entityType === 'OPPORTUNITY'
+      && site.homepageConfig?.destinations?.length;
 
-    // Fetch related microsites for cross-linking (SEO benefit)
-    // This finds other microsites that share cities or categories with this one
-    let relatedMicrosites: Awaited<ReturnType<typeof getRelatedMicrosites>> = [];
-    if (site.micrositeContext.micrositeId) {
-      relatedMicrosites = await getRelatedMicrosites(
-        site.micrositeContext.micrositeId,
-        site.micrositeContext.supplierCities || [],
-        site.micrositeContext.supplierCategories || [],
-        6
+    if (hasRichConfig) {
+      console.log('[Homepage] OPPORTUNITY microsite with rich config — using full Site-style homepage');
+      // Fall through to the Site-style homepage rendering below
+    } else {
+      // SUPPLIER/PRODUCT microsites → CatalogHomepage
+      // Uses Product List by Provider for supplier-specific product catalogs
+      const { experiences, totalCount } = await getFeaturedExperiences(
+        site,
+        site.homepageConfig?.popularExperiences
+      );
+
+      // Fetch related microsites for cross-linking (SEO benefit)
+      let relatedMicrosites: Awaited<ReturnType<typeof getRelatedMicrosites>> = [];
+      if (site.micrositeContext.micrositeId) {
+        relatedMicrosites = await getRelatedMicrosites(
+          site.micrositeContext.micrositeId,
+          site.micrositeContext.supplierCities || [],
+          site.micrositeContext.supplierCategories || [],
+          6
+        );
+      }
+
+      // Fetch blog posts and collections for microsite
+      const [micrositeBlogPosts, micrositeCollections] = await Promise.all([
+        getLatestBlogPosts(site.id, site.micrositeContext.micrositeId),
+        site.micrositeContext.micrositeId
+          ? getHomepageCollections(site.micrositeContext.micrositeId)
+          : Promise.resolve([]),
+      ]);
+
+      return (
+        <CatalogHomepage
+          site={site}
+          layoutConfig={layoutConfig}
+          experiences={experiences}
+          totalExperienceCount={totalCount}
+          heroConfig={site.homepageConfig?.hero}
+          testimonials={site.homepageConfig?.testimonials}
+          relatedMicrosites={relatedMicrosites}
+          blogPosts={micrositeBlogPosts}
+          collections={micrositeCollections}
+        />
       );
     }
-
-    // Fetch blog posts and collections for microsite
-    const [micrositeBlogPosts, micrositeCollections] = await Promise.all([
-      getLatestBlogPosts(site.id, site.micrositeContext.micrositeId),
-      site.micrositeContext.micrositeId
-        ? getHomepageCollections(site.micrositeContext.micrositeId)
-        : Promise.resolve([]),
-    ]);
-
-    return (
-      <CatalogHomepage
-        site={site}
-        layoutConfig={layoutConfig}
-        experiences={experiences}
-        totalExperienceCount={totalCount}
-        heroConfig={site.homepageConfig?.hero}
-        testimonials={site.homepageConfig?.testimonials}
-        relatedMicrosites={relatedMicrosites}
-        blogPosts={micrositeBlogPosts}
-        collections={micrositeCollections}
-      />
-    );
   }
   // === END MICROSITE LAYOUT ROUTING ===
 

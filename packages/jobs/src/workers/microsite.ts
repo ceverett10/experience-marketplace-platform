@@ -20,6 +20,8 @@ import { canExecuteAutonomousOperation } from '../services/pause-control.js';
 import {
   generateComprehensiveBrandIdentity,
   generateSeoTitleConfig,
+  generateHomepageConfig,
+  type HomepageConfig,
 } from '../services/brand-identity.js';
 import { generateAndStoreFavicon } from '../services/favicon-generator.js';
 import { getGSCClient, isGSCConfigured } from '../services/gsc-client.js';
@@ -160,7 +162,7 @@ export async function handleMicrositeCreate(job: Job<MicrositeCreatePayload>): P
     let cities: string[] = [];
     let description: string | null = null;
     let productCount = 0; // For determining layout type
-    let opportunityData: { id: string; keyword: string; niche: string; location: string | null } | null = null;
+    let opportunityData: { id: string; keyword: string; niche: string; location: string | null; searchVolume: number } | null = null;
 
     if (supplierId) {
       const supplier = await prisma.supplier.findUnique({ where: { id: supplierId } });
@@ -239,6 +241,7 @@ export async function handleMicrositeCreate(job: Job<MicrositeCreatePayload>): P
         keyword: opportunity.keyword,
         niche: opportunity.niche,
         location: opportunity.location,
+        searchVolume: opportunity.searchVolume,
       };
       entityName = opportunity.keyword;
       entitySlug = preGeneratedSubdomain || opportunity.keyword.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').substring(0, 50);
@@ -302,6 +305,34 @@ export async function handleMicrositeCreate(job: Job<MicrositeCreatePayload>): P
       tagline: brandIdentity.tagline,
     });
 
+    // Generate homepage config
+    // OPPORTUNITY microsites get rich config (destinations, categories, testimonials, images)
+    // SUPPLIER/PRODUCT microsites get minimal config (hero + popular experiences)
+    let homepageConfig: HomepageConfig;
+    if (entityType === 'OPPORTUNITY') {
+      console.log('[Microsite Create] Generating rich homepage config for OPPORTUNITY microsite...');
+      homepageConfig = await generateHomepageConfig(
+        {
+          keyword: entityName,
+          location: cities[0] || undefined,
+          niche: categories[0] || 'travel experiences',
+          searchVolume: opportunityData?.searchVolume || 100,
+          intent: 'TRANSACTIONAL',
+        },
+        brandIdentity
+      );
+      console.log(
+        `[Microsite Create] Rich homepage config generated with ${homepageConfig.destinations?.length || 0} destinations, ${homepageConfig.categories?.length || 0} categories`
+      );
+    } else {
+      homepageConfig = {
+        hero: {
+          title: brandIdentity.name,
+          subtitle: brandIdentity.tagline,
+        },
+      };
+    }
+
     // Create microsite config
     const microsite = await prisma.micrositeConfig.create({
       data: {
@@ -328,45 +359,36 @@ export async function handleMicrositeCreate(job: Job<MicrositeCreatePayload>): P
           // Use shared GA4 property for all microsites
           gaMeasurementId: process.env['MICROSITE_GA4_MEASUREMENT_ID'] || null,
         },
-        homepageConfig: {
-          hero: {
-            title: brandIdentity.name,
-            subtitle: brandIdentity.tagline,
-          },
-          // For opportunity microsites, include product discovery config
-          ...(entityType === 'OPPORTUNITY' && discoveryConfig ? {
-            popularExperiences: {
-              title: `Popular ${discoveryConfig.niche || categories[0] || ''} Experiences`,
-              destination: discoveryConfig.destination || cities[0] || undefined,
-              searchTerms: discoveryConfig.searchTerms || [entityName],
-            },
-          } : {}),
-        },
+        homepageConfig: homepageConfig as unknown as Prisma.InputJsonValue,
         status: 'GENERATING',
       },
     });
 
     console.log(`[Microsite Create] Created microsite ${microsite.id} at ${fullDomain}`);
 
-    // Enrich hero with Unsplash image (non-critical)
-    try {
-      const enrichedConfig = await enrichHomepageConfigWithImages(
-        { hero: { title: brandIdentity.name, subtitle: brandIdentity.tagline } },
-        { niche: categories[0] || 'travel experiences', location: cities[0] || undefined }
-      );
-      if (enrichedConfig.hero?.backgroundImage) {
-        await prisma.micrositeConfig.update({
-          where: { id: microsite.id },
-          data: {
-            homepageConfig: {
-              hero: enrichedConfig.hero,
-            } as unknown as Prisma.InputJsonValue,
-          },
-        });
-        console.log(`[Microsite Create] Hero image set from Unsplash`);
+    // For non-OPPORTUNITY microsites, enrich hero with Unsplash image (non-critical)
+    // OPPORTUNITY microsites already have images from generateHomepageConfig()
+    if (entityType !== 'OPPORTUNITY') {
+      try {
+        const enrichedConfig = await enrichHomepageConfigWithImages(
+          { hero: { title: brandIdentity.name, subtitle: brandIdentity.tagline } },
+          { niche: categories[0] || 'travel experiences', location: cities[0] || undefined }
+        );
+        if (enrichedConfig.hero?.backgroundImage) {
+          await prisma.micrositeConfig.update({
+            where: { id: microsite.id },
+            data: {
+              homepageConfig: {
+                ...homepageConfig,
+                hero: enrichedConfig.hero,
+              } as unknown as Prisma.InputJsonValue,
+            },
+          });
+          console.log(`[Microsite Create] Hero image set from Unsplash`);
+        }
+      } catch (unsplashError) {
+        console.warn('[Microsite Create] Unsplash hero image failed (non-critical):', unsplashError);
       }
-    } catch (unsplashError) {
-      console.warn('[Microsite Create] Unsplash hero image failed (non-critical):', unsplashError);
     }
 
     // Generate favicon (non-critical)
@@ -379,14 +401,30 @@ export async function handleMicrositeCreate(job: Job<MicrositeCreatePayload>): P
     // Logo generation disabled - using text-only branding for now
     // TODO: Re-enable with higher quality logo generation when available
 
-    // Queue content generation (opportunity microsites get blog posts too)
+    // Queue content generation
+    // OPPORTUNITY microsites get full site-like content (blog, legal pages, FAQ)
     const { addJob } = await import('../queues/index.js');
     await addJob('MICROSITE_CONTENT_GENERATE', {
       micrositeId: microsite.id,
       contentTypes: entityType === 'OPPORTUNITY'
-        ? ['homepage', 'about', 'experiences', 'blog']
+        ? ['homepage', 'about', 'experiences', 'blog', 'contact', 'privacy', 'terms', 'faq']
         : ['homepage', 'about', 'experiences'],
     });
+
+    // For OPPORTUNITY microsites, queue destination landing pages based on homepageConfig
+    if (entityType === 'OPPORTUNITY' && homepageConfig.destinations?.length) {
+      for (const dest of homepageConfig.destinations.slice(0, 8)) {
+        await addJob('MICROSITE_CONTENT_GENERATE', {
+          micrositeId: microsite.id,
+          contentTypes: ['destination_landing'],
+          destinationName: dest.name,
+          destinationSlug: dest.slug,
+        });
+      }
+      console.log(
+        `[Microsite Create] Queued ${Math.min(homepageConfig.destinations.length, 8)} destination landing pages`
+      );
+    }
 
     console.log('[Microsite Create] Queued content generation');
 
@@ -491,6 +529,111 @@ export async function handleMicrositeBrandGenerate(
 }
 
 /**
+ * Microsite Homepage Enrich Handler
+ * Backfills existing OPPORTUNITY microsites with rich homepageConfig
+ * (destinations, categories, testimonials, Unsplash images)
+ */
+export async function handleMicrositeHomepageEnrich(
+  job: Job<{ micrositeId: string }>
+): Promise<JobResult> {
+  const { micrositeId } = job.data;
+
+  try {
+    console.log(`[Microsite Enrich] Enriching homepage config for microsite ${micrositeId}`);
+
+    const microsite = await prisma.micrositeConfig.findUnique({
+      where: { id: micrositeId },
+      include: { brand: true, opportunity: true },
+    });
+
+    if (!microsite) throw new Error(`Microsite ${micrositeId} not found`);
+    if (microsite.entityType !== 'OPPORTUNITY') {
+      return {
+        success: false,
+        error: 'Only OPPORTUNITY microsites can be enriched',
+        timestamp: new Date(),
+      };
+    }
+
+    if (!microsite.brand) throw new Error(`Microsite ${micrositeId} has no brand`);
+
+    // Generate rich homepage config using existing brand identity
+    const brandIdentity = {
+      name: microsite.brand.name,
+      tagline: microsite.brand.tagline || '',
+      primaryColor: microsite.brand.primaryColor,
+      secondaryColor: microsite.brand.secondaryColor,
+      accentColor: microsite.brand.accentColor,
+      headingFont: microsite.brand.headingFont,
+      bodyFont: microsite.brand.bodyFont,
+      logoUrl: microsite.brand.logoUrl,
+    };
+
+    const niche = microsite.opportunity?.niche || 'travel experiences';
+    const location = microsite.opportunity?.location || undefined;
+    const keyword = microsite.opportunity?.keyword || microsite.siteName;
+
+    const homepageConfig = await generateHomepageConfig(
+      {
+        keyword,
+        location: location || undefined,
+        niche,
+        searchVolume: microsite.opportunity?.searchVolume || 100,
+        intent: 'TRANSACTIONAL',
+      },
+      brandIdentity as any
+    );
+
+    // Update microsite with rich config
+    await prisma.micrositeConfig.update({
+      where: { id: micrositeId },
+      data: {
+        homepageConfig: homepageConfig as unknown as Prisma.InputJsonValue,
+        lastContentUpdate: new Date(),
+      },
+    });
+
+    console.log(
+      `[Microsite Enrich] Updated ${microsite.fullDomain} with ${homepageConfig.destinations?.length || 0} destinations, ${homepageConfig.categories?.length || 0} categories`
+    );
+
+    // Queue destination landing pages
+    if (homepageConfig.destinations?.length) {
+      const { addJob } = await import('../queues/index.js');
+      for (const dest of homepageConfig.destinations.slice(0, 8)) {
+        await addJob('MICROSITE_CONTENT_GENERATE', {
+          micrositeId,
+          contentTypes: ['destination_landing'],
+          destinationName: dest.name,
+          destinationSlug: dest.slug,
+        });
+      }
+      console.log(
+        `[Microsite Enrich] Queued ${Math.min(homepageConfig.destinations.length, 8)} destination landing pages`
+      );
+    }
+
+    return {
+      success: true,
+      message: `Homepage enriched for ${microsite.fullDomain}`,
+      data: {
+        destinations: homepageConfig.destinations?.length || 0,
+        categories: homepageConfig.categories?.length || 0,
+        testimonials: homepageConfig.testimonials?.length || 0,
+      },
+      timestamp: new Date(),
+    };
+  } catch (error) {
+    console.error('[Microsite Enrich] Error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      timestamp: new Date(),
+    };
+  }
+}
+
+/**
  * Microsite Content Generate Handler
  * Generates content pages for a microsite
  */
@@ -539,6 +682,31 @@ export async function handleMicrositeContentGenerate(
           slug = 'blog';
           title = 'Blog';
           break;
+        case 'contact':
+          pageType = PageType.CONTACT;
+          slug = 'contact';
+          title = 'Contact Us';
+          break;
+        case 'privacy':
+          pageType = PageType.LEGAL;
+          slug = 'privacy';
+          title = 'Privacy Policy';
+          break;
+        case 'terms':
+          pageType = PageType.LEGAL;
+          slug = 'terms';
+          title = 'Terms of Service';
+          break;
+        case 'faq':
+          pageType = PageType.FAQ;
+          slug = 'faq';
+          title = 'Frequently Asked Questions';
+          break;
+        case 'destination_landing':
+          pageType = PageType.LANDING;
+          slug = `destinations/${job.data.destinationSlug || 'unknown'}`;
+          title = `Things to Do in ${job.data.destinationName || 'Unknown'}`;
+          break;
         default:
           continue;
       }
@@ -576,17 +744,25 @@ export async function handleMicrositeContentGenerate(
       // Queue actual content generation (uses content engine)
       // Note: We pass micrositeId (not siteId) since this is a MicrositeConfig, not a Site.
       // The content handler will look up context from the Page record.
+      const contentTypeMap: Record<string, string> = {
+        experiences: 'category',
+        homepage: 'destination',
+        destination_landing: 'destination',
+        privacy: 'blog', // Legal pages use blog-style content generation
+        terms: 'blog',
+        contact: 'blog',
+        faq: 'blog',
+      };
+      type ContentType = 'destination' | 'experience' | 'category' | 'blog' | 'about' | 'faq';
+      const mappedContentType = (contentTypeMap[contentType] || contentType) as ContentType;
       const { addJob } = await import('../queues/index.js');
       await addJob('CONTENT_GENERATE', {
         micrositeId,
         pageId: page.id,
-        contentType:
-          contentType === 'experiences'
-            ? 'category'
-            : contentType === 'homepage'
-              ? 'destination'
-              : contentType,
-        targetKeyword: `${microsite.siteName} ${title}`,
+        contentType: mappedContentType,
+        targetKeyword: contentType === 'destination_landing'
+          ? `${job.data.destinationName} ${microsite.siteName}`
+          : `${microsite.siteName} ${title}`,
         secondaryKeywords: microsite.supplier?.categories || microsite.product?.categories || [],
       });
     }

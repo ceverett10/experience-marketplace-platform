@@ -60,6 +60,7 @@ import {
   handleMicrositePublish,
   handleMicrositeArchive,
   handleMicrositeHealthCheck,
+  handleMicrositeHomepageEnrich,
   // Social media handlers
   handleSocialDailyPosting,
   handleSocialPostGenerate,
@@ -396,6 +397,8 @@ const micrositeWorker = new Worker(
         return await handleMicrositeArchive(job);
       case 'MICROSITE_HEALTH_CHECK':
         return await handleMicrositeHealthCheck(job);
+      case 'MICROSITE_HOMEPAGE_ENRICH':
+        return await handleMicrositeHomepageEnrich(job);
       default:
         throw new Error(`Unknown job type: ${job.name}`);
     }

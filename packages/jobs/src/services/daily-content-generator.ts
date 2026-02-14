@@ -144,6 +144,57 @@ export async function generateDailyContent(
     await sleep(2000);
   }
 
+  // Also process OPPORTUNITY microsites (they have rich Site-like homepages)
+  // Uses 5% daily rotation to spread load — each microsite gets content every ~20 days
+  const micrositeContentTypes: ContentGenerationType[] = [
+    'faq_hub', 'destination_landing', 'comparison', 'seasonal_event',
+  ];
+  if (micrositeContentTypes.includes(contentType)) {
+    try {
+      const opportunityMicrosites = await prisma.micrositeConfig.findMany({
+        where: { entityType: 'OPPORTUNITY', status: 'ACTIVE' },
+        select: { id: true, siteName: true },
+        orderBy: { lastContentUpdate: 'asc' },
+      });
+
+      const rotationCount = Math.max(1, Math.floor(opportunityMicrosites.length * 0.05));
+      const toProcess = opportunityMicrosites.slice(0, rotationCount);
+
+      if (toProcess.length > 0) {
+        console.log(
+          `[Daily Content] Processing ${toProcess.length} of ${opportunityMicrosites.length} OPPORTUNITY microsites for ${contentType}`
+        );
+
+        // Map daily content types to microsite content types
+        const micrositeContentTypeMap: Record<string, string> = {
+          faq_hub: 'faq',
+          destination_landing: 'destination_landing',
+          comparison: 'blog', // Comparisons generated as blog posts for microsites
+          seasonal_event: 'blog', // Seasonal content as blog posts for microsites
+        };
+
+        for (const ms of toProcess) {
+          const mappedType = (micrositeContentTypeMap[contentType] || 'blog') as 'blog' | 'faq' | 'destination_landing';
+          await addJob('MICROSITE_CONTENT_GENERATE' as any, {
+            micrositeId: ms.id,
+            contentTypes: [mappedType],
+            isRefresh: true,
+          });
+          results.push({
+            siteId: ms.id,
+            siteName: ms.siteName,
+            contentType,
+            generated: true,
+            queued: true,
+          });
+          await sleep(1000);
+        }
+      }
+    } catch (error) {
+      console.error(`[Daily Content] Error processing OPPORTUNITY microsites for ${contentType}:`, error);
+    }
+  }
+
   // Log summary
   const generated = results.filter((r) => r.generated).length;
   const errors = results.filter((r) => r.error).length;

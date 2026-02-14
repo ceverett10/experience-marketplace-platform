@@ -243,6 +243,7 @@ async function validateTaskArtifacts(
     MICROSITE_PUBLISH: { valid: true },
     MICROSITE_ARCHIVE: { valid: true },
     MICROSITE_HEALTH_CHECK: { valid: true },
+    MICROSITE_HOMEPAGE_ENRICH: { valid: true },
 
     // Holibob Sync (not part of standard site roadmap)
     SUPPLIER_SYNC: { valid: true },
@@ -421,6 +422,10 @@ export const TASK_DESCRIPTIONS: Record<JobType, { label: string; description: st
   MICROSITE_HEALTH_CHECK: {
     label: 'Health Check',
     description: 'Verify microsite health and status',
+  },
+  MICROSITE_HOMEPAGE_ENRICH: {
+    label: 'Homepage Enrich',
+    description: 'Enrich OPPORTUNITY microsite with rich homepage config',
   },
 
   // Holibob Sync

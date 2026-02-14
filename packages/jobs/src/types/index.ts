@@ -315,8 +315,12 @@ export interface MicrositeBrandGeneratePayload {
 
 export interface MicrositeContentGeneratePayload {
   micrositeId: string;
-  contentTypes: ('homepage' | 'about' | 'experiences' | 'blog')[];
+  contentTypes: ('homepage' | 'about' | 'experiences' | 'blog' | 'contact' | 'privacy' | 'terms' | 'faq' | 'destination_landing')[];
   isRefresh?: boolean;
+  /** For destination_landing content type */
+  destinationName?: string;
+  /** For destination_landing content type */
+  destinationSlug?: string;
 }
 
 export interface MicrositePublishPayload {
@@ -546,6 +550,7 @@ export const JOB_TYPE_TO_QUEUE: Record<JobType, QueueName> = {
   MICROSITE_PUBLISH: QUEUE_NAMES.MICROSITE,
   MICROSITE_ARCHIVE: QUEUE_NAMES.MICROSITE,
   MICROSITE_HEALTH_CHECK: QUEUE_NAMES.MICROSITE,
+  MICROSITE_HOMEPAGE_ENRICH: QUEUE_NAMES.MICROSITE,
 
   // Holibob Sync (long-running)
   SUPPLIER_SYNC: QUEUE_NAMES.SYNC,
