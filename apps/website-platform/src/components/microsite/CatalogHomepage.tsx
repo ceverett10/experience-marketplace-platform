@@ -22,6 +22,8 @@ import type { RelatedMicrosite } from '@/lib/microsite-experiences';
 import { RelatedMicrosites } from '@/components/microsites/RelatedMicrosites';
 import { HomepageBlogSection } from './HomepageBlogSection';
 import { CuratedCollections } from './CuratedCollections';
+import { PriceDisplay, DiscountBadge } from '@/components/ui/PriceDisplay';
+import { getProductPricingConfig } from '@/lib/pricing';
 
 interface BlogPost {
   id: string;
@@ -424,6 +426,8 @@ function CatalogExperienceCard({
   primaryColor: string;
   priority: boolean;
 }) {
+  const pricingConfig = getProductPricingConfig(experience.id);
+
   return (
     <Link
       href={`/experiences/${experience.slug}`}
@@ -442,6 +446,12 @@ function CatalogExperienceCard({
           unoptimized={isHolibobImage(experience.imageUrl)}
           {...(priority ? { priority: true } : { loading: 'lazy' as const })}
         />
+        {/* Discount Badge */}
+        {pricingConfig.showDiscountBadge && (
+          <div className="absolute left-3 top-3">
+            <DiscountBadge pricingConfig={pricingConfig} />
+          </div>
+        )}
       </div>
 
       {/* Content */}
@@ -490,12 +500,16 @@ function CatalogExperienceCard({
           </div>
         )}
 
-        {/* Price */}
+        {/* Price with discount */}
         <div className="mt-auto pt-3">
-          <p className="text-sm text-gray-500">From</p>
-          <p className="text-xl font-bold" style={{ color: primaryColor }}>
-            {experience.price.formatted}
-          </p>
+          <PriceDisplay
+            priceFormatted={experience.price.formatted}
+            priceAmount={experience.price.amount}
+            currency={experience.price.currency}
+            pricingConfig={pricingConfig}
+            variant="card"
+            primaryColor={primaryColor}
+          />
         </div>
       </div>
     </Link>

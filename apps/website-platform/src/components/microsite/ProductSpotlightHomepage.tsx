@@ -17,6 +17,8 @@ import { BookingWidget } from '@/components/experiences/BookingWidget';
 import { MobileBookingCTA } from '@/components/experiences/MobileBookingCTA';
 import { TrackViewItem } from '@/components/analytics/TrackViewItem';
 import { BLUR_PLACEHOLDER, isHolibobImage } from '@/lib/image-utils';
+import { PriceDisplay } from '@/components/ui/PriceDisplay';
+import { getProductPricingConfig } from '@/lib/pricing';
 import type { Experience } from '@/lib/holibob';
 import type { SiteConfig } from '@/lib/tenant';
 
@@ -132,8 +134,15 @@ export function ProductSpotlightHomepage({ site, experience }: ProductSpotlightH
             {/* Price and CTA */}
             <div className="mt-8 flex flex-wrap items-center gap-6">
               <div>
-                <p className="text-sm text-white/70">From</p>
-                <p className="text-3xl font-bold text-white">{experience.price.formatted}</p>
+                <PriceDisplay
+                  priceFormatted={experience.price.formatted}
+                  priceAmount={experience.price.amount}
+                  currency={experience.price.currency}
+                  pricingConfig={getProductPricingConfig(experience.id)}
+                  variant="detail"
+                  primaryColor="#ffffff"
+                  showFrom={true}
+                />
               </div>
               <a
                 href="#booking"
