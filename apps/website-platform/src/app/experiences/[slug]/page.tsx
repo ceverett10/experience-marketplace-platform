@@ -24,7 +24,7 @@ import { RelatedExperiences } from '@/components/experiences/RelatedExperiences'
 import { RelatedArticles } from '@/components/experiences/RelatedArticles';
 import { TrackViewItem } from '@/components/analytics/TrackViewItem';
 import { LiveActivityIndicator } from '@/components/ui/TrustSignals';
-import { DesktopStickyBar } from '@/components/experiences/DesktopStickyBar';
+
 import { LocalTips } from '@/components/experiences/LocalTips';
 import { RecentlyViewed } from '@/components/experiences/RecentlyViewed';
 import { RecentlyViewedTracker } from '@/components/experiences/RecentlyViewedTracker';
@@ -1200,17 +1200,6 @@ export default async function ExperienceDetailPage({ params }: Props) {
             priceAmount={experience.price.amount}
             priceCurrency={experience.price.currency}
             bookingStats={bookingStats}
-          />
-        )}
-
-        {/* Desktop Sticky Booking Bar (appears when BookingWidget scrolls out of view) */}
-        {!isTickittoSite(site) && (
-          <DesktopStickyBar
-            productId={experience.id}
-            productName={experience.title}
-            priceFormatted={experience.price.formatted}
-            priceAmount={experience.price.amount}
-            priceCurrency={experience.price.currency}
           />
         )}
 
