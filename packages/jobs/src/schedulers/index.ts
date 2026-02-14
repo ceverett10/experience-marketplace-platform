@@ -341,14 +341,14 @@ export async function initializeScheduledJobs(): Promise<void> {
   // PAID TRAFFIC SCHEDULES
   // =========================================================================
 
-  // Paid Keyword Scanner — Tuesdays and Fridays at 4 AM
-  // Discovers new low-CPC keyword opportunities from GSC, DataForSEO, Pinterest Ads, and Meta Marketing APIs
+  // Paid Keyword Scanner — Daily at 4 AM
+  // Discovers new low-CPC keyword opportunities from GSC, DataForSEO, Pinterest Ads, Meta, and microsite keywords
   await scheduleJob(
     'PAID_KEYWORD_SCAN' as any,
     { maxCpc: 3.0, minVolume: 100, modes: ['gsc', 'expansion', 'discovery', 'pinterest', 'meta'] },
-    '0 4 * * 2,5' // Tuesdays and Fridays at 4 AM
+    '0 4 * * *' // Daily at 4 AM (~$1.10/day via DataForSEO)
   );
-  console.log('[Scheduler] ✓ Paid Keyword Scanner - Tuesdays & Fridays at 4 AM');
+  console.log('[Scheduler] ✓ Paid Keyword Scanner - Daily at 4 AM');
 
   // Bidding Engine Run — Daily at 3 AM
   // Calculates site profitability, scores keyword opportunities, creates campaigns
@@ -926,8 +926,8 @@ export function getScheduledJobs(): Array<{
     // Paid Traffic & Bidding Engine
     {
       jobType: 'PAID_KEYWORD_SCAN',
-      schedule: '0 4 * * 2,5',
-      description: 'Discover low-CPC keyword opportunities from GSC, DataForSEO, Meta, Pinterest',
+      schedule: '0 4 * * *',
+      description: 'Discover low-CPC keyword opportunities from GSC, DataForSEO, Meta, Pinterest, microsites',
     },
     {
       jobType: 'BIDDING_ENGINE_RUN',

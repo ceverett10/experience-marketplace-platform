@@ -427,6 +427,32 @@ async function discoverCategoryKeywords(
     }
   }
 
+  // Seed with microsite discoveryConfig keywords (long-tail opportunities)
+  const microsites = await prisma.micrositeConfig.findMany({
+    where: { status: 'ACTIVE', discoveryConfig: { not: null as unknown as undefined } },
+    select: { id: true, siteName: true, discoveryConfig: true },
+  });
+
+  for (const ms of microsites) {
+    const disco = ms.discoveryConfig as {
+      keyword?: string; destination?: string; niche?: string; searchTerms?: string[];
+    } | null;
+    if (!disco) continue;
+
+    if (disco.keyword) {
+      seedQueries.push({ query: disco.keyword.toLowerCase(), siteId: ms.id });
+    }
+    if (disco.keyword && disco.destination) {
+      seedQueries.push({
+        query: `${disco.keyword} ${disco.destination}`.toLowerCase(),
+        siteId: ms.id,
+      });
+    }
+    for (const term of disco.searchTerms ?? []) {
+      seedQueries.push({ query: term.toLowerCase(), siteId: ms.id });
+    }
+  }
+
   // Deduplicate by query string, keeping first site association, cap at 20 ($0.003 each = $0.06 max)
   const seen = new Set<string>();
   const uniqueSeeds: Array<{ query: string; siteId: string }> = [];

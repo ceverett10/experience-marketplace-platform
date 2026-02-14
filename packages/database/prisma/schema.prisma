@@ -1066,6 +1066,8 @@ model AdCampaign {
   id       String     @id @default(cuid())
   siteId   String
   site     Site       @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  micrositeId String?
+  microsite   MicrositeConfig? @relation(fields: [micrositeId], references: [id], onDelete: SetNull)
   platform AdPlatform
   name     String
   status   CampaignStatus @default(DRAFT)
@@ -1108,6 +1110,7 @@ model AdCampaign {
   dailyMetrics AdDailyMetric[]
 
   @@index([siteId])
+  @@index([micrositeId])
   @@index([platform, status])
   @@index([opportunityId])
   @@map("ad_campaigns")
@@ -1485,6 +1488,7 @@ model MicrositeConfig {
   analyticsSnapshots MicrositeAnalyticsSnapshot[]
   performanceMetrics MicrositePerformanceMetric[]
   subscribers        Subscriber[]
+  adCampaigns        AdCampaign[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

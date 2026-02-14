@@ -855,6 +855,7 @@ export async function handleBiddingEngineRun(job: Job): Promise<JobResult> {
       await prisma.adCampaign.create({
         data: {
           siteId: candidate.siteId,
+          micrositeId: candidate.micrositeId || null,
           platform: candidate.platform as any,
           name: campaignName.substring(0, 100),
           status: 'DRAFT',
@@ -876,6 +877,8 @@ export async function handleBiddingEngineRun(job: Job): Promise<JobResult> {
             expectedDailyRevenue: candidate.expectedDailyRevenue,
             profitabilityScore: candidate.profitabilityScore,
             intent: candidate.intent,
+            isMicrosite: candidate.isMicrosite,
+            micrositeDomain: candidate.micrositeDomain || null,
             assumptions: {
               avgOrderValue: profile?.avgOrderValue ?? 60,
               commissionRate: profile?.avgCommissionRate ?? 18,

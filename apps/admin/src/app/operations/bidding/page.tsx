@@ -37,6 +37,9 @@ interface Campaign {
   id: string;
   name: string;
   siteName: string;
+  micrositeName: string | null;
+  micrositeDomain: string | null;
+  isMicrosite: boolean;
   platform: string;
   status: string;
   dailyBudget: number;
@@ -162,6 +165,7 @@ export default function BiddingDashboardPage() {
   const [siteFilter, setSiteFilter] = useState<string | null>(null);
   const [showAllKeywords, setShowAllKeywords] = useState(false);
   const [showMicrosites, setShowMicrosites] = useState(false);
+  const [budgetCap, setBudgetCap] = useState(1200);
 
   // Live tab state
   const [campaignFilter, setCampaignFilter] = useState('ALL');
@@ -308,23 +312,30 @@ export default function BiddingDashboardPage() {
     );
     if (drafts.length === 0) return null;
 
-    // Group by site
+    // Group by site or microsite name
     const bySite = new Map<string, Campaign[]>();
     for (const d of drafts) {
-      const existing = bySite.get(d.siteName) || [];
+      const groupKey = d.isMicrosite && d.micrositeName
+        ? d.micrositeName
+        : d.siteName;
+      const existing = bySite.get(groupKey) || [];
       existing.push(d);
-      bySite.set(d.siteName, existing);
+      bySite.set(groupKey, existing);
     }
 
     // Calculate totals
     let totalDailySpend = 0;
     let totalClicksPerDay = 0;
     let totalDailyRevenue = 0;
+    let mainSiteCampaigns = 0;
+    let micrositeCampaigns = 0;
     for (const d of drafts) {
       const p = d.proposalData!;
       totalDailySpend += p.expectedDailyCost;
       totalClicksPerDay += p.expectedClicksPerDay;
       totalDailyRevenue += p.expectedDailyRevenue;
+      if (d.isMicrosite) micrositeCampaigns++;
+      else mainSiteCampaigns++;
     }
 
     // Get assumptions from first draft (they share the same model params)
@@ -339,6 +350,8 @@ export default function BiddingDashboardPage() {
       drafts,
       bySite,
       siteCount: bySite.size,
+      mainSiteCampaigns,
+      micrositeCampaigns,
       totalDailySpend,
       totalClicksPerDay,
       totalDailyRevenue,
@@ -451,7 +464,11 @@ export default function BiddingDashboardPage() {
                           Test Proposal
                         </h3>
                         <p className="text-sm text-slate-600 mt-0.5">
-                          {proposalMetrics.drafts.length} campaign{proposalMetrics.drafts.length !== 1 ? 's' : ''} across {proposalMetrics.siteCount} site{proposalMetrics.siteCount !== 1 ? 's' : ''} — review and approve before any money is spent.
+                          {proposalMetrics.drafts.length} campaign{proposalMetrics.drafts.length !== 1 ? 's' : ''} across {proposalMetrics.siteCount} site{proposalMetrics.siteCount !== 1 ? 's' : ''}
+                          {proposalMetrics.micrositeCampaigns > 0 && (
+                            <span className="text-sky-600"> ({proposalMetrics.mainSiteCampaigns} main site + {proposalMetrics.micrositeCampaigns} microsite)</span>
+                          )}
+                          {' '}&mdash; review and approve before any money is spent.
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
@@ -471,7 +488,7 @@ export default function BiddingDashboardPage() {
                     </div>
 
                     {/* Assumptions */}
-                    <div className="flex items-center gap-4 text-xs text-slate-500 mb-5 bg-white/60 rounded-lg px-4 py-2.5 border border-slate-200">
+                    <div className="flex items-center gap-4 text-xs text-slate-500 mb-5 bg-white/60 rounded-lg px-4 py-2.5 border border-slate-200 flex-wrap">
                       <span className="font-medium text-slate-700">Assumptions:</span>
                       <span>AOV &pound;{proposalMetrics.assumptions.avgOrderValue.toFixed(0)}</span>
                       <span>&middot;</span>
@@ -481,7 +498,26 @@ export default function BiddingDashboardPage() {
                       <span>&middot;</span>
                       <span>Target ROAS {proposalMetrics.assumptions.targetRoas}x</span>
                       <span>&middot;</span>
-                      <span>Budget cap &pound;{data.budget.dailyCap.toFixed(0)}/day</span>
+                      <span className="flex items-center gap-1">
+                        Budget cap &pound;
+                        <input
+                          type="number"
+                          value={budgetCap}
+                          onChange={(e) => setBudgetCap(Number(e.target.value))}
+                          className="w-20 px-1.5 py-0.5 border border-slate-300 rounded text-xs font-mono"
+                          min={100}
+                          step={100}
+                        />
+                        /day
+                      </span>
+                      {budgetCap !== data.budget.dailyCap && (
+                        <button
+                          onClick={() => triggerAction('set_budget_cap', { dailyBudgetCap: budgetCap })}
+                          className="px-2 py-0.5 bg-sky-600 text-white rounded text-xs font-medium hover:bg-sky-700"
+                        >
+                          Re-run with new budget
+                        </button>
+                      )}
                     </div>
 
                     {/* Per-site campaign groups */}
@@ -489,10 +525,20 @@ export default function BiddingDashboardPage() {
                       {Array.from(proposalMetrics.bySite.entries()).map(([siteName, campaigns]) => {
                         const siteSpend = campaigns.reduce((s, c) => s + (c.proposalData?.expectedDailyCost || 0), 0);
                         const siteClicks = campaigns.reduce((s, c) => s + (c.proposalData?.expectedClicksPerDay || 0), 0);
+                        const isMicrositeGroup = campaigns[0]?.isMicrosite;
                         return (
-                          <div key={siteName} className="border border-slate-200 rounded-lg bg-white overflow-hidden">
-                            <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-                              <span className="text-sm font-semibold text-slate-900">{siteName}</span>
+                          <div key={siteName} className={`border rounded-lg bg-white overflow-hidden ${
+                            isMicrositeGroup ? 'border-sky-200' : 'border-slate-200'
+                          }`}>
+                            <div className={`px-4 py-2.5 border-b flex items-center justify-between ${
+                              isMicrositeGroup ? 'bg-sky-50 border-sky-200' : 'bg-slate-50 border-slate-200'
+                            }`}>
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-semibold text-slate-900">{siteName}</span>
+                                {isMicrositeGroup && (
+                                  <span className="text-xs px-1.5 py-0.5 bg-sky-100 text-sky-700 rounded font-medium">microsite</span>
+                                )}
+                              </div>
                               <div className="flex items-center gap-3 text-xs text-slate-500">
                                 <span>&pound;{siteSpend.toFixed(2)}/day</span>
                                 <span>~{Math.round(siteClicks)} clicks/day</span>
@@ -502,6 +548,7 @@ export default function BiddingDashboardPage() {
                               <thead>
                                 <tr className="border-b border-slate-100">
                                   <th className="text-left px-4 py-1.5 text-xs font-medium text-slate-500">Keyword</th>
+                                  <th className="text-left px-3 py-1.5 text-xs font-medium text-slate-500">Landing Page</th>
                                   <th className="text-center px-3 py-1.5 text-xs font-medium text-slate-500">Platform</th>
                                   <th className="text-right px-3 py-1.5 text-xs font-medium text-slate-500">CPC</th>
                                   <th className="text-right px-3 py-1.5 text-xs font-medium text-slate-500">Budget/day</th>
@@ -516,6 +563,11 @@ export default function BiddingDashboardPage() {
                                     <tr key={c.id} className="border-b border-slate-50 hover:bg-slate-50">
                                       <td className="px-4 py-2">
                                         <div className="font-medium text-slate-900">{c.keywords[0] || c.name}</div>
+                                      </td>
+                                      <td className="px-3 py-2">
+                                        <div className="text-xs text-slate-400 truncate max-w-[180px]" title={c.micrositeDomain || c.siteName}>
+                                          {c.micrositeDomain || c.siteName}
+                                        </div>
                                       </td>
                                       <td className="px-3 py-2 text-center">
                                         <span className={`text-xs px-2 py-0.5 rounded font-medium ${
@@ -548,8 +600,15 @@ export default function BiddingDashboardPage() {
 
                     {/* Portfolio Summary */}
                     <div className="bg-white border border-slate-200 rounded-lg p-4">
-                      <h4 className="text-sm font-semibold text-slate-900 mb-3">Portfolio Summary</h4>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="text-sm font-semibold text-slate-900">Portfolio Summary</h4>
+                        {proposalMetrics.micrositeCampaigns > 0 && (
+                          <span className="text-xs text-slate-500">
+                            {proposalMetrics.mainSiteCampaigns} main site + {proposalMetrics.micrositeCampaigns} microsite campaigns
+                          </span>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4">
                         <div>
                           <p className="text-xs text-slate-500">Daily Spend</p>
                           <p className="text-lg font-bold text-sky-700">
@@ -578,6 +637,15 @@ export default function BiddingDashboardPage() {
                           <p className="text-xs text-slate-500">Daily Bookings</p>
                           <p className="text-lg font-bold text-green-700">
                             ~{proposalMetrics.dailyBookings.toFixed(1)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-500">Weekly Bookings</p>
+                          <p className={`text-lg font-bold ${
+                            proposalMetrics.dailyBookings * 7 >= 1000 ? 'text-green-700' :
+                            proposalMetrics.dailyBookings * 7 >= 500 ? 'text-amber-700' : 'text-red-700'
+                          }`}>
+                            ~{Math.round(proposalMetrics.dailyBookings * 7)}
                           </p>
                         </div>
                         <div>

@@ -21,7 +21,7 @@ const MIN_BOOKINGS_FOR_AOV = 3; // Minimum bookings to use real AOV (else fall b
 const MIN_SESSIONS_FOR_CVR = 100; // Minimum sessions to use real conversion rate
 const DEFAULT_CONVERSION_RATE = 0.015; // 1.5% fallback
 const LOOKBACK_DAYS = 90; // Days of data to consider
-const MAX_DAILY_BUDGET = parseFloat(process.env['BIDDING_MAX_DAILY_BUDGET'] || '200');
+const MAX_DAILY_BUDGET = parseFloat(process.env['BIDDING_MAX_DAILY_BUDGET'] || '1200');
 
 // --- Types -------------------------------------------------------------------
 
@@ -59,6 +59,9 @@ export interface CampaignCandidate {
   location: string | null;
   targetUrl: string;
   utmParams: { source: string; medium: string; campaign: string };
+  micrositeId?: string;       // If targeting a microsite landing page
+  micrositeDomain?: string;   // fullDomain of the microsite
+  isMicrosite: boolean;       // Flag for UI grouping
 }
 
 export interface BiddingEngineResult {
@@ -573,7 +576,9 @@ export async function assignKeywordsToSites(): Promise<number> {
 
 /**
  * Score PAID_CANDIDATE keywords by profitability potential.
- * Matches keywords to sites and calculates expected revenue per ad dollar.
+ * Matches keywords to sites AND microsites, calculates expected revenue per ad dollar.
+ * When a keyword matches a microsite's discoveryConfig, uses the microsite as landing page
+ * (better relevance → higher Quality Score → lower actual CPC).
  */
 export async function scoreCampaignOpportunities(
   profiles: SiteProfitability[]
@@ -593,8 +598,32 @@ export async function scoreCampaignOpportunities(
       site: { select: { name: true, primaryDomain: true } },
     },
     orderBy: { priorityScore: 'desc' },
-    take: 500, // Top 500 candidates
+    take: 2000, // Expanded from 500 to fill higher budget
   });
+
+  // Load active microsites for keyword→microsite matching
+  const microsites = await prisma.micrositeConfig.findMany({
+    where: { status: 'ACTIVE' },
+    select: {
+      id: true,
+      siteName: true,
+      fullDomain: true,
+      discoveryConfig: true,
+      opportunityId: true,
+    },
+  });
+
+  // Build keyword→microsite lookup for matching
+  const micrositeByTerm = new Map<string, typeof microsites[0]>();
+  for (const ms of microsites) {
+    const disco = ms.discoveryConfig as {
+      keyword?: string; destination?: string; niche?: string; searchTerms?: string[];
+    } | null;
+    if (disco?.keyword) micrositeByTerm.set(disco.keyword.toLowerCase(), ms);
+    for (const term of disco?.searchTerms ?? []) {
+      micrositeByTerm.set(term.toLowerCase(), ms);
+    }
+  }
 
   const candidates: CampaignCandidate[] = [];
 
@@ -616,13 +645,37 @@ export async function scoreCampaignOpportunities(
     const domain = opp.site?.primaryDomain;
     if (!domain) continue;
 
+    // Check if keyword matches a microsite for better landing page relevance
+    const kwLower = opp.keyword.toLowerCase();
+    let matchedMicrosite: typeof microsites[0] | undefined;
+
+    // Exact match on microsite keyword/searchTerms
+    matchedMicrosite = micrositeByTerm.get(kwLower);
+
+    // If no exact match, check if keyword contains a microsite keyword
+    if (!matchedMicrosite) {
+      for (const [term, ms] of micrositeByTerm) {
+        if (kwLower.includes(term) || term.includes(kwLower)) {
+          matchedMicrosite = ms;
+          break;
+        }
+      }
+    }
+
+    // Use microsite profile if available, otherwise fall back to main site profile
+    let effectiveProfile = profile;
+    if (matchedMicrosite) {
+      const msProfile = profiles.find((p) => p.siteId === `microsite:${matchedMicrosite!.id}`);
+      if (msProfile) effectiveProfile = msProfile;
+    }
+
     // Estimate daily metrics
     const searchVolume = opp.searchVolume;
     const estimatedDailySearches = searchVolume / 30;
     const estimatedCtr = 0.02; // Conservative 2% CTR for paid ads
     const expectedClicksPerDay = estimatedDailySearches * estimatedCtr;
     const expectedDailyCost = expectedClicksPerDay * estimatedCpc;
-    const expectedDailyRevenue = expectedClicksPerDay * profile.revenuePerClick;
+    const expectedDailyRevenue = expectedClicksPerDay * effectiveProfile.revenuePerClick;
 
     // Profitability score: expected revenue / cost ratio, weighted by volume
     const expectedRoas = expectedDailyRevenue > 0 && expectedDailyCost > 0
@@ -631,10 +684,13 @@ export async function scoreCampaignOpportunities(
     const volumeBonus = Math.min(20, Math.log10(searchVolume + 1) * 8);
     const roasBonus = Math.min(60, expectedRoas * 20);
     const intentBonus = opp.intent === 'TRANSACTIONAL' ? 20 : opp.intent === 'COMMERCIAL' ? 15 : 5;
-    const profitabilityScore = Math.round(Math.min(100, roasBonus + volumeBonus + intentBonus));
+    // Microsite landing page relevance bonus — niche site = better Quality Score
+    const micrositeBonus = matchedMicrosite ? 10 : 0;
+    const profitabilityScore = Math.round(Math.min(100, roasBonus + volumeBonus + intentBonus + micrositeBonus));
 
-    // Determine best landing page
-    const targetUrl = `https://${domain}`;
+    // Use microsite domain as landing page when matched, otherwise main site
+    const targetDomain = matchedMicrosite ? matchedMicrosite.fullDomain : domain;
+    const targetUrl = `https://${targetDomain}`;
     const utmCampaign = `auto_${opp.keyword.replace(/\s+/g, '_').substring(0, 40)}`;
 
     // Score for both platforms
@@ -644,7 +700,7 @@ export async function scoreCampaignOpportunities(
         opportunityId: opp.id,
         keyword: opp.keyword,
         siteId,
-        siteName: opp.site?.name || '',
+        siteName: matchedMicrosite ? matchedMicrosite.siteName : (opp.site?.name || ''),
         platform,
         estimatedCpc,
         maxBid,
@@ -657,6 +713,9 @@ export async function scoreCampaignOpportunities(
         location: opp.location,
         targetUrl,
         utmParams: { source: utmSource, medium: 'cpc', campaign: utmCampaign },
+        micrositeId: matchedMicrosite?.id,
+        micrositeDomain: matchedMicrosite?.fullDomain,
+        isMicrosite: !!matchedMicrosite,
       });
     }
   }
@@ -758,8 +817,8 @@ export async function runBiddingEngine(options?: {
     };
   }
 
-  // Step 2: Score keyword opportunities (uses main site profiles for bidding)
-  const allCandidates = await scoreCampaignOpportunities(profiles);
+  // Step 2: Score keyword opportunities (uses all profiles including microsites)
+  const allCandidates = await scoreCampaignOpportunities(allProfiles);
   console.log(`[BiddingEngine] Scored ${allCandidates.length} campaign candidates`);
 
   // Step 3: Select within budget

@@ -37,6 +37,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       where: campaignWhere as any,
       include: {
         site: { select: { name: true } },
+        microsite: { select: { siteName: true, fullDomain: true } },
         dailyMetrics: {
           where: { date: { gte: lookback } },
           orderBy: { date: 'desc' },
@@ -69,6 +70,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         id: c.id,
         name: c.name,
         siteName: c.site?.name || 'Unknown',
+        micrositeName: (c as any).microsite?.siteName || null,
+        micrositeDomain: (c as any).microsite?.fullDomain || null,
+        isMicrosite: !!(c as any).micrositeId,
         platform: c.platform,
         status: c.status,
         dailyBudget: Number(c.dailyBudget),
@@ -379,6 +383,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({
         success: true,
         message: `Rejected and deleted ${deleted.count} draft campaign${deleted.count !== 1 ? 's' : ''}`,
+      });
+    }
+
+    if (action === 'set_budget_cap') {
+      const { addJob } = await import('@experience-marketplace/jobs');
+      const jobId = await addJob('BIDDING_ENGINE_RUN' as any, {
+        mode: 'full',
+        maxDailyBudget: body.dailyBudgetCap,
+      });
+      return NextResponse.json({
+        success: true,
+        message: `Re-running engine with \u00A3${body.dailyBudgetCap}/day budget`,
+        jobId,
       });
     }
 
