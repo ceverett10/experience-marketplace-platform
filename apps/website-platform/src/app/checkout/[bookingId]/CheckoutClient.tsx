@@ -16,6 +16,7 @@ import {
   type BookingAvailability,
 } from '@/lib/booking-flow';
 import { trackBeginCheckout, trackAddPaymentInfo, trackPurchase } from '@/lib/analytics';
+import { getProductPricingConfig, calculatePromoPrice, DEFAULT_PRICING_CONFIG } from '@/lib/pricing';
 
 interface CheckoutClientProps {
   booking: Booking;
@@ -563,30 +564,29 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
                 })}
 
                 <div className="border-t border-gray-200 pt-3">
-                  {/* Promotional savings display */}
-                  {booking.totalPrice?.gross && booking.totalPrice.gross > 0 && (
-                    <div className="mb-2 space-y-1">
-                      <div className="flex items-center justify-between text-sm text-gray-500">
-                        <span>Subtotal</span>
-                        <span className="line-through">
-                          {(() => {
-                            const rrp = booking.totalPrice!.gross * 1.05;
-                            return new Intl.NumberFormat('en-GB', { style: 'currency', currency: booking.totalPrice!.currency ?? 'GBP' }).format(Math.ceil(rrp) - 0.01);
-                          })()}
-                        </span>
+                  {/* Promotional savings display - uses per-product pricing config */}
+                  {booking.totalPrice?.gross && booking.totalPrice.gross > 0 && (() => {
+                    const productId = firstAvailability?.product?.id;
+                    const pricingConfig = productId ? getProductPricingConfig(productId) : DEFAULT_PRICING_CONFIG;
+                    const promo = calculatePromoPrice(
+                      booking.totalPrice!.grossFormattedText ?? '',
+                      booking.totalPrice!.gross,
+                      booking.totalPrice!.currency ?? 'GBP',
+                      pricingConfig
+                    );
+                    return promo.hasPromo ? (
+                      <div className="mb-2 space-y-1">
+                        <div className="flex items-center justify-between text-sm text-gray-500">
+                          <span>Subtotal</span>
+                          <span className="line-through">{promo.originalFormatted}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm font-medium text-emerald-600">
+                          <span>Discount ({pricingConfig.markupPercentage}% off)</span>
+                          <span>-{promo.savingsFormatted}</span>
+                        </div>
                       </div>
-                      <div className="flex items-center justify-between text-sm font-medium text-emerald-600">
-                        <span>Discount (5% off)</span>
-                        <span>
-                          -{(() => {
-                            const rrp = booking.totalPrice!.gross * 1.05;
-                            const savings = (Math.ceil(rrp) - 0.01) - booking.totalPrice!.gross;
-                            return new Intl.NumberFormat('en-GB', { style: 'currency', currency: booking.totalPrice!.currency ?? 'GBP' }).format(savings);
-                          })()}
-                        </span>
-                      </div>
-                    </div>
-                  )}
+                    ) : null;
+                  })()}
                   <div className="flex items-center justify-between">
                     <span className="text-base font-semibold text-gray-900">You pay</span>
                     <span className="text-lg font-bold" style={{ color: primaryColor }}>
