@@ -1,20 +1,34 @@
 /**
- * Test script: run enrichment dry-run and display seed quality.
- * Usage: node packages/jobs/dist/scripts/test-enrichment-quality.js [supplierCount] [productsPerSupplier]
+ * Test script: run enrichment with optional DataForSEO validation.
+ *
+ * Usage:
+ *   node packages/jobs/dist/scripts/test-enrichment-quality.js [count] [products] [--validate] [--live]
+ *
+ * Flags:
+ *   --validate  Enable DataForSEO validation (Phase 2)
+ *   --live      Disable dryRun — actually write to DB (Phase 3)
  */
 import { runBulkEnrichment } from '../services/keyword-enrichment';
 
 async function main() {
-  const supplierCount = parseInt(process.argv[2] || '30', 10);
-  const productsPerSupplier = parseInt(process.argv[3] || '30', 10);
+  const args = process.argv.slice(2);
+  const flags = args.filter(a => a.startsWith('--'));
+  const nums = args.filter(a => !a.startsWith('--'));
 
-  console.log(`Testing enrichment with ${supplierCount} suppliers, ${productsPerSupplier} products each\n`);
+  const supplierCount = parseInt(nums[0] || '30', 10);
+  const productsPerSupplier = parseInt(nums[1] || '30', 10);
+  const skipDataForSeo = !flags.includes('--validate');
+  const dryRun = !flags.includes('--live');
+
+  console.log(`Enrichment: ${supplierCount} suppliers, ${productsPerSupplier} products each`);
+  console.log(`DataForSEO validation: ${!skipDataForSeo ? 'ON' : 'OFF (dry-run)'}`);
+  console.log(`DB writes: ${!dryRun ? 'ON (live)' : 'OFF (dry-run)'}\n`);
 
   const result = await runBulkEnrichment({
     maxSuppliersPerRun: supplierCount,
     maxProductsPerSupplier: productsPerSupplier,
-    skipDataForSeo: true,
-    dryRun: true,
+    skipDataForSeo,
+    dryRun,
     location: 'United Kingdom',
   });
 
