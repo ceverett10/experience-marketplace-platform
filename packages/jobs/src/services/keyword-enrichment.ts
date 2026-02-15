@@ -479,16 +479,18 @@ async function extractKeywordsFromSupplier(
     };
   }
 
-  // Second pass: extract data from experience products
+  // Second pass: extract per-product city + activity pairs
+  // Key insight: each product's activity should only be paired with ITS OWN city,
+  // not cross-multiplied with all cities from other products.
+  const seeds = new Set<string>();
+  const SKIP_CATEGORIES = new Set(['general', 'private', 'other', 'multi-day',
+    'full day', 'half day', 'car, bus or mini-van', 'passes', 'city',
+    'natural', 'iconic', 'themed', 'classes', 'general']);
+
   for (const product of experienceProducts) {
-    // Extract city — try API data first, then fall back to name parsing
-    const cityName = extractCity(product);
-    if (cityName) {
-      citySet.add(cityName);
-    } else {
-      const cityFromName = extractCityFromProductName(product.name);
-      if (cityFromName) citySet.add(cityFromName);
-    }
+    // Extract THIS product's city
+    const city = extractCity(product);
+    if (city) citySet.add(city);
 
     // Extract categories (skip transport-related ones)
     const cats = extractCategories(product);
@@ -499,38 +501,31 @@ async function extractKeywordsFromSupplier(
     }
 
     // Extract activity phrase from product name
-    const phrase = extractActivityPhrase(product.name, citySet);
-    if (phrase) activityPhrases.add(phrase);
+    const allCities = new Set(citySet); // Use accumulated cities for name cleaning
+    const phrase = extractActivityPhrase(product.name, allCities);
+
+    // Generate seeds: pair THIS activity with THIS product's city
+    if (phrase && city) {
+      seeds.add(`${phrase} in ${city}`.toLowerCase());
+      seeds.add(`${phrase} ${city}`.toLowerCase());
+    }
+    // Add bare activity if descriptive enough
+    if (phrase && phrase.split(' ').length >= 3) {
+      seeds.add(phrase.toLowerCase());
+    }
+
+    // Add category + city for THIS product (not cross-multiplied)
+    if (city) {
+      for (const cat of cats) {
+        const catLower = cat.toLowerCase();
+        if (SKIP_CATEGORIES.has(catLower) || TRANSPORT_CATEGORIES.has(catLower)) continue;
+        seeds.add(`${catLower} in ${city}`.toLowerCase());
+      }
+    }
   }
 
   const cities = [...citySet];
-  const categories = [...categorySet];
-  const activities = [...activityPhrases];
-
-  // Generate seed combinations: [activity] in [city]
-  const seeds = new Set<string>();
-
-  for (const activity of activities) {
-    for (const city of cities) {
-      seeds.add(`${activity} in ${city}`.toLowerCase());
-      seeds.add(`${activity} ${city}`.toLowerCase());
-    }
-    // Also add bare activity if it's descriptive enough (3+ words)
-    if (activity.split(' ').length >= 3) {
-      seeds.add(activity.toLowerCase());
-    }
-  }
-
-  // Add category + city combinations (only experience-related categories)
-  const SKIP_CATEGORIES = new Set(['general', 'private', 'other', 'multi-day',
-    'full day', 'half day', 'car, bus or mini-van']);
-  for (const category of categories) {
-    for (const city of cities) {
-      const catLower = category.toLowerCase();
-      if (SKIP_CATEGORIES.has(catLower)) continue;
-      seeds.add(`${catLower} in ${city}`.toLowerCase());
-    }
-  }
+  const categories = [...categorySet].filter(c => !SKIP_CATEGORIES.has(c.toLowerCase()));
 
   // Cap at MAX_SEEDS_PER_SUPPLIER
   const seedArray = [...seeds].slice(0, MAX_SEEDS_PER_SUPPLIER);
@@ -600,22 +595,36 @@ function extractCityFromProductName(productName: string): string | null {
   }
 
   // Strategy 2: Pattern-based extraction from title structure
+  // Reject words that look like city names but aren't
+  const NON_CITY_WORDS = new Set([
+    'private', 'tour', 'day', 'trip', 'group', 'class', 'experience',
+    'adventure', 'excursion', 'safari', 'cruise', 'transfer', 'boat',
+    'walk', 'hike', 'bike', 'ride', 'drive', 'flight', 'show',
+    'sunrise', 'sunset', 'morning', 'afternoon', 'evening', 'night',
+    'standard', 'premium', 'luxury', 'budget', 'basic', 'deluxe',
+  ]);
+
+  function isValidCity(candidate: string): boolean {
+    if (candidate.length < 3 || candidate.length > 30) return false;
+    // Reject if ALL words are common non-city words
+    const words = candidate.toLowerCase().split(/\s+/);
+    if (words.every(w => NON_CITY_WORDS.has(w))) return false;
+    // Reject if it contains numbers
+    if (/\d/.test(candidate)) return false;
+    // Must start with uppercase (already ensured by regex)
+    return true;
+  }
+
   // "... in [City]" — "Cooking Class in Bologna"
   const inMatch = productName.match(/\bin\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s*$/);
-  if (inMatch?.[1] && inMatch[1].length >= 3 && inMatch[1].length <= 30) {
+  if (inMatch?.[1] && isValidCity(inMatch[1])) {
     return inMatch[1];
   }
 
   // "[City]: ..." — "Naples: Pasta Making Class"
   const colonMatch = productName.match(/^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*):\s/);
-  if (colonMatch?.[1] && colonMatch[1].length >= 3 && colonMatch[1].length <= 30) {
+  if (colonMatch?.[1] && isValidCity(colonMatch[1])) {
     return colonMatch[1];
-  }
-
-  // "... at/near [City]" — "Cooking class at a Cesarina's home at Como"
-  const atMatch = productName.match(/\bat\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s*$/);
-  if (atMatch?.[1] && atMatch[1].length >= 3 && atMatch[1].length <= 25) {
-    return atMatch[1];
   }
 
   return null;
@@ -689,12 +698,13 @@ function extractCategories(product: HolibobProduct): string[] {
 
 /**
  * Extract a 2-4 word activity phrase from a product name.
+ * Focuses on the core bookable activity, stripping modifiers and locations.
  *
  * Examples:
  *   "Private Sunset Kayaking Tour in Barcelona" → "kayaking tour"
- *   "Small Group Food and Wine Walking Tour" → "food wine walking tour"
+ *   "Small Group Pasta and Tiramisu Class" → "pasta tiramisu class"
  *   "Skip-the-Line Colosseum Guided Tour" → "colosseum tour"
- *   "Airport Transfer - London Heathrow" → "airport transfer"
+ *   "Tuk Tuk Safari" → "tuk tuk safari"
  */
 function extractActivityPhrase(
   productName: string,
@@ -702,32 +712,52 @@ function extractActivityPhrase(
 ): string | null {
   let name = productName.toLowerCase();
 
-  // Remove city/location names
+  // Remove city/location names (so they don't pollute the activity phrase)
   for (const city of citiesToRemove) {
     const cityLower = city.toLowerCase();
     name = name.replace(new RegExp(`\\b${escapeRegex(cityLower)}\\b`, 'g'), ' ');
   }
+  // Also strip known destinations directly
+  for (const dest of KNOWN_DESTINATIONS) {
+    if (name.includes(dest)) {
+      name = name.replace(new RegExp(`\\b${escapeRegex(dest)}\\b`, 'g'), ' ');
+    }
+  }
 
-  // Remove hyphens and special characters
-  name = name.replace(/[-–—]/g, ' ').replace(/[^a-z\s]/g, '');
+  // Remove common title patterns that add noise
+  name = name
+    .replace(/[-–—:]/g, ' ')    // Hyphens and colons
+    .replace(/[^a-z\s]/g, '')    // Non-alpha characters
+    .replace(/\bself\s+guided\b/g, 'self-guided')  // Keep as compound
+    .replace(/\bshore\s+excursion\b/g, 'shore excursion');
 
   // Split into words
-  let words = name.split(/\s+/).filter((w) => w.length > 0);
+  let words = name.split(/\s+/).filter(w => w.length > 0);
 
-  // Remove modifier and filler words
+  // Remove modifier, filler, and noise words
   words = words.filter(
-    (w) => !MODIFIER_WORDS.has(w) && !FILLER_WORDS.has(w) && w.length > 1
+    w => !MODIFIER_WORDS.has(w) && !FILLER_WORDS.has(w) && w.length > 1
   );
 
-  // Remove duration patterns (e.g., "2h", "3hour")
-  words = words.filter((w) => !/^\d+h?o?u?r?s?$/.test(w));
+  // Remove duration patterns and numbers
+  words = words.filter(w => !/^\d+h?o?u?r?s?$/.test(w) && !/^\d+$/.test(w));
 
-  // Join remaining words
+  // Remove additional noise: directional/logistic words
+  const NOISE_WORDS = new Set([
+    'hotel', 'hotels', 'pickup', 'pick', 'drop', 'off', 'optional',
+    'included', 'includes', 'including', 'transport', 'return',
+    'round', 'way', 'standard', 'rental', 'chauffeur', 'driven',
+    'home', 'port', 'center', 'centre', 'city', 'airport',
+    'station', 'departure', 'arrival', 'local', 'transfers',
+  ]);
+  words = words.filter(w => !NOISE_WORDS.has(w));
+
+  // Take first 4 meaningful words (longer phrases are too specific)
+  words = words.slice(0, 4);
+
   const phrase = words.join(' ').trim();
-
-  // Return null if too short or too long
   const wordCount = phrase.split(/\s+/).length;
-  if (wordCount < 2 || wordCount > 5) return null;
+  if (wordCount < 2 || wordCount > 4) return null;
 
   return phrase;
 }
