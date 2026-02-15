@@ -6,6 +6,7 @@ import { SiteProvider } from '@/lib/site-context';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { GoogleAnalytics } from '@/components/analytics/GoogleAnalytics';
+import { MetaPixel } from '@/components/analytics/MetaPixel';
 import { EmailPopup } from '@/components/marketing/EmailPopup';
 import { SocialProofToast } from '@/components/marketing/SocialProofToast';
 import { CookieConsent } from '@/components/marketing/CookieConsent';
@@ -119,8 +120,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <CookieConsent />
           <ExitIntentPopup />
         </SiteProvider>
-        {/* Google Analytics - Dynamic per site */}
-        <GoogleAnalytics measurementId={site.seoConfig?.gaMeasurementId} />
+        {/* Google Analytics + Ads Conversion Tracking - Dynamic per site */}
+        <GoogleAnalytics
+          measurementId={site.seoConfig?.gaMeasurementId}
+          googleAdsId={site.seoConfig?.googleAdsId}
+        />
+        {/* Meta Pixel - Dynamic per site */}
+        <MetaPixel pixelId={site.seoConfig?.metaPixelId} />
       </body>
     </html>
   );

@@ -678,6 +678,10 @@ model Booking {
   utmCampaign String?
   landingPage String?
 
+  // Ad platform click IDs (for server-side conversion uploads / CAPI)
+  gclid  String? // Google Ads click ID
+  fbclid String? // Meta/Facebook click ID
+
   // Relationships
   site   Site   @relation(fields: [siteId], references: [id])
   siteId String
@@ -691,6 +695,8 @@ model Booking {
   @@index([status])
   @@index([createdAt])
   @@index([siteId, holibobProductId, createdAt]) // For booking analytics queries
+  @@index([gclid])
+  @@index([fbclid])
 }
 
 enum BookingStatus {
@@ -699,6 +705,49 @@ enum BookingStatus {
   COMPLETED
   CANCELLED
   REFUNDED
+}
+
+// ============================================================================
+// BOOKING FUNNEL ANALYTICS
+// ============================================================================
+
+enum BookingFunnelStep {
+  AVAILABILITY_SEARCH
+  BOOKING_CREATED
+  AVAILABILITY_ADDED
+  CHECKOUT_LOADED
+  QUESTIONS_ANSWERED
+  PAYMENT_STARTED
+  BOOKING_COMPLETED
+}
+
+model BookingFunnelEvent {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  step      BookingFunnelStep
+  siteId    String
+  sessionId String
+
+  // Context (nullable — populated when available at that step)
+  productId String?
+  bookingId String?
+
+  // Error tracking
+  errorCode    String?
+  errorMessage String? @db.Text
+
+  // Timing
+  durationMs Int?
+
+  // Attribution (from utm_params cookie)
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+
+  @@index([siteId, step, createdAt])
+  @@index([sessionId, createdAt])
+  @@index([createdAt])
 }
 
 // ============================================================================
@@ -1181,6 +1230,23 @@ model BiddingProfile {
   updatedAt         DateTime @updatedAt
 
   @@map("bidding_profiles")
+}
+
+model AdAlert {
+  id             String    @id @default(cuid())
+  type           String    // BUDGET_OVERSPEND, ROAS_DROP, CAMPAIGN_ERROR, SYNC_FAILURE, HIGH_CPC, NO_IMPRESSIONS
+  severity       String    // INFO, WARNING, CRITICAL
+  campaignId     String?
+  siteId         String?
+  message        String
+  details        Json?
+  acknowledged   Boolean   @default(false)
+  acknowledgedAt DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@index([type, acknowledged])
+  @@index([createdAt])
+  @@map("ad_alerts")
 }
 
 // ============================================================================

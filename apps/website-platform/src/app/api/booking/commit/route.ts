@@ -14,6 +14,7 @@ import { z } from 'zod';
 import { getSiteFromHostname } from '@/lib/tenant';
 import { getHolibobClient } from '@/lib/holibob';
 import { prisma } from '@/lib/prisma';
+import { trackFunnelEvent, BookingFunnelStep } from '@/lib/funnel-tracking';
 
 const CommitBookingSchema = z.object({
   bookingId: z.string().optional(),
@@ -25,6 +26,7 @@ const CommitBookingSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
   try {
     // Parse request body
     const body = await request.json();
@@ -162,6 +164,8 @@ export async function POST(request: NextRequest) {
         let utmMedium: string | undefined;
         let utmCampaign: string | undefined;
         let landingPage: string | undefined;
+        let gclid: string | undefined;
+        let fbclid: string | undefined;
         const utmCookie = request.cookies.get('utm_params')?.value;
         if (utmCookie) {
           try {
@@ -170,6 +174,8 @@ export async function POST(request: NextRequest) {
             utmMedium = utm.medium || undefined;
             utmCampaign = utm.campaign || undefined;
             landingPage = utm.landingPage || undefined;
+            gclid = utm.gclid || undefined;
+            fbclid = utm.fbclid || undefined;
           } catch {
             // Invalid cookie JSON — ignore
           }
@@ -199,6 +205,8 @@ export async function POST(request: NextRequest) {
             utmMedium,
             utmCampaign,
             landingPage,
+            gclid: gclid ?? null,
+            fbclid: fbclid ?? null,
             commissionAmount: commissionAmount ?? null,
             commissionRate: commissionRate ?? null,
           },
@@ -207,6 +215,8 @@ export async function POST(request: NextRequest) {
             holibobProductId: productId || undefined,
             // Update UTM/commission if not already set (first write wins)
             ...(utmSource ? { utmSource } : {}),
+            ...(gclid ? { gclid } : {}),
+            ...(fbclid ? { fbclid } : {}),
             ...(commissionAmount != null ? { commissionAmount, commissionRate } : {}),
           },
         });
@@ -219,6 +229,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    trackFunnelEvent({ step: BookingFunnelStep.BOOKING_COMPLETED, siteId: site.id, bookingId: booking.id, productId: productId ?? undefined, durationMs: Date.now() - startTime });
     return NextResponse.json({
       success: true,
       data: {
@@ -251,6 +262,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    trackFunnelEvent({ step: BookingFunnelStep.BOOKING_COMPLETED, siteId: 'unknown', errorCode: 'COMMIT_ERROR', errorMessage: error instanceof Error ? error.message : 'Unknown error', durationMs: Date.now() - startTime });
     return NextResponse.json({ error: 'Failed to commit booking' }, { status: 500 });
   }
 }

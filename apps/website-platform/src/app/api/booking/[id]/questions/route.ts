@@ -17,6 +17,7 @@ import { headers } from 'next/headers';
 import { z } from 'zod';
 import { getSiteFromHostname } from '@/lib/tenant';
 import { getHolibobClient } from '@/lib/holibob';
+import { trackFunnelEvent, BookingFunnelStep } from '@/lib/funnel-tracking';
 
 // Types for booking availability and person (matching Holibob API structure)
 interface BookingQuestionNode {
@@ -93,6 +94,7 @@ interface RouteParams {
  * - Person level (per-guest questions)
  */
 export async function GET(_request: NextRequest, { params }: RouteParams) {
+  const startTime = Date.now();
   try {
     const { id: bookingId } = await params;
 
@@ -131,6 +133,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       canCommit: booking.canCommit ?? false,
     };
 
+    trackFunnelEvent({ step: BookingFunnelStep.CHECKOUT_LOADED, siteId: site.id, bookingId, durationMs: Date.now() - startTime });
     return NextResponse.json({
       success: true,
       data: {
@@ -140,6 +143,8 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     });
   } catch (error) {
     console.error('Get booking questions error:', error);
+
+    trackFunnelEvent({ step: BookingFunnelStep.CHECKOUT_LOADED, siteId: 'unknown', errorCode: 'CHECKOUT_LOAD_ERROR', errorMessage: error instanceof Error ? error.message : 'Unknown error', durationMs: Date.now() - startTime });
 
     if (error instanceof Error) {
       if (error.message.includes('not found')) {
@@ -169,6 +174,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
  * - termsAccepted: boolean
  */
 export async function POST(request: NextRequest, { params }: RouteParams) {
+  const startTime = Date.now();
   try {
     const { id: bookingId } = await params;
 
@@ -379,6 +385,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       console.log('[Questions API] Final canCommit:', booking.canCommit);
     }
 
+    trackFunnelEvent({
+      step: BookingFunnelStep.QUESTIONS_ANSWERED,
+      siteId: site.id,
+      bookingId,
+      durationMs: Date.now() - startTime,
+      ...(!booking.canCommit ? { errorCode: 'QUESTIONS_INCOMPLETE', errorMessage: 'canCommit is false after answering questions' } : {}),
+    });
     return NextResponse.json({
       success: true,
       data: {
@@ -397,6 +410,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     });
   } catch (error) {
     console.error('Process booking questions error:', error);
+
+    trackFunnelEvent({ step: BookingFunnelStep.QUESTIONS_ANSWERED, siteId: 'unknown', errorCode: 'QUESTIONS_ERROR', errorMessage: error instanceof Error ? error.message : 'Unknown error', durationMs: Date.now() - startTime });
 
     if (error instanceof Error) {
       if (error.message.includes('not found')) {

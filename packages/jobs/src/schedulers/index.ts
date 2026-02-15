@@ -360,14 +360,24 @@ export async function initializeScheduledJobs(): Promise<void> {
   );
   console.log('[Scheduler] ✓ Bidding Engine Run - Daily at 3 AM');
 
-  // Ad Campaign Sync — Every 6 hours
+  // Ad Campaign Sync — Every 3 hours
   // Syncs performance data from Meta + Google Ads into AdCampaign/AdDailyMetric
+  // Also runs alert checks after sync completes
   await scheduleJob(
     'AD_CAMPAIGN_SYNC' as any,
     {},
-    '0 */6 * * *' // Every 6 hours
+    '0 */3 * * *' // Every 3 hours
   );
-  console.log('[Scheduler] ✓ Ad Campaign Sync - Every 6 hours');
+  console.log('[Scheduler] ✓ Ad Campaign Sync - Every 3 hours');
+
+  // Ad Conversion Upload — Every 2 hours
+  // Uploads booking conversions to Meta/Google via server-side CAPI
+  await scheduleJob(
+    'AD_CONVERSION_UPLOAD' as any,
+    {},
+    '0 */2 * * *' // Every 2 hours
+  );
+  console.log('[Scheduler] ✓ Ad Conversion Upload - Every 2 hours');
 
   // Ad Performance Report — Daily at 9 AM
   // Portfolio-wide performance analysis: top/under performers, opportunities
@@ -976,8 +986,13 @@ export function getScheduledJobs(): Array<{
     },
     {
       jobType: 'AD_CAMPAIGN_SYNC',
-      schedule: '0 */6 * * *',
-      description: 'Sync Meta + Google Ads performance into AdCampaign/AdDailyMetric',
+      schedule: '0 */3 * * *',
+      description: 'Sync Meta + Google Ads performance into AdCampaign/AdDailyMetric + run alert checks',
+    },
+    {
+      jobType: 'AD_CONVERSION_UPLOAD',
+      schedule: '0 */2 * * *',
+      description: 'Upload booking conversions to Meta/Google via server-side CAPI',
     },
     {
       jobType: 'AD_PERFORMANCE_REPORT',

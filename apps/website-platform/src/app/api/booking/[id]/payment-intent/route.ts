@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { getSiteFromHostname } from '@/lib/tenant';
 import { getHolibobClient } from '@/lib/holibob';
+import { trackFunnelEvent, BookingFunnelStep } from '@/lib/funnel-tracking';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -21,6 +22,7 @@ interface RouteParams {
  * Fetches Stripe payment intent from Holibob
  */
 export async function GET(request: NextRequest, { params }: RouteParams) {
+  const startTime = Date.now();
   try {
     const { id: bookingId } = await params;
 
@@ -57,6 +59,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       hasApiKey: !!paymentIntent.apiKey,
     });
 
+    trackFunnelEvent({ step: BookingFunnelStep.PAYMENT_STARTED, siteId: site.id, bookingId, durationMs: Date.now() - startTime });
     return NextResponse.json({
       success: true,
       data: {
@@ -72,6 +75,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     });
   } catch (error) {
     console.error('Get payment intent error:', error);
+
+    trackFunnelEvent({ step: BookingFunnelStep.PAYMENT_STARTED, siteId: 'unknown', errorCode: 'PAYMENT_ERROR', errorMessage: error instanceof Error ? error.message : 'Unknown error', durationMs: Date.now() - startTime });
 
     if (error instanceof Error) {
       if (error.message.includes('not found')) {

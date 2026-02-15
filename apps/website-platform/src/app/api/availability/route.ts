@@ -18,8 +18,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { getSiteFromHostname } from '@/lib/tenant';
 import { getHolibobClient } from '@/lib/holibob';
+import { trackFunnelEvent, BookingFunnelStep } from '@/lib/funnel-tracking';
 
 export async function GET(request: NextRequest) {
+  const startTime = Date.now();
   try {
     // Get query parameters
     const { searchParams } = new URL(request.url);
@@ -86,6 +88,7 @@ export async function GET(request: NextRequest) {
         JSON.stringify(availability).substring(0, 200)
       );
 
+      trackFunnelEvent({ step: BookingFunnelStep.AVAILABILITY_SEARCH, siteId: site.id, productId, durationMs: Date.now() - startTime });
       return NextResponse.json({
         success: true,
         data: availability,
@@ -100,6 +103,7 @@ export async function GET(request: NextRequest) {
       optionList
     );
 
+    trackFunnelEvent({ step: BookingFunnelStep.AVAILABILITY_SEARCH, siteId: site.id, productId, durationMs: Date.now() - startTime });
     return NextResponse.json({
       success: true,
       data: availability,
@@ -110,6 +114,8 @@ export async function GET(request: NextRequest) {
       '[Availability API] Error details:',
       JSON.stringify(error, Object.getOwnPropertyNames(error))
     );
+
+    trackFunnelEvent({ step: BookingFunnelStep.AVAILABILITY_SEARCH, siteId: 'unknown', productId: new URL(request.url).searchParams.get('productId') ?? undefined, errorCode: 'AVAILABILITY_ERROR', errorMessage: error instanceof Error ? error.message : 'Unknown error', durationMs: Date.now() - startTime });
 
     // Handle specific error types
     if (error instanceof Error) {

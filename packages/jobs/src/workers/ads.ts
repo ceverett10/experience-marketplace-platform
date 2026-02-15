@@ -8,6 +8,7 @@
  * - AD_BUDGET_OPTIMIZER: Auto-reallocate budget based on ROAS
  * - BIDDING_ENGINE_RUN: Full profitability-driven campaign orchestration
  * - KEYWORD_ENRICHMENT: Bulk keyword extraction from product data
+ * - AD_CONVERSION_UPLOAD: Upload conversions to Meta/Google via server-side CAPI
  */
 
 import type { Job } from 'bullmq';
@@ -21,6 +22,8 @@ import { prisma } from '@experience-marketplace/database';
 import { runPaidKeywordScan } from '../services/paid-keyword-scanner';
 import { runBiddingEngine } from '../services/bidding-engine';
 import { runBulkEnrichment, type EnrichmentResult } from '../services/keyword-enrichment';
+import { uploadMetaConversion, uploadGoogleConversion } from '../services/conversions-api';
+import { runAlertChecks, createSyncFailureAlert } from '../services/ad-alerting';
 import { MetaAdsClient } from '../services/social/meta-ads-client';
 import { refreshTokenIfNeeded } from '../services/social/token-refresh';
 import {
@@ -257,10 +260,28 @@ export async function handleAdCampaignSync(job: Job): Promise<JobResult> {
     }
   }
 
+  // Run alert checks after sync completes
+  let alertsCreated = 0;
+  try {
+    const alertResult = await runAlertChecks();
+    alertsCreated = alertResult.alertsCreated;
+  } catch (alertError) {
+    console.error('[Ads Worker] Alert checks failed:', alertError);
+  }
+
+  // Create a sync failure alert if there were errors
+  if (errors > 0) {
+    try {
+      await createSyncFailureAlert(`${errors} of ${campaigns.length} campaigns failed to sync`);
+    } catch {
+      // Don't fail the sync just because alerting failed
+    }
+  }
+
   return {
     success: errors === 0,
-    message: `Synced ${synced}/${campaigns.length} campaigns (${errors} errors)`,
-    data: { synced, total: campaigns.length, errors },
+    message: `Synced ${synced}/${campaigns.length} campaigns (${errors} errors, ${alertsCreated} alerts)`,
+    data: { synced, total: campaigns.length, errors, alertsCreated },
     timestamp: new Date(),
   };
 }
@@ -954,6 +975,128 @@ export async function handleKeywordEnrichment(job: Job): Promise<JobResult> {
     success: result.errors.length === 0,
     message: `Enrichment: ${result.suppliersProcessed} suppliers, ${result.keywordsStored} keywords stored, $${result.estimatedCost.toFixed(2)} cost`,
     data: result as unknown as Record<string, unknown>,
+    timestamp: new Date(),
+  };
+}
+
+// --- AD_CONVERSION_UPLOAD ---------------------------------------------------
+
+/**
+ * Upload conversion events to Meta and Google Ads via server-side CAPI.
+ * Queries recent bookings with gclid/fbclid and uploads conversions
+ * that haven't been uploaded yet.
+ */
+export async function handleAdConversionUpload(job: Job): Promise<JobResult> {
+  const { bookingId } = job.data as { bookingId?: string };
+  console.log('[Ads Worker] Starting conversion upload', bookingId ? `for booking ${bookingId}` : '(sweep)');
+
+  // Query bookings with click IDs from the last 24 hours (or specific booking)
+  const lookback = new Date();
+  lookback.setHours(lookback.getHours() - 24);
+
+  const where: Record<string, unknown> = {
+    status: { in: ['CONFIRMED', 'COMPLETED'] },
+    OR: [
+      { gclid: { not: null } },
+      { fbclid: { not: null } },
+    ],
+  };
+
+  if (bookingId) {
+    where['id'] = bookingId;
+  } else {
+    where['createdAt'] = { gte: lookback };
+  }
+
+  const bookings = await (prisma as any).booking.findMany({
+    where,
+    select: {
+      id: true,
+      holibobBookingId: true,
+      gclid: true,
+      fbclid: true,
+      totalAmount: true,
+      commissionAmount: true,
+      currency: true,
+      customerEmail: true,
+      landingPage: true,
+      createdAt: true,
+      site: { select: { primaryDomain: true } },
+    },
+    take: 100,
+  });
+
+  if (bookings.length === 0) {
+    return {
+      success: true,
+      message: 'No bookings with click IDs to upload',
+      timestamp: new Date(),
+    };
+  }
+
+  let metaUploaded = 0;
+  let googleUploaded = 0;
+  let errors = 0;
+
+  // Get Meta access token once
+  let metaAccessToken: string | null = null;
+  if (bookings.some((b: any) => b.fbclid)) {
+    const account = await prisma.socialAccount.findFirst({
+      where: { platform: 'FACEBOOK', isActive: true },
+      select: { accessToken: true, refreshToken: true, tokenExpiresAt: true, id: true, platform: true, accountId: true },
+    });
+    if (account?.accessToken) {
+      const refreshed = await refreshTokenIfNeeded(account as any);
+      metaAccessToken = refreshed.accessToken;
+    }
+  }
+
+  for (const booking of bookings) {
+    const value = Number((booking as any).commissionAmount || (booking as any).totalAmount || 0);
+    const currency = (booking as any).currency || 'GBP';
+
+    // Upload to Meta if fbclid present
+    if ((booking as any).fbclid && metaAccessToken) {
+      const result = await uploadMetaConversion(
+        {
+          bookingId: (booking as any).id,
+          fbclid: (booking as any).fbclid,
+          email: (booking as any).customerEmail || undefined,
+          value,
+          currency,
+          eventTime: new Date((booking as any).createdAt),
+          sourceUrl: (booking as any).site?.primaryDomain
+            ? `https://${(booking as any).site.primaryDomain}${(booking as any).landingPage || ''}`
+            : undefined,
+        },
+        metaAccessToken
+      );
+      if (result.success) metaUploaded++;
+      else errors++;
+    }
+
+    // Upload to Google if gclid present
+    if ((booking as any).gclid) {
+      const result = await uploadGoogleConversion({
+        bookingId: (booking as any).id,
+        gclid: (booking as any).gclid,
+        value,
+        currency,
+        conversionTime: new Date((booking as any).createdAt),
+      });
+      if (result.success) googleUploaded++;
+      else errors++;
+    }
+  }
+
+  console.log(
+    `[Ads Worker] Conversion upload complete: ${metaUploaded} Meta, ${googleUploaded} Google, ${errors} errors`
+  );
+
+  return {
+    success: errors === 0,
+    message: `Uploaded ${metaUploaded} Meta + ${googleUploaded} Google conversions (${errors} errors)`,
+    data: { metaUploaded, googleUploaded, errors, bookingsProcessed: bookings.length },
     timestamp: new Date(),
   };
 }

@@ -85,6 +85,25 @@ export function trackPurchase(booking: {
   });
 }
 
+// ─── Google Ads Conversion Tracking ────────────────────────────────────────
+
+/**
+ * Fire a Google Ads conversion event.
+ * conversionLabel is the full send_to value, e.g. 'AW-XXXXXXXXX/XXXXXXXXXXX'
+ * This is called alongside trackPurchase when Google Ads conversion tracking is configured.
+ */
+export function trackGoogleAdsConversion(
+  conversionLabel: string,
+  booking: { id: string; value?: number; currency?: string }
+) {
+  sendEvent('conversion', {
+    send_to: conversionLabel,
+    transaction_id: booking.id,
+    value: booking.value,
+    currency: booking.currency ?? 'GBP',
+  });
+}
+
 // ─── Content Interaction Events ─────────────────────────────────────────────
 
 export function trackSelectContent(contentType: string, itemId: string) {

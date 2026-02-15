@@ -15,6 +15,7 @@ export type {
   ABTest,
   ABTestVariant,
   Booking,
+  BookingFunnelEvent,
   Job,
   AdminUser,
 } from '@prisma/client';
@@ -31,6 +32,7 @@ export {
   ABTestType,
   ABTestStatus,
   BookingStatus,
+  BookingFunnelStep,
   JobType,
   JobStatus,
   MicrositeStatus,

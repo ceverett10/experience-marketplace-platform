@@ -26,6 +26,7 @@ const navItems: NavItem[] = [
     icon: '📈',
     children: [
       { href: '/analytics', label: 'Overview', icon: '📊' },
+      { href: '/analytics/funnel', label: 'Booking Funnel', icon: '🔄' },
       { href: '/analytics/traffic', label: 'Traffic', icon: '👥' },
       { href: '/analytics/search', label: 'Search', icon: '🔍' },
       { href: '/analytics/blockers', label: 'Blockers', icon: '🚧' },
@@ -37,6 +38,7 @@ const navItems: NavItem[] = [
     icon: '⚡',
     children: [
       { href: '/operations', label: 'Dashboard', icon: '📈' },
+      { href: '/operations/ads', label: 'Ad Performance', icon: '📊' },
       { href: '/operations/microsites', label: 'Microsites', icon: '🏢' },
       { href: '/operations/paid-opportunities', label: 'Paid Traffic', icon: '💰' },
       { href: '/operations/bidding', label: 'Bidding Engine', icon: '🎯' },

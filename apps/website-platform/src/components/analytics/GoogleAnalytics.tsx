@@ -6,13 +6,15 @@ import { useEffect } from 'react';
 
 interface GoogleAnalyticsProps {
   measurementId: string | null | undefined;
+  googleAdsId?: string | null; // e.g., 'AW-XXXXXXXXX' for conversion tracking
 }
 
 /**
  * Google Analytics 4 component with SPA route change tracking.
  * Tracks page views on both initial load and client-side navigation.
+ * Optionally configures Google Ads conversion tracking when googleAdsId is provided.
  */
-export function GoogleAnalytics({ measurementId }: GoogleAnalyticsProps) {
+export function GoogleAnalytics({ measurementId, googleAdsId }: GoogleAnalyticsProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
@@ -57,6 +59,7 @@ export function GoogleAnalytics({ measurementId }: GoogleAnalyticsProps) {
             page_path: window.location.pathname,
             send_page_view: true
           });
+          ${googleAdsId ? `gtag('config', '${googleAdsId}');` : ''}
         `}
       </Script>
     </>

@@ -13,6 +13,7 @@ import { headers } from 'next/headers';
 import { z } from 'zod';
 import { getSiteFromHostname } from '@/lib/tenant';
 import { getHolibobClient } from '@/lib/holibob';
+import { trackFunnelEvent, BookingFunnelStep } from '@/lib/funnel-tracking';
 
 // Create booking request schema
 const CreateBookingSchema = z.object({
@@ -75,6 +76,7 @@ export async function GET(request: NextRequest) {
  * - autoFillQuestions: Whether to auto-fill questions (default: true)
  */
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
   try {
     // Parse request body
     const body = await request.json();
@@ -107,6 +109,7 @@ export async function POST(request: NextRequest) {
       autoFillQuestions: input.autoFillQuestions ?? true,
     });
 
+    trackFunnelEvent({ step: BookingFunnelStep.BOOKING_CREATED, siteId: site.id, bookingId: booking.id, durationMs: Date.now() - startTime });
     return NextResponse.json(
       {
         success: true,
@@ -117,6 +120,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Create booking error:', error);
 
+    trackFunnelEvent({ step: BookingFunnelStep.BOOKING_CREATED, siteId: 'unknown', errorCode: 'BOOKING_CREATE_ERROR', errorMessage: error instanceof Error ? error.message : 'Unknown error', durationMs: Date.now() - startTime });
     return NextResponse.json({ error: 'Failed to create booking' }, { status: 500 });
   }
 }
