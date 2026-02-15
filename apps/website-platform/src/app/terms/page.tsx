@@ -147,7 +147,7 @@ export async function generateMetadata(): Promise<Metadata> {
       canonical: `https://${site.primaryDomain || hostname}/terms`,
     },
     robots: {
-      index: true,
+      index: false,
       follow: true,
     },
   };

@@ -26,7 +26,7 @@ export async function generateMetadata(): Promise<Metadata> {
       canonical: `https://${site.primaryDomain || hostname}/prize-draw-terms`,
     },
     robots: {
-      index: true,
+      index: false,
       follow: true,
     },
   };
