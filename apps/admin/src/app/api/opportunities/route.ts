@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { OpportunityStatus } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { addJob } from '@experience-marketplace/jobs';
 
@@ -20,7 +21,7 @@ export async function GET(request: Request) {
     // Build query filters
     // This dashboard is for building new sites/microsites, so exclude
     // PAID_CANDIDATE (ad keywords) and ARCHIVED (dismissed) by default
-    const excludedStatuses = ['ARCHIVED', 'PAID_CANDIDATE', 'PUBLISHED'];
+    const excludedStatuses: OpportunityStatus[] = ['ARCHIVED', 'PAID_CANDIDATE', 'PUBLISHED'];
     const where: any = {};
     if (status === 'ARCHIVED') {
       where.status = 'ARCHIVED';
