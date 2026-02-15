@@ -380,22 +380,42 @@ export async function runBulkEnrichment(
   let estimatedCost = 0;
 
   if (!skipDataForSeo && uniqueSeeds.length > 0) {
-    estimatedCost = uniqueSeeds.length * COST_PER_KEYWORD;
+    // Dedup: skip seeds that already exist as PAID_CANDIDATE keywords
+    const existingKeywords = await prisma.sEOOpportunity.findMany({
+      where: {
+        status: 'PAID_CANDIDATE',
+        keyword: { in: uniqueSeeds },
+        location,
+      },
+      select: { keyword: true },
+    });
+    const existingSet = new Set(existingKeywords.map(k => k.keyword.toLowerCase()));
+    const novelSeeds = uniqueSeeds.filter(s => !existingSet.has(s.toLowerCase()));
+    const skippedCount = uniqueSeeds.length - novelSeeds.length;
+
     console.log(
-      `[Enrichment] Phase 2: Validating ${uniqueSeeds.length} unique seeds via DataForSEO ` +
-      `(estimated cost: $${estimatedCost.toFixed(2)})`
+      `[Enrichment] Phase 2 dedup: ${uniqueSeeds.length} unique seeds, ` +
+      `${skippedCount} already validated, ${novelSeeds.length} novel seeds to check`
+    );
+
+    estimatedCost = novelSeeds.length * COST_PER_KEYWORD;
+    console.log(
+      `[Enrichment] Phase 2: Validating ${novelSeeds.length} novel seeds via DataForSEO ` +
+      `(estimated cost: $${estimatedCost.toFixed(2)}, saved $${(skippedCount * COST_PER_KEYWORD).toFixed(2)} from dedup)`
     );
 
     if (estimatedCost > MAX_COST_SAFETY_LIMIT) {
       const msg = `Cost estimate $${estimatedCost.toFixed(2)} exceeds safety limit of $${MAX_COST_SAFETY_LIMIT}. Aborting Phase 2.`;
       console.error(`[Enrichment] ${msg}`);
       errors.push(msg);
+    } else if (novelSeeds.length === 0) {
+      console.log('[Enrichment] Phase 2: No novel seeds to validate — all already in database');
     } else {
       try {
-        validatedKeywords = await validateKeywords(uniqueSeeds, location);
+        validatedKeywords = await validateKeywords(novelSeeds, location);
         console.log(
           `[Enrichment] Phase 2 complete: ${validatedKeywords.size} keywords validated ` +
-          `(${uniqueSeeds.length - validatedKeywords.size} filtered out)`
+          `(${novelSeeds.length - validatedKeywords.size} filtered out)`
         );
       } catch (err) {
         const msg = `DataForSEO validation failed: ${err}`;
