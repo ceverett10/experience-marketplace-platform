@@ -94,10 +94,10 @@ export async function generateMetadata(): Promise<Metadata> {
     'Privacy Policy for Holibob Limited. Learn how we collect, use, and protect your personal data.';
 
   return {
-    title: `${title} | ${site.name}`,
+    title,
     description,
     openGraph: {
-      title,
+      title: `${title} | ${site.name}`,
       description,
       type: 'website',
     },

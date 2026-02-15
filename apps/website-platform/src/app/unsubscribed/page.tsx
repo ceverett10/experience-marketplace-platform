@@ -16,7 +16,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const site = await getSiteFromHostname(hostname);
 
   return {
-    title: `Unsubscribed | ${site.name}`,
+    title: 'Unsubscribed',
     description: 'You have been unsubscribed from marketing emails.',
     robots: {
       index: false,

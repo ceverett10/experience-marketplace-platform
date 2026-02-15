@@ -36,10 +36,10 @@ export async function generateMetadata(): Promise<Metadata> {
     `Get in touch with ${site.name}. We're here to help with your travel experience questions.`;
 
   return {
-    title: `${title} | ${site.name}`,
+    title,
     description,
     openGraph: {
-      title,
+      title: `${title} | ${site.name}`,
       description,
       type: 'website',
     },

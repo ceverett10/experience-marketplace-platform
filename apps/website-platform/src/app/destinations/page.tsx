@@ -13,13 +13,17 @@ export async function generateMetadata(): Promise<Metadata> {
   const hostname = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
   const site = await getSiteFromHostname(hostname);
 
+  // OG image fallback chain
+  const ogImage = site.brand?.ogImageUrl || site.homepageConfig?.hero?.backgroundImage;
+
   return {
-    title: `Destinations | ${site.name}`,
+    title: 'Destinations',
     description: `Explore amazing destinations and discover unique experiences with ${site.name}. Browse our curated collection of destinations.`,
     openGraph: {
       title: `Destinations | ${site.name}`,
       description: `Explore amazing destinations and discover unique experiences with ${site.name}.`,
       type: 'website',
+      ...(ogImage ? { images: [ogImage] } : {}),
     },
     alternates: {
       canonical: `https://${site.primaryDomain || hostname}/destinations`,

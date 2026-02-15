@@ -96,12 +96,12 @@ export async function generateMetadata({
   }
 
   return {
-    title: `${title} | Experiencess`,
+    title,
     description: params.city
-      ? `Discover top-rated tour operators and activity providers in ${params.city}.`
+      ? `Discover top-rated tour operators and activity providers in ${params.city}. Book experiences with free cancellation.`
       : params.category
-        ? `Browse ${params.category} experience providers across our network.`
-        : 'Browse all experience providers in the Experiencess network.',
+        ? `Browse ${params.category} experience providers across our network. Book with instant confirmation.`
+        : 'Browse all experience providers in our network. Free cancellation, instant confirmation.',
     alternates: {
       canonical: `https://${hostname}/providers`,
     },

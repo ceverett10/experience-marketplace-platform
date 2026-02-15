@@ -117,13 +117,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const canonicalUrl =
     category.canonicalUrl || `https://${site.primaryDomain || hostname}/categories/${slug}`;
 
+  // OG image fallback chain
+  const ogImage = site.brand?.ogImageUrl || site.homepageConfig?.hero?.backgroundImage;
+
   return {
-    title: `${title} | ${site.name}`,
+    title,
     description,
     openGraph: {
-      title,
+      title: `${title} | ${site.name}`,
       description: description || undefined,
       type: 'website',
+      ...(ogImage ? { images: [ogImage] } : {}),
     },
     alternates: {
       canonical: canonicalUrl,

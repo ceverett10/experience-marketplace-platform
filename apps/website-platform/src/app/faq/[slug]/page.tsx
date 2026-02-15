@@ -102,15 +102,19 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   // Generate canonical URL - use custom if set, otherwise default to page URL
   const canonicalUrl = page.canonicalUrl || `https://${site.primaryDomain || hostname}/faq/${slug}`;
 
+  // OG image fallback chain
+  const ogImage = site.brand?.ogImageUrl || site.homepageConfig?.hero?.backgroundImage;
+
   return {
-    title: `${title} | ${site.name}`,
+    title,
     description,
     openGraph: {
-      title,
+      title: `${title} | ${site.name}`,
       description: description || undefined,
       type: 'article',
       publishedTime: page.createdAt.toISOString(),
       modifiedTime: page.updatedAt.toISOString(),
+      ...(ogImage ? { images: [ogImage] } : {}),
     },
     alternates: {
       canonical: canonicalUrl,

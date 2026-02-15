@@ -106,15 +106,25 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const canonicalUrl =
     post.canonicalUrl || `https://${site.primaryDomain || hostname}/blog/${slug}`;
 
+  // OG image fallback chain
+  const ogImage = site.brand?.ogImageUrl || site.homepageConfig?.hero?.backgroundImage;
+
   return {
-    title: `${title} | ${site.name}`,
+    title,
     description,
     openGraph: {
-      title,
+      title: `${title} | ${site.name}`,
       description: description || undefined,
       type: 'article',
       publishedTime: post.createdAt.toISOString(),
       modifiedTime: post.updatedAt.toISOString(),
+      ...(ogImage ? { images: [ogImage] } : {}),
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: `${title} | ${site.name}`,
+      description: description || undefined,
+      ...(ogImage ? { images: [ogImage] } : {}),
     },
     alternates: {
       canonical: canonicalUrl,

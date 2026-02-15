@@ -17,13 +17,17 @@ export async function generateMetadata(): Promise<Metadata> {
 
   const baseUrl = `https://${site.primaryDomain || hostname}/collections`;
 
+  // OG image fallback chain
+  const ogImage = site.brand?.ogImageUrl || site.homepageConfig?.hero?.backgroundImage;
+
   return {
-    title: `Experience Collections | ${site.name}`,
+    title: 'Experience Collections',
     description: `Browse curated collections of experiences from ${site.name}. Find the perfect adventure for couples, families, thrill-seekers, and more.`,
     openGraph: {
       title: `Experience Collections | ${site.name}`,
       description: `Browse curated collections of experiences from ${site.name}.`,
       type: 'website',
+      ...(ogImage ? { images: [ogImage] } : {}),
     },
     alternates: {
       canonical: baseUrl,

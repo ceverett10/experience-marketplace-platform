@@ -136,10 +136,10 @@ export async function generateMetadata(): Promise<Metadata> {
     'Terms of Service for the Holibob Platform Network. Please read these terms carefully before using our services.';
 
   return {
-    title: `${title} | ${site.name}`,
+    title,
     description,
     openGraph: {
-      title,
+      title: `${title} | ${site.name}`,
       description,
       type: 'website',
     },

@@ -42,13 +42,17 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   });
   const totalPages = Math.ceil(totalCount / FAQS_PER_PAGE);
 
+  // OG image fallback chain
+  const ogImage = site.brand?.ogImageUrl || site.homepageConfig?.hero?.backgroundImage;
+
   return {
-    title: `Frequently Asked Questions | ${site.name}`,
+    title: 'Frequently Asked Questions',
     description: `Find answers to common questions about ${site.name}. Browse our comprehensive FAQ section for helpful information about our experiences and services.`,
     openGraph: {
       title: `Frequently Asked Questions | ${site.name}`,
       description: `Find answers to common questions about ${site.name}.`,
       type: 'website',
+      ...(ogImage ? { images: [ogImage] } : {}),
     },
     alternates: {
       canonical: canonicalUrl,

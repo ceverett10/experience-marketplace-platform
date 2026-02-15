@@ -341,7 +341,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const isViatorProduct = experience.provider?.name?.toLowerCase().includes('viator');
 
   return {
-    title: `${experience.title} | ${site.name}`,
+    title: experience.title,
     description: experience.shortDescription,
     // Viator products cannot be indexed (contractual requirement)
     // Other suppliers' products can be indexed for SEO
@@ -350,14 +350,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       follow: true,
     },
     openGraph: {
-      title: experience.title,
+      title: `${experience.title} | ${site.name}`,
       description: experience.shortDescription,
       images: [experience.imageUrl],
       type: 'website',
     },
     twitter: {
       card: 'summary_large_image',
-      title: experience.title,
+      title: `${experience.title} | ${site.name}`,
       description: experience.shortDescription,
       images: [experience.imageUrl],
     },

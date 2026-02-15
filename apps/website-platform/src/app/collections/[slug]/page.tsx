@@ -73,7 +73,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const productCount = collection.products.length;
 
   return {
-    title: `${collection.name} | ${site.name}`,
+    title: collection.name,
     description:
       collection.description ||
       `Explore ${productCount} curated experiences in our ${collection.name} collection from ${site.name}.`,

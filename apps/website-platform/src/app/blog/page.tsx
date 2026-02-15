@@ -51,8 +51,11 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   // Build title with page number for paginated pages
   const title =
     currentPage > 1
-      ? `Travel Blog & Guides - Page ${currentPage} | ${site.name}`
-      : `Travel Blog & Guides | ${site.name}`;
+      ? `Travel Blog & Guides - Page ${currentPage}`
+      : `Travel Blog & Guides`;
+
+  // OG image fallback chain
+  const ogImage = site.brand?.ogImageUrl || site.homepageConfig?.hero?.backgroundImage;
 
   return {
     title,
@@ -61,6 +64,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
       title: `Travel Blog & Guides | ${site.name}`,
       description: `Explore travel tips, destination guides, and insider knowledge from ${site.name}.`,
       type: 'website',
+      ...(ogImage ? { images: [ogImage] } : {}),
     },
     alternates: {
       canonical: canonicalUrl,

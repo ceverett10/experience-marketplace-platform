@@ -15,7 +15,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const description = `Official terms and conditions for the Holibob prize draw competition. Win £1,000 of experiences.`;
 
   return {
-    title: `${title} | ${site.name}`,
+    title,
     description,
     openGraph: {
       title,

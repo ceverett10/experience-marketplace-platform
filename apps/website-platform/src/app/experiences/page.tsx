@@ -47,38 +47,71 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   const searchQuery = resolvedParams.q;
   const isMicrosite = !!site.micrositeContext?.supplierId || !!site.micrositeContext?.discoveryConfig || isTickittoSite(site);
 
-  let title = 'Experiences & Tours';
-  let description = `Browse and book unique experiences, tours, and activities.`;
+  let title: string;
+  let description: string;
 
-  // For microsites, show operator-specific messaging
+  // For microsites, build rich title/description from site data
   if (isMicrosite) {
-    title = 'Our Experiences';
-    description = `Explore our curated collection of tours and activities. Book online with instant confirmation.`;
+    const ctx = site.micrositeContext;
+    const categories = ctx?.supplierCategories ?? site.homepageConfig?.categories?.map((c) => c.name) ?? [];
+    const cities = ctx?.supplierCities ?? site.homepageConfig?.destinations?.map((d) => d.name) ?? [];
+    const count = ctx?.cachedProductCount ?? 0;
+    const topCategory = categories[0];
+    const topCity = cities[0];
+
+    // Build specific title from site data
+    if (topCategory && topCity) {
+      title = `${topCategory} in ${topCity}`;
+    } else if (topCategory) {
+      title = `${topCategory} & Experiences`;
+    } else if (topCity) {
+      title = `Things to Do in ${topCity}`;
+    } else {
+      title = 'All Experiences & Tours';
+    }
+
+    // Build rich description with trust signals
+    const descParts: string[] = [];
+    if (count > 0 && topCity) {
+      descParts.push(`Browse ${count}+ ${topCategory?.toLowerCase() ?? 'experiences'} in ${topCity}.`);
+    } else if (count > 0) {
+      descParts.push(`Browse ${count}+ experiences and tours.`);
+    } else if (topCity) {
+      descParts.push(`Browse the best ${topCategory?.toLowerCase() ?? 'experiences'} in ${topCity}.`);
+    } else {
+      descParts.push(`Browse our full collection of experiences and tours.`);
+    }
+    if (categories.length > 1) {
+      descParts.push(`Including ${categories.slice(0, 3).join(', ')}.`);
+    }
+    descParts.push('Free cancellation, instant confirmation & e-tickets. Book online today!');
+    description = descParts.join(' ');
+  } else if (searchQuery) {
+    title = `${searchQuery} - ${destination || 'Experiences'}`;
+    description = `Find the best ${searchQuery.toLowerCase()} experiences. ${destination ? `Tours and activities in ${destination}. ` : ''}Free cancellation, instant confirmation. Book online today!`;
   } else if (destination) {
     title = `Things to Do in ${destination}`;
-    description = `Discover the best tours, activities, and experiences in ${destination}. Book online with instant confirmation and free cancellation.`;
+    description = `Discover the best tours, activities, and experiences in ${destination}. Free cancellation, instant confirmation. Book online today!`;
+  } else {
+    title = 'Experiences & Tours';
+    description = `Browse and book unique experiences, tours, and activities. Free cancellation, instant confirmation. Book online today!`;
   }
 
-  if (searchQuery && !isMicrosite) {
-    title = `${searchQuery} - ${destination || 'Experiences'}`;
-    description = `Find the best ${searchQuery.toLowerCase()} experiences. ${destination ? `Tours and activities in ${destination}.` : ''} Book online with instant confirmation.`;
+  // Trim description to ~160 chars
+  if (description.length > 160) {
+    description = description.substring(0, 157).replace(/\s+\S*$/, '') + '...';
   }
 
   // Build canonical URL with SEO-relevant parameters
   const baseUrl = `https://${site.primaryDomain || hostname}/experiences`;
   const canonicalParams = new URLSearchParams();
 
-  // Include destination in canonical (creates unique landing pages)
   if (destination) {
     canonicalParams.set('destination', destination);
   }
-
-  // Include search query in canonical (creates unique search result pages)
   if (searchQuery) {
     canonicalParams.set('q', searchQuery);
   }
-
-  // Include page number for pagination (page 1 has no param)
   const pageNum = parseInt(resolvedParams.page ?? '1', 10);
   if (pageNum > 1) {
     canonicalParams.set('page', String(pageNum));
@@ -88,18 +121,24 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
     ? `${baseUrl}?${canonicalParams.toString()}`
     : baseUrl;
 
+  // OG image fallback chain
+  const ogImage = site.brand?.ogImageUrl || site.homepageConfig?.hero?.backgroundImage;
+
   return {
-    title: `${title} | ${site.name}`,
-    description: description + ` ${site.seoConfig?.defaultDescription ?? ''}`,
+    // Don't append site.name — the layout title template already adds it
+    title,
+    description,
     openGraph: {
       title: `${title} | ${site.name}`,
-      description: description,
+      description,
       type: 'website',
+      ...(ogImage ? { images: [ogImage] } : {}),
     },
     twitter: {
       card: 'summary_large_image',
       title: `${title} | ${site.name}`,
-      description: description,
+      description,
+      ...(ogImage ? { images: [ogImage] } : {}),
     },
     alternates: {
       canonical: canonicalUrl,

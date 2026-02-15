@@ -57,10 +57,10 @@ export async function generateMetadata(): Promise<Metadata> {
     `Learn more about ${site.name} and our mission to connect travellers with unforgettable experiences.`;
 
   return {
-    title: `${title} | ${site.name}`,
+    title,
     description,
     openGraph: {
-      title,
+      title: `${title} | ${site.name}`,
       description,
       type: 'website',
     },
