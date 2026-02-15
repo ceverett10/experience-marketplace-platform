@@ -53,13 +53,13 @@ export function CookieConsent() {
         <div className="flex flex-shrink-0 items-center gap-3">
           <button
             onClick={handleDecline}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+            className="rounded-lg border border-gray-300 px-5 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 sm:px-4 sm:py-2"
           >
             Decline
           </button>
           <button
             onClick={handleAccept}
-            className="rounded-lg px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
+            className="rounded-lg px-5 py-3 text-sm font-medium text-white transition-opacity hover:opacity-90 sm:px-4 sm:py-2"
             style={{ backgroundColor: primaryColor }}
           >
             Accept

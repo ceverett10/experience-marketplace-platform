@@ -201,7 +201,7 @@ export function TickittoBookingWidget({ eventId, experience }: TickittoBookingWi
 
       {/* Tickitto Widget - Full page below header */}
       {isWidgetOpen && widgetUrl && (
-        <div className="fixed inset-x-0 bottom-0 top-[73px] z-40 bg-white">
+        <div className="fixed inset-x-0 bottom-0 top-[100px] sm:top-[73px] z-40 bg-white">
           {/* Close button - floating top-right */}
           <button
             onClick={() => { setIsWidgetOpen(false); setWidgetUrl(null); }}

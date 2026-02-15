@@ -83,16 +83,16 @@ export function Hero({ title, subtitle, backgroundImage, backgroundImageAttribut
       </div>
 
       {/* Content */}
-      <div className="relative z-10 mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-24 lg:px-8 lg:py-32">
+      <div className="relative z-10 mx-auto max-w-7xl px-4 py-14 sm:px-6 sm:py-20 md:py-24 lg:px-8 lg:py-32">
         <div className="mx-auto max-w-4xl text-center">
           <h1
-            className="hero-animate-title font-display text-4xl font-bold tracking-tight text-white sm:text-5xl lg:text-6xl"
+            className="hero-animate-title font-display text-2xl font-bold tracking-tight text-white sm:text-4xl md:text-5xl lg:text-6xl"
             style={{ textShadow: '0 2px 8px rgba(0,0,0,0.6)' }}
           >
             {heroTitle}
           </h1>
           <p
-            className="hero-animate-subtitle mx-auto mt-6 max-w-xl text-lg leading-8 text-white/90"
+            className="hero-animate-subtitle mx-auto mt-6 max-w-xl text-base leading-7 text-white/90 sm:text-lg sm:leading-8"
             style={{ textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}
           >
             {heroSubtitle}

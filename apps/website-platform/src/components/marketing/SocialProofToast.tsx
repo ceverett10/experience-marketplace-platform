@@ -79,7 +79,7 @@ export function SocialProofToast() {
 
   return (
     <div
-      className="fixed bottom-4 left-4 z-40 max-w-xs animate-slide-up rounded-lg border border-gray-200 bg-white p-3 shadow-lg transition-all lg:bottom-6 lg:left-6"
+      className="fixed bottom-20 left-4 z-40 max-w-xs animate-slide-up rounded-lg border border-gray-200 bg-white p-3 shadow-lg transition-all sm:bottom-4 lg:bottom-6 lg:left-6"
       role="status"
       aria-live="polite"
     >
@@ -90,7 +90,7 @@ export function SocialProofToast() {
             sessionStorage.setItem('social-proof-dismissed', 'true');
           }
         }}
-        className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600"
+        className="absolute -right-2 -top-2 flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-400 before:absolute before:inset-[-8px] before:content-[''] hover:bg-gray-200 hover:text-gray-600"
         aria-label="Dismiss"
       >
         <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">

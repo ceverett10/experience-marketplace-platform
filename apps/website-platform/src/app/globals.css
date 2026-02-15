@@ -137,6 +137,13 @@
   animation-fill-mode: both;
 }
 
+/* Limit search glow animation on mobile to save battery */
+@media (max-width: 639px) {
+  .search-glow {
+    animation-iteration-count: 3;
+  }
+}
+
 /* Social proof toast slide up */
 @keyframes slideUp {
   from {

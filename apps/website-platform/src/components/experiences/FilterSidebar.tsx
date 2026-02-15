@@ -425,7 +425,7 @@ export function MobileFilterDrawer({
       <div className="fixed inset-y-0 right-0 w-full max-w-sm bg-white shadow-xl overflow-y-auto">
         <div className="flex items-center justify-between border-b border-gray-200 p-4">
           <h2 className="text-lg font-semibold">Filters</h2>
-          <button onClick={onClose} className="p-2 -m-2 text-gray-400 hover:text-gray-600">
+          <button onClick={onClose} className="p-3 -m-2 text-gray-400 hover:text-gray-600">
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
                 strokeLinecap="round"

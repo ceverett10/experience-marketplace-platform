@@ -498,7 +498,7 @@ export function ProductDiscoverySearch({
     if (!activeSection) return null;
 
     return (
-      <div className="absolute left-0 right-0 top-full z-50 mt-2 rounded-2xl border border-gray-100 bg-white p-4 shadow-2xl">
+      <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[60vh] overflow-y-auto rounded-2xl border border-gray-100 bg-white p-4 shadow-2xl">
         {activeSection === 'where' && (
           <>
             <div className="mb-3 flex items-center gap-2 text-sm font-medium text-gray-900">

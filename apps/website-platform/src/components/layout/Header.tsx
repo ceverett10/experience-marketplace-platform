@@ -62,8 +62,8 @@ export function Header() {
         </div>
         {/* Mobile: scrollable row */}
         <div className="flex items-center gap-4 overflow-x-auto px-4 py-1.5 sm:hidden">
-          {trustItems.map((item) => (
-            <div key={item.text} className="flex flex-shrink-0 items-center gap-1.5 text-xs font-medium text-gray-600">
+          {trustItems.map((item, index) => (
+            <div key={item.text} className={`flex flex-shrink-0 items-center gap-1.5 text-xs font-medium text-gray-600${index >= 3 ? ' hidden' : ''}`}>
               <svg className="h-3.5 w-3.5 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
                 <path
                   fillRule="evenodd"
@@ -80,7 +80,7 @@ export function Header() {
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
         {/* Logo */}
         <div className="flex lg:flex-1">
-          <Link href="/" className="-m-1.5 p-1.5">
+          <Link href="/" className="-m-1.5 p-3">
             {brand?.logoUrl ? (
               <div className="relative h-10 w-40">
                 <Image
@@ -107,7 +107,7 @@ export function Header() {
         <div className="flex lg:hidden">
           <button
             type="button"
-            className="-m-2.5 inline-flex items-center justify-center rounded-md p-2.5 text-gray-700"
+            className="-m-2.5 inline-flex items-center justify-center rounded-md p-3 text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-gray-500"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           >
             <span className="sr-only">Open main menu</span>
@@ -137,7 +137,7 @@ export function Header() {
             <Link
               key={item.name}
               href={item.href}
-              className="text-sm font-medium text-gray-700 hover:text-gray-900"
+              className="text-sm font-medium text-gray-700 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-gray-500 rounded"
             >
               {item.name}
             </Link>

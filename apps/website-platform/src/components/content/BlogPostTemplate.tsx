@@ -59,12 +59,12 @@ export function BlogPostTemplate({ post, siteName }: BlogPostTemplateProps) {
     <article className="max-w-4xl mx-auto px-4 py-8">
       {/* Header */}
       <header className="mb-8 border-b pb-8">
-        <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4 leading-tight">
+        <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 mb-4 leading-tight">
           {post.title}
         </h1>
 
         {post.metaDescription && (
-          <p className="text-xl text-gray-600 mb-4 leading-relaxed">{post.metaDescription}</p>
+          <p className="text-lg sm:text-xl text-gray-600 mb-4 leading-relaxed">{post.metaDescription}</p>
         )}
 
         <div className="flex items-center gap-4 text-sm text-gray-500">

@@ -150,7 +150,7 @@ export function PremiumExperienceCard({
     return (
       <Link
         href={`/experiences/${experience.slug}`}
-        className={`group relative flex h-[500px] flex-col justify-end overflow-hidden rounded-3xl bg-gray-200 ${className}`}
+        className={`group relative flex h-[280px] sm:h-[380px] lg:h-[500px] flex-col justify-end overflow-hidden rounded-3xl bg-gray-200 ${className}`}
       >
         {/* Background Image */}
         <Image
@@ -188,7 +188,7 @@ export function PremiumExperienceCard({
         )}
 
         {/* Content */}
-        <div className="relative p-8">
+        <div className="relative p-4 sm:p-6 lg:p-8">
           {/* Location */}
           <p className="mb-2 flex items-center gap-1.5 text-sm text-white/80">
             <svg
@@ -213,7 +213,7 @@ export function PremiumExperienceCard({
           </p>
 
           {/* Title */}
-          <h2 className="mb-4 text-3xl font-bold text-white line-clamp-2">{experience.title}</h2>
+          <h2 className="mb-2 sm:mb-4 text-xl sm:text-2xl lg:text-3xl font-bold text-white line-clamp-2">{experience.title}</h2>
 
           {/* Rating */}
           {experience.rating && (

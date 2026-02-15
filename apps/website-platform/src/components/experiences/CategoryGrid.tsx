@@ -75,7 +75,7 @@ export function CategoryGrid({
         </div>
 
         {/* Categories Grid - Larger cards with more image visibility */}
-        <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
           {displayCategories.map((category, index) => {
             // Build URL with destination (if known) and category name
             const searchParams = new URLSearchParams();
@@ -94,7 +94,7 @@ export function CategoryGrid({
                 {category.imageUrl ? (
                   <>
                     {/* Image Container - Taller for better visibility */}
-                    <div className="relative h-44 w-full overflow-hidden bg-gray-200">
+                    <div className="relative h-36 sm:h-44 w-full overflow-hidden bg-gray-200">
                       <Image
                         src={category.imageUrl}
                         alt={category.name}
@@ -127,7 +127,7 @@ export function CategoryGrid({
 
                     {/* Content below image */}
                     <div className="p-4">
-                      <h3 className="text-lg font-semibold text-gray-900 group-hover:text-indigo-600">
+                      <h3 className="text-base sm:text-lg font-semibold text-gray-900 group-hover:text-indigo-600">
                         {category.name}
                       </h3>
                       {category.count !== undefined && (
