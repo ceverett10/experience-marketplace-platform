@@ -379,6 +379,15 @@ export async function initializeScheduledJobs(): Promise<void> {
   );
   console.log('[Scheduler] ✓ Ad Conversion Upload - Every 2 hours');
 
+  // Ad Platform IDs Sync — Weekly on Mondays at 2 AM
+  // Fetches Meta Pixel + Google Ads conversion action IDs and propagates to all sites/microsites
+  await scheduleJob(
+    'AD_PLATFORM_IDS_SYNC' as any,
+    {},
+    '0 2 * * 1' // Mondays at 2 AM
+  );
+  console.log('[Scheduler] + Ad Platform IDs Sync - Mondays at 2 AM');
+
   // Ad Performance Report — Daily at 9 AM
   // Portfolio-wide performance analysis: top/under performers, opportunities
   await scheduleJob(

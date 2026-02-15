@@ -73,6 +73,7 @@ import {
   handleBiddingEngineRun,
   handleKeywordEnrichment,
   handleAdConversionUpload,
+  handleAdPlatformIdsSync,
 } from '@experience-marketplace/jobs';
 import { prisma, JobStatus } from '@experience-marketplace/database';
 import type { JobType } from '@experience-marketplace/database';
@@ -483,6 +484,8 @@ const adsWorker = new Worker(
         return await handleBiddingEngineRun(job);
       case 'AD_CONVERSION_UPLOAD':
         return await handleAdConversionUpload(job);
+      case 'AD_PLATFORM_IDS_SYNC':
+        return await handleAdPlatformIdsSync(job);
       default:
         throw new Error(`Unknown job type: ${job.name}`);
     }

@@ -401,6 +401,76 @@ export async function setCampaignStatus(
 }
 
 /**
+ * List all active conversion actions in the customer account.
+ * Uses GAQL to query the conversion_action resource.
+ */
+export async function listConversionActions(): Promise<
+  Array<{
+    id: string;
+    resourceName: string;
+    name: string;
+    type: string;
+    status: string;
+  }>
+> {
+  const config = getConfig();
+  if (!config) return [];
+
+  try {
+    const query = `
+      SELECT
+        conversion_action.id,
+        conversion_action.resource_name,
+        conversion_action.name,
+        conversion_action.type,
+        conversion_action.status
+      FROM conversion_action
+      WHERE conversion_action.status != 'REMOVED'
+    `.trim();
+
+    const result = (await apiRequest(config, 'POST', '/googleAds:searchStream', {
+      query,
+    })) as Array<{
+      results: Array<{
+        conversionAction: {
+          id: string;
+          resourceName: string;
+          name: string;
+          type: string;
+          status: string;
+        };
+      }>;
+    }>;
+
+    const actions: Array<{
+      id: string;
+      resourceName: string;
+      name: string;
+      type: string;
+      status: string;
+    }> = [];
+
+    for (const batch of result) {
+      for (const row of batch.results) {
+        actions.push({
+          id: row.conversionAction.id,
+          resourceName: row.conversionAction.resourceName,
+          name: row.conversionAction.name,
+          type: row.conversionAction.type,
+          status: row.conversionAction.status,
+        });
+      }
+    }
+
+    console.log(`[GoogleAds] Found ${actions.length} conversion actions`);
+    return actions;
+  } catch (error) {
+    console.error('[GoogleAds] List conversion actions failed:', error);
+    return [];
+  }
+}
+
+/**
  * Update keyword bids in an ad group.
  */
 export async function updateKeywordBids(

@@ -153,6 +153,24 @@ export default function AdPerformancePage() {
     }
   };
 
+  const syncPixelIds = async () => {
+    setActionLoading('sync_pixels');
+    try {
+      const res = await fetch(`${basePath}/api/sites/ad-platform-ids`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) throw new Error('Failed to sync pixel IDs');
+      const result = await res.json();
+      alert(`Synced: ${result.sitesUpdated} sites, ${result.micrositesUpdated} microsites`);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Sync failed');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   // ─── Helpers ───────────────────────────────────────────────────────────
 
   const fmt = (n: number | null | undefined, type: 'currency' | 'number' | 'percent' | 'roas' = 'number') => {
@@ -296,7 +314,14 @@ export default function AdPerformancePage() {
               </button>
             ))}
           </div>
-          {/* Sync button */}
+          {/* Sync buttons */}
+          <button
+            onClick={syncPixelIds}
+            disabled={actionLoading === 'sync_pixels'}
+            className="px-4 py-2 bg-slate-600 text-white text-sm font-medium rounded-lg hover:bg-slate-700 disabled:opacity-50"
+          >
+            {actionLoading === 'sync_pixels' ? 'Syncing...' : 'Sync Pixel IDs'}
+          </button>
           <button
             onClick={() => handleAction('sync_now')}
             disabled={actionLoading === 'sync_now'}

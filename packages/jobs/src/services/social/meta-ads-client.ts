@@ -562,6 +562,60 @@ export class MetaAdsClient {
     }
   }
 
+  /**
+   * List all pixels in the ad account.
+   * Endpoint: GET /{ad_account_id}/adspixels
+   */
+  async getAdPixels(): Promise<
+    Array<{
+      id: string;
+      name: string;
+      creationTime: string;
+      lastFiredTime: string | null;
+    }>
+  > {
+    try {
+      await this.enforceRateLimit();
+
+      const params = new URLSearchParams({
+        fields: 'id,name,creation_time,last_fired_time',
+        access_token: this.accessToken,
+        limit: '100',
+      });
+
+      const response = await fetch(
+        `${META_API_BASE}/${this.adAccountId}/adspixels?${params}`
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(
+          `[MetaAds] Get pixels error (${response.status}): ${errorText.substring(0, 200)}`
+        );
+        return [];
+      }
+
+      const data = (await response.json()) as {
+        data?: Array<{
+          id: string;
+          name: string;
+          creation_time?: string;
+          last_fired_time?: string;
+        }>;
+      };
+
+      return (data.data || []).map((pixel) => ({
+        id: pixel.id,
+        name: pixel.name,
+        creationTime: pixel.creation_time || '',
+        lastFiredTime: pixel.last_fired_time || null,
+      }));
+    } catch (error) {
+      console.error('[MetaAds] Get pixels failed:', error);
+      return [];
+    }
+  }
+
   private async enforceRateLimit(): Promise<void> {
     const now = Date.now();
     MetaAdsClient.requestTimestamps = MetaAdsClient.requestTimestamps.filter(

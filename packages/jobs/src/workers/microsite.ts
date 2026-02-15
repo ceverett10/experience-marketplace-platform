@@ -358,6 +358,9 @@ export async function handleMicrositeCreate(job: Job<MicrositeCreatePayload>): P
           keywords: categories,
           // Use shared GA4 property for all microsites
           gaMeasurementId: process.env['MICROSITE_GA4_MEASUREMENT_ID'] || null,
+          // Use shared ad platform IDs (same pattern as GA4)
+          metaPixelId: process.env['META_PIXEL_ID'] || null,
+          googleAdsId: process.env['GOOGLE_ADS_ID'] || null,
         },
         homepageConfig: homepageConfig as unknown as Prisma.InputJsonValue,
         status: 'GENERATING',

@@ -24,6 +24,7 @@ import { runBiddingEngine } from '../services/bidding-engine';
 import { runBulkEnrichment, type EnrichmentResult } from '../services/keyword-enrichment';
 import { uploadMetaConversion, uploadGoogleConversion } from '../services/conversions-api';
 import { runAlertChecks, createSyncFailureAlert } from '../services/ad-alerting';
+import { fetchAndPropagateAdPlatformIds } from '../services/ad-platform-ids';
 import { MetaAdsClient } from '../services/social/meta-ads-client';
 import { refreshTokenIfNeeded } from '../services/social/token-refresh';
 import {
@@ -1097,6 +1098,36 @@ export async function handleAdConversionUpload(job: Job): Promise<JobResult> {
     success: errors === 0,
     message: `Uploaded ${metaUploaded} Meta + ${googleUploaded} Google conversions (${errors} errors)`,
     data: { metaUploaded, googleUploaded, errors, bookingsProcessed: bookings.length },
+    timestamp: new Date(),
+  };
+}
+
+// --- AD_PLATFORM_IDS_SYNC ---------------------------------------------------
+
+/**
+ * Fetch Meta Pixel ID and Google Ads Conversion Action ID from their APIs,
+ * then propagate to all active sites and microsites' seoConfig.
+ */
+export async function handleAdPlatformIdsSync(_job: Job): Promise<JobResult> {
+  console.log('[Ads Worker] Starting ad platform IDs sync');
+
+  const result = await fetchAndPropagateAdPlatformIds();
+
+  return {
+    success: result.errors === 0,
+    message: `Synced IDs: Meta Pixel=${result.fetchedIds.metaPixelId || 'N/A'}, Google Ads=${result.fetchedIds.googleAdsId || 'N/A'}. Updated ${result.sitesUpdated} sites, ${result.micrositesUpdated} microsites`,
+    data: {
+      metaPixelId: result.fetchedIds.metaPixelId,
+      metaPixelName: result.fetchedIds.metaPixelName,
+      googleAdsId: result.fetchedIds.googleAdsId,
+      googleAdsConversionActionId: result.fetchedIds.googleAdsConversionActionId,
+      googleAdsConversionActionName: result.fetchedIds.googleAdsConversionActionName,
+      sitesUpdated: result.sitesUpdated,
+      sitesSkipped: result.sitesSkipped,
+      micrositesUpdated: result.micrositesUpdated,
+      micrositesSkipped: result.micrositesSkipped,
+      errors: result.errors,
+    },
     timestamp: new Date(),
   };
 }

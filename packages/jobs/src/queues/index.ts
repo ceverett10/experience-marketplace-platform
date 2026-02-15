@@ -134,6 +134,7 @@ class QueueRegistry {
       'BIDDING_ENGINE_RUN', // Portfolio-wide bidding engine, no single siteId
       'KEYWORD_ENRICHMENT', // Bulk keyword extraction from products, no single siteId
       'AD_CONVERSION_UPLOAD', // Uploads conversions to Meta/Google CAPI, no single siteId
+      'AD_PLATFORM_IDS_SYNC', // Fetches pixel/conversion IDs from ad platforms, no single siteId
     ];
     if (!siteId && rawSiteId !== 'all' && !siteOptionalTypes.includes(jobType)) {
       const hasDomainId = !!(payload as { domainId?: string }).domainId;
