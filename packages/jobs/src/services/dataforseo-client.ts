@@ -237,7 +237,15 @@ export class DataForSEOClient {
           ]),
         });
 
-        const results = response.tasks?.[0]?.result || [];
+        // Check task-level status (individual tasks can fail even if the API call succeeds)
+        const task = response.tasks?.[0];
+        if (task && task.status_code !== 20000) {
+          console.error(
+            `[DataForSEO] Task error: status=${task.status_code} message="${task.status_message}" ` +
+            `(batch of ${batch.length} keywords)`
+          );
+        }
+        const results = task?.result || [];
 
         results.forEach(
           (data: {

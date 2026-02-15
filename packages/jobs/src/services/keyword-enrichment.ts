@@ -61,7 +61,7 @@ interface SupplierExtraction {
 // Constants
 // ---------------------------------------------------------------------------
 
-const MAX_SEEDS_PER_SUPPLIER = 50;
+const MAX_SEEDS_PER_SUPPLIER = 100;
 const MAX_COST_SAFETY_LIMIT = 150; // USD
 const COST_PER_KEYWORD = 0.002;
 /** Minimum % of experience (non-transfer) products to process a supplier */
@@ -94,6 +94,51 @@ const FILLER_WORDS = new Set([
 /** Words indicating low purchase intent */
 const LOW_INTENT_TERMS = [
   'free', 'gratis', 'no cost', 'complimentary', 'freebie',
+];
+
+/**
+ * Map Holibob categories to commonly-searched booking-intent keyword stems.
+ * These produce higher-volume seeds than raw product name extraction.
+ * Key: lowercase Holibob category → Value: array of search-friendly terms
+ */
+const CATEGORY_KEYWORD_STEMS: Record<string, string[]> = {
+  'walking': ['walking tour', 'walking tours', 'guided walk'],
+  'food and drink tours': ['food tour', 'food tours', 'food tasting', 'food experience'],
+  'cooking': ['cooking class', 'cooking classes', 'cooking experience'],
+  'water sports': ['water sports', 'kayaking', 'snorkeling', 'boat tour'],
+  'sailing and boating': ['boat tour', 'boat trips', 'sailing tour', 'boat cruise'],
+  'sightseeing': ['sightseeing tour', 'city tour', 'city sightseeing'],
+  'cultural and historical': ['cultural tour', 'historical tour', 'history tour'],
+  'wine and spirits': ['wine tasting', 'wine tour', 'winery tour'],
+  'adventure': ['adventure tour', 'adventure activities', 'outdoor activities'],
+  'cycling': ['bike tour', 'cycling tour', 'bike rental'],
+  'nature': ['nature tour', 'nature walk', 'nature experience'],
+  'arts and crafts': ['art class', 'art workshop', 'craft workshop'],
+  'spa and wellness': ['spa experience', 'wellness experience'],
+  'nightlife': ['nightlife tour', 'pub crawl', 'bar tour', 'night tour'],
+  'photography': ['photo tour', 'photography tour'],
+  'family': ['family activities', 'family tour', 'kids activities'],
+  'hop-on / hop-off': ['hop on hop off', 'hop on hop off bus', 'bus tour'],
+  'museum': ['museum tour', 'museum tickets', 'museum visit'],
+  'snorkeling and diving': ['snorkeling tour', 'diving experience', 'scuba diving'],
+  'hiking': ['hiking tour', 'hiking experience', 'guided hike'],
+  'street food': ['street food tour', 'street food experience'],
+  'market': ['market tour', 'food market tour'],
+  'shore excursions': ['shore excursion', 'port excursion', 'cruise excursion'],
+};
+
+/**
+ * High-intent discovery keywords per city.
+ * People searching these are planning a trip and ready to book.
+ */
+const DISCOVERY_STEMS = [
+  'things to do in',
+  'best tours in',
+  'tours in',
+  'activities in',
+  'experiences in',
+  'what to do in',
+  'book activities in',
 ];
 
 /**
@@ -524,18 +569,42 @@ async function extractKeywordsFromSupplier(
       seeds.add(phrase.toLowerCase());
     }
 
-    // Add category + city for THIS product (not cross-multiplied)
+    // Add category-based generic seeds for THIS product's city
     if (city) {
       for (const cat of cats) {
         const catLower = cat.toLowerCase();
         if (SKIP_CATEGORIES.has(catLower) || TRANSPORT_CATEGORIES.has(catLower)) continue;
-        seeds.add(`${catLower} in ${city}`.toLowerCase());
+
+        // Use mapped high-volume stems if available (e.g., "cooking" → "cooking class")
+        const stems = CATEGORY_KEYWORD_STEMS[catLower];
+        if (stems) {
+          for (const stem of stems) {
+            seeds.add(`${stem} ${city}`.toLowerCase());
+            seeds.add(`${stem} in ${city}`.toLowerCase());
+          }
+        } else {
+          // Fallback: use raw category name
+          seeds.add(`${catLower} in ${city}`.toLowerCase());
+          seeds.add(`${catLower} ${city}`.toLowerCase());
+        }
       }
     }
   }
 
   const cities = [...citySet];
   const categories = [...categorySet].filter(c => !SKIP_CATEGORIES.has(c.toLowerCase()));
+
+  // ---- Discovery / trip-planning keywords (high volume, booking intent) ----
+  // People searching "things to do in Rome" are planning trips and ready to book.
+  for (const city of cities) {
+    for (const stem of DISCOVERY_STEMS) {
+      seeds.add(`${stem} ${city}`.toLowerCase());
+    }
+    // Also add bare "[city] tours" and "[city] activities"
+    seeds.add(`${city} tours`.toLowerCase());
+    seeds.add(`${city} activities`.toLowerCase());
+    seeds.add(`${city} excursions`.toLowerCase());
+  }
 
   // ---- Branded/direct search seeds ----
   // Someone searching for the supplier by name is extremely high intent.
