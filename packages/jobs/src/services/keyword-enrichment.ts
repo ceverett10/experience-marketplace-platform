@@ -627,16 +627,23 @@ async function extractKeywordsFromSupplier(
     seeds.add(brandName.toLowerCase());
   }
 
-  // Final cleanup: reject seeds that are too long, contain noise, or are unlikely to rank
-  const cleanedSeeds = [...seeds].filter(seed => {
-    // Max 8 words (anything longer is too specific to have search volume)
-    if (seed.split(/\s+/).length > 8) return false;
-    // Must be at least 5 characters
-    if (seed.length < 5) return false;
-    // Reject seeds with remaining special chars
-    if (/[/\\|&]/.test(seed)) return false;
-    return true;
-  });
+  // Final cleanup: normalize seeds and reject noise
+  const cleanedSeeds = [...seeds]
+    .map(seed => seed
+      .replace(/[()[\]{}"']/g, '') // Strip brackets/quotes (DataForSEO rejects them)
+      .replace(/[/\\|&+]/g, ' ')   // Replace special chars with spaces
+      .replace(/\s+/g, ' ')        // Collapse whitespace
+      .trim()
+    )
+    .filter(seed => {
+      // Max 8 words (anything longer is too specific to have search volume)
+      if (seed.split(/\s+/).length > 8) return false;
+      // Must be at least 5 characters
+      if (seed.length < 5) return false;
+      // Must contain only letters and spaces (DataForSEO requirement)
+      if (/[^a-z\s-]/.test(seed)) return false;
+      return true;
+    });
 
   // Cap at MAX_SEEDS_PER_SUPPLIER
   const seedArray = cleanedSeeds.slice(0, MAX_SEEDS_PER_SUPPLIER);
