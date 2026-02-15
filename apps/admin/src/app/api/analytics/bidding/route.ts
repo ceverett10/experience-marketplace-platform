@@ -273,6 +273,115 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       process.env['BIDDING_MAX_DAILY_BUDGET'] || '200'
     );
 
+    // --- Enrichment pipeline stats ---
+    const [suppliersTotal, suppliersEnriched, lastEnrichment] = await Promise.all([
+      prisma.supplier.count({ where: { microsite: { status: 'ACTIVE' } } }),
+      prisma.supplier.count({ where: { keywordsEnrichedAt: { not: null } } }),
+      prisma.supplier.aggregate({ _max: { keywordsEnrichedAt: true } }),
+    ]);
+
+    // Keyword pool distribution (parallelized)
+    const [
+      kwAgg,
+      kwHighVol, kwMedVol, kwLowVol,
+      kwCpcU25, kwCpc25_50, kwCpc50_100, kwCpcO100,
+      kwIntents, kwLocations,
+    ] = await Promise.all([
+      prisma.sEOOpportunity.aggregate({
+        where: { status: 'PAID_CANDIDATE' as any },
+        _avg: { cpc: true, searchVolume: true },
+        _count: true,
+      }),
+      prisma.sEOOpportunity.count({ where: { status: 'PAID_CANDIDATE' as any, searchVolume: { gte: 1000 } } }),
+      prisma.sEOOpportunity.count({ where: { status: 'PAID_CANDIDATE' as any, searchVolume: { gte: 100, lt: 1000 } } }),
+      prisma.sEOOpportunity.count({ where: { status: 'PAID_CANDIDATE' as any, searchVolume: { gte: 10, lt: 100 } } }),
+      prisma.sEOOpportunity.count({ where: { status: 'PAID_CANDIDATE' as any, cpc: { lt: 0.25 } } }),
+      prisma.sEOOpportunity.count({ where: { status: 'PAID_CANDIDATE' as any, cpc: { gte: 0.25, lt: 0.50 } } }),
+      prisma.sEOOpportunity.count({ where: { status: 'PAID_CANDIDATE' as any, cpc: { gte: 0.50, lt: 1.00 } } }),
+      prisma.sEOOpportunity.count({ where: { status: 'PAID_CANDIDATE' as any, cpc: { gte: 1.00 } } }),
+      prisma.sEOOpportunity.groupBy({ by: ['intent'], where: { status: 'PAID_CANDIDATE' as any }, _count: true }),
+      prisma.sEOOpportunity.findMany({
+        where: { status: 'PAID_CANDIDATE' as any, location: { not: null } },
+        select: { location: true },
+        distinct: ['location' as any],
+      }),
+    ]);
+
+    const intentMap: Record<string, number> = {};
+    for (const g of kwIntents) { intentMap[g.intent] = g._count; }
+
+    // Projection data from DRAFT campaigns with proposalData
+    const draftsWithProposals = campaignSummaries.filter(
+      (c) => c.status === 'DRAFT' && c.proposalData
+    );
+    let projection: Record<string, unknown> | null = null;
+    if (draftsWithProposals.length > 0) {
+      const uniqueKws = new Set(draftsWithProposals.map((c) => c.keywords[0] || c.name));
+      const micrositeDrafts = draftsWithProposals.filter((c) => c.isMicrosite);
+      const mainDrafts = draftsWithProposals.filter((c) => !c.isMicrosite);
+      const uniqueMs = new Set(micrositeDrafts.map((c) => c.micrositeDomain).filter(Boolean));
+      const googleDrafts = draftsWithProposals.filter((c) => c.platform === 'GOOGLE_SEARCH');
+      const fbDrafts = draftsWithProposals.filter((c) => c.platform === 'FACEBOOK');
+      const dSpend = draftsWithProposals.reduce((s, c) => s + (c.proposalData as any).expectedDailyCost, 0);
+      const dRev = draftsWithProposals.reduce((s, c) => s + (c.proposalData as any).expectedDailyRevenue, 0);
+      const profitable = draftsWithProposals.filter((c) => {
+        const p = c.proposalData as any;
+        return p.expectedDailyCost > 0 && p.expectedDailyRevenue / p.expectedDailyCost >= 3;
+      });
+      const breakEven = draftsWithProposals.filter((c) => {
+        const p = c.proposalData as any;
+        const r = p.expectedDailyCost > 0 ? p.expectedDailyRevenue / p.expectedDailyCost : 0;
+        return r >= 1 && r < 3;
+      });
+      const firstAssumptions = (draftsWithProposals[0]!.proposalData as any)?.assumptions;
+      projection = {
+        totalCampaigns: draftsWithProposals.length,
+        uniqueKeywords: uniqueKws.size,
+        dailySpend: dSpend,
+        dailyRevenue: dRev,
+        overallRoas: dSpend > 0 ? dRev / dSpend : 0,
+        profitableCampaigns: profitable.length,
+        breakEvenCampaigns: breakEven.length,
+        micrositeCampaigns: micrositeDrafts.length,
+        mainSiteCampaigns: mainDrafts.length,
+        uniqueMicrosites: uniqueMs.size,
+        googleCampaigns: googleDrafts.length,
+        facebookCampaigns: fbDrafts.length,
+        assumptions: firstAssumptions ? {
+          aov: firstAssumptions.avgOrderValue,
+          commission: firstAssumptions.commissionRate,
+          cvr: firstAssumptions.conversionRate,
+          targetRoas: firstAssumptions.targetRoas,
+        } : null,
+      };
+    }
+
+    const enrichment = {
+      suppliersTotal,
+      suppliersEnriched,
+      lastEnrichmentDate: lastEnrichment._max.keywordsEnrichedAt?.toISOString() || null,
+      keywordPool: {
+        total: totalPaidCandidates,
+        avgCpc: Number(kwAgg._avg.cpc || 0),
+        avgVolume: Math.round(Number(kwAgg._avg.searchVolume || 0)),
+        highVolume: kwHighVol,
+        medVolume: kwMedVol,
+        lowVolume: kwLowVol,
+        cpcUnder025: kwCpcU25,
+        cpc025to050: kwCpc25_50,
+        cpc050to100: kwCpc50_100,
+        cpcOver100: kwCpcO100,
+        uniqueCities: kwLocations.length,
+        intentBreakdown: {
+          commercial: intentMap['COMMERCIAL'] || 0,
+          transactional: intentMap['TRANSACTIONAL'] || 0,
+          informational: intentMap['INFORMATIONAL'] || 0,
+          navigational: intentMap['NAVIGATIONAL'] || 0,
+        },
+      },
+      projection,
+    };
+
     return NextResponse.json({
       period: { days, since: lookback.toISOString() },
       portfolio: {
@@ -314,6 +423,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         aiReview: aiReviewCount,
       },
       microsites: micrositeSummaries,
+      enrichment,
     });
   } catch (error) {
     console.error('[API] Error fetching bidding analytics:', error);

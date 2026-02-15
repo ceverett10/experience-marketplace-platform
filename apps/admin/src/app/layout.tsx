@@ -38,10 +38,9 @@ const navItems: NavItem[] = [
     icon: '⚡',
     children: [
       { href: '/operations', label: 'Dashboard', icon: '📈' },
-      { href: '/operations/ads', label: 'Ad Performance', icon: '📊' },
+      { href: '/operations/bidding', label: 'Paid Traffic', icon: '💰' },
       { href: '/operations/microsites', label: 'Microsites', icon: '🏢' },
-      { href: '/operations/paid-opportunities', label: 'Paid Traffic', icon: '💰' },
-      { href: '/operations/bidding', label: 'Bidding Engine', icon: '🎯' },
+      { href: '/operations/paid-opportunities', label: 'Keyword Explorer', icon: '🔍' },
       { href: '/operations/jobs', label: 'Jobs', icon: '📋' },
       { href: '/operations/errors', label: 'Errors', icon: '🚨' },
       { href: '/operations/schedules', label: 'Schedules', icon: '🕐' },
