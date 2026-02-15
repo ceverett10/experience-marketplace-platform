@@ -259,9 +259,9 @@ export class DataForSEOClient {
             allResults.push({
               keyword: data.keyword,
               searchVolume: data.search_volume || 0,
-              competition: data.competition || 0,
+              competition: typeof data.competition === 'number' ? data.competition : 0,
               competitionLevel: data.competition_level as 'LOW' | 'MEDIUM' | 'HIGH',
-              cpc: data.cpc || 0,
+              cpc: typeof data.cpc === 'number' ? data.cpc : 0,
               trends: data.monthly_searches?.map((m) => m.search_volume) || [],
             });
           }

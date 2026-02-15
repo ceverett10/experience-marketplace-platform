@@ -1101,11 +1101,12 @@ async function storeValidatedKeywords(
  *   Base: +10
  */
 function calculatePaidScore(volume: number, cpc: number, difficulty: number): number {
-  const volumeScore = Math.min(40, (Math.log10(Math.max(volume, 1)) / 5) * 40);
-  // CPC scoring: lower is better for margin, but tourism keywords at $3-5 are normal.
-  // Scale against £10 max (our cap), so $2.50 gets ~22pts, $5 gets ~15pts, $8 gets ~6pts
-  const cpcScore = Math.max(0, Math.min(30, 30 * (1 - cpc / 10)));
-  const competitionScore = ((100 - difficulty) / 100) * 20;
+  const safeVol = Number.isFinite(volume) ? volume : 0;
+  const safeCpc = Number.isFinite(cpc) ? cpc : 0;
+  const safeDiff = Number.isFinite(difficulty) ? difficulty : 50;
+  const volumeScore = Math.min(40, (Math.log10(Math.max(safeVol, 1)) / 5) * 40);
+  const cpcScore = Math.max(0, Math.min(30, 30 * (1 - safeCpc / 10)));
+  const competitionScore = ((100 - safeDiff) / 100) * 20;
   return Math.round(volumeScore + cpcScore + competitionScore + 10);
 }
 
