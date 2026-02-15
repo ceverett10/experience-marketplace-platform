@@ -998,9 +998,16 @@ async function storeValidatedKeywords(
   let stored = 0;
   let updated = 0;
 
+  let loggedFirst = false;
   for (const [keyword, data] of validated) {
     const supplierIds = seedToSupplierIds.get(keyword);
     const score = calculatePaidScore(data.searchVolume, data.cpc, data.competition * 100);
+
+    // Log first keyword's data for debugging
+    if (!loggedFirst) {
+      console.log(`[Enrichment] First keyword store data: keyword="${keyword}" vol=${data.searchVolume} cpc=${data.cpc} comp=${data.competition} score=${score} supplierIds=${supplierIds ? [...supplierIds].length : 0}`);
+      loggedFirst = true;
+    }
 
     try {
       const existing = await prisma.sEOOpportunity.findFirst({
@@ -1071,7 +1078,8 @@ async function storeValidatedKeywords(
           // Silently skip
         }
       } else {
-        console.error(`[Enrichment] Failed to store keyword "${keyword}":`, err);
+        const errMsg = err instanceof Error ? err.message : String(err);
+      console.error(`[Enrichment] Failed to store keyword "${keyword}": ${errMsg.substring(0, 300)}`);
       }
     }
 
