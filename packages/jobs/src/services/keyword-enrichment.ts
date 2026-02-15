@@ -381,15 +381,21 @@ export async function runBulkEnrichment(
 
   if (!skipDataForSeo && uniqueSeeds.length > 0) {
     // Dedup: skip seeds that already exist as PAID_CANDIDATE keywords
-    const existingKeywords = await prisma.sEOOpportunity.findMany({
-      where: {
-        status: 'PAID_CANDIDATE',
-        keyword: { in: uniqueSeeds },
-        location,
-      },
-      select: { keyword: true },
-    });
-    const existingSet = new Set(existingKeywords.map(k => k.keyword.toLowerCase()));
+    // Batch the query to stay under PostgreSQL's 32,767 bind variable limit
+    const existingSet = new Set<string>();
+    const DEDUP_BATCH_SIZE = 10000;
+    for (let i = 0; i < uniqueSeeds.length; i += DEDUP_BATCH_SIZE) {
+      const batch = uniqueSeeds.slice(i, i + DEDUP_BATCH_SIZE);
+      const existing = await prisma.sEOOpportunity.findMany({
+        where: {
+          status: 'PAID_CANDIDATE',
+          keyword: { in: batch },
+          location,
+        },
+        select: { keyword: true },
+      });
+      for (const k of existing) existingSet.add(k.keyword.toLowerCase());
+    }
     const novelSeeds = uniqueSeeds.filter(s => !existingSet.has(s.toLowerCase()));
     const skippedCount = uniqueSeeds.length - novelSeeds.length;
 
