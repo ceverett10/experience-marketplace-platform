@@ -627,8 +627,19 @@ async function extractKeywordsFromSupplier(
     seeds.add(brandName.toLowerCase());
   }
 
+  // Final cleanup: reject seeds that are too long, contain noise, or are unlikely to rank
+  const cleanedSeeds = [...seeds].filter(seed => {
+    // Max 8 words (anything longer is too specific to have search volume)
+    if (seed.split(/\s+/).length > 8) return false;
+    // Must be at least 5 characters
+    if (seed.length < 5) return false;
+    // Reject seeds with remaining special chars
+    if (/[/\\|&]/.test(seed)) return false;
+    return true;
+  });
+
   // Cap at MAX_SEEDS_PER_SUPPLIER
-  const seedArray = [...seeds].slice(0, MAX_SEEDS_PER_SUPPLIER);
+  const seedArray = cleanedSeeds.slice(0, MAX_SEEDS_PER_SUPPLIER);
 
   return {
     supplierId: supplier.id,
@@ -859,7 +870,7 @@ function extractActivityPhrase(
 
   // Remove common title patterns that add noise
   name = name
-    .replace(/[-–—:]/g, ' ')    // Hyphens and colons
+    .replace(/[-–—:/\\]/g, ' ')  // Hyphens, colons, slashes
     .replace(/[^a-z\s]/g, '')    // Non-alpha characters
     .replace(/\bself\s+guided\b/g, 'self-guided')  // Keep as compound
     .replace(/\bshore\s+excursion\b/g, 'shore excursion');
