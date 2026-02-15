@@ -17,6 +17,7 @@ let metaTitleMaintenanceInterval: NodeJS.Timeout | null = null;
 let micrositeContentRefreshInterval: NodeJS.Timeout | null = null;
 let collectionRefreshInterval: NodeJS.Timeout | null = null;
 let sitemapResubmitInterval: NodeJS.Timeout | null = null;
+let redisCleanupInterval: NodeJS.Timeout | null = null;
 
 /**
  * Wraps a setInterval job execution with DB tracking so the admin dashboard
@@ -386,6 +387,15 @@ export async function initializeScheduledJobs(): Promise<void> {
   );
   console.log('[Scheduler] ✓ Ad Budget Optimizer - Daily at 10 AM');
 
+  // =========================================================================
+  // MAINTENANCE
+  // =========================================================================
+
+  // Redis Queue Cleanup - Every 6 hours
+  // Removes old completed/failed jobs to prevent Redis OOM on Mini plan (25 MB)
+  initializeRedisCleanupSchedule();
+  console.log('[Scheduler] ✓ Redis Queue Cleanup - Every 6 hours');
+
   console.log('[Scheduler] All scheduled jobs initialized successfully');
 }
 
@@ -700,6 +710,30 @@ function initializeSitemapResubmitSchedule(): void {
 }
 
 /**
+ * Initialize periodic Redis cleanup to prevent OOM.
+ * Runs every 6 hours, removing completed jobs older than 1 hour
+ * and failed jobs older than 24 hours from all BullMQ queues.
+ */
+function initializeRedisCleanupSchedule(): void {
+  // Run cleanup immediately on startup
+  queueRegistry.cleanAllQueues().catch((err) => {
+    console.error('[Scheduler] Initial Redis cleanup failed:', err);
+  });
+
+  // Then every 6 hours
+  redisCleanupInterval = setInterval(
+    async () => {
+      try {
+        await queueRegistry.cleanAllQueues();
+      } catch (err) {
+        console.error('[Scheduler] Redis cleanup failed:', err);
+      }
+    },
+    6 * 60 * 60 * 1000 // 6 hours
+  );
+}
+
+/**
  * Remove all scheduled jobs (useful for cleanup or reconfiguration)
  */
 export async function removeAllScheduledJobs(): Promise<void> {
@@ -749,6 +783,12 @@ export async function removeAllScheduledJobs(): Promise<void> {
   if (sitemapResubmitInterval) {
     clearInterval(sitemapResubmitInterval);
     sitemapResubmitInterval = null;
+  }
+
+  // Clear Redis cleanup interval
+  if (redisCleanupInterval) {
+    clearInterval(redisCleanupInterval);
+    redisCleanupInterval = null;
   }
 
   // Clear schedule tracking
@@ -948,6 +988,12 @@ export function getScheduledJobs(): Array<{
       jobType: 'AD_BUDGET_OPTIMIZER',
       schedule: '0 10 * * *',
       description: 'Auto-pause underperformers, scale winners, reallocate budget',
+    },
+    // Maintenance
+    {
+      jobType: 'REDIS_QUEUE_CLEANUP',
+      schedule: '0 */6 * * *',
+      description: 'Clean old completed/failed jobs from Redis to prevent OOM (25 MB limit)',
     },
   ];
 }

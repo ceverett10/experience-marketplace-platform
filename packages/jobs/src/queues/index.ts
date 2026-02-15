@@ -181,18 +181,25 @@ class QueueRegistry {
     // If BullMQ/Redis fails, clean up the orphaned DB record to prevent zombie PENDING jobs.
     let job;
     try {
-      job = await queue.add(
-        jobType,
-        { ...payload, dbJobId: dbJob.id },
-        {
-          priority: options?.priority,
-          delay: options?.delay,
-          attempts: options?.attempts,
-          backoff: options?.backoff,
-          removeOnComplete: options?.removeOnComplete,
-          removeOnFail: options?.removeOnFail,
-        }
-      );
+      // Only pass per-job overrides that are explicitly set.
+      // Passing undefined values would override the queue-level defaults
+      // (removeOnComplete: 100, removeOnFail: 500), causing jobs to never be cleaned up.
+      const jobOpts: {
+        priority?: number;
+        delay?: number;
+        attempts?: number;
+        backoff?: { type: string; delay: number };
+        removeOnComplete?: boolean | number;
+        removeOnFail?: boolean | number;
+      } = {};
+      if (options?.priority != null) jobOpts.priority = options.priority;
+      if (options?.delay != null) jobOpts.delay = options.delay;
+      if (options?.attempts != null) jobOpts.attempts = options.attempts;
+      if (options?.backoff != null) jobOpts.backoff = options.backoff;
+      if (options?.removeOnComplete != null) jobOpts.removeOnComplete = options.removeOnComplete;
+      if (options?.removeOnFail != null) jobOpts.removeOnFail = options.removeOnFail;
+
+      job = await queue.add(jobType, { ...payload, dbJobId: dbJob.id }, jobOpts);
     } catch (redisError) {
       // BullMQ failed (likely Redis connection issue) — delete the orphaned DB record
       console.error(
@@ -331,6 +338,59 @@ class QueueRegistry {
   }
 
   /**
+   * Clean completed and failed jobs from all queues to free Redis memory.
+   * Keeps the most recent jobs per queue for debugging visibility.
+   * Returns total number of jobs removed.
+   */
+  async cleanAllQueues(options?: {
+    completedMaxAge?: number; // ms, default 1 hour
+    failedMaxAge?: number;   // ms, default 24 hours
+    batchSize?: number;      // max jobs to remove per queue per status, default 5000
+  }): Promise<{ removed: number; memoryBefore: string; memoryAfter: string }> {
+    const completedMaxAge = options?.completedMaxAge ?? 3_600_000;   // 1 hour
+    const failedMaxAge = options?.failedMaxAge ?? 86_400_000;        // 24 hours
+    const batchSize = options?.batchSize ?? 5000;
+
+    const memoryBefore = await this.getRedisMemory();
+    let totalRemoved = 0;
+
+    for (const queueName of Object.values(QUEUE_NAMES)) {
+      const queue = this.getQueue(queueName);
+      try {
+        const completed = await queue.clean(completedMaxAge, batchSize, 'completed');
+        const failed = await queue.clean(failedMaxAge, batchSize, 'failed');
+        const removed = completed.length + failed.length;
+        if (removed > 0) {
+          console.log(
+            `[Queue] Cleaned ${queueName}: ${completed.length} completed, ${failed.length} failed`
+          );
+        }
+        totalRemoved += removed;
+      } catch (err) {
+        console.error(`[Queue] Failed to clean ${queueName}:`, err);
+      }
+    }
+
+    const memoryAfter = await this.getRedisMemory();
+    console.log(
+      `[Queue] Cleanup complete: removed ${totalRemoved} jobs, memory ${memoryBefore} → ${memoryAfter}`
+    );
+    return { removed: totalRemoved, memoryBefore, memoryAfter };
+  }
+
+  /**
+   * Get Redis used_memory_human from INFO.
+   */
+  private async getRedisMemory(): Promise<string> {
+    try {
+      const info = await this.connection.info('memory');
+      return info.match(/used_memory_human:(.+)/)?.[1]?.trim() ?? 'unknown';
+    } catch {
+      return 'unknown';
+    }
+  }
+
+  /**
    * Close all queues and Redis connection
    */
   async close(): Promise<void> {
@@ -348,6 +408,7 @@ export const scheduleJob = queueRegistry.scheduleJob.bind(queueRegistry);
 export const getQueueMetrics = queueRegistry.getQueueMetrics.bind(queueRegistry);
 export const getAllQueueMetrics = queueRegistry.getAllQueueMetrics.bind(queueRegistry);
 export const removeJob = queueRegistry.removeJob.bind(queueRegistry);
+export const cleanAllQueues = queueRegistry.cleanAllQueues.bind(queueRegistry);
 
 /**
  * Get a queue by name
