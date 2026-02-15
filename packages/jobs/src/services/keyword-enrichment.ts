@@ -310,6 +310,14 @@ export async function runBulkEnrichment(
     `${totalProductsAnalyzed} products analyzed, ${totalRawSeeds} raw seeds → ${uniqueSeeds.length} unique`
   );
 
+  // Log sample seeds for quality review
+  const sampleSize = Math.min(30, uniqueSeeds.length);
+  const shuffled = uniqueSeeds.sort(() => Math.random() - 0.5);
+  console.log(`[Enrichment] Sample seeds (${sampleSize} of ${uniqueSeeds.length}):`);
+  for (let s = 0; s < sampleSize; s++) {
+    console.log(`[Enrichment]   ${shuffled[s]}`);
+  }
+
   // =========================================================================
   // PHASE 2: Validate keywords via DataForSEO
   // =========================================================================
