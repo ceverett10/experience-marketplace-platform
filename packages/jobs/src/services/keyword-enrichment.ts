@@ -81,6 +81,8 @@ const MODIFIER_WORDS = new Set([
   'minute', 'minutes', 'premium', 'ultimate', 'best', 'top',
   'express', 'deluxe', 'classic', 'original', 'official',
   'ticket', 'tickets', 'entry', 'admission', 'pass',
+  'hands', 'hand', 'based', 'semi', 'self', 'audio', 'trip',
+  'daytrip', 'sightseeing', 'sightseeings', 'days', 'cook',
 ]);
 
 /** Filler words to remove */
@@ -757,6 +759,7 @@ function extractActivityPhrase(
     'round', 'way', 'standard', 'rental', 'chauffeur', 'driven',
     'home', 'port', 'center', 'centre', 'city', 'airport',
     'station', 'departure', 'arrival', 'local', 'transfers',
+    'transfer', 'stops', 'highlights', 'based', 'one',
   ]);
   words = words.filter(w => !NOISE_WORDS.has(w));
 
