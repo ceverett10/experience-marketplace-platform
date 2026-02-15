@@ -100,8 +100,23 @@ async function main() {
       return r >= 1 && r < 3;
     });
 
+    // Microsite routing breakdown
+    const micrositeCampaigns = result.candidates.filter(c => c.isMicrosite);
+    const mainSiteCampaigns = result.candidates.filter(c => !c.isMicrosite);
+    const uniqueMicrosites = new Set(micrositeCampaigns.map(c => c.micrositeDomain));
+    const uniqueKeywords = new Set(result.candidates.map(c => c.keyword));
+
+    // CPC distribution of selected campaigns
+    const cpcBuckets = { under025: 0, to050: 0, to100: 0, over100: 0 };
+    for (const c of result.candidates) {
+      if (c.estimatedCpc < 0.25) cpcBuckets.under025++;
+      else if (c.estimatedCpc < 0.50) cpcBuckets.to050++;
+      else if (c.estimatedCpc < 1.00) cpcBuckets.to100++;
+      else cpcBuckets.over100++;
+    }
+
     console.log('\n=== ROAS SUMMARY ===');
-    console.log(`Total campaigns: ${result.candidates.length}`);
+    console.log(`Total campaigns: ${result.candidates.length} (${uniqueKeywords.size} unique keywords × 2 platforms)`);
     console.log(`  Profitable (ROAS >= 3x): ${profitableCampaigns.length}`);
     console.log(`  Break-even (1-3x): ${breakEvenCampaigns.length}`);
     console.log(`Total daily spend: £${totalDailyCost.toFixed(2)}`);
@@ -109,6 +124,39 @@ async function main() {
     console.log(`Overall ROAS: ${overallRoas.toFixed(1)}x`);
     console.log(`Monthly projection: spend £${(totalDailyCost * 30).toFixed(0)}, revenue £${(totalDailyRevenue * 30).toFixed(0)}`);
     console.log(`Monthly profit: £${((totalDailyRevenue - totalDailyCost) * 30).toFixed(0)}`);
+
+    console.log('\n=== LANDING PAGE ROUTING ===');
+    console.log(`Microsite campaigns: ${micrositeCampaigns.length} (${uniqueMicrosites.size} unique microsites)`);
+    console.log(`Main site campaigns: ${mainSiteCampaigns.length}`);
+    if (uniqueMicrosites.size > 0) {
+      // Group by microsite
+      const bySite = new Map<string, number>();
+      for (const c of micrositeCampaigns) {
+        bySite.set(c.micrositeDomain!, (bySite.get(c.micrositeDomain!) || 0) + 1);
+      }
+      const sorted = [...bySite.entries()].sort((a, b) => b[1] - a[1]);
+      console.log('Top microsites by campaign count:');
+      for (const [domain, count] of sorted.slice(0, 15)) {
+        console.log(`  ${domain}: ${count} campaigns`);
+      }
+    }
+
+    console.log('\n=== CPC DISTRIBUTION (selected campaigns) ===');
+    console.log(`  Under £0.25: ${cpcBuckets.under025}`);
+    console.log(`  £0.25-0.50:  ${cpcBuckets.to050}`);
+    console.log(`  £0.50-1.00:  ${cpcBuckets.to100}`);
+    console.log(`  Over £1.00:  ${cpcBuckets.over100}`);
+
+    // ROAS by platform
+    const googleCampaigns = result.candidates.filter(c => c.platform === 'GOOGLE_SEARCH');
+    const fbCampaigns = result.candidates.filter(c => c.platform === 'FACEBOOK');
+    const gCost = googleCampaigns.reduce((s, c) => s + c.expectedDailyCost, 0);
+    const gRev = googleCampaigns.reduce((s, c) => s + c.expectedDailyRevenue, 0);
+    const fCost = fbCampaigns.reduce((s, c) => s + c.expectedDailyCost, 0);
+    const fRev = fbCampaigns.reduce((s, c) => s + c.expectedDailyRevenue, 0);
+    console.log('\n=== BY PLATFORM ===');
+    console.log(`Google Search: ${googleCampaigns.length} campaigns, £${gCost.toFixed(2)}/day spend, £${gRev.toFixed(2)}/day revenue, ${gCost > 0 ? (gRev/gCost).toFixed(1) : 0}x ROAS`);
+    console.log(`Facebook:      ${fbCampaigns.length} campaigns, £${fCost.toFixed(2)}/day spend, £${fRev.toFixed(2)}/day revenue, ${fCost > 0 ? (fRev/fCost).toFixed(1) : 0}x ROAS`);
   }
 
   await prisma.$disconnect();
