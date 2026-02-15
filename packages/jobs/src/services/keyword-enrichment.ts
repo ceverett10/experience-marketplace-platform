@@ -64,6 +64,14 @@ interface SupplierExtraction {
 const MAX_SEEDS_PER_SUPPLIER = 50;
 const MAX_COST_SAFETY_LIMIT = 150; // USD
 const COST_PER_KEYWORD = 0.002;
+/** Minimum % of experience (non-transfer) products to process a supplier */
+const MIN_EXPERIENCE_RATIO = 0.15;
+
+/** Categories that indicate transport/transfer (low booking intent for experiences) */
+const TRANSPORT_CATEGORIES = new Set([
+  'transfer', 'car, bus or mini-van', 'transportation', 'shuttle',
+  'airport transfer', 'port transfer',
+]);
 
 /** Common modifiers to strip from product names */
 const MODIFIER_WORDS = new Set([
@@ -72,6 +80,7 @@ const MODIFIER_WORDS = new Set([
   'sunset', 'sunrise', 'skip', 'the', 'line', 'hour', 'hours',
   'minute', 'minutes', 'premium', 'ultimate', 'best', 'top',
   'express', 'deluxe', 'classic', 'original', 'official',
+  'ticket', 'tickets', 'entry', 'admission', 'pass',
 ]);
 
 /** Filler words to remove */
@@ -84,6 +93,61 @@ const FILLER_WORDS = new Set([
 const LOW_INTENT_TERMS = [
   'free', 'gratis', 'no cost', 'complimentary', 'freebie',
 ];
+
+/**
+ * Well-known cities/destinations for fallback extraction from product names.
+ * Sorted by importance — we match against product titles when place.name is empty.
+ */
+const KNOWN_DESTINATIONS = new Set([
+  // Major European cities
+  'london', 'paris', 'barcelona', 'rome', 'amsterdam', 'lisbon', 'madrid',
+  'berlin', 'vienna', 'prague', 'budapest', 'dublin', 'edinburgh', 'athens',
+  'florence', 'venice', 'milan', 'naples', 'seville', 'porto', 'nice',
+  'munich', 'bruges', 'dubrovnik', 'split', 'santorini', 'mykonos',
+  'reykjavik', 'stockholm', 'copenhagen', 'oslo', 'helsinki', 'zurich',
+  'geneva', 'brussels', 'krakow', 'warsaw', 'istanbul', 'marrakech',
+  'glasgow', 'liverpool', 'manchester', 'bath', 'oxford', 'cambridge',
+  'york', 'brighton', 'bristol', 'cardiff', 'inverness', 'belfast',
+  'cork', 'galway', 'malaga', 'granada', 'valencia', 'bilbao',
+  'lyon', 'marseille', 'bordeaux', 'strasbourg', 'normandy', 'provence',
+  'tuscany', 'cinque terre', 'amalfi', 'pompeii', 'capri', 'sicily',
+  'sardinia', 'crete', 'rhodes', 'corfu', 'zakynthos',
+  // UK & Ireland
+  'stonehenge', 'cotswolds', 'lake district', 'snowdonia', 'highlands',
+  'isle of skye', 'loch ness', 'windsor', 'canterbury', 'stratford',
+  // Americas
+  'new york', 'los angeles', 'san francisco', 'las vegas', 'miami',
+  'chicago', 'boston', 'washington', 'seattle', 'san diego', 'honolulu',
+  'new orleans', 'nashville', 'austin', 'denver', 'portland',
+  'cancun', 'mexico city', 'cabo', 'playa del carmen', 'tulum',
+  'havana', 'nassau', 'punta cana', 'cartagena', 'bogota', 'medellin',
+  'lima', 'cusco', 'buenos aires', 'rio de janeiro', 'sao paulo',
+  'santiago', 'montevideo', 'quito', 'galapagos',
+  // Asia & Pacific
+  'tokyo', 'kyoto', 'osaka', 'bangkok', 'singapore', 'hong kong',
+  'bali', 'hanoi', 'ho chi minh', 'siem reap', 'kuala lumpur',
+  'seoul', 'taipei', 'shanghai', 'beijing', 'dubai', 'abu dhabi',
+  'delhi', 'mumbai', 'jaipur', 'agra', 'goa', 'colombo', 'kandy',
+  'kathmandu', 'phnom penh', 'yangon', 'manila', 'cebu',
+  // Africa & Middle East
+  'cairo', 'cape town', 'johannesburg', 'nairobi', 'zanzibar',
+  'victoria falls', 'casablanca', 'fez', 'luxor', 'aswan',
+  'tel aviv', 'jerusalem', 'petra', 'amman', 'muscat',
+  // Oceania
+  'sydney', 'melbourne', 'auckland', 'queenstown', 'cairns',
+  'fiji', 'tahiti', 'gold coast',
+  // Caribbean
+  'jamaica', 'barbados', 'aruba', 'curacao', 'bermuda',
+  'st lucia', 'antigua', 'grenada', 'martinique',
+  // Countries (when no city is extractable)
+  'sri lanka', 'thailand', 'vietnam', 'cambodia', 'nepal',
+  'morocco', 'egypt', 'kenya', 'tanzania', 'south africa',
+  'iceland', 'scotland', 'ireland', 'portugal', 'spain',
+  'italy', 'france', 'greece', 'croatia', 'turkey',
+  'japan', 'indonesia', 'malaysia', 'philippines', 'india',
+  'mexico', 'peru', 'colombia', 'brazil', 'argentina', 'costa rica',
+  'australia', 'new zealand',
+]);
 
 // ---------------------------------------------------------------------------
 // Main Entry Point
@@ -328,19 +392,59 @@ async function extractKeywordsFromSupplier(
     { pageSize: maxProducts }
   );
 
-  const products = response.nodes;
+  const allProducts = response.nodes;
   const citySet = new Set<string>();
   const categorySet = new Set<string>();
   const activityPhrases = new Set<string>();
 
-  for (const product of products) {
-    // Extract city
-    const cityName = extractCity(product);
-    if (cityName) citySet.add(cityName);
+  // First pass: separate experience products from transfers
+  const experienceProducts: typeof allProducts = [];
+  let transferCount = 0;
 
-    // Extract categories
+  for (const product of allProducts) {
+    if (isTransferProduct(product)) {
+      transferCount++;
+      // Still extract cities from transfer products (they often mention cities)
+      const cityFromName = extractCityFromProductName(product.name);
+      if (cityFromName) citySet.add(cityFromName);
+      continue;
+    }
+    experienceProducts.push(product);
+  }
+
+  // Skip supplier if overwhelmingly transfer-focused
+  if (allProducts.length > 0 && experienceProducts.length / allProducts.length < MIN_EXPERIENCE_RATIO) {
+    console.log(
+      `[Enrichment] Skipping ${supplier.name}: ${transferCount}/${allProducts.length} products are transfers ` +
+      `(${experienceProducts.length} experiences, below ${MIN_EXPERIENCE_RATIO * 100}% threshold)`
+    );
+    return {
+      supplierId: supplier.id,
+      seeds: [],
+      cities: [...citySet],
+      categories: [],
+      productsAnalyzed: allProducts.length,
+    };
+  }
+
+  // Second pass: extract data from experience products
+  for (const product of experienceProducts) {
+    // Extract city — try API data first, then fall back to name parsing
+    const cityName = extractCity(product);
+    if (cityName) {
+      citySet.add(cityName);
+    } else {
+      const cityFromName = extractCityFromProductName(product.name);
+      if (cityFromName) citySet.add(cityFromName);
+    }
+
+    // Extract categories (skip transport-related ones)
     const cats = extractCategories(product);
-    for (const cat of cats) categorySet.add(cat);
+    for (const cat of cats) {
+      if (!TRANSPORT_CATEGORIES.has(cat.toLowerCase())) {
+        categorySet.add(cat);
+      }
+    }
 
     // Extract activity phrase from product name
     const phrase = extractActivityPhrase(product.name, citySet);
@@ -365,12 +469,13 @@ async function extractKeywordsFromSupplier(
     }
   }
 
-  // Add category + city combinations
+  // Add category + city combinations (only experience-related categories)
+  const SKIP_CATEGORIES = new Set(['general', 'private', 'other', 'multi-day',
+    'full day', 'half day', 'car, bus or mini-van']);
   for (const category of categories) {
     for (const city of cities) {
       const catLower = category.toLowerCase();
-      // Skip overly generic categories
-      if (['general', 'private', 'other'].includes(catLower)) continue;
+      if (SKIP_CATEGORIES.has(catLower)) continue;
       seeds.add(`${catLower} in ${city}`.toLowerCase());
     }
   }
@@ -383,13 +488,73 @@ async function extractKeywordsFromSupplier(
     seeds: seedArray,
     cities,
     categories,
-    productsAnalyzed: products.length,
+    productsAnalyzed: allProducts.length,
   };
+}
+
+/** Check if a product is a transfer/transport (not a bookable experience) */
+function isTransferProduct(product: HolibobProduct): boolean {
+  const cats = extractCategories(product);
+  if (cats.length === 0) return false;
+
+  // If the product has ONLY transport-related categories, it's a transfer
+  const experienceCats = cats.filter(c => !TRANSPORT_CATEGORIES.has(c.toLowerCase()));
+  if (experienceCats.length === 0) return true;
+
+  // Also check the product name for strong transfer signals
+  const nameLower = product.name.toLowerCase();
+  const transferNamePatterns = [
+    /\btransfer\b/, /\bairport\s+(to|from)\b/, /\bshuttle\b/,
+    /\bport\s+(to|from)\b/, /\b(arrival|departure)\s+transfer\b/,
+  ];
+  // If name screams "transfer" and categories include Transfer, skip it
+  if (cats.some(c => c.toLowerCase() === 'transfer') &&
+      transferNamePatterns.some(p => p.test(nameLower))) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Extract a city/destination name from a product title.
+ * Fallback when place.name is not available from the API.
+ *
+ * Matches against a set of well-known tourism destinations.
+ * Examples:
+ *   "Private Sunset Kayaking Tour in Barcelona" → "Barcelona"
+ *   "Colombo Tuk Tuk Safari" → "Colombo"
+ *   "Udawalawe National Park Safari" → null (not in known list, but "Sri Lanka" might match)
+ */
+function extractCityFromProductName(productName: string): string | null {
+  const nameLower = productName.toLowerCase();
+
+  // Try to match known destinations (longest match first for multi-word names)
+  let bestMatch: string | null = null;
+  let bestLen = 0;
+
+  for (const dest of KNOWN_DESTINATIONS) {
+    if (dest.length > bestLen && nameLower.includes(dest)) {
+      // Verify it's a word boundary match (not a substring of another word)
+      const regex = new RegExp(`\\b${escapeRegex(dest)}\\b`, 'i');
+      if (regex.test(nameLower)) {
+        bestMatch = dest;
+        bestLen = dest.length;
+      }
+    }
+  }
+
+  if (bestMatch) {
+    // Capitalize properly
+    return bestMatch.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  }
+
+  return null;
 }
 
 /** Extract city name from a product's place/location/startPlace data */
 function extractCity(product: HolibobProduct): string | null {
-  // Try place.name first (most reliable for city)
+  // Try place.name first (now included in the GraphQL query)
   const placeName = product.place?.name;
   if (placeName && placeName.length > 1 && placeName.length < 50) {
     return normalizeCity(placeName);
@@ -407,7 +572,8 @@ function extractCity(product: HolibobProduct): string | null {
     return extractCityFromAddress(addr);
   }
 
-  return null;
+  // Fall back to extracting from product name
+  return extractCityFromProductName(product.name);
 }
 
 /** Normalize a city name */
