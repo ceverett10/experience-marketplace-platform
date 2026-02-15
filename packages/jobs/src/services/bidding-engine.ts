@@ -16,7 +16,7 @@ import { evaluateKeywordQuality } from './keyword-quality-evaluator';
 // --- Configuration -----------------------------------------------------------
 
 const DEFAULT_COMMISSION_RATE = 18; // Fallback percentage when no booking data (Holibob avg ~18%)
-const TARGET_ROAS = 3.0; // Target return on ad spend (3x = £3 revenue per £1 spent)
+const TARGET_ROAS = 1.0; // Target return on ad spend (1x = break-even, prioritize booking volume)
 const MIN_BOOKINGS_FOR_AOV = 3; // Minimum bookings to use real AOV (else fall back to catalog)
 const MIN_SESSIONS_FOR_CVR = 100; // Minimum sessions to use real conversion rate
 const DEFAULT_CONVERSION_RATE = 0.015; // 1.5% fallback
