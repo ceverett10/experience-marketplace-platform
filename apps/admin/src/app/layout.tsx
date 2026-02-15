@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import './globals.css';
 
 interface NavItem {
@@ -49,6 +49,7 @@ const navItems: NavItem[] = [
   { href: '/social', label: 'Social', icon: '📱' },
   { href: '/seo-issues', label: 'SEO Issues', icon: '🎯' },
   { href: '/link-building', label: 'Link Building', icon: '🔗' },
+  { href: '/users', label: 'Users', icon: '👤' },
   { href: '/settings', label: 'Settings', icon: '🛠️' },
 ];
 
@@ -57,6 +58,7 @@ const allNavItems = navItems.flatMap((item) => (item.children ? [item, ...item.c
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [expandedGroup, setExpandedGroup] = useState<string | null>(
     pathname?.startsWith('/analytics')
@@ -65,6 +67,26 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         ? '/operations'
         : null
   );
+  const [user, setUser] = useState<{ name: string; email: string } | null>(null);
+
+  const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
+
+  // Fetch current user session
+  useEffect(() => {
+    if (pathname === '/login') return;
+    fetch(`${basePath}/api/auth/session`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.user) setUser(data.user);
+      })
+      .catch(() => {});
+  }, [pathname, basePath]);
+
+  const handleSignOut = useCallback(async () => {
+    await fetch(`${basePath}/api/auth/logout`, { method: 'POST' });
+    setUser(null);
+    router.push('/login');
+  }, [basePath, router]);
 
   const isActive = (href: string) =>
     pathname === href || (href !== '/' && pathname?.startsWith(href));
@@ -72,6 +94,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const toggleGroup = (href: string) => {
     setExpandedGroup(expandedGroup === href ? null : href);
   };
+
+  // Login page gets a minimal layout (no sidebar/header)
+  if (pathname === '/login') {
+    return (
+      <html lang="en">
+        <body className="min-h-screen bg-slate-50 font-sans antialiased">{children}</body>
+      </html>
+    );
+  }
+
+  const userInitial = user?.name?.charAt(0)?.toUpperCase() || 'A';
 
   return (
     <html lang="en">
@@ -192,7 +225,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
               {/* User section */}
               <div className="px-3 py-4 border-t border-white/10">
-                <button className="flex items-center gap-3 w-full px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-colors">
+                {user && (
+                  <div className="px-4 py-2 mb-2">
+                    <p className="text-sm font-medium text-white truncate">{user.name}</p>
+                    <p className="text-xs text-slate-400 truncate">{user.email}</p>
+                  </div>
+                )}
+                <button
+                  onClick={handleSignOut}
+                  className="flex items-center gap-3 w-full px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-colors"
+                >
                   <span>🚪</span>
                   <span className="text-sm font-medium">Sign Out</span>
                 </button>
@@ -234,8 +276,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     🔔
                     <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
                   </button>
-                  <div className="h-9 w-9 bg-gradient-to-br from-sky-500 to-sky-400 rounded-full flex items-center justify-center text-white font-medium">
-                    A
+                  <div
+                    className="h-9 w-9 bg-gradient-to-br from-sky-500 to-sky-400 rounded-full flex items-center justify-center text-white font-medium"
+                    title={user?.email}
+                  >
+                    {userInitial}
                   </div>
                 </div>
               </div>

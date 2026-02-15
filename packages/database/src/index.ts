@@ -16,6 +16,7 @@ export type {
   ABTestVariant,
   Booking,
   Job,
+  AdminUser,
 } from '@prisma/client';
 
 // Re-export enums as both types and values

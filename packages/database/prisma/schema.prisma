@@ -51,6 +51,23 @@ model PlatformSettings {
 }
 
 // ============================================================================
+// ADMIN USERS
+// ============================================================================
+
+model AdminUser {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  name         String
+  role         String    @default("ADMIN") // ADMIN, SUPER_ADMIN
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@map("admin_users")
+}
+
+// ============================================================================
 // PARTNER & MCP API KEY MANAGEMENT
 // ============================================================================
 

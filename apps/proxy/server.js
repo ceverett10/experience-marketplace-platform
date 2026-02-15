@@ -16,6 +16,40 @@ app.get('/health', (req, res) => {
   res.json({ status: 'healthy', timestamp: new Date().toISOString() });
 });
 
+// === Admin subdomain routing (admin.experiencess.com) ===
+// When accessed via admin.experiencess.com, route ALL traffic to admin app.
+// The admin Next.js app is built with basePath='/admin', so we prepend /admin
+// to paths that don't already have it (e.g., initial visit to /).
+// After that, the app renders links with /admin prefix (due to basePath),
+// so subsequent navigations already have /admin and pass through unchanged.
+const adminSubdomainProxy = createProxyMiddleware({
+  target: 'http://localhost:3001',
+  changeOrigin: false,
+  xfwd: true,
+  onProxyReq: (proxyReq, req) => {
+    const originalHost = req.headers['x-forwarded-host'] || req.headers.host;
+    if (originalHost) {
+      proxyReq.setHeader('x-forwarded-host', originalHost);
+    }
+  },
+  onError: (err, req, res) => {
+    console.error('Admin subdomain proxy error:', err.message);
+    res.status(503).json({ error: 'Admin dashboard unavailable' });
+  },
+});
+
+app.use((req, res, next) => {
+  const host = (req.headers['x-forwarded-host'] || req.headers.host || '').toString().split(':')[0];
+  if (host === 'admin.experiencess.com') {
+    // Prepend /admin if path doesn't already start with it
+    if (!req.url.startsWith('/admin')) {
+      req.url = '/admin' + req.url;
+    }
+    return adminSubdomainProxy(req, res, next);
+  }
+  next();
+});
+
 // Proxy /admin routes to admin dashboard
 // Keep /admin prefix since Next.js is configured with basePath='/admin' in production
 app.use(
