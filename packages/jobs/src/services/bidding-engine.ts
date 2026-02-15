@@ -289,14 +289,10 @@ export async function calculateMicrositeProfitability(): Promise<SiteProfitabili
 
   for (const ms of microsites) {
     // Calculate conversion rate from microsite analytics.
-    // Microsites are niche landing pages with product-matched content — intent
-    // traffic from keywords like "cooking class venice" to a Venice cooking
-    // class microsite converts significantly better than generic site traffic.
-    // Industry benchmarks: 2-5% CVR for intent-matched tourism landing pages.
     const totalSessions = ms.analyticsSnapshots.reduce((s, a) => s + a.sessions, 0);
     const conversionRate = totalSessions >= MIN_SESSIONS_FOR_CVR
-      ? DEFAULT_CONVERSION_RATE * 2.5 // Real data exists — strong niche boost
-      : DEFAULT_CONVERSION_RATE * 2.0; // Default niche boost (1.5% → 3%)
+      ? DEFAULT_CONVERSION_RATE * 1.2 // Slight niche boost with real data
+      : DEFAULT_CONVERSION_RATE;       // 1.5% default
 
     const avgOrderValue = portfolioAvg._count >= MIN_BOOKINGS_FOR_AOV ? portfolioAov : catalogAvg;
     const avgCommissionRate = portfolioCommission;
