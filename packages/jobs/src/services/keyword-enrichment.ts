@@ -848,12 +848,19 @@ async function validateKeywords(
 
   const results = await dataForSeo.getBulkSearchVolume(seeds, location);
 
+  let filteredNoVolume = 0;
+  let filteredNoCpc = 0;
+  let filteredHighCpc = 0;
+  let filteredLowIntent = 0;
+
   for (const kw of results) {
-    // Filter criteria
-    if (kw.searchVolume < 10) continue; // Minimum volume threshold
-    if (kw.cpc <= 0) continue; // Must have commercial intent
-    if (kw.cpc > 3.0) continue; // Below max profitable threshold
-    if (isLowIntentKeyword(kw.keyword)) continue;
+    // Filter criteria — tuned for tourism/experience keywords
+    if (kw.searchVolume < 10) { filteredNoVolume++; continue; }
+    if (kw.cpc <= 0) { filteredNoCpc++; continue; }
+    // Tourism keywords legitimately have CPCs of $2-8. Higher CPC = higher booking intent.
+    // An experience selling for £80-200 can profitably bid up to £8-10 CPC.
+    if (kw.cpc > 10.0) { filteredHighCpc++; continue; }
+    if (isLowIntentKeyword(kw.keyword)) { filteredLowIntent++; continue; }
 
     validated.set(kw.keyword.toLowerCase(), {
       searchVolume: kw.searchVolume,
@@ -862,6 +869,12 @@ async function validateKeywords(
       competitionLevel: kw.competitionLevel,
     });
   }
+
+  console.log(
+    `[Enrichment] Validation breakdown: ${results.length} total, ${validated.size} passed, ` +
+    `${filteredNoVolume} no volume, ${filteredNoCpc} no CPC, ${filteredHighCpc} CPC>£10, ` +
+    `${filteredLowIntent} low intent`
+  );
 
   return validated;
 }
@@ -983,7 +996,9 @@ async function storeValidatedKeywords(
  */
 function calculatePaidScore(volume: number, cpc: number, difficulty: number): number {
   const volumeScore = Math.min(40, (Math.log10(Math.max(volume, 1)) / 5) * 40);
-  const cpcScore = Math.max(0, Math.min(30, 30 * (1 - cpc / 4)));
+  // CPC scoring: lower is better for margin, but tourism keywords at $3-5 are normal.
+  // Scale against £10 max (our cap), so $2.50 gets ~22pts, $5 gets ~15pts, $8 gets ~6pts
+  const cpcScore = Math.max(0, Math.min(30, 30 * (1 - cpc / 10)));
   const competitionScore = ((100 - difficulty) / 100) * 20;
   return Math.round(volumeScore + cpcScore + competitionScore + 10);
 }
