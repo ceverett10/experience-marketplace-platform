@@ -15,7 +15,8 @@ import {
   type BookingQuestion,
   type BookingAvailability,
 } from '@/lib/booking-flow';
-import { trackBeginCheckout, trackAddPaymentInfo, trackPurchase } from '@/lib/analytics';
+import { trackBeginCheckout, trackAddPaymentInfo, trackPurchase, trackGoogleAdsConversion } from '@/lib/analytics';
+import { trackMetaPurchase } from '@/components/analytics/MetaPixel';
 import { getProductPricingConfig, calculatePromoPrice, DEFAULT_PRICING_CONFIG } from '@/lib/pricing';
 
 interface CheckoutClientProps {
@@ -153,12 +154,23 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
     setError(null);
 
     const firstAvail = booking.availabilityList?.nodes?.[0];
-    trackPurchase({
+    const purchaseData = {
       id: initialBooking.id,
       value: booking.totalPrice?.gross,
       currency: booking.totalPrice?.currency ?? 'GBP',
-      itemName: firstAvail?.product?.name,
-    });
+    };
+
+    // GA4 purchase event
+    trackPurchase({ ...purchaseData, itemName: firstAvail?.product?.name });
+
+    // Meta Pixel purchase (client-side dedup with server CAPI via event_id = bookingId)
+    trackMetaPurchase(purchaseData);
+
+    // Google Ads conversion (if conversion action configured in seoConfig)
+    const conversionAction = site.seoConfig?.googleAdsConversionAction;
+    if (conversionAction) {
+      trackGoogleAdsConversion(conversionAction, purchaseData);
+    }
 
     try {
       // Pass productId for booking analytics (urgency messaging)

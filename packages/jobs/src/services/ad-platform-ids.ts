@@ -24,6 +24,7 @@ interface FetchedAdPlatformIds {
 interface PropagationResult {
   metaPixelId: string | null;
   googleAdsId: string | null;
+  googleAdsConversionAction: string | null;
   sitesUpdated: number;
   sitesSkipped: number;
   micrositesUpdated: number;
@@ -152,19 +153,26 @@ export async function fetchAdPlatformIds(): Promise<FetchedAdPlatformIds> {
  * Merges into existing seoConfig JSON, preserving all other fields.
  */
 export async function propagateAdPlatformIds(
-  ids: { metaPixelId: string | null; googleAdsId: string | null }
+  ids: { metaPixelId: string | null; googleAdsId: string | null; googleAdsConversionAction?: string | null }
 ): Promise<PropagationResult> {
   console.log('[AdPlatformIds] Propagating to all active sites and microsites...');
 
   const result: PropagationResult = {
     metaPixelId: ids.metaPixelId,
     googleAdsId: ids.googleAdsId,
+    googleAdsConversionAction: ids.googleAdsConversionAction ?? null,
     sitesUpdated: 0,
     sitesSkipped: 0,
     micrositesUpdated: 0,
     micrositesSkipped: 0,
     errors: 0,
   };
+
+  // Build the fields to merge — only include non-null values
+  const adFields: Record<string, string> = {};
+  if (ids.metaPixelId) adFields['metaPixelId'] = ids.metaPixelId;
+  if (ids.googleAdsId) adFields['googleAdsId'] = ids.googleAdsId;
+  if (ids.googleAdsConversionAction) adFields['googleAdsConversionAction'] = ids.googleAdsConversionAction;
 
   // --- Propagate to Sites ---
   const sites = await prisma.site.findMany({
@@ -175,24 +183,18 @@ export async function propagateAdPlatformIds(
   for (const site of sites) {
     try {
       const currentConfig = (site.seoConfig as Record<string, unknown>) || {};
-      const needsUpdate =
-        (ids.metaPixelId && currentConfig['metaPixelId'] !== ids.metaPixelId) ||
-        (ids.googleAdsId && currentConfig['googleAdsId'] !== ids.googleAdsId);
+      const needsUpdate = Object.entries(adFields).some(
+        ([key, value]) => currentConfig[key] !== value
+      );
 
       if (!needsUpdate) {
         result.sitesSkipped++;
         continue;
       }
 
-      const updatedConfig = {
-        ...currentConfig,
-        ...(ids.metaPixelId ? { metaPixelId: ids.metaPixelId } : {}),
-        ...(ids.googleAdsId ? { googleAdsId: ids.googleAdsId } : {}),
-      };
-
       await prisma.site.update({
         where: { id: site.id },
-        data: { seoConfig: updatedConfig as any },
+        data: { seoConfig: { ...currentConfig, ...adFields } as any },
       });
 
       result.sitesUpdated++;
@@ -217,24 +219,18 @@ export async function propagateAdPlatformIds(
       batch.map(async (ms) => {
         try {
           const currentConfig = (ms.seoConfig as Record<string, unknown>) || {};
-          const needsUpdate =
-            (ids.metaPixelId && currentConfig['metaPixelId'] !== ids.metaPixelId) ||
-            (ids.googleAdsId && currentConfig['googleAdsId'] !== ids.googleAdsId);
+          const needsUpdate = Object.entries(adFields).some(
+            ([key, value]) => currentConfig[key] !== value
+          );
 
           if (!needsUpdate) {
             result.micrositesSkipped++;
             return;
           }
 
-          const updatedConfig = {
-            ...currentConfig,
-            ...(ids.metaPixelId ? { metaPixelId: ids.metaPixelId } : {}),
-            ...(ids.googleAdsId ? { googleAdsId: ids.googleAdsId } : {}),
-          };
-
           await prisma.micrositeConfig.update({
             where: { id: ms.id },
-            data: { seoConfig: updatedConfig as any },
+            data: { seoConfig: { ...currentConfig, ...adFields } as any },
           });
 
           result.micrositesUpdated++;
@@ -268,6 +264,7 @@ export async function fetchAndPropagateAdPlatformIds(): Promise<
       fetchedIds,
       metaPixelId: null,
       googleAdsId: null,
+      googleAdsConversionAction: null,
       sitesUpdated: 0,
       sitesSkipped: 0,
       micrositesUpdated: 0,
@@ -279,6 +276,7 @@ export async function fetchAndPropagateAdPlatformIds(): Promise<
   const propagationResult = await propagateAdPlatformIds({
     metaPixelId: fetchedIds.metaPixelId,
     googleAdsId: fetchedIds.googleAdsId,
+    googleAdsConversionAction: fetchedIds.googleAdsConversionActionId,
   });
 
   return { fetchedIds, ...propagationResult };

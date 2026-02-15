@@ -78,24 +78,39 @@ export async function GET() {
 
 /**
  * POST /api/sites/ad-platform-ids
- * Manually set pixel/conversion IDs and propagate to all sites and microsites.
+ * Set pixel/conversion IDs and propagate to all sites and microsites.
  *
- * Body: { metaPixelId?: string, googleAdsId?: string }
+ * Body: { metaPixelId?: string, googleAdsId?: string, googleAdsConversionAction?: string }
+ * If no IDs provided, falls back to env vars (META_PIXEL_ID, GOOGLE_ADS_ID, GOOGLE_ADS_CONVERSION_ACTION).
  */
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { metaPixelId, googleAdsId } = body as {
+    let { metaPixelId, googleAdsId, googleAdsConversionAction } = body as {
       metaPixelId?: string;
       googleAdsId?: string;
+      googleAdsConversionAction?: string;
     };
+
+    // Fall back to env vars when no IDs provided (e.g. from dashboard button)
+    if (!metaPixelId && !googleAdsId) {
+      metaPixelId = process.env['META_PIXEL_ID'] || undefined;
+      googleAdsId = process.env['GOOGLE_ADS_ID'] || undefined;
+      googleAdsConversionAction = googleAdsConversionAction || process.env['GOOGLE_ADS_CONVERSION_ACTION'] || undefined;
+    }
 
     if (!metaPixelId && !googleAdsId) {
       return NextResponse.json(
-        { error: 'Provide at least one of metaPixelId or googleAdsId' },
+        { error: 'No pixel IDs provided and no env vars (META_PIXEL_ID, GOOGLE_ADS_ID) configured' },
         { status: 400 }
       );
     }
+
+    const adFields = {
+      ...(metaPixelId ? { metaPixelId } : {}),
+      ...(googleAdsId ? { googleAdsId } : {}),
+      ...(googleAdsConversionAction ? { googleAdsConversionAction } : {}),
+    };
 
     // Propagate to sites
     const sites = await prisma.site.findMany({
@@ -108,13 +123,7 @@ export async function POST(request: Request) {
       const current = (site.seoConfig as Record<string, unknown>) || {};
       await prisma.site.update({
         where: { id: site.id },
-        data: {
-          seoConfig: {
-            ...current,
-            ...(metaPixelId ? { metaPixelId } : {}),
-            ...(googleAdsId ? { googleAdsId } : {}),
-          } as any,
-        },
+        data: { seoConfig: { ...current, ...adFields } as any },
       });
       sitesUpdated++;
     }
@@ -134,13 +143,7 @@ export async function POST(request: Request) {
           const current = (ms.seoConfig as Record<string, unknown>) || {};
           await prisma.micrositeConfig.update({
             where: { id: ms.id },
-            data: {
-              seoConfig: {
-                ...current,
-                ...(metaPixelId ? { metaPixelId } : {}),
-                ...(googleAdsId ? { googleAdsId } : {}),
-              } as any,
-            },
+            data: { seoConfig: { ...current, ...adFields } as any },
           });
           micrositesUpdated++;
         })
@@ -151,6 +154,7 @@ export async function POST(request: Request) {
       success: true,
       metaPixelId: metaPixelId || null,
       googleAdsId: googleAdsId || null,
+      googleAdsConversionAction: googleAdsConversionAction || null,
       sitesUpdated,
       micrositesUpdated,
     });

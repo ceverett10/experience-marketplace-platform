@@ -209,6 +209,7 @@ export interface SiteConfig {
     keywords: string[];
     gaMeasurementId?: string | null; // Google Analytics 4 measurement ID
     googleAdsId?: string | null; // Google Ads conversion tracking ID (AW-XXXXXXXXX)
+    googleAdsConversionAction?: string | null; // Google Ads conversion action for client-side gtag (AW-XXX/label)
     metaPixelId?: string | null; // Meta/Facebook Pixel ID
   } | null;
 
@@ -577,6 +578,7 @@ function mapMicrositeToSiteConfig(microsite: MicrositeConfigWithEntity): SiteCon
     keywords?: string[];
     gaMeasurementId?: string | null;
     googleAdsId?: string | null;
+    googleAdsConversionAction?: string | null;
     metaPixelId?: string | null;
   } | null;
 
@@ -617,6 +619,7 @@ function mapMicrositeToSiteConfig(microsite: MicrositeConfigWithEntity): SiteCon
           keywords: seoConfig.keywords ?? [],
           gaMeasurementId: seoConfig.gaMeasurementId ?? null,
           googleAdsId: seoConfig.googleAdsId ?? null,
+          googleAdsConversionAction: seoConfig.googleAdsConversionAction ?? null,
           metaPixelId: seoConfig.metaPixelId ?? null,
         }
       : {
@@ -625,6 +628,7 @@ function mapMicrositeToSiteConfig(microsite: MicrositeConfigWithEntity): SiteCon
           keywords: [],
           gaMeasurementId: null,
           googleAdsId: null,
+          googleAdsConversionAction: null,
           metaPixelId: null,
         },
     homepageConfig: homepageConfig,
@@ -666,6 +670,7 @@ function mapSiteToConfig(site: Site & { brand: Brand | null }): SiteConfig {
     keywords?: string[];
     gaMeasurementId?: string | null;
     googleAdsId?: string | null;
+    googleAdsConversionAction?: string | null;
     metaPixelId?: string | null;
   } | null;
 
@@ -704,6 +709,7 @@ function mapSiteToConfig(site: Site & { brand: Brand | null }): SiteConfig {
           keywords: seoConfig.keywords ?? [],
           gaMeasurementId: seoConfig.gaMeasurementId ?? null,
           googleAdsId: seoConfig.googleAdsId ?? null,
+          googleAdsConversionAction: seoConfig.googleAdsConversionAction ?? null,
           metaPixelId: seoConfig.metaPixelId ?? null,
         }
       : {
@@ -712,6 +718,7 @@ function mapSiteToConfig(site: Site & { brand: Brand | null }): SiteConfig {
           keywords: [],
           gaMeasurementId: null,
           googleAdsId: null,
+          googleAdsConversionAction: null,
           metaPixelId: null,
         },
     homepageConfig: homepageConfig,

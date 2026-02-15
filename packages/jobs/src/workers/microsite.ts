@@ -361,6 +361,7 @@ export async function handleMicrositeCreate(job: Job<MicrositeCreatePayload>): P
           // Use shared ad platform IDs (same pattern as GA4)
           metaPixelId: process.env['META_PIXEL_ID'] || null,
           googleAdsId: process.env['GOOGLE_ADS_ID'] || null,
+          googleAdsConversionAction: process.env['GOOGLE_ADS_CONVERSION_ACTION'] || null,
         },
         homepageConfig: homepageConfig as unknown as Prisma.InputJsonValue,
         status: 'GENERATING',

@@ -10,6 +10,45 @@
  */
 
 import { createHash } from 'crypto';
+import { prisma } from '@experience-marketplace/database';
+
+// Cached ad platform IDs from database (fetched once, used for all conversions)
+let cachedDbAdIds: {
+  metaPixelId: string | null;
+  googleAdsConversionAction: string | null;
+  fetchedAt: number;
+} | null = null;
+const DB_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
+/**
+ * Look up ad platform IDs from any active site's seoConfig.
+ * Used as fallback when env vars aren't set.
+ */
+async function getAdIdsFromDb(): Promise<{
+  metaPixelId: string | null;
+  googleAdsConversionAction: string | null;
+}> {
+  if (cachedDbAdIds && Date.now() - cachedDbAdIds.fetchedAt < DB_CACHE_TTL_MS) {
+    return cachedDbAdIds;
+  }
+
+  try {
+    const site = await prisma.site.findFirst({
+      where: { status: 'ACTIVE' },
+      select: { seoConfig: true },
+    });
+
+    const config = site?.seoConfig as Record<string, unknown> | null;
+    cachedDbAdIds = {
+      metaPixelId: (config?.['metaPixelId'] as string) || null,
+      googleAdsConversionAction: (config?.['googleAdsConversionAction'] as string) || null,
+      fetchedAt: Date.now(),
+    };
+    return cachedDbAdIds;
+  } catch {
+    return { metaPixelId: null, googleAdsConversionAction: null };
+  }
+}
 
 // Rate limiters — conservative to stay within platform limits
 const metaRequestTimestamps: number[] = [];
@@ -67,9 +106,13 @@ export async function uploadMetaConversion(
   event: MetaConversionEvent,
   accessToken: string
 ): Promise<{ success: boolean; error?: string }> {
-  const pixelId = process.env['META_PIXEL_ID'];
+  let pixelId = process.env['META_PIXEL_ID'];
   if (!pixelId) {
-    return { success: false, error: 'META_PIXEL_ID not configured' };
+    const dbIds = await getAdIdsFromDb();
+    pixelId = dbIds.metaPixelId ?? undefined;
+  }
+  if (!pixelId) {
+    return { success: false, error: 'META_PIXEL_ID not configured (env var or seoConfig)' };
   }
 
   await waitForMetaRateLimit();
@@ -201,10 +244,12 @@ export async function uploadGoogleConversion(
     return { success: false, error: 'Google Ads not configured' };
   }
 
-  const conversionAction =
-    event.conversionAction ||
-    process.env['GOOGLE_ADS_CONVERSION_ACTION'] ||
-    `customers/${config.customerId}/conversionActions/1`;
+  let conversionAction = event.conversionAction || process.env['GOOGLE_ADS_CONVERSION_ACTION'];
+  if (!conversionAction) {
+    const dbIds = await getAdIdsFromDb();
+    conversionAction = dbIds.googleAdsConversionAction ?? undefined;
+  }
+  conversionAction = conversionAction || `customers/${config.customerId}/conversionActions/1`;
 
   await waitForGoogleRateLimit();
 
