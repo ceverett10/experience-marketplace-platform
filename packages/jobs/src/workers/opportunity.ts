@@ -1464,7 +1464,7 @@ async function autoActionOpportunities(): Promise<void> {
     orderBy: {
       priorityScore: 'desc', // Get highest-value opportunities first
     },
-    take: 10, // Process top 10 highest-value opportunities per scan
+    take: 50, // Process top 50 highest-value opportunities per scan
   });
 
   console.log(
@@ -1533,7 +1533,7 @@ async function autoActionMicrositeOpportunities(): Promise<number> {
       micrositeConfig: null, // No microsite already created
     },
     orderBy: { priorityScore: 'desc' },
-    take: 10, // Process 10 per scan run
+    take: 50, // Process 50 per scan run
   });
 
   console.log(

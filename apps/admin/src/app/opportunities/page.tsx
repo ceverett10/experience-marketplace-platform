@@ -114,6 +114,8 @@ export default function OpportunitiesPage() {
   const [scanMessage, setScanMessage] = useState<string | null>(null);
   const [generatingExplanation, setGeneratingExplanation] = useState<string | null>(null);
   const [scanVersion, setScanVersion] = useState<'standard' | 'quick'>('standard');
+  const [buildingMicrosites, setBuildingMicrosites] = useState(false);
+  const [micrositeMessage, setMicrositeMessage] = useState<string | null>(null);
 
   // Map sort UI to API sort field
   const sortFieldMap: Record<string, string> = {
@@ -268,6 +270,35 @@ export default function OpportunitiesPage() {
     }
   };
 
+  const handleBulkCreateMicrosites = async () => {
+    if (!confirm('This will queue microsite creation for all eligible high-priority opportunities. Continue?')) return;
+    try {
+      setBuildingMicrosites(true);
+      setMicrositeMessage('Queuing microsite creation jobs...');
+      const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
+      const response = await fetch(`${basePath}/api/opportunities`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'bulk-create-microsites', minScore: 50, batchSize: 200 }),
+      });
+      const result = await response.json();
+      if (response.ok) {
+        setMicrositeMessage(
+          `Queued ${result.queued} microsites (${result.skipped} skipped). ${result.remainingEligible} still eligible.`
+        );
+        fetchOpportunities();
+      } else {
+        setMicrositeMessage(`Failed: ${result.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Failed to bulk create microsites:', error);
+      setMicrositeMessage('Failed to queue microsites. Check console for details.');
+    } finally {
+      setBuildingMicrosites(false);
+      setTimeout(() => setMicrositeMessage(null), 10000);
+    }
+  };
+
   // Sorting is now handled server-side
   const sortedOpportunities = opportunities;
 
@@ -349,6 +380,13 @@ export default function OpportunitiesPage() {
           >
             {scanning ? 'Scanning...' : 'Run Scan'}
           </button>
+          <button
+            onClick={handleBulkCreateMicrosites}
+            disabled={buildingMicrosites}
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors"
+          >
+            {buildingMicrosites ? 'Building...' : 'Build Microsites'}
+          </button>
         </div>
       </div>
 
@@ -384,6 +422,15 @@ export default function OpportunitiesPage() {
               {scanMessage}
             </span>
           </div>
+        </div>
+      )}
+
+      {/* Microsite build message */}
+      {micrositeMessage && (
+        <div className={`p-4 rounded-lg ${buildingMicrosites ? 'bg-emerald-50 border border-emerald-200' : 'bg-green-50 border border-green-200'}`}>
+          <span className={`text-sm ${buildingMicrosites ? 'text-emerald-700' : 'text-green-700'}`}>
+            {micrositeMessage}
+          </span>
         </div>
       )}
 

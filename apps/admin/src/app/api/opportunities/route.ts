@@ -302,6 +302,105 @@ Keep it concise and business-focused.`;
       });
     }
 
+    if (action === 'bulk-create-microsites') {
+      const { minScore = 50, batchSize = 200 } = body;
+
+      // Find all eligible opportunities: high priority, not yet actioned, no linked site or microsite
+      const eligibleOpps = await prisma.sEOOpportunity.findMany({
+        where: {
+          priorityScore: { gte: minScore },
+          status: { in: ['IDENTIFIED', 'EVALUATED'] },
+          siteId: null,
+          micrositeConfig: null,
+        },
+        orderBy: { priorityScore: 'desc' },
+        take: batchSize,
+      });
+
+      if (eligibleOpps.length === 0) {
+        return NextResponse.json({
+          success: true,
+          message: 'No eligible opportunities found',
+          queued: 0,
+          skipped: 0,
+        });
+      }
+
+      let queued = 0;
+      let skipped = 0;
+
+      for (const opp of eligibleOpps) {
+        // Generate subdomain from keyword
+        const subdomain = opp.keyword
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-|-$/g, '')
+          .substring(0, 50);
+
+        // Check if subdomain already exists
+        const existing = await prisma.micrositeConfig.findFirst({
+          where: { subdomain, parentDomain: 'experiencess.com' },
+        });
+        if (existing) {
+          skipped++;
+          continue;
+        }
+
+        try {
+          await addJob(
+            'MICROSITE_CREATE',
+            {
+              opportunityId: opp.id,
+              parentDomain: 'experiencess.com',
+              subdomain,
+              entityType: 'OPPORTUNITY',
+              discoveryConfig: {
+                keyword: opp.keyword,
+                destination: opp.location || undefined,
+                niche: opp.niche,
+                searchTerms: [opp.keyword],
+              },
+            },
+            {
+              priority: 5,
+              delay: queued * 2000, // Stagger: 2s between each job
+            }
+          );
+
+          await prisma.sEOOpportunity.update({
+            where: { id: opp.id },
+            data: { status: 'MICROSITE_ASSIGNED' },
+          });
+
+          queued++;
+        } catch (error) {
+          console.error(
+            `[Bulk Microsites] Failed to queue for "${opp.keyword}":`,
+            error instanceof Error ? error.message : error
+          );
+          skipped++;
+        }
+      }
+
+      const totalEligible = await prisma.sEOOpportunity.count({
+        where: {
+          priorityScore: { gte: minScore },
+          status: { in: ['IDENTIFIED', 'EVALUATED'] },
+          siteId: null,
+          micrositeConfig: null,
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: `Queued ${queued} microsite creation jobs (${skipped} skipped)`,
+        queued,
+        skipped,
+        remainingEligible: totalEligible,
+        batchSize,
+      });
+    }
+
     if (action === 'dismiss') {
       await prisma.sEOOpportunity.update({
         where: { id: opportunityId },
