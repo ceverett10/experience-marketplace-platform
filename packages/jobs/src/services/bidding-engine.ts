@@ -756,15 +756,12 @@ export function selectCampaignCandidates(
   const selected: CampaignCandidate[] = [];
   let budgetAllocated = 0;
 
-  // Minimum daily budget per campaign (platform minimums)
-  const MIN_CAMPAIGN_BUDGET = 5; // £5/day minimum per campaign
-
   for (const candidate of candidates) {
-    const campaignBudget = Math.max(MIN_CAMPAIGN_BUDGET, candidate.expectedDailyCost);
-    if (budgetAllocated + campaignBudget > maxBudget) continue;
-
     // Skip if expected ROAS is below 1.0 (would lose money)
     if (candidate.expectedDailyRevenue < candidate.expectedDailyCost) continue;
+
+    const campaignBudget = candidate.expectedDailyCost;
+    if (budgetAllocated + campaignBudget > maxBudget) continue;
 
     selected.push(candidate);
     budgetAllocated += campaignBudget;
