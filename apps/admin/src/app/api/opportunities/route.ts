@@ -18,14 +18,16 @@ export async function GET(request: Request) {
     const sortOrder = searchParams.get('order') || 'desc';
 
     // Build query filters
+    // This dashboard is for building new sites/microsites, so exclude
+    // PAID_CANDIDATE (ad keywords) and ARCHIVED (dismissed) by default
+    const excludedStatuses = ['ARCHIVED', 'PAID_CANDIDATE', 'PUBLISHED'];
     const where: any = {};
     if (status === 'ARCHIVED') {
       where.status = 'ARCHIVED';
     } else if (status && status !== 'all') {
       where.status = status;
     } else {
-      // Default "all" excludes ARCHIVED so discarded opportunities are hidden
-      where.status = { not: 'ARCHIVED' };
+      where.status = { notIn: excludedStatuses };
     }
 
     if (search) {
@@ -67,23 +69,26 @@ export async function GET(request: Request) {
         _count: { id: true },
       }),
       prisma.sEOOpportunity.count({
-        where: { priorityScore: { gte: 75 } },
+        where: { priorityScore: { gte: 75 }, status: { notIn: excludedStatuses } },
       }),
     ]);
 
-    // Build stats from groupBy
+    // Build stats from groupBy — exclude PAID_CANDIDATE/PUBLISHED from totals
+    // since this dashboard is about building sites, not ad keywords
     const statusMap: Record<string, number> = {};
     let totalAll = 0;
     for (const row of statusCounts) {
       statusMap[row.status] = row._count.id;
-      totalAll += row._count.id;
+      if (!excludedStatuses.includes(row.status)) {
+        totalAll += row._count.id;
+      }
     }
 
     const stats = {
       total: totalAll,
       identified: statusMap['IDENTIFIED'] || 0,
       evaluated: statusMap['EVALUATED'] || 0,
-      assigned: statusMap['ASSIGNED'] || 0,
+      assigned: (statusMap['ASSIGNED'] || 0) + (statusMap['MICROSITE_ASSIGNED'] || 0),
       highPriority: highPriorityCount,
       archived: statusMap['ARCHIVED'] || 0,
     };
