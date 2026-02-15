@@ -59,15 +59,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       _count: { id: true },
     });
 
-    // Get unique session counts per step
-    const sessionCounts = await prisma.bookingFunnelEvent.groupBy({
-      by: ['step'],
-      where: { ...where, errorCode: null },
-      _count: { sessionId: true },
-    });
-
-    // We need distinct session counts - groupBy _count counts all rows, not distinct
-    // Use raw query for distinct session counts
+    // Use raw query for distinct session counts (groupBy _count doesn't do DISTINCT)
     const distinctSessionsRaw = await prisma.$queryRaw<
       Array<{ step: string; sessions: bigint }>
     >`

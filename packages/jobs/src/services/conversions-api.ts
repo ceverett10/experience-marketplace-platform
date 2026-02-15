@@ -76,10 +76,10 @@ export async function uploadMetaConversion(
 
   const userData: Record<string, string> = {};
   if (event.email) {
-    userData.em = sha256(event.email);
+    userData['em'] = sha256(event.email);
   }
   if (event.fbclid) {
-    userData.fbc = `fb.1.${event.eventTime.getTime()}.${event.fbclid}`;
+    userData['fbc'] = `fb.1.${event.eventTime.getTime()}.${event.fbclid}`;
   }
 
   const payload = {
@@ -117,7 +117,7 @@ export async function uploadMetaConversion(
       return { success: false, error: `HTTP ${response.status}: ${errorText}` };
     }
 
-    const result = await response.json();
+    const result = (await response.json()) as { events_received?: number };
     console.log(
       `[CAPI] Meta conversion uploaded: booking=${event.bookingId}, ` +
         `value=${event.currency} ${event.value}, events_received=${result.events_received}`
@@ -181,7 +181,7 @@ async function getGoogleAccessToken(config: {
     throw new Error(`Google OAuth token refresh failed: ${response.status}`);
   }
 
-  const data = await response.json();
+  const data = (await response.json()) as { access_token: string; expires_in: number };
   cachedGoogleAccessToken = {
     token: data.access_token,
     expiresAt: Date.now() + data.expires_in * 1000,
@@ -250,7 +250,7 @@ export async function uploadGoogleConversion(
       return { success: false, error: `HTTP ${response.status}: ${errorText}` };
     }
 
-    const result = await response.json();
+    const result = (await response.json()) as { partialFailureError?: unknown };
     const hasPartialErrors = result.partialFailureError;
     if (hasPartialErrors) {
       console.warn('[CAPI] Google conversion partial failure:', JSON.stringify(hasPartialErrors));

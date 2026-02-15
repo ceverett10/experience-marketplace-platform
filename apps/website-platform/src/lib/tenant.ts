@@ -208,6 +208,8 @@ export interface SiteConfig {
     defaultDescription: string;
     keywords: string[];
     gaMeasurementId?: string | null; // Google Analytics 4 measurement ID
+    googleAdsId?: string | null; // Google Ads conversion tracking ID (AW-XXXXXXXXX)
+    metaPixelId?: string | null; // Meta/Facebook Pixel ID
   } | null;
 
   // Homepage Configuration (AI-generated)
@@ -574,6 +576,8 @@ function mapMicrositeToSiteConfig(microsite: MicrositeConfigWithEntity): SiteCon
     defaultDescription?: string;
     keywords?: string[];
     gaMeasurementId?: string | null;
+    googleAdsId?: string | null;
+    metaPixelId?: string | null;
   } | null;
 
   const homepageConfig = microsite.homepageConfig as HomepageConfig | null;
@@ -612,12 +616,16 @@ function mapMicrositeToSiteConfig(microsite: MicrositeConfigWithEntity): SiteCon
           defaultDescription: seoConfig.defaultDescription ?? microsite.tagline ?? '',
           keywords: seoConfig.keywords ?? [],
           gaMeasurementId: seoConfig.gaMeasurementId ?? null,
+          googleAdsId: seoConfig.googleAdsId ?? null,
+          metaPixelId: seoConfig.metaPixelId ?? null,
         }
       : {
           titleTemplate: '%s | ' + microsite.siteName,
           defaultDescription: microsite.tagline ?? '',
           keywords: [],
           gaMeasurementId: null,
+          googleAdsId: null,
+          metaPixelId: null,
         },
     homepageConfig: homepageConfig,
     // Include microsite context for supplier/product filtering and layout
@@ -657,6 +665,8 @@ function mapSiteToConfig(site: Site & { brand: Brand | null }): SiteConfig {
     defaultDescription?: string;
     keywords?: string[];
     gaMeasurementId?: string | null;
+    googleAdsId?: string | null;
+    metaPixelId?: string | null;
   } | null;
 
   const homepageConfig = site.homepageConfig as HomepageConfig | null;
@@ -693,12 +703,16 @@ function mapSiteToConfig(site: Site & { brand: Brand | null }): SiteConfig {
           defaultDescription: seoConfig.defaultDescription ?? site.description ?? '',
           keywords: seoConfig.keywords ?? [],
           gaMeasurementId: seoConfig.gaMeasurementId ?? null,
+          googleAdsId: seoConfig.googleAdsId ?? null,
+          metaPixelId: seoConfig.metaPixelId ?? null,
         }
       : {
           titleTemplate: '%s | ' + site.name,
           defaultDescription: site.description ?? '',
           keywords: [],
           gaMeasurementId: null,
+          googleAdsId: null,
+          metaPixelId: null,
         },
     homepageConfig: homepageConfig,
   };

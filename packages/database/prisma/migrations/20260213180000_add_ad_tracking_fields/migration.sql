@@ -1,3 +1,6 @@
+-- Add AD_CONVERSION_UPLOAD to JobType enum
+ALTER TYPE "JobType" ADD VALUE 'AD_CONVERSION_UPLOAD';
+
 -- AlterTable: Add ad platform click IDs to bookings for CAPI conversion uploads
 ALTER TABLE "bookings" ADD COLUMN "gclid" TEXT;
 ALTER TABLE "bookings" ADD COLUMN "fbclid" TEXT;

@@ -274,6 +274,7 @@ async function validateTaskArtifacts(
     AD_CAMPAIGN_SYNC: { valid: true },
     AD_PERFORMANCE_REPORT: { valid: true },
     AD_BUDGET_OPTIMIZER: { valid: true },
+    AD_CONVERSION_UPLOAD: { valid: true },
     PAID_KEYWORD_SCAN: { valid: true },
     BIDDING_ENGINE_RUN: { valid: true },
     KEYWORD_ENRICHMENT: { valid: true },
@@ -517,6 +518,10 @@ export const TASK_DESCRIPTIONS: Record<JobType, { label: string; description: st
   AD_BUDGET_OPTIMIZER: {
     label: 'Optimize Ad Budgets',
     description: 'Auto-optimize budget allocation across campaigns',
+  },
+  AD_CONVERSION_UPLOAD: {
+    label: 'Upload Conversions',
+    description: 'Upload booking conversions to ad platforms via CAPI',
   },
   PAID_KEYWORD_SCAN: {
     label: 'Scan Paid Keywords',

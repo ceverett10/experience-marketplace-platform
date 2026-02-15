@@ -361,7 +361,7 @@ export default function AdPerformancePage() {
             <KPICard label="Avg CPC" value={data.kpis.cpc} prior={data.kpisPrior.cpc} format="currency" />
             <KPICard label="CPA" value={data.kpis.cpa} prior={data.kpisPrior.cpa} format="currency" />
             <KPICard label="CTR" value={data.kpis.ctr} prior={data.kpisPrior.ctr} format="percent" />
-            <KPICard label="Budget Utilization" value={data.kpis.budgetUtilization} format="percent" />
+            <KPICard label="Budget Utilization" value={data.kpis.budgetUtilization ?? null} format="percent" />
           </div>
 
           {/* Daily Trend Chart (simple bar representation) */}
