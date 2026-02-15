@@ -112,33 +112,84 @@ const KNOWN_DESTINATIONS = new Set([
   'lyon', 'marseille', 'bordeaux', 'strasbourg', 'normandy', 'provence',
   'tuscany', 'cinque terre', 'amalfi', 'pompeii', 'capri', 'sicily',
   'sardinia', 'crete', 'rhodes', 'corfu', 'zakynthos',
+  // Italy (expanded - many cooking/food experience suppliers)
+  'bologna', 'palermo', 'siena', 'verona', 'turin', 'genoa', 'pisa',
+  'lucca', 'como', 'rimini', 'perugia', 'parma', 'modena', 'ravenna',
+  'lecce', 'bari', 'alberobello', 'matera', 'sorrento', 'positano',
+  'taormina', 'catania', 'cagliari', 'trieste', 'padua', 'bergamo',
+  'arezzo', 'orvieto', 'assisi', 'cortona', 'varenna', 'bellagio',
+  'cinque terre', 'portofino', 'san gimignano',
+  // Spain (expanded)
+  'san sebastian', 'toledo', 'cordoba', 'cadiz', 'salamanca',
+  'ibiza', 'mallorca', 'tenerife', 'gran canaria', 'lanzarote',
+  // France (expanded)
+  'avignon', 'aix-en-provence', 'cannes', 'monaco', 'toulouse',
+  'nantes', 'montpellier', 'dijon', 'colmar', 'annecy',
+  // Germany/Austria/Switzerland
+  'salzburg', 'innsbruck', 'graz', 'heidelberg', 'dresden',
+  'cologne', 'hamburg', 'frankfurt', 'nuremberg', 'rothenburg',
+  'lucerne', 'interlaken', 'zermatt', 'grindelwald',
+  // Scandinavia
+  'bergen', 'gothenburg', 'malmo', 'turku', 'rovaniemi', 'tromso',
+  // Eastern Europe
+  'tallinn', 'riga', 'vilnius', 'bratislava', 'ljubljana', 'zagreb',
+  'sarajevo', 'kotor', 'mostar', 'ohrid', 'plovdiv', 'sofia', 'bucharest',
+  // Greece (expanded)
+  'thessaloniki', 'heraklion', 'chania', 'naxos', 'paros', 'meteora',
+  'delphi', 'olympia', 'corinth', 'nafplio', 'hydra',
   // UK & Ireland
   'stonehenge', 'cotswolds', 'lake district', 'snowdonia', 'highlands',
   'isle of skye', 'loch ness', 'windsor', 'canterbury', 'stratford',
+  'aberdeen', 'st andrews', 'whitby', 'durham', 'chester', 'salisbury',
+  'bournemouth', 'portsmouth', 'southampton', 'nottingham', 'leeds',
+  'birmingham', 'swansea', 'killarney', 'limerick', 'waterford',
   // Americas
   'new york', 'los angeles', 'san francisco', 'las vegas', 'miami',
   'chicago', 'boston', 'washington', 'seattle', 'san diego', 'honolulu',
   'new orleans', 'nashville', 'austin', 'denver', 'portland',
+  'savannah', 'charleston', 'minneapolis', 'philadelphia', 'atlanta',
+  'dallas', 'houston', 'phoenix', 'san antonio', 'orlando', 'tampa',
+  'pittsburgh', 'detroit', 'baltimore', 'memphis', 'st louis',
+  'santa fe', 'sedona', 'aspen', 'key west', 'maui', 'kauai',
+  'anchorage', 'juneau', 'niagara falls',
+  // Canada
+  'toronto', 'vancouver', 'montreal', 'quebec city', 'ottawa', 'calgary',
+  'banff', 'victoria', 'halifax', 'whistler',
+  // Latin America
   'cancun', 'mexico city', 'cabo', 'playa del carmen', 'tulum',
+  'oaxaca', 'guanajuato', 'merida', 'puebla', 'guadalajara',
   'havana', 'nassau', 'punta cana', 'cartagena', 'bogota', 'medellin',
   'lima', 'cusco', 'buenos aires', 'rio de janeiro', 'sao paulo',
   'santiago', 'montevideo', 'quito', 'galapagos',
+  'san jose', 'monteverde', 'la fortuna', 'antigua guatemala',
+  'guayaquil', 'valparaiso', 'bariloche', 'ushuaia',
   // Asia & Pacific
   'tokyo', 'kyoto', 'osaka', 'bangkok', 'singapore', 'hong kong',
   'bali', 'hanoi', 'ho chi minh', 'siem reap', 'kuala lumpur',
   'seoul', 'taipei', 'shanghai', 'beijing', 'dubai', 'abu dhabi',
   'delhi', 'mumbai', 'jaipur', 'agra', 'goa', 'colombo', 'kandy',
   'kathmandu', 'phnom penh', 'yangon', 'manila', 'cebu',
+  'chiang mai', 'phuket', 'koh samui', 'ubud', 'yogyakarta',
+  'luang prabang', 'hoi an', 'da nang', 'nha trang',
+  'nagasaki', 'hiroshima', 'nara', 'hakone', 'kamakura',
+  'penang', 'langkawi', 'borneo', 'lombok',
+  // South Asia
+  'galle', 'ella', 'sigiriya', 'dambulla', 'trincomalee',
+  'varanasi', 'udaipur', 'jodhpur', 'rishikesh', 'kochi', 'munnar',
   // Africa & Middle East
   'cairo', 'cape town', 'johannesburg', 'nairobi', 'zanzibar',
   'victoria falls', 'casablanca', 'fez', 'luxor', 'aswan',
   'tel aviv', 'jerusalem', 'petra', 'amman', 'muscat',
+  'marrakech', 'essaouira', 'chefchaouen', 'mombasa', 'arusha',
+  'windhoek', 'livingstone', 'addis ababa', 'dakar', 'accra',
   // Oceania
   'sydney', 'melbourne', 'auckland', 'queenstown', 'cairns',
-  'fiji', 'tahiti', 'gold coast',
+  'fiji', 'tahiti', 'gold coast', 'brisbane', 'adelaide', 'perth',
+  'hobart', 'darwin', 'rotorua', 'wellington', 'christchurch',
   // Caribbean
   'jamaica', 'barbados', 'aruba', 'curacao', 'bermuda',
   'st lucia', 'antigua', 'grenada', 'martinique',
+  'san juan', 'turks and caicos', 'cayman islands',
   // Countries (when no city is extractable)
   'sri lanka', 'thailand', 'vietnam', 'cambodia', 'nepal',
   'morocco', 'egypt', 'kenya', 'tanzania', 'south africa',
@@ -146,7 +197,8 @@ const KNOWN_DESTINATIONS = new Set([
   'italy', 'france', 'greece', 'croatia', 'turkey',
   'japan', 'indonesia', 'malaysia', 'philippines', 'india',
   'mexico', 'peru', 'colombia', 'brazil', 'argentina', 'costa rica',
-  'australia', 'new zealand',
+  'australia', 'new zealand', 'fiji', 'malta', 'cyprus', 'montenegro',
+  'oman', 'jordan', 'israel', 'georgia', 'armenia',
 ]);
 
 // ---------------------------------------------------------------------------
@@ -529,13 +581,12 @@ function isTransferProduct(product: HolibobProduct): boolean {
 function extractCityFromProductName(productName: string): string | null {
   const nameLower = productName.toLowerCase();
 
-  // Try to match known destinations (longest match first for multi-word names)
+  // Strategy 1: Match against known destinations (longest match first)
   let bestMatch: string | null = null;
   let bestLen = 0;
 
   for (const dest of KNOWN_DESTINATIONS) {
     if (dest.length > bestLen && nameLower.includes(dest)) {
-      // Verify it's a word boundary match (not a substring of another word)
       const regex = new RegExp(`\\b${escapeRegex(dest)}\\b`, 'i');
       if (regex.test(nameLower)) {
         bestMatch = dest;
@@ -545,8 +596,26 @@ function extractCityFromProductName(productName: string): string | null {
   }
 
   if (bestMatch) {
-    // Capitalize properly
     return bestMatch.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  }
+
+  // Strategy 2: Pattern-based extraction from title structure
+  // "... in [City]" — "Cooking Class in Bologna"
+  const inMatch = productName.match(/\bin\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s*$/);
+  if (inMatch?.[1] && inMatch[1].length >= 3 && inMatch[1].length <= 30) {
+    return inMatch[1];
+  }
+
+  // "[City]: ..." — "Naples: Pasta Making Class"
+  const colonMatch = productName.match(/^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*):\s/);
+  if (colonMatch?.[1] && colonMatch[1].length >= 3 && colonMatch[1].length <= 30) {
+    return colonMatch[1];
+  }
+
+  // "... at/near [City]" — "Cooking class at a Cesarina's home at Como"
+  const atMatch = productName.match(/\bat\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s*$/);
+  if (atMatch?.[1] && atMatch[1].length >= 3 && atMatch[1].length <= 25) {
+    return atMatch[1];
   }
 
   return null;
