@@ -62,7 +62,7 @@ interface SupplierExtraction {
 // ---------------------------------------------------------------------------
 
 const MAX_SEEDS_PER_SUPPLIER = 100;
-const MAX_COST_SAFETY_LIMIT = 150; // USD
+const MAX_COST_SAFETY_LIMIT = 350; // USD — covers up to ~175k seeds at $0.002/kw
 const COST_PER_KEYWORD = 0.002;
 /** Minimum % of experience (non-transfer) products to process a supplier */
 const MIN_EXPERIENCE_RATIO = 0.15;
@@ -276,9 +276,11 @@ export async function runBulkEnrichment(
   // Only process suppliers with active microsites (these are the sites we can drive traffic to)
   const supplierWhere: Record<string, unknown> = {
     microsite: { status: 'ACTIVE' },
+    keywordsEnrichedAt: null, // Skip already-enriched suppliers
   };
   if (supplierIds?.length) {
     supplierWhere['id'] = { in: supplierIds };
+    delete supplierWhere['keywordsEnrichedAt']; // Allow re-processing specific suppliers
   }
 
   let suppliers = await prisma.supplier.findMany({
@@ -292,11 +294,12 @@ export async function runBulkEnrichment(
     orderBy: { productCount: 'desc' },
   });
 
+  const totalRemaining = suppliers.length;
   if (maxSuppliersPerRun) {
     suppliers = suppliers.slice(0, maxSuppliersPerRun);
   }
 
-  console.log(`[Enrichment] Found ${suppliers.length} suppliers to process`);
+  console.log(`[Enrichment] Found ${totalRemaining} unenriched suppliers, processing ${suppliers.length}`);
 
   // =========================================================================
   // PHASE 1: Extract keywords from product data
