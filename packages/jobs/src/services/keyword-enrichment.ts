@@ -537,6 +537,27 @@ async function extractKeywordsFromSupplier(
   const cities = [...citySet];
   const categories = [...categorySet].filter(c => !SKIP_CATEGORIES.has(c.toLowerCase()));
 
+  // ---- Branded/direct search seeds ----
+  // Someone searching for the supplier by name is extremely high intent.
+  // Since we host the microsite, we ARE the brand's digital presence.
+  const brandName = cleanBrandName(supplier.name);
+  if (brandName) {
+    // [brand] + city: "cesarine venice", "lakpura colombo"
+    for (const city of cities) {
+      seeds.add(`${brandName} ${city}`.toLowerCase());
+    }
+    // [brand] + top category: "cesarine cooking class", "voicemap walking tour"
+    for (const cat of categories.slice(0, 3)) {
+      seeds.add(`${brandName} ${cat}`.toLowerCase());
+    }
+    // [brand] + booking intent: "book cesarine", "cesarine reviews"
+    seeds.add(`${brandName} booking`.toLowerCase());
+    seeds.add(`${brandName} reviews`.toLowerCase());
+    seeds.add(`book ${brandName}`.toLowerCase());
+    // bare brand name (people searching the supplier directly)
+    seeds.add(brandName.toLowerCase());
+  }
+
   // Cap at MAX_SEEDS_PER_SUPPLIER
   const seedArray = [...seeds].slice(0, MAX_SEEDS_PER_SUPPLIER);
 
@@ -547,6 +568,39 @@ async function extractKeywordsFromSupplier(
     categories,
     productsAnalyzed: allProducts.length,
   };
+}
+
+/**
+ * Clean a supplier name into a usable brand keyword.
+ * Strips legal suffixes, generic words, and returns null if too generic.
+ *
+ * Examples:
+ *   "Home Food S.r.l." → "home food"
+ *   "Cesarine" → "cesarine"
+ *   "VoiceMap" → "voicemap"
+ *   "Lakpura LLC" → "lakpura"
+ *   "taxiGo.online - Booking Transfer & Taxi" → null (transfer company)
+ *   "Europe Journey - Private Sightseeing Transfers" → "europe journey"
+ */
+function cleanBrandName(supplierName: string): string | null {
+  let name = supplierName
+    .replace(/\b(s\.r\.l\.?|llc|ltd|inc|gmbh|pty|co\.?|corp|limited)\b/gi, '')
+    .replace(/\s*[-–—]\s*.+$/, '')  // Remove everything after dash (e.g., "taxiGo - Booking Transfer")
+    .replace(/\s*\(.*\)/, '')       // Remove parenthetical
+    .replace(/\.[a-z]+$/i, '')       // Remove domain extensions (.online, .com)
+    .replace(/[^a-zA-Z\s]/g, '')    // Remove special characters
+    .trim()
+    .toLowerCase();
+
+  // Filter out names that are too generic or too short to be useful keywords
+  if (name.length < 3) return null;
+  if (name.split(/\s+/).length > 4) return null;
+
+  // Skip if the brand name itself contains transfer/transport terms
+  const skipTerms = ['taxi', 'transfer', 'shuttle', 'driver', 'transport', 'limo'];
+  if (skipTerms.some(t => name.includes(t))) return null;
+
+  return name;
 }
 
 /** Check if a product is a transfer/transport (not a bookable experience) */
