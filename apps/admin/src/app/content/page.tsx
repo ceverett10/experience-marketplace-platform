@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent, Button } from '@experience-marketplace/ui-components';
 
 interface ContentItem {
@@ -16,11 +16,31 @@ interface ContentItem {
   generatedAt: string;
 }
 
+interface PaginationInfo {
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
+}
+
+interface Stats {
+  total: number;
+  pending: number;
+  approved: number;
+  published: number;
+  rejected: number;
+}
+
+const PAGE_SIZE = 50;
+
 export default function AdminContentPage() {
   const [content, setContent] = useState<ContentItem[]>([]);
-  const [filteredContent, setFilteredContent] = useState<ContentItem[]>([]);
+  const [pagination, setPagination] = useState<PaginationInfo>({ page: 1, pageSize: PAGE_SIZE, totalCount: 0, totalPages: 0 });
+  const [stats, setStats] = useState<Stats>({ total: 0, pending: 0, approved: 0, published: 0, rejected: 0 });
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [currentPage, setCurrentPage] = useState(1);
   const [selectedContent, setSelectedContent] = useState<ContentItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -31,57 +51,55 @@ export default function AdminContentPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [regeneratingIds, setRegeneratingIds] = useState<Set<string>>(new Set());
 
-  // Fetch content from API
+  // Debounce search input
+  const searchTimer = useRef<ReturnType<typeof setTimeout>>();
   useEffect(() => {
-    const fetchContent = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
-        const response = await fetch(`${basePath}/api/content`);
+    searchTimer.current = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setCurrentPage(1); // Reset to first page on new search
+    }, 300);
+    return () => clearTimeout(searchTimer.current);
+  }, [searchQuery]);
 
-        if (!response.ok) {
-          throw new Error('Failed to fetch content');
-        }
+  // Reset to page 1 when filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter]);
 
-        const data = await response.json();
-        setContent(data);
-      } catch (err) {
-        console.error('Error fetching content:', err);
-        setError('Failed to load content. Please try again.');
-      } finally {
-        setIsLoading(false);
+  // Fetch content from API with server-side pagination
+  const fetchContent = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
+      const params = new URLSearchParams({
+        page: String(currentPage),
+        pageSize: String(PAGE_SIZE),
+      });
+      if (debouncedSearch) params.set('search', debouncedSearch);
+      if (statusFilter !== 'all') params.set('status', statusFilter);
+
+      const response = await fetch(`${basePath}/api/content?${params}`);
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch content');
       }
-    };
 
-    fetchContent();
-  }, []);
+      const data = await response.json();
+      setContent(data.items);
+      setPagination(data.pagination);
+      setStats(data.stats);
+    } catch (err) {
+      console.error('Error fetching content:', err);
+      setError('Failed to load content. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentPage, debouncedSearch, statusFilter]);
 
-  // Filter content based on search and status
   useEffect(() => {
-    let filtered = content;
-
-    if (searchQuery) {
-      filtered = filtered.filter(
-        (item) =>
-          item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          item.siteName.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
-
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter((item) => item.status === statusFilter);
-    }
-
-    setFilteredContent(filtered);
-  }, [content, searchQuery, statusFilter]);
-
-  const stats = {
-    total: content.length,
-    pending: content.filter((c) => c.status === 'pending').length,
-    approved: content.filter((c) => c.status === 'approved').length,
-    published: content.filter((c) => c.status === 'published').length,
-  };
+    fetchContent();
+  }, [fetchContent]);
 
   const updateContentStatus = async (id: string, status: ContentItem['status']) => {
     try {
@@ -96,9 +114,11 @@ export default function AdminContentPage() {
         throw new Error('Failed to update content');
       }
 
-      // Update local state
+      // Update local state optimistically
       setContent((prev) => prev.map((item) => (item.id === id ? { ...item, status } : item)));
       closeModal();
+      // Refresh stats
+      fetchContent();
     } catch (err) {
       console.error('Error updating content:', err);
       alert('Failed to update content. Please try again.');
@@ -307,17 +327,6 @@ export default function AdminContentPage() {
     );
   }
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <div className="animate-spin text-4xl mb-4">⏳</div>
-          <p className="text-slate-600">Loading content...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
       {/* View/Edit Modal */}
@@ -509,7 +518,7 @@ export default function AdminContentPage() {
           onClick={() => setStatusFilter('all')}
         >
           <CardContent className="p-4">
-            <p className="text-2xl font-bold text-slate-900">{stats.total}</p>
+            <p className="text-2xl font-bold text-slate-900">{stats.total.toLocaleString()}</p>
             <p className="text-sm text-slate-500">Total</p>
           </CardContent>
         </Card>
@@ -518,7 +527,7 @@ export default function AdminContentPage() {
           onClick={() => setStatusFilter('pending')}
         >
           <CardContent className="p-4">
-            <p className="text-2xl font-bold text-amber-600">{stats.pending}</p>
+            <p className="text-2xl font-bold text-amber-600">{stats.pending.toLocaleString()}</p>
             <p className="text-sm text-slate-500">Pending</p>
           </CardContent>
         </Card>
@@ -527,7 +536,7 @@ export default function AdminContentPage() {
           onClick={() => setStatusFilter('approved')}
         >
           <CardContent className="p-4">
-            <p className="text-2xl font-bold text-green-600">{stats.approved}</p>
+            <p className="text-2xl font-bold text-green-600">{stats.approved.toLocaleString()}</p>
             <p className="text-sm text-slate-500">Approved</p>
           </CardContent>
         </Card>
@@ -536,7 +545,7 @@ export default function AdminContentPage() {
           onClick={() => setStatusFilter('published')}
         >
           <CardContent className="p-4">
-            <p className="text-2xl font-bold text-blue-600">{stats.published}</p>
+            <p className="text-2xl font-bold text-blue-600">{stats.published.toLocaleString()}</p>
             <p className="text-sm text-slate-500">Published</p>
           </CardContent>
         </Card>
@@ -567,8 +576,15 @@ export default function AdminContentPage() {
         </select>
       </div>
 
-      {/* Content list */}
-      {filteredContent.length === 0 ? (
+      {/* Loading state */}
+      {isLoading ? (
+        <div className="flex items-center justify-center min-h-[200px]">
+          <div className="text-center">
+            <div className="animate-spin text-4xl mb-4">⏳</div>
+            <p className="text-slate-600">Loading content...</p>
+          </div>
+        </div>
+      ) : content.length === 0 ? (
         <Card>
           <CardContent className="p-12 text-center">
             <div className="text-4xl mb-4">📄</div>
@@ -581,104 +597,160 @@ export default function AdminContentPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-4">
-          {filteredContent.map((item) => (
-            <Card key={item.id} className="overflow-hidden hover:shadow-md transition-shadow">
-              <div className="p-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-4 flex-1">
-                    <div
-                      className={`h-12 w-12 rounded-xl flex items-center justify-center text-2xl ${
-                        item.status === 'pending'
-                          ? 'bg-amber-100'
-                          : item.status === 'approved'
-                            ? 'bg-green-100'
-                            : item.status === 'rejected'
-                              ? 'bg-red-100'
-                              : 'bg-blue-100'
-                      }`}
-                    >
-                      {getTypeIcon(item.type)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-semibold text-slate-900 truncate">{item.title}</h3>
-                        {getStatusBadge(item.status)}
-                      </div>
-                      <p className="text-sm text-slate-500 mb-2">{item.siteName}</p>
-                      <p className="text-sm text-slate-600 line-clamp-2">{item.content}</p>
-                      <div className="flex items-center gap-4 mt-3 text-xs text-slate-500">
-                        <span className="flex items-center gap-1">
-                          ✨ Quality:{' '}
-                          <span className={getQualityColor(item.qualityScore)}>
-                            {item.qualityScore}/100
-                          </span>
-                        </span>
-                        <span>Generated: {new Date(item.generatedAt).toLocaleDateString()}</span>
-                      </div>
-                    </div>
-                  </div>
+        <>
+          {/* Results info */}
+          <p className="text-sm text-slate-500">
+            Showing {((currentPage - 1) * PAGE_SIZE) + 1}–{Math.min(currentPage * PAGE_SIZE, pagination.totalCount)} of {pagination.totalCount.toLocaleString()} items
+          </p>
 
-                  <div className="flex items-center gap-2 ml-4">
-                    <button
-                      onClick={() => setSelectedContent(item)}
-                      className="p-2 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors"
-                      title="View"
-                    >
-                      👁️
-                    </button>
-                    <button
-                      onClick={() => {
-                        setSelectedContent(item);
-                        setEditTitle(item.title);
-                        setEditContent(item.content);
-                        setIsEditing(true);
-                      }}
-                      className="p-2 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors"
-                      title="Edit"
-                    >
-                      ✏️
-                    </button>
-                    <button
-                      onClick={() => regenerateContent(item.id, item.title)}
-                      disabled={regeneratingIds.has(item.id)}
-                      className="p-2 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="Re-Run AI"
-                    >
-                      {regeneratingIds.has(item.id) ? '⏳' : '🤖'}
-                    </button>
-                    {item.status === 'pending' && (
-                      <>
-                        <button
-                          onClick={() => handleReject(item.id)}
-                          className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          title="Reject"
-                        >
-                          ✕
-                        </button>
-                        <button
-                          onClick={() => handleApprove(item.id)}
-                          className="p-2 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                          title="Approve"
-                        >
-                          ✓
-                        </button>
-                      </>
-                    )}
-                    {item.status === 'approved' && (
-                      <button
-                        onClick={() => handlePublish(item.id)}
-                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+          {/* Content list */}
+          <div className="space-y-4">
+            {content.map((item) => (
+              <Card key={item.id} className="overflow-hidden hover:shadow-md transition-shadow">
+                <div className="p-6">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start gap-4 flex-1">
+                      <div
+                        className={`h-12 w-12 rounded-xl flex items-center justify-center text-2xl ${
+                          item.status === 'pending'
+                            ? 'bg-amber-100'
+                            : item.status === 'approved'
+                              ? 'bg-green-100'
+                              : item.status === 'rejected'
+                                ? 'bg-red-100'
+                                : 'bg-blue-100'
+                        }`}
                       >
-                        Publish
+                        {getTypeIcon(item.type)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-semibold text-slate-900 truncate">{item.title}</h3>
+                          {getStatusBadge(item.status)}
+                        </div>
+                        <p className="text-sm text-slate-500 mb-2">{item.siteName}</p>
+                        <p className="text-sm text-slate-600 line-clamp-2">{item.content}</p>
+                        <div className="flex items-center gap-4 mt-3 text-xs text-slate-500">
+                          <span className="flex items-center gap-1">
+                            ✨ Quality:{' '}
+                            <span className={getQualityColor(item.qualityScore)}>
+                              {item.qualityScore}/100
+                            </span>
+                          </span>
+                          <span>Generated: {new Date(item.generatedAt).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 ml-4">
+                      <button
+                        onClick={() => setSelectedContent(item)}
+                        className="p-2 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors"
+                        title="View"
+                      >
+                        👁️
                       </button>
-                    )}
+                      <button
+                        onClick={() => {
+                          setSelectedContent(item);
+                          setEditTitle(item.title);
+                          setEditContent(item.content);
+                          setIsEditing(true);
+                        }}
+                        className="p-2 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors"
+                        title="Edit"
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        onClick={() => regenerateContent(item.id, item.title)}
+                        disabled={regeneratingIds.has(item.id)}
+                        className="p-2 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Re-Run AI"
+                      >
+                        {regeneratingIds.has(item.id) ? '⏳' : '🤖'}
+                      </button>
+                      {item.status === 'pending' && (
+                        <>
+                          <button
+                            onClick={() => handleReject(item.id)}
+                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Reject"
+                          >
+                            ✕
+                          </button>
+                          <button
+                            onClick={() => handleApprove(item.id)}
+                            className="p-2 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                            title="Approve"
+                          >
+                            ✓
+                          </button>
+                        </>
+                      )}
+                      {item.status === 'approved' && (
+                        <button
+                          onClick={() => handlePublish(item.id)}
+                          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+                        >
+                          Publish
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
+              </Card>
+            ))}
+          </div>
+
+          {/* Pagination Controls */}
+          {pagination.totalPages > 1 && (
+            <div className="flex items-center justify-between pt-4">
+              <Button
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage <= 1}
+                className="px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-lg text-sm disabled:opacity-50"
+              >
+                Previous
+              </Button>
+              <div className="flex items-center gap-1">
+                {Array.from({ length: Math.min(pagination.totalPages, 7) }, (_, i) => {
+                  // Show pages around current page
+                  let pageNum: number;
+                  if (pagination.totalPages <= 7) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 4) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= pagination.totalPages - 3) {
+                    pageNum = pagination.totalPages - 6 + i;
+                  } else {
+                    pageNum = currentPage - 3 + i;
+                  }
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`px-3 py-1 rounded text-sm ${
+                        pageNum === currentPage
+                          ? 'bg-sky-600 text-white'
+                          : 'text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
               </div>
-            </Card>
-          ))}
-        </div>
+              <Button
+                onClick={() => setCurrentPage((p) => Math.min(pagination.totalPages, p + 1))}
+                disabled={currentPage >= pagination.totalPages}
+                className="px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-lg text-sm disabled:opacity-50"
+              >
+                Next
+              </Button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

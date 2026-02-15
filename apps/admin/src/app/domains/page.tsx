@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent } from '@experience-marketplace/ui-components';
 
 interface Domain {
@@ -43,6 +43,15 @@ interface Stats {
   expiringBoon: number;
 }
 
+interface PaginationInfo {
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
+}
+
+const DOMAIN_PAGE_SIZE = 50;
+
 export default function DomainsPage() {
   const [domains, setDomains] = useState<Domain[]>([]);
   const [stats, setStats] = useState<Stats>({
@@ -62,37 +71,59 @@ export default function DomainsPage() {
   const [checkingAvailability, setCheckingAvailability] = useState(false);
   const [checkingDomainId, setCheckingDomainId] = useState<string | null>(null);
   const [creatingSiteForDomainId, setCreatingSiteForDomainId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [paginationInfo, setPaginationInfo] = useState<PaginationInfo>({ page: 1, pageSize: DOMAIN_PAGE_SIZE, totalCount: 0, totalPages: 1 });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const searchTimer = useRef<ReturnType<typeof setTimeout>>();
+
+  // Debounce search input
+  useEffect(() => {
+    searchTimer.current = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setCurrentPage(1);
+    }, 300);
+    return () => clearTimeout(searchTimer.current);
+  }, [searchQuery]);
 
   // Fetch domains from API
-  useEffect(() => {
-    const fetchDomains = async () => {
-      try {
-        setLoading(true);
-        // Use basePath in production
-        const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
-        const response = await fetch(`${basePath}/api/domains?status=${statusFilter}`);
-        const data = await response.json();
-        setDomains(data.domains || []);
-        setStats(
-          data.stats || {
-            total: 0,
-            active: 0,
-            pending: 0,
-            available: 0,
-            notAvailable: 0,
-            sslEnabled: 0,
-            expiringBoon: 0,
-          }
-        );
-      } catch (error) {
-        console.error('Failed to fetch domains:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchDomains = useCallback(async () => {
+    try {
+      setLoading(true);
+      const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
+      const params = new URLSearchParams({
+        status: statusFilter,
+        page: currentPage.toString(),
+        pageSize: DOMAIN_PAGE_SIZE.toString(),
+      });
+      if (debouncedSearch) params.set('search', debouncedSearch);
 
+      const response = await fetch(`${basePath}/api/domains?${params}`);
+      const data = await response.json();
+      setDomains(data.domains || []);
+      setPaginationInfo(data.pagination || { page: 1, pageSize: DOMAIN_PAGE_SIZE, totalCount: 0, totalPages: 1 });
+      setStats(
+        data.stats || {
+          total: 0,
+          active: 0,
+          pending: 0,
+          available: 0,
+          notAvailable: 0,
+          orphan: 0,
+          sslEnabled: 0,
+          expiringBoon: 0,
+        }
+      );
+    } catch (error) {
+      console.error('Failed to fetch domains:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [statusFilter, currentPage, debouncedSearch]);
+
+  useEffect(() => {
     fetchDomains();
-  }, [statusFilter]);
+  }, [fetchDomains]);
 
   const getStatusBadge = (status: Domain['status']) => {
     const styles: Record<Domain['status'], string> = {
@@ -136,13 +167,8 @@ export default function DomainsPage() {
     return 'text-green-600';
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-slate-500">Loading domains...</div>
-      </div>
-    );
-  }
+  // Helper to refetch after actions
+  const refetchDomains = () => fetchDomains();
 
   return (
     <div className="space-y-6">
@@ -168,23 +194,7 @@ export default function DomainsPage() {
                   alert(
                     `Checked ${result.checked || 0} domains: ${result.available || 0} available, ${result.notAvailable || 0} not available`
                   );
-                  // Refetch domains
-                  const domainsResponse = await fetch(
-                    `${basePath}/api/domains?status=${statusFilter}`
-                  );
-                  const data = await domainsResponse.json();
-                  setDomains(data.domains || []);
-                  setStats(
-                    data.stats || {
-                      total: 0,
-                      active: 0,
-                      pending: 0,
-                      available: 0,
-                      notAvailable: 0,
-                      sslEnabled: 0,
-                      expiringBoon: 0,
-                    }
-                  );
+                  await refetchDomains();
                 } else {
                   alert(result.error || 'Failed to check availability');
                 }
@@ -222,23 +232,7 @@ export default function DomainsPage() {
                   alert(
                     `Fetched ${result.totalFromCloudflare || '?'} domains from Cloudflare.\nSynced: ${result.synced?.length || 0}\nDNS configured: ${result.dnsConfigured?.length || 0}${unmatchedInfo}${slugsInfo}`
                   );
-                  // Refetch domains
-                  const domainsResponse = await fetch(
-                    `${basePath}/api/domains?status=${statusFilter}`
-                  );
-                  const data = await domainsResponse.json();
-                  setDomains(data.domains || []);
-                  setStats(
-                    data.stats || {
-                      total: 0,
-                      active: 0,
-                      pending: 0,
-                      available: 0,
-                      notAvailable: 0,
-                      sslEnabled: 0,
-                      expiringBoon: 0,
-                    }
-                  );
+                  await refetchDomains();
                 } else {
                   alert(result.error || 'Failed to sync from Cloudflare');
                 }
@@ -267,23 +261,7 @@ export default function DomainsPage() {
                 const result = await response.json();
                 if (response.ok) {
                   alert(`Queued domain registration for ${result.queued?.length || 0} sites`);
-                  // Refetch domains
-                  const domainsResponse = await fetch(
-                    `${basePath}/api/domains?status=${statusFilter}`
-                  );
-                  const data = await domainsResponse.json();
-                  setDomains(data.domains || []);
-                  setStats(
-                    data.stats || {
-                      total: 0,
-                      active: 0,
-                      pending: 0,
-                      available: 0,
-                      notAvailable: 0,
-                      sslEnabled: 0,
-                      expiringBoon: 0,
-                    }
-                  );
+                  await refetchDomains();
                 } else {
                   alert(result.error || 'Failed to queue domains');
                 }
@@ -306,7 +284,7 @@ export default function DomainsPage() {
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-4">
         <Card
           className="cursor-pointer hover:shadow-md transition-shadow"
-          onClick={() => setStatusFilter('all')}
+          onClick={() => { setStatusFilter('all'); setCurrentPage(1); }}
         >
           <CardContent className="p-4">
             <p className="text-2xl font-bold text-slate-900">{stats.total}</p>
@@ -315,7 +293,7 @@ export default function DomainsPage() {
         </Card>
         <Card
           className="cursor-pointer hover:shadow-md transition-shadow"
-          onClick={() => setStatusFilter('ACTIVE')}
+          onClick={() => { setStatusFilter('ACTIVE'); setCurrentPage(1); }}
         >
           <CardContent className="p-4">
             <p className="text-2xl font-bold text-green-600">{stats.active}</p>
@@ -324,7 +302,7 @@ export default function DomainsPage() {
         </Card>
         <Card
           className="cursor-pointer hover:shadow-md transition-shadow"
-          onClick={() => setStatusFilter('AVAILABLE')}
+          onClick={() => { setStatusFilter('AVAILABLE'); setCurrentPage(1); }}
         >
           <CardContent className="p-4">
             <p className="text-2xl font-bold text-emerald-600">{stats.available}</p>
@@ -333,7 +311,7 @@ export default function DomainsPage() {
         </Card>
         <Card
           className="cursor-pointer hover:shadow-md transition-shadow"
-          onClick={() => setStatusFilter('NOT_AVAILABLE')}
+          onClick={() => { setStatusFilter('NOT_AVAILABLE'); setCurrentPage(1); }}
         >
           <CardContent className="p-4">
             <p className="text-2xl font-bold text-rose-600">{stats.notAvailable}</p>
@@ -342,7 +320,7 @@ export default function DomainsPage() {
         </Card>
         <Card
           className="cursor-pointer hover:shadow-md transition-shadow"
-          onClick={() => setStatusFilter('PENDING')}
+          onClick={() => { setStatusFilter('PENDING'); setCurrentPage(1); }}
         >
           <CardContent className="p-4">
             <p className="text-2xl font-bold text-amber-600">{stats.pending}</p>
@@ -371,9 +349,16 @@ export default function DomainsPage() {
 
       {/* Filters */}
       <div className="flex items-center gap-4">
+        <input
+          type="text"
+          placeholder="Search domains or sites..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 w-64"
+        />
         <select
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
+          onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
           className="px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"
         >
           <option value="all">All Statuses</option>
@@ -387,6 +372,7 @@ export default function DomainsPage() {
           <option value="EXPIRED">Expired</option>
           <option value="FAILED">Failed</option>
         </select>
+        {loading && <span className="text-sm text-slate-400">Loading...</span>}
       </div>
 
       {/* Domains list */}
@@ -529,23 +515,7 @@ export default function DomainsPage() {
                             });
                             const result = await response.json();
                             if (response.ok) {
-                              // Refetch domains
-                              const domainsResponse = await fetch(
-                                `${basePath}/api/domains?status=${statusFilter}`
-                              );
-                              const data = await domainsResponse.json();
-                              setDomains(data.domains || []);
-                              setStats(
-                                data.stats || {
-                                  total: 0,
-                                  active: 0,
-                                  pending: 0,
-                                  available: 0,
-                                  notAvailable: 0,
-                                  sslEnabled: 0,
-                                  expiringBoon: 0,
-                                }
-                              );
+                              await refetchDomains();
                             } else {
                               alert(result.error || 'Failed to check availability');
                             }
@@ -586,23 +556,7 @@ export default function DomainsPage() {
                             const result = await response.json();
                             if (response.ok) {
                               alert('Domain registration queued!');
-                              // Refetch domains
-                              const domainsResponse = await fetch(
-                                `${basePath}/api/domains?status=${statusFilter}`
-                              );
-                              const data = await domainsResponse.json();
-                              setDomains(data.domains || []);
-                              setStats(
-                                data.stats || {
-                                  total: 0,
-                                  active: 0,
-                                  pending: 0,
-                                  available: 0,
-                                  notAvailable: 0,
-                                  sslEnabled: 0,
-                                  expiringBoon: 0,
-                                }
-                              );
+                              await refetchDomains();
                             } else {
                               alert(result.error || 'Failed to register domain');
                             }
@@ -645,24 +599,7 @@ export default function DomainsPage() {
                               alert(
                                 `Site "${result.site.name}" ${result.action === 'linked' ? 'linked' : 'created'} for ${result.domain}${roadmapInfo}`
                               );
-                              // Refetch domains
-                              const domainsResponse = await fetch(
-                                `${basePath}/api/domains?status=${statusFilter}`
-                              );
-                              const data = await domainsResponse.json();
-                              setDomains(data.domains || []);
-                              setStats(
-                                data.stats || {
-                                  total: 0,
-                                  active: 0,
-                                  pending: 0,
-                                  available: 0,
-                                  notAvailable: 0,
-                                  orphan: 0,
-                                  sslEnabled: 0,
-                                  expiringBoon: 0,
-                                }
-                              );
+                              await refetchDomains();
                             } else {
                               alert(result.error || 'Failed to create site');
                             }
@@ -703,7 +640,53 @@ export default function DomainsPage() {
         })}
       </div>
 
-      {domains.length === 0 && (
+      {/* Pagination controls */}
+      {paginationInfo.totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-slate-500">
+            Showing {(currentPage - 1) * DOMAIN_PAGE_SIZE + 1}-{Math.min(currentPage * DOMAIN_PAGE_SIZE, paginationInfo.totalCount)} of {paginationInfo.totalCount} domains
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Previous
+            </button>
+            {Array.from({ length: Math.min(5, paginationInfo.totalPages) }, (_, i) => {
+              let pageNum: number;
+              if (paginationInfo.totalPages <= 5) {
+                pageNum = i + 1;
+              } else if (currentPage <= 3) {
+                pageNum = i + 1;
+              } else if (currentPage >= paginationInfo.totalPages - 2) {
+                pageNum = paginationInfo.totalPages - 4 + i;
+              } else {
+                pageNum = currentPage - 2 + i;
+              }
+              return (
+                <button
+                  key={pageNum}
+                  onClick={() => setCurrentPage(pageNum)}
+                  className={`px-3 py-1.5 text-sm rounded-lg ${currentPage === pageNum ? 'bg-sky-600 text-white' : 'border border-slate-200 hover:bg-slate-50'}`}
+                >
+                  {pageNum}
+                </button>
+              );
+            })}
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(paginationInfo.totalPages, p + 1))}
+              disabled={currentPage === paginationInfo.totalPages}
+              className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
+
+      {domains.length === 0 && !loading && (
         <Card>
           <CardContent className="p-12 text-center">
             <div className="text-4xl mb-4">🌐</div>

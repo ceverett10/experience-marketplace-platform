@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent } from '@experience-marketplace/ui-components';
 
 interface Opportunity {
@@ -92,6 +92,8 @@ interface Stats {
   archived: number;
 }
 
+const OPP_PAGE_SIZE = 50;
+
 export default function OpportunitiesPage() {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [stats, setStats] = useState<Stats>({
@@ -102,6 +104,8 @@ export default function OpportunitiesPage() {
     highPriority: 0,
     archived: 0,
   });
+  const [paginationInfo, setPaginationInfo] = useState({ page: 1, totalCount: 0, totalPages: 0 });
+  const [currentPage, setCurrentPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [discarding, setDiscarding] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'score' | 'volume' | 'cluster' | 'created'>('score');
@@ -111,33 +115,52 @@ export default function OpportunitiesPage() {
   const [generatingExplanation, setGeneratingExplanation] = useState<string | null>(null);
   const [scanVersion, setScanVersion] = useState<'standard' | 'quick'>('standard');
 
-  // Fetch opportunities from API
-  useEffect(() => {
-    const fetchOpportunities = async () => {
-      try {
-        setLoading(true);
-        const response = await fetch(`/admin/api/opportunities?status=${statusFilter}`);
-        const data = await response.json();
-        setOpportunities(data.opportunities || []);
-        setStats(
-          data.stats || {
-            total: 0,
-            identified: 0,
-            evaluated: 0,
-            assigned: 0,
-            highPriority: 0,
-            archived: 0,
-          }
-        );
-      } catch (error) {
-        console.error('Failed to fetch opportunities:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  // Map sort UI to API sort field
+  const sortFieldMap: Record<string, string> = {
+    score: 'priorityScore',
+    volume: 'searchVolume',
+    cluster: 'searchVolume', // cluster sort not available server-side, fallback to volume
+    created: 'createdAt',
+  };
 
+  // Reset page on filter/sort changes
+  useEffect(() => { setCurrentPage(1); }, [statusFilter, sortBy]);
+
+  // Fetch opportunities from API with pagination
+  const fetchOpportunities = useCallback(async () => {
+    try {
+      setLoading(true);
+      const params = new URLSearchParams({
+        status: statusFilter,
+        page: String(currentPage),
+        pageSize: String(OPP_PAGE_SIZE),
+        sort: sortFieldMap[sortBy] || 'priorityScore',
+        order: 'desc',
+      });
+      const response = await fetch(`/admin/api/opportunities?${params}`);
+      const data = await response.json();
+      setOpportunities(data.opportunities || []);
+      setPaginationInfo(data.pagination || { page: 1, totalCount: 0, totalPages: 0 });
+      setStats(
+        data.stats || {
+          total: 0,
+          identified: 0,
+          evaluated: 0,
+          assigned: 0,
+          highPriority: 0,
+          archived: 0,
+        }
+      );
+    } catch (error) {
+      console.error('Failed to fetch opportunities:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [statusFilter, currentPage, sortBy]);
+
+  useEffect(() => {
     fetchOpportunities();
-  }, [statusFilter]);
+  }, [fetchOpportunities]);
 
   const handleAction = async (opportunityId: string, action: 'dismiss' | 'create-site') => {
     try {
@@ -155,20 +178,7 @@ export default function OpportunitiesPage() {
           setOpportunities((prev) => prev.filter((o) => o.id !== opportunityId));
         }
         // Refresh opportunities
-        const data = await fetch(`/admin/api/opportunities?status=${statusFilter}`).then((r) =>
-          r.json()
-        );
-        setOpportunities(data.opportunities || []);
-        setStats(
-          data.stats || {
-            total: 0,
-            identified: 0,
-            evaluated: 0,
-            assigned: 0,
-            highPriority: 0,
-            archived: 0,
-          }
-        );
+        fetchOpportunities();
       }
     } catch (error) {
       console.error('Failed to perform action:', error);
@@ -230,20 +240,7 @@ export default function OpportunitiesPage() {
         const pollInterval = setInterval(async () => {
           attempts++;
           try {
-            const data = await fetch(`/admin/api/opportunities?status=${statusFilter}`).then((r) =>
-              r.json()
-            );
-            setOpportunities(data.opportunities || []);
-            setStats(
-              data.stats || {
-                total: 0,
-                identified: 0,
-                evaluated: 0,
-                assigned: 0,
-                highPriority: 0,
-                archived: 0,
-              }
-            );
+            await fetchOpportunities();
 
             if (attempts >= maxAttempts) {
               clearInterval(pollInterval);
@@ -271,16 +268,8 @@ export default function OpportunitiesPage() {
     }
   };
 
-  const sortedOpportunities = [...opportunities].sort((a, b) => {
-    if (sortBy === 'score') return b.priorityScore - a.priorityScore;
-    if (sortBy === 'volume') return b.searchVolume - a.searchVolume;
-    if (sortBy === 'cluster') {
-      const aCluster = a.sourceData?.keywordCluster?.clusterTotalVolume ?? a.searchVolume;
-      const bCluster = b.sourceData?.keywordCluster?.clusterTotalVolume ?? b.searchVolume;
-      return bCluster - aCluster;
-    }
-    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-  });
+  // Sorting is now handled server-side
+  const sortedOpportunities = opportunities;
 
   const getStatusBadge = (status: Opportunity['status']) => {
     const styles: Record<string, string> = {
@@ -820,6 +809,29 @@ export default function OpportunitiesPage() {
             <p className="text-slate-500 mt-1">Try adjusting your filters or run a new scan</p>
           </CardContent>
         </Card>
+      )}
+
+      {/* Pagination Controls */}
+      {paginationInfo.totalPages > 1 && (
+        <div className="flex items-center justify-between pt-4">
+          <button
+            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            disabled={currentPage <= 1}
+            className="px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-lg text-sm disabled:opacity-50"
+          >
+            Previous
+          </button>
+          <span className="text-sm text-slate-500">
+            Page {currentPage} of {paginationInfo.totalPages} ({paginationInfo.totalCount.toLocaleString()} total)
+          </span>
+          <button
+            onClick={() => setCurrentPage((p) => Math.min(paginationInfo.totalPages, p + 1))}
+            disabled={currentPage >= paginationInfo.totalPages}
+            className="px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-lg text-sm disabled:opacity-50"
+          >
+            Next
+          </button>
+        </div>
       )}
     </div>
   );

@@ -70,139 +70,155 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
+    const search = searchParams.get('search') || '';
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const pageSize = Math.min(parseInt(searchParams.get('pageSize') || '50', 10), 200);
+    const skip = (page - 1) * pageSize;
 
-    // Build query filters
+    // Build query filters for registered domains
     const where: any = {};
     if (status && status !== 'all') {
       where.status = status;
     }
-
-    // Fetch registered domains from database
-    const registeredDomains = await prisma.domain.findMany({
-      where,
-      orderBy: {
-        createdAt: 'desc',
-      },
-      include: {
-        site: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-          },
-        },
-      },
-    });
-
-    // Fetch sites without domains to show suggested domains
-    const sitesWithoutDomains = await prisma.site.findMany({
-      where: {
-        domains: {
-          none: {},
-        },
-        status: {
-          notIn: ['ARCHIVED'],
-        },
-      },
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-        createdAt: true,
-        jobs: {
-          where: {
-            type: 'DOMAIN_REGISTER',
-          },
-          select: {
-            id: true,
-            status: true,
-            payload: true,
-            createdAt: true,
-          },
-          orderBy: {
-            createdAt: 'desc',
-          },
-          take: 1,
-        },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
-
-    // Create domain entries for sites without registered domains
-    const suggestedDomains = sitesWithoutDomains.map((site) => {
-      const domainJob = site.jobs[0];
-      const suggestedDomain =
-        domainJob?.payload && typeof domainJob.payload === 'object' && 'domain' in domainJob.payload
-          ? (domainJob.payload as any).domain
-          : `${site.slug}.com`;
-
-      // Determine status based on job status
-      let domainStatus: any = 'PENDING';
-      if (domainJob) {
-        if (domainJob.status === 'RUNNING') {
-          domainStatus = 'REGISTERING';
-        } else if (domainJob.status === 'FAILED') {
-          domainStatus = 'FAILED';
-        }
-      }
-
-      return {
-        id: `suggested-${site.id}`,
-        domain: suggestedDomain,
-        status: domainStatus,
-        registrar: 'cloudflare',
-        registeredAt: null,
-        expiresAt: null,
-        sslEnabled: false,
-        sslExpiresAt: null,
-        dnsConfigured: false,
-        cloudflareZoneId: null,
-        autoRenew: true,
-        registrationCost: 0,
-        siteName: site.name,
-        siteId: site.id,
-        isSuggested: true,
-      };
-    });
-
-    // Combine registered and suggested domains
-    const allDomainRecords = [...registeredDomains, ...suggestedDomains];
-
-    // Filter by status if requested
-    let filteredDomains = allDomainRecords;
-    if (status && status !== 'all') {
-      filteredDomains = allDomainRecords.filter((d) => d.status === status);
+    if (search) {
+      where.OR = [
+        { domain: { contains: search, mode: 'insensitive' } },
+        { site: { name: { contains: search, mode: 'insensitive' } } },
+      ];
     }
 
-    // Calculate stats
-    const allDomains = await prisma.domain.findMany();
+    // Fetch paginated registered domains, total count, and stats in parallel
+    const [totalCount, registeredDomains, statusCounts, orphanCount, sslCount, expiringCount, suggestedCount] = await Promise.all([
+      prisma.domain.count({ where }),
+      prisma.domain.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: pageSize,
+        include: {
+          site: {
+            select: { id: true, name: true, slug: true },
+          },
+        },
+      }),
+      // Stats via groupBy instead of fetching all records
+      prisma.domain.groupBy({
+        by: ['status'],
+        _count: { id: true },
+      }),
+      prisma.domain.count({ where: { siteId: null } }),
+      prisma.domain.count({ where: { sslEnabled: true } }),
+      prisma.domain.count({
+        where: {
+          expiresAt: {
+            not: null,
+            lt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          },
+        },
+      }),
+      // Count suggested domains (sites without any domain)
+      prisma.site.count({
+        where: {
+          domains: { none: {} },
+          status: { notIn: ['ARCHIVED'] },
+        },
+      }),
+    ]);
+
+    // Build stats from groupBy
+    const statsByStatus: Record<string, number> = {};
+    let totalRegistered = 0;
+    for (const row of statusCounts) {
+      statsByStatus[row.status] = row._count.id;
+      totalRegistered += row._count.id;
+    }
+
+    const pendingStatuses = ['PENDING', 'REGISTERING', 'DNS_PENDING', 'SSL_PENDING'];
+    const pendingRegistered = pendingStatuses.reduce((sum, s) => sum + (statsByStatus[s] || 0), 0);
+
     const stats = {
-      total: allDomains.length + suggestedDomains.length,
-      active: allDomains.filter((d) => d.status === 'ACTIVE').length,
-      available: allDomains.filter((d) => (d.status as string) === 'AVAILABLE').length,
-      notAvailable: allDomains.filter((d) => (d.status as string) === 'NOT_AVAILABLE').length,
-      pending:
-        allDomains.filter((d) =>
-          ['PENDING', 'REGISTERING', 'DNS_PENDING', 'SSL_PENDING'].includes(d.status)
-        ).length +
-        suggestedDomains.filter((d) => d.status === 'PENDING' || d.status === 'REGISTERING').length,
-      orphan: allDomains.filter((d) => !d.siteId).length,
-      sslEnabled: allDomains.filter((d) => d.sslEnabled).length,
-      expiringBoon: allDomains.filter((d) => {
-        if (!d.expiresAt) return false;
-        const daysUntilExpiry = Math.floor(
-          (d.expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-        );
-        return daysUntilExpiry < 30;
-      }).length,
+      total: totalRegistered + suggestedCount,
+      active: statsByStatus['ACTIVE'] || 0,
+      available: statsByStatus['AVAILABLE'] || 0,
+      notAvailable: statsByStatus['NOT_AVAILABLE'] || 0,
+      pending: pendingRegistered + suggestedCount,
+      orphan: orphanCount,
+      sslEnabled: sslCount,
+      expiringBoon: expiringCount,
     };
 
+    // Only fetch suggested domains on page 1 when no status filter or PENDING filter, and limited
+    let suggestedDomains: any[] = [];
+    if (page === 1 && (!status || status === 'all' || status === 'PENDING')) {
+      const suggestedWhere: any = {
+        domains: { none: {} },
+        status: { notIn: ['ARCHIVED'] },
+      };
+      if (search) {
+        suggestedWhere.OR = [
+          { name: { contains: search, mode: 'insensitive' } },
+          { slug: { contains: search, mode: 'insensitive' } },
+        ];
+      }
+
+      const sitesWithoutDomains = await prisma.site.findMany({
+        where: suggestedWhere,
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          createdAt: true,
+          jobs: {
+            where: { type: 'DOMAIN_REGISTER' },
+            select: { id: true, status: true, payload: true, createdAt: true },
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 20, // Limit suggested domains to prevent overload
+      });
+
+      suggestedDomains = sitesWithoutDomains.map((site) => {
+        const domainJob = site.jobs[0];
+        const suggestedDomain =
+          domainJob?.payload && typeof domainJob.payload === 'object' && 'domain' in domainJob.payload
+            ? (domainJob.payload as any).domain
+            : `${site.slug}.com`;
+
+        let domainStatus: any = 'PENDING';
+        if (domainJob) {
+          if (domainJob.status === 'RUNNING') domainStatus = 'REGISTERING';
+          else if (domainJob.status === 'FAILED') domainStatus = 'FAILED';
+        }
+
+        return {
+          id: `suggested-${site.id}`,
+          domain: suggestedDomain,
+          status: domainStatus,
+          registrar: 'cloudflare',
+          registeredAt: null,
+          expiresAt: null,
+          sslEnabled: false,
+          sslExpiresAt: null,
+          dnsConfigured: false,
+          cloudflareZoneId: null,
+          autoRenew: true,
+          registrationCost: 0,
+          siteName: site.name,
+          siteId: site.id,
+          isSuggested: true,
+        };
+      });
+    }
+
+    // Combine registered and suggested for this page
+    const allDomainRecords = [...registeredDomains, ...suggestedDomains];
+
     return NextResponse.json({
-      domains: filteredDomains.map((domain: any) => ({
+      domains: allDomainRecords.map((domain: any) => ({
         id: domain.id,
-        domain: 'isSuggested' in domain ? domain.domain : domain.domain,
+        domain: domain.domain,
         status: domain.status,
         registrar: domain.registrar,
         registeredAt: domain.registeredAt?.toISOString?.() || null,
@@ -218,6 +234,12 @@ export async function GET(request: Request) {
         isSuggested: 'isSuggested' in domain ? domain.isSuggested : false,
         isOrphan: !('isSuggested' in domain) && !domain.site?.id && !domain.siteId,
       })),
+      pagination: {
+        page,
+        pageSize,
+        totalCount: totalCount + suggestedDomains.length,
+        totalPages: Math.ceil(totalCount / pageSize) || 1,
+      },
       stats,
     });
   } catch (error) {

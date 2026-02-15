@@ -3,34 +3,89 @@ import { prisma } from '@/lib/prisma';
 import { PageStatus, PageType } from '@prisma/client';
 import { addJob } from '@experience-marketplace/jobs';
 
-export async function GET(): Promise<NextResponse> {
+export async function GET(request: Request): Promise<NextResponse> {
   try {
-    // Fetch all pages with their site information and content
-    const pages = await prisma.page.findMany({
-      include: {
-        site: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        content: {
-          select: {
-            id: true,
-            body: true,
-            qualityScore: true,
-            createdAt: true,
-          },
-        },
-      },
-      orderBy: {
-        updatedAt: 'desc',
-      },
-    });
+    const { searchParams } = new URL(request.url);
 
-    // Transform database pages to match the frontend interface
+    // Pagination params
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const pageSize = Math.min(parseInt(searchParams.get('pageSize') || '50', 10), 200);
+    const skip = (page - 1) * pageSize;
+
+    // Filter params
+    const search = searchParams.get('search') || '';
+    const statusFilter = searchParams.get('status') || '';
+    const typeFilter = searchParams.get('type') || '';
+
+    // Build where clause
+    const where: any = {};
+
+    if (statusFilter && statusFilter !== 'all') {
+      const pageStatus = mapContentStatusToPageStatus(statusFilter);
+      where.status = pageStatus;
+    }
+
+    if (typeFilter && typeFilter !== 'all') {
+      const pageTypes = mapContentTypeToPageTypes(typeFilter);
+      if (pageTypes.length === 1) {
+        where.type = pageTypes[0];
+      } else {
+        where.type = { in: pageTypes };
+      }
+    }
+
+    if (search) {
+      where.OR = [
+        { title: { contains: search, mode: 'insensitive' } },
+        { site: { name: { contains: search, mode: 'insensitive' } } },
+      ];
+    }
+
+    // Get total count, paginated pages, and stats in parallel
+    const [totalCount, pages, statusCounts] = await Promise.all([
+      prisma.page.count({ where }),
+      prisma.page.findMany({
+        where,
+        include: {
+          site: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          content: {
+            select: {
+              id: true,
+              body: true,
+              qualityScore: true,
+              createdAt: true,
+            },
+          },
+        },
+        orderBy: {
+          updatedAt: 'desc',
+        },
+        skip,
+        take: pageSize,
+      }),
+      // Single groupBy instead of multiple count queries
+      prisma.page.groupBy({
+        by: ['status'],
+        _count: { id: true },
+      }),
+    ]);
+
+    // Build stats from groupBy
+    const statsByStatus: Record<string, number> = {};
+    let totalAll = 0;
+    for (const row of statusCounts) {
+      const frontendStatus = mapPageStatusToContentStatus(row.status);
+      statsByStatus[frontendStatus] = (statsByStatus[frontendStatus] || 0) + row._count.id;
+      totalAll += row._count.id;
+    }
+
+    // Transform pages
     const contentItems = pages.map((page) => {
-      // Safely get the generated date with proper null checking
       let generatedAt: string;
       if (page.content?.createdAt) {
         generatedAt = page.content.createdAt.toISOString();
@@ -43,7 +98,7 @@ export async function GET(): Promise<NextResponse> {
         type: mapPageTypeToContentType(page.type),
         title: page.title,
         content: page.content?.body || '',
-        contentId: page.contentId, // Include for debugging - null means no content record exists
+        contentId: page.contentId,
         hasContent: !!page.content?.body,
         siteName: page.site?.name || 'Microsite',
         status: mapPageStatusToContentStatus(page.status),
@@ -52,10 +107,24 @@ export async function GET(): Promise<NextResponse> {
       };
     });
 
-    return NextResponse.json(contentItems);
+    return NextResponse.json({
+      items: contentItems,
+      pagination: {
+        page,
+        pageSize,
+        totalCount,
+        totalPages: Math.ceil(totalCount / pageSize),
+      },
+      stats: {
+        total: totalAll,
+        pending: statsByStatus['pending'] || 0,
+        approved: statsByStatus['approved'] || 0,
+        published: statsByStatus['published'] || 0,
+        rejected: statsByStatus['rejected'] || 0,
+      },
+    });
   } catch (error) {
     console.error('[API] Error fetching content:', error);
-    // Log more details for debugging
     if (error instanceof Error) {
       console.error('[API] Error details:', error.message, error.stack);
     }
@@ -239,6 +308,22 @@ function mapContentStatusToPageStatus(contentStatus: string): PageStatus {
       return PageStatus.ARCHIVED;
     default:
       return PageStatus.DRAFT;
+  }
+}
+
+// Map frontend content type back to PageType(s) for filtering
+function mapContentTypeToPageTypes(contentType: string): PageType[] {
+  switch (contentType) {
+    case 'experience':
+      return [PageType.PRODUCT];
+    case 'collection':
+      return [PageType.CATEGORY];
+    case 'blog':
+      return [PageType.BLOG];
+    case 'seo':
+      return [PageType.LANDING, PageType.HOMEPAGE];
+    default:
+      return [];
   }
 }
 

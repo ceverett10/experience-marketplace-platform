@@ -6,6 +6,16 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
+    const search = searchParams.get('search') || '';
+
+    // Pagination params
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const pageSize = Math.min(parseInt(searchParams.get('pageSize') || '50', 10), 200);
+    const skip = (page - 1) * pageSize;
+
+    // Sort params
+    const sortField = searchParams.get('sort') || 'priorityScore';
+    const sortOrder = searchParams.get('order') || 'desc';
 
     // Build query filters
     const where: any = {};
@@ -18,32 +28,64 @@ export async function GET(request: Request) {
       where.status = { not: 'ARCHIVED' };
     }
 
-    // Fetch opportunities from database
-    const opportunities = await prisma.sEOOpportunity.findMany({
-      where,
-      orderBy: {
-        priorityScore: 'desc',
-      },
-      include: {
-        site: {
-          select: {
-            id: true,
-            name: true,
+    if (search) {
+      where.OR = [
+        { keyword: { contains: search, mode: 'insensitive' } },
+        { niche: { contains: search, mode: 'insensitive' } },
+        { location: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    // Build orderBy
+    const orderBy: Record<string, string> = {};
+    if (['priorityScore', 'searchVolume', 'difficulty', 'createdAt', 'cpc'].includes(sortField)) {
+      orderBy[sortField] = sortOrder;
+    } else {
+      orderBy['priorityScore'] = 'desc';
+    }
+
+    // Fetch paginated opportunities, total count, and stats in parallel
+    const [totalCount, opportunities, statusCounts, highPriorityCount] = await Promise.all([
+      prisma.sEOOpportunity.count({ where }),
+      prisma.sEOOpportunity.findMany({
+        where,
+        orderBy,
+        skip,
+        take: pageSize,
+        include: {
+          site: {
+            select: {
+              id: true,
+              name: true,
+            },
           },
         },
-      },
-    });
-
-    // Calculate stats
-    const stats = {
-      total: await prisma.sEOOpportunity.count(),
-      identified: await prisma.sEOOpportunity.count({ where: { status: 'IDENTIFIED' } }),
-      evaluated: await prisma.sEOOpportunity.count({ where: { status: 'EVALUATED' } }),
-      assigned: await prisma.sEOOpportunity.count({ where: { status: 'ASSIGNED' } }),
-      highPriority: await prisma.sEOOpportunity.count({
+      }),
+      // Single groupBy for all status counts
+      prisma.sEOOpportunity.groupBy({
+        by: ['status'],
+        _count: { id: true },
+      }),
+      prisma.sEOOpportunity.count({
         where: { priorityScore: { gte: 75 } },
       }),
-      archived: await prisma.sEOOpportunity.count({ where: { status: 'ARCHIVED' } }),
+    ]);
+
+    // Build stats from groupBy
+    const statusMap: Record<string, number> = {};
+    let totalAll = 0;
+    for (const row of statusCounts) {
+      statusMap[row.status] = row._count.id;
+      totalAll += row._count.id;
+    }
+
+    const stats = {
+      total: totalAll,
+      identified: statusMap['IDENTIFIED'] || 0,
+      evaluated: statusMap['EVALUATED'] || 0,
+      assigned: statusMap['ASSIGNED'] || 0,
+      highPriority: highPriorityCount,
+      archived: statusMap['ARCHIVED'] || 0,
     };
 
     return NextResponse.json({
@@ -64,6 +106,12 @@ export async function GET(request: Request) {
         createdAt: opp.createdAt?.toISOString() ?? new Date().toISOString(),
         sourceData: opp.sourceData as any,
       })),
+      pagination: {
+        page,
+        pageSize,
+        totalCount,
+        totalPages: Math.ceil(totalCount / pageSize),
+      },
       stats,
     });
   } catch (error) {
