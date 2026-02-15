@@ -83,42 +83,51 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   });
 
+  // Collect static page paths for deduplication
+  const staticPaths = new Set(staticPages.map((p) => p.url));
+
   // Map database pages to sitemap entries
-  const databasePages: MetadataRoute.Sitemap = dbPages.map((page) => {
-    let urlPath: string;
-    let changeFrequency: 'always' | 'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'never' =
-      'weekly';
+  // Note: BLOG slugs include 'blog/' prefix (e.g., 'blog/my-post')
+  // and LANDING slugs include 'destinations/' prefix (e.g., 'destinations/little-italy')
+  // so we use /${slug} directly for these types to avoid double-prefixing.
+  const databasePages: MetadataRoute.Sitemap = dbPages
+    .map((page) => {
+      let urlPath: string;
+      let changeFrequency: 'always' | 'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'never' =
+        'weekly';
 
-    // Determine URL path based on page type
-    switch (page.type) {
-      case 'BLOG':
-        urlPath = `/blog/${page.slug}`;
-        changeFrequency = 'monthly';
-        break;
-      case 'CATEGORY':
-        urlPath = `/categories/${page.slug}`;
-        changeFrequency = 'weekly';
-        break;
-      case 'LANDING':
-        urlPath = `/destinations/${page.slug}`;
-        changeFrequency = 'weekly';
-        break;
-      case 'PRODUCT':
-        urlPath = `/experiences/${page.slug}`;
-        changeFrequency = 'weekly';
-        break;
-      default:
-        urlPath = `/${page.slug}`;
-        changeFrequency = 'monthly';
-    }
+      switch (page.type) {
+        case 'BLOG':
+          // Slug already has 'blog/' prefix (e.g., 'blog/my-post')
+          urlPath = `/${page.slug}`;
+          changeFrequency = 'monthly';
+          break;
+        case 'CATEGORY':
+          urlPath = `/categories/${page.slug}`;
+          changeFrequency = 'weekly';
+          break;
+        case 'LANDING':
+          // Slug already has 'destinations/' prefix (e.g., 'destinations/little-italy')
+          urlPath = `/${page.slug}`;
+          changeFrequency = 'weekly';
+          break;
+        case 'PRODUCT':
+          urlPath = `/experiences/${page.slug}`;
+          changeFrequency = 'weekly';
+          break;
+        default:
+          urlPath = `/${page.slug}`;
+          changeFrequency = 'monthly';
+      }
 
-    return {
-      url: `${baseUrl}${urlPath}`,
-      lastModified: page.updatedAt,
-      changeFrequency,
-      priority: page.priority,
-    };
-  });
+      return {
+        url: `${baseUrl}${urlPath}`,
+        lastModified: page.updatedAt,
+        changeFrequency,
+        priority: page.priority,
+      };
+    })
+    .filter((entry) => !staticPaths.has(entry.url));
 
   // For microsites, also include all supplier products as experience pages
   let productPages: MetadataRoute.Sitemap = [];
