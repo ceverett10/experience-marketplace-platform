@@ -847,6 +847,17 @@ async function validateKeywords(
   console.log(`[Enrichment] Sending ${seeds.length} keywords to DataForSEO for validation...`);
 
   const results = await dataForSeo.getBulkSearchVolume(seeds, location);
+  console.log(`[Enrichment] DataForSEO returned ${results.length} results for ${seeds.length} seeds`);
+  if (results.length > 0) {
+    // Log top 5 results by volume for quality check
+    const topResults = [...results].sort((a, b) => b.searchVolume - a.searchVolume).slice(0, 5);
+    for (const r of topResults) {
+      console.log(`[Enrichment]   Top result: "${r.keyword}" vol=${r.searchVolume} cpc=${r.cpc} comp=${r.competitionLevel}`);
+    }
+  } else {
+    // Debug: log first 5 seeds that were sent
+    console.log(`[Enrichment]   First 5 seeds sent: ${seeds.slice(0, 5).join(', ')}`);
+  }
 
   let filteredNoVolume = 0;
   let filteredNoCpc = 0;
