@@ -103,7 +103,7 @@ function formatPrice(amount: number | null, currency: string): string {
     currency: currency || 'GBP',
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(amount / 100);
+  }).format(amount);
 }
 
 /**
@@ -165,7 +165,7 @@ export default async function CollectionPage({ params }: Props) {
         ...(item.product.priceFrom && {
           offers: {
             '@type': 'Offer',
-            price: Number(item.product.priceFrom) / 100,
+            price: Number(item.product.priceFrom),
             priceCurrency: item.product.currency || 'GBP',
           },
         }),

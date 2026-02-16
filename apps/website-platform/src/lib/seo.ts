@@ -76,7 +76,7 @@ export function generateExperienceJsonLd(experience: Experience, baseUrl: string
       : undefined,
     offers: {
       '@type': 'Offer',
-      price: experience.price.amount / 100,
+      price: experience.price.amount,
       priceCurrency: experience.price.currency,
       availability: 'https://schema.org/InStock',
       validFrom: new Date().toISOString(),
@@ -110,7 +110,7 @@ export function generateProductJsonLd(experience: Experience, baseUrl: string) {
       : undefined,
     offers: {
       '@type': 'Offer',
-      price: experience.price.amount / 100,
+      price: experience.price.amount,
       priceCurrency: experience.price.currency,
       availability: 'https://schema.org/InStock',
       priceValidUntil: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],

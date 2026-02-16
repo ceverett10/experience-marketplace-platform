@@ -227,7 +227,7 @@ async function getRelatedExperiences(
           product.guidePriceFormattedText ??
           product.priceFromFormatted ??
           new Intl.NumberFormat('en-GB', { style: 'currency', currency: priceCurrency }).format(
-            priceAmount / 100
+            priceAmount
           );
 
         return {
@@ -410,7 +410,7 @@ export default async function ExperienceDetailPage({ params }: Props) {
     },
     offers: {
       '@type': 'Offer',
-      price: experience.price.amount / 100,
+      price: experience.price.amount,
       priceCurrency: experience.price.currency,
       availability: 'https://schema.org/InStock',
       url: `https://${site.primaryDomain || hostname}/experiences/${slug}`,
@@ -562,7 +562,7 @@ export default async function ExperienceDetailPage({ params }: Props) {
       <TrackViewItem
         id={experience.id}
         name={experience.title}
-        price={experience.price?.amount ? experience.price.amount / 100 : undefined}
+        price={experience.price?.amount ? experience.price.amount : undefined}
         currency={experience.price?.currency}
       />
 

@@ -545,7 +545,7 @@ export function formatPrice(amount: number, currency: string): string {
   return new Intl.NumberFormat('en-GB', {
     style: 'currency',
     currency,
-  }).format(amount / 100); // Assuming amount is in cents/pence
+  }).format(amount); // guidePrice and priceFrom are in major units (e.g., 43 = £43)
 }
 
 /**

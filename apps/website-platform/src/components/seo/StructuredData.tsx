@@ -80,7 +80,7 @@ export function TouristTripSchema({ experience, url, siteName }: TouristTripSche
     },
     offers: {
       '@type': 'Offer',
-      price: (experience.price.amount / 100).toFixed(2),
+      price: experience.price.amount.toFixed(2),
       priceCurrency: experience.price.currency,
       availability: 'https://schema.org/InStock',
       validFrom: new Date().toISOString(),
@@ -122,7 +122,7 @@ export function ProductSchema({ experience, url, siteName }: TouristTripSchemaPr
     },
     offers: {
       '@type': 'Offer',
-      price: (experience.price.amount / 100).toFixed(2),
+      price: experience.price.amount.toFixed(2),
       priceCurrency: experience.price.currency,
       availability: 'https://schema.org/InStock',
       url: url,
@@ -177,7 +177,7 @@ export function ExperienceListSchema({
         url: `${url.split('/').slice(0, 3).join('/')}/experiences/${exp.slug}`,
         offers: {
           '@type': 'Offer',
-          price: (exp.price.amount / 100).toFixed(2),
+          price: exp.price.amount.toFixed(2),
           priceCurrency: exp.price.currency,
           availability: 'https://schema.org/InStock',
           priceValidUntil: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
@@ -439,7 +439,7 @@ export function EventSchema({
     },
     offers: {
       '@type': 'Offer',
-      price: (experience.price.amount / 100).toFixed(2),
+      price: experience.price.amount.toFixed(2),
       priceCurrency: experience.price.currency,
       availability: 'https://schema.org/InStock',
       url: url,

@@ -27,7 +27,7 @@ const mockExperience: Experience = {
   imageUrl: 'https://example.com/london-eye.jpg',
   images: ['https://example.com/img1.jpg', 'https://example.com/img2.jpg'],
   price: {
-    amount: 3500,
+    amount: 35,
     currency: 'GBP',
     formatted: '£35.00',
   },
@@ -63,7 +63,7 @@ const mockExperienceListItem: ExperienceListItem = {
   slug: 'london-eye-tour',
   shortDescription: 'Amazing views of London',
   imageUrl: 'https://example.com/london-eye.jpg',
-  price: { amount: 3500, currency: 'GBP', formatted: '£35.00' },
+  price: { amount: 35, currency: 'GBP', formatted: '£35.00' },
   duration: { formatted: '30 minutes' },
   rating: { average: 4.7, count: 2453 },
   location: { name: 'London, UK' },
@@ -166,7 +166,7 @@ describe('SEO utilities', () => {
     it('should include offer with price', () => {
       const result = generateExperienceJsonLd(mockExperience, baseUrl);
 
-      expect(result.offers.price).toBe(35); // 3500 / 100
+      expect(result.offers.price).toBe(35); // major units (guidePrice)
       expect(result.offers.priceCurrency).toBe('GBP');
       expect(result.offers.availability).toBe('https://schema.org/InStock');
     });

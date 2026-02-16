@@ -378,12 +378,10 @@ export function localProductToExperienceListItem(product: LocalProduct) {
 }
 
 function formatPrice(amount: number, currency: string): string {
-  // Handle prices that might be stored as major units (not cents)
-  const displayAmount = amount > 1000 ? amount / 100 : amount;
   return new Intl.NumberFormat('en-GB', {
     style: 'currency',
     currency,
-  }).format(displayAmount);
+  }).format(amount); // priceFrom is stored in major units (e.g., 43 = £43)
 }
 
 /**
