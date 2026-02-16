@@ -59,6 +59,10 @@ interface BiddingCampaign {
   avgCpc: number;
   daysWithData: number;
   proposalData: ProposalEstimates | null;
+  landingPagePath: string | null;
+  landingPageType: string | null;
+  landingPageProducts: number | null;
+  qualityScore: number | null;
 }
 
 interface Attribution {
@@ -215,6 +219,10 @@ interface AdsCampaign {
   maxCpc: number;
   keywords: string[];
   targetUrl: string;
+  landingPagePath: string | null;
+  landingPageType: string | null;
+  landingPageProducts: number | null;
+  qualityScore: number | null;
 }
 
 interface DailyTrend {
@@ -254,6 +262,18 @@ interface LandingPage {
   commission: number;
 }
 
+interface LandingPageTypePerf {
+  type: string;
+  campaigns: number;
+  spend: number;
+  clicks: number;
+  conversions: number;
+  revenue: number;
+  roas: number | null;
+  cvr: number | null;
+  avgQualityScore: number | null;
+}
+
 interface Alert {
   id: string;
   type: string;
@@ -272,6 +292,7 @@ interface AdsData {
   campaigns: AdsCampaign[];
   attribution: AdsAttribution[];
   landingPages: LandingPage[];
+  landingPagesByType: LandingPageTypePerf[];
   alerts: Alert[];
   alertCount: number;
 }
@@ -300,13 +321,20 @@ function calculateOpportunityScore(kw: SiteKeyword, profile: Profile | undefined
   return aiWeight + profitabilityBonus + volumeBonus + difficultyPenalty;
 }
 
-const fmt = (n: number | null | undefined, type: 'currency' | 'number' | 'percent' | 'roas' = 'number') => {
+const fmt = (
+  n: number | null | undefined,
+  type: 'currency' | 'number' | 'percent' | 'roas' = 'number'
+) => {
   if (n == null) return '\u2014';
   switch (type) {
-    case 'currency': return `\u00A3${n.toFixed(2)}`;
-    case 'percent': return `${n.toFixed(1)}%`;
-    case 'roas': return `${n.toFixed(2)}x`;
-    case 'number': return n.toLocaleString();
+    case 'currency':
+      return `\u00A3${n.toFixed(2)}`;
+    case 'percent':
+      return `${n.toFixed(1)}%`;
+    case 'roas':
+      return `${n.toFixed(2)}x`;
+    case 'number':
+      return n.toLocaleString();
   }
 };
 
@@ -518,9 +546,7 @@ export default function PaidTrafficDashboard() {
 
   const proposalMetrics = useMemo(() => {
     if (!biddingData) return null;
-    const drafts = biddingData.campaigns.filter(
-      (c) => c.status === 'DRAFT' && c.proposalData
-    );
+    const drafts = biddingData.campaigns.filter((c) => c.status === 'DRAFT' && c.proposalData);
     if (drafts.length === 0) return null;
 
     const bySite = new Map<string, BiddingCampaign[]>();
@@ -573,7 +599,10 @@ export default function PaidTrafficDashboard() {
 
   const toggleSort = (field: string) => {
     if (sortField === field) setSortDir(sortDir === 'desc' ? 'asc' : 'desc');
-    else { setSortField(field); setSortDir('desc'); }
+    else {
+      setSortField(field);
+      setSortDir('desc');
+    }
   };
 
   // Merge campaigns from both APIs, dedup by id, prefer ads data (has more fields)
@@ -635,7 +664,9 @@ export default function PaidTrafficDashboard() {
         <Card>
           <div className="p-8 text-center">
             <p className="text-red-600 mb-2">Error: {error}</p>
-            <button onClick={fetchData} className="text-sm text-sky-600 hover:text-sky-700">Retry</button>
+            <button onClick={fetchData} className="text-sm text-sky-600 hover:text-sky-700">
+              Retry
+            </button>
           </div>
         </Card>
       </div>
@@ -646,7 +677,13 @@ export default function PaidTrafficDashboard() {
 
   // ─── KPI Card helper ──────────────────────────────────────────────────
 
-  const KPICard = ({ label, value, prior, format, colorFn }: {
+  const KPICard = ({
+    label,
+    value,
+    prior,
+    format,
+    colorFn,
+  }: {
     label: string;
     value: number | null;
     prior?: number | null;
@@ -671,7 +708,8 @@ export default function PaidTrafficDashboard() {
 
   // ─── Critical alerts ──────────────────────────────────────────────────
 
-  const criticalAlerts = adsData?.alerts.filter((a) => a.severity === 'CRITICAL' && !a.acknowledged) || [];
+  const criticalAlerts =
+    adsData?.alerts.filter((a) => a.severity === 'CRITICAL' && !a.acknowledged) || [];
 
   // ═══════════════════════════════════════════════════════════════════════
   // Render
@@ -717,7 +755,12 @@ export default function PaidTrafficDashboard() {
       {actionMessage && (
         <div className="px-4 py-2 bg-sky-50 border border-sky-200 rounded-lg text-sm text-sky-800 flex items-center justify-between">
           <span>{actionMessage}</span>
-          <button onClick={() => setActionMessage(null)} className="text-sky-600 hover:text-sky-700 ml-4">&times;</button>
+          <button
+            onClick={() => setActionMessage(null)}
+            className="text-sky-600 hover:text-sky-700 ml-4"
+          >
+            &times;
+          </button>
         </div>
       )}
 
@@ -742,12 +785,15 @@ export default function PaidTrafficDashboard() {
       {/* ─── Tab Navigation ─────────────────────────────────────────────── */}
       <div className="border-b border-slate-200">
         <nav className="flex gap-4">
-          {([
+          {[
             { key: 'overview' as Tab, label: 'Overview' },
-            { key: 'strategy' as Tab, label: `Strategy${data.keywordSummary?.aiBid ? ` (${data.keywordSummary.aiBid} bid-ready)` : ''}` },
+            {
+              key: 'strategy' as Tab,
+              label: `Strategy${data.keywordSummary?.aiBid ? ` (${data.keywordSummary.aiBid} bid-ready)` : ''}`,
+            },
             { key: 'campaigns' as Tab, label: `Campaigns (${allCampaigns.length})` },
             { key: 'performance' as Tab, label: 'Performance' },
-          ]).map((tab) => (
+          ].map((tab) => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
@@ -773,10 +819,15 @@ export default function PaidTrafficDashboard() {
             <Card>
               <CardContent className="p-4">
                 <p className="text-xs text-slate-500">Projected ROAS</p>
-                <p className={`text-2xl font-bold ${
-                  (proj?.overallRoas || 0) >= 3 ? 'text-emerald-600' :
-                  (proj?.overallRoas || 0) >= 1 ? 'text-amber-600' : 'text-red-600'
-                }`}>
+                <p
+                  className={`text-2xl font-bold ${
+                    (proj?.overallRoas || 0) >= 3
+                      ? 'text-emerald-600'
+                      : (proj?.overallRoas || 0) >= 1
+                        ? 'text-amber-600'
+                        : 'text-red-600'
+                  }`}
+                >
                   {proj ? `${proj.overallRoas.toFixed(1)}x` : '\u2014'}
                 </p>
               </CardContent>
@@ -785,7 +836,9 @@ export default function PaidTrafficDashboard() {
               <CardContent className="p-4">
                 <p className="text-xs text-slate-500">Monthly Profit</p>
                 <p className="text-2xl font-bold text-emerald-600">
-                  {proj ? `\u00A3${Math.round((proj.dailyRevenue - proj.dailySpend) * 30).toLocaleString()}` : '\u2014'}
+                  {proj
+                    ? `\u00A3${Math.round((proj.dailyRevenue - proj.dailySpend) * 30).toLocaleString()}`
+                    : '\u2014'}
                 </p>
               </CardContent>
             </Card>
@@ -796,7 +849,8 @@ export default function PaidTrafficDashboard() {
                   {(data.budget.utilization * 100).toFixed(0)}%
                 </p>
                 <p className="text-xs text-slate-400">
-                  &pound;{data.budget.dailyAllocated.toFixed(0)}/&pound;{data.budget.dailyCap.toFixed(0)}
+                  &pound;{data.budget.dailyAllocated.toFixed(0)}/&pound;
+                  {data.budget.dailyCap.toFixed(0)}
                 </p>
               </CardContent>
             </Card>
@@ -812,7 +866,8 @@ export default function PaidTrafficDashboard() {
               <CardContent className="p-4">
                 <p className="text-xs text-slate-500">Campaigns</p>
                 <p className="text-2xl font-bold text-slate-700">
-                  {proj?.totalCampaigns?.toLocaleString() || data.budget.totalCampaigns.toLocaleString()}
+                  {proj?.totalCampaigns?.toLocaleString() ||
+                    data.budget.totalCampaigns.toLocaleString()}
                 </p>
               </CardContent>
             </Card>
@@ -826,15 +881,19 @@ export default function PaidTrafficDashboard() {
                   <div className="h-3 bg-slate-200 rounded-full overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all ${
-                        data.budget.utilization >= 0.95 ? 'bg-emerald-500' :
-                        data.budget.utilization >= 0.5 ? 'bg-sky-500' : 'bg-amber-500'
+                        data.budget.utilization >= 0.95
+                          ? 'bg-emerald-500'
+                          : data.budget.utilization >= 0.5
+                            ? 'bg-sky-500'
+                            : 'bg-amber-500'
                       }`}
                       style={{ width: `${Math.min(data.budget.utilization * 100, 100)}%` }}
                     />
                   </div>
                 </div>
                 <span className="text-sm text-slate-600 whitespace-nowrap">
-                  &pound;{data.budget.dailyAllocated.toFixed(0)} of &pound;{data.budget.dailyCap.toFixed(0)}/day allocated
+                  &pound;{data.budget.dailyAllocated.toFixed(0)} of &pound;
+                  {data.budget.dailyCap.toFixed(0)}/day allocated
                 </span>
               </div>
             </CardContent>
@@ -853,13 +912,16 @@ export default function PaidTrafficDashboard() {
                       <div className="flex items-center justify-between text-sm mb-1">
                         <span className="text-slate-600">Suppliers enriched</span>
                         <span className="font-mono font-semibold">
-                          {enrichment.suppliersEnriched.toLocaleString()}/{enrichment.suppliersTotal.toLocaleString()}
+                          {enrichment.suppliersEnriched.toLocaleString()}/
+                          {enrichment.suppliersTotal.toLocaleString()}
                         </span>
                       </div>
                       <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
                         <div
                           className="h-full bg-purple-500 rounded-full"
-                          style={{ width: `${enrichment.suppliersTotal > 0 ? (enrichment.suppliersEnriched / enrichment.suppliersTotal) * 100 : 0}%` }}
+                          style={{
+                            width: `${enrichment.suppliersTotal > 0 ? (enrichment.suppliersEnriched / enrichment.suppliersTotal) * 100 : 0}%`,
+                          }}
                         />
                       </div>
                     </div>
@@ -868,12 +930,16 @@ export default function PaidTrafficDashboard() {
                     <div className="space-y-2 text-sm">
                       <div className="flex items-center justify-between">
                         <span className="text-slate-500">Validated keywords</span>
-                        <span className="font-mono font-semibold text-slate-900">{kp!.total.toLocaleString()}</span>
+                        <span className="font-mono font-semibold text-slate-900">
+                          {kp!.total.toLocaleString()}
+                        </span>
                       </div>
                       {proj && (
                         <div className="flex items-center justify-between">
                           <span className="text-slate-500">Selected by engine</span>
-                          <span className="font-mono font-semibold text-sky-700">{proj.uniqueKeywords.toLocaleString()}</span>
+                          <span className="font-mono font-semibold text-sky-700">
+                            {proj.uniqueKeywords.toLocaleString()}
+                          </span>
                         </div>
                       )}
                       {proj && kp!.total > 0 && (
@@ -893,12 +959,15 @@ export default function PaidTrafficDashboard() {
                     {/* Last run */}
                     {enrichment.lastEnrichmentDate && (
                       <p className="text-xs text-slate-400">
-                        Last enrichment: {new Date(enrichment.lastEnrichmentDate).toLocaleDateString()}
+                        Last enrichment:{' '}
+                        {new Date(enrichment.lastEnrichmentDate).toLocaleDateString()}
                       </p>
                     )}
                   </div>
                 ) : (
-                  <p className="text-sm text-slate-400">No enrichment data available. Run &quot;Enrich Keywords&quot; to start.</p>
+                  <p className="text-sm text-slate-400">
+                    No enrichment data available. Run &quot;Enrich Keywords&quot; to start.
+                  </p>
                 )}
               </div>
             </Card>
@@ -919,7 +988,9 @@ export default function PaidTrafficDashboard() {
                       </div>
                       <div>
                         <span className="text-slate-500">Profitable &ge;3x</span>
-                        <p className="font-semibold text-emerald-600">{proj.profitableCampaigns.toLocaleString()}</p>
+                        <p className="font-semibold text-emerald-600">
+                          {proj.profitableCampaigns.toLocaleString()}
+                        </p>
                       </div>
                       <div>
                         <span className="text-slate-500">Daily Spend</span>
@@ -927,15 +998,21 @@ export default function PaidTrafficDashboard() {
                       </div>
                       <div>
                         <span className="text-slate-500">Daily Revenue</span>
-                        <p className="font-semibold text-emerald-600">&pound;{proj.dailyRevenue.toFixed(0)}</p>
+                        <p className="font-semibold text-emerald-600">
+                          &pound;{proj.dailyRevenue.toFixed(0)}
+                        </p>
                       </div>
                       <div>
                         <span className="text-slate-500">Monthly Spend</span>
-                        <p className="font-semibold">&pound;{Math.round(proj.dailySpend * 30).toLocaleString()}</p>
+                        <p className="font-semibold">
+                          &pound;{Math.round(proj.dailySpend * 30).toLocaleString()}
+                        </p>
                       </div>
                       <div>
                         <span className="text-slate-500">Monthly Revenue</span>
-                        <p className="font-semibold text-emerald-600">&pound;{Math.round(proj.dailyRevenue * 30).toLocaleString()}</p>
+                        <p className="font-semibold text-emerald-600">
+                          &pound;{Math.round(proj.dailyRevenue * 30).toLocaleString()}
+                        </p>
                       </div>
                     </div>
 
@@ -975,7 +1052,9 @@ export default function PaidTrafficDashboard() {
                       </span>
                       {budgetCap !== data.budget.dailyCap && (
                         <button
-                          onClick={() => triggerBiddingAction('set_budget_cap', { dailyBudgetCap: budgetCap })}
+                          onClick={() =>
+                            triggerBiddingAction('set_budget_cap', { dailyBudgetCap: budgetCap })
+                          }
                           className="px-2 py-0.5 bg-sky-600 text-white rounded text-xs font-medium hover:bg-sky-700"
                         >
                           Apply
@@ -984,7 +1063,9 @@ export default function PaidTrafficDashboard() {
                     </div>
                   </div>
                 ) : (
-                  <p className="text-sm text-slate-400">Run the bidding engine to generate projections.</p>
+                  <p className="text-sm text-slate-400">
+                    Run the bidding engine to generate projections.
+                  </p>
                 )}
               </div>
             </Card>
@@ -1000,14 +1081,22 @@ export default function PaidTrafficDashboard() {
                   <div className="space-y-3 text-sm">
                     <div>
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700">Google</span>
-                        <span className="text-xs text-slate-400">{proj.googleCampaigns} campaigns</span>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700">
+                          Google
+                        </span>
+                        <span className="text-xs text-slate-400">
+                          {proj.googleCampaigns} campaigns
+                        </span>
                       </div>
                     </div>
                     <div>
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">Meta</span>
-                        <span className="text-xs text-slate-400">{proj.facebookCampaigns} campaigns</span>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">
+                          Meta
+                        </span>
+                        <span className="text-xs text-slate-400">
+                          {proj.facebookCampaigns} campaigns
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -1085,8 +1174,9 @@ export default function PaidTrafficDashboard() {
                 <div>
                   <h3 className="text-sm font-semibold text-slate-900">Pipeline Automation</h3>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Keywords discovered at 3 AM &rarr; Engine scores &amp; creates campaigns at 5 AM &rarr; Auto-deployed as PAUSED.
-                    Activate campaigns in the Campaigns tab to start spending.
+                    Keywords discovered at 3 AM &rarr; Engine scores &amp; creates campaigns at 5 AM
+                    &rarr; Auto-deployed as PAUSED. Activate campaigns in the Campaigns tab to start
+                    spending.
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
@@ -1103,7 +1193,9 @@ export default function PaidTrafficDashboard() {
                     /day
                     {budgetCap !== data.budget.dailyCap && (
                       <button
-                        onClick={() => triggerBiddingAction('set_budget_cap', { dailyBudgetCap: budgetCap })}
+                        onClick={() =>
+                          triggerBiddingAction('set_budget_cap', { dailyBudgetCap: budgetCap })
+                        }
                         className="px-2 py-0.5 bg-sky-600 text-white rounded text-xs font-medium hover:bg-sky-700"
                       >
                         Re-run
@@ -1125,11 +1217,15 @@ export default function PaidTrafficDashboard() {
           {enrichment && kp && (
             <Card>
               <div className="p-6">
-                <h3 className="text-sm font-semibold text-slate-900 mb-4">Enrichment Pipeline Detail</h3>
+                <h3 className="text-sm font-semibold text-slate-900 mb-4">
+                  Enrichment Pipeline Detail
+                </h3>
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
                   {/* Volume Distribution */}
                   <div>
-                    <h4 className="text-xs font-medium text-slate-500 uppercase mb-2">Volume Distribution</h4>
+                    <h4 className="text-xs font-medium text-slate-500 uppercase mb-2">
+                      Volume Distribution
+                    </h4>
                     <div className="space-y-1.5 text-sm">
                       <div className="flex justify-between">
                         <span className="text-slate-600">High (1000+)</span>
@@ -1148,7 +1244,9 @@ export default function PaidTrafficDashboard() {
 
                   {/* CPC Distribution */}
                   <div>
-                    <h4 className="text-xs font-medium text-slate-500 uppercase mb-2">CPC Distribution</h4>
+                    <h4 className="text-xs font-medium text-slate-500 uppercase mb-2">
+                      CPC Distribution
+                    </h4>
                     <div className="space-y-1.5 text-sm">
                       <div className="flex justify-between">
                         <span className="text-slate-600">&lt;&pound;0.25</span>
@@ -1171,23 +1269,33 @@ export default function PaidTrafficDashboard() {
 
                   {/* Intent Breakdown */}
                   <div>
-                    <h4 className="text-xs font-medium text-slate-500 uppercase mb-2">Intent Breakdown</h4>
+                    <h4 className="text-xs font-medium text-slate-500 uppercase mb-2">
+                      Intent Breakdown
+                    </h4>
                     <div className="space-y-1.5 text-sm">
                       <div className="flex justify-between">
                         <span className="text-slate-600">Commercial</span>
-                        <span className="font-mono">{kp.intentBreakdown.commercial.toLocaleString()}</span>
+                        <span className="font-mono">
+                          {kp.intentBreakdown.commercial.toLocaleString()}
+                        </span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-slate-600">Transactional</span>
-                        <span className="font-mono">{kp.intentBreakdown.transactional.toLocaleString()}</span>
+                        <span className="font-mono">
+                          {kp.intentBreakdown.transactional.toLocaleString()}
+                        </span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-slate-600">Informational</span>
-                        <span className="font-mono">{kp.intentBreakdown.informational.toLocaleString()}</span>
+                        <span className="font-mono">
+                          {kp.intentBreakdown.informational.toLocaleString()}
+                        </span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-slate-600">Navigational</span>
-                        <span className="font-mono">{kp.intentBreakdown.navigational.toLocaleString()}</span>
+                        <span className="font-mono">
+                          {kp.intentBreakdown.navigational.toLocaleString()}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -1227,9 +1335,15 @@ export default function PaidTrafficDashboard() {
                   <h3 className="text-sm font-semibold text-slate-900">Keyword Pipeline</h3>
                   <div className="flex items-center gap-4 text-sm">
                     <span className="text-slate-500">{data.keywordSummary.total} total</span>
-                    <span className="text-green-700 font-medium">{data.keywordSummary.aiBid} bid-ready</span>
-                    <span className="text-amber-700">{data.keywordSummary.aiReview} need review</span>
-                    <span className="text-slate-400">{data.keywordSummary.total - data.keywordSummary.aiEvaluated} pending AI</span>
+                    <span className="text-green-700 font-medium">
+                      {data.keywordSummary.aiBid} bid-ready
+                    </span>
+                    <span className="text-amber-700">
+                      {data.keywordSummary.aiReview} need review
+                    </span>
+                    <span className="text-slate-400">
+                      {data.keywordSummary.total - data.keywordSummary.aiEvaluated} pending AI
+                    </span>
                     {data.keywordSummary.unassigned > 0 && (
                       <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded text-xs font-medium">
                         {data.keywordSummary.unassigned} unassigned
@@ -1249,7 +1363,10 @@ export default function PaidTrafficDashboard() {
                   Site Profitability ({data.profiles.length})
                 </h3>
                 {siteFilter && (
-                  <button onClick={() => setSiteFilter(null)} className="text-xs text-sky-600 hover:text-sky-700">
+                  <button
+                    onClick={() => setSiteFilter(null)}
+                    className="text-xs text-sky-600 hover:text-sky-700"
+                  >
                     Clear site filter
                   </button>
                 )}
@@ -1258,7 +1375,8 @@ export default function PaidTrafficDashboard() {
                 {data.profiles.map((p) => {
                   const siteKws = data.keywordsBySite[p.siteId];
                   const kwCount = siteKws?.keywords.length || 0;
-                  const bidCount = siteKws?.keywords.filter((k) => k.aiDecision === 'BID').length || 0;
+                  const bidCount =
+                    siteKws?.keywords.filter((k) => k.aiDecision === 'BID').length || 0;
                   const isSelected = siteFilter === p.siteId;
                   return (
                     <button
@@ -1267,7 +1385,7 @@ export default function PaidTrafficDashboard() {
                       className={`text-left border rounded-lg border-l-4 transition-all ${
                         isSelected
                           ? 'ring-2 ring-sky-500 border-l-sky-500 bg-sky-50/50'
-                          : p.maxProfitableCpc > 0.10
+                          : p.maxProfitableCpc > 0.1
                             ? 'border-l-green-500 hover:bg-slate-50'
                             : p.maxProfitableCpc > 0.05
                               ? 'border-l-amber-500 hover:bg-slate-50'
@@ -1275,14 +1393,23 @@ export default function PaidTrafficDashboard() {
                       } ${!isSelected ? 'border-slate-200' : ''}`}
                     >
                       <div className="p-3">
-                        <div className="font-medium text-sm text-slate-900 truncate">{p.siteName}</div>
-                        {p.domain && <div className="text-xs text-slate-400 truncate">{p.domain}</div>}
+                        <div className="font-medium text-sm text-slate-900 truncate">
+                          {p.siteName}
+                        </div>
+                        {p.domain && (
+                          <div className="text-xs text-slate-400 truncate">{p.domain}</div>
+                        )}
                         <div className="text-xs text-slate-500 mt-1.5">
                           Max CPC:{' '}
-                          <span className={`font-mono font-semibold ${
-                            p.maxProfitableCpc > 0.10 ? 'text-green-700' :
-                            p.maxProfitableCpc > 0.05 ? 'text-amber-700' : 'text-red-700'
-                          }`}>
+                          <span
+                            className={`font-mono font-semibold ${
+                              p.maxProfitableCpc > 0.1
+                                ? 'text-green-700'
+                                : p.maxProfitableCpc > 0.05
+                                  ? 'text-amber-700'
+                                  : 'text-red-700'
+                            }`}
+                          >
                             &pound;{p.maxProfitableCpc.toFixed(4)}
                           </span>
                         </div>
@@ -1323,50 +1450,82 @@ export default function PaidTrafficDashboard() {
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-slate-200 bg-slate-50">
-                          <th className="text-center px-3 py-2 font-medium text-slate-600 w-10">#</th>
-                          <th className="text-left px-3 py-2 font-medium text-slate-600">Keyword</th>
+                          <th className="text-center px-3 py-2 font-medium text-slate-600 w-10">
+                            #
+                          </th>
+                          <th className="text-left px-3 py-2 font-medium text-slate-600">
+                            Keyword
+                          </th>
                           <th className="text-left px-3 py-2 font-medium text-slate-600">Site</th>
                           <th className="text-center px-3 py-2 font-medium text-slate-600">AI</th>
                           <th className="text-right px-3 py-2 font-medium text-slate-600">Score</th>
                           <th className="text-right px-3 py-2 font-medium text-slate-600">CPC</th>
-                          <th className="text-right px-3 py-2 font-medium text-slate-600">Volume</th>
-                          <th className="text-center px-3 py-2 font-medium text-slate-600">Profitable</th>
-                          <th className="text-right px-3 py-2 font-medium text-slate-600">Est. Cost/mo</th>
+                          <th className="text-right px-3 py-2 font-medium text-slate-600">
+                            Volume
+                          </th>
+                          <th className="text-center px-3 py-2 font-medium text-slate-600">
+                            Profitable
+                          </th>
+                          <th className="text-right px-3 py-2 font-medium text-slate-600">
+                            Est. Cost/mo
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
                         {topOpportunities.map((opp, idx) => (
-                          <tr key={opp.id} className={`border-b border-slate-100 hover:bg-slate-50 ${
-                            opp.aiDecision === 'BID' ? 'bg-green-50/30' : ''
-                          }`}>
-                            <td className="px-3 py-2 text-center text-slate-400 font-mono text-xs">{idx + 1}</td>
+                          <tr
+                            key={opp.id}
+                            className={`border-b border-slate-100 hover:bg-slate-50 ${
+                              opp.aiDecision === 'BID' ? 'bg-green-50/30' : ''
+                            }`}
+                          >
+                            <td className="px-3 py-2 text-center text-slate-400 font-mono text-xs">
+                              {idx + 1}
+                            </td>
                             <td className="px-3 py-2">
                               <div className="font-medium text-slate-900">{opp.keyword}</div>
-                              {opp.location && <div className="text-xs text-slate-500">{opp.location}</div>}
+                              {opp.location && (
+                                <div className="text-xs text-slate-500">{opp.location}</div>
+                              )}
                               {opp.aiReasoning && (
-                                <div className="text-xs text-slate-400 italic mt-0.5 max-w-xs truncate" title={opp.aiReasoning}>
+                                <div
+                                  className="text-xs text-slate-400 italic mt-0.5 max-w-xs truncate"
+                                  title={opp.aiReasoning}
+                                >
                                   {opp.aiReasoning}
                                 </div>
                               )}
                             </td>
                             <td className="px-3 py-2 text-xs text-slate-600">{opp.siteName}</td>
                             <td className="px-3 py-2 text-center">
-                              <span className={`text-xs px-2 py-0.5 rounded font-medium ${
-                                aiDecisionColors[opp.aiDecision || ''] || 'bg-slate-100 text-slate-800'
-                              }`}>{opp.aiDecision}</span>
+                              <span
+                                className={`text-xs px-2 py-0.5 rounded font-medium ${
+                                  aiDecisionColors[opp.aiDecision || ''] ||
+                                  'bg-slate-100 text-slate-800'
+                                }`}
+                              >
+                                {opp.aiDecision}
+                              </span>
                             </td>
-                            <td className="px-3 py-2 text-right font-mono text-xs">{opp.opportunityScore.toFixed(0)}</td>
+                            <td className="px-3 py-2 text-right font-mono text-xs">
+                              {opp.opportunityScore.toFixed(0)}
+                            </td>
                             <td className="px-3 py-2 text-right">
-                              <span className={`font-mono ${opp.isProfitable ? 'text-green-700' : 'text-red-700'}`}>
+                              <span
+                                className={`font-mono ${opp.isProfitable ? 'text-green-700' : 'text-red-700'}`}
+                              >
                                 &pound;{opp.cpc.toFixed(3)}
                               </span>
                             </td>
-                            <td className="px-3 py-2 text-right font-mono">{opp.searchVolume.toLocaleString()}</td>
+                            <td className="px-3 py-2 text-right font-mono">
+                              {opp.searchVolume.toLocaleString()}
+                            </td>
                             <td className="px-3 py-2 text-center">
-                              {opp.isProfitable
-                                ? <span className="text-green-600 font-bold">&#10003;</span>
-                                : <span className="text-red-400">&#10007;</span>
-                              }
+                              {opp.isProfitable ? (
+                                <span className="text-green-600 font-bold">&#10003;</span>
+                              ) : (
+                                <span className="text-red-400">&#10007;</span>
+                              )}
                             </td>
                             <td className="px-3 py-2 text-right font-mono text-slate-600">
                               &pound;{opp.estimatedMonthlyCost.toFixed(2)}
@@ -1382,7 +1541,8 @@ export default function PaidTrafficDashboard() {
                         onClick={() => setShowCount((prev) => Math.min(prev + 30, 200))}
                         className="text-sm text-sky-600 hover:text-sky-700 font-medium"
                       >
-                        Show more ({Math.min(totalOpportunities - showCount, 30)} more of {totalOpportunities - showCount} remaining)
+                        Show more ({Math.min(totalOpportunities - showCount, 30)} more of{' '}
+                        {totalOpportunities - showCount} remaining)
                       </button>
                     </div>
                   )}
@@ -1404,7 +1564,13 @@ export default function PaidTrafficDashboard() {
                 className="w-full text-left px-4 py-3 bg-slate-50 hover:bg-slate-100 rounded-lg text-sm font-medium text-slate-600 flex items-center justify-between border border-slate-200"
               >
                 <span>
-                  View all {data.keywordSummary?.total || Object.values(data.keywordsBySite).reduce((s, site) => s + site.keywords.length, 0)} keywords by site
+                  View all{' '}
+                  {data.keywordSummary?.total ||
+                    Object.values(data.keywordsBySite).reduce(
+                      (s, site) => s + site.keywords.length,
+                      0
+                    )}{' '}
+                  keywords by site
                 </span>
                 <span className="text-slate-400">{showAllKeywords ? '\u25B2' : '\u25BC'}</span>
               </button>
@@ -1417,104 +1583,217 @@ export default function PaidTrafficDashboard() {
                         .map(([siteId, site]) => {
                           const isExpanded = expandedSites.has(siteId);
                           const totalVolume = site.keywords.reduce((s, k) => s + k.searchVolume, 0);
-                          const totalEstCost = site.keywords.reduce((s, k) => s + k.estimatedMonthlyCost, 0);
-                          const avgSiteCpc = site.keywords.length > 0
-                            ? site.keywords.reduce((s, k) => s + k.cpc, 0) / site.keywords.length
-                            : 0;
+                          const totalEstCost = site.keywords.reduce(
+                            (s, k) => s + k.estimatedMonthlyCost,
+                            0
+                          );
+                          const avgSiteCpc =
+                            site.keywords.length > 0
+                              ? site.keywords.reduce((s, k) => s + k.cpc, 0) / site.keywords.length
+                              : 0;
                           const profile = data.profiles.find((p) => p.siteId === siteId);
                           const bidKws = site.keywords.filter((k) => k.aiDecision === 'BID').length;
-                          const reviewKws = site.keywords.filter((k) => k.aiDecision === 'REVIEW').length;
-                          const unevaluated = site.keywords.filter((k) => k.aiScore === null).length;
+                          const reviewKws = site.keywords.filter(
+                            (k) => k.aiDecision === 'REVIEW'
+                          ).length;
+                          const unevaluated = site.keywords.filter(
+                            (k) => k.aiScore === null
+                          ).length;
 
                           return (
-                            <div key={siteId} className="border border-slate-200 rounded-lg overflow-hidden">
+                            <div
+                              key={siteId}
+                              className="border border-slate-200 rounded-lg overflow-hidden"
+                            >
                               <button
                                 onClick={() => toggleSite(siteId)}
                                 className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors text-left"
                               >
                                 <div className="flex items-center gap-3 flex-wrap">
-                                  <span className="text-sm font-medium text-slate-900">{site.siteName}</span>
-                                  <span className="text-xs px-2 py-0.5 bg-sky-100 text-sky-800 rounded">{site.keywords.length} keywords</span>
-                                  {bidKws > 0 && <span className="text-xs px-2 py-0.5 bg-green-100 text-green-800 rounded">{bidKws} bid</span>}
-                                  {reviewKws > 0 && <span className="text-xs px-2 py-0.5 bg-amber-100 text-amber-800 rounded">{reviewKws} review</span>}
-                                  {unevaluated > 0 && <span className="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 rounded">{unevaluated} pending AI</span>}
-                                  <span className="text-xs text-slate-500">{totalVolume.toLocaleString()} vol/mo</span>
-                                  <span className="text-xs text-slate-500">est. &pound;{totalEstCost.toFixed(2)}/mo</span>
+                                  <span className="text-sm font-medium text-slate-900">
+                                    {site.siteName}
+                                  </span>
+                                  <span className="text-xs px-2 py-0.5 bg-sky-100 text-sky-800 rounded">
+                                    {site.keywords.length} keywords
+                                  </span>
+                                  {bidKws > 0 && (
+                                    <span className="text-xs px-2 py-0.5 bg-green-100 text-green-800 rounded">
+                                      {bidKws} bid
+                                    </span>
+                                  )}
+                                  {reviewKws > 0 && (
+                                    <span className="text-xs px-2 py-0.5 bg-amber-100 text-amber-800 rounded">
+                                      {reviewKws} review
+                                    </span>
+                                  )}
+                                  {unevaluated > 0 && (
+                                    <span className="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 rounded">
+                                      {unevaluated} pending AI
+                                    </span>
+                                  )}
+                                  <span className="text-xs text-slate-500">
+                                    {totalVolume.toLocaleString()} vol/mo
+                                  </span>
+                                  <span className="text-xs text-slate-500">
+                                    est. &pound;{totalEstCost.toFixed(2)}/mo
+                                  </span>
                                   {profile && (
-                                    <span className={`text-xs px-2 py-0.5 rounded ${
-                                      profile.maxProfitableCpc > avgSiteCpc ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                                    }`}>max CPC &pound;{profile.maxProfitableCpc.toFixed(4)}</span>
+                                    <span
+                                      className={`text-xs px-2 py-0.5 rounded ${
+                                        profile.maxProfitableCpc > avgSiteCpc
+                                          ? 'bg-green-100 text-green-800'
+                                          : 'bg-red-100 text-red-800'
+                                      }`}
+                                    >
+                                      max CPC &pound;{profile.maxProfitableCpc.toFixed(4)}
+                                    </span>
                                   )}
                                 </div>
-                                <span className="text-slate-400 text-sm">{isExpanded ? '\u25B2' : '\u25BC'}</span>
+                                <span className="text-slate-400 text-sm">
+                                  {isExpanded ? '\u25B2' : '\u25BC'}
+                                </span>
                               </button>
                               {isExpanded && (
                                 <div className="overflow-x-auto">
                                   <table className="w-full text-sm">
                                     <thead>
                                       <tr className="border-b border-slate-200 bg-slate-50/50">
-                                        <th className="text-left px-4 py-2 font-medium text-slate-600">Keyword</th>
-                                        <th className="text-center px-4 py-2 font-medium text-slate-600">AI</th>
-                                        <th className="text-right px-4 py-2 font-medium text-slate-600">CPC</th>
-                                        <th className="text-right px-4 py-2 font-medium text-slate-600">Volume</th>
-                                        <th className="text-right px-4 py-2 font-medium text-slate-600">Difficulty</th>
-                                        <th className="text-right px-4 py-2 font-medium text-slate-600">Score</th>
-                                        <th className="text-center px-4 py-2 font-medium text-slate-600">Intent</th>
-                                        <th className="text-right px-4 py-2 font-medium text-slate-600">Est. Cost</th>
-                                        <th className="text-right px-4 py-2 font-medium text-slate-600">Max Bid</th>
+                                        <th className="text-left px-4 py-2 font-medium text-slate-600">
+                                          Keyword
+                                        </th>
+                                        <th className="text-center px-4 py-2 font-medium text-slate-600">
+                                          AI
+                                        </th>
+                                        <th className="text-right px-4 py-2 font-medium text-slate-600">
+                                          CPC
+                                        </th>
+                                        <th className="text-right px-4 py-2 font-medium text-slate-600">
+                                          Volume
+                                        </th>
+                                        <th className="text-right px-4 py-2 font-medium text-slate-600">
+                                          Difficulty
+                                        </th>
+                                        <th className="text-right px-4 py-2 font-medium text-slate-600">
+                                          Score
+                                        </th>
+                                        <th className="text-center px-4 py-2 font-medium text-slate-600">
+                                          Intent
+                                        </th>
+                                        <th className="text-right px-4 py-2 font-medium text-slate-600">
+                                          Est. Cost
+                                        </th>
+                                        <th className="text-right px-4 py-2 font-medium text-slate-600">
+                                          Max Bid
+                                        </th>
                                       </tr>
                                     </thead>
                                     <tbody>
                                       {site.keywords
                                         .sort((a, b) => {
-                                          const orderA = a.aiDecision === 'BID' ? 0 : a.aiDecision === 'REVIEW' ? 1 : 2;
-                                          const orderB = b.aiDecision === 'BID' ? 0 : b.aiDecision === 'REVIEW' ? 1 : 2;
+                                          const orderA =
+                                            a.aiDecision === 'BID'
+                                              ? 0
+                                              : a.aiDecision === 'REVIEW'
+                                                ? 1
+                                                : 2;
+                                          const orderB =
+                                            b.aiDecision === 'BID'
+                                              ? 0
+                                              : b.aiDecision === 'REVIEW'
+                                                ? 1
+                                                : 2;
                                           if (orderA !== orderB) return orderA - orderB;
                                           return (b.aiScore || 0) - (a.aiScore || 0);
                                         })
                                         .map((kw) => (
-                                          <tr key={kw.id} className={`border-b border-slate-100 hover:bg-slate-50 ${
-                                            kw.aiDecision === 'BID' ? 'bg-green-50/30' : ''
-                                          }`}>
+                                          <tr
+                                            key={kw.id}
+                                            className={`border-b border-slate-100 hover:bg-slate-50 ${
+                                              kw.aiDecision === 'BID' ? 'bg-green-50/30' : ''
+                                            }`}
+                                          >
                                             <td className="px-4 py-2">
-                                              <div className="font-medium text-slate-900">{kw.keyword}</div>
-                                              {kw.location && <div className="text-xs text-slate-500">{kw.location}</div>}
-                                              {kw.aiReasoning && <div className="text-xs text-slate-400 italic mt-0.5">{kw.aiReasoning}</div>}
+                                              <div className="font-medium text-slate-900">
+                                                {kw.keyword}
+                                              </div>
+                                              {kw.location && (
+                                                <div className="text-xs text-slate-500">
+                                                  {kw.location}
+                                                </div>
+                                              )}
+                                              {kw.aiReasoning && (
+                                                <div className="text-xs text-slate-400 italic mt-0.5">
+                                                  {kw.aiReasoning}
+                                                </div>
+                                              )}
                                             </td>
                                             <td className="px-4 py-2 text-center">
                                               {kw.aiDecision ? (
                                                 <div className="flex flex-col items-center gap-0.5">
-                                                  <span className={`text-xs px-2 py-0.5 rounded font-medium ${
-                                                    aiDecisionColors[kw.aiDecision] || 'bg-slate-100 text-slate-800'
-                                                  }`}>{kw.aiDecision}</span>
-                                                  <span className="text-xs text-slate-400">{kw.aiScore}</span>
+                                                  <span
+                                                    className={`text-xs px-2 py-0.5 rounded font-medium ${
+                                                      aiDecisionColors[kw.aiDecision] ||
+                                                      'bg-slate-100 text-slate-800'
+                                                    }`}
+                                                  >
+                                                    {kw.aiDecision}
+                                                  </span>
+                                                  <span className="text-xs text-slate-400">
+                                                    {kw.aiScore}
+                                                  </span>
                                                 </div>
                                               ) : (
                                                 <span className="text-xs text-slate-300">--</span>
                                               )}
                                             </td>
                                             <td className="px-4 py-2 text-right">
-                                              <span className={`font-mono ${
-                                                profile && kw.cpc <= profile.maxProfitableCpc ? 'text-green-700' : 'text-red-700'
-                                              }`}>&pound;{kw.cpc.toFixed(3)}</span>
+                                              <span
+                                                className={`font-mono ${
+                                                  profile && kw.cpc <= profile.maxProfitableCpc
+                                                    ? 'text-green-700'
+                                                    : 'text-red-700'
+                                                }`}
+                                              >
+                                                &pound;{kw.cpc.toFixed(3)}
+                                              </span>
                                             </td>
-                                            <td className="px-4 py-2 text-right font-mono">{kw.searchVolume.toLocaleString()}</td>
+                                            <td className="px-4 py-2 text-right font-mono">
+                                              {kw.searchVolume.toLocaleString()}
+                                            </td>
                                             <td className="px-4 py-2 text-right">
-                                              <span className={`font-mono ${
-                                                kw.difficulty > 70 ? 'text-red-600' :
-                                                kw.difficulty > 40 ? 'text-amber-600' : 'text-green-600'
-                                              }`}>{kw.difficulty}</span>
+                                              <span
+                                                className={`font-mono ${
+                                                  kw.difficulty > 70
+                                                    ? 'text-red-600'
+                                                    : kw.difficulty > 40
+                                                      ? 'text-amber-600'
+                                                      : 'text-green-600'
+                                                }`}
+                                              >
+                                                {kw.difficulty}
+                                              </span>
                                             </td>
-                                            <td className="px-4 py-2 text-right font-mono">{kw.priorityScore}</td>
+                                            <td className="px-4 py-2 text-right font-mono">
+                                              {kw.priorityScore}
+                                            </td>
                                             <td className="px-4 py-2 text-center">
-                                              <span className={`text-xs px-2 py-0.5 rounded font-medium ${
-                                                intentColors[kw.intent] || 'bg-slate-100 text-slate-800'
-                                              }`}>{kw.intent}</span>
+                                              <span
+                                                className={`text-xs px-2 py-0.5 rounded font-medium ${
+                                                  intentColors[kw.intent] ||
+                                                  'bg-slate-100 text-slate-800'
+                                                }`}
+                                              >
+                                                {kw.intent}
+                                              </span>
                                             </td>
-                                            <td className="px-4 py-2 text-right font-mono text-slate-600">&pound;{kw.estimatedMonthlyCost.toFixed(2)}</td>
+                                            <td className="px-4 py-2 text-right font-mono text-slate-600">
+                                              &pound;{kw.estimatedMonthlyCost.toFixed(2)}
+                                            </td>
                                             <td className="px-4 py-2 text-right">
                                               {kw.maxBid !== null ? (
-                                                <span className="font-mono text-sky-700">&pound;{kw.maxBid.toFixed(4)}</span>
+                                                <span className="font-mono text-sky-700">
+                                                  &pound;{kw.maxBid.toFixed(4)}
+                                                </span>
                                               ) : (
                                                 <span className="text-slate-400">-</span>
                                               )}
@@ -1552,12 +1831,24 @@ export default function PaidTrafficDashboard() {
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="border-b border-slate-200 bg-slate-50">
-                            <th className="text-left px-4 py-2 font-medium text-slate-600">Microsite</th>
-                            <th className="text-left px-4 py-2 font-medium text-slate-600">Keyword / Niche</th>
-                            <th className="text-center px-4 py-2 font-medium text-slate-600">Type</th>
-                            <th className="text-right px-4 py-2 font-medium text-slate-600">Products</th>
-                            <th className="text-right px-4 py-2 font-medium text-slate-600">Sessions</th>
-                            <th className="text-right px-4 py-2 font-medium text-slate-600">Pageviews</th>
+                            <th className="text-left px-4 py-2 font-medium text-slate-600">
+                              Microsite
+                            </th>
+                            <th className="text-left px-4 py-2 font-medium text-slate-600">
+                              Keyword / Niche
+                            </th>
+                            <th className="text-center px-4 py-2 font-medium text-slate-600">
+                              Type
+                            </th>
+                            <th className="text-right px-4 py-2 font-medium text-slate-600">
+                              Products
+                            </th>
+                            <th className="text-right px-4 py-2 font-medium text-slate-600">
+                              Sessions
+                            </th>
+                            <th className="text-right px-4 py-2 font-medium text-slate-600">
+                              Pageviews
+                            </th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1568,16 +1859,28 @@ export default function PaidTrafficDashboard() {
                                 <div className="text-xs text-slate-400">{ms.fullDomain}</div>
                               </td>
                               <td className="px-4 py-2">
-                                {ms.keyword && <div className="text-sm text-slate-700">{ms.keyword}</div>}
-                                {ms.destination && <div className="text-xs text-slate-500">{ms.destination}</div>}
-                                {ms.niche && <div className="text-xs text-slate-400">{ms.niche}</div>}
+                                {ms.keyword && (
+                                  <div className="text-sm text-slate-700">{ms.keyword}</div>
+                                )}
+                                {ms.destination && (
+                                  <div className="text-xs text-slate-500">{ms.destination}</div>
+                                )}
+                                {ms.niche && (
+                                  <div className="text-xs text-slate-400">{ms.niche}</div>
+                                )}
                               </td>
                               <td className="px-4 py-2 text-center">
-                                <span className={`text-xs px-2 py-0.5 rounded font-medium ${
-                                  ms.entityType === 'SUPPLIER' ? 'bg-blue-100 text-blue-800' :
-                                  ms.entityType === 'PRODUCT' ? 'bg-purple-100 text-purple-800' :
-                                  'bg-sky-100 text-sky-800'
-                                }`}>{ms.entityType}</span>
+                                <span
+                                  className={`text-xs px-2 py-0.5 rounded font-medium ${
+                                    ms.entityType === 'SUPPLIER'
+                                      ? 'bg-blue-100 text-blue-800'
+                                      : ms.entityType === 'PRODUCT'
+                                        ? 'bg-purple-100 text-purple-800'
+                                        : 'bg-sky-100 text-sky-800'
+                                  }`}
+                                >
+                                  {ms.entityType}
+                                </span>
                               </td>
                               <td className="px-4 py-2 text-right font-mono">{ms.productCount}</td>
                               <td className="px-4 py-2 text-right font-mono">{ms.sessions}</td>
@@ -1604,7 +1907,9 @@ export default function PaidTrafficDashboard() {
           {allCampaigns.filter((c) => c.status === 'PAUSED').length > 0 && (
             <div className="px-4 py-3 bg-sky-50 border border-sky-200 rounded-lg text-sm text-sky-800 flex items-center justify-between">
               <span>
-                {allCampaigns.filter((c) => c.status === 'PAUSED').length} campaign{allCampaigns.filter((c) => c.status === 'PAUSED').length !== 1 ? 's' : ''} deployed and ready to activate (not spending yet).
+                {allCampaigns.filter((c) => c.status === 'PAUSED').length} campaign
+                {allCampaigns.filter((c) => c.status === 'PAUSED').length !== 1 ? 's' : ''} deployed
+                and ready to activate (not spending yet).
               </span>
               <button
                 onClick={() => triggerBiddingAction('activate_paused')}
@@ -1620,9 +1925,10 @@ export default function PaidTrafficDashboard() {
             {/* Status pills */}
             <div className="flex items-center gap-1">
               {['ALL', 'ACTIVE', 'PAUSED', 'DRAFT', 'ENDED'].map((f) => {
-                const count = f === 'ALL'
-                  ? allCampaigns.length
-                  : allCampaigns.filter((c) => c.status === f).length;
+                const count =
+                  f === 'ALL'
+                    ? allCampaigns.length
+                    : allCampaigns.filter((c) => c.status === f).length;
                 if (f !== 'ALL' && count === 0) return null;
                 return (
                   <button
@@ -1673,6 +1979,8 @@ export default function PaidTrafficDashboard() {
                       { key: 'name', label: 'Campaign' },
                       { key: 'platform', label: 'Platform' },
                       { key: 'status', label: 'Status' },
+                      { key: 'landingPageType', label: 'LP Type' },
+                      { key: 'qualityScore', label: 'QS' },
                       { key: 'spend', label: 'Spend' },
                       { key: 'revenue', label: 'Revenue' },
                       { key: 'roas', label: 'ROAS' },
@@ -1688,35 +1996,94 @@ export default function PaidTrafficDashboard() {
                         className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase cursor-pointer hover:text-slate-700"
                       >
                         {col.label}
-                        {sortField === col.key && <span className="ml-1">{sortDir === 'desc' ? '\u2193' : '\u2191'}</span>}
+                        {sortField === col.key && (
+                          <span className="ml-1">{sortDir === 'desc' ? '\u2193' : '\u2191'}</span>
+                        )}
                       </th>
                     ))}
-                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Actions</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredCampaigns.map((c) => (
                     <tr key={c.id} className="border-b border-slate-100 hover:bg-slate-50">
                       <td className="px-4 py-3">
-                        <div className="font-medium text-slate-900 truncate max-w-[200px]" title={c.name}>{c.name}</div>
+                        <div
+                          className="font-medium text-slate-900 truncate max-w-[200px]"
+                          title={c.name}
+                        >
+                          {c.name}
+                        </div>
                         <div className="text-xs text-slate-400">{c.siteName}</div>
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                          platformColors[c.platform] || 'bg-slate-100 text-slate-700'
-                        }`}>{platformLabel(c.platform)}</span>
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                            platformColors[c.platform] || 'bg-slate-100 text-slate-700'
+                          }`}
+                        >
+                          {platformLabel(c.platform)}
+                        </span>
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                          statusColors[c.status] || 'bg-slate-100 text-slate-600'
-                        }`}>{c.status}</span>
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                            statusColors[c.status] || 'bg-slate-100 text-slate-600'
+                          }`}
+                        >
+                          {c.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        {c.landingPageType ? (
+                          <span
+                            className={`inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium ${
+                              c.landingPageType === 'DESTINATION' ||
+                              c.landingPageType === 'CATEGORY'
+                                ? 'bg-emerald-50 text-emerald-700'
+                                : c.landingPageType === 'EXPERIENCES_FILTERED'
+                                  ? 'bg-amber-50 text-amber-700'
+                                  : c.landingPageType === 'BLOG'
+                                    ? 'bg-purple-50 text-purple-700'
+                                    : 'bg-slate-50 text-slate-600'
+                            }`}
+                            title={c.landingPagePath || ''}
+                          >
+                            {c.landingPageType.replace(/_/g, ' ').substring(0, 12)}
+                          </span>
+                        ) : (
+                          '\u2014'
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {c.qualityScore != null ? (
+                          <span
+                            className={`text-sm font-semibold ${
+                              c.qualityScore >= 7
+                                ? 'text-emerald-600'
+                                : c.qualityScore >= 4
+                                  ? 'text-amber-600'
+                                  : 'text-red-600'
+                            }`}
+                          >
+                            {c.qualityScore}
+                          </span>
+                        ) : (
+                          '\u2014'
+                        )}
                       </td>
                       <td className="px-4 py-3 font-medium">{fmt(c.spend, 'currency')}</td>
                       <td className="px-4 py-3 font-medium">{fmt(c.revenue, 'currency')}</td>
-                      <td className={`px-4 py-3 font-bold ${roasColor(c.roas)}`}>{fmt(c.roas, 'roas')}</td>
+                      <td className={`px-4 py-3 font-bold ${roasColor(c.roas)}`}>
+                        {fmt(c.roas, 'roas')}
+                      </td>
                       <td className="px-4 py-3">{fmt(c.clicks)}</td>
                       <td className="px-4 py-3">{fmt((c as any).ctr, 'percent')}</td>
-                      <td className="px-4 py-3">{fmt((c as any).cpc ?? (c as any).avgCpc, 'currency')}</td>
+                      <td className="px-4 py-3">
+                        {fmt((c as any).cpc ?? (c as any).avgCpc, 'currency')}
+                      </td>
                       <td className="px-4 py-3">{fmt(c.conversions)}</td>
                       <td className="px-4 py-3">{fmt(c.dailyBudget, 'currency')}</td>
                       <td className="px-4 py-3">
@@ -1731,7 +2098,9 @@ export default function PaidTrafficDashboard() {
                         )}
                         {c.status === 'PAUSED' && (
                           <button
-                            onClick={() => triggerAdsAction('resume_campaign', { campaignId: c.id })}
+                            onClick={() =>
+                              triggerAdsAction('resume_campaign', { campaignId: c.id })
+                            }
                             disabled={actionLoading === `resume_${c.id}`}
                             className="text-xs text-emerald-600 hover:text-emerald-700 font-medium"
                           >
@@ -1745,7 +2114,9 @@ export default function PaidTrafficDashboard() {
               </table>
             </div>
             {filteredCampaigns.length === 0 && (
-              <div className="p-8 text-center text-slate-500">No campaigns match the current filters</div>
+              <div className="p-8 text-center text-slate-500">
+                No campaigns match the current filters
+              </div>
             )}
           </div>
         </div>
@@ -1760,20 +2131,62 @@ export default function PaidTrafficDashboard() {
             <>
               {/* KPI Cards with trends */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <KPICard label="Total Spend" value={adsData.kpis.spend} prior={adsData.kpisPrior.spend} format="currency" />
-                <KPICard label="Revenue" value={adsData.kpis.revenue} prior={adsData.kpisPrior.revenue} format="currency" />
-                <KPICard label="ROAS" value={adsData.kpis.roas} prior={adsData.kpisPrior.roas} format="roas" colorFn={roasColor} />
-                <KPICard label="Conversions" value={adsData.kpis.conversions} prior={adsData.kpisPrior.conversions} format="number" />
-                <KPICard label="Avg CPC" value={adsData.kpis.cpc} prior={adsData.kpisPrior.cpc} format="currency" />
-                <KPICard label="CPA" value={adsData.kpis.cpa} prior={adsData.kpisPrior.cpa} format="currency" />
-                <KPICard label="CTR" value={adsData.kpis.ctr} prior={adsData.kpisPrior.ctr} format="percent" />
-                <KPICard label="Budget Utilization" value={adsData.kpis.budgetUtilization ?? null} format="percent" />
+                <KPICard
+                  label="Total Spend"
+                  value={adsData.kpis.spend}
+                  prior={adsData.kpisPrior.spend}
+                  format="currency"
+                />
+                <KPICard
+                  label="Revenue"
+                  value={adsData.kpis.revenue}
+                  prior={adsData.kpisPrior.revenue}
+                  format="currency"
+                />
+                <KPICard
+                  label="ROAS"
+                  value={adsData.kpis.roas}
+                  prior={adsData.kpisPrior.roas}
+                  format="roas"
+                  colorFn={roasColor}
+                />
+                <KPICard
+                  label="Conversions"
+                  value={adsData.kpis.conversions}
+                  prior={adsData.kpisPrior.conversions}
+                  format="number"
+                />
+                <KPICard
+                  label="Avg CPC"
+                  value={adsData.kpis.cpc}
+                  prior={adsData.kpisPrior.cpc}
+                  format="currency"
+                />
+                <KPICard
+                  label="CPA"
+                  value={adsData.kpis.cpa}
+                  prior={adsData.kpisPrior.cpa}
+                  format="currency"
+                />
+                <KPICard
+                  label="CTR"
+                  value={adsData.kpis.ctr}
+                  prior={adsData.kpisPrior.ctr}
+                  format="percent"
+                />
+                <KPICard
+                  label="Budget Utilization"
+                  value={adsData.kpis.budgetUtilization ?? null}
+                  format="percent"
+                />
               </div>
 
               {/* Daily Trend Chart */}
               {adsData.dailyTrend.length > 0 && (
                 <div className="bg-white rounded-xl border border-slate-200 p-6">
-                  <h3 className="text-sm font-medium text-slate-700 mb-4">Daily Spend &amp; Revenue</h3>
+                  <h3 className="text-sm font-medium text-slate-700 mb-4">
+                    Daily Spend &amp; Revenue
+                  </h3>
                   <div className="flex items-end gap-1 h-40">
                     {adsData.dailyTrend.map((day) => {
                       const maxVal = Math.max(
@@ -1789,15 +2202,31 @@ export default function PaidTrafficDashboard() {
                           className="flex-1 flex items-end gap-0.5 group relative"
                           title={`${day.date}: Spend \u00A3${day.spend.toFixed(2)}, Revenue \u00A3${day.revenue.toFixed(2)}`}
                         >
-                          <div className="flex-1 bg-red-300 rounded-t" style={{ height: `${spendHeight}%`, minHeight: day.spend > 0 ? '2px' : '0' }} />
-                          <div className="flex-1 bg-emerald-400 rounded-t" style={{ height: `${revenueHeight}%`, minHeight: day.revenue > 0 ? '2px' : '0' }} />
+                          <div
+                            className="flex-1 bg-red-300 rounded-t"
+                            style={{
+                              height: `${spendHeight}%`,
+                              minHeight: day.spend > 0 ? '2px' : '0',
+                            }}
+                          />
+                          <div
+                            className="flex-1 bg-emerald-400 rounded-t"
+                            style={{
+                              height: `${revenueHeight}%`,
+                              minHeight: day.revenue > 0 ? '2px' : '0',
+                            }}
+                          />
                         </div>
                       );
                     })}
                   </div>
                   <div className="flex items-center gap-4 mt-3 text-xs text-slate-500">
-                    <div className="flex items-center gap-1"><span className="w-3 h-3 bg-red-300 rounded" /> Spend</div>
-                    <div className="flex items-center gap-1"><span className="w-3 h-3 bg-emerald-400 rounded" /> Revenue</div>
+                    <div className="flex items-center gap-1">
+                      <span className="w-3 h-3 bg-red-300 rounded" /> Spend
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="w-3 h-3 bg-emerald-400 rounded" /> Revenue
+                    </div>
                   </div>
                 </div>
               )}
@@ -1807,31 +2236,101 @@ export default function PaidTrafficDashboard() {
                 {/* Google */}
                 <div className="bg-white rounded-xl border border-slate-200 p-6">
                   <div className="flex items-center gap-2 mb-4">
-                    <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-700">Google Search</span>
-                    <span className="text-xs text-slate-400">{adsData.platformComparison.google.campaigns} campaigns</span>
+                    <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-700">
+                      Google Search
+                    </span>
+                    <span className="text-xs text-slate-400">
+                      {adsData.platformComparison.google.campaigns} campaigns
+                    </span>
                   </div>
                   <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div><span className="text-slate-500">Spend</span><p className="font-semibold">{fmt(adsData.platformComparison.google.spend, 'currency')}</p></div>
-                    <div><span className="text-slate-500">Revenue</span><p className="font-semibold">{fmt(adsData.platformComparison.google.revenue, 'currency')}</p></div>
-                    <div><span className="text-slate-500">ROAS</span><p className={`font-semibold ${roasColor(adsData.platformComparison.google.roas)}`}>{fmt(adsData.platformComparison.google.roas, 'roas')}</p></div>
-                    <div><span className="text-slate-500">CPC</span><p className="font-semibold">{fmt(adsData.platformComparison.google.cpc, 'currency')}</p></div>
-                    <div><span className="text-slate-500">Clicks</span><p className="font-semibold">{fmt(adsData.platformComparison.google.clicks)}</p></div>
-                    <div><span className="text-slate-500">Conversions</span><p className="font-semibold">{fmt(adsData.platformComparison.google.conversions)}</p></div>
+                    <div>
+                      <span className="text-slate-500">Spend</span>
+                      <p className="font-semibold">
+                        {fmt(adsData.platformComparison.google.spend, 'currency')}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">Revenue</span>
+                      <p className="font-semibold">
+                        {fmt(adsData.platformComparison.google.revenue, 'currency')}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">ROAS</span>
+                      <p
+                        className={`font-semibold ${roasColor(adsData.platformComparison.google.roas)}`}
+                      >
+                        {fmt(adsData.platformComparison.google.roas, 'roas')}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">CPC</span>
+                      <p className="font-semibold">
+                        {fmt(adsData.platformComparison.google.cpc, 'currency')}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">Clicks</span>
+                      <p className="font-semibold">
+                        {fmt(adsData.platformComparison.google.clicks)}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">Conversions</span>
+                      <p className="font-semibold">
+                        {fmt(adsData.platformComparison.google.conversions)}
+                      </p>
+                    </div>
                   </div>
                 </div>
                 {/* Meta */}
                 <div className="bg-white rounded-xl border border-slate-200 p-6">
                   <div className="flex items-center gap-2 mb-4">
-                    <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-700">Meta / Facebook</span>
-                    <span className="text-xs text-slate-400">{adsData.platformComparison.meta.campaigns} campaigns</span>
+                    <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-700">
+                      Meta / Facebook
+                    </span>
+                    <span className="text-xs text-slate-400">
+                      {adsData.platformComparison.meta.campaigns} campaigns
+                    </span>
                   </div>
                   <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div><span className="text-slate-500">Spend</span><p className="font-semibold">{fmt(adsData.platformComparison.meta.spend, 'currency')}</p></div>
-                    <div><span className="text-slate-500">Revenue</span><p className="font-semibold">{fmt(adsData.platformComparison.meta.revenue, 'currency')}</p></div>
-                    <div><span className="text-slate-500">ROAS</span><p className={`font-semibold ${roasColor(adsData.platformComparison.meta.roas)}`}>{fmt(adsData.platformComparison.meta.roas, 'roas')}</p></div>
-                    <div><span className="text-slate-500">CPC</span><p className="font-semibold">{fmt(adsData.platformComparison.meta.cpc, 'currency')}</p></div>
-                    <div><span className="text-slate-500">Clicks</span><p className="font-semibold">{fmt(adsData.platformComparison.meta.clicks)}</p></div>
-                    <div><span className="text-slate-500">Conversions</span><p className="font-semibold">{fmt(adsData.platformComparison.meta.conversions)}</p></div>
+                    <div>
+                      <span className="text-slate-500">Spend</span>
+                      <p className="font-semibold">
+                        {fmt(adsData.platformComparison.meta.spend, 'currency')}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">Revenue</span>
+                      <p className="font-semibold">
+                        {fmt(adsData.platformComparison.meta.revenue, 'currency')}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">ROAS</span>
+                      <p
+                        className={`font-semibold ${roasColor(adsData.platformComparison.meta.roas)}`}
+                      >
+                        {fmt(adsData.platformComparison.meta.roas, 'roas')}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">CPC</span>
+                      <p className="font-semibold">
+                        {fmt(adsData.platformComparison.meta.cpc, 'currency')}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">Clicks</span>
+                      <p className="font-semibold">{fmt(adsData.platformComparison.meta.clicks)}</p>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">Conversions</span>
+                      <p className="font-semibold">
+                        {fmt(adsData.platformComparison.meta.conversions)}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1842,16 +2341,31 @@ export default function PaidTrafficDashboard() {
                   <h3 className="text-sm font-medium text-slate-700 mb-4">Recent Alerts</h3>
                   <div className="space-y-2">
                     {adsData.alerts.slice(0, 10).map((alert) => (
-                      <div key={alert.id} className={`flex items-center justify-between p-3 rounded-lg ${alert.acknowledged ? 'bg-slate-50' : 'bg-amber-50'}`}>
+                      <div
+                        key={alert.id}
+                        className={`flex items-center justify-between p-3 rounded-lg ${alert.acknowledged ? 'bg-slate-50' : 'bg-amber-50'}`}
+                      >
                         <div className="flex items-center gap-3">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${severityColors[alert.severity] || 'bg-slate-100'}`}>{alert.severity}</span>
-                          <span className={`text-sm ${alert.acknowledged ? 'text-slate-500' : 'text-slate-700'}`}>{alert.message}</span>
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${severityColors[alert.severity] || 'bg-slate-100'}`}
+                          >
+                            {alert.severity}
+                          </span>
+                          <span
+                            className={`text-sm ${alert.acknowledged ? 'text-slate-500' : 'text-slate-700'}`}
+                          >
+                            {alert.message}
+                          </span>
                         </div>
                         <div className="flex items-center gap-3">
-                          <span className="text-xs text-slate-400">{new Date(alert.createdAt).toLocaleDateString()}</span>
+                          <span className="text-xs text-slate-400">
+                            {new Date(alert.createdAt).toLocaleDateString()}
+                          </span>
                           {!alert.acknowledged && (
                             <button
-                              onClick={() => triggerAdsAction('acknowledge_alert', { alertId: alert.id })}
+                              onClick={() =>
+                                triggerAdsAction('acknowledge_alert', { alertId: alert.id })
+                              }
                               className="text-xs text-sky-600 hover:text-sky-700 font-medium"
                             >
                               Dismiss
@@ -1866,61 +2380,184 @@ export default function PaidTrafficDashboard() {
 
               {/* Booking Attribution */}
               <div className="bg-white rounded-xl border border-slate-200 p-6">
-                <h3 className="text-sm font-medium text-slate-700 mb-4">Booking Attribution by Campaign</h3>
+                <h3 className="text-sm font-medium text-slate-700 mb-4">
+                  Booking Attribution by Campaign
+                </h3>
                 {adsData.attribution.length > 0 ? (
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-slate-200">
-                        <th className="text-left py-2 text-xs text-slate-500 uppercase">Campaign</th>
+                        <th className="text-left py-2 text-xs text-slate-500 uppercase">
+                          Campaign
+                        </th>
                         <th className="text-left py-2 text-xs text-slate-500 uppercase">Source</th>
-                        <th className="text-right py-2 text-xs text-slate-500 uppercase">Bookings</th>
-                        <th className="text-right py-2 text-xs text-slate-500 uppercase">Revenue</th>
-                        <th className="text-right py-2 text-xs text-slate-500 uppercase">Commission</th>
+                        <th className="text-right py-2 text-xs text-slate-500 uppercase">
+                          Bookings
+                        </th>
+                        <th className="text-right py-2 text-xs text-slate-500 uppercase">
+                          Revenue
+                        </th>
+                        <th className="text-right py-2 text-xs text-slate-500 uppercase">
+                          Commission
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {adsData.attribution.map((a, i) => (
                         <tr key={i} className="border-b border-slate-100">
-                          <td className="py-2 font-medium truncate max-w-[250px]" title={a.campaign}>{a.campaign}</td>
+                          <td
+                            className="py-2 font-medium truncate max-w-[250px]"
+                            title={a.campaign}
+                          >
+                            {a.campaign}
+                          </td>
                           <td className="py-2 text-slate-600">{a.source}</td>
                           <td className="py-2 text-right">{a.bookings}</td>
-                          <td className="py-2 text-right font-medium">{fmt(a.revenue, 'currency')}</td>
-                          <td className="py-2 text-right text-emerald-600 font-medium">{fmt(a.commission, 'currency')}</td>
+                          <td className="py-2 text-right font-medium">
+                            {fmt(a.revenue, 'currency')}
+                          </td>
+                          <td className="py-2 text-right text-emerald-600 font-medium">
+                            {fmt(a.commission, 'currency')}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 ) : (
-                  <p className="text-sm text-slate-500">No paid booking attribution data for this period</p>
+                  <p className="text-sm text-slate-500">
+                    No paid booking attribution data for this period
+                  </p>
                 )}
               </div>
 
               {/* Landing Page Performance */}
               <div className="bg-white rounded-xl border border-slate-200 p-6">
-                <h3 className="text-sm font-medium text-slate-700 mb-4">Landing Page Performance (Paid Traffic)</h3>
+                <h3 className="text-sm font-medium text-slate-700 mb-4">
+                  Landing Page Performance (Paid Traffic)
+                </h3>
                 {adsData.landingPages.length > 0 ? (
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-slate-200">
-                        <th className="text-left py-2 text-xs text-slate-500 uppercase">Landing Page</th>
-                        <th className="text-right py-2 text-xs text-slate-500 uppercase">Conversions</th>
-                        <th className="text-right py-2 text-xs text-slate-500 uppercase">Revenue</th>
-                        <th className="text-right py-2 text-xs text-slate-500 uppercase">Commission</th>
+                        <th className="text-left py-2 text-xs text-slate-500 uppercase">
+                          Landing Page
+                        </th>
+                        <th className="text-right py-2 text-xs text-slate-500 uppercase">
+                          Conversions
+                        </th>
+                        <th className="text-right py-2 text-xs text-slate-500 uppercase">
+                          Revenue
+                        </th>
+                        <th className="text-right py-2 text-xs text-slate-500 uppercase">
+                          Commission
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {adsData.landingPages.map((lp, i) => (
                         <tr key={i} className="border-b border-slate-100">
-                          <td className="py-2 font-mono text-xs truncate max-w-[350px]" title={lp.path}>{lp.path}</td>
+                          <td
+                            className="py-2 font-mono text-xs truncate max-w-[350px]"
+                            title={lp.path}
+                          >
+                            {lp.path}
+                          </td>
                           <td className="py-2 text-right">{lp.conversions}</td>
-                          <td className="py-2 text-right font-medium">{fmt(lp.revenue, 'currency')}</td>
-                          <td className="py-2 text-right text-emerald-600 font-medium">{fmt(lp.commission, 'currency')}</td>
+                          <td className="py-2 text-right font-medium">
+                            {fmt(lp.revenue, 'currency')}
+                          </td>
+                          <td className="py-2 text-right text-emerald-600 font-medium">
+                            {fmt(lp.commission, 'currency')}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 ) : (
-                  <p className="text-sm text-slate-500">No landing page conversion data for this period</p>
+                  <p className="text-sm text-slate-500">
+                    No landing page conversion data for this period
+                  </p>
+                )}
+              </div>
+
+              {/* Landing Page Type Performance */}
+              <div className="bg-white rounded-xl border border-slate-200 p-6">
+                <h3 className="text-sm font-medium text-slate-700 mb-4">
+                  Performance by Landing Page Type
+                </h3>
+                {adsData.landingPagesByType && adsData.landingPagesByType.length > 0 ? (
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-200">
+                        <th className="text-left py-2 text-xs text-slate-500 uppercase">
+                          Page Type
+                        </th>
+                        <th className="text-right py-2 text-xs text-slate-500 uppercase">
+                          Campaigns
+                        </th>
+                        <th className="text-right py-2 text-xs text-slate-500 uppercase">Spend</th>
+                        <th className="text-right py-2 text-xs text-slate-500 uppercase">Clicks</th>
+                        <th className="text-right py-2 text-xs text-slate-500 uppercase">CVR</th>
+                        <th className="text-right py-2 text-xs text-slate-500 uppercase">
+                          Revenue
+                        </th>
+                        <th className="text-right py-2 text-xs text-slate-500 uppercase">ROAS</th>
+                        <th className="text-right py-2 text-xs text-slate-500 uppercase">Avg QS</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {adsData.landingPagesByType.map((lp) => (
+                        <tr key={lp.type} className="border-b border-slate-100">
+                          <td className="py-2">
+                            <span
+                              className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                                lp.type === 'DESTINATION' || lp.type === 'CATEGORY'
+                                  ? 'bg-emerald-50 text-emerald-700'
+                                  : lp.type === 'COLLECTION' || lp.type === 'EXPERIENCE_DETAIL'
+                                    ? 'bg-sky-50 text-sky-700'
+                                    : lp.type === 'EXPERIENCES_FILTERED'
+                                      ? 'bg-amber-50 text-amber-700'
+                                      : lp.type === 'BLOG'
+                                        ? 'bg-purple-50 text-purple-700'
+                                        : 'bg-slate-100 text-slate-600'
+                              }`}
+                            >
+                              {lp.type.replace(/_/g, ' ')}
+                            </span>
+                          </td>
+                          <td className="py-2 text-right">{lp.campaigns}</td>
+                          <td className="py-2 text-right">{fmt(lp.spend, 'currency')}</td>
+                          <td className="py-2 text-right">{fmt(lp.clicks, 'number')}</td>
+                          <td className="py-2 text-right">{fmt(lp.cvr, 'percent')}</td>
+                          <td className="py-2 text-right font-medium">
+                            {fmt(lp.revenue, 'currency')}
+                          </td>
+                          <td className={`py-2 text-right font-medium ${roasColor(lp.roas)}`}>
+                            {fmt(lp.roas, 'roas')}
+                          </td>
+                          <td className="py-2 text-right">
+                            {lp.avgQualityScore != null ? (
+                              <span
+                                className={
+                                  lp.avgQualityScore >= 7
+                                    ? 'text-emerald-600'
+                                    : lp.avgQualityScore >= 4
+                                      ? 'text-amber-600'
+                                      : 'text-red-600'
+                                }
+                              >
+                                {lp.avgQualityScore.toFixed(1)}
+                              </span>
+                            ) : (
+                              '\u2014'
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <p className="text-sm text-slate-500">No landing page type data available yet</p>
                 )}
               </div>
             </>
@@ -1928,7 +2565,12 @@ export default function PaidTrafficDashboard() {
             <Card>
               <div className="p-8 text-center">
                 <p className="text-slate-500">Performance data is loading or unavailable.</p>
-                <button onClick={fetchData} className="mt-2 text-sm text-sky-600 hover:text-sky-700">Retry</button>
+                <button
+                  onClick={fetchData}
+                  className="mt-2 text-sm text-sky-600 hover:text-sky-700"
+                >
+                  Retry
+                </button>
               </div>
             </Card>
           )}

@@ -13,6 +13,15 @@
 import { prisma } from '@experience-marketplace/database';
 import { evaluateKeywordQuality } from './keyword-quality-evaluator';
 import { PAID_TRAFFIC_CONFIG } from '../config/paid-traffic';
+import {
+  type LandingPageType,
+  type LandingPageContext,
+  type SiteType,
+  buildLandingPageUrl,
+  loadPageCaches,
+  getLandingPageBonus,
+  LandingPageValidator,
+} from './landing-page-routing';
 
 // --- Configuration -----------------------------------------------------------
 
@@ -56,9 +65,13 @@ export interface CampaignCandidate {
   location: string | null;
   targetUrl: string;
   utmParams: { source: string; medium: string; campaign: string };
-  micrositeId?: string;       // If targeting a microsite landing page
-  micrositeDomain?: string;   // fullDomain of the microsite
-  isMicrosite: boolean;       // Flag for UI grouping
+  micrositeId?: string; // If targeting a microsite landing page
+  micrositeDomain?: string; // fullDomain of the microsite
+  isMicrosite: boolean; // Flag for UI grouping
+  // Landing page routing
+  landingPagePath: string;
+  landingPageType: LandingPageType;
+  landingPageProducts?: number;
 }
 
 export interface BiddingEngineResult {
@@ -75,7 +88,9 @@ export interface BiddingEngineResult {
  * Calculate profitability metrics for a single site.
  * Uses real booking/analytics data where available, falls back to catalog/defaults.
  */
-export async function calculateSiteProfitability(siteId: string): Promise<SiteProfitability | null> {
+export async function calculateSiteProfitability(
+  siteId: string
+): Promise<SiteProfitability | null> {
   const site = await prisma.site.findUnique({
     where: { id: siteId },
     select: { id: true, name: true, primaryDomain: true, status: true },
@@ -109,7 +124,9 @@ export async function calculateSiteProfitability(siteId: string): Promise<SitePr
       where: { priceFrom: { not: null } },
       _avg: { priceFrom: true },
     });
-    avgOrderValue = productAvg._avg.priceFrom ? Number(productAvg._avg.priceFrom) : PAID_TRAFFIC_CONFIG.defaults.aov;
+    avgOrderValue = productAvg._avg.priceFrom
+      ? Number(productAvg._avg.priceFrom)
+      : PAID_TRAFFIC_CONFIG.defaults.aov;
     usedCatalogFallback = true;
   }
 
@@ -272,24 +289,30 @@ export async function calculateMicrositeProfitability(): Promise<SiteProfitabili
     _count: true,
   });
 
-  const portfolioAov = portfolioAvg._avg.totalAmount ? Number(portfolioAvg._avg.totalAmount) : PAID_TRAFFIC_CONFIG.defaults.aov;
-  const portfolioCommission = portfolioAvg._avg.commissionRate || PAID_TRAFFIC_CONFIG.defaults.commissionRate;
+  const portfolioAov = portfolioAvg._avg.totalAmount
+    ? Number(portfolioAvg._avg.totalAmount)
+    : PAID_TRAFFIC_CONFIG.defaults.aov;
+  const portfolioCommission =
+    portfolioAvg._avg.commissionRate || PAID_TRAFFIC_CONFIG.defaults.commissionRate;
 
   // Product catalog fallback
   const productAvg = await prisma.product.aggregate({
     where: { priceFrom: { not: null } },
     _avg: { priceFrom: true },
   });
-  const catalogAvg = productAvg._avg.priceFrom ? Number(productAvg._avg.priceFrom) : PAID_TRAFFIC_CONFIG.defaults.aov;
+  const catalogAvg = productAvg._avg.priceFrom
+    ? Number(productAvg._avg.priceFrom)
+    : PAID_TRAFFIC_CONFIG.defaults.aov;
 
   const profiles: SiteProfitability[] = [];
 
   for (const ms of microsites) {
     // Calculate conversion rate from microsite analytics.
     const totalSessions = ms.analyticsSnapshots.reduce((s, a) => s + a.sessions, 0);
-    const conversionRate = totalSessions >= MIN_SESSIONS_FOR_CVR
-      ? PAID_TRAFFIC_CONFIG.defaults.cvr * 1.2 // Slight niche boost with real data
-      : PAID_TRAFFIC_CONFIG.defaults.cvr;       // 1.5% default
+    const conversionRate =
+      totalSessions >= MIN_SESSIONS_FOR_CVR
+        ? PAID_TRAFFIC_CONFIG.defaults.cvr * 1.2 // Slight niche boost with real data
+        : PAID_TRAFFIC_CONFIG.defaults.cvr; // 1.5% default
 
     const avgOrderValue = portfolioAvg._count >= MIN_BOOKINGS_FOR_AOV ? portfolioAov : catalogAvg;
     const avgCommissionRate = portfolioCommission;
@@ -350,7 +373,9 @@ export async function archiveLowIntentKeywords(): Promise<number> {
   });
 
   if (result.count > 0) {
-    console.log(`[BiddingEngine] Archived ${result.count} low-intent PAID_CANDIDATE keywords (containing "free" etc.)`);
+    console.log(
+      `[BiddingEngine] Archived ${result.count} low-intent PAID_CANDIDATE keywords (containing "free" etc.)`
+    );
   }
 
   return result.count;
@@ -409,12 +434,9 @@ export async function assignKeywordsToSites(): Promise<number> {
     const categories = config?.categories?.map((c) => c.name) ?? [];
     const searchTerms = config?.popularExperiences?.searchTerms ?? [];
 
-    const allTerms = [
-      ...destinations,
-      ...categories,
-      ...searchTerms,
-      site.name,
-    ].map((t) => t.toLowerCase());
+    const allTerms = [...destinations, ...categories, ...searchTerms, site.name].map((t) =>
+      t.toLowerCase()
+    );
 
     return { id: site.id, name: site.name, destinations, categories, searchTerms, allTerms };
   });
@@ -469,7 +491,10 @@ export async function assignKeywordsToSites(): Promise<number> {
       // Location match
       if (locationLower) {
         for (const dest of site.destinations) {
-          if (locationLower.includes(dest.toLowerCase()) || dest.toLowerCase().includes(locationLower)) {
+          if (
+            locationLower.includes(dest.toLowerCase()) ||
+            dest.toLowerCase().includes(locationLower)
+          ) {
             score += 8;
             break;
           }
@@ -518,11 +543,14 @@ export async function assignKeywordsToSites(): Promise<number> {
   for (let i = 0; i < updates.length; i += 100) {
     const batch = updates.slice(i, i + 100);
     await Promise.all(
-      batch.map(u =>
-        prisma.sEOOpportunity.update({
-          where: { id: u.id },
-          data: { siteId: u.siteId },
-        }).catch(() => {}) // Skip errors
+      batch.map(
+        (u) =>
+          prisma.sEOOpportunity
+            .update({
+              where: { id: u.id },
+              data: { siteId: u.siteId },
+            })
+            .catch(() => {}) // Skip errors
       )
     );
     assigned += batch.length;
@@ -530,7 +558,7 @@ export async function assignKeywordsToSites(): Promise<number> {
 
   console.log(
     `[BiddingEngine] Assigned ${assigned}/${unassigned.length} keywords ` +
-    `(${assignedByMatch} by match, ${assignedByDefault} by default route)`
+      `(${assignedByMatch} by match, ${assignedByDefault} by default route)`
   );
   return assigned;
 }
@@ -596,9 +624,17 @@ export async function scoreCampaignOpportunities(
   const micrositeByTerm = new Map<string, MicrositeMatch>();
   for (const ms of opportunityMicrosites) {
     const disco = ms.discoveryConfig as {
-      keyword?: string; destination?: string; niche?: string; searchTerms?: string[];
+      keyword?: string;
+      destination?: string;
+      niche?: string;
+      searchTerms?: string[];
     } | null;
-    const entry: MicrositeMatch = { id: ms.id, siteName: ms.siteName, fullDomain: ms.fullDomain, productCount: 0 };
+    const entry: MicrositeMatch = {
+      id: ms.id,
+      siteName: ms.siteName,
+      fullDomain: ms.fullDomain,
+      productCount: 0,
+    };
     if (disco?.keyword) micrositeByTerm.set(disco.keyword.toLowerCase(), entry);
     for (const term of disco?.searchTerms ?? []) {
       micrositeByTerm.set(term.toLowerCase(), entry);
@@ -612,7 +648,9 @@ export async function scoreCampaignOpportunities(
     const cities = ms.supplier?.cities ?? [];
     if (cities.length === 0) continue;
     const entry: MicrositeMatch = {
-      id: ms.id, siteName: ms.siteName, fullDomain: ms.fullDomain,
+      id: ms.id,
+      siteName: ms.siteName,
+      fullDomain: ms.fullDomain,
       productCount: ms.cachedProductCount,
     };
     for (const city of cities) {
@@ -623,7 +661,32 @@ export async function scoreCampaignOpportunities(
     }
   }
 
-  console.log(`[BiddingEngine] Microsite lookup: ${micrositeByTerm.size} keyword terms, ${micrositesByCity.size} cities (${supplierMicrosites.length} supplier microsites)`);
+  console.log(
+    `[BiddingEngine] Microsite lookup: ${micrositeByTerm.size} keyword terms, ${micrositesByCity.size} cities (${supplierMicrosites.length} supplier microsites)`
+  );
+
+  // --- Pre-load page caches for landing page routing ---
+  const allSiteIds = [...new Set(opportunities.map((o) => o.siteId).filter(Boolean) as string[])];
+  const allMicrositeIds = [
+    ...new Set([...opportunityMicrosites.map((m) => m.id), ...supplierMicrosites.map((m) => m.id)]),
+  ];
+  const { pagesBySite, pagesByMicrosite, collectionsByMicrosite } = await loadPageCaches(
+    allSiteIds,
+    allMicrositeIds
+  );
+  console.log(
+    `[BiddingEngine] Page cache: ${allSiteIds.length} sites, ${allMicrositeIds.length} microsites, pages for ${pagesBySite.size} sites + ${pagesByMicrosite.size} microsites, collections for ${collectionsByMicrosite.size} microsites`
+  );
+
+  // Build microsite ID → config lookup for landing page context
+  const supplierMicrositeById = new Map<string, (typeof supplierMicrosites)[number]>();
+  for (const ms of supplierMicrosites) {
+    supplierMicrositeById.set(ms.id, ms);
+  }
+  const opportunityMicrositeById = new Map<string, (typeof opportunityMicrosites)[number]>();
+  for (const ms of opportunityMicrosites) {
+    opportunityMicrositeById.set(ms.id, ms);
+  }
 
   const candidates: CampaignCandidate[] = [];
 
@@ -648,15 +711,18 @@ export async function scoreCampaignOpportunities(
     // Check if keyword matches a microsite for better landing page relevance
     const kwLower = opp.keyword.toLowerCase();
     let matchedMicrosite: MicrositeMatch | undefined;
+    let matchedMicrositeEntityType: 'SUPPLIER' | 'OPPORTUNITY' | undefined;
 
     // 1) Exact match on OPPORTUNITY microsite keyword/searchTerms
     matchedMicrosite = micrositeByTerm.get(kwLower);
+    if (matchedMicrosite) matchedMicrositeEntityType = 'OPPORTUNITY';
 
     // 2) Substring match on OPPORTUNITY microsite terms
     if (!matchedMicrosite) {
       for (const [term, ms] of micrositeByTerm) {
         if (kwLower.includes(term) || term.includes(kwLower)) {
           matchedMicrosite = ms;
+          matchedMicrositeEntityType = 'OPPORTUNITY';
           break;
         }
       }
@@ -671,6 +737,7 @@ export async function scoreCampaignOpportunities(
           matchedMicrosite = micrositesInCity.reduce((best, ms) =>
             ms.productCount > best.productCount ? ms : best
           );
+          matchedMicrositeEntityType = 'SUPPLIER';
           break;
         }
       }
@@ -683,6 +750,58 @@ export async function scoreCampaignOpportunities(
       if (msProfile) effectiveProfile = msProfile;
     }
 
+    // --- Build landing page context for API-aware routing ---
+    const targetDomain = matchedMicrosite ? matchedMicrosite.fullDomain : domain;
+    let siteType: SiteType = 'MAIN';
+    let lpContext: LandingPageContext;
+
+    if (matchedMicrositeEntityType === 'SUPPLIER') {
+      siteType = 'SUPPLIER_MICROSITE';
+      const msId = matchedMicrosite!.id;
+      const msConfig = supplierMicrositeById.get(msId);
+      lpContext = {
+        siteType,
+        micrositeEntityType: 'SUPPLIER',
+        cachedProductCount: matchedMicrosite!.productCount,
+        supplierCities: msConfig?.supplier?.cities ?? [],
+        supplierCategories: msConfig?.supplier?.categories ?? [],
+        sitePages: pagesByMicrosite.get(msId) ?? [],
+        collections: collectionsByMicrosite.get(msId) ?? [],
+      };
+    } else if (matchedMicrositeEntityType === 'OPPORTUNITY') {
+      siteType = 'OPPORTUNITY_MICROSITE';
+      const msId = matchedMicrosite!.id;
+      const msConfig = opportunityMicrositeById.get(msId);
+      const disco = msConfig?.discoveryConfig as {
+        keyword?: string;
+        destination?: string;
+        searchTerms?: string[];
+      } | null;
+      lpContext = {
+        siteType,
+        micrositeEntityType: 'OPPORTUNITY',
+        discoveryConfig: disco ?? undefined,
+        sitePages: pagesByMicrosite.get(msId) ?? [],
+        collections: collectionsByMicrosite.get(msId) ?? [],
+      };
+    } else {
+      // Main site — no microsite match
+      lpContext = {
+        siteType: 'MAIN',
+        sitePages: pagesBySite.get(siteId) ?? [],
+        collections: [],
+      };
+    }
+
+    // Route keyword to best landing page
+    const landingPage = buildLandingPageUrl(
+      targetDomain,
+      opp.keyword,
+      opp.intent,
+      opp.location,
+      lpContext
+    );
+
     // Estimate daily metrics
     const searchVolume = opp.searchVolume;
     const estimatedDailySearches = searchVolume / 30;
@@ -692,19 +811,21 @@ export async function scoreCampaignOpportunities(
     const expectedDailyRevenue = expectedClicksPerDay * effectiveProfile.revenuePerClick;
 
     // Profitability score: expected revenue / cost ratio, weighted by volume
-    const expectedRoas = expectedDailyRevenue > 0 && expectedDailyCost > 0
-      ? expectedDailyRevenue / expectedDailyCost
-      : 0;
+    const expectedRoas =
+      expectedDailyRevenue > 0 && expectedDailyCost > 0
+        ? expectedDailyRevenue / expectedDailyCost
+        : 0;
     const volumeBonus = Math.min(20, Math.log10(searchVolume + 1) * 8);
     const roasBonus = Math.min(60, expectedRoas * 20);
     const intentBonus = opp.intent === 'TRANSACTIONAL' ? 20 : opp.intent === 'COMMERCIAL' ? 15 : 5;
     // Microsite landing page relevance bonus — niche site = better Quality Score
     const micrositeBonus = matchedMicrosite ? 10 : 0;
-    const profitabilityScore = Math.round(Math.min(100, roasBonus + volumeBonus + intentBonus + micrositeBonus));
+    // Landing page type bonus — dedicated pages drive better Quality Score
+    const landingPageBonus = getLandingPageBonus(landingPage.type);
+    const profitabilityScore = Math.round(
+      Math.min(100, roasBonus + volumeBonus + intentBonus + micrositeBonus + landingPageBonus)
+    );
 
-    // Use microsite domain as landing page when matched, otherwise main site
-    const targetDomain = matchedMicrosite ? matchedMicrosite.fullDomain : domain;
-    const targetUrl = `https://${targetDomain}`;
     const utmCampaign = `auto_${opp.keyword.replace(/\s+/g, '_').substring(0, 40)}`;
 
     // Score for both platforms
@@ -714,7 +835,7 @@ export async function scoreCampaignOpportunities(
         opportunityId: opp.id,
         keyword: opp.keyword,
         siteId,
-        siteName: matchedMicrosite ? matchedMicrosite.siteName : (opp.site?.name || ''),
+        siteName: matchedMicrosite ? matchedMicrosite.siteName : opp.site?.name || '',
         platform,
         estimatedCpc,
         maxBid,
@@ -725,11 +846,14 @@ export async function scoreCampaignOpportunities(
         profitabilityScore,
         intent: opp.intent,
         location: opp.location,
-        targetUrl,
+        targetUrl: landingPage.url,
         utmParams: { source: utmSource, medium: 'cpc', campaign: utmCampaign },
         micrositeId: matchedMicrosite?.id,
         micrositeDomain: matchedMicrosite?.fullDomain,
         isMicrosite: !!matchedMicrosite,
+        landingPagePath: landingPage.path,
+        landingPageType: landingPage.type,
+        landingPageProducts: landingPage.productCount,
       });
     }
   }
@@ -810,7 +934,9 @@ export async function runBiddingEngine(options?: {
   const profiles = await calculateAllSiteProfitability();
   const micrositeProfiles = await calculateMicrositeProfitability();
   const allProfiles = [...profiles, ...micrositeProfiles];
-  console.log(`[BiddingEngine] Calculated profitability for ${profiles.length} sites + ${micrositeProfiles.length} microsites`);
+  console.log(
+    `[BiddingEngine] Calculated profitability for ${profiles.length} sites + ${micrositeProfiles.length} microsites`
+  );
 
   for (const p of allProfiles) {
     console.log(

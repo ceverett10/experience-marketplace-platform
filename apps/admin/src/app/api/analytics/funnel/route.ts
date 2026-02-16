@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 
 const FUNNEL_STEPS = [
+  'LANDING_PAGE_VIEW',
+  'EXPERIENCE_CLICKED',
   'AVAILABILITY_SEARCH',
   'BOOKING_CREATED',
   'AVAILABILITY_ADDED',
@@ -13,6 +15,8 @@ const FUNNEL_STEPS = [
 ] as const;
 
 const STEP_LABELS: Record<string, string> = {
+  LANDING_PAGE_VIEW: 'Landing Page View',
+  EXPERIENCE_CLICKED: 'Experience Clicked',
   AVAILABILITY_SEARCH: 'Availability Search',
   BOOKING_CREATED: 'Booking Created',
   AVAILABILITY_ADDED: 'Availability Added',
@@ -42,14 +46,71 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const siteId = searchParams.get('siteId') || undefined;
     const from = searchParams.get('from') || getDefaultStartDate();
     const to = searchParams.get('to') || getDefaultEndDate();
+    const trafficSource = searchParams.get('trafficSource') as
+      | 'paid'
+      | 'organic'
+      | 'compare'
+      | null;
+    const landingPage = searchParams.get('landingPage') || undefined;
+    const landingPageType = searchParams.get('landingPageType') || undefined;
 
     const startDate = new Date(from);
     const endDate = new Date(to);
     endDate.setHours(23, 59, 59, 999);
 
+    // Build traffic source filter for Prisma and raw SQL
+    const trafficFilter: Prisma.BookingFunnelEventWhereInput =
+      trafficSource === 'paid'
+        ? { utmMedium: 'cpc' }
+        : trafficSource === 'organic'
+          ? { OR: [{ utmMedium: null }, { utmMedium: { not: 'cpc' } }] }
+          : {};
+
+    const landingPageFilter: Prisma.BookingFunnelEventWhereInput = {
+      ...(landingPage ? { landingPage } : {}),
+    };
+
+    const trafficSqlFilter = (source: 'paid' | 'organic') =>
+      source === 'paid'
+        ? Prisma.sql`AND "utmMedium" = 'cpc'`
+        : Prisma.sql`AND ("utmMedium" IS NULL OR "utmMedium" != 'cpc')`;
+
+    // For 'compare' mode, build both funnels
+    if (trafficSource === 'compare') {
+      const [paidFunnel, organicFunnel] = await Promise.all([
+        buildFunnelData(prisma, startDate, endDate, siteId, 'paid', landingPage),
+        buildFunnelData(prisma, startDate, endDate, siteId, 'organic', landingPage),
+      ]);
+
+      const paidCvr = paidFunnel.summary.overallConversion;
+      const organicCvr = organicFunnel.summary.overallConversion;
+      const cvrLift =
+        organicCvr > 0
+          ? `${paidCvr >= organicCvr ? '+' : ''}${((paidCvr / organicCvr - 1) * 100).toFixed(0)}%`
+          : 'N/A';
+
+      // Site list for filter dropdown
+      const allSites = await prisma.site.findMany({
+        where: { status: { in: ['ACTIVE', 'REVIEW'] } },
+        select: { id: true, name: true },
+        orderBy: { name: 'asc' },
+      });
+
+      return NextResponse.json({
+        mode: 'compare',
+        paid: paidFunnel,
+        organic: organicFunnel,
+        comparison: { cvrLift },
+        sites: allSites,
+        dateRange: { from, to },
+      });
+    }
+
     const where: Prisma.BookingFunnelEventWhereInput = {
       createdAt: { gte: startDate, lte: endDate },
       ...(siteId ? { siteId } : {}),
+      ...trafficFilter,
+      ...landingPageFilter,
     };
 
     // 1. Funnel: event counts and unique sessions per step
@@ -60,21 +121,29 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     });
 
     // Use raw query for distinct session counts (groupBy _count doesn't do DISTINCT)
-    const distinctSessionsRaw = await prisma.$queryRaw<
-      Array<{ step: string; sessions: bigint }>
-    >`
+    const trafficSql =
+      trafficSource === 'paid'
+        ? Prisma.sql`AND "utmMedium" = 'cpc'`
+        : trafficSource === 'organic'
+          ? Prisma.sql`AND ("utmMedium" IS NULL OR "utmMedium" != 'cpc')`
+          : Prisma.empty;
+    const landingPageSql = landingPage
+      ? Prisma.sql`AND "landingPage" = ${landingPage}`
+      : Prisma.empty;
+
+    const distinctSessionsRaw = await prisma.$queryRaw<Array<{ step: string; sessions: bigint }>>`
       SELECT step, COUNT(DISTINCT "sessionId") as sessions
       FROM "BookingFunnelEvent"
       WHERE "createdAt" >= ${startDate}
         AND "createdAt" <= ${endDate}
         AND "errorCode" IS NULL
         ${siteId ? Prisma.sql`AND "siteId" = ${siteId}` : Prisma.empty}
+        ${trafficSql}
+        ${landingPageSql}
       GROUP BY step
     `;
 
-    const sessionMap = new Map(
-      distinctSessionsRaw.map((r) => [r.step, Number(r.sessions)])
-    );
+    const sessionMap = new Map(distinctSessionsRaw.map((r) => [r.step, Number(r.sessions)]));
     const eventMap = new Map(stepCounts.map((r) => [r.step, r._count.id]));
 
     const funnel = FUNNEL_STEPS.map((step) => ({
@@ -102,6 +171,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         AND "createdAt" <= ${endDate}
         AND "errorCode" IS NULL
         ${siteId ? Prisma.sql`AND "siteId" = ${siteId}` : Prisma.empty}
+        ${trafficSql}
+        ${landingPageSql}
       GROUP BY DATE("createdAt"), step
       ORDER BY DATE("createdAt")
     `;
@@ -168,6 +239,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     });
 
     return NextResponse.json({
+      mode: trafficSource || 'all',
       funnel,
       dailyTrend,
       recentErrors: enrichedErrors,
@@ -184,4 +256,55 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     console.error('[Funnel Analytics API] Error:', error);
     return NextResponse.json({ error: 'Failed to fetch funnel analytics' }, { status: 500 });
   }
+}
+
+// --- Helper: Build funnel data for a specific traffic source -----------------
+
+async function buildFunnelData(
+  db: typeof prisma,
+  startDate: Date,
+  endDate: Date,
+  siteId: string | undefined,
+  source: 'paid' | 'organic',
+  landingPage?: string
+) {
+  const trafficSql =
+    source === 'paid'
+      ? Prisma.sql`AND "utmMedium" = 'cpc'`
+      : Prisma.sql`AND ("utmMedium" IS NULL OR "utmMedium" != 'cpc')`;
+  const landingPageSql = landingPage
+    ? Prisma.sql`AND "landingPage" = ${landingPage}`
+    : Prisma.empty;
+
+  const distinctSessionsRaw = await db.$queryRaw<Array<{ step: string; sessions: bigint }>>`
+    SELECT step, COUNT(DISTINCT "sessionId") as sessions
+    FROM "BookingFunnelEvent"
+    WHERE "createdAt" >= ${startDate}
+      AND "createdAt" <= ${endDate}
+      AND "errorCode" IS NULL
+      ${siteId ? Prisma.sql`AND "siteId" = ${siteId}` : Prisma.empty}
+      ${trafficSql}
+      ${landingPageSql}
+    GROUP BY step
+  `;
+
+  const sessionMap = new Map(distinctSessionsRaw.map((r) => [r.step, Number(r.sessions)]));
+
+  const funnel = FUNNEL_STEPS.map((step) => ({
+    step,
+    label: STEP_LABELS[step] ?? step,
+    sessions: sessionMap.get(step) ?? 0,
+  }));
+
+  const totalSearchSessions = sessionMap.get('AVAILABILITY_SEARCH') ?? 0;
+  const totalCompleted = sessionMap.get('BOOKING_COMPLETED') ?? 0;
+
+  return {
+    funnel,
+    summary: {
+      totalSearches: totalSearchSessions,
+      totalCompleted,
+      overallConversion: totalSearchSessions > 0 ? (totalCompleted / totalSearchSessions) * 100 : 0,
+    },
+  };
 }

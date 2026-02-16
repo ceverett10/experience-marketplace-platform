@@ -3,43 +3,64 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useSite, useBrand } from '@/lib/site-context';
 
 export function Header() {
   const site = useSite();
   const brand = useBrand();
+  const searchParams = useSearchParams();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const trustItems = [
-    { icon: 'check', text: 'Free Cancellation' },
-    { icon: 'bolt', text: 'Instant Confirmation' },
-    { icon: 'shield', text: 'Secure Payments' },
-    { icon: 'guarantee', text: 'Best Price Guarantee' },
-    { icon: 'headset', text: '24/7 Support' },
-  ];
+  // Detect paid traffic — simplify navigation to reduce distraction
+  const isPaid = !!(
+    searchParams.get('gclid') ||
+    searchParams.get('fbclid') ||
+    searchParams.get('utm_medium') === 'cpc'
+  );
+
+  // Paid visitors see "Free Cancellation" and "Best Price Guarantee" first
+  const trustItems = isPaid
+    ? [
+        { icon: 'guarantee', text: 'Best Price Guarantee' },
+        { icon: 'check', text: 'Free Cancellation' },
+        { icon: 'bolt', text: 'Instant Confirmation' },
+        { icon: 'shield', text: 'Secure Payments' },
+        { icon: 'headset', text: '24/7 Support' },
+      ]
+    : [
+        { icon: 'check', text: 'Free Cancellation' },
+        { icon: 'bolt', text: 'Instant Confirmation' },
+        { icon: 'shield', text: 'Secure Payments' },
+        { icon: 'guarantee', text: 'Best Price Guarantee' },
+        { icon: 'headset', text: '24/7 Support' },
+      ];
 
   // Microsites use simplified navigation (no destinations/categories pages)
   const isMicrosite = !!site.micrositeContext;
   const isParentDomainSite = !!site.isParentDomain;
 
-  const navigation = isParentDomainSite
-    ? [
-        { name: 'Our Brands', href: '/#our-brands' },
-        { name: 'Our Providers', href: '/#featured-providers' },
-        { name: 'About Us', href: '/about' },
-      ]
-    : isMicrosite
+  // Paid traffic: simplified nav — only Experiences + Book Now (reduce distraction)
+  const navigation = isPaid
+    ? [{ name: 'Experiences', href: '/experiences' }]
+    : isParentDomainSite
       ? [
-          { name: 'Experiences', href: '/experiences' },
-          { name: 'Blog', href: '/blog' },
-          { name: 'About', href: '/about' },
+          { name: 'Our Brands', href: '/#our-brands' },
+          { name: 'Our Providers', href: '/#featured-providers' },
+          { name: 'About Us', href: '/about' },
         ]
-      : [
-          { name: 'Experiences', href: '/experiences' },
-          { name: 'Destinations', href: '/destinations' },
-          { name: 'Categories', href: '/categories' },
-          { name: 'About', href: '/about' },
-        ];
+      : isMicrosite
+        ? [
+            { name: 'Experiences', href: '/experiences' },
+            { name: 'Blog', href: '/blog' },
+            { name: 'About', href: '/about' },
+          ]
+        : [
+            { name: 'Experiences', href: '/experiences' },
+            { name: 'Destinations', href: '/destinations' },
+            { name: 'Categories', href: '/categories' },
+            { name: 'About', href: '/about' },
+          ];
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-gray-200/80 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
@@ -48,7 +69,10 @@ export function Header() {
         {/* Desktop: show all items */}
         <div className="mx-auto hidden max-w-7xl items-center justify-center gap-6 px-4 py-1.5 sm:flex sm:px-6 lg:gap-8 lg:px-8">
           {trustItems.map((item) => (
-            <div key={item.text} className="flex items-center gap-1.5 text-xs font-medium text-gray-600">
+            <div
+              key={item.text}
+              className="flex items-center gap-1.5 text-xs font-medium text-gray-600"
+            >
               <svg className="h-3.5 w-3.5 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
                 <path
                   fillRule="evenodd"
@@ -63,7 +87,10 @@ export function Header() {
         {/* Mobile: scrollable row */}
         <div className="flex items-center gap-4 overflow-x-auto px-4 py-1.5 sm:hidden">
           {trustItems.map((item, index) => (
-            <div key={item.text} className={`flex flex-shrink-0 items-center gap-1.5 text-xs font-medium text-gray-600${index >= 3 ? ' hidden' : ''}`}>
+            <div
+              key={item.text}
+              className={`flex flex-shrink-0 items-center gap-1.5 text-xs font-medium text-gray-600${index >= 3 ? ' hidden' : ''}`}
+            >
               <svg className="h-3.5 w-3.5 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
                 <path
                   fillRule="evenodd"

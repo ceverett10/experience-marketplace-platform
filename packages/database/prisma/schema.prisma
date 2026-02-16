@@ -712,6 +712,8 @@ enum BookingStatus {
 // ============================================================================
 
 enum BookingFunnelStep {
+  LANDING_PAGE_VIEW
+  EXPERIENCE_CLICKED
   AVAILABILITY_SEARCH
   BOOKING_CREATED
   AVAILABILITY_ADDED
@@ -745,9 +747,13 @@ model BookingFunnelEvent {
   utmMedium   String?
   utmCampaign String?
 
+  // Landing page tracking
+  landingPage String?
+
   @@index([siteId, step, createdAt])
   @@index([sessionId, createdAt])
   @@index([createdAt])
+  @@index([utmMedium, createdAt])
 }
 
 // ============================================================================
@@ -1171,6 +1177,14 @@ model AdCampaign {
   revenue          Decimal @default(0) @db.Decimal(10, 2)
   roas             Float?  // Revenue / Spend
 
+  // Landing page routing
+  landingPagePath     String?  // Full path including query params (e.g., "/destinations/london")
+  landingPageType     String?  // HOMEPAGE | DESTINATION | CATEGORY | COLLECTION | EXPERIENCE_DETAIL | BLOG | EXPERIENCES_FILTERED
+  landingPageProducts Int?     // Product count at validation time
+
+  // Quality Score (from Google Ads API)
+  qualityScore Int?
+
   // Linked opportunity
   opportunityId String?
   opportunity   SEOOpportunity? @relation(fields: [opportunityId], references: [id])
@@ -1183,6 +1197,7 @@ model AdCampaign {
   @@index([micrositeId])
   @@index([platform, status])
   @@index([opportunityId])
+  @@index([landingPageType])
   @@map("ad_campaigns")
 }
 
@@ -1197,6 +1212,9 @@ model AdDailyMetric {
   cpc        Decimal    @db.Decimal(10, 4)
   conversions Int       @default(0)
   revenue    Decimal    @default(0) @db.Decimal(10, 2)
+
+  // Quality Score snapshot (from Google Ads API)
+  qualityScore Int?
 
   @@unique([campaignId, date])
   @@index([campaignId])

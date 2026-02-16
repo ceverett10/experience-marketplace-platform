@@ -147,10 +147,10 @@ export async function handleAdCampaignSync(job: Job): Promise<JobResult> {
         if (!metaClient) metaClient = await getMetaAdsClient();
         if (!metaClient) continue;
 
-        const metaInsights = await metaClient.getCampaignInsights(
-          campaign.platformCampaignId,
-          { since: dateStr, until: today }
-        );
+        const metaInsights = await metaClient.getCampaignInsights(campaign.platformCampaignId, {
+          since: dateStr,
+          until: today,
+        });
         if (metaInsights) {
           insights = {
             spend: metaInsights.spend,
@@ -163,10 +163,10 @@ export async function handleAdCampaignSync(job: Job): Promise<JobResult> {
       } else if (campaign.platform === 'GOOGLE_SEARCH') {
         if (!isGoogleAdsConfigured()) continue;
 
-        const googleInsights = await getGoogleCampaignPerformance(
-          campaign.platformCampaignId,
-          { startDate: dateStr, endDate: dateStr }
-        );
+        const googleInsights = await getGoogleCampaignPerformance(campaign.platformCampaignId, {
+          startDate: dateStr,
+          endDate: dateStr,
+        });
         if (googleInsights) {
           insights = {
             spend: googleInsights.spend,
@@ -314,9 +314,28 @@ export async function handleAdPerformanceReport(job: Job): Promise<JobResult> {
   });
 
   // Categorize campaigns
-  const topPerformers: Array<{ id: string; name: string; site: string; roas: number; spend: number }> = [];
-  const underPerformers: Array<{ id: string; name: string; site: string; roas: number; spend: number; daysActive: number }> = [];
-  const opportunities: Array<{ id: string; name: string; site: string; ctr: number; spend: number }> = [];
+  const topPerformers: Array<{
+    id: string;
+    name: string;
+    site: string;
+    roas: number;
+    spend: number;
+  }> = [];
+  const underPerformers: Array<{
+    id: string;
+    name: string;
+    site: string;
+    roas: number;
+    spend: number;
+    daysActive: number;
+  }> = [];
+  const opportunities: Array<{
+    id: string;
+    name: string;
+    site: string;
+    ctr: number;
+    spend: number;
+  }> = [];
 
   let totalSpend = 0;
   let totalRevenue = 0;
@@ -436,7 +455,11 @@ export async function handleAdBudgetOptimizer(job: Job): Promise<JobResult> {
     const dailyBudget = Number(campaign.dailyBudget);
 
     // --- Pause underperformers ---
-    if (roas < PAID_TRAFFIC_CONFIG.roasPauseThreshold && metrics.length >= PAID_TRAFFIC_CONFIG.observationDays && spend > 5) {
+    if (
+      roas < PAID_TRAFFIC_CONFIG.roasPauseThreshold &&
+      metrics.length >= PAID_TRAFFIC_CONFIG.observationDays &&
+      spend > 5
+    ) {
       console.log(
         `[Ads Worker] Pausing campaign "${campaign.name}" (ROAS=${roas.toFixed(2)}, ` +
           `spend=£${spend.toFixed(2)} over ${metrics.length} days)`
@@ -469,7 +492,10 @@ export async function handleAdBudgetOptimizer(job: Job): Promise<JobResult> {
 
     // --- Scale up top performers ---
     if (roas >= PAID_TRAFFIC_CONFIG.roasScaleThreshold && metrics.length >= 3) {
-      const newBudget = Math.min(dailyBudget * (1 + PAID_TRAFFIC_CONFIG.scaleIncrement), PAID_TRAFFIC_CONFIG.maxPerCampaignBudget);
+      const newBudget = Math.min(
+        dailyBudget * (1 + PAID_TRAFFIC_CONFIG.scaleIncrement),
+        PAID_TRAFFIC_CONFIG.maxPerCampaignBudget
+      );
       const budgetCap = maxBudget;
 
       // Check portfolio budget cap
@@ -500,12 +526,159 @@ export async function handleAdBudgetOptimizer(job: Job): Promise<JobResult> {
       `dailyBudget=£${totalDailyBudget.toFixed(2)}, remaining=£${budgetRemaining.toFixed(2)}`
   );
 
+  // --- Landing Page Health Monitoring ---
+  // Re-validate product availability for active campaigns with non-homepage landing pages.
+  // Pause campaigns where landing page products dropped below 3.
+  // Auto-resume campaigns previously paused for LANDING_PAGE_LOW_INVENTORY.
+  let lpPaused = 0;
+  let lpResumed = 0;
+
+  // 1. Check active campaigns with landing pages
+  const activeLpCampaigns = await prisma.adCampaign.findMany({
+    where: {
+      status: 'ACTIVE',
+      landingPageType: { not: 'HOMEPAGE' },
+      landingPagePath: { not: null },
+    },
+    select: {
+      id: true,
+      name: true,
+      siteId: true,
+      landingPagePath: true,
+      landingPageType: true,
+      landingPageProducts: true,
+      keywords: true,
+    },
+  });
+
+  if (activeLpCampaigns.length > 0) {
+    // Simple product count re-check: query pages and collections that still exist
+    for (const camp of activeLpCampaigns) {
+      const path = camp.landingPagePath!;
+      let hasProducts = true;
+
+      if (path.startsWith('/collections/')) {
+        // Check collection product count
+        const slug = path.replace('/collections/', '');
+        const productCount = await prisma.productCollection.count({
+          where: { collection: { slug } },
+        });
+        hasProducts = productCount >= 3;
+      } else if (path.startsWith('/destinations/') || path.startsWith('/categories/')) {
+        // Check that the page still exists and is published
+        const slug = path.replace(/^\/(destinations|categories)\//, '');
+        const page = await prisma.page.findFirst({
+          where: { siteId: camp.siteId, slug, status: 'PUBLISHED' },
+          select: { id: true },
+        });
+        hasProducts = !!page;
+      }
+      // For /experiences? filtered listings — we can't cheaply re-validate
+      // without API calls, so skip (rely on campaign ROAS to detect issues)
+
+      if (!hasProducts) {
+        await prisma.adCampaign.update({
+          where: { id: camp.id },
+          data: {
+            status: 'PAUSED',
+            proposalData: {
+              ...(typeof (camp as any).proposalData === 'object' ? (camp as any).proposalData : {}),
+              pauseReason: 'LANDING_PAGE_LOW_INVENTORY',
+            },
+          },
+        });
+
+        await prisma.adAlert.create({
+          data: {
+            type: 'LANDING_PAGE_LOW_INVENTORY',
+            severity: 'WARNING',
+            siteId: camp.siteId,
+            message: `Paused campaign "${camp.name}": landing page ${path} has insufficient products`,
+            details: {
+              campaignId: camp.id,
+              landingPagePath: path,
+              landingPageType: camp.landingPageType,
+            },
+          },
+        });
+
+        lpPaused++;
+        console.log(
+          `[Ads Worker] Paused campaign "${camp.name}" — landing page low inventory: ${path}`
+        );
+      }
+    }
+  }
+
+  // 2. Auto-resume campaigns paused for LANDING_PAGE_LOW_INVENTORY if products returned
+  const lpPausedCampaigns = await prisma.adCampaign.findMany({
+    where: {
+      status: 'PAUSED',
+      landingPagePath: { not: null },
+      landingPageType: { not: 'HOMEPAGE' },
+    },
+    select: {
+      id: true,
+      name: true,
+      siteId: true,
+      landingPagePath: true,
+      landingPageType: true,
+      proposalData: true,
+    },
+  });
+
+  for (const camp of lpPausedCampaigns) {
+    const proposal = camp.proposalData as Record<string, unknown> | null;
+    if (proposal?.['pauseReason'] !== 'LANDING_PAGE_LOW_INVENTORY') continue;
+
+    const path = camp.landingPagePath!;
+    let hasProducts = false;
+
+    if (path.startsWith('/collections/')) {
+      const slug = path.replace('/collections/', '');
+      const productCount = await prisma.productCollection.count({
+        where: { collection: { slug } },
+      });
+      hasProducts = productCount >= 3;
+    } else if (path.startsWith('/destinations/') || path.startsWith('/categories/')) {
+      const slug = path.replace(/^\/(destinations|categories)\//, '');
+      const page = await prisma.page.findFirst({
+        where: { siteId: camp.siteId, slug, status: 'PUBLISHED' },
+        select: { id: true },
+      });
+      hasProducts = !!page;
+    }
+
+    if (hasProducts) {
+      await prisma.adCampaign.update({
+        where: { id: camp.id },
+        data: {
+          status: 'ACTIVE',
+          proposalData: {
+            ...(typeof proposal === 'object' && proposal ? proposal : {}),
+            pauseReason: null,
+          },
+        },
+      });
+      lpResumed++;
+      console.log(
+        `[Ads Worker] Resumed campaign "${camp.name}" — landing page products restored: ${path}`
+      );
+    }
+  }
+
+  if (lpPaused > 0 || lpResumed > 0) {
+    console.log(`[Ads Worker] Landing page health: ${lpPaused} paused, ${lpResumed} resumed`);
+  }
+
   return {
     success: true,
-    message: `Optimized: ${paused} paused, ${scaled} scaled, £${budgetRemaining.toFixed(2)} budget remaining`,
+    message: `Optimized: ${paused} paused, ${scaled} scaled, ${lpPaused} LP-paused, ${lpResumed} LP-resumed, £${budgetRemaining.toFixed(2)} budget remaining`,
     data: {
       paused,
       scaled,
+      landingPagePaused: lpPaused,
+      landingPageResumed: lpResumed,
       totalDailyBudget,
       budgetRemaining,
       activeCampaigns: campaigns.length - paused,
@@ -609,11 +782,26 @@ async function deployToMeta(
     // Step 2: Create ad set with geo + interest targeting
     // Map geoTargets to country codes (simplified — expand as needed)
     const countryMap: Record<string, string> = {
-      'United Kingdom': 'GB', 'United States': 'US', 'UK': 'GB', 'US': 'US',
-      'Canada': 'CA', 'Australia': 'AU', 'Germany': 'DE', 'France': 'FR',
-      'Spain': 'ES', 'Italy': 'IT', 'Netherlands': 'NL', 'Portugal': 'PT',
-      'Greece': 'GR', 'Croatia': 'HR', 'Thailand': 'TH', 'Japan': 'JP',
-      'Mexico': 'MX', 'Brazil': 'BR', 'India': 'IN', 'UAE': 'AE',
+      'United Kingdom': 'GB',
+      'United States': 'US',
+      UK: 'GB',
+      US: 'US',
+      Canada: 'CA',
+      Australia: 'AU',
+      Germany: 'DE',
+      France: 'FR',
+      Spain: 'ES',
+      Italy: 'IT',
+      Netherlands: 'NL',
+      Portugal: 'PT',
+      Greece: 'GR',
+      Croatia: 'HR',
+      Thailand: 'TH',
+      Japan: 'JP',
+      Mexico: 'MX',
+      Brazil: 'BR',
+      India: 'IN',
+      UAE: 'AE',
     };
     const countries = campaign.geoTargets
       .map((g) => countryMap[g] || null)
@@ -642,13 +830,16 @@ async function deployToMeta(
     });
 
     if (!adSetResult) {
-      console.error(`[Ads Worker] Failed to create Meta ad set for campaign: ${campaignResult.campaignId}`);
+      console.error(
+        `[Ads Worker] Failed to create Meta ad set for campaign: ${campaignResult.campaignId}`
+      );
       return campaignResult.campaignId; // Still return — campaign was created
     }
 
     // Step 3: Create ad creative
     const siteName = campaign.site?.name || 'Holibob';
-    const headline = `${keyword.charAt(0).toUpperCase() + keyword.slice(1)} | ${siteName}`.substring(0, 40);
+    const headline =
+      `${keyword.charAt(0).toUpperCase() + keyword.slice(1)} | ${siteName}`.substring(0, 40);
     const body = `Discover and book amazing ${keyword} experiences. Best prices, instant confirmation.`;
 
     await metaClient.createAd({
@@ -662,7 +853,9 @@ async function deployToMeta(
       status: 'PAUSED',
     });
 
-    console.log(`[Ads Worker] Deployed Meta campaign ${campaignResult.campaignId}: "${campaign.name}"`);
+    console.log(
+      `[Ads Worker] Deployed Meta campaign ${campaignResult.campaignId}: "${campaign.name}"`
+    );
     return campaignResult.campaignId;
   } catch (err) {
     console.error(`[Ads Worker] Meta deployment failed for "${campaign.name}":`, err);
@@ -721,7 +914,9 @@ async function deployToGoogle(
     });
 
     if (!adGroupResult) {
-      console.error(`[Ads Worker] Failed to create Google ad group for: ${campaignResult.campaignId}`);
+      console.error(
+        `[Ads Worker] Failed to create Google ad group for: ${campaignResult.campaignId}`
+      );
       return campaignResult.campaignId;
     }
 
@@ -741,15 +936,23 @@ async function deployToGoogle(
         'Book Online Today',
       ],
       descriptions: [
-        `Discover and book amazing ${keyword} experiences. Best prices, instant confirmation.`.substring(0, 90),
-        `Browse ${keyword} from top-rated local providers. Free cancellation available.`.substring(0, 90),
+        `Discover and book amazing ${keyword} experiences. Best prices, instant confirmation.`.substring(
+          0,
+          90
+        ),
+        `Browse ${keyword} from top-rated local providers. Free cancellation available.`.substring(
+          0,
+          90
+        ),
       ],
       finalUrl: landingUrl,
       path1: 'experiences',
       path2: keyword.split(' ')[0]?.substring(0, 15),
     });
 
-    console.log(`[Ads Worker] Deployed Google campaign ${campaignResult.campaignId}: "${campaign.name}"`);
+    console.log(
+      `[Ads Worker] Deployed Google campaign ${campaignResult.campaignId}: "${campaign.name}"`
+    );
     return campaignResult.campaignId;
   } catch (err) {
     console.error(`[Ads Worker] Google deployment failed for "${campaign.name}":`, err);
@@ -815,9 +1018,10 @@ export async function deployDraftCampaigns(): Promise<{
       console.log(`[Ads Worker] Campaign "${draft.name}" deployed → ${platformCampaignId}`);
     } else {
       // Platform not configured or deployment failed — skip but don't fail
-      const isConfigured = draft.platform === 'FACEBOOK'
-        ? !!process.env['META_AD_ACCOUNT_ID']
-        : isGoogleAdsConfigured();
+      const isConfigured =
+        draft.platform === 'FACEBOOK'
+          ? !!process.env['META_AD_ACCOUNT_ID']
+          : isGoogleAdsConfigured();
 
       if (!isConfigured) {
         skipped++;
@@ -887,6 +1091,9 @@ export async function handleBiddingEngineRun(job: Job): Promise<JobResult> {
           utmMedium: candidate.utmParams.medium,
           utmCampaign: candidate.utmParams.campaign,
           opportunityId: candidate.opportunityId,
+          landingPagePath: candidate.landingPagePath,
+          landingPageType: candidate.landingPageType,
+          landingPageProducts: candidate.landingPageProducts ?? null,
           proposalData: {
             estimatedCpc: candidate.estimatedCpc,
             maxBid: candidate.maxBid,
@@ -898,9 +1105,13 @@ export async function handleBiddingEngineRun(job: Job): Promise<JobResult> {
             intent: candidate.intent,
             isMicrosite: candidate.isMicrosite,
             micrositeDomain: candidate.micrositeDomain || null,
+            landingPagePath: candidate.landingPagePath,
+            landingPageType: candidate.landingPageType,
+            landingPageProducts: candidate.landingPageProducts,
             assumptions: {
               avgOrderValue: profile?.avgOrderValue ?? PAID_TRAFFIC_CONFIG.defaults.aov,
-              commissionRate: profile?.avgCommissionRate ?? PAID_TRAFFIC_CONFIG.defaults.commissionRate,
+              commissionRate:
+                profile?.avgCommissionRate ?? PAID_TRAFFIC_CONFIG.defaults.commissionRate,
               conversionRate: profile?.conversionRate ?? PAID_TRAFFIC_CONFIG.defaults.cvr,
               targetRoas: PAID_TRAFFIC_CONFIG.targetRoas,
               revenuePerClick: profile?.revenuePerClick ?? 0,
@@ -919,7 +1130,7 @@ export async function handleBiddingEngineRun(job: Job): Promise<JobResult> {
     const deployResult = await deployDraftCampaigns();
     console.log(
       `[Ads Worker] Auto-deploy complete: ${deployResult.deployed} deployed, ` +
-      `${deployResult.failed} failed, ${deployResult.skipped} skipped`
+        `${deployResult.failed} failed, ${deployResult.skipped} skipped`
     );
   }
 
@@ -928,9 +1139,7 @@ export async function handleBiddingEngineRun(job: Job): Promise<JobResult> {
     by: ['status'],
     _count: true,
   });
-  const statusSummary = Object.fromEntries(
-    finalCounts.map((c) => [c.status, c._count])
-  );
+  const statusSummary = Object.fromEntries(finalCounts.map((c) => [c.status, c._count]));
 
   return {
     success: true,
@@ -992,7 +1201,10 @@ export async function handleKeywordEnrichment(job: Job): Promise<JobResult> {
  */
 export async function handleAdConversionUpload(job: Job): Promise<JobResult> {
   const { bookingId } = job.data as { bookingId?: string };
-  console.log('[Ads Worker] Starting conversion upload', bookingId ? `for booking ${bookingId}` : '(sweep)');
+  console.log(
+    '[Ads Worker] Starting conversion upload',
+    bookingId ? `for booking ${bookingId}` : '(sweep)'
+  );
 
   // Query bookings with click IDs from the last 24 hours (or specific booking)
   const lookback = new Date();
@@ -1000,10 +1212,7 @@ export async function handleAdConversionUpload(job: Job): Promise<JobResult> {
 
   const where: Record<string, unknown> = {
     status: { in: ['CONFIRMED', 'COMPLETED'] },
-    OR: [
-      { gclid: { not: null } },
-      { fbclid: { not: null } },
-    ],
+    OR: [{ gclid: { not: null } }, { fbclid: { not: null } }],
   };
 
   if (bookingId) {
@@ -1047,7 +1256,14 @@ export async function handleAdConversionUpload(job: Job): Promise<JobResult> {
   if (bookings.some((b: any) => b.fbclid)) {
     const account = await prisma.socialAccount.findFirst({
       where: { platform: 'FACEBOOK', isActive: true },
-      select: { accessToken: true, refreshToken: true, tokenExpiresAt: true, id: true, platform: true, accountId: true },
+      select: {
+        accessToken: true,
+        refreshToken: true,
+        tokenExpiresAt: true,
+        id: true,
+        platform: true,
+        accountId: true,
+      },
     });
     if (account?.accessToken) {
       const refreshed = await refreshTokenIfNeeded(account as any);

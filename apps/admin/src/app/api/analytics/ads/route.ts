@@ -92,6 +92,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         maxCpc: Number(c.maxCpc),
         keywords: c.keywords,
         targetUrl: c.targetUrl,
+        landingPagePath: c.landingPagePath || null,
+        landingPageType: c.landingPageType || null,
+        landingPageProducts: c.landingPageProducts,
+        qualityScore: c.qualityScore,
       };
     });
 
@@ -105,9 +109,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       cpc: totalClicks > 0 ? totalSpend / totalClicks : null,
       cpa: totalConversions > 0 ? totalSpend / totalConversions : null,
       ctr: totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : null,
-      budgetUtilization: MAX_DAILY_BUDGET > 0
-        ? ((totalSpend / days) / MAX_DAILY_BUDGET) * 100
-        : null,
+      budgetUtilization: MAX_DAILY_BUDGET > 0 ? (totalSpend / days / MAX_DAILY_BUDGET) * 100 : null,
     };
 
     // --- Prior period KPIs for comparison ---
@@ -145,15 +147,31 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         ...(siteId ? { campaign: { siteId } } : {}),
         ...(platform ? { campaign: { platform: platform as any } } : {}),
       } as any,
-      select: { date: true, spend: true, clicks: true, impressions: true, conversions: true, revenue: true },
+      select: {
+        date: true,
+        spend: true,
+        clicks: true,
+        impressions: true,
+        conversions: true,
+        revenue: true,
+      },
       orderBy: { date: 'asc' },
     });
 
     // Aggregate by date
-    const dailyMap = new Map<string, { spend: number; revenue: number; clicks: number; impressions: number; conversions: number }>();
+    const dailyMap = new Map<
+      string,
+      { spend: number; revenue: number; clicks: number; impressions: number; conversions: number }
+    >();
     for (const m of dailyMetricsRaw) {
       const dateKey = new Date(m.date).toISOString().split('T')[0]!;
-      const existing = dailyMap.get(dateKey) || { spend: 0, revenue: 0, clicks: 0, impressions: 0, conversions: 0 };
+      const existing = dailyMap.get(dateKey) || {
+        spend: 0,
+        revenue: 0,
+        clicks: 0,
+        impressions: 0,
+        conversions: 0,
+      };
       existing.spend += Number(m.spend);
       existing.revenue += Number(m.revenue);
       existing.clicks += m.clicks;
@@ -242,6 +260,60 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       }))
       .sort((a: any, b: any) => b.conversions - a.conversions);
 
+    // --- Landing page type aggregation ---
+    const lpTypeMap = new Map<
+      string,
+      {
+        type: string;
+        campaigns: number;
+        spend: number;
+        clicks: number;
+        impressions: number;
+        conversions: number;
+        revenue: number;
+        qualityScores: number[];
+      }
+    >();
+
+    for (const c of campaignSummaries) {
+      const lpType = c.landingPageType || 'HOMEPAGE';
+      const existing = lpTypeMap.get(lpType) || {
+        type: lpType,
+        campaigns: 0,
+        spend: 0,
+        clicks: 0,
+        impressions: 0,
+        conversions: 0,
+        revenue: 0,
+        qualityScores: [],
+      };
+      existing.campaigns++;
+      existing.spend += c.spend;
+      existing.clicks += c.clicks;
+      existing.impressions += c.impressions;
+      existing.conversions += c.conversions;
+      existing.revenue += c.revenue;
+      if (c.qualityScore != null) existing.qualityScores.push(c.qualityScore);
+      lpTypeMap.set(lpType, existing);
+    }
+
+    const landingPagesByType = Array.from(lpTypeMap.values())
+      .map((lp) => ({
+        type: lp.type,
+        campaigns: lp.campaigns,
+        spend: lp.spend,
+        clicks: lp.clicks,
+        conversions: lp.conversions,
+        revenue: lp.revenue,
+        roas: lp.spend > 0 ? lp.revenue / lp.spend : null,
+        cvr: lp.clicks > 0 ? (lp.conversions / lp.clicks) * 100 : null,
+        avgQualityScore:
+          lp.qualityScores.length > 0
+            ? lp.qualityScores.reduce((a, b) => a + b, 0) / lp.qualityScores.length
+            : null,
+      }))
+      .sort((a, b) => b.revenue - a.revenue);
+
     // --- Alerts ---
     const alerts = await (prisma as any).adAlert.findMany({
       orderBy: { createdAt: 'desc' },
@@ -260,6 +332,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       campaigns: campaignSummaries,
       attribution,
       landingPages,
+      landingPagesByType,
       alerts,
       alertCount: unacknowledgedCount,
       period: { days, startDate: startDate.toISOString(), endDate: endDate.toISOString() },
@@ -282,7 +355,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     switch (action) {
       case 'pause_campaign': {
         const { campaignId } = body;
-        if (!campaignId) return NextResponse.json({ error: 'campaignId required' }, { status: 400 });
+        if (!campaignId)
+          return NextResponse.json({ error: 'campaignId required' }, { status: 400 });
         await prisma.adCampaign.update({
           where: { id: campaignId },
           data: { status: 'PAUSED' },
@@ -292,7 +366,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
       case 'resume_campaign': {
         const { campaignId } = body;
-        if (!campaignId) return NextResponse.json({ error: 'campaignId required' }, { status: 400 });
+        if (!campaignId)
+          return NextResponse.json({ error: 'campaignId required' }, { status: 400 });
         await prisma.adCampaign.update({
           where: { id: campaignId },
           data: { status: 'ACTIVE' },
@@ -303,7 +378,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       case 'adjust_budget': {
         const { campaignId, dailyBudget } = body;
         if (!campaignId || dailyBudget == null) {
-          return NextResponse.json({ error: 'campaignId and dailyBudget required' }, { status: 400 });
+          return NextResponse.json(
+            { error: 'campaignId and dailyBudget required' },
+            { status: 400 }
+          );
         }
         await prisma.adCampaign.update({
           where: { id: campaignId },
