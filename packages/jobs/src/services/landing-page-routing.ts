@@ -613,8 +613,11 @@ function buildDiscoveryLandingPage(
   }
 
   // Fallback: filtered experiences listing
+  // NOTE: `location` is the SEO geo-target market (e.g. "United Kingdom"), NOT the
+  // experience destination. Using it as a product filter would hide relevant results
+  // (e.g. "efteling amusement park" filtered to UK shows nothing — it's in Netherlands).
+  // We only use `q` search, which naturally surfaces the right experiences.
   const url = new URL(`https://${domain}/experiences`);
-  if (location) url.searchParams.set('destination', location);
   const searchQuery = extractSearchQuery(keyword, location);
   if (searchQuery) url.searchParams.set('q', searchQuery);
 
