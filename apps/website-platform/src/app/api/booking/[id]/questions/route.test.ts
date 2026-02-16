@@ -8,6 +8,12 @@ vi.mock('next/headers', () => ({
       get: vi.fn().mockReturnValue('localhost:3000'),
     })
   ),
+  cookies: vi.fn(() =>
+    Promise.resolve({
+      get: vi.fn().mockReturnValue(undefined),
+      set: vi.fn(),
+    })
+  ),
 }));
 
 vi.mock('@/lib/tenant', () => ({

@@ -94,7 +94,10 @@ async function phase1_databaseState() {
   if (platforms['GOOGLE_SEARCH'] && platforms['GOOGLE_SEARCH'] > 0) {
     pass('Google campaigns', `${platforms['GOOGLE_SEARCH']} Google Search campaigns`);
   } else {
-    warn('Google campaigns', 'No Google campaigns found (may be expected if Google Ads not configured)');
+    warn(
+      'Google campaigns',
+      'No Google campaigns found (may be expected if Google Ads not configured)'
+    );
   }
 
   // 1.3 Keyword pool
@@ -150,7 +153,10 @@ async function phase1_databaseState() {
     if (colNames.includes('fbclid') && colNames.includes('gclid')) {
       pass('Booking click ID columns', 'gclid and fbclid columns exist on Booking table');
     } else {
-      fail('Booking click ID columns', `Missing columns: ${['gclid', 'fbclid'].filter(c => !colNames.includes(c)).join(', ')}`);
+      fail(
+        'Booking click ID columns',
+        `Missing columns: ${['gclid', 'fbclid'].filter((c) => !colNames.includes(c)).join(', ')}`
+      );
     }
   } catch (err: any) {
     fail('Booking click ID columns', err.message.substring(0, 100));
@@ -164,12 +170,22 @@ async function phase1_databaseState() {
   if (fbAccount) {
     const expiresAt = fbAccount.tokenExpiresAt;
     if (expiresAt && expiresAt < new Date()) {
-      fail('Meta social account', 'Facebook token is expired', `Expired: ${expiresAt.toISOString()}`);
+      fail(
+        'Meta social account',
+        'Facebook token is expired',
+        `Expired: ${expiresAt.toISOString()}`
+      );
     } else {
-      pass('Meta social account', `Active Facebook account (${fbAccount.accountId})${expiresAt ? ` expires ${expiresAt.toISOString()}` : ''}`);
+      pass(
+        'Meta social account',
+        `Active Facebook account (${fbAccount.accountId})${expiresAt ? ` expires ${expiresAt.toISOString()}` : ''}`
+      );
     }
   } else {
-    fail('Meta social account', 'No active Facebook social account found — Meta deployment will fail');
+    fail(
+      'Meta social account',
+      'No active Facebook social account found — Meta deployment will fail'
+    );
   }
 
   // 1.10 Meta Ad Account ID env
@@ -201,12 +217,18 @@ async function phase2_campaignIntegrity() {
     (c) => Number(c.dailyBudget) < PAID_TRAFFIC_CONFIG.minDailyBudget
   );
   if (subMinBudget.length === 0) {
-    pass('Budget floor (£1)', `All ${campaigns.length} campaigns meet minimum £${PAID_TRAFFIC_CONFIG.minDailyBudget}/day`);
+    pass(
+      'Budget floor (£1)',
+      `All ${campaigns.length} campaigns meet minimum £${PAID_TRAFFIC_CONFIG.minDailyBudget}/day`
+    );
   } else {
     fail(
       'Budget floor (£1)',
       `${subMinBudget.length} campaigns have budget < £${PAID_TRAFFIC_CONFIG.minDailyBudget}`,
-      `Examples: ${subMinBudget.slice(0, 3).map(c => `${c.name}: £${Number(c.dailyBudget).toFixed(2)}`).join(', ')}`
+      `Examples: ${subMinBudget
+        .slice(0, 3)
+        .map((c) => `${c.name}: £${Number(c.dailyBudget).toFixed(2)}`)
+        .join(', ')}`
     );
   }
 
@@ -215,12 +237,18 @@ async function phase2_campaignIntegrity() {
     (c) => Number(c.dailyBudget) > PAID_TRAFFIC_CONFIG.maxPerCampaignBudget
   );
   if (overMaxBudget.length === 0) {
-    pass('Budget cap (£50)', `No campaigns exceed £${PAID_TRAFFIC_CONFIG.maxPerCampaignBudget}/day`);
+    pass(
+      'Budget cap (£50)',
+      `No campaigns exceed £${PAID_TRAFFIC_CONFIG.maxPerCampaignBudget}/day`
+    );
   } else {
     fail(
       'Budget cap (£50)',
       `${overMaxBudget.length} campaigns exceed £${PAID_TRAFFIC_CONFIG.maxPerCampaignBudget}/day`,
-      overMaxBudget.slice(0, 3).map(c => `${c.name}: £${Number(c.dailyBudget).toFixed(2)}`).join(', ')
+      overMaxBudget
+        .slice(0, 3)
+        .map((c) => `${c.name}: £${Number(c.dailyBudget).toFixed(2)}`)
+        .join(', ')
     );
   }
 
@@ -251,7 +279,10 @@ async function phase2_campaignIntegrity() {
   const maxKw = Math.max(...kwCounts);
   const minKw = Math.min(...kwCounts);
   const totalKw = new Set(campaigns.flatMap((c) => c.keywords)).size;
-  pass('Keyword distribution', `${totalKw} unique keywords, avg ${avgKw.toFixed(1)}/campaign (min: ${minKw}, max: ${maxKw})`);
+  pass(
+    'Keyword distribution',
+    `${totalKw} unique keywords, avg ${avgKw.toFixed(1)}/campaign (min: ${minKw}, max: ${maxKw})`
+  );
 
   // 2.6 Target URLs valid
   const noUrl = campaigns.filter((c) => !c.targetUrl || c.targetUrl.length < 10);
@@ -266,8 +297,14 @@ async function phase2_campaignIntegrity() {
   if (nonHttps.length === 0) {
     pass('HTTPS URLs', `All target URLs use HTTPS`);
   } else {
-    fail('HTTPS URLs', `${nonHttps.length} campaigns have non-HTTPS URLs`,
-      nonHttps.slice(0, 3).map(c => c.targetUrl).join(', '));
+    fail(
+      'HTTPS URLs',
+      `${nonHttps.length} campaigns have non-HTTPS URLs`,
+      nonHttps
+        .slice(0, 3)
+        .map((c) => c.targetUrl)
+        .join(', ')
+    );
   }
 
   // 2.8 UTM tracking
@@ -292,7 +329,10 @@ async function phase2_campaignIntegrity() {
   if (noProposal.length === 0 || draftAndPaused.length === 0) {
     pass('ProposalData', `All ${draftAndPaused.length} draft/paused campaigns have proposalData`);
   } else {
-    warn('ProposalData', `${noProposal.length}/${draftAndPaused.length} campaigns missing proposalData`);
+    warn(
+      'ProposalData',
+      `${noProposal.length}/${draftAndPaused.length} campaigns missing proposalData`
+    );
   }
 
   // 2.11 Ad groups in audiences (grouped campaigns)
@@ -302,11 +342,18 @@ async function phase2_campaignIntegrity() {
   });
   if (withAudiences.length > 0) {
     const totalAdGroups = withAudiences.reduce(
-      (s, c) => s + ((c.audiences as any).adGroups?.length || 0), 0
+      (s, c) => s + ((c.audiences as any).adGroups?.length || 0),
+      0
     );
-    pass('Ad group structure', `${withAudiences.length} campaigns have ${totalAdGroups} ad groups for Google multi-ad-group deployment`);
+    pass(
+      'Ad group structure',
+      `${withAudiences.length} campaigns have ${totalAdGroups} ad groups for Google multi-ad-group deployment`
+    );
   } else {
-    warn('Ad group structure', 'No campaigns have audiences.adGroups — Google will use single ad group fallback');
+    warn(
+      'Ad group structure',
+      'No campaigns have audiences.adGroups — Google will use single ad group fallback'
+    );
   }
 
   // 2.12 Microsite campaigns
@@ -314,20 +361,32 @@ async function phase2_campaignIntegrity() {
   if (msCampaigns.length > 0) {
     pass('Microsite campaigns', `${msCampaigns.length} campaigns target specific microsites`);
   } else {
-    warn('Microsite campaigns', 'No microsite-targeted campaigns — all traffic routes to main sites');
+    warn(
+      'Microsite campaigns',
+      'No microsite-targeted campaigns — all traffic routes to main sites'
+    );
   }
 
   // 2.13 Landing page path populated
   const withLp = campaigns.filter((c) => (c as any).landingPagePath);
-  pass('Landing page paths', `${withLp.length}/${campaigns.length} campaigns have explicit landing page paths`);
+  pass(
+    'Landing page paths',
+    `${withLp.length}/${campaigns.length} campaigns have explicit landing page paths`
+  );
 
   // 2.14 MaxCPC sanity check
   const highCpc = campaigns.filter((c) => Number(c.maxCpc) > PAID_TRAFFIC_CONFIG.maxCpc);
   if (highCpc.length === 0) {
     pass('MaxCPC cap', `All campaigns have maxCpc ≤ £${PAID_TRAFFIC_CONFIG.maxCpc}`);
   } else {
-    warn('MaxCPC cap', `${highCpc.length} campaigns have maxCpc > £${PAID_TRAFFIC_CONFIG.maxCpc}`,
-      highCpc.slice(0, 3).map(c => `${c.name}: £${Number(c.maxCpc).toFixed(2)}`).join(', '));
+    warn(
+      'MaxCPC cap',
+      `${highCpc.length} campaigns have maxCpc > £${PAID_TRAFFIC_CONFIG.maxCpc}`,
+      highCpc
+        .slice(0, 3)
+        .map((c) => `${c.name}: £${Number(c.maxCpc).toFixed(2)}`)
+        .join(', ')
+    );
   }
 }
 
@@ -344,7 +403,14 @@ async function phase3_metaApi() {
 
   const account = await prisma.socialAccount.findFirst({
     where: { platform: 'FACEBOOK', isActive: true },
-    select: { accessToken: true, tokenExpiresAt: true, refreshToken: true, id: true, platform: true, accountId: true },
+    select: {
+      accessToken: true,
+      tokenExpiresAt: true,
+      refreshToken: true,
+      id: true,
+      platform: true,
+      accountId: true,
+    },
   });
 
   if (!account?.accessToken) {
@@ -359,7 +425,10 @@ async function phase3_metaApi() {
   // 3.1 Token refresh
   try {
     const refreshed = await refreshTokenIfNeeded(account);
-    pass('Meta token refresh', `Token valid (refreshed: ${refreshed.accessToken !== account.accessToken})`);
+    pass(
+      'Meta token refresh',
+      `Token valid (refreshed: ${refreshed.accessToken !== account.accessToken})`
+    );
   } catch (err: any) {
     fail('Meta token refresh', `Failed: ${err.message.substring(0, 150)}`);
     return;
@@ -374,7 +443,10 @@ async function phase3_metaApi() {
   try {
     const interests = await client.searchInterests('travel');
     if (interests.length > 0) {
-      pass('Meta interest search', `Found ${interests.length} interests for "travel" (e.g., ${interests[0]!.name})`);
+      pass(
+        'Meta interest search',
+        `Found ${interests.length} interests for "travel" (e.g., ${interests[0]!.name})`
+      );
     } else {
       warn('Meta interest search', 'No interests returned for "travel" — targeting may be limited');
     }
@@ -404,11 +476,17 @@ async function phase3_metaApi() {
           since: formatDate(daysAgo(7)),
           until: formatDate(new Date()),
         });
-        pass('Meta campaign reachable', `Campaign "${sample.name}" is accessible on Meta API (insights: ${JSON.stringify(insights).substring(0, 100)})`);
+        pass(
+          'Meta campaign reachable',
+          `Campaign "${sample.name}" is accessible on Meta API (insights: ${JSON.stringify(insights).substring(0, 100)})`
+        );
       } catch (err: any) {
         // A 400 error about "no data" is OK — it means the campaign exists
         if (err.message?.includes('no data') || err.message?.includes('100')) {
-          pass('Meta campaign reachable', `Campaign "${sample.name}" exists on Meta (no insights data yet — expected for new campaigns)`);
+          pass(
+            'Meta campaign reachable',
+            `Campaign "${sample.name}" exists on Meta (no insights data yet — expected for new campaigns)`
+          );
         } else {
           fail('Meta campaign reachable', `API error: ${err.message.substring(0, 200)}`);
         }
@@ -433,18 +511,27 @@ async function phase4_googleApi() {
     if (deployedGoogle > 0) {
       pass('Google deployed campaigns', `${deployedGoogle} campaigns deployed to Google`);
     } else {
-      warn('Google deployed campaigns', 'No campaigns deployed to Google yet (may need API access approval)');
+      warn(
+        'Google deployed campaigns',
+        'No campaigns deployed to Google yet (may need API access approval)'
+      );
     }
 
     // 4.2 Test token refresh (read-only)
     try {
       const { listConversionActions } = await import('../services/google-ads-client.js');
       const actions = await listConversionActions();
-      pass('Google Ads API access', `Authenticated successfully (${actions.length} conversion actions found)`);
+      pass(
+        'Google Ads API access',
+        `Authenticated successfully (${actions.length} conversion actions found)`
+      );
     } catch (err: any) {
       if (err.message?.includes('403') || err.message?.includes('PERMISSION_DENIED')) {
-        fail('Google Ads API access', 'Permission denied — API access not approved',
-          'Request Standard access at https://ads.google.com/aw/apicenter/');
+        fail(
+          'Google Ads API access',
+          'Permission denied — API access not approved',
+          'Request Standard access at https://ads.google.com/aw/apicenter/'
+        );
       } else {
         fail('Google Ads API access', `Error: ${err.message.substring(0, 200)}`);
       }
@@ -478,14 +565,24 @@ async function phase5_biddingEngine() {
     // 5.2 Profiles generated
     const profitableProfiles = result.profiles.filter((p) => p.maxProfitableCpc > 0.01);
     if (profitableProfiles.length > 0) {
-      pass('Profitable profiles', `${profitableProfiles.length}/${result.profiles.length} sites have positive maxCPC`);
+      pass(
+        'Profitable profiles',
+        `${profitableProfiles.length}/${result.profiles.length} sites have positive maxCPC`
+      );
       // Show top 3
-      const top3 = profitableProfiles.sort((a, b) => b.maxProfitableCpc - a.maxProfitableCpc).slice(0, 3);
+      const top3 = profitableProfiles
+        .sort((a, b) => b.maxProfitableCpc - a.maxProfitableCpc)
+        .slice(0, 3);
       for (const p of top3) {
-        console.log(`    ${p.siteName}: maxCPC £${p.maxProfitableCpc.toFixed(2)}, AOV £${p.avgOrderValue.toFixed(0)}, CVR ${(p.conversionRate * 100).toFixed(2)}%`);
+        console.log(
+          `    ${p.siteName}: maxCPC £${p.maxProfitableCpc.toFixed(2)}, AOV £${p.avgOrderValue.toFixed(0)}, CVR ${(p.conversionRate * 100).toFixed(2)}%`
+        );
       }
     } else {
-      fail('Profitable profiles', 'No sites have positive maxCPC — all candidates will have negative ROAS');
+      fail(
+        'Profitable profiles',
+        'No sites have positive maxCPC — all candidates will have negative ROAS'
+      );
     }
 
     // 5.3 Candidates scored
@@ -510,7 +607,10 @@ async function phase5_biddingEngine() {
     if (result.groups.length > 0) {
       const msGroups = result.groups.filter((g) => g.isMicrosite);
       const mainGroups = result.groups.filter((g) => !g.isMicrosite);
-      pass('Campaign groups', `${result.groups.length} groups (${msGroups.length} microsite, ${mainGroups.length} main site)`);
+      pass(
+        'Campaign groups',
+        `${result.groups.length} groups (${msGroups.length} microsite, ${mainGroups.length} main site)`
+      );
 
       // Platform split
       const fbGroups = result.groups.filter((g) => g.platform === 'FACEBOOK').length;
@@ -519,7 +619,9 @@ async function phase5_biddingEngine() {
 
       // Sub-£1 budget count
       const subThreshold = result.groups.filter((g) => g.totalExpectedDailyCost < 1.0);
-      console.log(`    Sub-£1 natural budget (will be floored): ${subThreshold.length}/${result.groups.length}`);
+      console.log(
+        `    Sub-£1 natural budget (will be floored): ${subThreshold.length}/${result.groups.length}`
+      );
 
       // Total budget with floor
       const totalWithFloor = result.groups.reduce(
@@ -548,8 +650,10 @@ async function phase5_biddingEngine() {
     }
 
     // 5.5 Budget allocation
-    pass('Budget allocated', `£${result.budgetAllocated.toFixed(2)}/day allocated, £${result.budgetRemaining.toFixed(2)} remaining`);
-
+    pass(
+      'Budget allocated',
+      `£${result.budgetAllocated.toFixed(2)}/day allocated, £${result.budgetRemaining.toFixed(2)} remaining`
+    );
   } catch (err: any) {
     fail('Bidding engine', `Engine crashed: ${err.message.substring(0, 300)}`);
   }
@@ -563,7 +667,14 @@ async function phase6_deploymentReadiness() {
   // 6.1 DRAFT campaigns ready for deployment
   const drafts = await prisma.adCampaign.findMany({
     where: { status: 'DRAFT' },
-    select: { id: true, name: true, platform: true, dailyBudget: true, keywords: true, targetUrl: true },
+    select: {
+      id: true,
+      name: true,
+      platform: true,
+      dailyBudget: true,
+      keywords: true,
+      targetUrl: true,
+    },
   });
 
   if (drafts.length > 0) {
@@ -578,7 +689,10 @@ async function phase6_deploymentReadiness() {
       if (hasKw && hasUrl && hasBudget) viable++;
     }
     if (viable === drafts.length) {
-      pass('Draft viability', `All ${drafts.length} drafts have keywords + valid URL + viable budget`);
+      pass(
+        'Draft viability',
+        `All ${drafts.length} drafts have keywords + valid URL + viable budget`
+      );
     } else {
       fail('Draft viability', `Only ${viable}/${drafts.length} drafts are viable for deployment`);
     }
@@ -594,7 +708,10 @@ async function phase6_deploymentReadiness() {
 
   if (paused.length > 0) {
     const withPlatformId = paused.filter((p) => p.platformCampaignId);
-    pass('PAUSED campaigns', `${paused.length} paused (${withPlatformId.length} deployed to platform)`);
+    pass(
+      'PAUSED campaigns',
+      `${paused.length} paused (${withPlatformId.length} deployed to platform)`
+    );
 
     if (withPlatformId.length < paused.length) {
       warn(
@@ -627,8 +744,18 @@ async function phase6_deploymentReadiness() {
   for (const c of sampleCampaigns) {
     try {
       const url = c.targetUrl.split('?')[0]!; // Strip UTM for fetch
-      const resp = await fetch(url, { method: 'HEAD', redirect: 'follow', signal: AbortSignal.timeout(10000) });
-      if (resp.ok || resp.status === 308 || resp.status === 307 || resp.status === 301 || resp.status === 302) {
+      const resp = await fetch(url, {
+        method: 'HEAD',
+        redirect: 'follow',
+        signal: AbortSignal.timeout(10000),
+      });
+      if (
+        resp.ok ||
+        resp.status === 308 ||
+        resp.status === 307 ||
+        resp.status === 301 ||
+        resp.status === 302
+      ) {
         reachable++;
       } else {
         unreachable++;
@@ -636,14 +763,19 @@ async function phase6_deploymentReadiness() {
       }
     } catch (err: any) {
       unreachable++;
-      console.log(`    ⚠ ${c.name}: ${c.targetUrl.split('?')[0]} → ${err.message.substring(0, 80)}`);
+      console.log(
+        `    ⚠ ${c.name}: ${c.targetUrl.split('?')[0]} → ${err.message.substring(0, 80)}`
+      );
     }
   }
 
   if (unreachable === 0 && reachable > 0) {
     pass('Landing URL reachability', `All ${reachable} sampled landing pages are reachable`);
   } else if (unreachable > 0) {
-    warn('Landing URL reachability', `${unreachable}/${reachable + unreachable} sampled URLs are unreachable`);
+    warn(
+      'Landing URL reachability',
+      `${unreachable}/${reachable + unreachable} sampled URLs are unreachable`
+    );
   }
 }
 
@@ -656,9 +788,15 @@ async function phase7_budgetOptimizer() {
 
   // 7.1 Config values sanity
   if (cfg.roasPauseThreshold < cfg.targetRoas) {
-    pass('ROAS thresholds', `Pause at ROAS < ${cfg.roasPauseThreshold}, target ${cfg.targetRoas}, scale at > ${cfg.roasScaleThreshold}`);
+    pass(
+      'ROAS thresholds',
+      `Pause at ROAS < ${cfg.roasPauseThreshold}, target ${cfg.targetRoas}, scale at > ${cfg.roasScaleThreshold}`
+    );
   } else {
-    fail('ROAS thresholds', `Pause threshold (${cfg.roasPauseThreshold}) >= target ROAS (${cfg.targetRoas})`);
+    fail(
+      'ROAS thresholds',
+      `Pause threshold (${cfg.roasPauseThreshold}) >= target ROAS (${cfg.targetRoas})`
+    );
   }
 
   if (cfg.observationDays >= 3 && cfg.observationDays <= 30) {
@@ -679,14 +817,24 @@ async function phase7_budgetOptimizer() {
   pass('Default CVR', `${(cfg.defaults.cvr * 100).toFixed(1)}%`);
 
   // 7.3 Calculate break-even CPC with defaults
-  const defaultRevPerClick = cfg.defaults.aov * cfg.defaults.cvr * (cfg.defaults.commissionRate / 100);
+  const defaultRevPerClick =
+    cfg.defaults.aov * cfg.defaults.cvr * (cfg.defaults.commissionRate / 100);
   const breakEvenCpc = defaultRevPerClick / cfg.targetRoas;
-  pass('Break-even CPC (defaults)', `£${breakEvenCpc.toFixed(2)} (AOV × CVR × commission ÷ targetROAS)`);
+  pass(
+    'Break-even CPC (defaults)',
+    `£${breakEvenCpc.toFixed(2)} (AOV × CVR × commission ÷ targetROAS)`
+  );
 
   if (breakEvenCpc > cfg.maxCpc) {
-    pass('CPC headroom', `Break-even CPC £${breakEvenCpc.toFixed(2)} > maxCpc threshold £${cfg.maxCpc} — good margin`);
+    pass(
+      'CPC headroom',
+      `Break-even CPC £${breakEvenCpc.toFixed(2)} > maxCpc threshold £${cfg.maxCpc} — good margin`
+    );
   } else {
-    warn('CPC headroom', `Break-even CPC £${breakEvenCpc.toFixed(2)} ≤ maxCpc threshold £${cfg.maxCpc} — tight margins`);
+    warn(
+      'CPC headroom',
+      `Break-even CPC £${breakEvenCpc.toFixed(2)} ≤ maxCpc threshold £${cfg.maxCpc} — tight margins`
+    );
   }
 }
 
@@ -711,7 +859,10 @@ async function phase8_conversionTracking() {
   if (seoConfig?.googleAdsConversionAction) {
     pass('Google Conversion Action', `Action: ${seoConfig.googleAdsConversionAction}`);
   } else {
-    warn('Google Conversion Action', 'No Google conversion action in seoConfig — run AD_PLATFORM_IDS_SYNC');
+    warn(
+      'Google Conversion Action',
+      'No Google conversion action in seoConfig — run AD_PLATFORM_IDS_SYNC'
+    );
   }
 
   // 8.3 Recent bookings with UTM attribution
@@ -722,9 +873,15 @@ async function phase8_conversionTracking() {
     },
   });
   if (recentUtmBookings > 0) {
-    pass('UTM-attributed bookings', `${recentUtmBookings} bookings with UTM source in last 30 days`);
+    pass(
+      'UTM-attributed bookings',
+      `${recentUtmBookings} bookings with UTM source in last 30 days`
+    );
   } else {
-    warn('UTM-attributed bookings', 'No UTM-attributed bookings yet — expected before first paid traffic');
+    warn(
+      'UTM-attributed bookings',
+      'No UTM-attributed bookings yet — expected before first paid traffic'
+    );
   }
 }
 
@@ -783,14 +940,19 @@ async function phase9_dashboardApi() {
       _avg: { cpc: true, searchVolume: true },
       _count: true,
     });
-    pass('Keyword aggregation', `${kwAgg._count} keywords, avg CPC £${Number(kwAgg._avg.cpc || 0).toFixed(2)}, avg volume ${Math.round(Number(kwAgg._avg.searchVolume || 0))}`);
+    pass(
+      'Keyword aggregation',
+      `${kwAgg._count} keywords, avg CPC £${Number(kwAgg._avg.cpc || 0).toFixed(2)}, avg volume ${Math.round(Number(kwAgg._avg.searchVolume || 0))}`
+    );
   } catch (err: any) {
     fail('Keyword aggregation', `Failed: ${err.message.substring(0, 200)}`);
   }
 
   // 9.4 Enrichment stats
   try {
-    const suppEnriched = await prisma.supplier.count({ where: { keywordsEnrichedAt: { not: null } } });
+    const suppEnriched = await prisma.supplier.count({
+      where: { keywordsEnrichedAt: { not: null } },
+    });
     pass('Enrichment stats', `${suppEnriched} suppliers enriched with keywords`);
   } catch (err: any) {
     fail('Enrichment stats', `Query failed: ${err.message.substring(0, 100)}`);
@@ -799,7 +961,10 @@ async function phase9_dashboardApi() {
   // 9.5 AdAlert query (the one that caused the 500)
   try {
     const alertCount = await (prisma as any).adAlert.count();
-    const alerts = await (prisma as any).adAlert.findMany({ take: 5, orderBy: { createdAt: 'desc' } });
+    const alerts = await (prisma as any).adAlert.findMany({
+      take: 5,
+      orderBy: { createdAt: 'desc' },
+    });
     pass('AdAlert queries', `${alertCount} alerts, findMany OK`);
   } catch (err: any) {
     fail('AdAlert queries', `STILL FAILING: ${err.message.substring(0, 200)}`);
@@ -858,7 +1023,9 @@ async function main() {
   console.log('║   Pre-launch checklist before enabling live spend             ║');
   console.log('╚════════════════════════════════════════════════════════════════╝');
   console.log(`\nTimestamp: ${new Date().toISOString()}`);
-  console.log(`Config: maxDailyBudget=£${PAID_TRAFFIC_CONFIG.maxDailyBudget}, minDailyBudget=£${PAID_TRAFFIC_CONFIG.minDailyBudget}, targetRoas=${PAID_TRAFFIC_CONFIG.targetRoas}`);
+  console.log(
+    `Config: maxDailyBudget=£${PAID_TRAFFIC_CONFIG.maxDailyBudget}, minDailyBudget=£${PAID_TRAFFIC_CONFIG.minDailyBudget}, targetRoas=${PAID_TRAFFIC_CONFIG.targetRoas}`
+  );
 
   try {
     await phase1_databaseState();
