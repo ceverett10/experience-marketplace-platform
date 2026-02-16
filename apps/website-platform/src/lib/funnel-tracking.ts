@@ -3,6 +3,10 @@
  *
  * Fire-and-forget server-side event tracking for the booking flow.
  * Events are written to the BookingFunnelEvent table without blocking API responses.
+ *
+ * IMPORTANT: cookies() must be read eagerly (within the request context) before
+ * the detached promise runs, because Next.js cleans up the request context once
+ * the route handler returns its response.
  */
 
 import { prisma } from '@/lib/prisma';
@@ -19,15 +23,22 @@ interface TrackFunnelEventParams {
   errorCode?: string;
   errorMessage?: string;
   durationMs?: number;
+  landingPage?: string;
 }
 
 /**
  * Track a booking funnel event. Fire-and-forget — does not block the caller.
+ *
+ * Reads cookies eagerly within the request scope, then writes to DB asynchronously.
  */
 export function trackFunnelEvent(params: TrackFunnelEventParams): void {
+  // Read cookies EAGERLY while still inside the request context.
+  // The cookies() promise must be initiated here — not inside the detached async block.
+  const cookiePromise = cookies();
+
   void (async () => {
     try {
-      const cookieStore = await cookies();
+      const cookieStore = await cookiePromise;
       const sessionId = cookieStore.get('funnel_session')?.value ?? 'unknown';
       const utmRaw = cookieStore.get('utm_params')?.value;
       let utm: { source?: string; medium?: string; campaign?: string } = {};
@@ -52,6 +63,7 @@ export function trackFunnelEvent(params: TrackFunnelEventParams): void {
           utmSource: utm.source || null,
           utmMedium: utm.medium || null,
           utmCampaign: utm.campaign || null,
+          landingPage: params.landingPage ?? null,
         },
       });
     } catch (err) {

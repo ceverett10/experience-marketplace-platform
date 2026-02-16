@@ -27,6 +27,7 @@ import { MobileBookingCTA } from '@/components/experiences/MobileBookingCTA';
 import { RelatedExperiences } from '@/components/experiences/RelatedExperiences';
 import { RelatedArticles } from '@/components/experiences/RelatedArticles';
 import { TrackViewItem } from '@/components/analytics/TrackViewItem';
+import { TrackFunnelEvent } from '@/components/analytics/TrackFunnelEvent';
 import { LiveActivityIndicator } from '@/components/ui/TrustSignals';
 
 import { LocalTips } from '@/components/experiences/LocalTips';
@@ -565,6 +566,8 @@ export default async function ExperienceDetailPage({ params }: Props) {
         price={experience.price?.amount ? experience.price.amount : undefined}
         currency={experience.price?.currency}
       />
+      {/* Booking funnel: track experience page view */}
+      <TrackFunnelEvent step="LANDING_PAGE_VIEW" productId={experience.id} />
 
       {/* JSON-LD Structured Data - Product (with reviews/ratings) */}
       <script
