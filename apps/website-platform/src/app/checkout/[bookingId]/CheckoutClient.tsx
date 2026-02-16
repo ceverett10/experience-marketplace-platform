@@ -7,6 +7,7 @@ import type { SiteConfig } from '@/lib/tenant';
 import { QuestionsForm, type GuestData } from './QuestionsForm';
 import { StripePaymentForm } from './StripePaymentForm';
 import {
+  getBooking,
   getBookingQuestions,
   answerBookingQuestions,
   commitBooking,
@@ -29,16 +30,16 @@ import {
 } from '@/lib/pricing';
 
 interface CheckoutClientProps {
-  booking: Booking;
+  bookingId: string;
   site: SiteConfig;
 }
 
-export function CheckoutClient({ booking: initialBooking, site }: CheckoutClientProps) {
+export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
   const router = useRouter();
   const primaryColor = site.brand?.primaryColor ?? '#0d9488';
 
   // State
-  const [booking, setBooking] = useState<Booking>(initialBooking);
+  const [booking, setBooking] = useState<Booking | null>(null);
   const [bookingQuestions, setBookingQuestions] = useState<BookingQuestion[]>([]);
   const [availabilities, setAvailabilities] = useState<BookingAvailability[]>([]);
   const [canCommit, setCanCommit] = useState(false);
@@ -51,37 +52,52 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCommitting, setIsCommitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [bookingNotFound, setBookingNotFound] = useState(false);
   const paymentSectionRef = useRef<HTMLDivElement>(null);
 
-  // Track begin_checkout on mount
+  // Fetch booking and questions on mount (client-side for E2E testability)
   useEffect(() => {
-    trackBeginCheckout({
-      id: initialBooking.id,
-      value: initialBooking.totalPrice?.gross,
-      currency: initialBooking.totalPrice?.currency ?? 'GBP',
-    });
-  }, [initialBooking.id, initialBooking.totalPrice]);
-
-  // Fetch booking questions on mount
-  useEffect(() => {
-    const loadQuestions = async () => {
+    const loadBooking = async () => {
       try {
-        const result = await getBookingQuestions(initialBooking.id);
+        // Fetch booking data via /api/booking route (interceptable by Playwright)
+        const bookingData = await getBooking(bookingId);
+
+        // Handle booking status
+        if (bookingData.status === 'CONFIRMED' || bookingData.status === 'COMPLETED') {
+          router.replace(`/booking/confirmation/${bookingId}`);
+          return;
+        }
+        if (bookingData.status === 'CANCELLED') {
+          setBooking(bookingData);
+          setIsLoading(false);
+          return;
+        }
+
+        setBooking(bookingData);
+
+        // Track begin_checkout
+        trackBeginCheckout({
+          id: bookingData.id,
+          value: bookingData.totalPrice?.gross,
+          currency: bookingData.totalPrice?.currency ?? 'GBP',
+        });
+
+        // Fetch questions
+        const result = await getBookingQuestions(bookingId);
         setBooking(result.booking);
         setBookingQuestions(result.summary.bookingQuestions);
         setAvailabilities(result.booking.availabilityList?.nodes ?? []);
         setCanCommit(result.summary.canCommit);
-        // Don't auto-skip form - user should always enter Lead Person Details first
-        // setQuestionsAnswered(result.summary.canCommit);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load booking details');
+        console.error('Error loading booking:', err);
+        setBookingNotFound(true);
       } finally {
         setIsLoading(false);
       }
     };
 
-    loadQuestions();
-  }, [initialBooking.id]);
+    loadBooking();
+  }, [bookingId, router]);
 
   // Handle questions form submission with iterative re-fetch for conditional questions
   const handleQuestionsSubmit = async (data: GuestData) => {
@@ -89,7 +105,7 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
     setError(null);
 
     try {
-      const result = await answerBookingQuestions(initialBooking.id, data);
+      const result = await answerBookingQuestions(bookingId, data);
       setBooking(result.booking);
       setCanCommit(result.canCommit);
 
@@ -97,7 +113,7 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
         setQuestionsAnswered(true);
       } else {
         // Re-fetch questions to discover newly revealed conditional questions
-        const refreshed = await getBookingQuestions(initialBooking.id);
+        const refreshed = await getBookingQuestions(bookingId);
         setBooking(refreshed.booking);
         setBookingQuestions(refreshed.summary.bookingQuestions);
         setAvailabilities(refreshed.booking.availabilityList?.nodes ?? []);
@@ -136,11 +152,11 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
 
   // Handle proceed to payment
   const handleProceedToPayment = () => {
-    if (!canCommit) return;
+    if (!canCommit || !booking) return;
     setShowPayment(true);
     setError(null);
     trackAddPaymentInfo({
-      id: initialBooking.id,
+      id: bookingId,
       value: booking.totalPrice?.gross,
       currency: booking.totalPrice?.currency ?? 'GBP',
     });
@@ -158,13 +174,14 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
 
   // Handle payment success - now commit the booking
   const handlePaymentSuccess = async () => {
+    if (!booking) return;
     setPaymentComplete(true);
     setIsCommitting(true);
     setError(null);
 
     const firstAvail = booking.availabilityList?.nodes?.[0];
     const purchaseData = {
-      id: initialBooking.id,
+      id: bookingId,
       value: booking.totalPrice?.gross,
       currency: booking.totalPrice?.currency ?? 'GBP',
     };
@@ -184,13 +201,13 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
     try {
       // Pass productId for booking analytics (urgency messaging)
       const productId = firstAvail?.product?.id;
-      const result = await commitBooking(initialBooking.id, true, productId);
+      const result = await commitBooking(bookingId, true, productId);
 
       if (result.isConfirmed) {
-        router.push(`/booking/confirmation/${initialBooking.id}`);
+        router.push(`/booking/confirmation/${bookingId}`);
       } else {
         // Booking is pending - still redirect to confirmation
-        router.push(`/booking/confirmation/${initialBooking.id}?pending=true`);
+        router.push(`/booking/confirmation/${bookingId}?pending=true`);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to complete booking');
@@ -233,6 +250,62 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
               />
             </svg>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  // Booking not found
+  if (bookingNotFound || !booking) {
+    return (
+      <main className="min-h-screen bg-gray-50 py-12">
+        <div className="mx-auto max-w-2xl px-4">
+          <div className="rounded-xl bg-white p-8 text-center shadow-lg">
+            <h1 className="mb-2 text-2xl font-bold text-gray-900">Booking Not Found</h1>
+            <p className="mb-6 text-gray-600">
+              We couldn&apos;t find this booking. It may have expired or been removed.
+            </p>
+            <a
+              href="/experiences"
+              className="inline-flex items-center justify-center rounded-lg px-6 py-3 text-sm font-semibold text-white hover:opacity-90"
+              style={{ backgroundColor: primaryColor }}
+            >
+              Browse Experiences
+            </a>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  // Booking cancelled
+  if (booking.status === 'CANCELLED') {
+    return (
+      <main className="min-h-screen bg-gray-50 py-12">
+        <div className="mx-auto max-w-2xl px-4">
+          <div className="rounded-xl bg-white p-8 text-center shadow-lg">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
+              <svg
+                className="h-8 w-8 text-red-600"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth="2"
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </div>
+            <h1 className="mb-2 text-2xl font-bold text-gray-900">Booking Cancelled</h1>
+            <p className="mb-6 text-gray-600">
+              This booking has been cancelled and is no longer available.
+            </p>
+            <a
+              href="/experiences"
+              className="inline-flex items-center justify-center rounded-lg bg-indigo-600 px-6 py-3 text-sm font-semibold text-white hover:bg-indigo-700"
+            >
+              Browse Experiences
+            </a>
           </div>
         </div>
       </main>
@@ -349,7 +422,7 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
             {!questionsAnswered && (
               <div data-testid="checkout-questions-step">
                 <QuestionsForm
-                  bookingId={initialBooking.id}
+                  bookingId={bookingId}
                   bookingQuestions={bookingQuestions}
                   availabilities={availabilities}
                   onSubmit={handleQuestionsSubmit}
@@ -521,7 +594,7 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
                       </div>
                     ) : (
                       <StripePaymentForm
-                        bookingId={initialBooking.id}
+                        bookingId={bookingId}
                         onSuccess={handlePaymentSuccess}
                         onError={handlePaymentError}
                         primaryColor={primaryColor}

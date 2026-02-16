@@ -154,9 +154,9 @@ jobs:
         env:
           DATABASE_URL: 'postgresql://dummy:dummy@localhost:5432/dummy'
           HOLIBOB_API_URL: 'https://api.sandbox.holibob.tech/graphql'
-          HOLIBOB_PARTNER_ID: 'demo'
-          HOLIBOB_API_KEY: 'dummy-key'
-          HOLIBOB_API_SECRET: 'dummy-secret'
+          HOLIBOB_PARTNER_ID: ${{ secrets.HOLIBOB_PARTNER_ID }}
+          HOLIBOB_API_KEY: ${{ secrets.HOLIBOB_API_KEY }}
+          HOLIBOB_API_SECRET: ${{ secrets.HOLIBOB_API_SECRET }}
           STRIPE_SECRET_KEY: 'sk_test_dummy'
           STRIPE_WEBHOOK_SECRET: 'whsec_dummy'
 
@@ -195,9 +195,9 @@ jobs:
         env:
           DATABASE_URL: 'postgresql://dummy:dummy@localhost:5432/dummy'
           HOLIBOB_API_URL: 'https://api.sandbox.holibob.tech/graphql'
-          HOLIBOB_PARTNER_ID: 'demo'
-          HOLIBOB_API_KEY: 'dummy-key'
-          HOLIBOB_API_SECRET: 'dummy-secret'
+          HOLIBOB_PARTNER_ID: ${{ secrets.HOLIBOB_PARTNER_ID }}
+          HOLIBOB_API_KEY: ${{ secrets.HOLIBOB_API_KEY }}
+          HOLIBOB_API_SECRET: ${{ secrets.HOLIBOB_API_SECRET }}
           STRIPE_SECRET_KEY: 'sk_test_dummy'
           STRIPE_WEBHOOK_SECRET: 'whsec_dummy'
           NODE_ENV: 'production'
