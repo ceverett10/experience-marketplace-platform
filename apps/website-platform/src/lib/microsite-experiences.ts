@@ -359,8 +359,8 @@ export function localProductToExperienceListItem(product: LocalProduct) {
     imageUrl: product.primaryImageUrl ?? '/placeholder-experience.jpg',
     price: {
       amount: product.priceFrom ?? 0,
-      currency: 'GBP',
-      formatted: formatPrice(product.priceFrom ?? 0, 'GBP'),
+      currency: product.currency,
+      formatted: formatPrice(product.priceFrom ?? 0, product.currency),
     },
     duration: {
       formatted: product.duration ?? 'Duration varies',

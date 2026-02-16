@@ -53,7 +53,7 @@ export function BookingForm({ experience, onBookingCreated }: BookingFormProps) 
 
   const formattedTotalPrice = new Intl.NumberFormat('en-GB', {
     style: 'currency',
-    currency: 'GBP',
+    currency: selectedTimeSlot?.currency ?? experience.price.currency,
   }).format(totalPrice / 100);
 
   // Update guest count
@@ -438,7 +438,7 @@ export function BookingForm({ experience, onBookingCreated }: BookingFormProps) 
                   {selectedTimeSlot
                     ? new Intl.NumberFormat('en-GB', {
                         style: 'currency',
-                        currency: 'GBP',
+                        currency: selectedTimeSlot.currency,
                       }).format(selectedTimeSlot.price / 100)
                     : experience.price.formatted}{' '}
                   × {totalGuests} guests

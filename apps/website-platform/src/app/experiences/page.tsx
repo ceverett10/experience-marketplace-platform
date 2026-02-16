@@ -258,8 +258,12 @@ async function getExperiences(
 
       // Get price - Product Detail API uses guidePrice, Product Discovery uses priceFrom
       const priceAmount = product.guidePrice ?? product.priceFrom ?? 0;
-      const priceCurrency = 'GBP';
-      const priceFormatted = formatPrice(priceAmount, priceCurrency);
+      const priceCurrency =
+        product.guidePriceCurrency ?? product.priceCurrency ?? product.currency ?? 'GBP';
+      const priceFormatted =
+        product.guidePriceFormattedText ??
+        product.priceFromFormatted ??
+        formatPrice(priceAmount, priceCurrency);
 
       // Get duration - Product Discovery API returns maxDuration as ISO 8601 (e.g., "PT210M")
       // Product Detail API returns durationText as a string
@@ -446,8 +450,8 @@ async function getExperiencesFromLocalDB(
       imageUrl: product.primaryImageUrl ?? '/placeholder-experience.jpg',
       price: {
         amount: product.priceFrom ? Number(product.priceFrom) : 0,
-        currency: 'GBP',
-        formatted: formatPrice(product.priceFrom ? Number(product.priceFrom) : 0, 'GBP'),
+        currency: product.currency,
+        formatted: formatPrice(product.priceFrom ? Number(product.priceFrom) : 0, product.currency),
       },
       duration: {
         formatted: product.duration ?? 'Duration varies',
@@ -527,11 +531,12 @@ async function getExperiencesFromHolibobAPI(
 
       // ProductList API returns guidePrice in MAJOR units (e.g., 71 EUR, not cents)
       const priceAmount = product.guidePrice ?? 0;
-      const priceCurrency = 'GBP';
-      const priceFormatted = new Intl.NumberFormat('en-GB', {
-        style: 'currency',
-        currency: 'GBP',
-      }).format(priceAmount);
+      const priceCurrency = product.guidePriceCurrency ?? 'GBP';
+      const priceFormatted =
+        product.guidePriceFormattedText ??
+        new Intl.NumberFormat('en-GB', { style: 'currency', currency: priceCurrency }).format(
+          priceAmount
+        );
 
       // Parse ISO 8601 duration
       let durationFormatted = 'Duration varies';

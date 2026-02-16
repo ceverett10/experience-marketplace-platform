@@ -341,7 +341,7 @@ export function AvailabilityCalendar({
                       <div
                         className={`text-xs ${isSlotSelected ? 'text-white/80' : 'text-gray-500'}`}
                       >
-                        {formatPrice(slot.price, 'GBP')}
+                        {formatPrice(slot.price, slot.currency)}
                       </div>
                       {slot.remainingCapacity !== undefined && slot.remainingCapacity <= 5 && (
                         <div

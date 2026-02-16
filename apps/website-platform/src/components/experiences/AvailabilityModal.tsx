@@ -212,9 +212,9 @@ export function AvailabilityModal({
 
         if (result.totalPrice) {
           setTotalPrice({
-            formatted: new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(result.totalPrice.gross / 100),
+            formatted: result.totalPrice.grossFormattedText,
             amount: result.totalPrice.gross,
-            currency: 'GBP',
+            currency: result.totalPrice.currency,
           });
         }
 
@@ -498,11 +498,10 @@ export function AvailabilityModal({
                     <p className="font-medium text-gray-900">{formatLabel(category.label)}</p>
                     {(() => {
                       const config = getProductPricingConfig(productId);
-                      const unitPriceGBP = new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(category.unitPrice.gross / 100);
                       const promo = calculatePromoPrice(
-                        unitPriceGBP,
+                        category.unitPrice.grossFormattedText,
                         category.unitPrice.gross,
-                        'GBP',
+                        category.unitPrice.currency ?? 'GBP',
                         config
                       );
                       return promo.hasPromo ? (
@@ -511,13 +510,13 @@ export function AvailabilityModal({
                             {promo.originalFormatted}
                           </span>{' '}
                           <span className="font-medium text-gray-700">
-                            {unitPriceGBP}
+                            {category.unitPrice.grossFormattedText}
                           </span>{' '}
                           per person
                         </p>
                       ) : (
                         <p className="text-sm text-gray-500">
-                          {unitPriceGBP} per person
+                          {category.unitPrice.grossFormattedText} per person
                         </p>
                       );
                     })()}

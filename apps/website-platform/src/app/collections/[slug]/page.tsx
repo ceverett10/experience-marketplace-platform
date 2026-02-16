@@ -414,7 +414,7 @@ export default async function CollectionPage({ params }: Props) {
                         <span className="font-semibold" style={{ color: primaryColor }}>
                           {formatPrice(
                             product.priceFrom ? Number(product.priceFrom) : null,
-                            'GBP'
+                            product.currency || 'GBP'
                           )}
                         </span>
                       </div>
