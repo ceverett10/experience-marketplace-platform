@@ -48,27 +48,39 @@ describe('holibob utilities', () => {
   });
 
   describe('formatPrice', () => {
-    it('should format GBP correctly', () => {
-      expect(formatPrice(2500, 'GBP')).toBe('£25.00');
-      expect(formatPrice(100, 'GBP')).toBe('£1.00');
+    // IMPORTANT: Catalog prices (guidePrice, priceFrom) are in MAJOR units.
+    // e.g., 25 = £25.00, NOT 2500 pennies. Do NOT divide by 100.
+
+    it('should format GBP correctly (major units)', () => {
+      expect(formatPrice(25, 'GBP')).toBe('£25.00');
+      expect(formatPrice(1, 'GBP')).toBe('£1.00');
       expect(formatPrice(0, 'GBP')).toBe('£0.00');
     });
 
-    it('should format EUR correctly', () => {
-      expect(formatPrice(2500, 'EUR')).toBe('€25.00');
+    it('should format EUR correctly (major units)', () => {
+      expect(formatPrice(25, 'EUR')).toBe('€25.00');
     });
 
-    it('should format USD correctly', () => {
-      expect(formatPrice(2500, 'USD')).toBe('US$25.00');
+    it('should format USD correctly (major units)', () => {
+      expect(formatPrice(25, 'USD')).toBe('US$25.00');
     });
 
-    it('should handle decimal amounts', () => {
-      expect(formatPrice(2599, 'GBP')).toBe('£25.99');
-      expect(formatPrice(99, 'GBP')).toBe('£0.99');
+    it('should handle decimal amounts (major units)', () => {
+      expect(formatPrice(25.99, 'GBP')).toBe('£25.99');
+      expect(formatPrice(0.99, 'GBP')).toBe('£0.99');
     });
 
-    it('should handle large amounts', () => {
-      expect(formatPrice(1000000, 'GBP')).toBe('£10,000.00');
+    it('should handle large amounts (major units)', () => {
+      expect(formatPrice(10000, 'GBP')).toBe('£10,000.00');
+    });
+
+    it('should NOT divide by 100 — catalog prices are major units', () => {
+      // Regression test: guidePrice=43 means £43, not £0.43
+      expect(formatPrice(43, 'GBP')).toBe('£43.00');
+      expect(formatPrice(43, 'GBP')).not.toBe('£0.43');
+      // A typical Bali tour priced at 85 GBP
+      expect(formatPrice(85, 'GBP')).toBe('£85.00');
+      expect(formatPrice(85, 'GBP')).not.toBe('£0.85');
     });
   });
 

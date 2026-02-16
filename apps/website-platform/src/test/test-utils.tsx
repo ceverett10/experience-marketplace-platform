@@ -59,7 +59,7 @@ export function createMockExperience(overrides = {}) {
     shortDescription: 'A great test experience',
     imageUrl: 'https://example.com/image.jpg',
     price: {
-      amount: 2500,
+      amount: 25, // Major units: guidePrice/priceFrom (25 = £25, NOT pennies)
       currency: 'GBP',
       formatted: '£25.00',
     },

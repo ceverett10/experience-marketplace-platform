@@ -163,12 +163,20 @@ describe('SEO utilities', () => {
       expect(result.geo?.longitude).toBe(-0.1196);
     });
 
-    it('should include offer with price', () => {
+    it('should include offer with price in major units (no /100)', () => {
       const result = generateExperienceJsonLd(mockExperience, baseUrl);
 
-      expect(result.offers.price).toBe(35); // major units (guidePrice)
+      // REGRESSION: price.amount=35 must pass through as 35, not 0.35
+      expect(result.offers.price).toBe(35);
+      expect(result.offers.price).not.toBeLessThan(1);
       expect(result.offers.priceCurrency).toBe('GBP');
       expect(result.offers.availability).toBe('https://schema.org/InStock');
+    });
+
+    it('should not divide price by 100 for any amount', () => {
+      const exp = { ...mockExperience, price: { amount: 43, currency: 'GBP', formatted: '£43.00' } };
+      const result = generateExperienceJsonLd(exp, baseUrl);
+      expect(result.offers.price).toBe(43);
     });
 
     it('should not include rating when null', () => {
@@ -190,6 +198,14 @@ describe('SEO utilities', () => {
     it('should include brand', () => {
       const result = generateProductJsonLd(mockExperience, baseUrl);
       expect(result.brand['@type']).toBe('Organization');
+    });
+
+    it('should use price in major units for Product offers (no /100)', () => {
+      const result = generateProductJsonLd(mockExperience, baseUrl);
+      // REGRESSION: Product schema price must match major units
+      expect(result.offers.price).toBe(35);
+      expect(result.offers.price).not.toBeLessThan(1);
+      expect(result.offers.priceCurrency).toBe('GBP');
     });
   });
 
