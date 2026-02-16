@@ -18,7 +18,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: 'Partner not found' }, { status: 404 });
     }
     if (partner.status !== 'ACTIVE') {
-      return NextResponse.json({ error: 'Cannot create keys for inactive partner' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Cannot create keys for inactive partner' },
+        { status: 400 }
+      );
     }
 
     // Generate key

@@ -6,10 +6,7 @@ import { decryptToken, encryptToken } from '@experience-marketplace/jobs';
  * GET /api/sites/[id]/social
  * Returns social accounts and recent posts for a site.
  */
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
 
@@ -67,8 +64,7 @@ export async function GET(
     const accountsWithStatus = accounts.map((account) => {
       let tokenStatus: 'valid' | 'expiring_soon' | 'expired' | 'unknown' = 'unknown';
       if (account.tokenExpiresAt) {
-        const hoursLeft =
-          (account.tokenExpiresAt.getTime() - Date.now()) / (1000 * 60 * 60);
+        const hoursLeft = (account.tokenExpiresAt.getTime() - Date.now()) / (1000 * 60 * 60);
         if (hoursLeft <= 0) tokenStatus = 'expired';
         else if (hoursLeft <= 48) tokenStatus = 'expiring_soon';
         else tokenStatus = 'valid';
@@ -98,10 +94,7 @@ export async function GET(
  * Actions: create Pinterest board, etc.
  * Body: { action: 'create_board', boardName: string }
  */
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     const body = await request.json();
@@ -118,9 +111,10 @@ export async function POST(
       const accessToken = decryptToken(account.accessToken);
       const boardName = body.boardName || 'Travel Inspiration';
 
-      const pinterestBase = process.env['PINTEREST_USE_SANDBOX'] === 'true'
-        ? 'https://api-sandbox.pinterest.com'
-        : 'https://api.pinterest.com';
+      const pinterestBase =
+        process.env['PINTEREST_USE_SANDBOX'] === 'true'
+          ? 'https://api-sandbox.pinterest.com'
+          : 'https://api.pinterest.com';
       const response = await fetch(`${pinterestBase}/v5/boards`, {
         method: 'POST',
         headers: {
@@ -136,7 +130,10 @@ export async function POST(
 
       if (!response.ok) {
         const error = await response.text();
-        return NextResponse.json({ error: `Pinterest API error: ${error}` }, { status: response.status });
+        return NextResponse.json(
+          { error: `Pinterest API error: ${error}` },
+          { status: response.status }
+        );
       }
 
       const board = (await response.json()) as { id: string; name: string };
@@ -164,7 +161,10 @@ export async function POST(
     if (body.action === 'update_token') {
       const { platform, accessToken: rawToken } = body;
       if (!platform || !rawToken) {
-        return NextResponse.json({ error: 'platform and accessToken are required' }, { status: 400 });
+        return NextResponse.json(
+          { error: 'platform and accessToken are required' },
+          { status: 400 }
+        );
       }
 
       const account = await prisma.socialAccount.findUnique({
@@ -200,10 +200,7 @@ export async function POST(
  * DELETE /api/sites/[id]/social?accountId=xxx
  * Disconnects a social account.
  */
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     const { searchParams } = new URL(request.url);

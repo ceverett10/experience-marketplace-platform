@@ -69,7 +69,9 @@ async function main() {
   // Process in batches
   for (let i = 0; i < needsImage.length; i += batchSize) {
     const batch = needsImage.slice(i, i + batchSize);
-    console.log(`--- Batch ${Math.floor(i / batchSize) + 1} (${i + 1}-${Math.min(i + batchSize, needsImage.length)} of ${needsImage.length}) ---`);
+    console.log(
+      `--- Batch ${Math.floor(i / batchSize) + 1} (${i + 1}-${Math.min(i + batchSize, needsImage.length)} of ${needsImage.length}) ---`
+    );
 
     for (const ms of batch) {
       const config = ms.homepageConfig as any;

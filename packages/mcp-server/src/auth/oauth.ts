@@ -10,7 +10,8 @@ const prisma = new PrismaClient();
 
 function getTokenSecret(): Buffer {
   const secret = process.env['TOKEN_SECRET'] ?? process.env['HOLIBOB_API_SECRET'];
-  if (!secret) throw new Error('TOKEN_SECRET or HOLIBOB_API_SECRET env var required for token encryption');
+  if (!secret)
+    throw new Error('TOKEN_SECRET or HOLIBOB_API_SECRET env var required for token encryption');
   // Derive a 32-byte key via SHA-256
   return createHash('sha256').update(secret).digest();
 }
@@ -78,12 +79,15 @@ const authCodes = new Map<string, AuthCode>();
 const dcrClients = new Map<string, DcrClient>();
 
 // Clean up expired auth codes every 5 minutes
-setInterval(() => {
-  const now = Date.now();
-  for (const [code, data] of authCodes) {
-    if (data.expiresAt < now) authCodes.delete(code);
-  }
-}, 5 * 60 * 1000);
+setInterval(
+  () => {
+    const now = Date.now();
+    for (const [code, data] of authCodes) {
+      if (data.expiresAt < now) authCodes.delete(code);
+    }
+  },
+  5 * 60 * 1000
+);
 
 /**
  * Check if a client_id belongs to a DCR-registered client.
@@ -119,7 +123,7 @@ export function createAuthorizationCode(
   redirectUri: string,
   codeChallenge: string,
   scope: string,
-  mcpApiKey: string,
+  mcpApiKey: string
 ): string {
   const code = randomBytes(32).toString('hex');
   authCodes.set(code, {
@@ -138,7 +142,11 @@ export function createAuthorizationCode(
  * Issue an access token + refresh token pair as encrypted stateless tokens.
  * No server-side storage — tokens survive dyno restarts.
  */
-function issueTokenPair(clientId: string, mcpApiKey: string, scope: string): {
+function issueTokenPair(
+  clientId: string,
+  mcpApiKey: string,
+  scope: string
+): {
   accessToken: string;
   refreshToken: string;
   expiresIn: number;
@@ -173,7 +181,7 @@ export function exchangeAuthorizationCode(
   code: string,
   clientId: string,
   codeVerifier: string,
-  redirectUri: string,
+  redirectUri: string
 ): { accessToken: string; refreshToken: string; expiresIn: number; scope: string } | null {
   const authCode = authCodes.get(code);
   if (!authCode) return null;
@@ -191,9 +199,7 @@ export function exchangeAuthorizationCode(
   if (authCode.redirectUri !== redirectUri) return null;
 
   // Verify PKCE: SHA256(code_verifier) must equal code_challenge
-  const challenge = createHash('sha256')
-    .update(codeVerifier)
-    .digest('base64url');
+  const challenge = createHash('sha256').update(codeVerifier).digest('base64url');
   if (challenge !== authCode.codeChallenge) return null;
 
   // Consume the code (one-time use)
@@ -232,7 +238,10 @@ export function handleRegister(body: Record<string, unknown>): {
   const grantTypes = body['grant_types'] as string[] | undefined;
   if (grantTypes && !grantTypes.includes('authorization_code')) {
     return {
-      json: { error: 'invalid_client_metadata', error_description: 'grant_types must include authorization_code' },
+      json: {
+        error: 'invalid_client_metadata',
+        error_description: 'grant_types must include authorization_code',
+      },
       statusCode: 400,
     };
   }
@@ -281,11 +290,17 @@ export async function handleAuthorize(params: URLSearchParams): Promise<{
   const state = params.get('state');
 
   if (!clientId || !redirectUri || responseType !== 'code') {
-    return { error: 'Missing required parameters: client_id, redirect_uri, response_type=code', statusCode: 400 };
+    return {
+      error: 'Missing required parameters: client_id, redirect_uri, response_type=code',
+      statusCode: 400,
+    };
   }
 
   if (!codeChallenge || codeChallengeMethod !== 'S256') {
-    return { error: 'PKCE required: code_challenge and code_challenge_method=S256', statusCode: 400 };
+    return {
+      error: 'PKCE required: code_challenge and code_challenge_method=S256',
+      statusCode: 400,
+    };
   }
 
   // ── DCR client → show login page ──
@@ -339,7 +354,7 @@ export async function handleAuthorize(params: URLSearchParams): Promise<{
  */
 export async function handleAuthorizePost(
   formBody: Record<string, string>,
-  queryParams: URLSearchParams,
+  queryParams: URLSearchParams
 ): Promise<{ redirect?: string; html?: string; error?: string; statusCode?: number }> {
   const mcpApiKey = formBody['mcp_api_key'] ?? '';
   const clientId = formBody['client_id'] ?? queryParams.get('client_id') ?? '';
@@ -384,7 +399,9 @@ export async function handleAuthorizePost(
     };
   }
 
-  console.error(`[OAuth] DCR client "${clientId}" authorized via API key for partner "${auth.partnerName}"`);
+  console.error(
+    `[OAuth] DCR client "${clientId}" authorized via API key for partner "${auth.partnerName}"`
+  );
 
   // Create authorization code using the validated API key
   const code = createAuthorizationCode(clientId, redirectUri, codeChallenge, scope, mcpApiKey);
@@ -423,7 +440,10 @@ export async function handleToken(body: Record<string, string>): Promise<{
     const result = exchangeAuthorizationCode(code, clientId, codeVerifier, redirectUri);
     if (!result) {
       return {
-        json: { error: 'invalid_grant', error_description: 'Invalid or expired authorization code' },
+        json: {
+          error: 'invalid_grant',
+          error_description: 'Invalid or expired authorization code',
+        },
         statusCode: 400,
       };
     }
@@ -487,7 +507,10 @@ export async function handleToken(body: Record<string, string>): Promise<{
 
     if (!clientId || !clientSecret) {
       return {
-        json: { error: 'invalid_request', error_description: 'client_id and client_secret required' },
+        json: {
+          error: 'invalid_request',
+          error_description: 'client_id and client_secret required',
+        },
         statusCode: 400,
       };
     }
@@ -514,7 +537,10 @@ export async function handleToken(body: Record<string, string>): Promise<{
   }
 
   return {
-    json: { error: 'unsupported_grant_type', error_description: 'Supported: authorization_code, refresh_token, client_credentials' },
+    json: {
+      error: 'unsupported_grant_type',
+      error_description: 'Supported: authorization_code, refresh_token, client_credentials',
+    },
     statusCode: 400,
   };
 }
@@ -524,7 +550,11 @@ export { validateClient };
 // ── Login page HTML ──
 
 function esc(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 function buildLoginPageHtml(opts: {

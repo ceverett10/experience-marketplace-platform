@@ -241,7 +241,9 @@ export async function createKeywordAdGroup(config_: {
     }
 
     const adGroupId = adGroupResourceName.split('/').pop()!;
-    console.log(`[GoogleAds] Created ad group ${adGroupId} with ${config_.keywords.length} keywords`);
+    console.log(
+      `[GoogleAds] Created ad group ${adGroupId} with ${config_.keywords.length} keywords`
+    );
     return { adGroupId };
   } catch (error) {
     console.error('[GoogleAds] Create ad group failed:', error);

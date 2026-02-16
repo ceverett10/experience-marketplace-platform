@@ -7,7 +7,11 @@ import type {
   SocialPostPublishPayload,
 } from '../types';
 import { addJob } from '../queues';
-import { generateCaption, generateEngagementCaption, generateTravelTipCaption } from '../services/social/caption-generator';
+import {
+  generateCaption,
+  generateEngagementCaption,
+  generateTravelTipCaption,
+} from '../services/social/caption-generator';
 import { selectImageForPost } from '../services/social/image-selector';
 import { refreshTokenIfNeeded } from '../services/social/token-refresh';
 import { createPinterestPin } from '../services/social/pinterest-client';
@@ -66,14 +70,17 @@ export async function handleSocialDailyPosting(
 
   // Group by shared platform account (same accountId + platform)
   // This handles multiple sites sharing the same Facebook Page or X account
-  const accountGroups = new Map<string, Array<{
-    siteId: string;
-    siteName: string;
-    timezone: string;
-    accountDbId: string;
-    platform: SocialPlatform;
-    lastPostedAt: Date | null;
-  }>>();
+  const accountGroups = new Map<
+    string,
+    Array<{
+      siteId: string;
+      siteName: string;
+      timezone: string;
+      accountDbId: string;
+      platform: SocialPlatform;
+      lastPostedAt: Date | null;
+    }>
+  >();
 
   for (const site of sites) {
     if (site.autonomousProcessesPaused) {
@@ -99,7 +106,12 @@ export async function handleSocialDailyPosting(
 
   let totalQueued = 0;
   let totalDeferred = 0;
-  const scheduledDetails: Array<{ site: string; platform: string; delayMin: number; contentType: string }> = [];
+  const scheduledDetails: Array<{
+    site: string;
+    platform: string;
+    delayMin: number;
+    contentType: string;
+  }> = [];
 
   for (const [groupKey, groupSites] of accountGroups) {
     // Sort by lastPostedAt ASC — sites that haven't posted recently go first
@@ -183,9 +195,7 @@ export async function handleSocialDailyPosting(
  * Determine content type for each site based on recent post history.
  * Cycles through: blog_promo → engagement → travel_tip
  */
-async function getContentTypeRotation(
-  siteIds: string[]
-): Promise<Map<string, ContentType>> {
+async function getContentTypeRotation(siteIds: string[]): Promise<Map<string, ContentType>> {
   const rotation: Map<string, ContentType> = new Map();
   const contentCycle: ContentType[] = ['blog_promo', 'engagement', 'travel_tip'];
 
@@ -239,9 +249,9 @@ function calculatePostingSlots(count: number): number[] {
   const slots: number[] = [];
 
   for (let i = 0; i < count; i++) {
-    const baseHour = PEAK_START_HOUR + (i * windowHours) / (count);
+    const baseHour = PEAK_START_HOUR + (i * windowHours) / count;
     // Add jitter: ±JITTER_MINUTES
-    const jitter = (Math.random() * 2 - 1) * JITTER_MINUTES / 60;
+    const jitter = ((Math.random() * 2 - 1) * JITTER_MINUTES) / 60;
     slots.push(Math.max(PEAK_START_HOUR, Math.min(PEAK_END_HOUR - 0.5, baseHour + jitter)));
   }
 
@@ -409,13 +419,15 @@ export async function handleSocialPostGenerate(
   });
 
   // Queue publish job with 1-minute delay
-  await addJob(
-    'SOCIAL_POST_PUBLISH',
-    { socialPostId: socialPost.id } as SocialPostPublishPayload,
-    { delay: 60 * 1000, attempts: 3, backoff: { type: 'exponential', delay: 60000 } }
-  );
+  await addJob('SOCIAL_POST_PUBLISH', { socialPostId: socialPost.id } as SocialPostPublishPayload, {
+    delay: 60 * 1000,
+    attempts: 3,
+    backoff: { type: 'exponential', delay: 60000 },
+  });
 
-  console.log(`[Social] Generated ${platform} blog_promo post ${socialPost.id} for "${page?.slug}"`);
+  console.log(
+    `[Social] Generated ${platform} blog_promo post ${socialPost.id} for "${page?.slug}"`
+  );
 
   return {
     success: true,
@@ -457,7 +469,8 @@ async function generateNonBlogPost(
   }
 
   // Generate caption based on content type
-  const captionFn = contentType === 'engagement' ? generateEngagementCaption : generateTravelTipCaption;
+  const captionFn =
+    contentType === 'engagement' ? generateEngagementCaption : generateTravelTipCaption;
   const captionResult = await captionFn({
     siteId,
     platform,
@@ -501,13 +514,15 @@ async function generateNonBlogPost(
     },
   });
 
-  await addJob(
-    'SOCIAL_POST_PUBLISH',
-    { socialPostId: socialPost.id } as SocialPostPublishPayload,
-    { delay: 60 * 1000, attempts: 3, backoff: { type: 'exponential', delay: 60000 } }
-  );
+  await addJob('SOCIAL_POST_PUBLISH', { socialPostId: socialPost.id } as SocialPostPublishPayload, {
+    delay: 60 * 1000,
+    attempts: 3,
+    backoff: { type: 'exponential', delay: 60000 },
+  });
 
-  console.log(`[Social] Generated ${platform} ${contentType} post ${socialPost.id} for site ${siteId}`);
+  console.log(
+    `[Social] Generated ${platform} ${contentType} post ${socialPost.id} for site ${siteId}`
+  );
 
   return {
     success: true,
@@ -603,9 +618,10 @@ export async function handleSocialPostPublish(
         result = await createFacebookPost({
           accessToken,
           pageId,
-          message: post.hashtags.length > 0
-            ? `${post.caption}\n\n${post.hashtags.map((h) => `#${h}`).join(' ')}`
-            : post.caption,
+          message:
+            post.hashtags.length > 0
+              ? `${post.caption}\n\n${post.hashtags.map((h) => `#${h}`).join(' ')}`
+              : post.caption,
           linkUrl: post.linkUrl || undefined,
           imageUrl,
         });
@@ -615,9 +631,10 @@ export async function handleSocialPostPublish(
       case 'TWITTER': {
         result = await createTweet({
           accessToken,
-          text: post.hashtags.length > 0
-            ? `${post.caption}\n\n${post.hashtags.map((h) => `#${h}`).join(' ')}`
-            : post.caption,
+          text:
+            post.hashtags.length > 0
+              ? `${post.caption}\n\n${post.hashtags.map((h) => `#${h}`).join(' ')}`
+              : post.caption,
           imageUrl,
         });
         break;
@@ -644,9 +661,7 @@ export async function handleSocialPostPublish(
       data: { lastPostedAt: new Date() },
     });
 
-    console.log(
-      `[Social] Published ${post.platform} post: ${result.platformUrl}`
-    );
+    console.log(`[Social] Published ${post.platform} post: ${result.platformUrl}`);
 
     return {
       success: true,
@@ -670,7 +685,10 @@ export async function handleSocialPostPublish(
       },
     });
 
-    console.error(`[Social] Failed to publish ${post.platform} post ${socialPostId}:`, errorMessage);
+    console.error(
+      `[Social] Failed to publish ${post.platform} post ${socialPostId}:`,
+      errorMessage
+    );
 
     return {
       success: false,

@@ -108,7 +108,13 @@ export default function LoginPage() {
           <p className="text-slate-400 mt-2 text-sm">Admin Dashboard</p>
         </div>
 
-        <Suspense fallback={<div className="bg-white rounded-xl shadow-lg p-8 text-center text-slate-500">Loading...</div>}>
+        <Suspense
+          fallback={
+            <div className="bg-white rounded-xl shadow-lg p-8 text-center text-slate-500">
+              Loading...
+            </div>
+          }
+        >
           <LoginForm />
         </Suspense>
 

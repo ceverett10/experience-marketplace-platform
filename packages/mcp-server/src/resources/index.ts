@@ -16,20 +16,24 @@ export function registerResources(server: McpServer, client: HolibobClient): voi
 
       if (!booking) {
         return {
-          contents: [{
-            uri: uri.href,
-            mimeType: 'text/plain',
-            text: `Booking not found: ${id}`,
-          }],
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: 'text/plain',
+              text: `Booking not found: ${id}`,
+            },
+          ],
         };
       }
 
       return {
-        contents: [{
-          uri: uri.href,
-          mimeType: 'application/json',
-          text: JSON.stringify(booking, null, 2),
-        }],
+        contents: [
+          {
+            uri: uri.href,
+            mimeType: 'application/json',
+            text: JSON.stringify(booking, null, 2),
+          },
+        ],
       };
     }
   );
@@ -39,7 +43,8 @@ export function registerResources(server: McpServer, client: HolibobClient): voi
     'experience',
     new ResourceTemplate('experience://{experienceId}', { list: undefined }),
     {
-      description: 'Full details of an experience including description, pricing, reviews, and images',
+      description:
+        'Full details of an experience including description, pricing, reviews, and images',
       mimeType: 'application/json',
     },
     async (uri, { experienceId }) => {
@@ -48,20 +53,24 @@ export function registerResources(server: McpServer, client: HolibobClient): voi
 
       if (!product) {
         return {
-          contents: [{
-            uri: uri.href,
-            mimeType: 'text/plain',
-            text: `Experience not found: ${id}`,
-          }],
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: 'text/plain',
+              text: `Experience not found: ${id}`,
+            },
+          ],
         };
       }
 
       return {
-        contents: [{
-          uri: uri.href,
-          mimeType: 'application/json',
-          text: JSON.stringify(product, null, 2),
-        }],
+        contents: [
+          {
+            uri: uri.href,
+            mimeType: 'application/json',
+            text: JSON.stringify(product, null, 2),
+          },
+        ],
       };
     }
   );
@@ -76,12 +85,7 @@ export function registerResources(server: McpServer, client: HolibobClient): voi
     },
     async (uri) => {
       const config = {
-        capabilities: [
-          'product_discovery',
-          'availability_check',
-          'booking',
-          'payment',
-        ],
+        capabilities: ['product_discovery', 'availability_check', 'booking', 'payment'],
         paymentModels: ['ON_ACCOUNT', 'REQUIRED'],
         supportedCurrencies: ['GBP', 'EUR', 'USD'],
         bookingFlow: [
@@ -99,11 +103,13 @@ export function registerResources(server: McpServer, client: HolibobClient): voi
       };
 
       return {
-        contents: [{
-          uri: uri.href,
-          mimeType: 'application/json',
-          text: JSON.stringify(config, null, 2),
-        }],
+        contents: [
+          {
+            uri: uri.href,
+            mimeType: 'application/json',
+            text: JSON.stringify(config, null, 2),
+          },
+        ],
       };
     }
   );

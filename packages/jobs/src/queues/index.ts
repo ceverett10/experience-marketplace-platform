@@ -149,7 +149,11 @@ class QueueRegistry {
     // This prevents the roadmap processor from creating duplicates when a previous job
     // is still being processed or waiting in the queue.
     // Social jobs are exempt: different platforms share the same job type for the same site.
-    const dedupExemptTypes = ['SOCIAL_POST_GENERATE', 'SOCIAL_POST_PUBLISH', 'SOCIAL_DAILY_POSTING'];
+    const dedupExemptTypes = [
+      'SOCIAL_POST_GENERATE',
+      'SOCIAL_POST_PUBLISH',
+      'SOCIAL_DAILY_POSTING',
+    ];
     if (siteId && !dedupExemptTypes.includes(jobType)) {
       const existing = await prisma.job.findFirst({
         where: {
@@ -246,8 +250,8 @@ class QueueRegistry {
       priority: options?.priority,
       attempts: options?.attempts,
       backoff: options?.backoff,
-      removeOnComplete: { age: 3600, count: 50 },  // Keep last 50 or 1 hour
-      removeOnFail: { age: 86400, count: 200 },     // Keep last 200 or 24 hours
+      removeOnComplete: { age: 3600, count: 50 }, // Keep last 50 or 1 hour
+      removeOnFail: { age: 86400, count: 200 }, // Keep last 200 or 24 hours
     });
   }
 
@@ -349,11 +353,11 @@ class QueueRegistry {
    */
   async cleanAllQueues(options?: {
     completedMaxAge?: number; // ms, default 1 hour
-    failedMaxAge?: number;   // ms, default 24 hours
-    batchSize?: number;      // max jobs to remove per queue per status, default 5000
+    failedMaxAge?: number; // ms, default 24 hours
+    batchSize?: number; // max jobs to remove per queue per status, default 5000
   }): Promise<{ removed: number; memoryBefore: string; memoryAfter: string }> {
-    const completedMaxAge = options?.completedMaxAge ?? 3_600_000;   // 1 hour
-    const failedMaxAge = options?.failedMaxAge ?? 86_400_000;        // 24 hours
+    const completedMaxAge = options?.completedMaxAge ?? 3_600_000; // 1 hour
+    const failedMaxAge = options?.failedMaxAge ?? 86_400_000; // 24 hours
     const batchSize = options?.batchSize ?? 5000;
 
     const memoryBefore = await this.getRedisMemory();

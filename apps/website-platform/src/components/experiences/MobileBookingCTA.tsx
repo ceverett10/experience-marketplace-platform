@@ -61,7 +61,9 @@ export function MobileBookingCTA({
               variant="compact"
               primaryColor={primaryColor}
             />
-            <p className="mt-0.5 text-xs text-emerald-600">Free cancellation &middot; Best price guarantee</p>
+            <p className="mt-0.5 text-xs text-emerald-600">
+              Free cancellation &middot; Best price guarantee
+            </p>
           </div>
           <button
             type="button"

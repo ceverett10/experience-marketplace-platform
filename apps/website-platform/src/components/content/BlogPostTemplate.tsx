@@ -64,7 +64,9 @@ export function BlogPostTemplate({ post, siteName }: BlogPostTemplateProps) {
         </h1>
 
         {post.metaDescription && (
-          <p className="text-lg sm:text-xl text-gray-600 mb-4 leading-relaxed">{post.metaDescription}</p>
+          <p className="text-lg sm:text-xl text-gray-600 mb-4 leading-relaxed">
+            {post.metaDescription}
+          </p>
         )}
 
         <div className="flex items-center gap-4 text-sm text-gray-500">

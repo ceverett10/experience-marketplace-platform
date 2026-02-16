@@ -8,10 +8,7 @@
   "bin": {
     "holibob-mcp": "./publish-dist/bin/serve.mjs"
   },
-  "files": [
-    "publish-dist",
-    "README.md"
-  ],
+  "files": ["publish-dist", "README.md"],
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.26.0",
     "@modelcontextprotocol/ext-apps": "^1.0.0",

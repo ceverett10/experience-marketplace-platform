@@ -219,9 +219,7 @@ describe('Booking Questions API Route - POST', () => {
                 {
                   id: 'person-1',
                   questionList: {
-                    nodes: [
-                      { id: 'pq1', label: 'First name', answerValue: null },
-                    ],
+                    nodes: [{ id: 'pq1', label: 'First name', answerValue: null }],
                   },
                 },
               ],
@@ -239,9 +237,7 @@ describe('Booking Questions API Route - POST', () => {
       body: JSON.stringify({
         termsAccepted: true,
         guests: [{ firstName: 'John', lastName: 'Doe', isLeadGuest: true }],
-        questionAnswers: [
-          { questionId: 'aq-pickup', value: 'Hotel Lobby' },
-        ],
+        questionAnswers: [{ questionId: 'aq-pickup', value: 'Hotel Lobby' }],
       }),
     });
 
@@ -273,9 +269,7 @@ describe('Booking Questions API Route - POST', () => {
                 {
                   id: 'person-1',
                   questionList: {
-                    nodes: [
-                      { id: 'pq1', label: 'First name', answerValue: null },
-                    ],
+                    nodes: [{ id: 'pq1', label: 'First name', answerValue: null }],
                   },
                 },
               ],
@@ -294,9 +288,7 @@ describe('Booking Questions API Route - POST', () => {
         termsAccepted: true,
         guests: [{ firstName: 'John', lastName: 'Doe', isLeadGuest: true }],
         // Try to send a questionAnswer for the same question ID that label-matching would resolve
-        questionAnswers: [
-          { questionId: 'pq1', value: 'Manual Override' },
-        ],
+        questionAnswers: [{ questionId: 'pq1', value: 'Manual Override' }],
       }),
     });
 
@@ -327,9 +319,7 @@ describe('Booking Questions API Route - POST', () => {
                 {
                   id: 'person-1',
                   questionList: {
-                    nodes: [
-                      { id: 'pq1', label: 'First name', answerValue: null },
-                    ],
+                    nodes: [{ id: 'pq1', label: 'First name', answerValue: null }],
                   },
                 },
               ],
@@ -347,9 +337,7 @@ describe('Booking Questions API Route - POST', () => {
       body: JSON.stringify({
         termsAccepted: true,
         guests: [{ firstName: 'John', lastName: 'Doe', isLeadGuest: true }],
-        availabilityAnswers: [
-          { questionId: 'aq-waiver', value: 'Yes' },
-        ],
+        availabilityAnswers: [{ questionId: 'aq-waiver', value: 'Yes' }],
       }),
     });
 
@@ -359,9 +347,7 @@ describe('Booking Questions API Route - POST', () => {
     const callArgs = mockAnswerBookingQuestions.mock.calls[0]![1];
     const answerList = callArgs.answerList as Array<{ questionId: string; value: string }>;
     expect(answerList).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ questionId: 'aq-waiver', value: 'Yes' }),
-      ])
+      expect.arrayContaining([expect.objectContaining({ questionId: 'aq-waiver', value: 'Yes' })])
     );
   });
 });

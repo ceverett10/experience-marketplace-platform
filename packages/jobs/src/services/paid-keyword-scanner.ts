@@ -26,14 +26,7 @@ type ScanMode = 'gsc' | 'expansion' | 'discovery' | 'pinterest' | 'meta';
  * Words that indicate zero purchase intent for paid experiences.
  * Keywords containing these terms are excluded from PAID_CANDIDATE consideration.
  */
-const LOW_INTENT_TERMS = [
-  'free',
-  'gratis',
-  'no cost',
-  'complimentary',
-  'freebie',
-  'for nothing',
-];
+const LOW_INTENT_TERMS = ['free', 'gratis', 'no cost', 'complimentary', 'freebie', 'for nothing'];
 
 /** Returns true if the keyword should be rejected due to low intent terms. */
 function isLowIntentKeyword(keyword: string): boolean {
@@ -159,10 +152,7 @@ export async function runPaidKeywordScan(options?: {
  * Mine Google Search Console data for keywords with high impressions but poor ranking.
  * These are ideal paid candidates — Google already associates the site with them.
  */
-async function mineGSCKeywords(
-  config: ScanConfig,
-  existingKeys: Set<string>
-): Promise<ScanResult> {
+async function mineGSCKeywords(config: ScanConfig, existingKeys: Set<string>): Promise<ScanResult> {
   console.log('[PaidKeywordScan/GSC] Mining GSC data for underperforming keywords...');
 
   // Query recent GSC data: keywords with impressions but poor organic position
@@ -211,7 +201,9 @@ async function mineGSCKeywords(
     return { mode: 'gsc', keywordsDiscovered: 0, keywordsStored: 0, apiCost: 0 };
   }
 
-  console.log(`[PaidKeywordScan/GSC] Found ${candidates.length} GSC candidates, validating via DataForSEO...`);
+  console.log(
+    `[PaidKeywordScan/GSC] Found ${candidates.length} GSC candidates, validating via DataForSEO...`
+  );
 
   // Validate via DataForSEO to get CPC + volume data
   const keywordResearch = new KeywordResearchService();
@@ -238,7 +230,11 @@ async function mineGSCKeywords(
           (c) => c.query?.toLowerCase() === metric.keyword.toLowerCase()
         );
 
-        const score = calculatePaidScore(metric.searchVolume, metric.cpc, metric.keywordDifficulty ?? 50);
+        const score = calculatePaidScore(
+          metric.searchVolume,
+          metric.cpc,
+          metric.keywordDifficulty ?? 50
+        );
 
         await upsertOpportunity({
           keyword: metric.keyword,
@@ -318,7 +314,12 @@ async function expandExistingKeywords(
 
   for (const seed of topSeeds) {
     try {
-      const related = await dataForSeo.discoverKeywords(seed.keyword, 'United Kingdom', 'English', 30);
+      const related = await dataForSeo.discoverKeywords(
+        seed.keyword,
+        'United Kingdom',
+        'English',
+        30
+      );
       apiCost += 0.003;
 
       const newKeywords = related.filter((kw) => {
@@ -435,7 +436,10 @@ async function discoverCategoryKeywords(
 
   for (const ms of microsites) {
     const disco = ms.discoveryConfig as {
-      keyword?: string; destination?: string; niche?: string; searchTerms?: string[];
+      keyword?: string;
+      destination?: string;
+      niche?: string;
+      searchTerms?: string[];
     } | null;
     if (!disco) continue;
 
@@ -479,7 +483,12 @@ async function discoverCategoryKeywords(
 
   for (const seed of uniqueSeeds) {
     try {
-      const keywords = await dataForSeo.discoverKeywords(seed.query, 'United Kingdom', 'English', 30);
+      const keywords = await dataForSeo.discoverKeywords(
+        seed.query,
+        'United Kingdom',
+        'English',
+        30
+      );
       apiCost += 0.003;
 
       const newKeywords = keywords.filter((kw) => {
@@ -553,7 +562,14 @@ async function scanPinterestCpc(
   // Get Pinterest OAuth token from any active social account
   const account = await prisma.socialAccount.findFirst({
     where: { platform: 'PINTEREST', isActive: true },
-    select: { id: true, platform: true, accountId: true, accessToken: true, refreshToken: true, tokenExpiresAt: true },
+    select: {
+      id: true,
+      platform: true,
+      accountId: true,
+      accessToken: true,
+      refreshToken: true,
+      tokenExpiresAt: true,
+    },
   });
 
   if (!account || !account.accessToken) {
@@ -585,7 +601,9 @@ async function scanPinterestCpc(
   for (let i = 0; i < existingOpportunities.length; i += batchSize) {
     // Bail out early if API is consistently failing (e.g., missing OAuth scope)
     if (consecutiveFailures >= 3) {
-      console.log('[PaidKeywordScan/Pinterest] 3 consecutive API failures — aborting (check OAuth scopes)');
+      console.log(
+        '[PaidKeywordScan/Pinterest] 3 consecutive API failures — aborting (check OAuth scopes)'
+      );
       break;
     }
 
@@ -625,7 +643,11 @@ async function scanPinterestCpc(
 
         // Store as new opportunity if it's a novel keyword
         const key = `${metric.keyword.toLowerCase()}|`;
-        if (!existingKeys.has(key) && metric.bidSuggested <= config.maxCpc && !isLowIntentKeyword(metric.keyword)) {
+        if (
+          !existingKeys.has(key) &&
+          metric.bidSuggested <= config.maxCpc &&
+          !isLowIntentKeyword(metric.keyword)
+        ) {
           const score = calculatePaidScore(metric.monthlySearches, metric.bidSuggested, 50);
           await upsertOpportunity({
             keyword: metric.keyword,
@@ -691,7 +713,14 @@ async function scanMetaAudiences(
   // Get Facebook OAuth token from any active social account
   const account = await prisma.socialAccount.findFirst({
     where: { platform: 'FACEBOOK', isActive: true },
-    select: { id: true, platform: true, accountId: true, accessToken: true, refreshToken: true, tokenExpiresAt: true },
+    select: {
+      id: true,
+      platform: true,
+      accountId: true,
+      accessToken: true,
+      refreshToken: true,
+      tokenExpiresAt: true,
+    },
   });
 
   if (!account || !account.accessToken) {
@@ -724,7 +753,9 @@ async function scanMetaAudiences(
   for (const seed of topSeeds) {
     // Bail out early if API is consistently failing (e.g., missing OAuth scope)
     if (consecutiveFailures >= 3) {
-      console.log('[PaidKeywordScan/Meta] 3 consecutive API failures — aborting (check OAuth scopes)');
+      console.log(
+        '[PaidKeywordScan/Meta] 3 consecutive API failures — aborting (check OAuth scopes)'
+      );
       break;
     }
 
@@ -747,9 +778,7 @@ async function scanMetaAudiences(
 
       // Enrich the seed opportunity with best Meta CPC
       if (estimates.length > 0) {
-        const bestEstimate = estimates.reduce((a, b) =>
-          a.estimatedCpc < b.estimatedCpc ? a : b
-        );
+        const bestEstimate = estimates.reduce((a, b) => (a.estimatedCpc < b.estimatedCpc ? a : b));
         const currentData = (seed.sourceData as Record<string, unknown>) ?? {};
         await prisma.sEOOpportunity.update({
           where: { id: seed.id },

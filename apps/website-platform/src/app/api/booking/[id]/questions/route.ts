@@ -133,7 +133,12 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       canCommit: booking.canCommit ?? false,
     };
 
-    trackFunnelEvent({ step: BookingFunnelStep.CHECKOUT_LOADED, siteId: site.id, bookingId, durationMs: Date.now() - startTime });
+    trackFunnelEvent({
+      step: BookingFunnelStep.CHECKOUT_LOADED,
+      siteId: site.id,
+      bookingId,
+      durationMs: Date.now() - startTime,
+    });
     return NextResponse.json({
       success: true,
       data: {
@@ -144,7 +149,13 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
   } catch (error) {
     console.error('Get booking questions error:', error);
 
-    trackFunnelEvent({ step: BookingFunnelStep.CHECKOUT_LOADED, siteId: 'unknown', errorCode: 'CHECKOUT_LOAD_ERROR', errorMessage: error instanceof Error ? error.message : 'Unknown error', durationMs: Date.now() - startTime });
+    trackFunnelEvent({
+      step: BookingFunnelStep.CHECKOUT_LOADED,
+      siteId: 'unknown',
+      errorCode: 'CHECKOUT_LOAD_ERROR',
+      errorMessage: error instanceof Error ? error.message : 'Unknown error',
+      durationMs: Date.now() - startTime,
+    });
 
     if (error instanceof Error) {
       if (error.message.includes('not found')) {
@@ -390,7 +401,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       siteId: site.id,
       bookingId,
       durationMs: Date.now() - startTime,
-      ...(!booking.canCommit ? { errorCode: 'QUESTIONS_INCOMPLETE', errorMessage: 'canCommit is false after answering questions' } : {}),
+      ...(!booking.canCommit
+        ? {
+            errorCode: 'QUESTIONS_INCOMPLETE',
+            errorMessage: 'canCommit is false after answering questions',
+          }
+        : {}),
     });
     return NextResponse.json({
       success: true,
@@ -411,7 +427,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   } catch (error) {
     console.error('Process booking questions error:', error);
 
-    trackFunnelEvent({ step: BookingFunnelStep.QUESTIONS_ANSWERED, siteId: 'unknown', errorCode: 'QUESTIONS_ERROR', errorMessage: error instanceof Error ? error.message : 'Unknown error', durationMs: Date.now() - startTime });
+    trackFunnelEvent({
+      step: BookingFunnelStep.QUESTIONS_ANSWERED,
+      siteId: 'unknown',
+      errorCode: 'QUESTIONS_ERROR',
+      errorMessage: error instanceof Error ? error.message : 'Unknown error',
+      durationMs: Date.now() - startTime,
+    });
 
     if (error instanceof Error) {
       if (error.message.includes('not found')) {

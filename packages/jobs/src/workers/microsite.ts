@@ -127,7 +127,15 @@ async function generateUniqueSlug(
  * Creates a new microsite for a supplier or product
  */
 export async function handleMicrositeCreate(job: Job<MicrositeCreatePayload>): Promise<JobResult> {
-  const { supplierId, productId, opportunityId, parentDomain, subdomain: preGeneratedSubdomain, entityType: payloadEntityType, discoveryConfig } = job.data;
+  const {
+    supplierId,
+    productId,
+    opportunityId,
+    parentDomain,
+    subdomain: preGeneratedSubdomain,
+    entityType: payloadEntityType,
+    discoveryConfig,
+  } = job.data;
 
   try {
     console.log(
@@ -162,7 +170,13 @@ export async function handleMicrositeCreate(job: Job<MicrositeCreatePayload>): P
     let cities: string[] = [];
     let description: string | null = null;
     let productCount = 0; // For determining layout type
-    let opportunityData: { id: string; keyword: string; niche: string; location: string | null; searchVolume: number } | null = null;
+    let opportunityData: {
+      id: string;
+      keyword: string;
+      niche: string;
+      location: string | null;
+      searchVolume: number;
+    } | null = null;
 
     if (supplierId) {
       const supplier = await prisma.supplier.findUnique({ where: { id: supplierId } });
@@ -244,7 +258,13 @@ export async function handleMicrositeCreate(job: Job<MicrositeCreatePayload>): P
         searchVolume: opportunity.searchVolume,
       };
       entityName = opportunity.keyword;
-      entitySlug = preGeneratedSubdomain || opportunity.keyword.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').substring(0, 50);
+      entitySlug =
+        preGeneratedSubdomain ||
+        opportunity.keyword
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-|-$/g, '')
+          .substring(0, 50);
       entityType = 'OPPORTUNITY';
       categories = [opportunity.niche];
       cities = opportunity.location ? [opportunity.location.split(',')[0]!.trim()] : [];
@@ -259,7 +279,8 @@ export async function handleMicrositeCreate(job: Job<MicrositeCreatePayload>): P
     console.log(`[Microsite Create] Layout type: ${layoutType} (${productCount} products)`);
 
     // Generate subdomain (use pre-generated or entity slug, ensure uniqueness)
-    const subdomain = preGeneratedSubdomain || await generateUniqueSlug(entitySlug, 'micrositeConfig');
+    const subdomain =
+      preGeneratedSubdomain || (await generateUniqueSlug(entitySlug, 'micrositeConfig'));
     const fullDomain = `${subdomain}.${parentDomain}`;
 
     console.log(`[Microsite Create] Creating microsite at ${fullDomain}`);
@@ -310,7 +331,9 @@ export async function handleMicrositeCreate(job: Job<MicrositeCreatePayload>): P
     // SUPPLIER/PRODUCT microsites get minimal config (hero + popular experiences)
     let homepageConfig: HomepageConfig;
     if (entityType === 'OPPORTUNITY') {
-      console.log('[Microsite Create] Generating rich homepage config for OPPORTUNITY microsite...');
+      console.log(
+        '[Microsite Create] Generating rich homepage config for OPPORTUNITY microsite...'
+      );
       homepageConfig = await generateHomepageConfig(
         {
           keyword: entityName,
@@ -391,7 +414,10 @@ export async function handleMicrositeCreate(job: Job<MicrositeCreatePayload>): P
           console.log(`[Microsite Create] Hero image set from Unsplash`);
         }
       } catch (unsplashError) {
-        console.warn('[Microsite Create] Unsplash hero image failed (non-critical):', unsplashError);
+        console.warn(
+          '[Microsite Create] Unsplash hero image failed (non-critical):',
+          unsplashError
+        );
       }
     }
 
@@ -410,9 +436,10 @@ export async function handleMicrositeCreate(job: Job<MicrositeCreatePayload>): P
     const { addJob } = await import('../queues/index.js');
     await addJob('MICROSITE_CONTENT_GENERATE', {
       micrositeId: microsite.id,
-      contentTypes: entityType === 'OPPORTUNITY'
-        ? ['homepage', 'about', 'experiences', 'blog', 'contact', 'privacy', 'terms', 'faq']
-        : ['homepage', 'about', 'experiences'],
+      contentTypes:
+        entityType === 'OPPORTUNITY'
+          ? ['homepage', 'about', 'experiences', 'blog', 'contact', 'privacy', 'terms', 'faq']
+          : ['homepage', 'about', 'experiences'],
     });
 
     // For OPPORTUNITY microsites, queue destination landing pages based on homepageConfig
@@ -482,7 +509,11 @@ export async function handleMicrositeBrandGenerate(
 
     // Generate new brand identity
     const entityName = 'name' in entity ? entity.name : (entity as any).title;
-    const entityDescription = microsite.supplier?.description || microsite.product?.shortDescription || microsite.product?.description || undefined;
+    const entityDescription =
+      microsite.supplier?.description ||
+      microsite.product?.shortDescription ||
+      microsite.product?.description ||
+      undefined;
     const brandIdentity = await generateComprehensiveBrandIdentity({
       keyword: entityName,
       location: cities[0] || undefined,
@@ -764,9 +795,10 @@ export async function handleMicrositeContentGenerate(
         micrositeId,
         pageId: page.id,
         contentType: mappedContentType,
-        targetKeyword: contentType === 'destination_landing'
-          ? `${job.data.destinationName} ${microsite.siteName}`
-          : `${microsite.siteName} ${title}`,
+        targetKeyword:
+          contentType === 'destination_landing'
+            ? `${job.data.destinationName} ${microsite.siteName}`
+            : `${microsite.siteName} ${title}`,
         secondaryKeywords: microsite.supplier?.categories || microsite.product?.categories || [],
       });
     }
@@ -804,7 +836,9 @@ export async function handleMicrositeContentGenerate(
           supplierIds: [microsite.supplierId],
           maxProductsPerSupplier: 100,
         });
-        console.log(`[Microsite Content] Queued keyword enrichment for supplier ${microsite.supplierId}`);
+        console.log(
+          `[Microsite Content] Queued keyword enrichment for supplier ${microsite.supplierId}`
+        );
       } catch (err) {
         console.error(`[Microsite Content] Failed to queue keyword enrichment: ${err}`);
       }
@@ -879,7 +913,9 @@ export async function handleMicrositePublish(
           supplierIds: [microsite.supplierId],
           maxProductsPerSupplier: 100,
         });
-        console.log(`[Microsite Publish] Queued keyword enrichment for supplier ${microsite.supplierId}`);
+        console.log(
+          `[Microsite Publish] Queued keyword enrichment for supplier ${microsite.supplierId}`
+        );
       } catch (err) {
         console.error(`[Microsite Publish] Failed to queue keyword enrichment: ${err}`);
       }

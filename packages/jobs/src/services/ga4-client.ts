@@ -438,7 +438,9 @@ export class GA4Client {
     endDate = 'today'
   ): Promise<GA4TrafficReport | null> {
     if (!this.dataClient) {
-      console.warn('[GA4 Client] Data API not available - BetaAnalyticsDataClient failed to initialize');
+      console.warn(
+        '[GA4 Client] Data API not available - BetaAnalyticsDataClient failed to initialize'
+      );
       return null;
     }
 
@@ -460,7 +462,9 @@ export class GA4Client {
 
       const row = response.rows?.[0];
       if (!row?.metricValues) {
-        console.log(`[GA4 Client] No data rows returned for property ${propertyId} (${startDate} to ${endDate})`);
+        console.log(
+          `[GA4 Client] No data rows returned for property ${propertyId} (${startDate} to ${endDate})`
+        );
         return null;
       }
 
@@ -705,15 +709,8 @@ export class GA4Client {
       const [response] = await this.dataClient.runReport({
         property: `properties/${propertyId}`,
         dateRanges: [{ startDate, endDate }],
-        dimensions: [
-          { name: 'hostName' },
-          { name: 'sessionSource' },
-          { name: 'sessionMedium' },
-        ],
-        metrics: [
-          { name: 'totalUsers' },
-          { name: 'sessions' },
-        ],
+        dimensions: [{ name: 'hostName' }, { name: 'sessionSource' }, { name: 'sessionMedium' }],
+        metrics: [{ name: 'totalUsers' }, { name: 'sessions' }],
         orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
         limit: 10000,
       });
@@ -755,14 +752,8 @@ export class GA4Client {
       const [response] = await this.dataClient.runReport({
         property: `properties/${propertyId}`,
         dateRanges: [{ startDate, endDate }],
-        dimensions: [
-          { name: 'hostName' },
-          { name: 'deviceCategory' },
-        ],
-        metrics: [
-          { name: 'totalUsers' },
-          { name: 'sessions' },
-        ],
+        dimensions: [{ name: 'hostName' }, { name: 'deviceCategory' }],
+        metrics: [{ name: 'totalUsers' }, { name: 'sessions' }],
         orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
         limit: 10000,
       });

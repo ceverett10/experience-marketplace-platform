@@ -315,7 +315,17 @@ export interface MicrositeBrandGeneratePayload {
 
 export interface MicrositeContentGeneratePayload {
   micrositeId: string;
-  contentTypes: ('homepage' | 'about' | 'experiences' | 'blog' | 'contact' | 'privacy' | 'terms' | 'faq' | 'destination_landing')[];
+  contentTypes: (
+    | 'homepage'
+    | 'about'
+    | 'experiences'
+    | 'blog'
+    | 'contact'
+    | 'privacy'
+    | 'terms'
+    | 'faq'
+    | 'destination_landing'
+  )[];
   isRefresh?: boolean;
   /** For destination_landing content type */
   destinationName?: string;

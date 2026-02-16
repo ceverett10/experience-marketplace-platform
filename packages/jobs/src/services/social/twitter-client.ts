@@ -65,10 +65,7 @@ export async function createTweet(input: TwitterPostInput): Promise<TwitterPostR
  * Upload an image to Twitter for use in a tweet.
  * Uses the v1.1 media upload endpoint with OAuth 2.0 Bearer token.
  */
-async function uploadTwitterMedia(
-  accessToken: string,
-  imageUrl: string
-): Promise<string> {
+async function uploadTwitterMedia(accessToken: string, imageUrl: string): Promise<string> {
   // Download the image first
   const imageResponse = await fetch(imageUrl);
   if (!imageResponse.ok) {

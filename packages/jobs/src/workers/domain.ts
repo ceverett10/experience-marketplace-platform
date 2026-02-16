@@ -654,14 +654,11 @@ async function addDomainToHeroku(domain: string): Promise<void> {
   const result = await herokuService.addDomainWithWww(domain);
 
   if (!result.success) {
-    throw new ExternalApiError(
-      `Failed to add domain ${domain} to Heroku: ${result.error}`,
-      {
-        service: 'heroku-api',
-        statusCode: 500,
-        context: { domain },
-      }
-    );
+    throw new ExternalApiError(`Failed to add domain ${domain} to Heroku: ${result.error}`, {
+      service: 'heroku-api',
+      statusCode: 500,
+      context: { domain },
+    });
   }
 
   console.log(`[Domain] Added ${domain} and www.${domain} to Heroku`);

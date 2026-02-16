@@ -242,7 +242,7 @@ export class DataForSEOClient {
         if (task && task.status_code !== 20000) {
           console.error(
             `[DataForSEO] Task error: status=${task.status_code} message="${task.status_message}" ` +
-            `(batch of ${batch.length} keywords)`
+              `(batch of ${batch.length} keywords)`
           );
         }
         const results = task?.result || [];

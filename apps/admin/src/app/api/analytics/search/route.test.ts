@@ -78,10 +78,7 @@ describe('GET /api/analytics/search', () => {
   it('returns combined totals from sites and microsites', async () => {
     setupSiteAndMicrositeMocks();
     setupAggregates({ clicks: 100, impressions: 1000 }, { clicks: 50, impressions: 500 });
-    setupPositionData(
-      [{ position: 5, impressions: 1000 }],
-      [{ position: 10, impressions: 500 }]
-    );
+    setupPositionData([{ position: 5, impressions: 1000 }], [{ position: 10, impressions: 500 }]);
     setupGroupByMocks();
 
     const response = await GET(createRequest('http://localhost/api/analytics/search'));
@@ -315,9 +312,7 @@ describe('GET /api/analytics/search', () => {
     setupEmptyMocks();
 
     await GET(
-      createRequest(
-        'http://localhost/api/analytics/search?startDate=2026-01-01&endDate=2026-01-31'
-      )
+      createRequest('http://localhost/api/analytics/search?startDate=2026-01-01&endDate=2026-01-31')
     );
 
     // No DB queries should be made when there are no sites/microsites

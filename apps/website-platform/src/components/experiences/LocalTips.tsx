@@ -38,9 +38,9 @@ const CULTURAL_TIPS = [
 ];
 
 const WATER_TIPS = [
-  'Wear clothes you don\'t mind getting wet and bring a change for after.',
+  "Wear clothes you don't mind getting wet and bring a change for after.",
   'Secure your phone and valuables in a waterproof bag or leave them onshore.',
-  'If you\'re prone to seasickness, take medication 30 minutes before departure.',
+  "If you're prone to seasickness, take medication 30 minutes before departure.",
 ];
 
 function getTipsForExperience(locationName: string, categories: string[]): string[] {
@@ -51,13 +51,22 @@ function getTipsForExperience(locationName: string, categories: string[]): strin
   if (lowerCats.some((c) => c.includes('food') || c.includes('wine') || c.includes('culinary'))) {
     tips.push(...FOOD_TIPS);
   }
-  if (lowerCats.some((c) => c.includes('outdoor') || c.includes('hiking') || c.includes('nature'))) {
+  if (
+    lowerCats.some((c) => c.includes('outdoor') || c.includes('hiking') || c.includes('nature'))
+  ) {
     tips.push(...OUTDOOR_TIPS);
   }
-  if (lowerCats.some((c) => c.includes('cultural') || c.includes('museum') || c.includes('heritage'))) {
+  if (
+    lowerCats.some((c) => c.includes('cultural') || c.includes('museum') || c.includes('heritage'))
+  ) {
     tips.push(...CULTURAL_TIPS);
   }
-  if (lowerCats.some((c) => c.includes('water') || c.includes('boat') || c.includes('cruise') || c.includes('kayak'))) {
+  if (
+    lowerCats.some(
+      (c) =>
+        c.includes('water') || c.includes('boat') || c.includes('cruise') || c.includes('kayak')
+    )
+  ) {
     tips.push(...WATER_TIPS);
   }
 
@@ -67,7 +76,7 @@ function getTipsForExperience(locationName: string, categories: string[]): strin
   // Pick 3 unique tips deterministically based on location name hash
   let hash = 0;
   for (let i = 0; i < locationName.length; i++) {
-    hash = ((hash << 5) - hash) + locationName.charCodeAt(i);
+    hash = (hash << 5) - hash + locationName.charCodeAt(i);
     hash |= 0;
   }
   hash = Math.abs(hash);

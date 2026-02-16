@@ -24,10 +24,7 @@ let redisCleanupInterval: NodeJS.Timeout | null = null;
  * Wraps a setInterval job execution with DB tracking so the admin dashboard
  * can display last run time, status, and duration.
  */
-async function trackScheduledExecution<T>(
-  jobType: string,
-  fn: () => Promise<T>
-): Promise<T> {
+async function trackScheduledExecution<T>(jobType: string, fn: () => Promise<T>): Promise<T> {
   const { prisma } = await import('@experience-marketplace/database');
   const dbJob = await prisma.job.create({
     data: {
@@ -347,7 +344,11 @@ export async function initializeScheduledJobs(): Promise<void> {
   // Discovers new low-CPC keyword opportunities from GSC, DataForSEO, Pinterest Ads, Meta, and microsite keywords
   await scheduleJob(
     'PAID_KEYWORD_SCAN' as any,
-    { maxCpc: PAID_TRAFFIC_CONFIG.maxCpc, minVolume: PAID_TRAFFIC_CONFIG.minVolume, modes: ['gsc', 'expansion', 'discovery', 'pinterest', 'meta'] },
+    {
+      maxCpc: PAID_TRAFFIC_CONFIG.maxCpc,
+      minVolume: PAID_TRAFFIC_CONFIG.minVolume,
+      modes: ['gsc', 'expansion', 'discovery', 'pinterest', 'meta'],
+    },
     '0 3 * * *' // Daily at 3 AM (~$1.10/day via DataForSEO)
   );
   console.log('[Scheduler] ✓ Paid Keyword Scanner - Daily at 3 AM');
@@ -987,7 +988,8 @@ export function getScheduledJobs(): Array<{
     {
       jobType: 'PAID_KEYWORD_SCAN',
       schedule: '0 4 * * *',
-      description: 'Discover low-CPC keyword opportunities from GSC, DataForSEO, Meta, Pinterest, microsites',
+      description:
+        'Discover low-CPC keyword opportunities from GSC, DataForSEO, Meta, Pinterest, microsites',
     },
     {
       jobType: 'BIDDING_ENGINE_RUN',
@@ -997,7 +999,8 @@ export function getScheduledJobs(): Array<{
     {
       jobType: 'AD_CAMPAIGN_SYNC',
       schedule: '0 */3 * * *',
-      description: 'Sync Meta + Google Ads performance into AdCampaign/AdDailyMetric + run alert checks',
+      description:
+        'Sync Meta + Google Ads performance into AdCampaign/AdDailyMetric + run alert checks',
     },
     {
       jobType: 'AD_CONVERSION_UPLOAD',

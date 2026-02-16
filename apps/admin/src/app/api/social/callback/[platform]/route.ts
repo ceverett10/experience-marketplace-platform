@@ -28,10 +28,7 @@ function encryptToken(plaintext: string): string {
  * GET /api/social/callback/[platform]?code=xxx&state=xxx
  * Handles OAuth callback, exchanges code for tokens, stores encrypted in DB.
  */
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ platform: string }> }
-) {
+export async function GET(request: Request, { params }: { params: Promise<{ platform: string }> }) {
   const { platform } = await params;
   const { searchParams } = new URL(request.url);
   const code = searchParams.get('code');
@@ -239,9 +236,7 @@ async function exchangeFacebookCode(code: string) {
     `https://graph.facebook.com/v18.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${appId}&client_secret=${appSecret}&fb_exchange_token=${shortLivedToken.access_token}`
   );
 
-  const longLivedToken = longLivedResponse.ok
-    ? await longLivedResponse.json()
-    : shortLivedToken;
+  const longLivedToken = longLivedResponse.ok ? await longLivedResponse.json() : shortLivedToken;
 
   // Get managed pages
   const pagesResponse = await fetch(
@@ -266,13 +261,11 @@ async function exchangeFacebookCode(code: string) {
       pageId: firstPage.id,
       pageName: firstPage.name,
       pageAccessToken: firstPage.access_token, // Keep page token for posting
-      pages: (pagesData.data || []).map(
-        (p: { id: string; name: string; category: string }) => ({
-          id: p.id,
-          name: p.name,
-          category: p.category,
-        })
-      ),
+      pages: (pagesData.data || []).map((p: { id: string; name: string; category: string }) => ({
+        id: p.id,
+        name: p.name,
+        category: p.category,
+      })),
     },
   };
 }
@@ -288,7 +281,8 @@ async function exchangeTwitterCode(code: string, codeVerifier?: string) {
 
   // Use Basic auth if client secret available (confidential client)
   if (clientSecret) {
-    headers['Authorization'] = `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`;
+    headers['Authorization'] =
+      `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`;
   }
 
   const tokenResponse = await fetch('https://api.twitter.com/2/oauth2/token', {

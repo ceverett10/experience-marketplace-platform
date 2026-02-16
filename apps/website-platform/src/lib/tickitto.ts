@@ -4,7 +4,11 @@
  * Parallel to lib/holibob.ts for the Holibob integration
  */
 
-import { createTickittoClient, type TickittoClient, type TickittoEvent } from '@experience-marketplace/tickitto-api';
+import {
+  createTickittoClient,
+  type TickittoClient,
+  type TickittoEvent,
+} from '@experience-marketplace/tickitto-api';
 import type { Experience, ExperienceListItem } from './holibob';
 
 // Cache client instance
@@ -51,9 +55,7 @@ export function mapTickittoEventToExperience(event: TickittoEvent): Experience {
     shortDescription: event.short_description,
     description: event.description,
     imageUrl: primaryImage,
-    images: event.images
-      .map((img) => img.desktop)
-      .filter((url): url is string => url != null),
+    images: event.images.map((img) => img.desktop).filter((url): url is string => url != null),
     price: {
       amount: priceAmount,
       currency,
@@ -82,10 +84,7 @@ export function mapTickittoEventToExperience(event: TickittoEvent): Experience {
     exclusions: event.product_excludes,
     cancellationPolicy: event.cancellation_policy,
     itinerary: [],
-    additionalInfo: [
-      ...event.ticket_instructions,
-      ...event.entry_notes,
-    ],
+    additionalInfo: [...event.ticket_instructions, ...event.entry_notes],
     languages: [],
     provider: {
       id: 'tickitto',

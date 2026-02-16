@@ -12,14 +12,19 @@ export interface StructuredError {
   missing?: string[];
 }
 
-export function classifyError(error: unknown, context?: { bookingId?: string; slotId?: string }): StructuredError {
+export function classifyError(
+  error: unknown,
+  context?: { bookingId?: string; slotId?: string }
+): StructuredError {
   const message = error instanceof Error ? error.message : String(error);
 
   if (message.includes('question is not answered') || message.includes('BOOKING_COMMIT_ERROR')) {
     return {
       code: 'MISSING_REQUIRED_QUESTIONS',
       message,
-      nextActions: [{ tool: 'get_booking_questions', reason: 'Check which questions still need answers' }],
+      nextActions: [
+        { tool: 'get_booking_questions', reason: 'Check which questions still need answers' },
+      ],
     };
   }
 

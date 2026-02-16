@@ -7,16 +7,63 @@ import { createHolibobClient } from '@experience-marketplace/holibob-api';
 
 // Inline a subset of KNOWN_DESTINATIONS for testing
 const KNOWN_DESTINATIONS = new Set([
-  'london', 'paris', 'barcelona', 'rome', 'amsterdam', 'lisbon', 'madrid',
-  'berlin', 'vienna', 'prague', 'budapest', 'dublin', 'edinburgh', 'athens',
-  'florence', 'venice', 'milan', 'naples', 'seville', 'porto', 'nice',
-  'munich', 'bruges', 'dubrovnik', 'split', 'york', 'cambridge',
-  'tokyo', 'kyoto', 'osaka', 'bangkok', 'singapore', 'hong kong',
-  'bali', 'dubai', 'colombo', 'kandy', 'cairo', 'cape town',
-  'sydney', 'melbourne', 'auckland', 'queenstown',
-  'sri lanka', 'italy', 'france', 'greece', 'japan', 'indonesia',
-  'martinique', 'lucca', 'como', 'cebu', 'jakarta', 'savannah',
-  'minneapolis', 'guayaquil',
+  'london',
+  'paris',
+  'barcelona',
+  'rome',
+  'amsterdam',
+  'lisbon',
+  'madrid',
+  'berlin',
+  'vienna',
+  'prague',
+  'budapest',
+  'dublin',
+  'edinburgh',
+  'athens',
+  'florence',
+  'venice',
+  'milan',
+  'naples',
+  'seville',
+  'porto',
+  'nice',
+  'munich',
+  'bruges',
+  'dubrovnik',
+  'split',
+  'york',
+  'cambridge',
+  'tokyo',
+  'kyoto',
+  'osaka',
+  'bangkok',
+  'singapore',
+  'hong kong',
+  'bali',
+  'dubai',
+  'colombo',
+  'kandy',
+  'cairo',
+  'cape town',
+  'sydney',
+  'melbourne',
+  'auckland',
+  'queenstown',
+  'sri lanka',
+  'italy',
+  'france',
+  'greece',
+  'japan',
+  'indonesia',
+  'martinique',
+  'lucca',
+  'como',
+  'cebu',
+  'jakarta',
+  'savannah',
+  'minneapolis',
+  'guayaquil',
 ]);
 
 function extractCity(name: string): string | null {
@@ -33,7 +80,10 @@ function extractCity(name: string): string | null {
     }
   }
   return best
-    ? best.split(' ').map(w => w[0]!.toUpperCase() + w.slice(1)).join(' ')
+    ? best
+        .split(' ')
+        .map((w) => w[0]!.toUpperCase() + w.slice(1))
+        .join(' ')
     : null;
 }
 
@@ -70,7 +120,7 @@ async function main() {
   await prisma.$disconnect();
 }
 
-main().catch(e => {
+main().catch((e) => {
   console.error('ERROR:', e.message);
   process.exit(1);
 });

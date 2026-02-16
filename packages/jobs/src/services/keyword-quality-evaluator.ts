@@ -66,7 +66,9 @@ interface KeywordForEval {
 
 // --- AI Call -----------------------------------------------------------------
 
-async function callClaude(prompt: string): Promise<{ text: string; inputTokens: number; outputTokens: number }> {
+async function callClaude(
+  prompt: string
+): Promise<{ text: string; inputTokens: number; outputTokens: number }> {
   const apiKey = process.env['ANTHROPIC_API_KEY'] || process.env['CLAUDE_API_KEY'] || '';
   if (!apiKey) {
     throw new Error('Missing ANTHROPIC_API_KEY or CLAUDE_API_KEY');
@@ -106,16 +108,19 @@ async function callClaude(prompt: string): Promise<{ text: string; inputTokens: 
 // --- Batch Evaluation --------------------------------------------------------
 
 function buildEvalPrompt(keywords: KeywordForEval[]): string {
-  const keywordLines = keywords.map((kw, i) => {
-    const siteContext = kw.siteName
-      ? `Site: "${kw.siteName}" (destinations: ${kw.siteDestinations.join(', ') || 'general'}, categories: ${kw.siteCategories.join(', ') || 'general'})`
-      : 'Site: Unassigned';
-    const cpcContext = kw.maxProfitableCpc !== null
-      ? `maxProfitCPC: £${kw.maxProfitableCpc.toFixed(4)}, CPC: £${kw.cpc.toFixed(2)}`
-      : `CPC: £${kw.cpc.toFixed(2)}`;
+  const keywordLines = keywords
+    .map((kw, i) => {
+      const siteContext = kw.siteName
+        ? `Site: "${kw.siteName}" (destinations: ${kw.siteDestinations.join(', ') || 'general'}, categories: ${kw.siteCategories.join(', ') || 'general'})`
+        : 'Site: Unassigned';
+      const cpcContext =
+        kw.maxProfitableCpc !== null
+          ? `maxProfitCPC: £${kw.maxProfitableCpc.toFixed(4)}, CPC: £${kw.cpc.toFixed(2)}`
+          : `CPC: £${kw.cpc.toFixed(2)}`;
 
-    return `${i + 1}. "${kw.keyword}" | vol=${kw.searchVolume} | ${cpcContext} | diff=${kw.difficulty} | intent=${kw.intent} | loc=${kw.location || 'global'} | niche=${kw.niche} | ${siteContext}`;
-  }).join('\n');
+      return `${i + 1}. "${kw.keyword}" | vol=${kw.searchVolume} | ${cpcContext} | diff=${kw.difficulty} | intent=${kw.intent} | loc=${kw.location || 'global'} | niche=${kw.niche} | ${siteContext}`;
+    })
+    .join('\n');
 
   return `You are a paid search strategist evaluating keywords for a travel experiences marketplace (tours, activities, attractions). We sell bookable experiences through Holibob.
 
@@ -194,7 +199,8 @@ function parseEvaluations(text: string, keywords: KeywordForEval[]): KeywordEval
       .map((item) => {
         const kw = keywords[item.id - 1]!;
         const score = Math.max(0, Math.min(100, item.score));
-        const decision = score >= BID_THRESHOLD ? 'BID' : score < SKIP_THRESHOLD ? 'SKIP' : 'REVIEW';
+        const decision =
+          score >= BID_THRESHOLD ? 'BID' : score < SKIP_THRESHOLD ? 'SKIP' : 'REVIEW';
 
         return {
           keywordId: kw.id,
@@ -205,7 +211,10 @@ function parseEvaluations(text: string, keywords: KeywordForEval[]): KeywordEval
           signals: {
             relevance: Math.max(0, Math.min(100, item.signals?.relevance || 0)),
             commercialIntent: Math.max(0, Math.min(100, item.signals?.commercialIntent || 0)),
-            competitionViability: Math.max(0, Math.min(100, item.signals?.competitionViability || 0)),
+            competitionViability: Math.max(
+              0,
+              Math.min(100, item.signals?.competitionViability || 0)
+            ),
             landingPageFit: Math.max(0, Math.min(100, item.signals?.landingPageFit || 0)),
           },
         };
@@ -265,7 +274,14 @@ export async function evaluateKeywordQuality(): Promise<EvaluationResult> {
 
   if (keywords.length === 0) {
     console.log('[KeywordEval] No keywords need evaluation');
-    return { totalEvaluated: 0, bidCount: 0, skipCount: 0, reviewCount: 0, archivedCount: 0, costEstimate: 0 };
+    return {
+      totalEvaluated: 0,
+      bidCount: 0,
+      skipCount: 0,
+      reviewCount: 0,
+      archivedCount: 0,
+      costEstimate: 0,
+    };
   }
 
   console.log(`[KeywordEval] Evaluating ${keywords.length} keywords in batches of ${BATCH_SIZE}`);
@@ -333,7 +349,11 @@ export async function evaluateKeywordQuality(): Promise<EvaluationResult> {
 
       // Store results and act on decisions
       for (const evaluation of evaluations) {
-        const sourceData = (allKeywords.find((k) => k.id === evaluation.keywordId)?.sourceData as Record<string, unknown>) || {};
+        const sourceData =
+          (allKeywords.find((k) => k.id === evaluation.keywordId)?.sourceData as Record<
+            string,
+            unknown
+          >) || {};
 
         const updatedSourceData = {
           ...sourceData,

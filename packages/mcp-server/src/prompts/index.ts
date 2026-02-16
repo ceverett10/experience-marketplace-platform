@@ -9,7 +9,10 @@ export function registerPrompts(server: McpServer): void {
       destination: z.string().describe('Where the trip is (e.g., "Barcelona, Spain")'),
       dates: z.string().optional().describe('When the trip is (e.g., "March 15-20, 2026")'),
       travelers: z.string().optional().describe('Who is traveling (e.g., "2 adults and 1 child")'),
-      interests: z.string().optional().describe('What they are interested in (e.g., "food, culture, outdoor activities")'),
+      interests: z
+        .string()
+        .optional()
+        .describe('What they are interested in (e.g., "food, culture, outdoor activities")'),
     },
     ({ destination, dates, travelers, interests }) => ({
       messages: [
@@ -71,7 +74,10 @@ Start by getting the experience details.`,
     'Discover what experiences and activities are available in a destination',
     {
       destination: z.string().describe('The destination to explore (e.g., "London, England")'),
-      categories: z.string().optional().describe('Specific categories to focus on (e.g., "food tours, museums")'),
+      categories: z
+        .string()
+        .optional()
+        .describe('Specific categories to focus on (e.g., "food tours, museums")'),
     },
     ({ destination, categories }) => ({
       messages: [

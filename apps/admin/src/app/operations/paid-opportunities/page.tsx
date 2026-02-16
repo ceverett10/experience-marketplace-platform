@@ -160,9 +160,7 @@ export default function PaidOpportunitiesPage() {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">
-                Min Volume/mo
-              </label>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Min Volume/mo</label>
               <input
                 type="number"
                 step="50"
@@ -199,9 +197,7 @@ export default function PaidOpportunitiesPage() {
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4">
           <Card>
             <CardContent className="p-4">
-              <p className="text-2xl font-bold text-sky-600">
-                {data.summary.totalOpportunities}
-              </p>
+              <p className="text-2xl font-bold text-sky-600">{data.summary.totalOpportunities}</p>
               <p className="text-xs text-slate-500">Total Keywords</p>
             </CardContent>
           </Card>
@@ -331,12 +327,8 @@ export default function PaidOpportunitiesPage() {
                   >
                     <td className="px-4 py-3">
                       <div className="font-medium text-slate-900">{opp.keyword}</div>
-                      {opp.location && (
-                        <div className="text-xs text-slate-500">{opp.location}</div>
-                      )}
-                      {opp.niche && (
-                        <div className="text-xs text-slate-400">{opp.niche}</div>
-                      )}
+                      {opp.location && <div className="text-xs text-slate-500">{opp.location}</div>}
+                      {opp.niche && <div className="text-xs text-slate-400">{opp.niche}</div>}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <span className="font-mono text-emerald-700">${opp.cpc.toFixed(3)}</span>

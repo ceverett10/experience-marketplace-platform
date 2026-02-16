@@ -13,8 +13,6 @@ export default function AdPerformanceRedirect() {
     router.replace('/operations/bidding');
   }, [router]);
   return (
-    <div className="p-8 text-center text-slate-500">
-      Redirecting to Paid Traffic dashboard...
-    </div>
+    <div className="p-8 text-center text-slate-500">Redirecting to Paid Traffic dashboard...</div>
   );
 }

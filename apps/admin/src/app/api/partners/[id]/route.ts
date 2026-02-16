@@ -55,7 +55,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   try {
     const { id } = await params;
     const body = await request.json();
-    const { name, contactEmail, holibobPartnerId, holibobApiKey, holibobApiSecret, holibobApiUrl, paymentModel, status } = body;
+    const {
+      name,
+      contactEmail,
+      holibobPartnerId,
+      holibobApiKey,
+      holibobApiSecret,
+      holibobApiUrl,
+      paymentModel,
+      status,
+    } = body;
 
     const data: Record<string, unknown> = {};
     if (name !== undefined) data['name'] = name;
@@ -112,7 +121,10 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       data: { status: 'ARCHIVED' },
     });
 
-    return NextResponse.json({ success: true, partner: { id: partner.id, status: partner.status } });
+    return NextResponse.json({
+      success: true,
+      partner: { id: partner.id, status: partner.status },
+    });
   } catch (error) {
     console.error('[API] Error archiving partner:', error);
     return NextResponse.json({ error: 'Failed to archive partner' }, { status: 500 });

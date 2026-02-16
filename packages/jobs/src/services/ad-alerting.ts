@@ -142,8 +142,14 @@ export async function runAlertChecks(): Promise<{
       });
 
       if (allBelowThreshold) {
-        const totalSpend = campaign.dailyMetrics.reduce((s: number, m: any) => s + Number(m.spend), 0);
-        const totalRevenue = campaign.dailyMetrics.reduce((s: number, m: any) => s + Number(m.revenue), 0);
+        const totalSpend = campaign.dailyMetrics.reduce(
+          (s: number, m: any) => s + Number(m.spend),
+          0
+        );
+        const totalRevenue = campaign.dailyMetrics.reduce(
+          (s: number, m: any) => s + Number(m.revenue),
+          0
+        );
         const roas = totalSpend > 0 ? totalRevenue / totalSpend : 0;
 
         await createAlert({

@@ -74,7 +74,9 @@ export function TickittoBookingWidget({ eventId, experience }: TickittoBookingWi
 
     try {
       // Always fetch a fresh session - Tickitto sessions expire after ~5 minutes
-      const response = await fetch(`/api/tickitto-availability?eventId=${encodeURIComponent(eventId)}`);
+      const response = await fetch(
+        `/api/tickitto-availability?eventId=${encodeURIComponent(eventId)}`
+      );
       const data = await response.json();
 
       if (data.success && data.data?.widgetUrl) {
@@ -138,9 +140,7 @@ export function TickittoBookingWidget({ eventId, experience }: TickittoBookingWi
           )}
         </button>
 
-        {error && (
-          <p className="mt-3 text-center text-sm text-red-600">{error}</p>
-        )}
+        {error && <p className="mt-3 text-center text-sm text-red-600">{error}</p>}
 
         {/* Event info badges */}
         <div className="mt-4 space-y-2">
@@ -204,11 +204,20 @@ export function TickittoBookingWidget({ eventId, experience }: TickittoBookingWi
         <div className="fixed inset-x-0 bottom-0 top-[100px] sm:top-[73px] z-40 bg-white">
           {/* Close button - floating top-right */}
           <button
-            onClick={() => { setIsWidgetOpen(false); setWidgetUrl(null); }}
+            onClick={() => {
+              setIsWidgetOpen(false);
+              setWidgetUrl(null);
+            }}
             className="absolute right-3 top-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 shadow-md hover:bg-gray-200 transition-colors"
             aria-label="Close ticket selection"
           >
-            <svg className="h-6 w-6 text-gray-700" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+            <svg
+              className="h-6 w-6 text-gray-700"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth="2"
+              stroke="currentColor"
+            >
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>

@@ -51,7 +51,8 @@ export class TickittoClient {
     if (params.limit != null) queryParams.set('limit', String(params.limit));
     if (params.sort_by) queryParams.set('sort_by', params.sort_by);
     if (params.range != null) queryParams.set('range', String(params.range));
-    if (params.partial_match != null) queryParams.set('partial_match', String(params.partial_match));
+    if (params.partial_match != null)
+      queryParams.set('partial_match', String(params.partial_match));
 
     // Array params
     for (const key of [
@@ -227,9 +228,7 @@ export class TickittoClient {
       }
     }
 
-    const response = await this.request<TickittoVenue[]>(
-      `/api/venues/?${queryParams.toString()}`
-    );
+    const response = await this.request<TickittoVenue[]>(`/api/venues/?${queryParams.toString()}`);
     return response.data;
   }
 
@@ -262,7 +261,8 @@ export class TickittoClient {
     filterChildren?: boolean;
   }): Promise<TickittoMetadata> {
     const queryParams = new URLSearchParams();
-    if (options?.includeEmpty != null) queryParams.set('include_empty', String(options.includeEmpty));
+    if (options?.includeEmpty != null)
+      queryParams.set('include_empty', String(options.includeEmpty));
     if (options?.filterChildren != null)
       queryParams.set('filter_children', String(options.filterChildren));
 
@@ -276,9 +276,7 @@ export class TickittoClient {
   // INTERNAL HTTP CLIENT
   // ==========================================================================
 
-  private async request<T>(
-    path: string
-  ): Promise<{ data: T; totalCount?: number }> {
+  private async request<T>(path: string): Promise<{ data: T; totalCount?: number }> {
     let lastError: Error | null = null;
 
     for (let attempt = 1; attempt <= this.config.retries; attempt++) {

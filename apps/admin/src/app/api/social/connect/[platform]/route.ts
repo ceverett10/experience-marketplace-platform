@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { createCipheriv, createHash, randomBytes } from 'crypto';
 
-const ADMIN_BASE_URL = process.env['ADMIN_BASE_URL'] || 'https://holibob-experiences-demand-gen-c27f61accbd2.herokuapp.com/admin';
+const ADMIN_BASE_URL =
+  process.env['ADMIN_BASE_URL'] ||
+  'https://holibob-experiences-demand-gen-c27f61accbd2.herokuapp.com/admin';
 
 function getCallbackUrl(platform: string): string {
   return `${ADMIN_BASE_URL}/api/social/callback/${platform}`;
@@ -25,10 +27,7 @@ function encryptToken(plaintext: string): string {
  * GET /api/social/connect/[platform]?siteId=xxx
  * Initiates OAuth flow by redirecting to the platform's authorization page.
  */
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ platform: string }> }
-) {
+export async function GET(request: Request, { params }: { params: Promise<{ platform: string }> }) {
   const { platform } = await params;
   const { searchParams } = new URL(request.url);
   const siteId = searchParams.get('siteId');

@@ -55,7 +55,7 @@ async function testGoogleAds() {
   console.log(`   OK: Got access token (expires in ${tokenData.expires_in}s)`);
 
   const headers = {
-    'Authorization': `Bearer ${accessToken}`,
+    Authorization: `Bearer ${accessToken}`,
     'developer-token': devToken,
     'Content-Type': 'application/json',
   };
@@ -67,7 +67,8 @@ async function testGoogleAds() {
     method: 'POST',
     headers,
     body: JSON.stringify({
-      query: 'SELECT campaign.id, campaign.name, campaign.status FROM campaign ORDER BY campaign.id DESC LIMIT 5',
+      query:
+        'SELECT campaign.id, campaign.name, campaign.status FROM campaign ORDER BY campaign.id DESC LIMIT 5',
     }),
   });
 
@@ -90,14 +91,16 @@ async function testGoogleAds() {
     method: 'POST',
     headers,
     body: JSON.stringify({
-      operations: [{
-        create: {
-          name: `${TEST_PREFIX}Budget - ${Date.now()}`,
-          amountMicros: '5000000', // £5/day
-          deliveryMethod: 'STANDARD',
-          explicitlyShared: false,
+      operations: [
+        {
+          create: {
+            name: `${TEST_PREFIX}Budget - ${Date.now()}`,
+            amountMicros: '5000000', // £5/day
+            deliveryMethod: 'STANDARD',
+            explicitlyShared: false,
+          },
         },
-      }],
+      ],
     }),
   });
 
@@ -117,26 +120,30 @@ async function testGoogleAds() {
     method: 'POST',
     headers,
     body: JSON.stringify({
-      operations: [{
-        create: {
-          name: `${TEST_PREFIX}Campaign - ${new Date().toISOString().split('T')[0]}`,
-          status: 'PAUSED',
-          advertisingChannelType: 'SEARCH',
-          campaignBudget: budgetResource,
-          manualCpc: { enhancedCpcEnabled: false },
-          networkSettings: {
-            targetGoogleSearch: true,
-            targetSearchNetwork: false,
-            targetContentNetwork: false,
+      operations: [
+        {
+          create: {
+            name: `${TEST_PREFIX}Campaign - ${new Date().toISOString().split('T')[0]}`,
+            status: 'PAUSED',
+            advertisingChannelType: 'SEARCH',
+            campaignBudget: budgetResource,
+            manualCpc: { enhancedCpcEnabled: false },
+            networkSettings: {
+              targetGoogleSearch: true,
+              targetSearchNetwork: false,
+              targetContentNetwork: false,
+            },
           },
         },
-      }],
+      ],
     }),
   });
 
   if (!campaignRes.ok) {
     const err = await campaignRes.text();
-    console.error(`FAIL: Campaign creation failed (${campaignRes.status}): ${err.substring(0, 500)}`);
+    console.error(
+      `FAIL: Campaign creation failed (${campaignRes.status}): ${err.substring(0, 500)}`
+    );
     return { success: false, reason: 'campaign creation failed', error: err.substring(0, 500) };
   }
 
@@ -151,9 +158,11 @@ async function testGoogleAds() {
     method: 'POST',
     headers,
     body: JSON.stringify({
-      operations: [{
-        remove: campaignResource,
-      }],
+      operations: [
+        {
+          remove: campaignResource,
+        },
+      ],
     }),
   });
 
@@ -220,16 +229,22 @@ async function testMetaAds() {
 
   // Step 1: Verify ad account access
   console.log('1. Verifying ad account access...');
-  const accountRes = await fetch(`${baseUrl}/${actId}?fields=name,account_status,currency,balance&access_token=${accessToken}`);
+  const accountRes = await fetch(
+    `${baseUrl}/${actId}?fields=name,account_status,currency,balance&access_token=${accessToken}`
+  );
 
   if (!accountRes.ok) {
     const err = await accountRes.text();
-    console.error(`FAIL: Ad account access failed (${accountRes.status}): ${err.substring(0, 500)}`);
+    console.error(
+      `FAIL: Ad account access failed (${accountRes.status}): ${err.substring(0, 500)}`
+    );
     return { success: false, reason: 'ad account access failed', error: err.substring(0, 500) };
   }
 
   const accountData = await accountRes.json();
-  console.log(`   OK: Account "${accountData.name}" (status: ${accountData.account_status}, currency: ${accountData.currency})`);
+  console.log(
+    `   OK: Account "${accountData.name}" (status: ${accountData.account_status}, currency: ${accountData.currency})`
+  );
 
   // Step 2: Create a test campaign (PAUSED)
   console.log('2. Creating test PAUSED campaign...');
@@ -247,7 +262,9 @@ async function testMetaAds() {
 
   if (!campaignRes.ok) {
     const err = await campaignRes.text();
-    console.error(`FAIL: Campaign creation failed (${campaignRes.status}): ${err.substring(0, 500)}`);
+    console.error(
+      `FAIL: Campaign creation failed (${campaignRes.status}): ${err.substring(0, 500)}`
+    );
     return { success: false, reason: 'campaign creation failed', error: err.substring(0, 500) };
   }
 
@@ -339,8 +356,12 @@ async function main() {
 
   console.log('\n' + '='.repeat(60));
   console.log('RESULTS:');
-  console.log(`  Google Ads: ${results.google?.success ? 'PASS' : 'FAIL'} ${results.google?.success ? '' : '(' + results.google?.reason + ')'}`);
-  console.log(`  Meta Ads:   ${results.meta?.success ? 'PASS' : 'FAIL'} ${results.meta?.success ? '' : '(' + results.meta?.reason + ')'}`);
+  console.log(
+    `  Google Ads: ${results.google?.success ? 'PASS' : 'FAIL'} ${results.google?.success ? '' : '(' + results.google?.reason + ')'}`
+  );
+  console.log(
+    `  Meta Ads:   ${results.meta?.success ? 'PASS' : 'FAIL'} ${results.meta?.success ? '' : '(' + results.meta?.reason + ')'}`
+  );
   console.log('='.repeat(60));
 
   process.exit(results.google?.success && results.meta?.success ? 0 : 1);

@@ -41,12 +41,12 @@ export default function SocialOverviewPage() {
   }, [fetchPosts]);
 
   const publishedCount = posts.filter((p) => p.status === 'PUBLISHED').length;
-  const scheduledCount = posts.filter((p) => p.status === 'SCHEDULED' || p.status === 'PUBLISHING').length;
+  const scheduledCount = posts.filter(
+    (p) => p.status === 'SCHEDULED' || p.status === 'PUBLISHING'
+  ).length;
   const failedCount = posts.filter((p) => p.status === 'FAILED').length;
   const todayCount = posts.filter(
-    (p) =>
-      p.publishedAt &&
-      new Date(p.publishedAt).toDateString() === new Date().toDateString()
+    (p) => p.publishedAt && new Date(p.publishedAt).toDateString() === new Date().toDateString()
   ).length;
 
   const platformIcons: Record<string, string> = {
@@ -69,9 +69,7 @@ export default function SocialOverviewPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Social Media</h1>
-          <p className="text-slate-500 mt-1">
-            Automated social posting across all connected sites
-          </p>
+          <p className="text-slate-500 mt-1">Automated social posting across all connected sites</p>
         </div>
         <button
           onClick={async () => {
@@ -148,14 +146,10 @@ export default function SocialOverviewPage() {
               {posts.map((post) => (
                 <div key={post.id} className="px-4 py-3 hover:bg-slate-50">
                   <div className="flex items-start gap-3">
-                    <span className="text-lg mt-0.5">
-                      {platformIcons[post.platform] || '📱'}
-                    </span>
+                    <span className="text-lg mt-0.5">{platformIcons[post.platform] || '📱'}</span>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-sm font-medium text-slate-900">
-                          {post.site.name}
-                        </span>
+                        <span className="text-sm font-medium text-slate-900">{post.site.name}</span>
                         <span
                           className={`text-xs px-2 py-0.5 rounded ${
                             statusColors[post.status] || 'bg-slate-100'
@@ -164,23 +158,20 @@ export default function SocialOverviewPage() {
                           {post.status}
                         </span>
                         <span className="text-xs text-slate-400">
-                          {new Date(
-                            post.publishedAt || post.createdAt
-                          ).toLocaleDateString('en-GB', {
-                            day: 'numeric',
-                            month: 'short',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
+                          {new Date(post.publishedAt || post.createdAt).toLocaleDateString(
+                            'en-GB',
+                            {
+                              day: 'numeric',
+                              month: 'short',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            }
+                          )}
                         </span>
                       </div>
-                      <p className="text-sm text-slate-600 line-clamp-1">
-                        {post.caption}
-                      </p>
+                      <p className="text-sm text-slate-600 line-clamp-1">{post.caption}</p>
                       {post.page && (
-                        <p className="text-xs text-slate-400 mt-0.5">
-                          Blog: {post.page.title}
-                        </p>
+                        <p className="text-xs text-slate-400 mt-0.5">Blog: {post.page.title}</p>
                       )}
                       {post.errorMessage && (
                         <p className="text-xs text-red-500 mt-0.5">{post.errorMessage}</p>

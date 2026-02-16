@@ -15,11 +15,13 @@ Search, discover, and book travel experiences through AI assistants. This MCP (M
 2. Install the PerplexityXPC helper if prompted
 
 **Simple tab:**
+
 ```
 HOLIBOB_PARTNER_ID=your-partner-id HOLIBOB_API_KEY=your-api-key npx -yq holibob-mcp
 ```
 
 **Advanced (JSON) tab:**
+
 ```json
 {
   "mcpServers": {
@@ -76,43 +78,46 @@ The server supports Dynamic Client Registration (RFC 7591) and OAuth 2.0 with PK
 
 ## Environment Variables
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `HOLIBOB_PARTNER_ID` | Yes | Your Holibob partner ID |
-| `HOLIBOB_API_KEY` | Yes | Your Holibob API key |
-| `HOLIBOB_API_SECRET` | No | API secret for HMAC authentication |
-| `HOLIBOB_API_URL` | No | API endpoint (defaults to production) |
+| Variable             | Required | Description                           |
+| -------------------- | -------- | ------------------------------------- |
+| `HOLIBOB_PARTNER_ID` | Yes      | Your Holibob partner ID               |
+| `HOLIBOB_API_KEY`    | Yes      | Your Holibob API key                  |
+| `HOLIBOB_API_SECRET` | No       | API secret for HMAC authentication    |
+| `HOLIBOB_API_URL`    | No       | API endpoint (defaults to production) |
 
 ## Available Tools
 
 ### Discovery
-| Tool | Description |
-|------|-------------|
-| `search_experiences` | Search by destination, dates, travelers, and activity type |
+
+| Tool                     | Description                                                     |
+| ------------------------ | --------------------------------------------------------------- |
+| `search_experiences`     | Search by destination, dates, travelers, and activity type      |
 | `get_experience_details` | Full details with reviews, images, pricing, cancellation policy |
-| `get_suggestions` | Destination and activity auto-suggestions |
-| `load_more_experiences` | Load additional results (pagination) |
-| `plan_trip` | Interactive trip planner |
+| `get_suggestions`        | Destination and activity auto-suggestions                       |
+| `load_more_experiences`  | Load additional results (pagination)                            |
+| `plan_trip`              | Interactive trip planner                                        |
 
 ### Availability & Pricing
-| Tool | Description |
-|------|-------------|
-| `check_availability` | Find available dates within a range |
-| `get_slot_options` | Get configuration options for a time slot |
-| `answer_slot_options` | Select time, variant, language, etc. |
-| `get_slot_pricing` | View pricing categories (Adult, Child, etc.) |
-| `set_slot_pricing` | Set participant counts and confirm pricing |
+
+| Tool                  | Description                                  |
+| --------------------- | -------------------------------------------- |
+| `check_availability`  | Find available dates within a range          |
+| `get_slot_options`    | Get configuration options for a time slot    |
+| `answer_slot_options` | Select time, variant, language, etc.         |
+| `get_slot_pricing`    | View pricing categories (Adult, Child, etc.) |
+| `set_slot_pricing`    | Set participant counts and confirm pricing   |
 
 ### Booking
-| Tool | Description |
-|------|-------------|
-| `create_booking` | Create a new booking basket |
-| `add_to_booking` | Add a configured availability slot |
-| `get_booking_questions` | Get required guest details and questions |
-| `answer_booking_questions` | Submit guest name, email, phone, etc. |
-| `get_payment_info` | Check if payment is required (Stripe) |
-| `commit_booking` | Finalize the booking and get voucher |
-| `get_booking_status` | Check booking confirmation status |
+
+| Tool                       | Description                              |
+| -------------------------- | ---------------------------------------- |
+| `create_booking`           | Create a new booking basket              |
+| `add_to_booking`           | Add a configured availability slot       |
+| `get_booking_questions`    | Get required guest details and questions |
+| `answer_booking_questions` | Submit guest name, email, phone, etc.    |
+| `get_payment_info`         | Check if payment is required (Stripe)    |
+| `commit_booking`           | Finalize the booking and get voucher     |
+| `get_booking_status`       | Check booking confirmation status        |
 
 ## Booking Flow
 
@@ -128,10 +133,10 @@ search_experiences → get_experience_details → check_availability
 
 ## Transport Modes
 
-| Mode | Use Case | Flag |
-|------|----------|------|
-| STDIO | Local clients (Perplexity, Claude Desktop) | Default, no flag needed |
-| HTTP | Hosted deployment (ChatGPT, remote MCP) | `--transport=http --port=3100` |
+| Mode  | Use Case                                   | Flag                           |
+| ----- | ------------------------------------------ | ------------------------------ |
+| STDIO | Local clients (Perplexity, Claude Desktop) | Default, no flag needed        |
+| HTTP  | Hosted deployment (ChatGPT, remote MCP)    | `--transport=http --port=3100` |
 
 ## License
 

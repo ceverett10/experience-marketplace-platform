@@ -34,12 +34,14 @@ export async function authenticateApiKey(apiKey: string): Promise<AuthenticatedP
   }
 
   // Update lastUsedAt
-  await prisma.mcpApiKey.update({
-    where: { id: mcpKey.id },
-    data: { lastUsedAt: new Date() },
-  }).catch(() => {
-    // Non-critical — don't fail auth if tracking update fails
-  });
+  await prisma.mcpApiKey
+    .update({
+      where: { id: mcpKey.id },
+      data: { lastUsedAt: new Date() },
+    })
+    .catch(() => {
+      // Non-critical — don't fail auth if tracking update fails
+    });
 
   // Decrypt Holibob credentials
   const holibobApiKey = decryptToken(partner.holibobApiKey);

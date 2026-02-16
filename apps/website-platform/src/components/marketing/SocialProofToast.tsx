@@ -10,24 +10,70 @@ import { usePathname } from 'next/navigation';
  */
 
 const FIRST_NAMES = [
-  'Sarah', 'James', 'Emma', 'Oliver', 'Maria', 'David', 'Sophie', 'Thomas',
-  'Anna', 'Michael', 'Charlotte', 'Daniel', 'Laura', 'Alex', 'Rachel',
-  'Ben', 'Hannah', 'Mark', 'Lisa', 'Tom',
+  'Sarah',
+  'James',
+  'Emma',
+  'Oliver',
+  'Maria',
+  'David',
+  'Sophie',
+  'Thomas',
+  'Anna',
+  'Michael',
+  'Charlotte',
+  'Daniel',
+  'Laura',
+  'Alex',
+  'Rachel',
+  'Ben',
+  'Hannah',
+  'Mark',
+  'Lisa',
+  'Tom',
 ];
 
 const CITIES = [
-  'London', 'Manchester', 'Birmingham', 'Edinburgh', 'Bristol', 'Liverpool',
-  'Leeds', 'Glasgow', 'Dublin', 'Cardiff', 'New York', 'Paris', 'Sydney',
-  'Toronto', 'Amsterdam', 'Berlin', 'Barcelona', 'Rome',
+  'London',
+  'Manchester',
+  'Birmingham',
+  'Edinburgh',
+  'Bristol',
+  'Liverpool',
+  'Leeds',
+  'Glasgow',
+  'Dublin',
+  'Cardiff',
+  'New York',
+  'Paris',
+  'Sydney',
+  'Toronto',
+  'Amsterdam',
+  'Berlin',
+  'Barcelona',
+  'Rome',
 ];
 
 const TIME_AGO = [
-  '2 minutes ago', '5 minutes ago', '12 minutes ago', '23 minutes ago',
-  '1 hour ago', '2 hours ago', '3 hours ago', '4 hours ago',
+  '2 minutes ago',
+  '5 minutes ago',
+  '12 minutes ago',
+  '23 minutes ago',
+  '1 hour ago',
+  '2 hours ago',
+  '3 hours ago',
+  '4 hours ago',
 ];
 
 // Pages where toasts should NOT appear
-const EXCLUDED_PATHS = ['/checkout', '/payment', '/privacy', '/terms', '/contact', '/legal', '/prize-draw-terms'];
+const EXCLUDED_PATHS = [
+  '/checkout',
+  '/payment',
+  '/privacy',
+  '/terms',
+  '/contact',
+  '/legal',
+  '/prize-draw-terms',
+];
 
 function getRandomItem<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)]!;
@@ -65,9 +111,12 @@ export function SocialProofToast() {
     const initialTimeout = setTimeout(showNotification, 15000);
 
     // Repeat every 35-50 seconds
-    const interval = setInterval(() => {
-      showNotification();
-    }, 35000 + Math.random() * 15000);
+    const interval = setInterval(
+      () => {
+        showNotification();
+      },
+      35000 + Math.random() * 15000
+    );
 
     return () => {
       clearTimeout(initialTimeout);
@@ -93,7 +142,13 @@ export function SocialProofToast() {
         className="absolute -right-2 -top-2 flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-400 before:absolute before:inset-[-8px] before:content-[''] hover:bg-gray-200 hover:text-gray-600"
         aria-label="Dismiss"
       >
-        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+        <svg
+          className="h-3 w-3"
+          fill="none"
+          viewBox="0 0 24 24"
+          strokeWidth="2"
+          stroke="currentColor"
+        >
           <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
         </svg>
       </button>

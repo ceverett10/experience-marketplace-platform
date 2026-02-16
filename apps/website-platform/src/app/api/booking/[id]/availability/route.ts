@@ -67,7 +67,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // Get updated booking with questions
     const booking = await client.getBookingQuestions(bookingId);
 
-    trackFunnelEvent({ step: BookingFunnelStep.AVAILABILITY_ADDED, siteId: site.id, bookingId, durationMs: Date.now() - startTime });
+    trackFunnelEvent({
+      step: BookingFunnelStep.AVAILABILITY_ADDED,
+      siteId: site.id,
+      bookingId,
+      durationMs: Date.now() - startTime,
+    });
     return NextResponse.json({
       success: true,
       data: {
@@ -78,7 +83,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   } catch (error) {
     console.error('Add availability to booking error:', error);
 
-    trackFunnelEvent({ step: BookingFunnelStep.AVAILABILITY_ADDED, siteId: 'unknown', errorCode: 'AVAILABILITY_ADD_ERROR', errorMessage: error instanceof Error ? error.message : 'Unknown error', durationMs: Date.now() - startTime });
+    trackFunnelEvent({
+      step: BookingFunnelStep.AVAILABILITY_ADDED,
+      siteId: 'unknown',
+      errorCode: 'AVAILABILITY_ADD_ERROR',
+      errorMessage: error instanceof Error ? error.message : 'Unknown error',
+      durationMs: Date.now() - startTime,
+    });
 
     if (error instanceof Error) {
       if (error.message.includes('not found')) {

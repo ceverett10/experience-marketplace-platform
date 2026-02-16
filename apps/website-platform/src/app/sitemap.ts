@@ -97,8 +97,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const databasePages: MetadataRoute.Sitemap = dbPages
     .map((page) => {
       let urlPath: string;
-      let changeFrequency: 'always' | 'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'never' =
-        'weekly';
+      let changeFrequency:
+        | 'always'
+        | 'hourly'
+        | 'daily'
+        | 'weekly'
+        | 'monthly'
+        | 'yearly'
+        | 'never' = 'weekly';
 
       switch (page.type) {
         case 'BLOG':

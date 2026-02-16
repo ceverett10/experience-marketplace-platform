@@ -233,7 +233,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       where: {
         date: { gte: start, lte: end },
       },
-      _sum: { users: true, sessions: true, pageviews: true, totalClicks: true, totalImpressions: true },
+      _sum: {
+        users: true,
+        sessions: true,
+        pageviews: true,
+        totalClicks: true,
+        totalImpressions: true,
+      },
       _avg: { bounceRate: true, engagementRate: true, avgPosition: true },
     });
 

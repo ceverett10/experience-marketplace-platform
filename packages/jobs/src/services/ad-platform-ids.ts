@@ -134,10 +134,7 @@ async function fetchGoogleConversionActionId(): Promise<{
 export async function fetchAdPlatformIds(): Promise<FetchedAdPlatformIds> {
   console.log('[AdPlatformIds] Fetching ad platform IDs...');
 
-  const [meta, google] = await Promise.all([
-    fetchMetaPixelId(),
-    fetchGoogleConversionActionId(),
-  ]);
+  const [meta, google] = await Promise.all([fetchMetaPixelId(), fetchGoogleConversionActionId()]);
 
   return {
     metaPixelId: meta.pixelId,
@@ -152,9 +149,11 @@ export async function fetchAdPlatformIds(): Promise<FetchedAdPlatformIds> {
  * Propagate ad platform IDs to all active Sites and MicrositeConfigs.
  * Merges into existing seoConfig JSON, preserving all other fields.
  */
-export async function propagateAdPlatformIds(
-  ids: { metaPixelId: string | null; googleAdsId: string | null; googleAdsConversionAction?: string | null }
-): Promise<PropagationResult> {
+export async function propagateAdPlatformIds(ids: {
+  metaPixelId: string | null;
+  googleAdsId: string | null;
+  googleAdsConversionAction?: string | null;
+}): Promise<PropagationResult> {
   console.log('[AdPlatformIds] Propagating to all active sites and microsites...');
 
   const result: PropagationResult = {
@@ -172,7 +171,8 @@ export async function propagateAdPlatformIds(
   const adFields: Record<string, string> = {};
   if (ids.metaPixelId) adFields['metaPixelId'] = ids.metaPixelId;
   if (ids.googleAdsId) adFields['googleAdsId'] = ids.googleAdsId;
-  if (ids.googleAdsConversionAction) adFields['googleAdsConversionAction'] = ids.googleAdsConversionAction;
+  if (ids.googleAdsConversionAction)
+    adFields['googleAdsConversionAction'] = ids.googleAdsConversionAction;
 
   // --- Propagate to Sites ---
   const sites = await prisma.site.findMany({

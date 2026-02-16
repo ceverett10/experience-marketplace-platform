@@ -30,19 +30,16 @@ export function ExitIntentPopup() {
     setMounted(true);
   }, []);
 
-  const handleMouseLeave = useCallback(
-    (e: MouseEvent) => {
-      // Only trigger when mouse moves toward the top of the viewport (address bar)
-      if (e.clientY > 10) return;
+  const handleMouseLeave = useCallback((e: MouseEvent) => {
+    // Only trigger when mouse moves toward the top of the viewport (address bar)
+    if (e.clientY > 10) return;
 
-      // Check sessionStorage — only show once per session
-      if (sessionStorage.getItem(EXIT_SHOWN_KEY)) return;
+    // Check sessionStorage — only show once per session
+    if (sessionStorage.getItem(EXIT_SHOWN_KEY)) return;
 
-      sessionStorage.setItem(EXIT_SHOWN_KEY, 'true');
-      setIsOpen(true);
-    },
-    []
-  );
+    sessionStorage.setItem(EXIT_SHOWN_KEY, 'true');
+    setIsOpen(true);
+  }, []);
 
   useEffect(() => {
     if (!mounted || !isExperiencePage) return;
@@ -82,15 +79,30 @@ export function ExitIntentPopup() {
           aria-label="Close"
         >
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
           </svg>
         </button>
 
         {/* Header */}
         <div className="px-6 py-8 text-center text-white" style={{ backgroundColor: primaryColor }}>
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-white/20">
-            <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <svg
+              className="h-8 w-8"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth="1.5"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
             </svg>
           </div>
           <h2 className="text-2xl font-bold">Still deciding?</h2>
@@ -101,32 +113,62 @@ export function ExitIntentPopup() {
         <div className="px-6 py-6">
           <div className="space-y-4">
             <div className="flex items-start gap-3">
-              <svg className="mt-0.5 h-5 w-5 flex-shrink-0 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
+              <svg
+                className="mt-0.5 h-5 w-5 flex-shrink-0 text-emerald-500"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
+                  clipRule="evenodd"
+                />
               </svg>
               <div>
-                <p className="text-sm font-semibold text-gray-900">Reserve now, pay nothing today</p>
+                <p className="text-sm font-semibold text-gray-900">
+                  Reserve now, pay nothing today
+                </p>
                 <p className="text-xs text-gray-500">Secure your spot with no upfront payment</p>
               </div>
             </div>
 
             <div className="flex items-start gap-3">
-              <svg className="mt-0.5 h-5 w-5 flex-shrink-0 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
+              <svg
+                className="mt-0.5 h-5 w-5 flex-shrink-0 text-emerald-500"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
+                  clipRule="evenodd"
+                />
               </svg>
               <div>
                 <p className="text-sm font-semibold text-gray-900">Free cancellation available</p>
-                <p className="text-xs text-gray-500">Change of plans? Cancel for free up to 24 hours before</p>
+                <p className="text-xs text-gray-500">
+                  Change of plans? Cancel for free up to 24 hours before
+                </p>
               </div>
             </div>
 
             <div className="flex items-start gap-3">
-              <svg className="mt-0.5 h-5 w-5 flex-shrink-0 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
+              <svg
+                className="mt-0.5 h-5 w-5 flex-shrink-0 text-emerald-500"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
+                  clipRule="evenodd"
+                />
               </svg>
               <div>
                 <p className="text-sm font-semibold text-gray-900">Best price guarantee</p>
-                <p className="text-xs text-gray-500">Find it cheaper elsewhere? We&apos;ll match it</p>
+                <p className="text-xs text-gray-500">
+                  Find it cheaper elsewhere? We&apos;ll match it
+                </p>
               </div>
             </div>
           </div>

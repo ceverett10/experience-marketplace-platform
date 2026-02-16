@@ -45,44 +45,48 @@ export function FeaturedExperiences({
         {/* Experiences Grid */}
         {variant === 'featured' ? (
           <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
-            {experiences.slice(0, 6).map((experience, index) => (
-              index < staffPickCount ? (
-                <PremiumExperienceCard
-                  key={experience.id}
-                  experience={experience}
-                  variant="featured"
-                  badges={['staffPick']}
-                  priority={index < 3}
-                />
-              ) : (
-                <ExperienceCard
-                  key={experience.id}
-                  experience={experience}
-                  variant="featured"
-                  priority={index < 3}
-                />
-              )
-            ))}
+            {experiences
+              .slice(0, 6)
+              .map((experience, index) =>
+                index < staffPickCount ? (
+                  <PremiumExperienceCard
+                    key={experience.id}
+                    experience={experience}
+                    variant="featured"
+                    badges={['staffPick']}
+                    priority={index < 3}
+                  />
+                ) : (
+                  <ExperienceCard
+                    key={experience.id}
+                    experience={experience}
+                    variant="featured"
+                    priority={index < 3}
+                  />
+                )
+              )}
           </div>
         ) : (
           <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-4">
-            {experiences.slice(0, 8).map((experience, index) => (
-              index < staffPickCount ? (
-                <PremiumExperienceCard
-                  key={experience.id}
-                  experience={experience}
-                  badges={['staffPick']}
-                  priority={index < 4}
-                />
-              ) : (
-                <ExperienceCard
-                  key={experience.id}
-                  experience={experience}
-                  variant="default"
-                  priority={index < 4}
-                />
-              )
-            ))}
+            {experiences
+              .slice(0, 8)
+              .map((experience, index) =>
+                index < staffPickCount ? (
+                  <PremiumExperienceCard
+                    key={experience.id}
+                    experience={experience}
+                    badges={['staffPick']}
+                    priority={index < 4}
+                  />
+                ) : (
+                  <ExperienceCard
+                    key={experience.id}
+                    experience={experience}
+                    variant="default"
+                    priority={index < 4}
+                  />
+                )
+              )}
           </div>
         )}
 

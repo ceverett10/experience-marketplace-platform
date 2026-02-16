@@ -12,8 +12,8 @@ import { runBulkEnrichment } from '../services/keyword-enrichment';
 
 async function main() {
   const args = process.argv.slice(2);
-  const flags = args.filter(a => a.startsWith('--'));
-  const nums = args.filter(a => !a.startsWith('--'));
+  const flags = args.filter((a) => a.startsWith('--'));
+  const nums = args.filter((a) => !a.startsWith('--'));
 
   const supplierCount = parseInt(nums[0] || '30', 10);
   const productsPerSupplier = parseInt(nums[1] || '30', 10);
@@ -36,7 +36,7 @@ async function main() {
   console.log(JSON.stringify(result, null, 2));
 }
 
-main().catch(e => {
+main().catch((e) => {
   console.error('ERROR:', e.message);
   process.exit(1);
 });

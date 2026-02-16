@@ -90,19 +90,50 @@ async function main() {
   const categories: Record<string, number> = {};
   for (const k of sampleKeywords) {
     const kw = k.keyword.toLowerCase();
-    if (kw.startsWith('things to do') || kw.startsWith('what to do') || kw.startsWith('best tours')) {
-      categories['Discovery (things to do, best tours)'] = (categories['Discovery (things to do, best tours)'] || 0) + 1;
+    if (
+      kw.startsWith('things to do') ||
+      kw.startsWith('what to do') ||
+      kw.startsWith('best tours')
+    ) {
+      categories['Discovery (things to do, best tours)'] =
+        (categories['Discovery (things to do, best tours)'] || 0) + 1;
     } else if (kw.includes('tour') || kw.includes('walking')) {
-      categories['Tours (walking, city, etc.)'] = (categories['Tours (walking, city, etc.)'] || 0) + 1;
-    } else if (kw.includes('food') || kw.includes('cooking') || kw.includes('wine') || kw.includes('tasting')) {
+      categories['Tours (walking, city, etc.)'] =
+        (categories['Tours (walking, city, etc.)'] || 0) + 1;
+    } else if (
+      kw.includes('food') ||
+      kw.includes('cooking') ||
+      kw.includes('wine') ||
+      kw.includes('tasting')
+    ) {
       categories['Food & Drink'] = (categories['Food & Drink'] || 0) + 1;
-    } else if (kw.includes('activities') || kw.includes('experiences') || kw.includes('excursion')) {
+    } else if (
+      kw.includes('activities') ||
+      kw.includes('experiences') ||
+      kw.includes('excursion')
+    ) {
       categories['Activities/Experiences'] = (categories['Activities/Experiences'] || 0) + 1;
-    } else if (kw.includes('museum') || kw.includes('gallery') || kw.includes('cultural') || kw.includes('historical')) {
+    } else if (
+      kw.includes('museum') ||
+      kw.includes('gallery') ||
+      kw.includes('cultural') ||
+      kw.includes('historical')
+    ) {
       categories['Culture & Museums'] = (categories['Culture & Museums'] || 0) + 1;
-    } else if (kw.includes('boat') || kw.includes('kayak') || kw.includes('snorkel') || kw.includes('diving') || kw.includes('sailing')) {
+    } else if (
+      kw.includes('boat') ||
+      kw.includes('kayak') ||
+      kw.includes('snorkel') ||
+      kw.includes('diving') ||
+      kw.includes('sailing')
+    ) {
       categories['Water Activities'] = (categories['Water Activities'] || 0) + 1;
-    } else if (kw.includes('safari') || kw.includes('hiking') || kw.includes('nature') || kw.includes('wildlife')) {
+    } else if (
+      kw.includes('safari') ||
+      kw.includes('hiking') ||
+      kw.includes('nature') ||
+      kw.includes('wildlife')
+    ) {
       categories['Nature & Adventure'] = (categories['Nature & Adventure'] || 0) + 1;
     } else {
       categories['Other'] = (categories['Other'] || 0) + 1;
@@ -112,24 +143,28 @@ async function main() {
   // Print results
   console.log('=== PAID_CANDIDATE KEYWORD POOL ANALYSIS ===\n');
   console.log(`Total PAID_CANDIDATE keywords: ${total}`);
-  console.log(`Enriched suppliers: ${enrichedSuppliers} / ${totalSuppliers} (${Math.round(enrichedSuppliers/totalSuppliers*100)}%)\n`);
+  console.log(
+    `Enriched suppliers: ${enrichedSuppliers} / ${totalSuppliers} (${Math.round((enrichedSuppliers / totalSuppliers) * 100)}%)\n`
+  );
 
   console.log('--- Volume Distribution ---');
-  console.log(`  High volume (1000+):  ${highVol} (${Math.round(highVol/total*100)}%)`);
-  console.log(`  Medium volume (100-999): ${medVol} (${Math.round(medVol/total*100)}%)`);
-  console.log(`  Low volume (10-99):   ${lowVol} (${Math.round(lowVol/total*100)}%)`);
+  console.log(`  High volume (1000+):  ${highVol} (${Math.round((highVol / total) * 100)}%)`);
+  console.log(`  Medium volume (100-999): ${medVol} (${Math.round((medVol / total) * 100)}%)`);
+  console.log(`  Low volume (10-99):   ${lowVol} (${Math.round((lowVol / total) * 100)}%)`);
 
   console.log('\n--- CPC Distribution ---');
-  console.log(`  Under $1:  ${cpcUnder1} (${Math.round(cpcUnder1/total*100)}%)`);
-  console.log(`  $1-3:      ${cpc1to3} (${Math.round(cpc1to3/total*100)}%)`);
-  console.log(`  $3-5:      ${cpc3to5} (${Math.round(cpc3to5/total*100)}%)`);
-  console.log(`  $5-10:     ${cpc5to10} (${Math.round(cpc5to10/total*100)}%)`);
+  console.log(`  Under $1:  ${cpcUnder1} (${Math.round((cpcUnder1 / total) * 100)}%)`);
+  console.log(`  $1-3:      ${cpc1to3} (${Math.round((cpc1to3 / total) * 100)}%)`);
+  console.log(`  $3-5:      ${cpc3to5} (${Math.round((cpc3to5 / total) * 100)}%)`);
+  console.log(`  $5-10:     ${cpc5to10} (${Math.round((cpc5to10 / total) * 100)}%)`);
 
   console.log('\n--- Averages ---');
   console.log(`  Avg CPC: $${Number(agg._avg.cpc || 0).toFixed(2)}`);
   console.log(`  Avg Volume: ${Math.round(Number(agg._avg.searchVolume || 0))}`);
   console.log(`  Avg Priority Score: ${Math.round(Number(agg._avg.priorityScore || 0))}`);
-  console.log(`  High priority (score >= 70): ${highPriority} (${Math.round(highPriority/total*100)}%)`);
+  console.log(
+    `  High priority (score >= 70): ${highPriority} (${Math.round((highPriority / total) * 100)}%)`
+  );
 
   console.log('\n--- Keyword Categories ---');
   for (const [cat, count] of Object.entries(categories).sort((a, b) => b[1] - a[1])) {
@@ -138,17 +173,23 @@ async function main() {
 
   console.log('\n--- Top 20 by Priority Score ---');
   for (const k of topScore) {
-    console.log(`  [${k.priorityScore}] ${k.keyword}  (vol=${k.searchVolume}, cpc=$${Number(k.cpc).toFixed(2)}, diff=${k.difficulty})`);
+    console.log(
+      `  [${k.priorityScore}] ${k.keyword}  (vol=${k.searchVolume}, cpc=$${Number(k.cpc).toFixed(2)}, diff=${k.difficulty})`
+    );
   }
 
   console.log('\n--- Top 20 by Search Volume ---');
   for (const k of topVol) {
-    console.log(`  [vol=${k.searchVolume}] ${k.keyword}  (cpc=$${Number(k.cpc).toFixed(2)}, score=${k.priorityScore})`);
+    console.log(
+      `  [vol=${k.searchVolume}] ${k.keyword}  (cpc=$${Number(k.cpc).toFixed(2)}, score=${k.priorityScore})`
+    );
   }
 
   console.log('\n--- Top 30 Booking-Intent Keywords (CPC > $1, Vol > 100) ---');
   for (const k of bookingIntent) {
-    console.log(`  [${k.priorityScore}] ${k.keyword}  (vol=${k.searchVolume}, cpc=$${Number(k.cpc).toFixed(2)})`);
+    console.log(
+      `  [${k.priorityScore}] ${k.keyword}  (vol=${k.searchVolume}, cpc=$${Number(k.cpc).toFixed(2)})`
+    );
   }
 
   await prisma.$disconnect();

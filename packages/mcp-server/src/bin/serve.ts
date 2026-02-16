@@ -33,7 +33,8 @@ async function startStdio(): Promise<void> {
 
 async function startHttp(port: number): Promise<void> {
   const { SSEServerTransport } = await import('@modelcontextprotocol/sdk/server/sse.js');
-  const { StreamableHTTPServerTransport } = await import('@modelcontextprotocol/sdk/server/streamableHttp.js');
+  const { StreamableHTTPServerTransport } =
+    await import('@modelcontextprotocol/sdk/server/streamableHttp.js');
   const { isInitializeRequest } = await import('@modelcontextprotocol/sdk/types.js');
 
   let authenticateApiKey: Awaited<typeof import('../auth/api-key.js')>['authenticateApiKey'];
@@ -45,10 +46,15 @@ async function startHttp(port: number): Promise<void> {
 
   try {
     ({ authenticateApiKey } = await import('../auth/api-key.js'));
-    ({ handleAuthorize, handleAuthorizePost, handleToken, handleRegister, validateAccessToken } = await import('../auth/oauth.js'));
+    ({ handleAuthorize, handleAuthorizePost, handleToken, handleRegister, validateAccessToken } =
+      await import('../auth/oauth.js'));
   } catch {
-    console.error('HTTP transport requires database dependencies (@prisma/client) which are not installed.');
-    console.error('Use STDIO transport for local/standalone mode: holibob-mcp (no --transport flag)');
+    console.error(
+      'HTTP transport requires database dependencies (@prisma/client) which are not installed.'
+    );
+    console.error(
+      'Use STDIO transport for local/standalone mode: holibob-mcp (no --transport flag)'
+    );
     process.exit(1);
   }
 
@@ -57,20 +63,29 @@ async function startHttp(port: number): Promise<void> {
   // Determine the public base URL (used in OAuth metadata)
   // MCP_PUBLIC_URL should be the ROOT origin (e.g. https://domain.com) — NOT /mcp subpath
   // Claude Desktop discovers OAuth metadata from the root origin
-  const publicBaseUrl = (process.env['MCP_PUBLIC_URL'] ?? `http://localhost:${port}`).replace(/\/mcp\/?$/, '');
+  const publicBaseUrl = (process.env['MCP_PUBLIC_URL'] ?? `http://localhost:${port}`).replace(
+    /\/mcp\/?$/,
+    ''
+  );
 
   // Track per-session SSE transports
-  const sseSessions = new Map<string, {
-    transport: InstanceType<typeof SSEServerTransport>;
-    partnerName: string;
-  }>();
+  const sseSessions = new Map<
+    string,
+    {
+      transport: InstanceType<typeof SSEServerTransport>;
+      partnerName: string;
+    }
+  >();
 
   // Track per-session Streamable HTTP transports
-  const streamableSessions = new Map<string, {
-    transport: InstanceType<typeof StreamableHTTPServerTransport>;
-    server: ReturnType<typeof createServer>;
-    partnerName: string;
-  }>();
+  const streamableSessions = new Map<
+    string,
+    {
+      transport: InstanceType<typeof StreamableHTTPServerTransport>;
+      server: ReturnType<typeof createServer>;
+      partnerName: string;
+    }
+  >();
 
   // Env var auth fallback
   const envPartnerId = process.env['HOLIBOB_PARTNER_ID'];
@@ -88,7 +103,11 @@ async function startHttp(port: number): Promise<void> {
     return null;
   }
 
-  function jsonResponse(res: import('node:http').ServerResponse, status: number, body: unknown): void {
+  function jsonResponse(
+    res: import('node:http').ServerResponse,
+    status: number,
+    body: unknown
+  ): void {
     res.writeHead(status, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(body));
   }
@@ -96,7 +115,9 @@ async function startHttp(port: number): Promise<void> {
   function parseBody(req: import('node:http').IncomingMessage): Promise<Record<string, string>> {
     return new Promise((resolve, reject) => {
       let data = '';
-      req.on('data', (chunk: Buffer) => { data += chunk.toString(); });
+      req.on('data', (chunk: Buffer) => {
+        data += chunk.toString();
+      });
       req.on('end', () => {
         try {
           const contentType = req.headers['content-type'] ?? '';
@@ -121,7 +142,9 @@ async function startHttp(port: number): Promise<void> {
   function parseJsonBody(req: import('node:http').IncomingMessage): Promise<unknown> {
     return new Promise((resolve, reject) => {
       let data = '';
-      req.on('data', (chunk: Buffer) => { data += chunk.toString(); });
+      req.on('data', (chunk: Buffer) => {
+        data += chunk.toString();
+      });
       req.on('end', () => {
         try {
           resolve(data ? JSON.parse(data) : undefined);
@@ -221,7 +244,7 @@ async function startHttp(port: number): Promise<void> {
     // ── Dynamic Client Registration (RFC 7591) ──
     if (url.pathname === '/oauth/register' && req.method === 'POST') {
       try {
-        const body = await parseJsonBody(req) as Record<string, unknown>;
+        const body = (await parseJsonBody(req)) as Record<string, unknown>;
         const result = handleRegister(body);
         if (result.json) {
           jsonResponse(res, result.statusCode ?? 201, result.json);
@@ -229,13 +252,19 @@ async function startHttp(port: number): Promise<void> {
           jsonResponse(res, result.statusCode ?? 400, { error: result.error });
         }
       } catch {
-        jsonResponse(res, 400, { error: 'invalid_request', error_description: 'Failed to parse request body' });
+        jsonResponse(res, 400, {
+          error: 'invalid_request',
+          error_description: 'Failed to parse request body',
+        });
       }
       return;
     }
 
     // ── OAuth Authorization Endpoint (GET — show form or auto-redirect) ──
-    if ((url.pathname === '/oauth/authorize' || url.pathname === '/authorize') && req.method === 'GET') {
+    if (
+      (url.pathname === '/oauth/authorize' || url.pathname === '/authorize') &&
+      req.method === 'GET'
+    ) {
       const result = await handleAuthorize(url.searchParams);
       if (result.redirect) {
         res.writeHead(302, { Location: result.redirect });
@@ -250,7 +279,10 @@ async function startHttp(port: number): Promise<void> {
     }
 
     // ── OAuth Authorization Endpoint (POST — process login form) ──
-    if ((url.pathname === '/oauth/authorize' || url.pathname === '/authorize') && req.method === 'POST') {
+    if (
+      (url.pathname === '/oauth/authorize' || url.pathname === '/authorize') &&
+      req.method === 'POST'
+    ) {
       try {
         const body = await parseBody(req);
         const result = await handleAuthorizePost(body, url.searchParams);
@@ -264,7 +296,10 @@ async function startHttp(port: number): Promise<void> {
           jsonResponse(res, result.statusCode ?? 400, { error: result.error });
         }
       } catch {
-        jsonResponse(res, 400, { error: 'invalid_request', error_description: 'Failed to parse request body' });
+        jsonResponse(res, 400, {
+          error: 'invalid_request',
+          error_description: 'Failed to parse request body',
+        });
       }
       return;
     }
@@ -281,7 +316,10 @@ async function startHttp(port: number): Promise<void> {
           jsonResponse(res, result.statusCode ?? 400, { error: result.error });
         }
       } catch {
-        jsonResponse(res, 400, { error: 'invalid_request', error_description: 'Failed to parse request body' });
+        jsonResponse(res, 400, {
+          error: 'invalid_request',
+          error_description: 'Failed to parse request body',
+        });
       }
       return;
     }
@@ -296,7 +334,10 @@ async function startHttp(port: number): Promise<void> {
     // STREAMABLE HTTP TRANSPORT (protocol version 2025-03-26)
     // Handles POST (JSON-RPC), GET (SSE stream), DELETE (session close) on /
     // ══════════════════════════════════════════════════════════════════════
-    if (url.pathname === '/' && (req.method === 'POST' || req.method === 'GET' || req.method === 'DELETE')) {
+    if (
+      url.pathname === '/' &&
+      (req.method === 'POST' || req.method === 'GET' || req.method === 'DELETE')
+    ) {
       const sessionId = req.headers['mcp-session-id'] as string | undefined;
 
       // ── Existing session ──
@@ -322,7 +363,10 @@ async function startHttp(port: number): Promise<void> {
         if (!isInitializeRequest(body)) {
           jsonResponse(res, 400, {
             jsonrpc: '2.0',
-            error: { code: -32000, message: 'Bad Request: first request must be an initialize request' },
+            error: {
+              code: -32000,
+              message: 'Bad Request: first request must be an initialize request',
+            },
             id: null,
           });
           return;
@@ -339,14 +383,17 @@ async function startHttp(port: number): Promise<void> {
         }
 
         const transport = new StreamableHTTPServerTransport({
-          sessionIdGenerator: () => `sh_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+          sessionIdGenerator: () =>
+            `sh_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
           onsessioninitialized: (newSessionId: string) => {
             streamableSessions.set(newSessionId, {
               transport,
               server: authResult.server,
               partnerName: authResult.partnerName,
             });
-            console.error(`[MCP] Streamable session ${newSessionId} created (${authResult.partnerName})`);
+            console.error(
+              `[MCP] Streamable session ${newSessionId} created (${authResult.partnerName})`
+            );
           },
         });
 
@@ -375,7 +422,10 @@ async function startHttp(port: number): Promise<void> {
 
       jsonResponse(res, 400, {
         jsonrpc: '2.0',
-        error: { code: -32000, message: 'Bad Request: POST with initialize request required to create session' },
+        error: {
+          code: -32000,
+          message: 'Bad Request: POST with initialize request required to create session',
+        },
         id: null,
       });
       return;
@@ -405,7 +455,9 @@ async function startHttp(port: number): Promise<void> {
         }
         server = createServer(auth.client);
         partnerName = auth.partnerName;
-        console.error(`[MCP] Partner "${partnerName}" connected (holibob: ${auth.holibobPartnerId})`);
+        console.error(
+          `[MCP] Partner "${partnerName}" connected (holibob: ${auth.holibobPartnerId})`
+        );
       } else if (envPartnerId && envApiKey) {
         const client = createHolibobClient({
           apiUrl: envApiUrl,

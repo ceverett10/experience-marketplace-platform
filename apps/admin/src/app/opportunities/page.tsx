@@ -126,7 +126,9 @@ export default function OpportunitiesPage() {
   };
 
   // Reset page on filter/sort changes
-  useEffect(() => { setCurrentPage(1); }, [statusFilter, sortBy]);
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter, sortBy]);
 
   // Fetch opportunities from API with pagination
   const fetchOpportunities = useCallback(async () => {
@@ -271,7 +273,12 @@ export default function OpportunitiesPage() {
   };
 
   const handleBulkCreateMicrosites = async () => {
-    if (!confirm('This will queue microsite creation for all eligible high-priority opportunities. Continue?')) return;
+    if (
+      !confirm(
+        'This will queue microsite creation for all eligible high-priority opportunities. Continue?'
+      )
+    )
+      return;
     try {
       setBuildingMicrosites(true);
       setMicrositeMessage('Queuing microsite creation jobs...');
@@ -427,7 +434,9 @@ export default function OpportunitiesPage() {
 
       {/* Microsite build message */}
       {micrositeMessage && (
-        <div className={`p-4 rounded-lg ${buildingMicrosites ? 'bg-emerald-50 border border-emerald-200' : 'bg-green-50 border border-green-200'}`}>
+        <div
+          className={`p-4 rounded-lg ${buildingMicrosites ? 'bg-emerald-50 border border-emerald-200' : 'bg-green-50 border border-green-200'}`}
+        >
           <span className={`text-sm ${buildingMicrosites ? 'text-emerald-700' : 'text-green-700'}`}>
             {micrositeMessage}
           </span>
@@ -869,7 +878,8 @@ export default function OpportunitiesPage() {
             Previous
           </button>
           <span className="text-sm text-slate-500">
-            Page {currentPage} of {paginationInfo.totalPages} ({paginationInfo.totalCount.toLocaleString()} total)
+            Page {currentPage} of {paginationInfo.totalPages} (
+            {paginationInfo.totalCount.toLocaleString()} total)
           </span>
           <button
             onClick={() => setCurrentPage((p) => Math.min(paginationInfo.totalPages, p + 1))}

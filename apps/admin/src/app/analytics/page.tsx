@@ -319,9 +319,7 @@ export default function AnalyticsOverviewPage() {
       {microsites && microsites.summary.totalMicrosites > 0 && (
         <>
           <div className="mt-2">
-            <h2 className="text-lg font-semibold text-slate-900">
-              Microsites (experiencess.com)
-            </h2>
+            <h2 className="text-lg font-semibold text-slate-900">Microsites (experiencess.com)</h2>
             <p className="text-sm text-slate-500 mt-1">
               {microsites.summary.totalMicrosites} microsites &middot;{' '}
               {microsites.summary.micrositesWithGsc} with GSC
@@ -386,9 +384,7 @@ export default function AnalyticsOverviewPage() {
                   {microsites.top.slice(0, 10).map((ms) => (
                     <tr key={ms.id} className="hover:bg-slate-50">
                       <td className="px-4 py-3">
-                        <span className="text-sm font-medium text-slate-900">
-                          {ms.name}
-                        </span>
+                        <span className="text-sm font-medium text-slate-900">{ms.name}</span>
                         <p className="text-xs text-slate-500">{ms.domain}</p>
                       </td>
                       <td className="px-4 py-3 text-right text-sm text-slate-700">

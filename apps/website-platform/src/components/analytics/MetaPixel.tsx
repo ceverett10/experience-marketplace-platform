@@ -102,11 +102,7 @@ export function trackMetaAddPaymentInfo(booking: {
   });
 }
 
-export function trackMetaPurchase(booking: {
-  id: string;
-  value?: number;
-  currency?: string;
-}) {
+export function trackMetaPurchase(booking: { id: string; value?: number; currency?: string }) {
   sendMetaEvent('Purchase', {
     content_ids: [booking.id],
     value: booking.value,

@@ -19,7 +19,11 @@ export default function UsersPage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [newUser, setNewUser] = useState({ email: '', name: '', role: 'ADMIN' });
-  const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
   const [tempPassword, setTempPassword] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -118,13 +122,20 @@ export default function UsersPage() {
         <h1 className="text-2xl font-bold text-slate-900">Admin Users</h1>
         <div className="flex gap-3">
           <button
-            onClick={() => { setShowPasswordForm(!showPasswordForm); setShowAddForm(false); }}
+            onClick={() => {
+              setShowPasswordForm(!showPasswordForm);
+              setShowAddForm(false);
+            }}
             className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50"
           >
             Change Password
           </button>
           <button
-            onClick={() => { setShowAddForm(!showAddForm); setShowPasswordForm(false); setTempPassword(null); }}
+            onClick={() => {
+              setShowAddForm(!showAddForm);
+              setShowPasswordForm(false);
+              setTempPassword(null);
+            }}
             className="px-4 py-2 text-sm font-medium text-white bg-sky-600 rounded-lg hover:bg-sky-700"
           >
             Add User
@@ -135,7 +146,12 @@ export default function UsersPage() {
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
           {error}
-          <button onClick={() => setError('')} className="float-right text-red-400 hover:text-red-600">✕</button>
+          <button
+            onClick={() => setError('')}
+            className="float-right text-red-400 hover:text-red-600"
+          >
+            ✕
+          </button>
         </div>
       )}
 
@@ -147,7 +163,9 @@ export default function UsersPage() {
 
       {tempPassword && (
         <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-          <p className="text-sm font-medium text-amber-800 mb-1">Temporary password for new user:</p>
+          <p className="text-sm font-medium text-amber-800 mb-1">
+            Temporary password for new user:
+          </p>
           <code className="block p-2 bg-white border border-amber-200 rounded text-sm font-mono text-amber-900 select-all">
             {tempPassword}
           </code>
@@ -163,11 +181,15 @@ export default function UsersPage() {
           <h2 className="text-lg font-semibold text-slate-900 mb-4">Change Your Password</h2>
           <form onSubmit={handleChangePassword} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Current Password</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Current Password
+              </label>
               <input
                 type="password"
                 value={passwordForm.currentPassword}
-                onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                onChange={(e) =>
+                  setPasswordForm({ ...passwordForm, currentPassword: e.target.value })
+                }
                 required
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
               />
@@ -184,21 +206,32 @@ export default function UsersPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Confirm New Password</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Confirm New Password
+              </label>
               <input
                 type="password"
                 value={passwordForm.confirmPassword}
-                onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                onChange={(e) =>
+                  setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })
+                }
                 required
                 minLength={8}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
               />
             </div>
             <div className="flex gap-3">
-              <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-sky-600 rounded-lg hover:bg-sky-700">
+              <button
+                type="submit"
+                className="px-4 py-2 text-sm font-medium text-white bg-sky-600 rounded-lg hover:bg-sky-700"
+              >
                 Update Password
               </button>
-              <button type="button" onClick={() => setShowPasswordForm(false)} className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50">
+              <button
+                type="button"
+                onClick={() => setShowPasswordForm(false)}
+                className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50"
+              >
                 Cancel
               </button>
             </div>
@@ -248,10 +281,20 @@ export default function UsersPage() {
               <p className="text-xs text-slate-500 mt-1">Super Admins can manage other users.</p>
             </div>
             <div className="flex gap-3">
-              <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-sky-600 rounded-lg hover:bg-sky-700">
+              <button
+                type="submit"
+                className="px-4 py-2 text-sm font-medium text-white bg-sky-600 rounded-lg hover:bg-sky-700"
+              >
                 Create User
               </button>
-              <button type="button" onClick={() => { setShowAddForm(false); setTempPassword(null); }} className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddForm(false);
+                  setTempPassword(null);
+                }}
+                className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50"
+              >
                 Cancel
               </button>
             </div>
@@ -264,10 +307,18 @@ export default function UsersPage() {
         <table className="w-full">
           <thead>
             <tr className="bg-slate-50 border-b border-slate-200">
-              <th className="text-left px-6 py-3 text-xs font-medium text-slate-500 uppercase">User</th>
-              <th className="text-left px-6 py-3 text-xs font-medium text-slate-500 uppercase">Role</th>
-              <th className="text-left px-6 py-3 text-xs font-medium text-slate-500 uppercase">Last Login</th>
-              <th className="text-right px-6 py-3 text-xs font-medium text-slate-500 uppercase">Actions</th>
+              <th className="text-left px-6 py-3 text-xs font-medium text-slate-500 uppercase">
+                User
+              </th>
+              <th className="text-left px-6 py-3 text-xs font-medium text-slate-500 uppercase">
+                Role
+              </th>
+              <th className="text-left px-6 py-3 text-xs font-medium text-slate-500 uppercase">
+                Last Login
+              </th>
+              <th className="text-right px-6 py-3 text-xs font-medium text-slate-500 uppercase">
+                Actions
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -285,18 +336,24 @@ export default function UsersPage() {
                   </div>
                 </td>
                 <td className="px-6 py-4">
-                  <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded ${
-                    user.role === 'SUPER_ADMIN'
-                      ? 'bg-purple-100 text-purple-700'
-                      : 'bg-sky-100 text-sky-700'
-                  }`}>
+                  <span
+                    className={`inline-flex px-2 py-0.5 text-xs font-medium rounded ${
+                      user.role === 'SUPER_ADMIN'
+                        ? 'bg-purple-100 text-purple-700'
+                        : 'bg-sky-100 text-sky-700'
+                    }`}
+                  >
                     {user.role === 'SUPER_ADMIN' ? 'Super Admin' : 'Admin'}
                   </span>
                 </td>
                 <td className="px-6 py-4 text-sm text-slate-500">
                   {user.lastLoginAt
                     ? new Date(user.lastLoginAt).toLocaleDateString('en-GB', {
-                        day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
                       })
                     : 'Never'}
                 </td>

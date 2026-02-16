@@ -79,7 +79,9 @@ const mockProductMicrosite = {
   },
 };
 
-function setupDefaultMocks(microsites = [mockSupplierMicrosite, mockOpportunityMicrosite, mockProductMicrosite]) {
+function setupDefaultMocks(
+  microsites = [mockSupplierMicrosite, mockOpportunityMicrosite, mockProductMicrosite]
+) {
   mockPrisma.micrositeConfig.count.mockResolvedValue(microsites.length);
   mockPrisma.micrositeConfig.findMany.mockResolvedValue(microsites);
   mockPrisma.micrositeConfig.groupBy
@@ -106,19 +108,25 @@ describe('GET /api/microsites', () => {
     expect(data.microsites).toHaveLength(3);
 
     // Verify supplier microsite
-    const supplier = data.microsites.find((m: Record<string, unknown>) => m['entityType'] ==='SUPPLIER');
+    const supplier = data.microsites.find(
+      (m: Record<string, unknown>) => m['entityType'] === 'SUPPLIER'
+    );
     expect(supplier.sourceName).toBe('Adventure Co');
     expect(supplier.keyMetric).toEqual({ label: 'Products', value: 25 });
     expect(supplier.location).toBe('London, Paris');
 
     // Verify opportunity microsite
-    const opp = data.microsites.find((m: Record<string, unknown>) => m['entityType'] ==='OPPORTUNITY');
+    const opp = data.microsites.find(
+      (m: Record<string, unknown>) => m['entityType'] === 'OPPORTUNITY'
+    );
     expect(opp.sourceName).toBe('luxury yoga retreats bali');
     expect(opp.keyMetric).toEqual({ label: 'Score', value: 62 });
     expect(opp.location).toBe('Bali, Indonesia');
 
     // Verify product microsite
-    const prod = data.microsites.find((m: Record<string, unknown>) => m['entityType'] ==='PRODUCT');
+    const prod = data.microsites.find(
+      (m: Record<string, unknown>) => m['entityType'] === 'PRODUCT'
+    );
     expect(prod.sourceName).toBe('Thames River Evening Cruise');
     expect(prod.keyMetric).toEqual({ label: 'Price', value: '£29.99' });
     expect(prod.location).toBe('London');
@@ -204,9 +212,7 @@ describe('GET /api/microsites', () => {
   it('returns empty results gracefully', async () => {
     mockPrisma.micrositeConfig.count.mockResolvedValue(0);
     mockPrisma.micrositeConfig.findMany.mockResolvedValue([]);
-    mockPrisma.micrositeConfig.groupBy
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([]);
+    mockPrisma.micrositeConfig.groupBy.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
 
     const response = await GET(createRequest('http://localhost/api/microsites'));
     const data = await response.json();

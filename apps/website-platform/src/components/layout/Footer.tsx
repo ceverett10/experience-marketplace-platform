@@ -229,8 +229,8 @@ function PaymentLogos() {
         {/* Mastercard */}
         <div className="flex h-8 items-center rounded bg-white/10 px-3">
           <svg className="h-5 w-auto" viewBox="0 0 32 20" fill="none">
-            <circle cx="12" cy="10" r="7" fill="#6B7280" fillOpacity="0.4"/>
-            <circle cx="20" cy="10" r="7" fill="#6B7280" fillOpacity="0.4"/>
+            <circle cx="12" cy="10" r="7" fill="#6B7280" fillOpacity="0.4" />
+            <circle cx="20" cy="10" r="7" fill="#6B7280" fillOpacity="0.4" />
           </svg>
         </div>
         {/* Amex */}
@@ -247,8 +247,18 @@ function PaymentLogos() {
         </div>
         {/* Secured by Stripe */}
         <div className="flex h-8 items-center gap-1.5 rounded bg-white/10 px-3">
-          <svg className="h-3.5 w-3.5 text-gray-500" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+          <svg
+            className="h-3.5 w-3.5 text-gray-500"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth="1.5"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
+            />
           </svg>
           <span className="text-xs text-gray-500">Secured by Stripe</span>
         </div>
@@ -288,8 +298,8 @@ function ParentDomainFooter() {
           <div className="space-y-8">
             <span className="text-2xl font-bold text-white">Experiencess</span>
             <p className="text-sm leading-6 text-gray-300">
-              A network of experience brands powered through our partnership with Holibob,
-              helping people discover incredible experiences worldwide.
+              A network of experience brands powered through our partnership with Holibob, helping
+              people discover incredible experiences worldwide.
             </p>
             <SocialLinks links={DEFAULT_SOCIAL_LINKS} />
           </div>

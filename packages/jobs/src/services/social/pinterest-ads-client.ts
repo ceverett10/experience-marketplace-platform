@@ -83,7 +83,9 @@ export class PinterestAdsClient {
           );
           // Throw on auth errors so the scanner can detect persistent failures
           if (response.status === 401 || response.status === 403) {
-            throw new Error(`Pinterest Ads API auth error (${response.status}): ${errorText.substring(0, 200)}`);
+            throw new Error(
+              `Pinterest Ads API auth error (${response.status}): ${errorText.substring(0, 200)}`
+            );
           }
           continue; // Skip this batch, try next
         }
@@ -107,8 +109,7 @@ export class PinterestAdsClient {
             if (!metrics) continue;
 
             // Convert from micros (1/1,000,000 dollar) to dollars
-            const microToDollar = (micros: number | undefined) =>
-              micros ? micros / 1_000_000 : 0;
+            const microToDollar = (micros: number | undefined) => (micros ? micros / 1_000_000 : 0);
 
             results.push({
               keyword: item.keyword,
@@ -146,9 +147,7 @@ export class PinterestAdsClient {
   }
 }
 
-function normalizeCompetition(
-  value: string | undefined
-): 'LOW' | 'MEDIUM' | 'HIGH' {
+function normalizeCompetition(value: string | undefined): 'LOW' | 'MEDIUM' | 'HIGH' {
   if (!value) return 'MEDIUM';
   const upper = value.toUpperCase();
   if (upper === 'LOW' || upper === 'MEDIUM' || upper === 'HIGH') {

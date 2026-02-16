@@ -53,8 +53,7 @@ export async function POST(request: NextRequest) {
 
     // Get site/microsite context
     const headersList = await headers();
-    const host =
-      headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
+    const host = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
     const site = await getSiteFromHostname(host);
 
     // Get consent metadata for audit trail

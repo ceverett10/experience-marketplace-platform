@@ -69,7 +69,9 @@ export async function resubmitMicrositeSitemapsToGSC(): Promise<SitemapResubmitR
     const batchNum = Math.floor(i / BATCH_SIZE) + 1;
     const totalBatches = Math.ceil(microsites.length / BATCH_SIZE);
 
-    console.log(`[Sitemap Resubmit] Batch ${batchNum}/${totalBatches} (${batch.length} microsites)`);
+    console.log(
+      `[Sitemap Resubmit] Batch ${batchNum}/${totalBatches} (${batch.length} microsites)`
+    );
 
     for (const ms of batch) {
       const sitemapUrl = `https://${ms.fullDomain}/sitemap.xml`;

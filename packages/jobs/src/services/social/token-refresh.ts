@@ -34,8 +34,7 @@ export async function refreshTokenIfNeeded(account: {
     return { accessToken: decryptToken(account.accessToken) };
   }
 
-  const hoursUntilExpiry =
-    (account.tokenExpiresAt.getTime() - Date.now()) / (1000 * 60 * 60);
+  const hoursUntilExpiry = (account.tokenExpiresAt.getTime() - Date.now()) / (1000 * 60 * 60);
 
   if (hoursUntilExpiry > 24) {
     return { accessToken: decryptToken(account.accessToken) };
@@ -164,7 +163,11 @@ async function refreshPinterestToken(refreshToken: string): Promise<TokenRefresh
     throw new Error(`Pinterest token refresh failed: ${error}`);
   }
 
-  const data = (await response.json()) as { access_token: string; refresh_token?: string; expires_in?: number };
+  const data = (await response.json()) as {
+    access_token: string;
+    refresh_token?: string;
+    expires_in?: number;
+  };
   return {
     accessToken: data.access_token,
     refreshToken: data.refresh_token || refreshToken,
@@ -204,7 +207,8 @@ async function refreshTwitterToken(refreshToken: string): Promise<TokenRefreshRe
   };
 
   if (clientSecret) {
-    headers['Authorization'] = `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`;
+    headers['Authorization'] =
+      `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`;
   }
 
   const response = await fetch('https://api.twitter.com/2/oauth2/token', {
@@ -222,7 +226,11 @@ async function refreshTwitterToken(refreshToken: string): Promise<TokenRefreshRe
     throw new Error(`Twitter token refresh failed: ${error}`);
   }
 
-  const data = (await response.json()) as { access_token: string; refresh_token?: string; expires_in?: number };
+  const data = (await response.json()) as {
+    access_token: string;
+    refresh_token?: string;
+    expires_in?: number;
+  };
   return {
     accessToken: data.access_token,
     refreshToken: data.refresh_token,

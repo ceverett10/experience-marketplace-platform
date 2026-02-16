@@ -12,7 +12,11 @@ import {
   type Experience,
   type ExperienceListItem,
 } from '@/lib/holibob';
-import { getTickittoClient, mapTickittoEventToExperience, mapTickittoEventToExperienceListItem } from '@/lib/tickitto';
+import {
+  getTickittoClient,
+  mapTickittoEventToExperience,
+  mapTickittoEventToExperienceListItem,
+} from '@/lib/tickitto';
 import { prisma } from '@/lib/prisma';
 import { ExperienceGallery } from '@/components/experiences/ExperienceGallery';
 import { BookingWidget } from '@/components/experiences/BookingWidget';
@@ -34,7 +38,7 @@ import { getProductBookingStats } from '@/lib/booking-analytics';
 function getViewerCount(productId: string): number {
   let hash = 0;
   for (let i = 0; i < productId.length; i++) {
-    hash = ((hash << 5) - hash) + productId.charCodeAt(i);
+    hash = (hash << 5) - hash + productId.charCodeAt(i);
     hash |= 0;
   }
   return 3 + (Math.abs(hash) % 16);
@@ -120,10 +124,10 @@ async function getRelatedExperiences(
 
     // === MICROSITE: Show other products from the SAME provider ===
     if (isMicrosite(site.micrositeContext) && site.micrositeContext.holibobSupplierId) {
-      const response = await client.getProductsByProvider(
-        site.micrositeContext.holibobSupplierId,
-        { pageSize: 5, page: 1 }
-      );
+      const response = await client.getProductsByProvider(site.micrositeContext.holibobSupplierId, {
+        pageSize: 5,
+        page: 1,
+      });
 
       return response.nodes
         .filter((p) => p.id !== experience.id)

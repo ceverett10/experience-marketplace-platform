@@ -1056,7 +1056,10 @@ export async function storeHomepageConfig(siteId: string, config: HomepageConfig
  */
 function cleanEntityName(name: string): string {
   return name
-    .replace(/\s*(Pty\.?\s*Ltd\.?|Ltd\.?|LLC|Inc\.?|S\.?A\.?S\.?|GmbH|S\.?R\.?L\.?|S\.?L\.?|B\.?V\.?|P\.?L\.?C\.?|Co\.?\s*Ltd\.?|Corp\.?|CC|Ltda\.?|EIRL|Pte\.?\s*Ltd\.?)\s*$/gi, '')
+    .replace(
+      /\s*(Pty\.?\s*Ltd\.?|Ltd\.?|LLC|Inc\.?|S\.?A\.?S\.?|GmbH|S\.?R\.?L\.?|S\.?L\.?|B\.?V\.?|P\.?L\.?C\.?|Co\.?\s*Ltd\.?|Corp\.?|CC|Ltda\.?|EIRL|Pte\.?\s*Ltd\.?)\s*$/gi,
+      ''
+    )
     .replace(/\s*[-–]\s*$/, '')
     .trim();
 }

@@ -38,8 +38,8 @@ export function ParentDomainHomepage({
               Experiencess
             </h1>
             <p className="mx-auto mt-6 max-w-2xl text-xl text-indigo-100">
-              A network of experience brands powered through our partnership with Holibob,
-              helping people discover and book incredible experiences worldwide.
+              A network of experience brands powered through our partnership with Holibob, helping
+              people discover and book incredible experiences worldwide.
             </p>
             <div className="mx-auto mt-8 flex flex-wrap justify-center gap-4">
               <a
@@ -281,9 +281,7 @@ function SiteCard({ site }: { site: FeaturedSite }) {
           <p className="line-clamp-2 text-sm text-gray-600">{site.description}</p>
         )}
         {site.primaryDomain && (
-          <p className="mt-3 text-xs text-indigo-600 group-hover:underline">
-            {site.primaryDomain}
-          </p>
+          <p className="mt-3 text-xs text-indigo-600 group-hover:underline">{site.primaryDomain}</p>
         )}
       </div>
     </a>

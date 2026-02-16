@@ -286,7 +286,10 @@ export function AvailabilityModal({
       <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden="true" />
 
       {/* Modal */}
-      <div className="relative z-10 mx-4 max-h-[90vh] w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl" data-testid="availability-modal">
+      <div
+        className="relative z-10 mx-4 max-h-[90vh] w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl"
+        data-testid="availability-modal"
+      >
         {/* Header */}
         <div className="border-b border-gray-200 px-6 py-4">
           <div className="flex items-center justify-between">
@@ -495,11 +498,21 @@ export function AvailabilityModal({
                     <p className="font-medium text-gray-900">{formatLabel(category.label)}</p>
                     {(() => {
                       const config = getProductPricingConfig(productId);
-                      const promo = calculatePromoPrice(category.unitPrice.grossFormattedText, category.unitPrice.gross, category.unitPrice.currency ?? 'GBP', config);
+                      const promo = calculatePromoPrice(
+                        category.unitPrice.grossFormattedText,
+                        category.unitPrice.gross,
+                        category.unitPrice.currency ?? 'GBP',
+                        config
+                      );
                       return promo.hasPromo ? (
                         <p className="text-sm text-gray-500">
-                          <span className="text-gray-400 line-through">{promo.originalFormatted}</span>{' '}
-                          <span className="font-medium text-gray-700">{category.unitPrice.grossFormattedText}</span> per person
+                          <span className="text-gray-400 line-through">
+                            {promo.originalFormatted}
+                          </span>{' '}
+                          <span className="font-medium text-gray-700">
+                            {category.unitPrice.grossFormattedText}
+                          </span>{' '}
+                          per person
                         </p>
                       ) : (
                         <p className="text-sm text-gray-500">
@@ -569,23 +582,32 @@ export function AvailabilityModal({
           {/* Total and action buttons */}
           <div className="flex items-center justify-between">
             <div>
-              {step === 'pricing' && totalPrice && (() => {
-                const config = getProductPricingConfig(productId);
-                const promo = calculatePromoPrice(totalPrice.formatted, totalPrice.amount, totalPrice.currency, config);
-                return (
-                  <div>
-                    <p className="text-sm text-gray-500">
-                      {totalGuests} {totalGuests === 1 ? 'guest' : 'guests'}
-                    </p>
-                    {promo.hasPromo && (
-                      <p className="text-xs text-gray-400 line-through">{promo.originalFormatted}</p>
-                    )}
-                    <p className="text-lg font-bold" style={{ color: primaryColor }}>
-                      {totalPrice.formatted}
-                    </p>
-                  </div>
-                );
-              })()}
+              {step === 'pricing' &&
+                totalPrice &&
+                (() => {
+                  const config = getProductPricingConfig(productId);
+                  const promo = calculatePromoPrice(
+                    totalPrice.formatted,
+                    totalPrice.amount,
+                    totalPrice.currency,
+                    config
+                  );
+                  return (
+                    <div>
+                      <p className="text-sm text-gray-500">
+                        {totalGuests} {totalGuests === 1 ? 'guest' : 'guests'}
+                      </p>
+                      {promo.hasPromo && (
+                        <p className="text-xs text-gray-400 line-through">
+                          {promo.originalFormatted}
+                        </p>
+                      )}
+                      <p className="text-lg font-bold" style={{ color: primaryColor }}>
+                        {totalPrice.formatted}
+                      </p>
+                    </div>
+                  );
+                })()}
               {step === 'dates' && selectedSlot && (
                 <p className="text-sm text-gray-600">{formatDate(selectedSlot.date)}</p>
               )}

@@ -147,7 +147,10 @@ export async function generateDailyContent(
   // Also process OPPORTUNITY microsites (they have rich Site-like homepages)
   // Uses 5% daily rotation to spread load — each microsite gets content every ~20 days
   const micrositeContentTypes: ContentGenerationType[] = [
-    'faq_hub', 'destination_landing', 'comparison', 'seasonal_event',
+    'faq_hub',
+    'destination_landing',
+    'comparison',
+    'seasonal_event',
   ];
   if (micrositeContentTypes.includes(contentType)) {
     try {
@@ -174,7 +177,10 @@ export async function generateDailyContent(
         };
 
         for (const ms of toProcess) {
-          const mappedType = (micrositeContentTypeMap[contentType] || 'blog') as 'blog' | 'faq' | 'destination_landing';
+          const mappedType = (micrositeContentTypeMap[contentType] || 'blog') as
+            | 'blog'
+            | 'faq'
+            | 'destination_landing';
           await addJob('MICROSITE_CONTENT_GENERATE' as any, {
             micrositeId: ms.id,
             contentTypes: [mappedType],
@@ -191,7 +197,10 @@ export async function generateDailyContent(
         }
       }
     } catch (error) {
-      console.error(`[Daily Content] Error processing OPPORTUNITY microsites for ${contentType}:`, error);
+      console.error(
+        `[Daily Content] Error processing OPPORTUNITY microsites for ${contentType}:`,
+        error
+      );
     }
   }
 

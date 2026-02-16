@@ -72,7 +72,12 @@ export default function DomainsPage() {
   const [checkingDomainId, setCheckingDomainId] = useState<string | null>(null);
   const [creatingSiteForDomainId, setCreatingSiteForDomainId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [paginationInfo, setPaginationInfo] = useState<PaginationInfo>({ page: 1, pageSize: DOMAIN_PAGE_SIZE, totalCount: 0, totalPages: 1 });
+  const [paginationInfo, setPaginationInfo] = useState<PaginationInfo>({
+    page: 1,
+    pageSize: DOMAIN_PAGE_SIZE,
+    totalCount: 0,
+    totalPages: 1,
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const searchTimer = useRef<ReturnType<typeof setTimeout>>();
@@ -101,7 +106,9 @@ export default function DomainsPage() {
       const response = await fetch(`${basePath}/api/domains?${params}`);
       const data = await response.json();
       setDomains(data.domains || []);
-      setPaginationInfo(data.pagination || { page: 1, pageSize: DOMAIN_PAGE_SIZE, totalCount: 0, totalPages: 1 });
+      setPaginationInfo(
+        data.pagination || { page: 1, pageSize: DOMAIN_PAGE_SIZE, totalCount: 0, totalPages: 1 }
+      );
       setStats(
         data.stats || {
           total: 0,
@@ -284,7 +291,10 @@ export default function DomainsPage() {
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-4">
         <Card
           className="cursor-pointer hover:shadow-md transition-shadow"
-          onClick={() => { setStatusFilter('all'); setCurrentPage(1); }}
+          onClick={() => {
+            setStatusFilter('all');
+            setCurrentPage(1);
+          }}
         >
           <CardContent className="p-4">
             <p className="text-2xl font-bold text-slate-900">{stats.total}</p>
@@ -293,7 +303,10 @@ export default function DomainsPage() {
         </Card>
         <Card
           className="cursor-pointer hover:shadow-md transition-shadow"
-          onClick={() => { setStatusFilter('ACTIVE'); setCurrentPage(1); }}
+          onClick={() => {
+            setStatusFilter('ACTIVE');
+            setCurrentPage(1);
+          }}
         >
           <CardContent className="p-4">
             <p className="text-2xl font-bold text-green-600">{stats.active}</p>
@@ -302,7 +315,10 @@ export default function DomainsPage() {
         </Card>
         <Card
           className="cursor-pointer hover:shadow-md transition-shadow"
-          onClick={() => { setStatusFilter('AVAILABLE'); setCurrentPage(1); }}
+          onClick={() => {
+            setStatusFilter('AVAILABLE');
+            setCurrentPage(1);
+          }}
         >
           <CardContent className="p-4">
             <p className="text-2xl font-bold text-emerald-600">{stats.available}</p>
@@ -311,7 +327,10 @@ export default function DomainsPage() {
         </Card>
         <Card
           className="cursor-pointer hover:shadow-md transition-shadow"
-          onClick={() => { setStatusFilter('NOT_AVAILABLE'); setCurrentPage(1); }}
+          onClick={() => {
+            setStatusFilter('NOT_AVAILABLE');
+            setCurrentPage(1);
+          }}
         >
           <CardContent className="p-4">
             <p className="text-2xl font-bold text-rose-600">{stats.notAvailable}</p>
@@ -320,7 +339,10 @@ export default function DomainsPage() {
         </Card>
         <Card
           className="cursor-pointer hover:shadow-md transition-shadow"
-          onClick={() => { setStatusFilter('PENDING'); setCurrentPage(1); }}
+          onClick={() => {
+            setStatusFilter('PENDING');
+            setCurrentPage(1);
+          }}
         >
           <CardContent className="p-4">
             <p className="text-2xl font-bold text-amber-600">{stats.pending}</p>
@@ -358,7 +380,10 @@ export default function DomainsPage() {
         />
         <select
           value={statusFilter}
-          onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+          onChange={(e) => {
+            setStatusFilter(e.target.value);
+            setCurrentPage(1);
+          }}
           className="px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"
         >
           <option value="all">All Statuses</option>
@@ -644,7 +669,9 @@ export default function DomainsPage() {
       {paginationInfo.totalPages > 1 && (
         <div className="flex items-center justify-between">
           <p className="text-sm text-slate-500">
-            Showing {(currentPage - 1) * DOMAIN_PAGE_SIZE + 1}-{Math.min(currentPage * DOMAIN_PAGE_SIZE, paginationInfo.totalCount)} of {paginationInfo.totalCount} domains
+            Showing {(currentPage - 1) * DOMAIN_PAGE_SIZE + 1}-
+            {Math.min(currentPage * DOMAIN_PAGE_SIZE, paginationInfo.totalCount)} of{' '}
+            {paginationInfo.totalCount} domains
           </p>
           <div className="flex items-center gap-2">
             <button

@@ -242,8 +242,7 @@ function DynamicQuestionField({
 
       default: {
         // TEXT, EMAIL, PHONE, or unknown
-        const inputType =
-          type === 'EMAIL' ? 'email' : type === 'PHONE' ? 'tel' : 'text';
+        const inputType = type === 'EMAIL' ? 'email' : type === 'PHONE' ? 'tel' : 'text';
         return (
           <>
             <label className="mb-1 block text-sm font-medium text-gray-700">
@@ -565,12 +564,14 @@ export function QuestionsForm({
           <div className="space-y-3">
             {personQuestionSections.map(({ person, guestIndex, questions }) => {
               const isExpanded = expandedPersons[person.id] ?? true; // default open
-              const label =
-                person.pricingCategoryLabel ??
-                `Guest ${guestIndex + 1}`;
+              const label = person.pricingCategoryLabel ?? `Guest ${guestIndex + 1}`;
 
               return (
-                <div key={person.id} className="rounded-lg border border-gray-200" data-testid={`person-section-${person.id}`}>
+                <div
+                  key={person.id}
+                  className="rounded-lg border border-gray-200"
+                  data-testid={`person-section-${person.id}`}
+                >
                   <button
                     type="button"
                     onClick={() => togglePerson(person.id)}
@@ -589,7 +590,11 @@ export function QuestionsForm({
                       strokeWidth="2"
                       stroke="currentColor"
                     >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M19.5 8.25l-7.5 7.5-7.5-7.5"
+                      />
                     </svg>
                   </button>
                   {isExpanded && (

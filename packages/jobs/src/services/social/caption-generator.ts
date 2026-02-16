@@ -83,9 +83,7 @@ export async function generateCaption(request: CaptionRequest): Promise<CaptionR
 
   const seoConfig = site.seoConfig as Record<string, unknown> | null;
   const toneOfVoice = seoConfig?.['toneOfVoice'] as Record<string, unknown> | undefined;
-  const blogUrl = site.primaryDomain
-    ? `https://${site.primaryDomain}/${page.slug}`
-    : undefined;
+  const blogUrl = site.primaryDomain ? `https://${site.primaryDomain}/${page.slug}` : undefined;
 
   // Extract first ~500 chars of body for context
   const bodyExcerpt = page.content?.body
@@ -124,7 +122,10 @@ export async function generateEngagementCaption(
 ): Promise<NonBlogCaptionResult> {
   const { platform, brandName, tagline, seoConfig } = request;
   const toneOfVoice = seoConfig?.['toneOfVoice'] as Record<string, unknown> | undefined;
-  const niche = (seoConfig?.['niche'] as string) || (seoConfig?.['primaryCategory'] as string) || 'travel experiences';
+  const niche =
+    (seoConfig?.['niche'] as string) ||
+    (seoConfig?.['primaryCategory'] as string) ||
+    'travel experiences';
   const limits = PLATFORM_LIMITS[platform];
 
   const prompt = `You are a social media manager for "${brandName}"${tagline ? ` (${tagline})` : ''}, a travel experiences brand focused on ${niche}.
@@ -164,7 +165,10 @@ export async function generateTravelTipCaption(
 ): Promise<NonBlogCaptionResult> {
   const { siteId, platform, brandName, tagline, seoConfig, primaryDomain } = request;
   const toneOfVoice = seoConfig?.['toneOfVoice'] as Record<string, unknown> | undefined;
-  const niche = (seoConfig?.['niche'] as string) || (seoConfig?.['primaryCategory'] as string) || 'travel experiences';
+  const niche =
+    (seoConfig?.['niche'] as string) ||
+    (seoConfig?.['primaryCategory'] as string) ||
+    'travel experiences';
   const limits = PLATFORM_LIMITS[platform];
 
   // Find a recent blog post to optionally link
@@ -174,9 +178,8 @@ export async function generateTravelTipCaption(
     select: { title: true, slug: true },
   });
 
-  const blogUrl = recentBlog && primaryDomain
-    ? `https://${primaryDomain}/${recentBlog.slug}`
-    : undefined;
+  const blogUrl =
+    recentBlog && primaryDomain ? `https://${primaryDomain}/${recentBlog.slug}` : undefined;
 
   const prompt = `You are a social media manager for "${brandName}"${tagline ? ` (${tagline})` : ''}, a travel experiences brand focused on ${niche}.
 ${(toneOfVoice?.['personality'] as string[] | undefined)?.length ? `Brand tone: ${(toneOfVoice?.['personality'] as string[]).join(', ')}.` : 'Tone: friendly, expert, helpful.'}
@@ -273,9 +276,10 @@ Use a hook, interesting stat, or question. Be punchy and direct.
 The link will be appended automatically - don't include it in the text.`,
   };
 
-  const toneInstruction = ctx.tonePersonality.length > 0
-    ? `Brand tone: ${ctx.tonePersonality.join(', ')}.`
-    : 'Tone: friendly, professional, travel-enthusiast.';
+  const toneInstruction =
+    ctx.tonePersonality.length > 0
+      ? `Brand tone: ${ctx.tonePersonality.join(', ')}.`
+      : 'Tone: friendly, professional, travel-enthusiast.';
 
   return `You are a social media manager for "${ctx.brandName}"${ctx.tagline ? ` (${ctx.tagline})` : ''}, a travel experiences brand.
 ${toneInstruction}

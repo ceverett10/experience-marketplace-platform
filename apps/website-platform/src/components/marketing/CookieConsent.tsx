@@ -43,8 +43,8 @@ export function CookieConsent() {
       <div className="mx-auto flex max-w-7xl flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex-1">
           <p className="text-sm text-gray-700">
-            We use cookies to enhance your browsing experience, analyse site traffic, and personalise content.
-            By clicking &quot;Accept&quot;, you consent to our use of cookies.{' '}
+            We use cookies to enhance your browsing experience, analyse site traffic, and
+            personalise content. By clicking &quot;Accept&quot;, you consent to our use of cookies.{' '}
             <a href="/privacy" className="font-medium underline hover:text-gray-900">
               Privacy Policy
             </a>

@@ -30,20 +30,16 @@ test.describe('Conditional Questions - Iterative Loop', () => {
     });
 
     // Override POST questions to return sequential responses
-    await setupSequentialResponses(
-      page,
-      /\/api\/booking\/[^/]+\/questions$/,
-      'POST',
-      [mockBookingNotReady, mockBookingAnswered]
-    );
+    await setupSequentialResponses(page, /\/api\/booking\/[^/]+\/questions$/, 'POST', [
+      mockBookingNotReady,
+      mockBookingAnswered,
+    ]);
 
     // Override GET questions to return sequential responses (initial load, then refetch)
-    await setupSequentialResponses(
-      page,
-      /\/api\/booking\/[^/]+\/questions$/,
-      'GET',
-      [mockBookingQuestionsConditionalRound1, mockBookingQuestionsConditionalRound2]
-    );
+    await setupSequentialResponses(page, /\/api\/booking\/[^/]+\/questions$/, 'GET', [
+      mockBookingQuestionsConditionalRound1,
+      mockBookingQuestionsConditionalRound2,
+    ]);
 
     await page.goto(`/checkout/${MOCK_BOOKING_ID}`);
     await expect(page.getByTestId('questions-form')).toBeVisible();
@@ -93,12 +89,10 @@ test.describe('Conditional Questions - Iterative Loop', () => {
     });
 
     // Override GET refetch to return round 2 (1 unanswered question: Hotel Name)
-    await setupSequentialResponses(
-      page,
-      /\/api\/booking\/[^/]+\/questions$/,
-      'GET',
-      [mockBookingQuestionsConditionalRound1, mockBookingQuestionsConditionalRound2]
-    );
+    await setupSequentialResponses(page, /\/api\/booking\/[^/]+\/questions$/, 'GET', [
+      mockBookingQuestionsConditionalRound1,
+      mockBookingQuestionsConditionalRound2,
+    ]);
 
     await page.goto(`/checkout/${MOCK_BOOKING_ID}`);
     await expect(page.getByTestId('questions-form')).toBeVisible();

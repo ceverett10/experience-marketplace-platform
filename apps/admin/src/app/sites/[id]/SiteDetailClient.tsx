@@ -581,21 +581,30 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
       {/* Tabs */}
       <div className="border-b border-slate-200">
         <nav className="flex gap-4">
-          {(['roadmap', 'seo', 'overview', 'brand', 'homepage', 'pages', 'domains', 'social'] as const).map(
-            (tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-                  activeTab === tab
-                    ? 'border-sky-600 text-sky-600'
-                    : 'border-transparent text-slate-500 hover:text-slate-700'
-                }`}
-              >
-                {tab === 'seo' ? 'SEO Health' : tab.charAt(0).toUpperCase() + tab.slice(1)}
-              </button>
-            )
-          )}
+          {(
+            [
+              'roadmap',
+              'seo',
+              'overview',
+              'brand',
+              'homepage',
+              'pages',
+              'domains',
+              'social',
+            ] as const
+          ).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                activeTab === tab
+                  ? 'border-sky-600 text-sky-600'
+                  : 'border-transparent text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              {tab === 'seo' ? 'SEO Health' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+            </button>
+          ))}
         </nav>
       </div>
 
@@ -2433,9 +2442,7 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
                 <h3 className="text-md font-medium text-slate-700 mb-3">Connected Accounts</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {(['PINTEREST', 'FACEBOOK', 'TWITTER'] as const).map((platform) => {
-                    const account = socialAccounts.find(
-                      (a: any) => a.platform === platform
-                    );
+                    const account = socialAccounts.find((a: any) => a.platform === platform);
                     const platformLabels: Record<string, { name: string; icon: string }> = {
                       PINTEREST: { name: 'Pinterest', icon: '📌' },
                       FACEBOOK: { name: 'Facebook', icon: '📘' },
@@ -2493,9 +2500,7 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
                                       { method: 'DELETE' }
                                     );
                                     setSocialAccounts(
-                                      socialAccounts.filter(
-                                        (a: any) => a.id !== account.id
-                                      )
+                                      socialAccounts.filter((a: any) => a.id !== account.id)
                                     );
                                   } catch (err) {
                                     console.error('Failed to disconnect:', err);
@@ -2615,7 +2620,9 @@ export default function SiteDetailClient({ siteId }: SiteDetailClientProps) {
                                       rel="noopener noreferrer"
                                       className="text-xs text-sky-600 hover:text-sky-800"
                                     >
-                                      View on {post.platform.charAt(0) + post.platform.slice(1).toLowerCase()}
+                                      View on{' '}
+                                      {post.platform.charAt(0) +
+                                        post.platform.slice(1).toLowerCase()}
                                     </a>
                                   )}
                                   {post.status === 'FAILED' && (

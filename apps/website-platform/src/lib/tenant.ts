@@ -645,7 +645,10 @@ function mapMicrositeToSiteConfig(microsite: MicrositeConfigWithEntity): SiteCon
       supplierName: microsite.supplier?.name ?? null,
       // Supplier type - determines which API to use
       supplierType: (microsite.supplierType as SupplierType) ?? 'HOLIBOB',
-      tickittoConfig: microsite.tickittoConfig as { apiUrl?: string; eventFilters?: Record<string, unknown> } | null,
+      tickittoConfig: microsite.tickittoConfig as {
+        apiUrl?: string;
+        eventFilters?: Record<string, unknown>;
+      } | null,
       // Cached product count from database (for accurate per-supplier counts in UI)
       cachedProductCount: microsite.cachedProductCount ?? 0,
       // Layout configuration based on product count
@@ -654,7 +657,7 @@ function mapMicrositeToSiteConfig(microsite: MicrositeConfigWithEntity): SiteCon
         microsite.cachedProductCount ?? 0
       ),
       // Discovery config for opportunity microsites
-      discoveryConfig: microsite.discoveryConfig as MicrositeContext['discoveryConfig'] ?? null,
+      discoveryConfig: (microsite.discoveryConfig as MicrositeContext['discoveryConfig']) ?? null,
     },
   };
 }

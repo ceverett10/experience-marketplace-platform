@@ -124,8 +124,8 @@ describe('AdminContentPage', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Total')).toBeInTheDocument();
+        expect(screen.getByText('4')).toBeInTheDocument();
       });
-      expect(screen.getByText('4')).toBeInTheDocument();
     });
 
     it('should render pending content count', async () => {

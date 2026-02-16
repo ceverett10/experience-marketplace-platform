@@ -2,7 +2,11 @@ import { z } from 'zod';
 import { registerAppTool } from '@modelcontextprotocol/ext-apps/server';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { HolibobClient } from '@experience-marketplace/holibob-api';
-import type { AvailabilitySlot, AvailabilityDetail, AvailabilityOption } from '@experience-marketplace/holibob-api/types';
+import type {
+  AvailabilitySlot,
+  AvailabilityDetail,
+  AvailabilityOption,
+} from '@experience-marketplace/holibob-api/types';
 import type { NextAction } from './helpers.js';
 import { classifyError } from './helpers.js';
 
@@ -40,8 +44,12 @@ function formatAvailabilityDetail(avail: AvailabilityDetail): string {
     sections.push(`\n**Options complete:** ${isComplete ? 'YES' : 'NO'}`);
 
     if (avail.optionList.nodes.length) {
-      const unanswered = avail.optionList.nodes.filter((o) => o.answerValue == null || o.answerValue === '');
-      const answered = avail.optionList.nodes.filter((o) => o.answerValue != null && o.answerValue !== '');
+      const unanswered = avail.optionList.nodes.filter(
+        (o) => o.answerValue == null || o.answerValue === ''
+      );
+      const answered = avail.optionList.nodes.filter(
+        (o) => o.answerValue != null && o.answerValue !== ''
+      );
 
       if (unanswered.length) {
         sections.push('\n## Options to Answer');
@@ -51,12 +59,16 @@ function formatAvailabilityDetail(avail: AvailabilityDetail): string {
 
       if (answered.length) {
         sections.push('\n## Confirmed Selections');
-        answered.forEach((opt) => sections.push(`- ${opt.label}: ${opt.answerFormattedText ?? opt.answerValue}`));
+        answered.forEach((opt) =>
+          sections.push(`- ${opt.label}: ${opt.answerFormattedText ?? opt.answerValue}`)
+        );
       }
     }
 
     if (isComplete) {
-      sections.push('\n**Options complete!** Next: use `get_slot_pricing` to see pricing categories and set participant counts.');
+      sections.push(
+        '\n**Options complete!** Next: use `get_slot_pricing` to see pricing categories and set participant counts.'
+      );
     }
   }
 
@@ -64,11 +76,13 @@ function formatAvailabilityDetail(avail: AvailabilityDetail): string {
     sections.push('\n## Pricing Categories');
     avail.pricingCategoryList.nodes.forEach((cat) => {
       const parts = [`- **${cat.label}** (ID: \`${cat.id}\`)`];
-      if (cat.unitPrice?.grossFormattedText) parts.push(`  Unit price: ${cat.unitPrice.grossFormattedText}`);
+      if (cat.unitPrice?.grossFormattedText)
+        parts.push(`  Unit price: ${cat.unitPrice.grossFormattedText}`);
       parts.push(`  Units: ${cat.units}`);
       if (cat.minParticipants != null) parts.push(`  Min: ${cat.minParticipants}`);
       if (cat.maxParticipants != null) parts.push(`  Max: ${cat.maxParticipants}`);
-      if (cat.totalPrice?.grossFormattedText) parts.push(`  Total: ${cat.totalPrice.grossFormattedText}`);
+      if (cat.totalPrice?.grossFormattedText)
+        parts.push(`  Total: ${cat.totalPrice.grossFormattedText}`);
       sections.push(parts.join('\n'));
     });
   }
@@ -80,7 +94,9 @@ function formatAvailabilityDetail(avail: AvailabilityDetail): string {
     sections.push(`**Valid for booking:** ${avail.isValid ? 'YES' : 'NO'}`);
   }
   if (avail.isValid) {
-    sections.push('\n**Ready to book!** Use `create_booking` then `add_to_booking` with this slot ID.');
+    sections.push(
+      '\n**Ready to book!** Use `create_booking` then `add_to_booking` with this slot ID.'
+    );
   }
 
   return sections.join('\n');
@@ -92,24 +108,26 @@ function availabilityToStructured(avail: AvailabilityDetail) {
     date: avail.date,
     startTime: avail.startTime ?? undefined,
     optionsComplete: avail.optionList?.isComplete ?? false,
-    options: avail.optionList?.nodes?.map((opt) => ({
-      id: opt.id,
-      label: opt.label,
-      dataType: opt.dataType ?? undefined,
-      answered: opt.answerValue != null && opt.answerValue !== '',
-      answerValue: opt.answerValue ?? undefined,
-      answerText: opt.answerFormattedText ?? opt.answerValue ?? undefined,
-      choices: opt.availableOptions?.map((c) => ({ value: c.value, label: c.label })) ?? [],
-    })) ?? [],
-    pricingCategories: avail.pricingCategoryList?.nodes?.map((cat) => ({
-      id: cat.id,
-      label: cat.label,
-      unitPrice: cat.unitPrice?.grossFormattedText ?? undefined,
-      units: cat.units ?? 0,
-      min: cat.minParticipants ?? undefined,
-      max: cat.maxParticipants ?? undefined,
-      totalPrice: cat.totalPrice?.grossFormattedText ?? undefined,
-    })) ?? [],
+    options:
+      avail.optionList?.nodes?.map((opt) => ({
+        id: opt.id,
+        label: opt.label,
+        dataType: opt.dataType ?? undefined,
+        answered: opt.answerValue != null && opt.answerValue !== '',
+        answerValue: opt.answerValue ?? undefined,
+        answerText: opt.answerFormattedText ?? opt.answerValue ?? undefined,
+        choices: opt.availableOptions?.map((c) => ({ value: c.value, label: c.label })) ?? [],
+      })) ?? [],
+    pricingCategories:
+      avail.pricingCategoryList?.nodes?.map((cat) => ({
+        id: cat.id,
+        label: cat.label,
+        unitPrice: cat.unitPrice?.grossFormattedText ?? undefined,
+        units: cat.units ?? 0,
+        min: cat.minParticipants ?? undefined,
+        max: cat.maxParticipants ?? undefined,
+        totalPrice: cat.totalPrice?.grossFormattedText ?? undefined,
+      })) ?? [],
     totalPrice: avail.totalPrice?.grossFormattedText ?? undefined,
     isValid: avail.isValid ?? false,
   };
@@ -121,7 +139,8 @@ export function registerAvailabilityTools(server: McpServer, client: HolibobClie
     'check_availability',
     {
       title: 'Check Availability',
-      description: 'Check which dates an experience is available within a date range. Use this when the user has already selected an experience and wants to book it — do NOT search again. Ask the user for their preferred dates first, then call this tool. Returns date slots with guide prices. After picking a slot, use `get_slot_options` to configure it before booking.',
+      description:
+        'Check which dates an experience is available within a date range. Use this when the user has already selected an experience and wants to book it — do NOT search again. Ask the user for their preferred dates first, then call this tool. Returns date slots with guide prices. After picking a slot, use `get_slot_options` to configure it before booking.',
       inputSchema: {
         experienceId: z.string().describe('The experience ID to check availability for'),
         dateFrom: z.string().describe('Start date in YYYY-MM-DD format'),
@@ -139,7 +158,9 @@ export function registerAvailabilityTools(server: McpServer, client: HolibobClie
       if (result.nodes.length) {
         sections.push(`## Available Dates (${result.nodes.length})\n`);
         result.nodes.forEach((slot) => sections.push(formatSlot(slot)));
-        sections.push('\n**Next step:** Pick a slot ID above and use `get_slot_options` to see what options need configuring (time slot, variant, etc.) before booking.');
+        sections.push(
+          '\n**Next step:** Pick a slot ID above and use `get_slot_options` to see what options need configuring (time slot, variant, etc.) before booking.'
+        );
       } else {
         sections.push('No available dates found in this range. Try different dates.');
       }
@@ -170,7 +191,8 @@ export function registerAvailabilityTools(server: McpServer, client: HolibobClie
     'get_slot_options',
     {
       title: 'Slot Options',
-      description: 'Get the configuration options for an availability slot (time slots, variants, language, etc.). Shows what needs answering before the slot can be added to a booking. If options are already complete, proceed to `get_slot_pricing`.',
+      description:
+        'Get the configuration options for an availability slot (time slots, variants, language, etc.). Shows what needs answering before the slot can be added to a booking. If options are already complete, proceed to `get_slot_pricing`.',
       inputSchema: {
         slotId: z.string().describe('The availability slot ID from check_availability'),
       },
@@ -195,15 +217,20 @@ export function registerAvailabilityTools(server: McpServer, client: HolibobClie
     'answer_slot_options',
     {
       title: 'Answer Slot Options',
-      description: 'Answer configuration options for an availability slot (e.g., select time, variant, language). Call iteratively until "Options complete: YES". IMPORTANT: After options are complete you MUST call `get_slot_pricing` and then `set_slot_pricing` before the slot can be added to a booking.',
+      description:
+        'Answer configuration options for an availability slot (e.g., select time, variant, language). Call iteratively until "Options complete: YES". IMPORTANT: After options are complete you MUST call `get_slot_pricing` and then `set_slot_pricing` before the slot can be added to a booking.',
       inputSchema: {
         slotId: z.string().describe('The availability slot ID'),
-        options: z.array(
-          z.object({
-            id: z.string().describe('Option ID from get_slot_options'),
-            value: z.string().describe('The selected value — use a value from "Available choices" if listed'),
-          })
-        ).describe('Array of option answers'),
+        options: z
+          .array(
+            z.object({
+              id: z.string().describe('Option ID from get_slot_options'),
+              value: z
+                .string()
+                .describe('The selected value — use a value from "Available choices" if listed'),
+            })
+          )
+          .describe('Array of option answers'),
       },
       _meta: {},
     },
@@ -228,7 +255,8 @@ export function registerAvailabilityTools(server: McpServer, client: HolibobClie
     'get_slot_pricing',
     {
       title: 'Slot Pricing',
-      description: 'Get pricing categories for a fully configured availability slot (options must be complete first). Shows participant types (Adult, Child, etc.) with prices and min/max units. Use `set_slot_pricing` to set units.',
+      description:
+        'Get pricing categories for a fully configured availability slot (options must be complete first). Shows participant types (Adult, Child, etc.) with prices and min/max units. Use `set_slot_pricing` to set units.',
       inputSchema: {
         slotId: z.string().describe('The availability slot ID (must have options complete)'),
       },
@@ -240,7 +268,12 @@ export function registerAvailabilityTools(server: McpServer, client: HolibobClie
         content: [{ type: 'text' as const, text: formatAvailabilityDetail(avail) }],
         structuredContent: {
           ...availabilityToStructured(avail),
-          nextActions: [{ tool: 'set_slot_pricing', reason: 'Set participant counts for each pricing category' }] as NextAction[],
+          nextActions: [
+            {
+              tool: 'set_slot_pricing',
+              reason: 'Set participant counts for each pricing category',
+            },
+          ] as NextAction[],
         },
       };
     }
@@ -251,23 +284,36 @@ export function registerAvailabilityTools(server: McpServer, client: HolibobClie
     'set_slot_pricing',
     {
       title: 'Set Pricing',
-      description: 'Set the number of participants for each pricing category (e.g., 2 Adults, 1 Child). This is REQUIRED before adding to a booking. After setting units, check isValid — only when isValid=true can you call `create_booking` then `add_to_booking`.',
+      description:
+        'Set the number of participants for each pricing category (e.g., 2 Adults, 1 Child). This is REQUIRED before adding to a booking. After setting units, check isValid — only when isValid=true can you call `create_booking` then `add_to_booking`.',
       inputSchema: {
         slotId: z.string().describe('The availability slot ID'),
-        pricingCategories: z.array(
-          z.object({
-            id: z.string().describe('Pricing category ID from get_slot_pricing'),
-            units: z.number().describe('Number of participants/units for this category'),
-          })
-        ).describe('Array of pricing category selections'),
+        pricingCategories: z
+          .array(
+            z.object({
+              id: z.string().describe('Pricing category ID from get_slot_pricing'),
+              units: z.number().describe('Number of participants/units for this category'),
+            })
+          )
+          .describe('Array of pricing category selections'),
       },
       _meta: {},
     },
     async ({ slotId, pricingCategories }) => {
       const avail = await client.setAvailabilityPricing(slotId, pricingCategories);
       const nextActions: NextAction[] = avail.isValid
-        ? [{ tool: 'create_booking', reason: 'Slot is valid — create a booking basket then add this slot' }]
-        : [{ tool: 'set_slot_pricing', reason: 'Adjust participant counts — current selection is not valid' }];
+        ? [
+            {
+              tool: 'create_booking',
+              reason: 'Slot is valid — create a booking basket then add this slot',
+            },
+          ]
+        : [
+            {
+              tool: 'set_slot_pricing',
+              reason: 'Adjust participant counts — current selection is not valid',
+            },
+          ];
 
       return {
         content: [{ type: 'text' as const, text: formatAvailabilityDetail(avail) }],
@@ -282,39 +328,51 @@ export function registerAvailabilityTools(server: McpServer, client: HolibobClie
     'configure_and_quote',
     {
       title: 'Configure & Quote',
-      description: 'Composite tool: configure slot options AND set pricing in one call. Completes any remaining option selections, then sets participant counts. Use this instead of calling answer_slot_options → get_slot_pricing → set_slot_pricing separately.',
+      description:
+        'Composite tool: configure slot options AND set pricing in one call. Completes any remaining option selections, then sets participant counts. Use this instead of calling answer_slot_options → get_slot_pricing → set_slot_pricing separately.',
       inputSchema: {
         slotId: z.string().describe('The availability slot ID'),
-        options: z.array(
-          z.object({
-            id: z.string().describe('Option ID'),
-            value: z.string().describe('Selected value'),
-          })
-        ).optional().describe('Option answers (if any still need answering)'),
-        pricingCategories: z.array(
-          z.object({
-            id: z.string().describe('Pricing category ID'),
-            units: z.number().describe('Number of participants'),
-          })
-        ).optional().describe('Participant counts per pricing category'),
+        options: z
+          .array(
+            z.object({
+              id: z.string().describe('Option ID'),
+              value: z.string().describe('Selected value'),
+            })
+          )
+          .optional()
+          .describe('Option answers (if any still need answering)'),
+        pricingCategories: z
+          .array(
+            z.object({
+              id: z.string().describe('Pricing category ID'),
+              units: z.number().describe('Number of participants'),
+            })
+          )
+          .optional()
+          .describe('Participant counts per pricing category'),
       },
       _meta: {},
     },
     async ({ slotId, options, pricingCategories }) => {
       try {
         // Step 1: Complete options (iteratively if needed)
-        let avail = await client.completeAvailabilityOptions(
-          slotId,
-          options ?? []
-        );
+        let avail = await client.completeAvailabilityOptions(slotId, options ?? []);
 
         if (!avail.optionList?.isComplete) {
           // Options still incomplete — return what's needed
           const nextActions: NextAction[] = [
-            { tool: 'answer_slot_options', reason: 'More options need answering before pricing can be set' },
+            {
+              tool: 'answer_slot_options',
+              reason: 'More options need answering before pricing can be set',
+            },
           ];
           return {
-            content: [{ type: 'text' as const, text: `Options still incomplete.\n\n${formatAvailabilityDetail(avail)}` }],
+            content: [
+              {
+                type: 'text' as const,
+                text: `Options still incomplete.\n\n${formatAvailabilityDetail(avail)}`,
+              },
+            ],
             structuredContent: { ...availabilityToStructured(avail), nextActions },
           };
         }
@@ -328,10 +386,25 @@ export function registerAvailabilityTools(server: McpServer, client: HolibobClie
         }
 
         const nextActions: NextAction[] = avail.isValid
-          ? [{ tool: 'create_booking', reason: 'Slot is valid — create a booking basket then add this slot' }]
+          ? [
+              {
+                tool: 'create_booking',
+                reason: 'Slot is valid — create a booking basket then add this slot',
+              },
+            ]
           : pricingCategories?.length
-            ? [{ tool: 'set_slot_pricing', reason: 'Adjust participant counts — current selection is not valid' }]
-            : [{ tool: 'set_slot_pricing', reason: 'Set participant counts for each pricing category' }];
+            ? [
+                {
+                  tool: 'set_slot_pricing',
+                  reason: 'Adjust participant counts — current selection is not valid',
+                },
+              ]
+            : [
+                {
+                  tool: 'set_slot_pricing',
+                  reason: 'Set participant counts for each pricing category',
+                },
+              ];
 
         return {
           content: [{ type: 'text' as const, text: formatAvailabilityDetail(avail) }],
@@ -340,7 +413,9 @@ export function registerAvailabilityTools(server: McpServer, client: HolibobClie
       } catch (error) {
         const structured = classifyError(error, { slotId });
         return {
-          content: [{ type: 'text' as const, text: `Error configuring slot: ${structured.message}` }],
+          content: [
+            { type: 'text' as const, text: `Error configuring slot: ${structured.message}` },
+          ],
           structuredContent: { error: structured, nextActions: structured.nextActions },
           isError: true,
         };

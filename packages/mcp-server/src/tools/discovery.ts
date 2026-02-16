@@ -11,11 +11,14 @@ function formatProduct(p: Product): string {
   lines.push(`**${p.name}** (ID: ${p.id})`);
 
   const price =
-    p.guidePriceFormattedText || p.priceFromFormatted || (p.guidePrice ? `${p.guidePriceCurrency ?? 'GBP'} ${p.guidePrice}` : null);
+    p.guidePriceFormattedText ||
+    p.priceFromFormatted ||
+    (p.guidePrice ? `${p.guidePriceCurrency ?? 'GBP'} ${p.guidePrice}` : null);
   if (price) lines.push(`  Price: ${price}`);
 
   const rating = p.reviewRating ?? p.rating;
-  if (rating) lines.push(`  Rating: ${rating}/5${p.reviewCount ? ` (${p.reviewCount} reviews)` : ''}`);
+  if (rating)
+    lines.push(`  Rating: ${rating}/5${p.reviewCount ? ` (${p.reviewCount} reviews)` : ''}`);
 
   if (p.shortDescription) lines.push(`  ${p.shortDescription}`);
 
@@ -29,7 +32,9 @@ function formatProduct(p: Product): string {
 
 function productToStructured(p: Product) {
   const price =
-    p.guidePriceFormattedText || p.priceFromFormatted || (p.guidePrice ? `${p.guidePriceCurrency ?? 'GBP'} ${p.guidePrice}` : null);
+    p.guidePriceFormattedText ||
+    p.priceFromFormatted ||
+    (p.guidePrice ? `${p.guidePriceCurrency ?? 'GBP'} ${p.guidePrice}` : null);
   const rating = p.reviewRating ?? p.rating;
   const imgUrl = p.primaryImageUrl ?? p.imageUrl ?? p.imageList?.[0]?.url;
 
@@ -55,14 +60,17 @@ function formatProductDetails(p: Product): string {
   if (p.description) sections.push(`\n## Description\n${p.description}`);
 
   const price =
-    p.guidePriceFormattedText || (p.guidePrice ? `${p.guidePriceCurrency ?? 'GBP'} ${p.guidePrice}` : null);
+    p.guidePriceFormattedText ||
+    (p.guidePrice ? `${p.guidePriceCurrency ?? 'GBP'} ${p.guidePrice}` : null);
   if (price) sections.push(`**Price:** ${price}`);
 
   const rating = p.reviewRating ?? p.rating;
-  if (rating) sections.push(`**Rating:** ${rating}/5${p.reviewCount ? ` (${p.reviewCount} reviews)` : ''}`);
+  if (rating)
+    sections.push(`**Rating:** ${rating}/5${p.reviewCount ? ` (${p.reviewCount} reviews)` : ''}`);
 
   if (p.place?.name) sections.push(`**Location:** ${p.place.name}`);
-  if (p.startPlace?.formattedAddress) sections.push(`**Meeting Point:** ${p.startPlace.formattedAddress}`);
+  if (p.startPlace?.formattedAddress)
+    sections.push(`**Meeting Point:** ${p.startPlace.formattedAddress}`);
 
   if (p.contentList?.nodes) {
     const highlights = p.contentList.nodes.filter((n) => n.type === 'HIGHLIGHT');
@@ -110,7 +118,9 @@ function formatProductDetails(p: Product): string {
   if (p.reviewList?.nodes?.length) {
     sections.push(`\n## Reviews (${p.reviewList.recordCount ?? p.reviewList.nodes.length} total)`);
     p.reviewList.nodes.slice(0, 3).forEach((r) => {
-      sections.push(`- **${r.authorName ?? 'Anonymous'}** (${r.rating}/5): ${r.content ?? r.title ?? ''}`);
+      sections.push(
+        `- **${r.authorName ?? 'Anonymous'}** (${r.rating}/5): ${r.content ?? r.title ?? ''}`
+      );
     });
   }
 
@@ -136,33 +146,51 @@ function formatProductDetails(p: Product): string {
 
 function productToDetailStructured(p: Product) {
   const price =
-    p.guidePriceFormattedText || (p.guidePrice ? `${p.guidePriceCurrency ?? 'GBP'} ${p.guidePrice}` : null);
+    p.guidePriceFormattedText ||
+    (p.guidePrice ? `${p.guidePriceCurrency ?? 'GBP'} ${p.guidePrice}` : null);
   const rating = p.reviewRating ?? p.rating;
   const imgUrl = p.primaryImageUrl ?? p.imageUrl ?? p.imageList?.[0]?.url;
 
-  const highlights = p.contentList?.nodes?.filter((n) => n.type === 'HIGHLIGHT').map((h) => h.name || h.description || '') ?? [];
-  const inclusions = p.contentList?.nodes?.filter((n) => n.type === 'INCLUSION').map((i) => i.name || i.description || '') ?? [];
-  const exclusions = p.contentList?.nodes?.filter((n) => n.type === 'EXCLUSION').map((e) => e.name || e.description || '') ?? [];
+  const highlights =
+    p.contentList?.nodes
+      ?.filter((n) => n.type === 'HIGHLIGHT')
+      .map((h) => h.name || h.description || '') ?? [];
+  const inclusions =
+    p.contentList?.nodes
+      ?.filter((n) => n.type === 'INCLUSION')
+      .map((i) => i.name || i.description || '') ?? [];
+  const exclusions =
+    p.contentList?.nodes
+      ?.filter((n) => n.type === 'EXCLUSION')
+      .map((e) => e.name || e.description || '') ?? [];
 
-  const reviews = p.reviewList?.nodes?.slice(0, 5).map((r) => ({
-    author: r.authorName ?? 'Anonymous',
-    rating: r.rating,
-    text: r.content ?? r.title ?? '',
-  })) ?? [];
+  const reviews =
+    p.reviewList?.nodes?.slice(0, 5).map((r) => ({
+      author: r.authorName ?? 'Anonymous',
+      rating: r.rating,
+      text: r.content ?? r.title ?? '',
+    })) ?? [];
 
-  const images = p.imageList?.slice(0, 6).map((img) => ({
-    url: img.url,
-    alt: img.altText ?? undefined,
-  })) ?? [];
+  const images =
+    p.imageList?.slice(0, 6).map((img) => ({
+      url: img.url,
+      alt: img.altText ?? undefined,
+    })) ?? [];
 
   let cancellationPolicy: string | undefined;
   if (p.cancellationPolicy?.penaltyList?.nodes?.length) {
-    cancellationPolicy = p.cancellationPolicy.penaltyList.nodes.map((pen) => pen.formattedText).filter(Boolean).join('; ');
+    cancellationPolicy = p.cancellationPolicy.penaltyList.nodes
+      .map((pen) => pen.formattedText)
+      .filter(Boolean)
+      .join('; ');
   } else if (p.cancellationPolicy?.description) {
     cancellationPolicy = p.cancellationPolicy.description;
   }
 
-  const languages = p.guideLanguageList?.nodes?.map((l) => l.name).filter(Boolean).join(', ');
+  const languages = p.guideLanguageList?.nodes
+    ?.map((l) => l.name)
+    .filter(Boolean)
+    .join(', ');
 
   return {
     id: p.id,
@@ -199,13 +227,22 @@ export function registerDiscoveryTools(server: McpServer, client: HolibobClient)
     'search_experiences',
     {
       title: 'Search Experiences',
-      description: 'Search for experiences and activities by destination, dates, and interests. Returns a list of available experiences with pricing and ratings.',
+      description:
+        'Search for experiences and activities by destination, dates, and interests. Returns a list of available experiences with pricing and ratings.',
       inputSchema: {
-        destination: z.string().describe('Destination to search (e.g., "Barcelona, Spain", "London, England")'),
+        destination: z
+          .string()
+          .describe('Destination to search (e.g., "Barcelona, Spain", "London, England")'),
         startDate: z.string().optional().describe('Start date in YYYY-MM-DD format'),
         endDate: z.string().optional().describe('End date in YYYY-MM-DD format'),
-        travelers: z.string().optional().describe('Number of travelers (e.g., "2 adults, 1 child")'),
-        searchTerm: z.string().optional().describe('Activity search term (e.g., "kayaking", "food tour", "museum")'),
+        travelers: z
+          .string()
+          .optional()
+          .describe('Number of travelers (e.g., "2 adults, 1 child")'),
+        searchTerm: z
+          .string()
+          .optional()
+          .describe('Activity search term (e.g., "kayaking", "food tour", "museum")'),
       },
       _meta: WIDGET_META,
     },
@@ -234,12 +271,19 @@ export function registerDiscoveryTools(server: McpServer, client: HolibobClient)
 
       if (!result.products.length) {
         return {
-          content: [{ type: 'text' as const, text: `No experiences found for "${destination}"${searchTerm ? ` matching "${searchTerm}"` : ''}. Try a different destination or broader search terms.` }],
+          content: [
+            {
+              type: 'text' as const,
+              text: `No experiences found for "${destination}"${searchTerm ? ` matching "${searchTerm}"` : ''}. Try a different destination or broader search terms.`,
+            },
+          ],
           structuredContent: {
             experiences: [],
             destination,
             hasMore: false,
-            nextActions: [{ tool: 'search_experiences', reason: 'Try different search terms or destination' }] as NextAction[],
+            nextActions: [
+              { tool: 'search_experiences', reason: 'Try different search terms or destination' },
+            ] as NextAction[],
           },
         };
       }
@@ -258,7 +302,12 @@ export function registerDiscoveryTools(server: McpServer, client: HolibobClient)
             what: searchTerm ?? null,
             who: travelers ?? null,
           },
-          nextActions: [{ tool: 'get_experience_details', reason: 'Get full details for an experience the user is interested in' }] as NextAction[],
+          nextActions: [
+            {
+              tool: 'get_experience_details',
+              reason: 'Get full details for an experience the user is interested in',
+            },
+          ] as NextAction[],
         },
       };
     }
@@ -269,7 +318,8 @@ export function registerDiscoveryTools(server: McpServer, client: HolibobClient)
     'get_experience_details',
     {
       title: 'Experience Details',
-      description: 'Get full details for a specific experience including description, highlights, inclusions, exclusions, reviews, cancellation policy, and images.',
+      description:
+        'Get full details for a specific experience including description, highlights, inclusions, exclusions, reviews, cancellation policy, and images.',
       inputSchema: {
         experienceId: z.string().describe('The experience ID from search results'),
       },
@@ -288,7 +338,9 @@ export function registerDiscoveryTools(server: McpServer, client: HolibobClient)
         content: [{ type: 'text' as const, text: formatProductDetails(product) }],
         structuredContent: {
           experience: productToDetailStructured(product),
-          nextActions: [{ tool: 'check_availability', reason: 'Check available dates to book this experience' }] as NextAction[],
+          nextActions: [
+            { tool: 'check_availability', reason: 'Check available dates to book this experience' },
+          ] as NextAction[],
         },
       };
     }
@@ -300,7 +352,8 @@ export function registerDiscoveryTools(server: McpServer, client: HolibobClient)
     'get_suggestions',
     {
       title: 'Get Suggestions',
-      description: 'Get destination and activity suggestions based on partial input. Useful for helping users refine their search.',
+      description:
+        'Get destination and activity suggestions based on partial input. Useful for helping users refine their search.',
       inputSchema: {
         destination: z.string().optional().describe('Partial destination name'),
         searchTerm: z.string().optional().describe('Partial activity or interest'),
@@ -315,7 +368,8 @@ export function registerDiscoveryTools(server: McpServer, client: HolibobClient)
       });
 
       const parts: string[] = [];
-      if (suggestions.destination) parts.push(`**Selected destination:** ${suggestions.destination.name}`);
+      if (suggestions.destination)
+        parts.push(`**Selected destination:** ${suggestions.destination.name}`);
       if (suggestions.destinations.length) {
         parts.push('\n**Suggested destinations:**');
         suggestions.destinations.forEach((d) => parts.push(`- ${d.name}`));
@@ -330,7 +384,11 @@ export function registerDiscoveryTools(server: McpServer, client: HolibobClient)
       }
 
       if (!parts.length) {
-        return { content: [{ type: 'text' as const, text: 'No suggestions found. Try a different search.' }] };
+        return {
+          content: [
+            { type: 'text' as const, text: 'No suggestions found. Try a different search.' },
+          ],
+        };
       }
 
       return { content: [{ type: 'text' as const, text: parts.join('\n') }] };
@@ -342,7 +400,8 @@ export function registerDiscoveryTools(server: McpServer, client: HolibobClient)
     'load_more_experiences',
     {
       title: 'Load More Experiences',
-      description: 'Load more experiences beyond the initial search results. Pass the IDs of experiences already seen to get new ones.',
+      description:
+        'Load more experiences beyond the initial search results. Pass the IDs of experiences already seen to get new ones.',
       inputSchema: {
         destination: z.string().describe('The destination from the original search'),
         startDate: z.string().optional().describe('Start date in YYYY-MM-DD format'),
@@ -366,7 +425,9 @@ export function registerDiscoveryTools(server: McpServer, client: HolibobClient)
 
       if (!result.products.length) {
         return {
-          content: [{ type: 'text' as const, text: 'No more experiences available for this search.' }],
+          content: [
+            { type: 'text' as const, text: 'No more experiences available for this search.' },
+          ],
           structuredContent: { experiences: [], destination, hasMore: false },
         };
       }
@@ -390,12 +451,33 @@ export function registerDiscoveryTools(server: McpServer, client: HolibobClient)
     'plan_trip',
     {
       title: 'Plan Trip',
-      description: 'Show an interactive trip planner. Use at the start of a conversation or when the user wants to explore experiences. IMPORTANT: Extract ALL known preferences from the user message and pass them as parameters. For example, if the user says "walking tours for families in London", set knownDestination="London", knownWhat="Walking Tours", knownWho="Family with Kids". Always pre-fill any information the user has already provided.',
+      description:
+        'Show an interactive trip planner. Use at the start of a conversation or when the user wants to explore experiences. IMPORTANT: Extract ALL known preferences from the user message and pass them as parameters. For example, if the user says "walking tours for families in London", set knownDestination="London", knownWhat="Walking Tours", knownWho="Family with Kids". Always pre-fill any information the user has already provided.',
       inputSchema: {
-        knownDestination: z.string().optional().describe('ALWAYS set this if user mentions a destination/city/country (e.g., "London", "Paris")'),
-        knownWhen: z.string().optional().describe('ALWAYS set this if user mentions timing (e.g., "This Weekend", "Tomorrow", "Next Week")'),
-        knownWho: z.string().optional().describe('ALWAYS set this if user mentions group type. Map to: "Solo Traveller", "Couple", "Family with Kids", or "Group of Friends"'),
-        knownWhat: z.string().optional().describe('ALWAYS set this if user mentions activity type (e.g., "Walking Tours", "Food & Drink", "Museums")'),
+        knownDestination: z
+          .string()
+          .optional()
+          .describe(
+            'ALWAYS set this if user mentions a destination/city/country (e.g., "London", "Paris")'
+          ),
+        knownWhen: z
+          .string()
+          .optional()
+          .describe(
+            'ALWAYS set this if user mentions timing (e.g., "This Weekend", "Tomorrow", "Next Week")'
+          ),
+        knownWho: z
+          .string()
+          .optional()
+          .describe(
+            'ALWAYS set this if user mentions group type. Map to: "Solo Traveller", "Couple", "Family with Kids", or "Group of Friends"'
+          ),
+        knownWhat: z
+          .string()
+          .optional()
+          .describe(
+            'ALWAYS set this if user mentions activity type (e.g., "Walking Tours", "Food & Drink", "Museums")'
+          ),
       },
       _meta: WIDGET_META,
     },
@@ -423,7 +505,12 @@ export function registerDiscoveryTools(server: McpServer, client: HolibobClient)
       };
 
       return {
-        content: [{ type: 'text' as const, text: 'Trip planner opened. The user can select their preferences using the interactive widget.' }],
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Trip planner opened. The user can select their preferences using the interactive widget.',
+          },
+        ],
         structuredContent: {
           suggestions: {
             destinations: suggestions.destinations,

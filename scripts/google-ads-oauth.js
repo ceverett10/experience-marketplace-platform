@@ -21,7 +21,9 @@ const SCOPE = 'https://www.googleapis.com/auth/adwords';
 if (!CLIENT_ID || !CLIENT_SECRET) {
   console.error('Missing GOOGLE_ADS_CLIENT_ID or GOOGLE_ADS_CLIENT_SECRET env vars.');
   console.error('Set them first, or run:');
-  console.error('  eval $(heroku config -s --app holibob-experiences-demand-gen | grep GOOGLE_ADS)');
+  console.error(
+    '  eval $(heroku config -s --app holibob-experiences-demand-gen | grep GOOGLE_ADS)'
+  );
   process.exit(1);
 }
 
@@ -53,7 +55,9 @@ const server = http.createServer(async (req, res) => {
         console.log(`GOOGLE_ADS_REFRESH_TOKEN=${tokens.refresh_token}`);
         console.log(`\nAccess Token (temporary): ${tokens.access_token?.substring(0, 30)}...`);
         console.log(`\nSet this on Heroku with:`);
-        console.log(`  heroku config:set GOOGLE_ADS_REFRESH_TOKEN="${tokens.refresh_token}" --app holibob-experiences-demand-gen`);
+        console.log(
+          `  heroku config:set GOOGLE_ADS_REFRESH_TOKEN="${tokens.refresh_token}" --app holibob-experiences-demand-gen`
+        );
 
         res.writeHead(200, { 'Content-Type': 'text/html' });
         res.end(`
@@ -66,7 +70,9 @@ const server = http.createServer(async (req, res) => {
       } else {
         console.error('\n❌ No refresh token received:', tokens);
         res.writeHead(400, { 'Content-Type': 'text/html' });
-        res.end(`<html><body><h1>Error</h1><pre>${JSON.stringify(tokens, null, 2)}</pre></body></html>`);
+        res.end(
+          `<html><body><h1>Error</h1><pre>${JSON.stringify(tokens, null, 2)}</pre></body></html>`
+        );
       }
     } catch (err) {
       console.error('\n❌ Token exchange failed:', err);
@@ -92,7 +98,8 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(8089, () => {
-  const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
+  const authUrl =
+    `https://accounts.google.com/o/oauth2/v2/auth?` +
     `client_id=${encodeURIComponent(CLIENT_ID)}` +
     `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
     `&response_type=code` +
@@ -106,7 +113,7 @@ server.listen(8089, () => {
   console.log(`If it doesn't open automatically, visit:\n${authUrl}\n`);
 
   // Open browser
-  const openCmd = process.platform === 'darwin' ? 'open' :
-                  process.platform === 'win32' ? 'start' : 'xdg-open';
+  const openCmd =
+    process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open';
   exec(`${openCmd} "${authUrl}"`);
 });

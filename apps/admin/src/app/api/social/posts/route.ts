@@ -69,7 +69,10 @@ export async function POST(request: Request) {
       });
 
       // Queue publish job
-      await addJob('SOCIAL_POST_PUBLISH' as any, { socialPostId: String(body.socialPostId) } as any);
+      await addJob(
+        'SOCIAL_POST_PUBLISH' as any,
+        { socialPostId: String(body.socialPostId) } as any
+      );
 
       return NextResponse.json({
         success: true,
@@ -79,11 +82,14 @@ export async function POST(request: Request) {
 
     if (body.siteId && body.platform) {
       // Generate new post
-      await addJob('SOCIAL_POST_GENERATE' as any, {
-        siteId: String(body.siteId),
-        platform: String(body.platform),
-        pageId: body.pageId ? String(body.pageId) : undefined,
-      } as any);
+      await addJob(
+        'SOCIAL_POST_GENERATE' as any,
+        {
+          siteId: String(body.siteId),
+          platform: String(body.platform),
+          pageId: body.pageId ? String(body.pageId) : undefined,
+        } as any
+      );
 
       return NextResponse.json({
         success: true,

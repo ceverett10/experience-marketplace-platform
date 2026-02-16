@@ -53,7 +53,13 @@ export async function GET(request: NextRequest) {
       currency,
       skip,
       limit,
-      sort_by: sortBy as 'relevance' | 'price_asc' | 'price_desc' | 'date' | 'popularity' | undefined,
+      sort_by: sortBy as
+        | 'relevance'
+        | 'price_asc'
+        | 'price_desc'
+        | 'date'
+        | 'popularity'
+        | undefined,
     });
 
     const experiences = result.events.map(mapTickittoEventToExperienceListItem);

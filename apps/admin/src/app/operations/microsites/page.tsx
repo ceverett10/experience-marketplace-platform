@@ -189,7 +189,10 @@ export default function MicrositesPage() {
             const stats = data.summary[type];
             const labels: Record<string, { title: string; subtitle: string }> = {
               SUPPLIER: { title: 'Supplier', subtitle: 'From Holibob suppliers' },
-              OPPORTUNITY: { title: 'Opportunity', subtitle: 'From SEO opportunities (score 50-69)' },
+              OPPORTUNITY: {
+                title: 'Opportunity',
+                subtitle: 'From SEO opportunities (score 50-69)',
+              },
               PRODUCT: { title: 'Product', subtitle: 'Dedicated product pages' },
             };
             const isActive = entityTypeFilter === type;
@@ -209,7 +212,9 @@ export default function MicrositesPage() {
                       <p className="text-sm text-slate-500">{labels[type]!.title}</p>
                       <p className="text-xs text-slate-400">{labels[type]!.subtitle}</p>
                     </div>
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${entityTypeColors[type]}`}>
+                    <span
+                      className={`px-2 py-1 rounded text-xs font-medium ${entityTypeColors[type]}`}
+                    >
                       {type}
                     </span>
                   </div>
@@ -396,9 +401,7 @@ export default function MicrositesPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <div className="text-sm text-slate-900 font-medium">
-                        {ms.keyMetric.value}
-                      </div>
+                      <div className="text-sm text-slate-900 font-medium">{ms.keyMetric.value}</div>
                       <div className="text-xs text-slate-500">{ms.keyMetric.label}</div>
                     </td>
                     <td className="px-4 py-3 text-center">

@@ -44,7 +44,9 @@ export default function PartnersPage() {
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [newKeyDisplay, setNewKeyDisplay] = useState<{ partnerName: string; key: string } | null>(null);
+  const [newKeyDisplay, setNewKeyDisplay] = useState<{ partnerName: string; key: string } | null>(
+    null
+  );
   const [copied, setCopied] = useState(false);
 
   // Form state
@@ -161,10 +163,19 @@ export default function PartnersPage() {
         <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-6">
           <div className="flex items-start justify-between">
             <div>
-              <h3 className="text-lg font-semibold text-emerald-800">Partner Created: {newKeyDisplay.partnerName}</h3>
-              <p className="text-emerald-600 mt-1 text-sm">Copy this MCP API key now. It will not be shown again.</p>
+              <h3 className="text-lg font-semibold text-emerald-800">
+                Partner Created: {newKeyDisplay.partnerName}
+              </h3>
+              <p className="text-emerald-600 mt-1 text-sm">
+                Copy this MCP API key now. It will not be shown again.
+              </p>
             </div>
-            <button onClick={() => setNewKeyDisplay(null)} className="text-emerald-400 hover:text-emerald-600">x</button>
+            <button
+              onClick={() => setNewKeyDisplay(null)}
+              className="text-emerald-400 hover:text-emerald-600"
+            >
+              x
+            </button>
           </div>
           <div className="mt-4 flex items-center gap-3">
             <code className="flex-1 bg-white border border-emerald-300 rounded px-4 py-3 font-mono text-sm text-slate-800 select-all">
@@ -188,7 +199,9 @@ export default function PartnersPage() {
             key={s}
             onClick={() => setStatusFilter(s)}
             className={`px-3 py-1 rounded-full text-sm transition-colors ${
-              statusFilter === s ? 'bg-sky-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              statusFilter === s
+                ? 'bg-sky-600 text-white'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
           >
             {s === 'all' ? 'All' : s.charAt(0) + s.slice(1).toLowerCase()}
@@ -204,7 +217,9 @@ export default function PartnersPage() {
             <form onSubmit={handleCreate} className="space-y-4">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Partner Name *</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Partner Name *
+                  </label>
                   <input
                     type="text"
                     value={formName}
@@ -215,7 +230,9 @@ export default function PartnersPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Contact Email *</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Contact Email *
+                  </label>
                   <input
                     type="email"
                     value={formEmail}
@@ -228,7 +245,9 @@ export default function PartnersPage() {
               </div>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Holibob Partner ID *</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Holibob Partner ID *
+                  </label>
                   <input
                     type="text"
                     value={formPartnerId}
@@ -239,7 +258,9 @@ export default function PartnersPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Payment Model</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Payment Model
+                  </label>
                   <select
                     value={formPaymentModel}
                     onChange={(e) => setFormPaymentModel(e.target.value)}
@@ -252,7 +273,9 @@ export default function PartnersPage() {
               </div>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Holibob API Key *</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Holibob API Key *
+                  </label>
                   <input
                     type="password"
                     value={formApiKey}
@@ -263,7 +286,9 @@ export default function PartnersPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Holibob API Secret (optional)</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Holibob API Secret (optional)
+                  </label>
                   <input
                     type="password"
                     value={formApiSecret}
@@ -301,7 +326,9 @@ export default function PartnersPage() {
         <Card>
           <CardContent className="py-12 text-center">
             <p className="text-slate-500 text-lg">No partners yet</p>
-            <p className="text-slate-400 mt-1">Add a partner to issue MCP API keys for the Holibob booking flow.</p>
+            <p className="text-slate-400 mt-1">
+              Add a partner to issue MCP API keys for the Holibob booking flow.
+            </p>
           </CardContent>
         </Card>
       ) : (
@@ -313,7 +340,9 @@ export default function PartnersPage() {
                   <div className="flex-1">
                     <div className="flex items-center gap-3">
                       <h3 className="text-lg font-semibold text-slate-900">{partner.name}</h3>
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[partner.status] ?? 'bg-slate-100 text-slate-500'}`}>
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[partner.status] ?? 'bg-slate-100 text-slate-500'}`}
+                      >
                         {partner.status}
                       </span>
                       <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-sky-50 text-sky-700">
@@ -323,7 +352,9 @@ export default function PartnersPage() {
                     <div className="mt-2 flex flex-wrap items-center gap-x-6 gap-y-1 text-sm text-slate-500">
                       <span>{partner.contactEmail}</span>
                       <span>Partner ID: {partner.holibobPartnerId}</span>
-                      <span>{partner.activeKeyCount} active key{partner.activeKeyCount !== 1 ? 's' : ''}</span>
+                      <span>
+                        {partner.activeKeyCount} active key{partner.activeKeyCount !== 1 ? 's' : ''}
+                      </span>
                       <span>Created {new Date(partner.createdAt).toLocaleDateString()}</span>
                     </div>
                     {/* Show active keys */}
@@ -332,7 +363,10 @@ export default function PartnersPage() {
                         {partner.mcpApiKeys
                           .filter((k) => k.isActive)
                           .map((k) => (
-                            <span key={k.id} className="inline-flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded px-2 py-1 text-xs font-mono text-slate-600">
+                            <span
+                              key={k.id}
+                              className="inline-flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded px-2 py-1 text-xs font-mono text-slate-600"
+                            >
                               {k.name}: <span className="text-slate-400">{k.key}</span>
                             </span>
                           ))}

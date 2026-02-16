@@ -412,7 +412,8 @@ function buildHomepageTitle(site: SiteConfig): string {
   }
 
   const ctx = site.micrositeContext;
-  const categories = ctx?.supplierCategories ?? site.homepageConfig?.categories?.map((c) => c.name) ?? [];
+  const categories =
+    ctx?.supplierCategories ?? site.homepageConfig?.categories?.map((c) => c.name) ?? [];
   const cities = ctx?.supplierCities ?? site.homepageConfig?.destinations?.map((d) => d.name) ?? [];
   const topCategory = categories[0];
   const topCity = cities[0];
@@ -440,7 +441,8 @@ function buildHomepageDescription(site: SiteConfig): string {
 
   const ctx = site.micrositeContext;
   const count = ctx?.cachedProductCount ?? 0;
-  const categories = ctx?.supplierCategories ?? site.homepageConfig?.categories?.map((c) => c.name) ?? [];
+  const categories =
+    ctx?.supplierCategories ?? site.homepageConfig?.categories?.map((c) => c.name) ?? [];
   const cities = ctx?.supplierCities ?? site.homepageConfig?.destinations?.map((d) => d.name) ?? [];
 
   const parts: string[] = [];
@@ -576,11 +578,14 @@ export default async function HomePage() {
     // OPPORTUNITY microsites with rich homepageConfig → full Site-style homepage
     // These represent global categories (e.g. "small group travel for seniors") with 100K+ products
     // They use Product Discovery API (not Product List by Provider) so they work like main Sites
-    const hasRichConfig = site.micrositeContext.entityType === 'OPPORTUNITY'
-      && site.homepageConfig?.destinations?.length;
+    const hasRichConfig =
+      site.micrositeContext.entityType === 'OPPORTUNITY' &&
+      site.homepageConfig?.destinations?.length;
 
     if (hasRichConfig) {
-      console.log('[Homepage] OPPORTUNITY microsite with rich config — using full Site-style homepage');
+      console.log(
+        '[Homepage] OPPORTUNITY microsite with rich config — using full Site-style homepage'
+      );
       // Fall through to the Site-style homepage rendering below
     } else {
       // SUPPLIER/PRODUCT microsites → CatalogHomepage
@@ -786,8 +791,18 @@ export default async function HomePage() {
             {/* Free Cancellation */}
             <div className="rounded-xl bg-white p-6 shadow-sm">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100">
-                <svg className="h-5 w-5 text-emerald-600" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+                <svg
+                  className="h-5 w-5 text-emerald-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth="1.5"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"
+                  />
                 </svg>
               </div>
               <h3 className="mt-4 text-base font-semibold text-gray-900">Free Cancellation</h3>
@@ -798,8 +813,18 @@ export default async function HomePage() {
             {/* Instant Confirmation */}
             <div className="rounded-xl bg-white p-6 shadow-sm">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100">
-                <svg className="h-5 w-5 text-purple-600" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+                <svg
+                  className="h-5 w-5 text-purple-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth="1.5"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"
+                  />
                 </svg>
               </div>
               <h3 className="mt-4 text-base font-semibold text-gray-900">Instant Confirmation</h3>
@@ -810,8 +835,18 @@ export default async function HomePage() {
             {/* Secure Payments */}
             <div className="rounded-xl bg-white p-6 shadow-sm">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100">
-                <svg className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+                <svg
+                  className="h-5 w-5 text-blue-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth="1.5"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"
+                  />
                 </svg>
               </div>
               <h3 className="mt-4 text-base font-semibold text-gray-900">Secure Payments</h3>
@@ -834,8 +869,18 @@ export default async function HomePage() {
             {/* Verified Reviews */}
             <div className="rounded-xl bg-white p-6 shadow-sm">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-100">
-                <svg className="h-5 w-5 text-teal-600" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.746 3.746 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.746 3.746 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" />
+                <svg
+                  className="h-5 w-5 text-teal-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth="1.5"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.746 3.746 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.746 3.746 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z"
+                  />
                 </svg>
               </div>
               <h3 className="mt-4 text-base font-semibold text-gray-900">Verified Reviews</h3>
@@ -846,8 +891,18 @@ export default async function HomePage() {
             {/* 24/7 Support */}
             <div className="rounded-xl bg-white p-6 shadow-sm">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-rose-100">
-                <svg className="h-5 w-5 text-rose-600" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
+                <svg
+                  className="h-5 w-5 text-rose-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth="1.5"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z"
+                  />
                 </svg>
               </div>
               <h3 className="mt-4 text-base font-semibold text-gray-900">24/7 Customer Support</h3>

@@ -13,8 +13,8 @@ async function main() {
 
   console.log(`\n=== KEYWORD ASSIGNMENT STATUS ===`);
   console.log(`Total PAID_CANDIDATE: ${total}`);
-  console.log(`Assigned to sites: ${assigned} (${Math.round(assigned / total * 100)}%)`);
-  console.log(`Unassigned: ${unassigned} (${Math.round(unassigned / total * 100)}%)`);
+  console.log(`Assigned to sites: ${assigned} (${Math.round((assigned / total) * 100)}%)`);
+  console.log(`Unassigned: ${unassigned} (${Math.round((unassigned / total) * 100)}%)`);
 
   // Show which sites have keywords
   const bySite = await prisma.sEOOpportunity.groupBy({
@@ -62,4 +62,7 @@ async function main() {
   await prisma.$disconnect();
 }
 
-main().catch(e => { console.error(e); process.exit(1); });
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

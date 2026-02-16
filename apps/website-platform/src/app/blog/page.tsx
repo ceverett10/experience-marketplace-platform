@@ -50,9 +50,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 
   // Build title with page number for paginated pages
   const title =
-    currentPage > 1
-      ? `Travel Blog & Guides - Page ${currentPage}`
-      : `Travel Blog & Guides`;
+    currentPage > 1 ? `Travel Blog & Guides - Page ${currentPage}` : `Travel Blog & Guides`;
 
   // OG image fallback chain
   const ogImage = site.brand?.ogImageUrl || site.homepageConfig?.hero?.backgroundImage;

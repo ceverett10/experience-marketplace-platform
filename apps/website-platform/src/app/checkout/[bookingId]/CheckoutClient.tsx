@@ -15,9 +15,18 @@ import {
   type BookingQuestion,
   type BookingAvailability,
 } from '@/lib/booking-flow';
-import { trackBeginCheckout, trackAddPaymentInfo, trackPurchase, trackGoogleAdsConversion } from '@/lib/analytics';
+import {
+  trackBeginCheckout,
+  trackAddPaymentInfo,
+  trackPurchase,
+  trackGoogleAdsConversion,
+} from '@/lib/analytics';
 import { trackMetaPurchase } from '@/components/analytics/MetaPixel';
-import { getProductPricingConfig, calculatePromoPrice, DEFAULT_PRICING_CONFIG } from '@/lib/pricing';
+import {
+  getProductPricingConfig,
+  calculatePromoPrice,
+  DEFAULT_PRICING_CONFIG,
+} from '@/lib/pricing';
 
 interface CheckoutClientProps {
   booking: Booking;
@@ -328,22 +337,27 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
           <div className="lg:col-span-2">
             {/* Error Message */}
             {error && (
-              <div className="mb-6 rounded-xl bg-red-50 p-4 text-sm text-red-600" data-testid="checkout-error">{error}</div>
+              <div
+                className="mb-6 rounded-xl bg-red-50 p-4 text-sm text-red-600"
+                data-testid="checkout-error"
+              >
+                {error}
+              </div>
             )}
 
             {/* Questions Form (if not completed) */}
             {!questionsAnswered && (
               <div data-testid="checkout-questions-step">
-              <QuestionsForm
-                bookingId={initialBooking.id}
-                bookingQuestions={bookingQuestions}
-                availabilities={availabilities}
-                onSubmit={handleQuestionsSubmit}
-                isSubmitting={isSubmitting}
-                primaryColor={primaryColor}
-                totalPrice={booking.totalPrice?.grossFormattedText}
-                isResubmission={submitAttempts > 0}
-              />
+                <QuestionsForm
+                  bookingId={initialBooking.id}
+                  bookingQuestions={bookingQuestions}
+                  availabilities={availabilities}
+                  onSubmit={handleQuestionsSubmit}
+                  isSubmitting={isSubmitting}
+                  primaryColor={primaryColor}
+                  totalPrice={booking.totalPrice?.grossFormattedText}
+                  isResubmission={submitAttempts > 0}
+                />
               </div>
             )}
 
@@ -479,7 +493,11 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
 
                 {/* Payment Section */}
                 {showPayment ? (
-                  <div ref={paymentSectionRef} className="rounded-xl bg-white p-6 shadow-lg" data-testid="checkout-payment-step">
+                  <div
+                    ref={paymentSectionRef}
+                    className="rounded-xl bg-white p-6 shadow-lg"
+                    data-testid="checkout-payment-step"
+                  >
                     <h2 className="mb-4 text-lg font-semibold text-gray-900">Payment</h2>
                     {paymentComplete ? (
                       <div className="flex items-center justify-center py-8">
@@ -579,28 +597,32 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
 
                 <div className="border-t border-gray-200 pt-3">
                   {/* Promotional savings display - uses per-product pricing config */}
-                  {booking.totalPrice?.gross && booking.totalPrice.gross > 0 && (() => {
-                    const productId = firstAvailability?.product?.id;
-                    const pricingConfig = productId ? getProductPricingConfig(productId) : DEFAULT_PRICING_CONFIG;
-                    const promo = calculatePromoPrice(
-                      booking.totalPrice!.grossFormattedText ?? '',
-                      booking.totalPrice!.gross,
-                      booking.totalPrice!.currency ?? 'GBP',
-                      pricingConfig
-                    );
-                    return promo.hasPromo ? (
-                      <div className="mb-2 space-y-1">
-                        <div className="flex items-center justify-between text-sm text-gray-500">
-                          <span>Subtotal</span>
-                          <span className="line-through">{promo.originalFormatted}</span>
+                  {booking.totalPrice?.gross &&
+                    booking.totalPrice.gross > 0 &&
+                    (() => {
+                      const productId = firstAvailability?.product?.id;
+                      const pricingConfig = productId
+                        ? getProductPricingConfig(productId)
+                        : DEFAULT_PRICING_CONFIG;
+                      const promo = calculatePromoPrice(
+                        booking.totalPrice!.grossFormattedText ?? '',
+                        booking.totalPrice!.gross,
+                        booking.totalPrice!.currency ?? 'GBP',
+                        pricingConfig
+                      );
+                      return promo.hasPromo ? (
+                        <div className="mb-2 space-y-1">
+                          <div className="flex items-center justify-between text-sm text-gray-500">
+                            <span>Subtotal</span>
+                            <span className="line-through">{promo.originalFormatted}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-sm font-medium text-emerald-600">
+                            <span>Discount ({pricingConfig.markupPercentage}% off)</span>
+                            <span>-{promo.savingsFormatted}</span>
+                          </div>
                         </div>
-                        <div className="flex items-center justify-between text-sm font-medium text-emerald-600">
-                          <span>Discount ({pricingConfig.markupPercentage}% off)</span>
-                          <span>-{promo.savingsFormatted}</span>
-                        </div>
-                      </div>
-                    ) : null;
-                  })()}
+                      ) : null;
+                    })()}
                   <div className="flex items-center justify-between">
                     <span className="text-base font-semibold text-gray-900">You pay</span>
                     <span className="text-lg font-bold" style={{ color: primaryColor }}>
@@ -654,27 +676,61 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
               <div className="mt-6 space-y-2">
                 <div className="flex flex-wrap items-center justify-center gap-3 text-xs text-gray-500">
                   <div className="flex items-center gap-1">
-                    <svg className="h-4 w-4 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
+                    <svg
+                      className="h-4 w-4 text-emerald-500"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
+                        clipRule="evenodd"
+                      />
                     </svg>
                     Secure booking
                   </div>
                   <div className="flex items-center gap-1">
-                    <svg className="h-4 w-4 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
+                    <svg
+                      className="h-4 w-4 text-emerald-500"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
+                        clipRule="evenodd"
+                      />
                     </svg>
                     Instant confirmation
                   </div>
                   <div className="flex items-center gap-1">
-                    <svg className="h-4 w-4 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
+                    <svg
+                      className="h-4 w-4 text-emerald-500"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
+                        clipRule="evenodd"
+                      />
                     </svg>
                     Money-back guarantee
                   </div>
                 </div>
                 <div className="flex items-center justify-center gap-1.5 text-xs text-gray-400">
-                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                  <svg
+                    className="h-3.5 w-3.5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth="1.5"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
+                    />
                   </svg>
                   Secured by Stripe
                 </div>

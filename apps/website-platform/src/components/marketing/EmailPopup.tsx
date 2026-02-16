@@ -170,10 +170,7 @@ export function EmailPopup({ prizeDrawId }: EmailPopupProps) {
         </button>
 
         {/* Header with prize icon */}
-        <div
-          className="px-6 py-8 text-center text-white"
-          style={{ backgroundColor: primaryColor }}
-        >
+        <div className="px-6 py-8 text-center text-white" style={{ backgroundColor: primaryColor }}>
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-white/20">
             <svg className="h-8 w-8" fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />

@@ -96,12 +96,15 @@ export async function POST(request: Request) {
     if (!metaPixelId && !googleAdsId) {
       metaPixelId = process.env['META_PIXEL_ID'] || undefined;
       googleAdsId = process.env['GOOGLE_ADS_ID'] || undefined;
-      googleAdsConversionAction = googleAdsConversionAction || process.env['GOOGLE_ADS_CONVERSION_ACTION'] || undefined;
+      googleAdsConversionAction =
+        googleAdsConversionAction || process.env['GOOGLE_ADS_CONVERSION_ACTION'] || undefined;
     }
 
     if (!metaPixelId && !googleAdsId) {
       return NextResponse.json(
-        { error: 'No pixel IDs provided and no env vars (META_PIXEL_ID, GOOGLE_ADS_ID) configured' },
+        {
+          error: 'No pixel IDs provided and no env vars (META_PIXEL_ID, GOOGLE_ADS_ID) configured',
+        },
         { status: 400 }
       );
     }

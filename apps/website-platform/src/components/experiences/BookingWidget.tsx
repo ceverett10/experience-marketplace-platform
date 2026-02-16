@@ -147,17 +147,25 @@ export function BookingWidget({ experience, bookingStats }: BookingWidgetProps) 
             </svg>
             <div>
               <p className="text-sm font-semibold text-gray-900">Best price guarantee</p>
-              <p className="text-xs text-gray-500">
-                Find it cheaper? We&apos;ll match the price
-              </p>
+              <p className="text-xs text-gray-500">Find it cheaper? We&apos;ll match the price</p>
             </div>
           </div>
         </div>
 
         {/* Secured by Stripe */}
         <div className="mt-4 flex items-center justify-center gap-1.5 text-xs text-gray-400">
-          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+          <svg
+            className="h-3.5 w-3.5"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth="1.5"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
+            />
           </svg>
           Payments secured by Stripe
         </div>

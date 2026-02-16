@@ -5,10 +5,7 @@ import { prisma } from '@experience-marketplace/database';
  * Priority: blog content images > site hero image > brand OG image > brand logo
  * When pageId is omitted, falls back to site-level images.
  */
-export async function selectImageForPost(
-  siteId: string,
-  pageId?: string
-): Promise<string | null> {
+export async function selectImageForPost(siteId: string, pageId?: string): Promise<string | null> {
   // 1. Try to extract images from the blog post content (if pageId provided)
   if (pageId) {
     const page = await prisma.page.findUnique({
@@ -26,7 +23,10 @@ export async function selectImageForPost(
       for (const match of matches) {
         const url = match[1];
         // Prefer R2/CDN images over hotlinked ones
-        if (url && (url.includes('r2.dev') || url.includes('cloudflare') || url.includes('unsplash'))) {
+        if (
+          url &&
+          (url.includes('r2.dev') || url.includes('cloudflare') || url.includes('unsplash'))
+        ) {
           return url;
         }
       }

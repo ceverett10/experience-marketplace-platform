@@ -35,8 +35,19 @@ const PAGE_SIZE = 50;
 
 export default function AdminContentPage() {
   const [content, setContent] = useState<ContentItem[]>([]);
-  const [pagination, setPagination] = useState<PaginationInfo>({ page: 1, pageSize: PAGE_SIZE, totalCount: 0, totalPages: 0 });
-  const [stats, setStats] = useState<Stats>({ total: 0, pending: 0, approved: 0, published: 0, rejected: 0 });
+  const [pagination, setPagination] = useState<PaginationInfo>({
+    page: 1,
+    pageSize: PAGE_SIZE,
+    totalCount: 0,
+    totalPages: 0,
+  });
+  const [stats, setStats] = useState<Stats>({
+    total: 0,
+    pending: 0,
+    approved: 0,
+    published: 0,
+    rejected: 0,
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -600,7 +611,9 @@ export default function AdminContentPage() {
         <>
           {/* Results info */}
           <p className="text-sm text-slate-500">
-            Showing {((currentPage - 1) * PAGE_SIZE) + 1}–{Math.min(currentPage * PAGE_SIZE, pagination.totalCount)} of {pagination.totalCount.toLocaleString()} items
+            Showing {(currentPage - 1) * PAGE_SIZE + 1}–
+            {Math.min(currentPage * PAGE_SIZE, pagination.totalCount)} of{' '}
+            {pagination.totalCount.toLocaleString()} items
           </p>
 
           {/* Content list */}

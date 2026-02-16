@@ -229,7 +229,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    trackFunnelEvent({ step: BookingFunnelStep.BOOKING_COMPLETED, siteId: site.id, bookingId: booking.id, productId: productId ?? undefined, durationMs: Date.now() - startTime });
+    trackFunnelEvent({
+      step: BookingFunnelStep.BOOKING_COMPLETED,
+      siteId: site.id,
+      bookingId: booking.id,
+      productId: productId ?? undefined,
+      durationMs: Date.now() - startTime,
+    });
     return NextResponse.json({
       success: true,
       data: {
@@ -262,7 +268,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    trackFunnelEvent({ step: BookingFunnelStep.BOOKING_COMPLETED, siteId: 'unknown', errorCode: 'COMMIT_ERROR', errorMessage: error instanceof Error ? error.message : 'Unknown error', durationMs: Date.now() - startTime });
+    trackFunnelEvent({
+      step: BookingFunnelStep.BOOKING_COMPLETED,
+      siteId: 'unknown',
+      errorCode: 'COMMIT_ERROR',
+      errorMessage: error instanceof Error ? error.message : 'Unknown error',
+      durationMs: Date.now() - startTime,
+    });
     return NextResponse.json({ error: 'Failed to commit booking' }, { status: 500 });
   }
 }

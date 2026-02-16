@@ -42,7 +42,9 @@ export function AboutActivity({
               </svg>
             </div>
             <div>
-              <p className="font-medium text-gray-900">Free cancellation before {cancellationDate}</p>
+              <p className="font-medium text-gray-900">
+                Free cancellation before {cancellationDate}
+              </p>
               <p className="text-sm text-gray-500">
                 {cancellationPolicy || 'Cancel up to 24 hours in advance for a full refund'}
               </p>

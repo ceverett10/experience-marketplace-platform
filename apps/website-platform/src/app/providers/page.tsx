@@ -16,10 +16,7 @@ export const dynamic = 'force-dynamic';
 /**
  * Fetch suppliers filtered by city or category
  */
-async function getFilteredSuppliers(
-  city?: string,
-  category?: string
-): Promise<FeaturedSupplier[]> {
+async function getFilteredSuppliers(city?: string, category?: string): Promise<FeaturedSupplier[]> {
   const where: Record<string, unknown> = {
     productCount: { gt: 0 },
   };

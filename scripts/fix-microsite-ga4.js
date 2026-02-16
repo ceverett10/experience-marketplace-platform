@@ -9,7 +9,7 @@ async function main() {
     select: { id: true, seoConfig: true },
   });
 
-  const missingGa4 = all.filter(m => {
+  const missingGa4 = all.filter((m) => {
     const seo = m.seoConfig;
     return !seo || !seo.gaMeasurementId;
   });
@@ -46,4 +46,6 @@ async function main() {
   console.log(`Now with GA4: ${withGa4} / ${after.length}`);
 }
 
-main().catch(console.error).finally(() => prisma.$disconnect());
+main()
+  .catch(console.error)
+  .finally(() => prisma.$disconnect());

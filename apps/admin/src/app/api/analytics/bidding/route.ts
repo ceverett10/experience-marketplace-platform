@@ -148,26 +148,29 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     });
 
     // Group keywords by site for the response
-    const keywordsBySite: Record<string, {
-      siteName: string;
-      keywords: Array<{
-        id: string;
-        keyword: string;
-        searchVolume: number;
-        cpc: number;
-        difficulty: number;
-        intent: string;
-        priorityScore: number;
-        location: string | null;
-        niche: string;
-        estimatedMonthlyClicks: number;
-        estimatedMonthlyCost: number;
-        maxBid: number | null;
-        aiScore: number | null;
-        aiDecision: string | null;
-        aiReasoning: string | null;
-      }>;
-    }> = {};
+    const keywordsBySite: Record<
+      string,
+      {
+        siteName: string;
+        keywords: Array<{
+          id: string;
+          keyword: string;
+          searchVolume: number;
+          cpc: number;
+          difficulty: number;
+          intent: string;
+          priorityScore: number;
+          location: string | null;
+          niche: string;
+          estimatedMonthlyClicks: number;
+          estimatedMonthlyCost: number;
+          maxBid: number | null;
+          aiScore: number | null;
+          aiDecision: string | null;
+          aiReasoning: string | null;
+        }>;
+      }
+    > = {};
 
     // Count AI evaluation stats
     let aiEvaluatedCount = 0;
@@ -188,11 +191,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       const maxProfitCpc = profile ? Number(profile.maxProfitableCpc) : null;
 
       // Extract AI evaluation from sourceData
-      const sd = kw.sourceData as { aiEvaluation?: {
-        score?: number;
-        decision?: string;
-        reasoning?: string;
-      } } | null;
+      const sd = kw.sourceData as {
+        aiEvaluation?: {
+          score?: number;
+          decision?: string;
+          reasoning?: string;
+        };
+      } | null;
       const aiEval = sd?.aiEvaluation;
       const aiScore = aiEval?.score ?? null;
       const aiDecision = aiEval?.decision ?? null;
@@ -245,7 +250,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     const micrositeSummaries = microsites.map((ms) => {
       const disco = ms.discoveryConfig as {
-        keyword?: string; destination?: string; niche?: string;
+        keyword?: string;
+        destination?: string;
+        niche?: string;
       } | null;
       const latestSnapshot = ms.analyticsSnapshots[0];
 
@@ -265,13 +272,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     // --- Budget utilization ---
     const activeCampaigns = campaigns.filter((c) => c.status === 'ACTIVE');
-    const totalDailyBudget = activeCampaigns.reduce(
-      (s, c) => s + Number(c.dailyBudget),
-      0
-    );
-    const maxDailyBudget = parseFloat(
-      process.env['BIDDING_MAX_DAILY_BUDGET'] || '1200'
-    );
+    const totalDailyBudget = activeCampaigns.reduce((s, c) => s + Number(c.dailyBudget), 0);
+    const maxDailyBudget = parseFloat(process.env['BIDDING_MAX_DAILY_BUDGET'] || '1200');
 
     // --- Enrichment pipeline stats ---
     const [suppliersTotal, suppliersEnriched, lastEnrichment] = await Promise.all([
@@ -283,23 +285,47 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     // Keyword pool distribution (parallelized)
     const [
       kwAgg,
-      kwHighVol, kwMedVol, kwLowVol,
-      kwCpcU25, kwCpc25_50, kwCpc50_100, kwCpcO100,
-      kwIntents, kwLocations,
+      kwHighVol,
+      kwMedVol,
+      kwLowVol,
+      kwCpcU25,
+      kwCpc25_50,
+      kwCpc50_100,
+      kwCpcO100,
+      kwIntents,
+      kwLocations,
     ] = await Promise.all([
       prisma.sEOOpportunity.aggregate({
         where: { status: 'PAID_CANDIDATE' as any },
         _avg: { cpc: true, searchVolume: true },
         _count: true,
       }),
-      prisma.sEOOpportunity.count({ where: { status: 'PAID_CANDIDATE' as any, searchVolume: { gte: 1000 } } }),
-      prisma.sEOOpportunity.count({ where: { status: 'PAID_CANDIDATE' as any, searchVolume: { gte: 100, lt: 1000 } } }),
-      prisma.sEOOpportunity.count({ where: { status: 'PAID_CANDIDATE' as any, searchVolume: { gte: 10, lt: 100 } } }),
-      prisma.sEOOpportunity.count({ where: { status: 'PAID_CANDIDATE' as any, cpc: { lt: 0.25 } } }),
-      prisma.sEOOpportunity.count({ where: { status: 'PAID_CANDIDATE' as any, cpc: { gte: 0.25, lt: 0.50 } } }),
-      prisma.sEOOpportunity.count({ where: { status: 'PAID_CANDIDATE' as any, cpc: { gte: 0.50, lt: 1.00 } } }),
-      prisma.sEOOpportunity.count({ where: { status: 'PAID_CANDIDATE' as any, cpc: { gte: 1.00 } } }),
-      prisma.sEOOpportunity.groupBy({ by: ['intent'], where: { status: 'PAID_CANDIDATE' as any }, _count: true }),
+      prisma.sEOOpportunity.count({
+        where: { status: 'PAID_CANDIDATE' as any, searchVolume: { gte: 1000 } },
+      }),
+      prisma.sEOOpportunity.count({
+        where: { status: 'PAID_CANDIDATE' as any, searchVolume: { gte: 100, lt: 1000 } },
+      }),
+      prisma.sEOOpportunity.count({
+        where: { status: 'PAID_CANDIDATE' as any, searchVolume: { gte: 10, lt: 100 } },
+      }),
+      prisma.sEOOpportunity.count({
+        where: { status: 'PAID_CANDIDATE' as any, cpc: { lt: 0.25 } },
+      }),
+      prisma.sEOOpportunity.count({
+        where: { status: 'PAID_CANDIDATE' as any, cpc: { gte: 0.25, lt: 0.5 } },
+      }),
+      prisma.sEOOpportunity.count({
+        where: { status: 'PAID_CANDIDATE' as any, cpc: { gte: 0.5, lt: 1.0 } },
+      }),
+      prisma.sEOOpportunity.count({
+        where: { status: 'PAID_CANDIDATE' as any, cpc: { gte: 1.0 } },
+      }),
+      prisma.sEOOpportunity.groupBy({
+        by: ['intent'],
+        where: { status: 'PAID_CANDIDATE' as any },
+        _count: true,
+      }),
       prisma.sEOOpportunity.findMany({
         where: { status: 'PAID_CANDIDATE' as any, location: { not: null } },
         select: { location: true },
@@ -308,7 +334,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     ]);
 
     const intentMap: Record<string, number> = {};
-    for (const g of kwIntents) { intentMap[g.intent] = g._count; }
+    for (const g of kwIntents) {
+      intentMap[g.intent] = g._count;
+    }
 
     // Projection data from DRAFT campaigns with proposalData
     const draftsWithProposals = campaignSummaries.filter(
@@ -322,8 +350,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       const uniqueMs = new Set(micrositeDrafts.map((c) => c.micrositeDomain).filter(Boolean));
       const googleDrafts = draftsWithProposals.filter((c) => c.platform === 'GOOGLE_SEARCH');
       const fbDrafts = draftsWithProposals.filter((c) => c.platform === 'FACEBOOK');
-      const dSpend = draftsWithProposals.reduce((s, c) => s + (c.proposalData as any).expectedDailyCost, 0);
-      const dRev = draftsWithProposals.reduce((s, c) => s + (c.proposalData as any).expectedDailyRevenue, 0);
+      const dSpend = draftsWithProposals.reduce(
+        (s, c) => s + (c.proposalData as any).expectedDailyCost,
+        0
+      );
+      const dRev = draftsWithProposals.reduce(
+        (s, c) => s + (c.proposalData as any).expectedDailyRevenue,
+        0
+      );
       const profitable = draftsWithProposals.filter((c) => {
         const p = c.proposalData as any;
         return p.expectedDailyCost > 0 && p.expectedDailyRevenue / p.expectedDailyCost >= 3;
@@ -347,12 +381,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         uniqueMicrosites: uniqueMs.size,
         googleCampaigns: googleDrafts.length,
         facebookCampaigns: fbDrafts.length,
-        assumptions: firstAssumptions ? {
-          aov: firstAssumptions.avgOrderValue,
-          commission: firstAssumptions.commissionRate,
-          cvr: firstAssumptions.conversionRate,
-          targetRoas: firstAssumptions.targetRoas,
-        } : null,
+        assumptions: firstAssumptions
+          ? {
+              aov: firstAssumptions.avgOrderValue,
+              commission: firstAssumptions.commissionRate,
+              cvr: firstAssumptions.conversionRate,
+              targetRoas: firstAssumptions.targetRoas,
+            }
+          : null,
       };
     }
 
@@ -427,10 +463,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     });
   } catch (error) {
     console.error('[API] Error fetching bidding analytics:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch bidding analytics' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch bidding analytics' }, { status: 500 });
   }
 }
 
@@ -474,9 +507,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     if (action === 'deploy_drafts') {
-      const jobs = await import('@experience-marketplace/jobs') as any;
+      const jobs = (await import('@experience-marketplace/jobs')) as any;
       const deployDraftCampaigns = jobs.deployDraftCampaigns as () => Promise<{
-        deployed: number; failed: number; skipped: number;
+        deployed: number;
+        failed: number;
+        skipped: number;
       }>;
       const result = await deployDraftCampaigns();
       return NextResponse.json({
@@ -508,7 +543,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
       for (const campaign of paused) {
         try {
-          const jobs = await import('@experience-marketplace/jobs') as any;
+          const jobs = (await import('@experience-marketplace/jobs')) as any;
           if (campaign.platform === 'FACEBOOK') {
             const metaClient = await jobs.getMetaAdsClientForActivation?.();
             // Set status on platform if client available
@@ -578,21 +613,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           message: `Updated budget cap for site to £${dailyBudgetCap}/day`,
         });
       }
-      return NextResponse.json(
-        { error: 'siteId required for budget adjustment' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'siteId required for budget adjustment' }, { status: 400 });
     }
 
-    return NextResponse.json(
-      { error: `Unknown action: ${action}` },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });
   } catch (error) {
     console.error('[API] Error in bidding action:', error);
-    return NextResponse.json(
-      { error: 'Failed to execute bidding action' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to execute bidding action' }, { status: 500 });
   }
 }

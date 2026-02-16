@@ -194,24 +194,35 @@ export default function PartnerDetailPage() {
           </button>
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold text-slate-900">{partner.name}</h1>
-            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[partner.status] ?? ''}`}>
+            <span
+              className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[partner.status] ?? ''}`}
+            >
               {partner.status}
             </span>
           </div>
         </div>
         <div className="flex items-center gap-2">
           {partner.status === 'ACTIVE' && (
-            <button onClick={handleSuspend} className="px-3 py-1.5 bg-amber-100 text-amber-700 rounded-lg hover:bg-amber-200 text-sm">
+            <button
+              onClick={handleSuspend}
+              className="px-3 py-1.5 bg-amber-100 text-amber-700 rounded-lg hover:bg-amber-200 text-sm"
+            >
               Suspend
             </button>
           )}
           {partner.status === 'SUSPENDED' && (
-            <button onClick={handleActivate} className="px-3 py-1.5 bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 text-sm">
+            <button
+              onClick={handleActivate}
+              className="px-3 py-1.5 bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 text-sm"
+            >
               Activate
             </button>
           )}
           {partner.status !== 'ARCHIVED' && (
-            <button onClick={handleArchive} className="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 text-sm">
+            <button
+              onClick={handleArchive}
+              className="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 text-sm"
+            >
               Archive
             </button>
           )}
@@ -224,9 +235,16 @@ export default function PartnerDetailPage() {
           <div className="flex items-start justify-between">
             <div>
               <h3 className="text-lg font-semibold text-emerald-800">New API Key Generated</h3>
-              <p className="text-emerald-600 mt-1 text-sm">Copy this key now. It will not be shown again.</p>
+              <p className="text-emerald-600 mt-1 text-sm">
+                Copy this key now. It will not be shown again.
+              </p>
             </div>
-            <button onClick={() => setNewKeyDisplay(null)} className="text-emerald-400 hover:text-emerald-600">x</button>
+            <button
+              onClick={() => setNewKeyDisplay(null)}
+              className="text-emerald-400 hover:text-emerald-600"
+            >
+              x
+            </button>
           </div>
           <div className="mt-4 flex items-center gap-3">
             <code className="flex-1 bg-white border border-emerald-300 rounded px-4 py-3 font-mono text-sm text-slate-800 select-all">
@@ -248,15 +266,25 @@ export default function PartnerDetailPage() {
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-slate-900">Partner Details</h2>
             {!isEditing ? (
-              <button onClick={() => setIsEditing(true)} className="text-sm text-sky-600 hover:text-sky-700">
+              <button
+                onClick={() => setIsEditing(true)}
+                className="text-sm text-sky-600 hover:text-sky-700"
+              >
                 Edit
               </button>
             ) : (
               <div className="flex gap-2">
-                <button onClick={handleUpdate} disabled={updating} className="text-sm px-3 py-1 bg-sky-600 text-white rounded hover:bg-sky-700 disabled:opacity-50">
+                <button
+                  onClick={handleUpdate}
+                  disabled={updating}
+                  className="text-sm px-3 py-1 bg-sky-600 text-white rounded hover:bg-sky-700 disabled:opacity-50"
+                >
                   {updating ? 'Saving...' : 'Save'}
                 </button>
-                <button onClick={() => setIsEditing(false)} className="text-sm px-3 py-1 bg-slate-100 text-slate-600 rounded hover:bg-slate-200">
+                <button
+                  onClick={() => setIsEditing(false)}
+                  className="text-sm px-3 py-1 bg-slate-100 text-slate-600 rounded hover:bg-slate-200"
+                >
                   Cancel
                 </button>
               </div>
@@ -267,7 +295,11 @@ export default function PartnerDetailPage() {
             <div>
               <span className="text-slate-500">Name</span>
               {isEditing ? (
-                <input value={editName} onChange={(e) => setEditName(e.target.value)} className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                <input
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg"
+                />
               ) : (
                 <p className="font-medium text-slate-900 mt-0.5">{partner.name}</p>
               )}
@@ -275,7 +307,11 @@ export default function PartnerDetailPage() {
             <div>
               <span className="text-slate-500">Contact Email</span>
               {isEditing ? (
-                <input value={editEmail} onChange={(e) => setEditEmail(e.target.value)} className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                <input
+                  value={editEmail}
+                  onChange={(e) => setEditEmail(e.target.value)}
+                  className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg"
+                />
               ) : (
                 <p className="font-medium text-slate-900 mt-0.5">{partner.contactEmail}</p>
               )}
@@ -287,7 +323,11 @@ export default function PartnerDetailPage() {
             <div>
               <span className="text-slate-500">Payment Model</span>
               {isEditing ? (
-                <select value={editPaymentModel} onChange={(e) => setEditPaymentModel(e.target.value)} className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg">
+                <select
+                  value={editPaymentModel}
+                  onChange={(e) => setEditPaymentModel(e.target.value)}
+                  className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg"
+                >
                   <option value="REQUIRED">Required (Consumer Pays)</option>
                   <option value="ON_ACCOUNT">On Account (Partner Billed)</option>
                 </select>
@@ -303,7 +343,9 @@ export default function PartnerDetailPage() {
             </div>
             <div>
               <span className="text-slate-500">Holibob API Secret</span>
-              <p className="font-mono text-slate-600 mt-0.5">{partner.holibobApiSecret ?? 'Not configured'}</p>
+              <p className="font-mono text-slate-600 mt-0.5">
+                {partner.holibobApiSecret ?? 'Not configured'}
+              </p>
             </div>
             <div>
               <span className="text-slate-500">API URL</span>
@@ -311,7 +353,9 @@ export default function PartnerDetailPage() {
             </div>
             <div>
               <span className="text-slate-500">Created</span>
-              <p className="text-slate-900 mt-0.5">{new Date(partner.createdAt).toLocaleString()}</p>
+              <p className="text-slate-900 mt-0.5">
+                {new Date(partner.createdAt).toLocaleString()}
+              </p>
             </div>
           </div>
         </CardContent>
@@ -354,7 +398,10 @@ export default function PartnerDetailPage() {
                   {generatingKey ? 'Generating...' : 'Generate'}
                 </button>
                 <button
-                  onClick={() => { setShowKeyForm(false); setNewKeyName(''); }}
+                  onClick={() => {
+                    setShowKeyForm(false);
+                    setNewKeyName('');
+                  }}
                   className="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 text-sm"
                 >
                   Cancel
@@ -383,24 +430,36 @@ export default function PartnerDetailPage() {
                 </thead>
                 <tbody>
                   {partner.mcpApiKeys.map((apiKey) => (
-                    <tr key={apiKey.id} className={`border-b border-slate-100 ${!apiKey.isActive ? 'opacity-50' : ''}`}>
+                    <tr
+                      key={apiKey.id}
+                      className={`border-b border-slate-100 ${!apiKey.isActive ? 'opacity-50' : ''}`}
+                    >
                       <td className="py-3 px-2 font-medium text-slate-900">{apiKey.name}</td>
                       <td className="py-3 px-2 font-mono text-xs text-slate-500">{apiKey.key}</td>
                       <td className="py-3 px-2">
                         <div className="flex flex-wrap gap-1">
                           {apiKey.scopes.map((s) => (
-                            <span key={s} className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded text-xs">{s}</span>
+                            <span
+                              key={s}
+                              className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded text-xs"
+                            >
+                              {s}
+                            </span>
                           ))}
                         </div>
                       </td>
                       <td className="py-3 px-2 text-slate-600">{apiKey.rateLimitRpm}/min</td>
                       <td className="py-3 px-2">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${apiKey.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600'}`}>
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-xs font-medium ${apiKey.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600'}`}
+                        >
                           {apiKey.isActive ? 'Active' : 'Revoked'}
                         </span>
                       </td>
                       <td className="py-3 px-2 text-slate-500">
-                        {apiKey.lastUsedAt ? new Date(apiKey.lastUsedAt).toLocaleDateString() : 'Never'}
+                        {apiKey.lastUsedAt
+                          ? new Date(apiKey.lastUsedAt).toLocaleDateString()
+                          : 'Never'}
                       </td>
                       <td className="py-3 px-2 text-slate-500">
                         {new Date(apiKey.createdAt).toLocaleDateString()}
@@ -430,22 +489,45 @@ export default function PartnerDetailPage() {
         <CardContent className="pt-6">
           <h2 className="text-lg font-semibold text-slate-900 mb-2">MCP Connection Details</h2>
           <p className="text-sm text-slate-500 mb-4">
-            Use these credentials to connect via Claude Desktop (Settings &rarr; Connectors), ChatGPT, or any MCP client.
+            Use these credentials to connect via Claude Desktop (Settings &rarr; Connectors),
+            ChatGPT, or any MCP client.
           </p>
           <div className="space-y-3">
             <div className="flex items-center gap-3 bg-slate-50 rounded-lg p-3">
               <span className="text-sm text-slate-500 min-w-[140px]">Server URL</span>
-              <code className="flex-1 font-mono text-xs text-slate-800 select-all">https://holibob-experiences-demand-gen-c27f61accbd2.herokuapp.com/mcp/sse</code>
-              <button onClick={() => copyToClipboard('https://holibob-experiences-demand-gen-c27f61accbd2.herokuapp.com/mcp/sse')} className="text-sky-600 hover:text-sky-700 text-xs font-medium whitespace-nowrap">Copy</button>
+              <code className="flex-1 font-mono text-xs text-slate-800 select-all">
+                https://holibob-experiences-demand-gen-c27f61accbd2.herokuapp.com/mcp/sse
+              </code>
+              <button
+                onClick={() =>
+                  copyToClipboard(
+                    'https://holibob-experiences-demand-gen-c27f61accbd2.herokuapp.com/mcp/sse'
+                  )
+                }
+                className="text-sky-600 hover:text-sky-700 text-xs font-medium whitespace-nowrap"
+              >
+                Copy
+              </button>
             </div>
             <div className="flex items-center gap-3 bg-slate-50 rounded-lg p-3">
               <span className="text-sm text-slate-500 min-w-[140px]">OAuth Client ID</span>
-              <code className="flex-1 font-mono text-xs text-slate-800 select-all">{partner.id}</code>
-              <button onClick={() => copyToClipboard(partner.id)} className="text-sky-600 hover:text-sky-700 text-xs font-medium whitespace-nowrap">Copy</button>
+              <code className="flex-1 font-mono text-xs text-slate-800 select-all">
+                {partner.id}
+              </code>
+              <button
+                onClick={() => copyToClipboard(partner.id)}
+                className="text-sky-600 hover:text-sky-700 text-xs font-medium whitespace-nowrap"
+              >
+                Copy
+              </button>
             </div>
             <div className="flex items-center gap-3 bg-sky-50 border border-sky-200 rounded-lg p-3">
               <span className="text-sm text-slate-500 min-w-[140px]">OAuth Client Secret</span>
-              <span className="flex-1 text-xs text-slate-600">Use the MCP API key (<code className="bg-white px-1 py-0.5 rounded">mcp_live_...</code>) shown when this partner was created</span>
+              <span className="flex-1 text-xs text-slate-600">
+                Use the MCP API key (
+                <code className="bg-white px-1 py-0.5 rounded">mcp_live_...</code>) shown when this
+                partner was created
+              </span>
             </div>
           </div>
         </CardContent>

@@ -71,7 +71,9 @@ export class MetaAdsClient {
         );
         // Throw on auth errors so the scanner can detect persistent failures
         if (response.status === 401 || response.status === 403) {
-          throw new Error(`Meta Ads API auth error (${response.status}): ${errorText.substring(0, 200)}`);
+          throw new Error(
+            `Meta Ads API auth error (${response.status}): ${errorText.substring(0, 200)}`
+          );
         }
         return [];
       }
@@ -170,8 +172,7 @@ export class MetaAdsClient {
       const bidEst = estimate.bid_estimate;
 
       // Convert from cents to dollars
-      const centsToDollars = (cents: number | undefined) =>
-        cents ? cents / 100 : 0;
+      const centsToDollars = (cents: number | undefined) => (cents ? cents / 100 : 0);
 
       const minBid = centsToDollars(bidEst?.min_bid);
       const maxBid = centsToDollars(bidEst?.max_bid);
@@ -243,7 +244,9 @@ export class MetaAdsClient {
 
       if (!response.ok) {
         const error = await response.text();
-        console.error(`[MetaAds] Create campaign error (${response.status}): ${error.substring(0, 300)}`);
+        console.error(
+          `[MetaAds] Create campaign error (${response.status}): ${error.substring(0, 300)}`
+        );
         return null;
       }
 
@@ -308,7 +311,9 @@ export class MetaAdsClient {
 
       if (!response.ok) {
         const error = await response.text();
-        console.error(`[MetaAds] Create ad set error (${response.status}): ${error.substring(0, 300)}`);
+        console.error(
+          `[MetaAds] Create ad set error (${response.status}): ${error.substring(0, 300)}`
+        );
         return null;
       }
 
@@ -401,7 +406,9 @@ export class MetaAdsClient {
 
       if (!response.ok) {
         const error = await response.text();
-        console.error(`[MetaAds] Update bid error (${response.status}): ${error.substring(0, 200)}`);
+        console.error(
+          `[MetaAds] Update bid error (${response.status}): ${error.substring(0, 200)}`
+        );
         return false;
       }
 
@@ -431,7 +438,9 @@ export class MetaAdsClient {
 
       if (!response.ok) {
         const error = await response.text();
-        console.error(`[MetaAds] Set status error (${response.status}): ${error.substring(0, 200)}`);
+        console.error(
+          `[MetaAds] Set status error (${response.status}): ${error.substring(0, 200)}`
+        );
         return false;
       }
 
@@ -493,9 +502,7 @@ export class MetaAdsClient {
       if (!data.data || data.data.length === 0) return null;
 
       const row = data.data[0]!;
-      const linkClicks = row.actions?.find(
-        (a) => a.action_type === 'link_click'
-      );
+      const linkClicks = row.actions?.find((a) => a.action_type === 'link_click');
 
       return {
         spend: parseFloat(row.spend || '0'),
@@ -536,13 +543,13 @@ export class MetaAdsClient {
         params.set('effective_status', JSON.stringify([status]));
       }
 
-      const response = await fetch(
-        `${META_API_BASE}/${this.adAccountId}/campaigns?${params}`
-      );
+      const response = await fetch(`${META_API_BASE}/${this.adAccountId}/campaigns?${params}`);
 
       if (!response.ok) {
         const error = await response.text();
-        console.error(`[MetaAds] List campaigns error (${response.status}): ${error.substring(0, 200)}`);
+        console.error(
+          `[MetaAds] List campaigns error (${response.status}): ${error.substring(0, 200)}`
+        );
         return [];
       }
 
@@ -583,9 +590,7 @@ export class MetaAdsClient {
         limit: '100',
       });
 
-      const response = await fetch(
-        `${META_API_BASE}/${this.adAccountId}/adspixels?${params}`
-      );
+      const response = await fetch(`${META_API_BASE}/${this.adAccountId}/adspixels?${params}`);
 
       if (!response.ok) {
         const errorText = await response.text();

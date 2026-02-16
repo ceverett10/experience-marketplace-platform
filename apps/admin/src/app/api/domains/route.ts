@@ -88,7 +88,15 @@ export async function GET(request: Request) {
     }
 
     // Fetch paginated registered domains, total count, and stats in parallel
-    const [totalCount, registeredDomains, statusCounts, orphanCount, sslCount, expiringCount, suggestedCount] = await Promise.all([
+    const [
+      totalCount,
+      registeredDomains,
+      statusCounts,
+      orphanCount,
+      sslCount,
+      expiringCount,
+      suggestedCount,
+    ] = await Promise.all([
       prisma.domain.count({ where }),
       prisma.domain.findMany({
         where,
@@ -182,7 +190,9 @@ export async function GET(request: Request) {
       suggestedDomains = sitesWithoutDomains.map((site) => {
         const domainJob = site.jobs[0];
         const suggestedDomain =
-          domainJob?.payload && typeof domainJob.payload === 'object' && 'domain' in domainJob.payload
+          domainJob?.payload &&
+          typeof domainJob.payload === 'object' &&
+          'domain' in domainJob.payload
             ? (domainJob.payload as any).domain
             : `${site.slug}.com`;
 

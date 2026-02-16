@@ -125,8 +125,7 @@ export async function GET(request: Request) {
       cachedProductCount: m.cachedProductCount,
       pageViews: m.pageViews,
       createdAt: m.createdAt.toISOString(),
-      sourceName:
-        m.supplier?.name ?? m.opportunity?.keyword ?? m.product?.title ?? m.siteName,
+      sourceName: m.supplier?.name ?? m.opportunity?.keyword ?? m.product?.title ?? m.siteName,
       keyMetric:
         m.entityType === 'SUPPLIER'
           ? { label: 'Products', value: m.supplier?.productCount ?? m.cachedProductCount }

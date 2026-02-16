@@ -45,7 +45,10 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 
   const destination = resolvedParams.destination || resolvedParams.location;
   const searchQuery = resolvedParams.q;
-  const isMicrosite = !!site.micrositeContext?.supplierId || !!site.micrositeContext?.discoveryConfig || isTickittoSite(site);
+  const isMicrosite =
+    !!site.micrositeContext?.supplierId ||
+    !!site.micrositeContext?.discoveryConfig ||
+    isTickittoSite(site);
 
   let title: string;
   let description: string;
@@ -53,8 +56,10 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   // For microsites, build rich title/description from site data
   if (isMicrosite) {
     const ctx = site.micrositeContext;
-    const categories = ctx?.supplierCategories ?? site.homepageConfig?.categories?.map((c) => c.name) ?? [];
-    const cities = ctx?.supplierCities ?? site.homepageConfig?.destinations?.map((d) => d.name) ?? [];
+    const categories =
+      ctx?.supplierCategories ?? site.homepageConfig?.categories?.map((c) => c.name) ?? [];
+    const cities =
+      ctx?.supplierCities ?? site.homepageConfig?.destinations?.map((d) => d.name) ?? [];
     const count = ctx?.cachedProductCount ?? 0;
     const topCategory = categories[0];
     const topCity = cities[0];
@@ -73,11 +78,15 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
     // Build rich description with trust signals
     const descParts: string[] = [];
     if (count > 0 && topCity) {
-      descParts.push(`Browse ${count}+ ${topCategory?.toLowerCase() ?? 'experiences'} in ${topCity}.`);
+      descParts.push(
+        `Browse ${count}+ ${topCategory?.toLowerCase() ?? 'experiences'} in ${topCity}.`
+      );
     } else if (count > 0) {
       descParts.push(`Browse ${count}+ experiences and tours.`);
     } else if (topCity) {
-      descParts.push(`Browse the best ${topCategory?.toLowerCase() ?? 'experiences'} in ${topCity}.`);
+      descParts.push(
+        `Browse the best ${topCategory?.toLowerCase() ?? 'experiences'} in ${topCity}.`
+      );
     } else {
       descParts.push(`Browse our full collection of experiences and tours.`);
     }
@@ -227,8 +236,7 @@ async function getExperiences(
     // Note: Category/price filters are not supported by Product Discovery
     // For themed sites (e.g., harry-potter-tours.com), use the site's configured search terms
     // so the API returns relevant experiences, not just generic destination results.
-    const searchTerm =
-      searchParams.q || site.homepageConfig?.popularExperiences?.searchTerms?.[0];
+    const searchTerm = searchParams.q || site.homepageConfig?.popularExperiences?.searchTerms?.[0];
 
     const response = await client.discoverProducts(
       {
@@ -1049,7 +1057,10 @@ export default async function ExperiencesPage({ searchParams }: Props) {
   );
 
   const destination = resolvedSearchParams.destination || resolvedSearchParams.location;
-  const isMicrosite = !!site.micrositeContext?.supplierId || !!site.micrositeContext?.discoveryConfig || isTickittoSite(site);
+  const isMicrosite =
+    !!site.micrositeContext?.supplierId ||
+    !!site.micrositeContext?.discoveryConfig ||
+    isTickittoSite(site);
 
   // For MARKETPLACE microsites (50+ products), show filter sidebar
   if (isMicrosite && site.micrositeContext?.supplierId) {

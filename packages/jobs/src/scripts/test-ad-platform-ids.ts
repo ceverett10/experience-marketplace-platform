@@ -65,7 +65,10 @@ async function main() {
     return;
   }
 
-  pass('Pre-flight', `${activeSites.length} sites, ${activeMicrosites.length} microsites available`);
+  pass(
+    'Pre-flight',
+    `${activeSites.length} sites, ${activeMicrosites.length} microsites available`
+  );
 
   // Save original seoConfig values so we can restore them
   const originalSiteConfigs = new Map<string, unknown>();
@@ -96,7 +99,10 @@ async function main() {
     if (propagateResult.errors > 0) {
       fail('Propagation', `${propagateResult.errors} errors during propagation`);
     } else {
-      pass('Propagation', `No errors, ${propagateResult.sitesUpdated} sites + ${propagateResult.micrositesUpdated} microsites updated`);
+      pass(
+        'Propagation',
+        `No errors, ${propagateResult.sitesUpdated} sites + ${propagateResult.micrositesUpdated} microsites updated`
+      );
     }
 
     // ─── Phase 3: Verify Sites ────────────────────────────────────────────
@@ -118,8 +124,8 @@ async function main() {
         siteFailures++;
         console.error(
           `  FAIL  Site "${site.name}" (${site.primaryDomain}): ` +
-          `metaPixelId=${config?.['metaPixelId']} (expected ${TEST_META_PIXEL_ID}), ` +
-          `googleAdsId=${config?.['googleAdsId']} (expected ${TEST_GOOGLE_ADS_ID})`
+            `metaPixelId=${config?.['metaPixelId']} (expected ${TEST_META_PIXEL_ID}), ` +
+            `googleAdsId=${config?.['googleAdsId']} (expected ${TEST_GOOGLE_ADS_ID})`
         );
       }
     }
@@ -127,21 +133,27 @@ async function main() {
     if (siteFailures === 0) {
       pass('Site verification', `All ${sitesAfter.length} sites have correct pixel IDs`);
     } else {
-      fail('Site verification', `${siteFailures}/${sitesAfter.length} sites have incorrect pixel IDs`);
+      fail(
+        'Site verification',
+        `${siteFailures}/${sitesAfter.length} sites have incorrect pixel IDs`
+      );
     }
 
     // Verify seoConfig preserved other fields
     const sampleSite = sitesAfter[0];
     if (sampleSite) {
       const config = sampleSite.seoConfig as Record<string, unknown> | null;
-      const hasOtherFields = config && (
-        'titleTemplate' in config ||
-        'defaultDescription' in config ||
-        'keywords' in config ||
-        'gaMeasurementId' in config
-      );
+      const hasOtherFields =
+        config &&
+        ('titleTemplate' in config ||
+          'defaultDescription' in config ||
+          'keywords' in config ||
+          'gaMeasurementId' in config);
       if (hasOtherFields) {
-        pass('Config preservation', `Site "${sampleSite.name}" seoConfig retains other fields (titleTemplate, keywords, etc.)`);
+        pass(
+          'Config preservation',
+          `Site "${sampleSite.name}" seoConfig retains other fields (titleTemplate, keywords, etc.)`
+        );
       } else {
         // It's possible site had no prior seoConfig — not a failure
         console.log(`  INFO  Site "${sampleSite.name}" had minimal seoConfig before propagation`);
@@ -175,7 +187,7 @@ async function main() {
           if (msFailures <= 5) {
             console.error(
               `  FAIL  Microsite "${ms.fullDomain}": ` +
-              `metaPixelId=${config?.['metaPixelId']}, googleAdsId=${config?.['googleAdsId']}`
+                `metaPixelId=${config?.['metaPixelId']}, googleAdsId=${config?.['googleAdsId']}`
             );
           }
         }
@@ -186,9 +198,15 @@ async function main() {
       }
 
       if (msFailures === 0) {
-        pass('Microsite verification', `All ${micrositesAfter.length} microsites have correct pixel IDs`);
+        pass(
+          'Microsite verification',
+          `All ${micrositesAfter.length} microsites have correct pixel IDs`
+        );
       } else {
-        fail('Microsite verification', `${msFailures}/${micrositesAfter.length} microsites have incorrect pixel IDs`);
+        fail(
+          'Microsite verification',
+          `${msFailures}/${micrositesAfter.length} microsites have incorrect pixel IDs`
+        );
       }
 
       // Sample detail log
@@ -213,12 +231,20 @@ async function main() {
     console.log(`  Sites updated: ${rerunResult.sitesUpdated} (expected 0)`);
     console.log(`  Sites skipped: ${rerunResult.sitesSkipped} (expected ${activeSites.length})`);
     console.log(`  Microsites updated: ${rerunResult.micrositesUpdated} (expected 0)`);
-    console.log(`  Microsites skipped: ${rerunResult.micrositesSkipped} (expected ${activeMicrosites.length})\n`);
+    console.log(
+      `  Microsites skipped: ${rerunResult.micrositesSkipped} (expected ${activeMicrosites.length})\n`
+    );
 
     if (rerunResult.sitesUpdated === 0 && rerunResult.micrositesUpdated === 0) {
-      pass('Idempotent re-run', `All ${rerunResult.sitesSkipped} sites and ${rerunResult.micrositesSkipped} microsites correctly skipped`);
+      pass(
+        'Idempotent re-run',
+        `All ${rerunResult.sitesSkipped} sites and ${rerunResult.micrositesSkipped} microsites correctly skipped`
+      );
     } else {
-      fail('Idempotent re-run', `Expected 0 updates, got ${rerunResult.sitesUpdated} sites + ${rerunResult.micrositesUpdated} microsites`);
+      fail(
+        'Idempotent re-run',
+        `Expected 0 updates, got ${rerunResult.sitesUpdated} sites + ${rerunResult.micrositesUpdated} microsites`
+      );
     }
 
     // ─── Phase 6: Test partial update (only one ID) ──────────────────────────
@@ -246,9 +272,15 @@ async function main() {
       const googleUpdated = config?.['googleAdsId'] === NEW_GOOGLE_ADS_ID;
 
       if (metaPreserved && googleUpdated) {
-        pass('Partial update', `Meta pixel preserved (${TEST_META_PIXEL_ID}), Google Ads updated (${NEW_GOOGLE_ADS_ID})`);
+        pass(
+          'Partial update',
+          `Meta pixel preserved (${TEST_META_PIXEL_ID}), Google Ads updated (${NEW_GOOGLE_ADS_ID})`
+        );
       } else {
-        fail('Partial update', `Meta=${config?.['metaPixelId']} (expected ${TEST_META_PIXEL_ID}), Google=${config?.['googleAdsId']} (expected ${NEW_GOOGLE_ADS_ID})`);
+        fail(
+          'Partial update',
+          `Meta=${config?.['metaPixelId']} (expected ${TEST_META_PIXEL_ID}), Google=${config?.['googleAdsId']} (expected ${NEW_GOOGLE_ADS_ID})`
+        );
       }
     }
 
@@ -274,7 +306,10 @@ async function main() {
           'seoConfig has metaPixelId and googleAdsId fields — tenant.ts mapSiteToConfig() will surface them'
         );
       } else {
-        fail('Tenant mapping', `Missing fields in seoConfig: metaPixelId=${hasMetaPixelId}, googleAdsId=${hasGoogleAdsId}`);
+        fail(
+          'Tenant mapping',
+          `Missing fields in seoConfig: metaPixelId=${hasMetaPixelId}, googleAdsId=${hasGoogleAdsId}`
+        );
       }
     }
 
@@ -295,10 +330,12 @@ async function main() {
           'MicrositeConfig seoConfig has metaPixelId and googleAdsId — mapMicrositeToSiteConfig() will surface them'
         );
       } else {
-        fail('Microsite tenant mapping', `Missing: metaPixelId=${hasMetaPixelId}, googleAdsId=${hasGoogleAdsId}`);
+        fail(
+          'Microsite tenant mapping',
+          `Missing: metaPixelId=${hasMetaPixelId}, googleAdsId=${hasGoogleAdsId}`
+        );
       }
     }
-
   } finally {
     // ─── Cleanup: Restore original seoConfig values ───────────────────────
 
@@ -311,7 +348,7 @@ async function main() {
       try {
         await prisma.site.update({
           where: { id },
-          data: { seoConfig: originalConfig as any ?? {} },
+          data: { seoConfig: (originalConfig as any) ?? {} },
         });
         restored++;
       } catch (error) {
@@ -329,7 +366,7 @@ async function main() {
           try {
             await prisma.micrositeConfig.update({
               where: { id },
-              data: { seoConfig: originalConfig as any ?? {} },
+              data: { seoConfig: (originalConfig as any) ?? {} },
             });
             restored++;
           } catch (error) {

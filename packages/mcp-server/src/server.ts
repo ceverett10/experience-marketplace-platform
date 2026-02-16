@@ -42,26 +42,28 @@ export function createServer(client: HolibobClient): McpServer {
   for (const [name, uri, html] of widgets) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- CJS/ESM type resolution mismatch
     registerAppResource(server as any, name, uri, { mimeType: RESOURCE_MIME_TYPE }, async () => ({
-      contents: [{
-        uri,
-        mimeType: RESOURCE_MIME_TYPE,
-        text: html,
-        _meta: {
-          // Modern format (dev mode)
-          ui: {
-            domain: 'https://holibob.com',
-            csp: {
-              connectDomains: [],
-              resourceDomains: WIDGET_RESOURCE_DOMAINS,
+      contents: [
+        {
+          uri,
+          mimeType: RESOURCE_MIME_TYPE,
+          text: html,
+          _meta: {
+            // Modern format (dev mode)
+            ui: {
+              domain: 'https://holibob.com',
+              csp: {
+                connectDomains: [],
+                resourceDomains: WIDGET_RESOURCE_DOMAINS,
+              },
+            },
+            // Legacy format (published mode)
+            'openai/widgetCSP': {
+              connect_domains: [] as string[],
+              resource_domains: WIDGET_RESOURCE_DOMAINS,
             },
           },
-          // Legacy format (published mode)
-          'openai/widgetCSP': {
-            connect_domains: [] as string[],
-            resource_domains: WIDGET_RESOURCE_DOMAINS,
-          },
         },
-      }],
+      ],
     }));
   }
 

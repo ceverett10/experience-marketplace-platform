@@ -38,8 +38,7 @@ export async function generateMetadata(): Promise<Metadata> {
         'Experiencess is a network of experience brands powered through a partnership with Holibob, helping people discover and book incredible experiences worldwide.',
       openGraph: {
         title: 'About Us | Experiencess',
-        description:
-          'A network of experience brands powered through a partnership with Holibob.',
+        description: 'A network of experience brands powered through a partnership with Holibob.',
         type: 'website',
       },
       alternates: {
@@ -175,7 +174,13 @@ export default async function AboutPage() {
 function ParentDomainAbout({
   stats,
 }: {
-  stats: { totalSuppliers: number; totalProducts: number; totalCities: number; totalCategories: number; activeMicrosites: number };
+  stats: {
+    totalSuppliers: number;
+    totalProducts: number;
+    totalCities: number;
+    totalCategories: number;
+    activeMicrosites: number;
+  };
 }) {
   return (
     <>
@@ -223,8 +228,8 @@ function ParentDomainAbout({
             About Experiencess
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-indigo-100">
-            A network of experience brands helping people discover and book incredible
-            experiences around the world.
+            A network of experience brands helping people discover and book incredible experiences
+            around the world.
           </p>
         </div>
       </section>
@@ -235,35 +240,34 @@ function ParentDomainAbout({
           <div className="max-w-none text-gray-700 [&>h2]:mt-8 [&>h2]:mb-4 [&>h2]:text-2xl [&>h2]:font-bold [&>h2]:text-gray-900 [&>p]:mb-4 [&>p]:leading-7">
             <h2>Our Mission</h2>
             <p>
-              Experiencess brings together a curated network of specialist experience brands,
-              each focused on helping travellers find the perfect tours, activities and
-              experiences for their next adventure. Whether you are looking for food tours in
-              a vibrant city, adventure activities in the great outdoors, or cultural
-              experiences that bring history to life, our brands have you covered.
+              Experiencess brings together a curated network of specialist experience brands, each
+              focused on helping travellers find the perfect tours, activities and experiences for
+              their next adventure. Whether you are looking for food tours in a vibrant city,
+              adventure activities in the great outdoors, or cultural experiences that bring history
+              to life, our brands have you covered.
             </p>
 
             <h2>Powered by Holibob</h2>
             <p>
-              Our platform is powered through a partnership with{' '}
-              <strong>Holibob</strong>, a leading technology company in the experiences
-              industry. Holibob provides the infrastructure that connects travellers with
-              thousands of experience providers worldwide, ensuring seamless booking,
-              reliable availability, and outstanding customer support.
+              Our platform is powered through a partnership with <strong>Holibob</strong>, a leading
+              technology company in the experiences industry. Holibob provides the infrastructure
+              that connects travellers with thousands of experience providers worldwide, ensuring
+              seamless booking, reliable availability, and outstanding customer support.
             </p>
             <p>
-              Through this partnership, we are able to offer access to an extensive catalogue
-              of {stats.totalProducts.toLocaleString()}+ tours and activities from{' '}
+              Through this partnership, we are able to offer access to an extensive catalogue of{' '}
+              {stats.totalProducts.toLocaleString()}+ tours and activities from{' '}
               {stats.totalSuppliers.toLocaleString()} experience providers across{' '}
               {stats.totalCities.toLocaleString()} destinations globally.
             </p>
 
             <h2>Our Network</h2>
             <p>
-              Each brand in the Experiencess network is designed to serve a specific audience
-              or destination, providing a tailored experience that goes beyond a generic
-              marketplace. Our {stats.activeMicrosites.toLocaleString()} active microsites
-              cover {stats.totalCategories.toLocaleString()} experience categories, making it
-              easy for travellers to find exactly what they are looking for.
+              Each brand in the Experiencess network is designed to serve a specific audience or
+              destination, providing a tailored experience that goes beyond a generic marketplace.
+              Our {stats.activeMicrosites.toLocaleString()} active microsites cover{' '}
+              {stats.totalCategories.toLocaleString()} experience categories, making it easy for
+              travellers to find exactly what they are looking for.
             </p>
           </div>
 

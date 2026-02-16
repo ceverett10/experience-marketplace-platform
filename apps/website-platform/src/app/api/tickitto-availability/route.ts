@@ -16,10 +16,7 @@ export async function GET(request: NextRequest) {
     const t2 = request.nextUrl.searchParams.get('t2') ?? undefined;
 
     if (!eventId) {
-      return NextResponse.json(
-        { error: 'eventId is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'eventId is required' }, { status: 400 });
     }
 
     const client = getTickittoClient();

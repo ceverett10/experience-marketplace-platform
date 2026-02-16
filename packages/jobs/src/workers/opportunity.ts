@@ -144,9 +144,7 @@ async function runIntegratedOptimization(
 
     // Flag as paid candidate if CPC < $3.00 and reasonable volume
     const isPaidCandidate =
-      opp.dataForSeo.cpc > 0 &&
-      opp.dataForSeo.cpc < 3.0 &&
-      opp.dataForSeo.searchVolume >= 100;
+      opp.dataForSeo.cpc > 0 && opp.dataForSeo.cpc < 3.0 && opp.dataForSeo.searchVolume >= 100;
 
     try {
       const opportunity = await prisma.sEOOpportunity.upsert({
@@ -470,7 +468,9 @@ export async function handleOpportunityScan(
       await autoActionOpportunities();
       // Auto-action: route mid-score opportunities to microsites
       const micrositesQueued = await autoActionMicrositeOpportunities();
-      console.log(`[Audience-First Scan] Queued ${micrositesQueued} opportunity microsites (score 50-69)`);
+      console.log(
+        `[Audience-First Scan] Queued ${micrositesQueued} opportunity microsites (score 50-69)`
+      );
 
       return {
         success: true,

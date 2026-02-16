@@ -37,7 +37,10 @@ export default defineConfig({
     // to avoid CJS require() interop issues in ESM output
     options.alias = {
       '@experience-marketplace/holibob-api': resolve(__dirname, '../holibob-api/src/index.ts'),
-      '@experience-marketplace/holibob-api/types': resolve(__dirname, '../holibob-api/src/types/index.ts'),
+      '@experience-marketplace/holibob-api/types': resolve(
+        __dirname,
+        '../holibob-api/src/types/index.ts'
+      ),
       'cross-fetch': resolve(__dirname, 'src/shims/cross-fetch.ts'),
     };
   },

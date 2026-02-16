@@ -17,7 +17,10 @@ import {
 import { errorTracking } from '../errors/tracking';
 import { circuitBreakers } from '../errors/circuit-breaker';
 import { canExecuteAutonomousOperation } from '../services/pause-control';
-import { getBrandIdentityForContent, getBrandIdentityFromBrandId } from '../services/brand-identity';
+import {
+  getBrandIdentityForContent,
+  getBrandIdentityFromBrandId,
+} from '../services/brand-identity';
 import {
   generateArticleSchema,
   generateBreadcrumbSchema,
@@ -612,8 +615,17 @@ async function handleMicrositePageContentGenerate(params: {
   targetLength?: { min: number; max: number };
   sourceData?: ContentGeneratePayload['sourceData'];
 }): Promise<JobResult> {
-  const { micrositeId, pageId, contentType, targetKeyword, secondaryKeywords,
-          destination, category, targetLength, sourceData } = params;
+  const {
+    micrositeId,
+    pageId,
+    contentType,
+    targetKeyword,
+    secondaryKeywords,
+    destination,
+    category,
+    targetLength,
+    sourceData,
+  } = params;
 
   try {
     const microsite = await prisma.micrositeConfig.findUnique({
@@ -656,7 +668,9 @@ async function handleMicrositePageContentGenerate(params: {
         data: {
           metaTitle: metaTitle.length > 60 ? metaTitle.substring(0, 57) + '...' : metaTitle,
           metaDescription:
-            metaDescription.length > 160 ? metaDescription.substring(0, 157) + '...' : metaDescription,
+            metaDescription.length > 160
+              ? metaDescription.substring(0, 157) + '...'
+              : metaDescription,
           status: 'PUBLISHED',
           publishedAt: new Date(),
         },
@@ -672,7 +686,9 @@ async function handleMicrositePageContentGenerate(params: {
     }
 
     // ── Blog type: full AI content pipeline ──
-    console.log(`[Content Generate - Microsite] Generating blog content for ${siteName}: "${targetKeyword}"`);
+    console.log(
+      `[Content Generate - Microsite] Generating blog content for ${siteName}: "${targetKeyword}"`
+    );
 
     const canProceed = await canExecuteAutonomousOperation({
       feature: 'enableContentGeneration',
@@ -898,7 +914,9 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
   const entityId = micrositeId || siteId;
 
   try {
-    console.log(`[Content Generate] Starting for ${entityType} ${entityId}, keyword: ${targetKeyword}`);
+    console.log(
+      `[Content Generate] Starting for ${entityType} ${entityId}, keyword: ${targetKeyword}`
+    );
 
     // For microsites, use dedicated handler (metadata-only for non-blog, full AI for blog)
     if (micrositeId) {
@@ -1504,7 +1522,8 @@ export async function handleContentOptimize(job: Job<ContentOptimizePayload>): P
         break;
       }
       case 'snippet_optimization': {
-        const snippetType = (job.data.optimizationContext?.['snippetType'] as string) || 'paragraph';
+        const snippetType =
+          (job.data.optimizationContext?.['snippetType'] as string) || 'paragraph';
         const suggestedFormat = (job.data.optimizationContext?.['suggestedFormat'] as string) || '';
         optimizationPrompt = `Restructure content to target a featured snippet (type: ${snippetType}). ${suggestedFormat} Use clear headings, concise answers, and structured formatting (lists, tables, step-by-step) to increase chances of Position 0 ranking.`;
         break;
@@ -1606,7 +1625,10 @@ export async function handleContentOptimize(job: Job<ContentOptimizePayload>): P
         );
         console.log(`[Content Optimize] Resolved SEO issue ${job.data.seoIssueId}`);
       } catch (resolveErr) {
-        console.warn(`[Content Optimize] Failed to resolve SEO issue ${job.data.seoIssueId}:`, resolveErr);
+        console.warn(
+          `[Content Optimize] Failed to resolve SEO issue ${job.data.seoIssueId}:`,
+          resolveErr
+        );
       }
     }
 

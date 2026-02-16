@@ -61,7 +61,7 @@ The code that creates Cloudflare DNS records used:
 
 ```typescript
 const herokuHostname = process.env['HEROKU_APP_NAME']
-  ? `${process.env['HEROKU_APP_NAME']}.herokuapp.com`    // SHORT hostname
+  ? `${process.env['HEROKU_APP_NAME']}.herokuapp.com` // SHORT hostname
   : 'experience-marketplace.herokuapp.com';
 ```
 
@@ -74,7 +74,7 @@ The working domains were set up by a **different code path** (admin UI "Sync fro
 ```typescript
 const herokuHostname = process.env['HEROKU_APP_NAME']
   ? `${process.env['HEROKU_APP_NAME']}.herokuapp.com`
-  : 'holibob-experiences-demand-gen-c27f61accbd2.herokuapp.com';   // Full hostname fallback
+  : 'holibob-experiences-demand-gen-c27f61accbd2.herokuapp.com'; // Full hostname fallback
 ```
 
 But when `HEROKU_APP_NAME` is set (which it is in production), this code **also** uses the short hostname. The 15 working domains were likely set up before the environment variable was configured, or their DNS records were manually corrected.
@@ -130,13 +130,13 @@ const herokuHostname =
 When adding a domain to Heroku via the Platform API, the request body needs to include an `sni_endpoint` parameter if the app already has any SNI endpoints. Without it, the API returns a 422 error:
 
 ```json
-{"id":"invalid_params","message":"Require params: sni_endpoint"}
+{ "id": "invalid_params", "message": "Require params: sni_endpoint" }
 ```
 
 The original code sent just `{ hostname }` without `sni_endpoint`:
 
 ```typescript
-body: JSON.stringify({ hostname })
+body: JSON.stringify({ hostname });
 ```
 
 When the first domains were added, the app had no SNI endpoints, so this worked. As domains accumulated and ACM issued certificates (creating SNI endpoints), Heroku started requiring the parameter. New domain additions silently failed with 422, which was caught by error handling that treated all 422s as "domain already exists" (a valid 422 message).
@@ -267,18 +267,18 @@ curl -s -H "Authorization: Bearer $CF_TOKEN" \
 
 ## Files Changed
 
-| File | Change |
-|------|--------|
+| File                                           | Change                                                                                                           |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | `packages/jobs/src/services/heroku-domains.ts` | Added `getExistingSniEndpoint()` to find and cache an existing endpoint; `addDomain()` now uses it automatically |
-| `packages/jobs/src/workers/domain.ts` | Uses `HEROKU_HOSTNAME` env var for DNS target; removed ACM polling code |
-| `packages/jobs/src/workers/site.ts` | Fixed inline `addDomainToHeroku` to include SNI endpoint; uses `HEROKU_HOSTNAME` for DNS target |
-| `apps/admin/src/app/api/domains/route.ts` | Fixed `addDomainToHeroku` to find and use existing SNI endpoint; uses `HEROKU_HOSTNAME` |
-| `packages/jobs/src/services/cloudflare-dns.ts` | Added optional `proxied` parameter to `setupStandardRecords()` (defaults to `true`) |
+| `packages/jobs/src/workers/domain.ts`          | Uses `HEROKU_HOSTNAME` env var for DNS target; removed ACM polling code                                          |
+| `packages/jobs/src/workers/site.ts`            | Fixed inline `addDomainToHeroku` to include SNI endpoint; uses `HEROKU_HOSTNAME` for DNS target                  |
+| `apps/admin/src/app/api/domains/route.ts`      | Fixed `addDomainToHeroku` to find and use existing SNI endpoint; uses `HEROKU_HOSTNAME`                          |
+| `packages/jobs/src/services/cloudflare-dns.ts` | Added optional `proxied` parameter to `setupStandardRecords()` (defaults to `true`)                              |
 
 ## Environment Changes
 
-| Variable | Value | Purpose |
-|----------|-------|---------|
+| Variable          | Value                                                       | Purpose                                         |
+| ----------------- | ----------------------------------------------------------- | ----------------------------------------------- |
 | `HEROKU_HOSTNAME` | `holibob-experiences-demand-gen-c27f61accbd2.herokuapp.com` | Full Heroku hostname for correct region routing |
 
 ---
