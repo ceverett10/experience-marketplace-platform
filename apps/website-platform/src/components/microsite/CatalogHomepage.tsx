@@ -103,7 +103,7 @@ export function CatalogHomepage({
       {/* Compact Hero Section */}
       <section className="relative">
         {/* Background */}
-        <div className="absolute inset-0 h-[300px] overflow-hidden sm:h-[350px]">
+        <div className={`absolute inset-0 overflow-hidden ${isPpc ? 'h-[380px] sm:h-[430px]' : 'h-[300px] sm:h-[350px]'}`}>
           {heroConfig?.backgroundImage ? (
             <Image
               src={heroConfig.backgroundImage}
