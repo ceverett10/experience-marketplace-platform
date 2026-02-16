@@ -898,9 +898,7 @@ export async function scoreCampaignOpportunities(
  * Group selected candidates into per-microsite (or per-site) campaigns.
  * Each group becomes one campaign per platform, with ad groups by landing page path.
  */
-export function groupCandidatesIntoCampaigns(
-  candidates: CampaignCandidate[]
-): CampaignGroup[] {
+export function groupCandidatesIntoCampaigns(candidates: CampaignCandidate[]): CampaignGroup[] {
   // Build map keyed by "(micrositeId || siteId)|(platform)"
   const groupMap = new Map<string, CampaignCandidate[]>();
   for (const c of candidates) {

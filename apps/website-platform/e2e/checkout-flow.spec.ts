@@ -43,8 +43,12 @@ test.describe('Checkout Flow', () => {
 
     // Should proceed to review step
     await expect(page.getByTestId('checkout-review-step')).toBeVisible();
-    await expect(page.getByText('Booking Details')).toBeVisible();
-    await expect(page.getByText('Sunset Kayak Tour')).toBeVisible();
+    await expect(
+      page.getByTestId('checkout-review-step').getByText('Booking Details')
+    ).toBeVisible();
+    await expect(
+      page.getByTestId('checkout-review-step').getByText('Sunset Kayak Tour')
+    ).toBeVisible();
 
     // Proceed to Payment button should be visible
     await expect(page.getByTestId('proceed-to-payment')).toBeVisible();
@@ -149,7 +153,9 @@ test.describe('Checkout Flow', () => {
 
     // Payment section should appear
     await expect(page.getByTestId('checkout-payment-step')).toBeVisible();
-    await expect(page.getByText('Payment')).toBeVisible();
+    await expect(
+      page.getByTestId('checkout-payment-step').getByRole('heading', { name: 'Payment' })
+    ).toBeVisible();
   });
 
   test('order summary sidebar shows correct info', async ({ page }) => {
@@ -160,8 +166,8 @@ test.describe('Checkout Flow', () => {
 
     // Order summary should be visible
     await expect(page.getByText('Order Summary')).toBeVisible();
-    await expect(page.getByText('Sunset Kayak Tour')).toBeVisible();
-    await expect(page.getByText('$50.00')).toBeVisible();
+    await expect(page.getByText('Sunset Kayak Tour').first()).toBeVisible();
+    await expect(page.getByText('£50.00').first()).toBeVisible();
   });
 
   test('isResubmission changes button text after failed submit', async ({ page }) => {

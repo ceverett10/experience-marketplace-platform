@@ -935,12 +935,16 @@ async function deployToGoogle(
     const siteName = campaign.site?.name || 'Holibob';
 
     // Step 2: Create ad groups — one per landing page path if audiences.adGroups exists
-    const adGroupConfigs = (campaign.audiences as { adGroups?: Array<{
-      primaryKeyword: string;
-      keywords: string[];
-      maxBid: number;
-      targetUrl: string;
-    }> })?.adGroups;
+    const adGroupConfigs = (
+      campaign.audiences as {
+        adGroups?: Array<{
+          primaryKeyword: string;
+          keywords: string[];
+          maxBid: number;
+          targetUrl: string;
+        }>;
+      }
+    )?.adGroups;
 
     if (adGroupConfigs && adGroupConfigs.length > 0) {
       for (const agConfig of adGroupConfigs) {

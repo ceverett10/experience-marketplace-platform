@@ -85,7 +85,7 @@ function isAutoFillableQuestion(label: string): boolean {
     l.includes('full name') ||
     l.includes('email') ||
     l.includes('phone') ||
-    l.includes('tel') ||
+    /\btel(ephone)?\b/.test(l) ||
     l.includes('mobile')
   );
 }
@@ -413,7 +413,7 @@ export function QuestionsForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6" data-testid="questions-form">
+    <form onSubmit={handleSubmit} noValidate className="space-y-6" data-testid="questions-form">
       {/* Lead Person Details */}
       <div className="rounded-xl bg-white p-6 shadow-lg">
         <h2 className="mb-6 text-lg font-semibold" style={{ color: primaryColor }}>

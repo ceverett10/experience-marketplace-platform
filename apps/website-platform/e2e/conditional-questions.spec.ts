@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { setupApiInterceptors, setupSequentialResponses } from './fixtures/api-interceptor';
+import { setupApiInterceptors, setupConditionalQuestionFlow } from './fixtures/api-interceptor';
 import {
   MOCK_BOOKING_ID,
   mockBookingQuestionsConditionalRound1,
@@ -21,24 +21,20 @@ test.describe('Conditional Questions - Iterative Loop', () => {
   });
 
   test('two-round submit reveals conditional question then succeeds', async ({ page }) => {
-    // Round 1: GET questions returns SELECT question
-    // Round 1: POST answer returns canCommit=false
-    // Round 1: GET questions refetch returns SELECT (answered) + new TEXT question
-    // Round 2: POST answer returns canCommit=true
-    await setupApiInterceptors(page, {
-      bookingQuestions: mockBookingQuestionsConditionalRound1,
-    });
+    // Round 1: GET questions returns SELECT question, POST returns canCommit=false
+    // Round 2: GET questions returns SELECT (answered) + new TEXT question, POST returns canCommit=true
+    await setupApiInterceptors(page);
 
-    // Override POST questions to return sequential responses
-    await setupSequentialResponses(page, /\/api\/booking\/[^/]+\/questions$/, 'POST', [
-      mockBookingNotReady,
-      mockBookingAnswered,
-    ]);
-
-    // Override GET questions to return sequential responses (initial load, then refetch)
-    await setupSequentialResponses(page, /\/api\/booking\/[^/]+\/questions$/, 'GET', [
-      mockBookingQuestionsConditionalRound1,
-      mockBookingQuestionsConditionalRound2,
+    // State-machine handler: GET responses only advance after POST
+    await setupConditionalQuestionFlow(page, [
+      {
+        getResponse: mockBookingQuestionsConditionalRound1,
+        postResponse: mockBookingNotReady,
+      },
+      {
+        getResponse: mockBookingQuestionsConditionalRound2,
+        postResponse: mockBookingAnswered,
+      },
     ]);
 
     await page.goto(`/checkout/${MOCK_BOOKING_ID}`);
@@ -83,15 +79,18 @@ test.describe('Conditional Questions - Iterative Loop', () => {
   });
 
   test('error message shows remaining question count', async ({ page }) => {
-    await setupApiInterceptors(page, {
-      bookingQuestions: mockBookingQuestionsConditionalRound1,
-      answerQuestions: mockBookingNotReady,
-    });
+    await setupApiInterceptors(page);
 
-    // Override GET refetch to return round 2 (1 unanswered question: Hotel Name)
-    await setupSequentialResponses(page, /\/api\/booking\/[^/]+\/questions$/, 'GET', [
-      mockBookingQuestionsConditionalRound1,
-      mockBookingQuestionsConditionalRound2,
+    // Single round: POST returns canCommit=false, GET refetch returns round 2
+    await setupConditionalQuestionFlow(page, [
+      {
+        getResponse: mockBookingQuestionsConditionalRound1,
+        postResponse: mockBookingNotReady,
+      },
+      {
+        getResponse: mockBookingQuestionsConditionalRound2,
+        postResponse: mockBookingNotReady,
+      },
     ]);
 
     await page.goto(`/checkout/${MOCK_BOOKING_ID}`);

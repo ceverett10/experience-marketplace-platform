@@ -161,7 +161,43 @@ export async function setupSequentialResponses(
         body: JSON.stringify(response),
       });
     } else {
-      await route.continue();
+      await route.fallback();
+    }
+  });
+}
+
+/**
+ * State-machine handler for conditional question flows.
+ * GET responses only advance to the next round AFTER a POST occurs.
+ * This is resilient to React strict mode's double useEffect calls.
+ */
+export async function setupConditionalQuestionFlow(
+  page: Page,
+  rounds: Array<{
+    getResponse: object;
+    postResponse: object;
+  }>
+) {
+  let currentRound = 0;
+  await page.route(/\/api\/booking\/[^/]+\/questions$/, async (route) => {
+    if (route.request().method() === 'GET') {
+      const round = rounds[currentRound] ?? rounds[rounds.length - 1];
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(round.getResponse),
+      });
+    } else if (route.request().method() === 'POST') {
+      const round = rounds[currentRound] ?? rounds[rounds.length - 1];
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(round.postResponse),
+      });
+      // Advance to next round after POST (user action, not affected by strict mode)
+      currentRound++;
+    } else {
+      await route.fallback();
     }
   });
 }

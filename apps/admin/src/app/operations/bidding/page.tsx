@@ -2038,8 +2038,7 @@ export default function PaidTrafficDashboard() {
                   {filteredCampaigns.map((c) => {
                     const isExpanded = expandedCampaigns.has(c.id);
                     const cAny = c as any;
-                    const kwDetails: ProposalKeywordDetail[] =
-                      cAny.proposalData?.keywords ?? [];
+                    const kwDetails: ProposalKeywordDetail[] = cAny.proposalData?.keywords ?? [];
                     const hasDetails = kwDetails.length > 0;
                     const toggleExpand = () => {
                       setExpandedCampaigns((prev) => {

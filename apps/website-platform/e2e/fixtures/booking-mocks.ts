@@ -228,31 +228,6 @@ export const mockBookingQuestions = {
                     ],
                   },
                 },
-                {
-                  id: 'person-2',
-                  pricingCategoryLabel: 'Adult',
-                  isQuestionsComplete: false,
-                  questionList: {
-                    nodes: [
-                      {
-                        id: 'pq-fn2',
-                        label: 'First name',
-                        type: 'TEXT',
-                        dataType: 'STRING',
-                        answerValue: null,
-                        isRequired: true,
-                      },
-                      {
-                        id: 'pq-ln2',
-                        label: 'Last name',
-                        type: 'TEXT',
-                        dataType: 'STRING',
-                        answerValue: null,
-                        isRequired: true,
-                      },
-                    ],
-                  },
-                },
               ],
             },
           },
@@ -301,29 +276,6 @@ export const mockBookingQuestions = {
                   id: 'pq-ph',
                   label: 'Phone number',
                   type: 'PHONE',
-                  dataType: 'STRING',
-                  answerValue: null,
-                  isRequired: true,
-                },
-              ],
-            },
-            {
-              personId: 'person-2',
-              category: 'Adult',
-              isComplete: false,
-              questions: [
-                {
-                  id: 'pq-fn2',
-                  label: 'First name',
-                  type: 'TEXT',
-                  dataType: 'STRING',
-                  answerValue: null,
-                  isRequired: true,
-                },
-                {
-                  id: 'pq-ln2',
-                  label: 'Last name',
-                  type: 'TEXT',
                   dataType: 'STRING',
                   answerValue: null,
                   isRequired: true,
@@ -598,10 +550,7 @@ export const mockBookingGet = {
           product: { id: MOCK_PRODUCT_ID, name: 'Sunset Kayak Tour' },
           totalPrice: { grossFormattedText: '£50.00', gross: 5000, currency: 'GBP' },
           personList: {
-            nodes: [
-              { id: 'person-1', pricingCategoryLabel: 'Adult' },
-              { id: 'person-2', pricingCategoryLabel: 'Adult' },
-            ],
+            nodes: [{ id: 'person-1', pricingCategoryLabel: 'Adult' }],
           },
         },
       ],

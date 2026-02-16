@@ -213,16 +213,12 @@ async function main() {
     // Ad groups per campaign distribution
     const agCounts = result.groups.map((g) => g.adGroups.length);
     const avgAg = agCounts.reduce((a, b) => a + b, 0) / agCounts.length;
-    console.log(
-      `  Ad groups per campaign: avg=${avgAg.toFixed(1)}, max=${Math.max(...agCounts)}`
-    );
+    console.log(`  Ad groups per campaign: avg=${avgAg.toFixed(1)}, max=${Math.max(...agCounts)}`);
 
     console.log('\nTop 20 groups by profitability:');
     for (const g of result.groups.slice(0, 20)) {
       const roas =
-        g.totalExpectedDailyCost > 0
-          ? g.totalExpectedDailyRevenue / g.totalExpectedDailyCost
-          : 0;
+        g.totalExpectedDailyCost > 0 ? g.totalExpectedDailyRevenue / g.totalExpectedDailyCost : 0;
       const budgetLabel =
         g.totalExpectedDailyCost < 1.0
           ? `£${g.totalExpectedDailyCost.toFixed(2)}->£1.00`
