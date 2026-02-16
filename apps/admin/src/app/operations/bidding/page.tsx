@@ -78,6 +78,7 @@ interface BiddingCampaign {
   ctr: number;
   avgCpc: number;
   daysWithData: number;
+  targetUrl: string | null;
   proposalData: ProposalEstimates | null;
   landingPagePath: string | null;
   landingPageType: string | null;
@@ -2007,7 +2008,7 @@ export default function PaidTrafficDashboard() {
                       { key: 'platform', label: 'Platform' },
                       { key: 'status', label: 'Status' },
                       { key: 'keywords', label: 'Keywords' },
-                      { key: 'landingPageType', label: 'LP Type' },
+                      { key: 'landingPageType', label: 'Landing Page' },
                       { key: 'qualityScore', label: 'QS' },
                       { key: 'spend', label: 'Spend' },
                       { key: 'revenue', label: 'Revenue' },
@@ -2099,23 +2100,47 @@ export default function PaidTrafficDashboard() {
                               </span>
                             )}
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                             {c.landingPageType ? (
-                              <span
-                                className={`inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium ${
-                                  c.landingPageType === 'DESTINATION' ||
-                                  c.landingPageType === 'CATEGORY'
-                                    ? 'bg-emerald-50 text-emerald-700'
-                                    : c.landingPageType === 'EXPERIENCES_FILTERED'
-                                      ? 'bg-amber-50 text-amber-700'
-                                      : c.landingPageType === 'BLOG'
-                                        ? 'bg-purple-50 text-purple-700'
-                                        : 'bg-slate-50 text-slate-600'
-                                }`}
-                                title={c.landingPagePath || ''}
+                              <div className="flex flex-col gap-0.5">
+                                <span
+                                  className={`inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium w-fit ${
+                                    c.landingPageType === 'DESTINATION' ||
+                                    c.landingPageType === 'CATEGORY'
+                                      ? 'bg-emerald-50 text-emerald-700'
+                                      : c.landingPageType === 'EXPERIENCES_FILTERED'
+                                        ? 'bg-amber-50 text-amber-700'
+                                        : c.landingPageType === 'BLOG'
+                                          ? 'bg-purple-50 text-purple-700'
+                                          : 'bg-slate-50 text-slate-600'
+                                  }`}
+                                >
+                                  {c.landingPageType.replace(/_/g, ' ').substring(0, 12)}
+                                </span>
+                                {c.targetUrl && (
+                                  <a
+                                    href={c.targetUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-xs text-blue-600 hover:text-blue-800 hover:underline truncate max-w-[180px]"
+                                    title={c.targetUrl}
+                                  >
+                                    {c.targetUrl.replace(/^https?:\/\//, '').substring(0, 40)}
+                                    {c.targetUrl.replace(/^https?:\/\//, '').length > 40 ? '...' : ''}
+                                  </a>
+                                )}
+                              </div>
+                            ) : c.targetUrl ? (
+                              <a
+                                href={c.targetUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs text-blue-600 hover:text-blue-800 hover:underline truncate max-w-[180px] block"
+                                title={c.targetUrl}
                               >
-                                {c.landingPageType.replace(/_/g, ' ').substring(0, 12)}
-                              </span>
+                                {c.targetUrl.replace(/^https?:\/\//, '').substring(0, 40)}
+                                {c.targetUrl.replace(/^https?:\/\//, '').length > 40 ? '...' : ''}
+                              </a>
                             ) : (
                               '\u2014'
                             )}
@@ -2241,8 +2266,29 @@ export default function PaidTrafficDashboard() {
                                         >
                                           {kwRoas.toFixed(1)}x
                                         </td>
-                                        <td className="py-1 text-slate-400 truncate max-w-[200px]">
-                                          {kw.landingPagePath || '\u2014'}
+                                        <td className="py-1 truncate max-w-[200px]">
+                                          {kw.landingPagePath ? (
+                                            <a
+                                              href={
+                                                cAny.micrositeDomain
+                                                  ? `https://${cAny.micrositeDomain}${kw.landingPagePath}`
+                                                  : kw.landingPagePath.startsWith('http')
+                                                    ? kw.landingPagePath
+                                                    : c.targetUrl
+                                                      ? new URL(kw.landingPagePath, c.targetUrl).href
+                                                      : kw.landingPagePath
+                                              }
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="text-blue-600 hover:text-blue-800 hover:underline"
+                                              title={kw.landingPagePath}
+                                              onClick={(e) => e.stopPropagation()}
+                                            >
+                                              {kw.landingPagePath}
+                                            </a>
+                                          ) : (
+                                            <span className="text-slate-400">{'\u2014'}</span>
+                                          )}
                                         </td>
                                       </tr>
                                     );

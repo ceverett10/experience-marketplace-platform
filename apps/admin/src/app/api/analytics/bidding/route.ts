@@ -87,6 +87,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         ctr: impressions > 0 ? clicks / impressions : 0,
         avgCpc: clicks > 0 ? spend / clicks : 0,
         daysWithData: c.dailyMetrics.length,
+        targetUrl: c.targetUrl || null,
         proposalData: c.proposalData || null,
         landingPagePath: (c as any).landingPagePath || null,
         landingPageType: (c as any).landingPageType || null,
