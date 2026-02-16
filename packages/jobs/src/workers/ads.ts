@@ -1046,7 +1046,19 @@ export async function deployDraftCampaigns(): Promise<{
   let failed = 0;
   let skipped = 0;
 
+  // Track consecutive failures per platform to fail-fast on platform-wide issues
+  // (e.g. Google token not approved, API version deprecated)
+  const consecutiveFailures: Record<string, number> = {};
+  const FAIL_FAST_THRESHOLD = 3;
+  const failedPlatforms = new Set<string>();
+
   for (const draft of drafts) {
+    // Skip platform entirely after repeated failures (avoids hours of rate-limited retries)
+    if (failedPlatforms.has(draft.platform)) {
+      skipped++;
+      continue;
+    }
+
     const platformCampaignId = await deployCampaignToPlatform({
       id: draft.id,
       platform: draft.platform,
@@ -1073,6 +1085,7 @@ export async function deployDraftCampaigns(): Promise<{
         },
       });
       deployed++;
+      consecutiveFailures[draft.platform] = 0;
       console.log(`[Ads Worker] Campaign "${draft.name}" deployed → ${platformCampaignId}`);
     } else {
       // Platform not configured or deployment failed — skip but don't fail
@@ -1085,7 +1098,18 @@ export async function deployDraftCampaigns(): Promise<{
         skipped++;
       } else {
         failed++;
+        consecutiveFailures[draft.platform] = (consecutiveFailures[draft.platform] || 0) + 1;
         console.error(`[Ads Worker] Failed to deploy "${draft.name}" to ${draft.platform}`);
+
+        if (consecutiveFailures[draft.platform]! >= FAIL_FAST_THRESHOLD) {
+          const remaining = drafts.filter(
+            (d) => d.platform === draft.platform && d.status === 'DRAFT'
+          ).length;
+          console.warn(
+            `[Ads Worker] ${FAIL_FAST_THRESHOLD} consecutive failures on ${draft.platform} — skipping remaining ${remaining} campaigns for this platform`
+          );
+          failedPlatforms.add(draft.platform);
+        }
       }
     }
   }
