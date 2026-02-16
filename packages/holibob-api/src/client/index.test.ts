@@ -42,6 +42,7 @@ describe('HolibobClient', () => {
           'X-API-Key': mockConfig.apiKey,
           'X-Partner-Id': mockConfig.partnerId,
           'Content-Type': 'application/json',
+          'x-holibob-currency': 'GBP',
         },
       });
     });
