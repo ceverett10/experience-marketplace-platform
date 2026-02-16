@@ -174,7 +174,10 @@ describe('SEO utilities', () => {
     });
 
     it('should not divide price by 100 for any amount', () => {
-      const exp = { ...mockExperience, price: { amount: 43, currency: 'GBP', formatted: '£43.00' } };
+      const exp = {
+        ...mockExperience,
+        price: { amount: 43, currency: 'GBP', formatted: '£43.00' },
+      };
       const result = generateExperienceJsonLd(exp, baseUrl);
       expect(result.offers.price).toBe(43);
     });
