@@ -266,7 +266,7 @@ export class MetaAdsClient {
   async createAdSet(config: {
     campaignId: string;
     name: string;
-    dailyBudget: number;
+    dailyBudget?: number; // Optional — omit when using Campaign Budget Optimization (CBO)
     bidAmount: number; // Max CPC bid in account currency
     targeting: {
       countries: string[];
@@ -295,7 +295,6 @@ export class MetaAdsClient {
       const params = new URLSearchParams({
         name: config.name,
         campaign_id: config.campaignId,
-        daily_budget: Math.round(config.dailyBudget * 100).toString(),
         bid_amount: Math.round(config.bidAmount * 100).toString(),
         billing_event: config.billingEvent || 'LINK_CLICKS',
         optimization_goal: config.optimizationGoal || 'LINK_CLICKS',
@@ -303,6 +302,10 @@ export class MetaAdsClient {
         status: config.status || 'PAUSED',
         access_token: this.accessToken,
       });
+      // Only set ad set budget if not using Campaign Budget Optimization (CBO)
+      if (config.dailyBudget != null) {
+        params.set('daily_budget', Math.round(config.dailyBudget * 100).toString());
+      }
 
       const response = await fetch(`${META_API_BASE}/${this.adAccountId}/adsets`, {
         method: 'POST',

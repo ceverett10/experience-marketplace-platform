@@ -822,7 +822,7 @@ async function deployToMeta(
     const adSetResult = await metaClient.createAdSet({
       campaignId: campaignResult.campaignId,
       name: `${campaign.name} - Ad Set`,
-      dailyBudget: campaign.dailyBudget,
+      // dailyBudget omitted — using Campaign Budget Optimization (CBO) at campaign level
       bidAmount: campaign.maxCpc,
       targeting: {
         countries,
