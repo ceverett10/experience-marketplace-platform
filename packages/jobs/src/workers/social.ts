@@ -15,7 +15,7 @@ import {
 import { selectImageForPost } from '../services/social/image-selector';
 import { refreshTokenIfNeeded } from '../services/social/token-refresh';
 import { createPinterestPin } from '../services/social/pinterest-client';
-import { createFacebookPost } from '../services/social/facebook-client';
+import { createFacebookPost, getPageAccessToken } from '../services/social/facebook-client';
 import { createTweet } from '../services/social/twitter-client';
 import { canExecuteAutonomousOperation } from '../services/pause-control';
 
@@ -615,8 +615,30 @@ export async function handleSocialPostPublish(
         if (!pageId) {
           throw new Error('No Facebook Page ID configured.');
         }
+
+        // Facebook Page posting requires a Page Access Token (not User Access Token).
+        // Check metadata cache first, then fetch from Graph API and cache it.
+        let pageAccessToken = (metadata?.['pageAccessToken'] as string) || '';
+        if (!pageAccessToken) {
+          const fetched = await getPageAccessToken(accessToken, pageId);
+          if (!fetched) {
+            throw new Error(
+              `Could not obtain Page Access Token for page ${pageId}. ` +
+                'Ensure the user has granted pages_manage_posts permission.'
+            );
+          }
+          pageAccessToken = fetched;
+          // Cache the page access token in account metadata for future use
+          await prisma.socialAccount.update({
+            where: { id: post.account.id },
+            data: {
+              metadata: { ...(metadata || {}), pageAccessToken: fetched },
+            },
+          });
+        }
+
         result = await createFacebookPost({
-          accessToken,
+          accessToken: pageAccessToken,
           pageId,
           message:
             post.hashtags.length > 0

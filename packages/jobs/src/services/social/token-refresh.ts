@@ -116,6 +116,20 @@ export async function refreshTokenIfNeeded(account: {
     updateData['tokenExpiresAt'] = new Date(Date.now() + result.expiresIn * 1000);
   }
 
+  // For Facebook: clear cached pageAccessToken from metadata since the
+  // user token changed — the publisher will fetch a fresh one on next post.
+  if (account.platform === 'FACEBOOK') {
+    const currentAccount = await prisma.socialAccount.findUnique({
+      where: { id: account.id },
+      select: { metadata: true },
+    });
+    const meta = currentAccount?.metadata as Record<string, unknown> | null;
+    if (meta?.['pageAccessToken']) {
+      const { pageAccessToken: _, ...restMeta } = meta;
+      updateData['metadata'] = restMeta;
+    }
+  }
+
   await prisma.socialAccount.update({
     where: { id: account.id },
     data: updateData,
