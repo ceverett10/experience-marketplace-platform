@@ -2,13 +2,13 @@
 ALTER TYPE "JobType" ADD VALUE 'AD_CONVERSION_UPLOAD';
 ALTER TYPE "JobType" ADD VALUE 'AD_PLATFORM_IDS_SYNC';
 
--- AlterTable: Add ad platform click IDs to bookings for CAPI conversion uploads
-ALTER TABLE "bookings" ADD COLUMN "gclid" TEXT;
-ALTER TABLE "bookings" ADD COLUMN "fbclid" TEXT;
+-- AlterTable: Add ad platform click IDs to Booking for CAPI conversion uploads
+ALTER TABLE "Booking" ADD COLUMN IF NOT EXISTS "gclid" TEXT;
+ALTER TABLE "Booking" ADD COLUMN IF NOT EXISTS "fbclid" TEXT;
 
 -- CreateIndex
-CREATE INDEX "bookings_gclid_idx" ON "bookings"("gclid");
-CREATE INDEX "bookings_fbclid_idx" ON "bookings"("fbclid");
+CREATE INDEX IF NOT EXISTS "Booking_gclid_idx" ON "Booking"("gclid");
+CREATE INDEX IF NOT EXISTS "Booking_fbclid_idx" ON "Booking"("fbclid");
 
 -- CreateTable: Ad alerts for campaign performance monitoring
 CREATE TABLE "ad_alerts" (
