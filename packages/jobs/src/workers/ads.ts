@@ -35,14 +35,9 @@ import {
   getCampaignPerformance as getGoogleCampaignPerformance,
   setCampaignStatus as setGoogleCampaignStatus,
 } from '../services/google-ads-client';
+import { PAID_TRAFFIC_CONFIG } from '../config/paid-traffic';
 
 // --- Helpers -----------------------------------------------------------------
-
-const OBSERVATION_DAYS = 7; // Minimum days before pausing underperformers
-const ROAS_PAUSE_THRESHOLD = 0.5; // Pause campaigns below this ROAS after observation
-const ROAS_SCALE_THRESHOLD = 2.0; // Scale up campaigns above this ROAS
-const SCALE_INCREMENT = 0.15; // Scale budget up by 15%
-const MAX_DAILY_BUDGET = parseFloat(process.env['BIDDING_MAX_DAILY_BUDGET'] || '200');
 
 /** Get a configured MetaAdsClient, or null if not configured. */
 async function getMetaAdsClient(): Promise<MetaAdsClient | null> {
@@ -349,9 +344,9 @@ export async function handleAdPerformanceReport(job: Job): Promise<JobResult> {
 
     const siteName = campaign.site?.name || 'Unknown';
 
-    if (roas >= ROAS_SCALE_THRESHOLD) {
+    if (roas >= PAID_TRAFFIC_CONFIG.roasScaleThreshold) {
       topPerformers.push({ id: campaign.id, name: campaign.name, site: siteName, roas, spend });
-    } else if (roas < 1.0 && metrics.length >= OBSERVATION_DAYS && spend > 5) {
+    } else if (roas < 1.0 && metrics.length >= PAID_TRAFFIC_CONFIG.observationDays && spend > 5) {
       underPerformers.push({
         id: campaign.id,
         name: campaign.name,
@@ -411,9 +406,9 @@ export async function handleAdBudgetOptimizer(job: Job): Promise<JobResult> {
   const payload = job.data as AdBudgetOptimizerPayload;
   console.log('[Ads Worker] Starting budget optimizer');
 
-  const maxBudget = payload.maxCpc ? undefined : MAX_DAILY_BUDGET;
+  const maxBudget = PAID_TRAFFIC_CONFIG.maxDailyBudget;
   const lookback = new Date();
-  lookback.setDate(lookback.getDate() - OBSERVATION_DAYS);
+  lookback.setDate(lookback.getDate() - PAID_TRAFFIC_CONFIG.observationDays);
 
   const where: Record<string, unknown> = { status: 'ACTIVE' };
   if (payload.siteId) where['siteId'] = payload.siteId;
@@ -441,7 +436,7 @@ export async function handleAdBudgetOptimizer(job: Job): Promise<JobResult> {
     const dailyBudget = Number(campaign.dailyBudget);
 
     // --- Pause underperformers ---
-    if (roas < ROAS_PAUSE_THRESHOLD && metrics.length >= OBSERVATION_DAYS && spend > 5) {
+    if (roas < PAID_TRAFFIC_CONFIG.roasPauseThreshold && metrics.length >= PAID_TRAFFIC_CONFIG.observationDays && spend > 5) {
       console.log(
         `[Ads Worker] Pausing campaign "${campaign.name}" (ROAS=${roas.toFixed(2)}, ` +
           `spend=£${spend.toFixed(2)} over ${metrics.length} days)`
@@ -473,9 +468,9 @@ export async function handleAdBudgetOptimizer(job: Job): Promise<JobResult> {
     }
 
     // --- Scale up top performers ---
-    if (roas >= ROAS_SCALE_THRESHOLD && metrics.length >= 3) {
-      const newBudget = Math.min(dailyBudget * (1 + SCALE_INCREMENT), 50); // Cap at £50/day per campaign
-      const budgetCap = maxBudget || MAX_DAILY_BUDGET;
+    if (roas >= PAID_TRAFFIC_CONFIG.roasScaleThreshold && metrics.length >= 3) {
+      const newBudget = Math.min(dailyBudget * (1 + PAID_TRAFFIC_CONFIG.scaleIncrement), PAID_TRAFFIC_CONFIG.maxPerCampaignBudget);
+      const budgetCap = maxBudget;
 
       // Check portfolio budget cap
       if (totalDailyBudget + newBudget <= budgetCap) {
@@ -498,7 +493,7 @@ export async function handleAdBudgetOptimizer(job: Job): Promise<JobResult> {
     }
   }
 
-  const budgetRemaining = (maxBudget || MAX_DAILY_BUDGET) - totalDailyBudget;
+  const budgetRemaining = maxBudget - totalDailyBudget;
 
   console.log(
     `[Ads Worker] Budget optimizer: paused=${paused}, scaled=${scaled}, ` +
@@ -904,10 +899,10 @@ export async function handleBiddingEngineRun(job: Job): Promise<JobResult> {
             isMicrosite: candidate.isMicrosite,
             micrositeDomain: candidate.micrositeDomain || null,
             assumptions: {
-              avgOrderValue: profile?.avgOrderValue ?? 60,
-              commissionRate: profile?.avgCommissionRate ?? 18,
-              conversionRate: profile?.conversionRate ?? 0.015,
-              targetRoas: 1.0,
+              avgOrderValue: profile?.avgOrderValue ?? PAID_TRAFFIC_CONFIG.defaults.aov,
+              commissionRate: profile?.avgCommissionRate ?? PAID_TRAFFIC_CONFIG.defaults.commissionRate,
+              conversionRate: profile?.conversionRate ?? PAID_TRAFFIC_CONFIG.defaults.cvr,
+              targetRoas: PAID_TRAFFIC_CONFIG.targetRoas,
               revenuePerClick: profile?.revenuePerClick ?? 0,
             },
           },
@@ -917,7 +912,15 @@ export async function handleBiddingEngineRun(job: Job): Promise<JobResult> {
       campaignsCreated++;
     }
 
-    console.log(`[Ads Worker] Created ${campaignsCreated} draft campaigns (awaiting user approval)`)
+    console.log(`[Ads Worker] Created ${campaignsCreated} draft campaigns`);
+
+    // Auto-deploy new drafts to platforms (as PAUSED — no money spent until manually activated)
+    console.log('[Ads Worker] Auto-deploying draft campaigns to platforms...');
+    const deployResult = await deployDraftCampaigns();
+    console.log(
+      `[Ads Worker] Auto-deploy complete: ${deployResult.deployed} deployed, ` +
+      `${deployResult.failed} failed, ${deployResult.skipped} skipped`
+    );
   }
 
   // Count final campaign states

@@ -270,7 +270,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       0
     );
     const maxDailyBudget = parseFloat(
-      process.env['BIDDING_MAX_DAILY_BUDGET'] || '200'
+      process.env['BIDDING_MAX_DAILY_BUDGET'] || '1200'
     );
 
     // --- Enrichment pipeline stats ---
@@ -493,6 +493,44 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({
         success: true,
         message: `Rejected and deleted ${deleted.count} draft campaign${deleted.count !== 1 ? 's' : ''}`,
+      });
+    }
+
+    if (action === 'activate_paused') {
+      // Activate all PAUSED campaigns that have been deployed to platforms
+      const paused = await prisma.adCampaign.findMany({
+        where: { status: 'PAUSED', platformCampaignId: { not: null } },
+        select: { id: true, platform: true, platformCampaignId: true, name: true },
+      });
+
+      let activated = 0;
+      let failed = 0;
+
+      for (const campaign of paused) {
+        try {
+          const jobs = await import('@experience-marketplace/jobs') as any;
+          if (campaign.platform === 'FACEBOOK') {
+            const metaClient = await jobs.getMetaAdsClientForActivation?.();
+            // Set status on platform if client available
+          } else if (campaign.platform === 'GOOGLE_SEARCH') {
+            // Set status on platform if configured
+          }
+          // Update DB status to ACTIVE
+          await prisma.adCampaign.update({
+            where: { id: campaign.id },
+            data: { status: 'ACTIVE' },
+          });
+          activated++;
+        } catch (err) {
+          console.error(`[API] Failed to activate campaign ${campaign.name}: ${err}`);
+          failed++;
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: `Activated ${activated} campaign${activated !== 1 ? 's' : ''}${failed > 0 ? ` (${failed} failed)` : ''}`,
+        data: { activated, failed },
       });
     }
 

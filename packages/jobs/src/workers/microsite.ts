@@ -796,6 +796,20 @@ export async function handleMicrositeContentGenerate(
 
     console.log(`[Microsite Content] Auto-published microsite ${micrositeId} to ACTIVE`);
 
+    // Trigger keyword enrichment for the supplier if not yet enriched
+    if (microsite.supplierId && !microsite.supplier?.keywordsEnrichedAt) {
+      try {
+        const { addJob } = await import('../queues/index.js');
+        await addJob('KEYWORD_ENRICHMENT' as any, {
+          supplierIds: [microsite.supplierId],
+          maxProductsPerSupplier: 100,
+        });
+        console.log(`[Microsite Content] Queued keyword enrichment for supplier ${microsite.supplierId}`);
+      } catch (err) {
+        console.error(`[Microsite Content] Failed to queue keyword enrichment: ${err}`);
+      }
+    }
+
     return {
       success: true,
       message: `Generated ${createdPages.length} pages and activated microsite ${micrositeId}`,
@@ -826,7 +840,7 @@ export async function handleMicrositePublish(
 
     const microsite = await prisma.micrositeConfig.findUnique({
       where: { id: micrositeId },
-      include: { pages: true },
+      include: { pages: true, supplier: { select: { keywordsEnrichedAt: true } } },
     });
 
     if (!microsite) throw new Error(`Microsite ${micrositeId} not found`);
@@ -856,6 +870,20 @@ export async function handleMicrositePublish(
 
     // Submit sitemap to Google Search Console (via domain property)
     await submitMicrositeSitemapToGSC(microsite.fullDomain);
+
+    // Trigger keyword enrichment for the supplier if not yet enriched
+    if (microsite.supplierId && !microsite.supplier?.keywordsEnrichedAt) {
+      try {
+        const { addJob } = await import('../queues/index.js');
+        await addJob('KEYWORD_ENRICHMENT' as any, {
+          supplierIds: [microsite.supplierId],
+          maxProductsPerSupplier: 100,
+        });
+        console.log(`[Microsite Publish] Queued keyword enrichment for supplier ${microsite.supplierId}`);
+      } catch (err) {
+        console.error(`[Microsite Publish] Failed to queue keyword enrichment: ${err}`);
+      }
+    }
 
     return {
       success: true,

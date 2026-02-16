@@ -27,7 +27,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const priorStart = new Date(startDate);
     priorStart.setDate(priorStart.getDate() - days);
 
-    const MAX_DAILY_BUDGET = parseFloat(process.env['BIDDING_MAX_DAILY_BUDGET'] || '200');
+    const MAX_DAILY_BUDGET = parseFloat(process.env['BIDDING_MAX_DAILY_BUDGET'] || '1200');
 
     // --- Campaign filters ---
     const campaignWhere: Record<string, unknown> = {};

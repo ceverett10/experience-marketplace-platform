@@ -12,16 +12,13 @@
 
 import { prisma } from '@experience-marketplace/database';
 import { evaluateKeywordQuality } from './keyword-quality-evaluator';
+import { PAID_TRAFFIC_CONFIG } from '../config/paid-traffic';
 
 // --- Configuration -----------------------------------------------------------
 
-const DEFAULT_COMMISSION_RATE = 18; // Fallback percentage when no booking data (Holibob avg ~18%)
-const TARGET_ROAS = 1.0; // Target return on ad spend (1x = break-even, prioritize booking volume)
 const MIN_BOOKINGS_FOR_AOV = 3; // Minimum bookings to use real AOV (else fall back to catalog)
 const MIN_SESSIONS_FOR_CVR = 100; // Minimum sessions to use real conversion rate
-const DEFAULT_CONVERSION_RATE = 0.015; // 1.5% fallback
 const LOOKBACK_DAYS = 90; // Days of data to consider
-const MAX_DAILY_BUDGET = parseFloat(process.env['BIDDING_MAX_DAILY_BUDGET'] || '1200');
 
 // --- Types -------------------------------------------------------------------
 
@@ -112,7 +109,7 @@ export async function calculateSiteProfitability(siteId: string): Promise<SitePr
       where: { priceFrom: { not: null } },
       _avg: { priceFrom: true },
     });
-    avgOrderValue = productAvg._avg.priceFrom ? Number(productAvg._avg.priceFrom) : 60;
+    avgOrderValue = productAvg._avg.priceFrom ? Number(productAvg._avg.priceFrom) : PAID_TRAFFIC_CONFIG.defaults.aov;
     usedCatalogFallback = true;
   }
 
@@ -136,7 +133,7 @@ export async function calculateSiteProfitability(siteId: string): Promise<SitePr
     if (portfolioAvg._count >= 5 && portfolioAvg._avg.commissionRate) {
       avgCommissionRate = portfolioAvg._avg.commissionRate;
     } else {
-      avgCommissionRate = DEFAULT_COMMISSION_RATE;
+      avgCommissionRate = PAID_TRAFFIC_CONFIG.defaults.commissionRate;
       usedDefaultCommission = true;
     }
   }
@@ -160,14 +157,14 @@ export async function calculateSiteProfitability(siteId: string): Promise<SitePr
   if (sessionSampleSize >= MIN_SESSIONS_FOR_CVR && snapshotBookings > 0) {
     conversionRate = snapshotBookings / sessionSampleSize;
   } else {
-    conversionRate = DEFAULT_CONVERSION_RATE;
+    conversionRate = PAID_TRAFFIC_CONFIG.defaults.cvr;
     usedDefaultCvr = true;
   }
 
   // --- Max Profitable CPC ---
   const commissionDecimal = avgCommissionRate / 100;
   const revenuePerClick = avgOrderValue * conversionRate * commissionDecimal;
-  const maxProfitableCpc = revenuePerClick / TARGET_ROAS;
+  const maxProfitableCpc = revenuePerClick / PAID_TRAFFIC_CONFIG.targetRoas;
 
   return {
     siteId,
@@ -275,15 +272,15 @@ export async function calculateMicrositeProfitability(): Promise<SiteProfitabili
     _count: true,
   });
 
-  const portfolioAov = portfolioAvg._avg.totalAmount ? Number(portfolioAvg._avg.totalAmount) : 60;
-  const portfolioCommission = portfolioAvg._avg.commissionRate || DEFAULT_COMMISSION_RATE;
+  const portfolioAov = portfolioAvg._avg.totalAmount ? Number(portfolioAvg._avg.totalAmount) : PAID_TRAFFIC_CONFIG.defaults.aov;
+  const portfolioCommission = portfolioAvg._avg.commissionRate || PAID_TRAFFIC_CONFIG.defaults.commissionRate;
 
   // Product catalog fallback
   const productAvg = await prisma.product.aggregate({
     where: { priceFrom: { not: null } },
     _avg: { priceFrom: true },
   });
-  const catalogAvg = productAvg._avg.priceFrom ? Number(productAvg._avg.priceFrom) : 60;
+  const catalogAvg = productAvg._avg.priceFrom ? Number(productAvg._avg.priceFrom) : PAID_TRAFFIC_CONFIG.defaults.aov;
 
   const profiles: SiteProfitability[] = [];
 
@@ -291,15 +288,15 @@ export async function calculateMicrositeProfitability(): Promise<SiteProfitabili
     // Calculate conversion rate from microsite analytics.
     const totalSessions = ms.analyticsSnapshots.reduce((s, a) => s + a.sessions, 0);
     const conversionRate = totalSessions >= MIN_SESSIONS_FOR_CVR
-      ? DEFAULT_CONVERSION_RATE * 1.2 // Slight niche boost with real data
-      : DEFAULT_CONVERSION_RATE;       // 1.5% default
+      ? PAID_TRAFFIC_CONFIG.defaults.cvr * 1.2 // Slight niche boost with real data
+      : PAID_TRAFFIC_CONFIG.defaults.cvr;       // 1.5% default
 
     const avgOrderValue = portfolioAvg._count >= MIN_BOOKINGS_FOR_AOV ? portfolioAov : catalogAvg;
     const avgCommissionRate = portfolioCommission;
 
     const commissionDecimal = avgCommissionRate / 100;
     const revenuePerClick = avgOrderValue * conversionRate * commissionDecimal;
-    const maxProfitableCpc = revenuePerClick / TARGET_ROAS;
+    const maxProfitableCpc = revenuePerClick / PAID_TRAFFIC_CONFIG.targetRoas;
 
     const virtualSiteId = `microsite:${ms.id}`;
 
@@ -751,7 +748,7 @@ export async function scoreCampaignOpportunities(
  */
 export function selectCampaignCandidates(
   candidates: CampaignCandidate[],
-  maxBudget: number = MAX_DAILY_BUDGET
+  maxBudget: number = PAID_TRAFFIC_CONFIG.maxDailyBudget
 ): { selected: CampaignCandidate[]; budgetAllocated: number; budgetRemaining: number } {
   const selected: CampaignCandidate[] = [];
   let budgetAllocated = 0;
@@ -785,7 +782,7 @@ export async function runBiddingEngine(options?: {
   maxDailyBudget?: number;
 }): Promise<BiddingEngineResult> {
   const mode = options?.mode || 'full';
-  const maxBudget = options?.maxDailyBudget || MAX_DAILY_BUDGET;
+  const maxBudget = options?.maxDailyBudget || PAID_TRAFFIC_CONFIG.maxDailyBudget;
 
   console.log(`[BiddingEngine] Starting in ${mode} mode (budget cap: £${maxBudget}/day)`);
 

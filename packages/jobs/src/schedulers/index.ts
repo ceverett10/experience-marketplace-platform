@@ -10,6 +10,7 @@ import {
 import { runMetaTitleMaintenance } from '../services/meta-title-maintenance.js';
 import { refreshAllCollections } from '../services/collection-generator.js';
 import { resubmitMicrositeSitemapsToGSC } from '../services/microsite-sitemap-resubmit.js';
+import { PAID_TRAFFIC_CONFIG } from '../config/paid-traffic.js';
 
 // Track intervals for cleanup
 let dailyContentInterval: NodeJS.Timeout | null = null;
@@ -342,23 +343,23 @@ export async function initializeScheduledJobs(): Promise<void> {
   // PAID TRAFFIC SCHEDULES
   // =========================================================================
 
-  // Paid Keyword Scanner — Daily at 4 AM
+  // Paid Keyword Scanner — Daily at 3 AM (runs BEFORE bidding engine so new keywords are scored same day)
   // Discovers new low-CPC keyword opportunities from GSC, DataForSEO, Pinterest Ads, Meta, and microsite keywords
   await scheduleJob(
     'PAID_KEYWORD_SCAN' as any,
-    { maxCpc: 3.0, minVolume: 100, modes: ['gsc', 'expansion', 'discovery', 'pinterest', 'meta'] },
-    '0 4 * * *' // Daily at 4 AM (~$1.10/day via DataForSEO)
+    { maxCpc: PAID_TRAFFIC_CONFIG.maxCpc, minVolume: PAID_TRAFFIC_CONFIG.minVolume, modes: ['gsc', 'expansion', 'discovery', 'pinterest', 'meta'] },
+    '0 3 * * *' // Daily at 3 AM (~$1.10/day via DataForSEO)
   );
-  console.log('[Scheduler] ✓ Paid Keyword Scanner - Daily at 4 AM');
+  console.log('[Scheduler] ✓ Paid Keyword Scanner - Daily at 3 AM');
 
-  // Bidding Engine Run — Daily at 3 AM
-  // Calculates site profitability, scores keyword opportunities, creates campaigns
+  // Bidding Engine Run — Daily at 5 AM (after keyword scanner discovers new keywords)
+  // Calculates site profitability, scores keyword opportunities, creates + auto-deploys campaigns
   await scheduleJob(
     'BIDDING_ENGINE_RUN' as any,
     { mode: 'full' },
-    '0 3 * * *' // Daily at 3 AM
+    '0 5 * * *' // Daily at 5 AM
   );
-  console.log('[Scheduler] ✓ Bidding Engine Run - Daily at 3 AM');
+  console.log('[Scheduler] ✓ Bidding Engine Run - Daily at 5 AM');
 
   // Ad Campaign Sync — Every 3 hours
   // Syncs performance data from Meta + Google Ads into AdCampaign/AdDailyMetric

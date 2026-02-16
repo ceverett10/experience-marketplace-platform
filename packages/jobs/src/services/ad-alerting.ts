@@ -15,6 +15,7 @@
  */
 
 import { prisma } from '@experience-marketplace/database';
+import { PAID_TRAFFIC_CONFIG } from '../config/paid-traffic';
 
 type AlertType =
   | 'BUDGET_OVERSPEND'
@@ -80,7 +81,7 @@ export async function runAlertChecks(): Promise<{
   let alertsCreated = 0;
   let checksRun = 0;
 
-  const MAX_DAILY_BUDGET = parseFloat(process.env['BIDDING_MAX_DAILY_BUDGET'] || '200');
+  const MAX_DAILY_BUDGET = PAID_TRAFFIC_CONFIG.maxDailyBudget;
 
   // ── Check 1: Budget Overspend ────────────────────────────────────────────
 

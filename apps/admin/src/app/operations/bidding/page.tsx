@@ -1078,49 +1078,19 @@ export default function PaidTrafficDashboard() {
           ═══════════════════════════════════════════════════════════════════ */}
       {activeTab === 'strategy' && (
         <div className="space-y-6">
-          {/* Test Proposal */}
-          {proposalMetrics && (
-            <Card className="border-2 border-sky-300 bg-sky-50/30">
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h3 className="text-lg font-bold text-slate-900">Test Proposal</h3>
-                    <p className="text-sm text-slate-600 mt-0.5">
-                      {proposalMetrics.drafts.length} campaign{proposalMetrics.drafts.length !== 1 ? 's' : ''} across {proposalMetrics.siteCount} site{proposalMetrics.siteCount !== 1 ? 's' : ''}
-                      {proposalMetrics.micrositeCampaigns > 0 && (
-                        <span className="text-sky-600"> ({proposalMetrics.mainSiteCampaigns} main site + {proposalMetrics.micrositeCampaigns} microsite)</span>
-                      )}
-                      {' '}&mdash; review and approve before any money is spent.
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => triggerBiddingAction('deploy_drafts')}
-                      className="px-5 py-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm font-semibold"
-                    >
-                      Approve &amp; Deploy
-                    </button>
-                    <button
-                      onClick={() => triggerBiddingAction('reject_drafts')}
-                      className="px-5 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-semibold"
-                    >
-                      Reject All
-                    </button>
-                  </div>
+          {/* Pipeline Automation Status */}
+          <Card className="border border-slate-200 bg-slate-50/50">
+            <div className="p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-900">Pipeline Automation</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Keywords discovered at 3 AM &rarr; Engine scores &amp; creates campaigns at 5 AM &rarr; Auto-deployed as PAUSED.
+                    Activate campaigns in the Campaigns tab to start spending.
+                  </p>
                 </div>
-
-                {/* Assumptions bar */}
-                <div className="flex items-center gap-4 text-xs text-slate-500 mb-5 bg-white/60 rounded-lg px-4 py-2.5 border border-slate-200 flex-wrap">
-                  <span className="font-medium text-slate-700">Assumptions:</span>
-                  <span>AOV &pound;{proposalMetrics.assumptions.avgOrderValue.toFixed(0)}</span>
-                  <span>&middot;</span>
-                  <span>Commission {proposalMetrics.assumptions.commissionRate.toFixed(0)}%</span>
-                  <span>&middot;</span>
-                  <span>CVR {(proposalMetrics.assumptions.conversionRate * 100).toFixed(1)}%</span>
-                  <span>&middot;</span>
-                  <span>Target ROAS {proposalMetrics.assumptions.targetRoas}x</span>
-                  <span>&middot;</span>
-                  <span className="flex items-center gap-1">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 text-xs text-slate-500">
                     Budget cap &pound;
                     <input
                       type="number"
@@ -1131,173 +1101,25 @@ export default function PaidTrafficDashboard() {
                       step={100}
                     />
                     /day
-                  </span>
-                  {budgetCap !== data.budget.dailyCap && (
-                    <button
-                      onClick={() => triggerBiddingAction('set_budget_cap', { dailyBudgetCap: budgetCap })}
-                      className="px-2 py-0.5 bg-sky-600 text-white rounded text-xs font-medium hover:bg-sky-700"
-                    >
-                      Re-run with new budget
-                    </button>
-                  )}
-                </div>
-
-                {/* Per-site campaign groups */}
-                <div className="space-y-3 mb-6">
-                  {Array.from(proposalMetrics.bySite.entries()).map(([siteName, campaigns]) => {
-                    const siteSpend = campaigns.reduce((s, c) => s + (c.proposalData?.expectedDailyCost || 0), 0);
-                    const siteClicks = campaigns.reduce((s, c) => s + (c.proposalData?.expectedClicksPerDay || 0), 0);
-                    const isMicrositeGroup = campaigns[0]?.isMicrosite;
-                    return (
-                      <div key={siteName} className={`border rounded-lg bg-white overflow-hidden ${
-                        isMicrositeGroup ? 'border-sky-200' : 'border-slate-200'
-                      }`}>
-                        <div className={`px-4 py-2.5 border-b flex items-center justify-between ${
-                          isMicrositeGroup ? 'bg-sky-50 border-sky-200' : 'bg-slate-50 border-slate-200'
-                        }`}>
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-semibold text-slate-900">{siteName}</span>
-                            {isMicrositeGroup && (
-                              <span className="text-xs px-1.5 py-0.5 bg-sky-100 text-sky-700 rounded font-medium">microsite</span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-3 text-xs text-slate-500">
-                            <span>&pound;{siteSpend.toFixed(2)}/day</span>
-                            <span>~{Math.round(siteClicks)} clicks/day</span>
-                          </div>
-                        </div>
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr className="border-b border-slate-100">
-                              <th className="text-left px-4 py-1.5 text-xs font-medium text-slate-500">Keyword</th>
-                              <th className="text-left px-3 py-1.5 text-xs font-medium text-slate-500">Landing Page</th>
-                              <th className="text-center px-3 py-1.5 text-xs font-medium text-slate-500">Platform</th>
-                              <th className="text-right px-3 py-1.5 text-xs font-medium text-slate-500">CPC</th>
-                              <th className="text-right px-3 py-1.5 text-xs font-medium text-slate-500">Budget/day</th>
-                              <th className="text-right px-3 py-1.5 text-xs font-medium text-slate-500">Est. Clicks/day</th>
-                              <th className="text-right px-3 py-1.5 text-xs font-medium text-slate-500">Score</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {campaigns.map((c) => {
-                              const p = c.proposalData!;
-                              return (
-                                <tr key={c.id} className="border-b border-slate-50 hover:bg-slate-50">
-                                  <td className="px-4 py-2">
-                                    <div className="font-medium text-slate-900">{c.keywords[0] || c.name}</div>
-                                  </td>
-                                  <td className="px-3 py-2">
-                                    <div className="text-xs text-slate-400 truncate max-w-[180px]" title={c.micrositeDomain || c.siteName}>
-                                      {c.micrositeDomain || c.siteName}
-                                    </div>
-                                  </td>
-                                  <td className="px-3 py-2 text-center">
-                                    <span className={`text-xs px-2 py-0.5 rounded font-medium ${
-                                      platformColors[c.platform] || 'bg-slate-100 text-slate-800'
-                                    }`}>
-                                      {platformLabel(c.platform)}
-                                    </span>
-                                  </td>
-                                  <td className="px-3 py-2 text-right font-mono text-slate-700">
-                                    &pound;{p.estimatedCpc.toFixed(3)}
-                                  </td>
-                                  <td className="px-3 py-2 text-right font-mono text-slate-700">
-                                    &pound;{c.dailyBudget.toFixed(2)}
-                                  </td>
-                                  <td className="px-3 py-2 text-right font-mono text-slate-600">
-                                    ~{Math.round(p.expectedClicksPerDay)}
-                                  </td>
-                                  <td className="px-3 py-2 text-right font-mono text-slate-500">
-                                    {p.profitabilityScore.toFixed(0)}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Portfolio Summary */}
-                <div className="bg-white border border-slate-200 rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-sm font-semibold text-slate-900">Portfolio Summary</h4>
-                    {proposalMetrics.micrositeCampaigns > 0 && (
-                      <span className="text-xs text-slate-500">
-                        {proposalMetrics.mainSiteCampaigns} main site + {proposalMetrics.micrositeCampaigns} microsite campaigns
-                      </span>
+                    {budgetCap !== data.budget.dailyCap && (
+                      <button
+                        onClick={() => triggerBiddingAction('set_budget_cap', { dailyBudgetCap: budgetCap })}
+                        className="px-2 py-0.5 bg-sky-600 text-white rounded text-xs font-medium hover:bg-sky-700"
+                      >
+                        Re-run
+                      </button>
                     )}
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4">
-                    <div>
-                      <p className="text-xs text-slate-500">Daily Spend</p>
-                      <p className="text-lg font-bold text-sky-700">
-                        &pound;{proposalMetrics.totalDailySpend.toFixed(2)}<span className="text-xs font-normal text-slate-400">/day</span>
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-500">Expected Clicks</p>
-                      <p className="text-lg font-bold text-blue-700">
-                        ~{Math.round(proposalMetrics.totalClicksPerDay)}<span className="text-xs font-normal text-slate-400">/day</span>
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-500">Expected CPC</p>
-                      <p className="text-lg font-bold text-slate-700">&pound;{proposalMetrics.avgCpc.toFixed(3)}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-500">Expected CPA</p>
-                      <p className="text-lg font-bold text-amber-700">&pound;{proposalMetrics.cpa.toFixed(2)}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-500">Daily Bookings</p>
-                      <p className="text-lg font-bold text-green-700">~{proposalMetrics.dailyBookings.toFixed(1)}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-500">Weekly Bookings</p>
-                      <p className={`text-lg font-bold ${
-                        proposalMetrics.dailyBookings * 7 >= 1000 ? 'text-green-700' :
-                        proposalMetrics.dailyBookings * 7 >= 500 ? 'text-amber-700' : 'text-red-700'
-                      }`}>
-                        ~{Math.round(proposalMetrics.dailyBookings * 7)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-500">Projected ROAS</p>
-                      <p className={`text-lg font-bold ${
-                        proposalMetrics.roas >= 3 ? 'text-green-700' :
-                        proposalMetrics.roas >= 1 ? 'text-amber-700' : 'text-red-700'
-                      }`}>
-                        {proposalMetrics.roas.toFixed(1)}x
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-200">
-                  <p className="text-xs text-slate-400">
-                    Campaigns will be created as PAUSED on the ad platform. You can activate them individually or let the budget optimizer manage them.
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => triggerBiddingAction('deploy_drafts')}
-                      className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm font-medium"
-                    >
-                      Approve &amp; Deploy
-                    </button>
-                    <button
-                      onClick={() => triggerBiddingAction('reject_drafts')}
-                      className="px-4 py-2 bg-white text-red-600 border border-red-300 rounded-lg hover:bg-red-50 text-sm font-medium"
-                    >
-                      Reject All
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => triggerBiddingAction('run_engine')}
+                    className="px-3 py-1.5 bg-sky-600 text-white rounded-lg hover:bg-sky-700 text-xs font-medium"
+                  >
+                    Run Engine Now
+                  </button>
                 </div>
               </div>
-            </Card>
-          )}
+            </div>
+          </Card>
 
           {/* Enrichment Pipeline Detail */}
           {enrichment && kp && (
@@ -1778,26 +1600,18 @@ export default function PaidTrafficDashboard() {
           ═══════════════════════════════════════════════════════════════════ */}
       {activeTab === 'campaigns' && (
         <div className="space-y-4">
-          {/* Draft campaign banner */}
-          {draftCount > 0 && (
-            <div className="px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800 flex items-center justify-between">
+          {/* PAUSED campaigns ready to activate */}
+          {allCampaigns.filter((c) => c.status === 'PAUSED').length > 0 && (
+            <div className="px-4 py-3 bg-sky-50 border border-sky-200 rounded-lg text-sm text-sky-800 flex items-center justify-between">
               <span>
-                {draftCount} draft campaign{draftCount !== 1 ? 's' : ''} ready to deploy to ad platforms.
+                {allCampaigns.filter((c) => c.status === 'PAUSED').length} campaign{allCampaigns.filter((c) => c.status === 'PAUSED').length !== 1 ? 's' : ''} deployed and ready to activate (not spending yet).
               </span>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => triggerBiddingAction('deploy_drafts')}
-                  className="px-3 py-1 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 text-sm font-medium"
-                >
-                  Deploy
-                </button>
-                <button
-                  onClick={() => triggerBiddingAction('reject_drafts')}
-                  className="px-3 py-1 bg-white text-red-600 border border-red-300 rounded-md hover:bg-red-50 text-sm font-medium"
-                >
-                  Reject
-                </button>
-              </div>
+              <button
+                onClick={() => triggerBiddingAction('activate_paused')}
+                className="px-3 py-1.5 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 text-sm font-medium"
+              >
+                Activate All
+              </button>
             </div>
           )}
 
