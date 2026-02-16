@@ -69,32 +69,91 @@ const MIN_EXPERIENCE_RATIO = 0.15;
 
 /** Categories that indicate transport/transfer (low booking intent for experiences) */
 const TRANSPORT_CATEGORIES = new Set([
-  'transfer', 'car, bus or mini-van', 'transportation', 'shuttle',
-  'airport transfer', 'port transfer',
+  'transfer',
+  'car, bus or mini-van',
+  'transportation',
+  'shuttle',
+  'airport transfer',
+  'port transfer',
 ]);
 
 /** Common modifiers to strip from product names */
 const MODIFIER_WORDS = new Set([
-  'private', 'guided', 'small', 'group', 'exclusive', 'luxury', 'vip',
-  'half', 'full', 'day', 'morning', 'afternoon', 'evening', 'night',
-  'sunset', 'sunrise', 'skip', 'the', 'line', 'hour', 'hours',
-  'minute', 'minutes', 'premium', 'ultimate', 'best', 'top',
-  'express', 'deluxe', 'classic', 'original', 'official',
-  'ticket', 'tickets', 'entry', 'admission', 'pass',
-  'hands', 'hand', 'based', 'semi', 'self', 'audio', 'trip',
-  'daytrip', 'sightseeing', 'sightseeings', 'days', 'cook',
+  'private',
+  'guided',
+  'small',
+  'group',
+  'exclusive',
+  'luxury',
+  'vip',
+  'half',
+  'full',
+  'day',
+  'morning',
+  'afternoon',
+  'evening',
+  'night',
+  'sunset',
+  'sunrise',
+  'skip',
+  'the',
+  'line',
+  'hour',
+  'hours',
+  'minute',
+  'minutes',
+  'premium',
+  'ultimate',
+  'best',
+  'top',
+  'express',
+  'deluxe',
+  'classic',
+  'original',
+  'official',
+  'ticket',
+  'tickets',
+  'entry',
+  'admission',
+  'pass',
+  'hands',
+  'hand',
+  'based',
+  'semi',
+  'self',
+  'audio',
+  'trip',
+  'daytrip',
+  'sightseeing',
+  'sightseeings',
+  'days',
+  'cook',
 ]);
 
 /** Filler words to remove */
 const FILLER_WORDS = new Set([
-  'the', 'a', 'an', 'with', 'for', 'from', 'to', 'and', 'or',
-  'in', 'at', 'on', 'of', 'by', 'your', 'our', 'this', 'that',
+  'the',
+  'a',
+  'an',
+  'with',
+  'for',
+  'from',
+  'to',
+  'and',
+  'or',
+  'in',
+  'at',
+  'on',
+  'of',
+  'by',
+  'your',
+  'our',
+  'this',
+  'that',
 ]);
 
 /** Words indicating low purchase intent */
-const LOW_INTENT_TERMS = [
-  'free', 'gratis', 'no cost', 'complimentary', 'freebie',
-];
+const LOW_INTENT_TERMS = ['free', 'gratis', 'no cost', 'complimentary', 'freebie'];
 
 /**
  * Map Holibob categories to commonly-searched booking-intent keyword stems.
@@ -102,28 +161,28 @@ const LOW_INTENT_TERMS = [
  * Key: lowercase Holibob category → Value: array of search-friendly terms
  */
 const CATEGORY_KEYWORD_STEMS: Record<string, string[]> = {
-  'walking': ['walking tour', 'walking tours', 'guided walk'],
+  walking: ['walking tour', 'walking tours', 'guided walk'],
   'food and drink tours': ['food tour', 'food tours', 'food tasting', 'food experience'],
-  'cooking': ['cooking class', 'cooking classes', 'cooking experience'],
+  cooking: ['cooking class', 'cooking classes', 'cooking experience'],
   'water sports': ['water sports', 'kayaking', 'snorkeling', 'boat tour'],
   'sailing and boating': ['boat tour', 'boat trips', 'sailing tour', 'boat cruise'],
-  'sightseeing': ['sightseeing tour', 'city tour', 'city sightseeing'],
+  sightseeing: ['sightseeing tour', 'city tour', 'city sightseeing'],
   'cultural and historical': ['cultural tour', 'historical tour', 'history tour'],
   'wine and spirits': ['wine tasting', 'wine tour', 'winery tour'],
-  'adventure': ['adventure tour', 'adventure activities', 'outdoor activities'],
-  'cycling': ['bike tour', 'cycling tour', 'bike rental'],
-  'nature': ['nature tour', 'nature walk', 'nature experience'],
+  adventure: ['adventure tour', 'adventure activities', 'outdoor activities'],
+  cycling: ['bike tour', 'cycling tour', 'bike rental'],
+  nature: ['nature tour', 'nature walk', 'nature experience'],
   'arts and crafts': ['art class', 'art workshop', 'craft workshop'],
   'spa and wellness': ['spa experience', 'wellness experience'],
-  'nightlife': ['nightlife tour', 'pub crawl', 'bar tour', 'night tour'],
-  'photography': ['photo tour', 'photography tour'],
-  'family': ['family activities', 'family tour', 'kids activities'],
+  nightlife: ['nightlife tour', 'pub crawl', 'bar tour', 'night tour'],
+  photography: ['photo tour', 'photography tour'],
+  family: ['family activities', 'family tour', 'kids activities'],
   'hop-on / hop-off': ['hop on hop off', 'hop on hop off bus', 'bus tour'],
-  'museum': ['museum tour', 'museum tickets', 'museum visit'],
+  museum: ['museum tour', 'museum tickets', 'museum visit'],
   'snorkeling and diving': ['snorkeling tour', 'diving experience', 'scuba diving'],
-  'hiking': ['hiking tour', 'hiking experience', 'guided hike'],
+  hiking: ['hiking tour', 'hiking experience', 'guided hike'],
   'street food': ['street food tour', 'street food experience'],
-  'market': ['market tour', 'food market tour'],
+  market: ['market tour', 'food market tour'],
   'shore excursions': ['shore excursion', 'port excursion', 'cruise excursion'],
 };
 
@@ -147,105 +206,459 @@ const DISCOVERY_STEMS = [
  */
 const KNOWN_DESTINATIONS = new Set([
   // Major European cities
-  'london', 'paris', 'barcelona', 'rome', 'amsterdam', 'lisbon', 'madrid',
-  'berlin', 'vienna', 'prague', 'budapest', 'dublin', 'edinburgh', 'athens',
-  'florence', 'venice', 'milan', 'naples', 'seville', 'porto', 'nice',
-  'munich', 'bruges', 'dubrovnik', 'split', 'santorini', 'mykonos',
-  'reykjavik', 'stockholm', 'copenhagen', 'oslo', 'helsinki', 'zurich',
-  'geneva', 'brussels', 'krakow', 'warsaw', 'istanbul', 'marrakech',
-  'glasgow', 'liverpool', 'manchester', 'bath', 'oxford', 'cambridge',
-  'york', 'brighton', 'bristol', 'cardiff', 'inverness', 'belfast',
-  'cork', 'galway', 'malaga', 'granada', 'valencia', 'bilbao',
-  'lyon', 'marseille', 'bordeaux', 'strasbourg', 'normandy', 'provence',
-  'tuscany', 'cinque terre', 'amalfi', 'pompeii', 'capri', 'sicily',
-  'sardinia', 'crete', 'rhodes', 'corfu', 'zakynthos',
+  'london',
+  'paris',
+  'barcelona',
+  'rome',
+  'amsterdam',
+  'lisbon',
+  'madrid',
+  'berlin',
+  'vienna',
+  'prague',
+  'budapest',
+  'dublin',
+  'edinburgh',
+  'athens',
+  'florence',
+  'venice',
+  'milan',
+  'naples',
+  'seville',
+  'porto',
+  'nice',
+  'munich',
+  'bruges',
+  'dubrovnik',
+  'split',
+  'santorini',
+  'mykonos',
+  'reykjavik',
+  'stockholm',
+  'copenhagen',
+  'oslo',
+  'helsinki',
+  'zurich',
+  'geneva',
+  'brussels',
+  'krakow',
+  'warsaw',
+  'istanbul',
+  'marrakech',
+  'glasgow',
+  'liverpool',
+  'manchester',
+  'bath',
+  'oxford',
+  'cambridge',
+  'york',
+  'brighton',
+  'bristol',
+  'cardiff',
+  'inverness',
+  'belfast',
+  'cork',
+  'galway',
+  'malaga',
+  'granada',
+  'valencia',
+  'bilbao',
+  'lyon',
+  'marseille',
+  'bordeaux',
+  'strasbourg',
+  'normandy',
+  'provence',
+  'tuscany',
+  'cinque terre',
+  'amalfi',
+  'pompeii',
+  'capri',
+  'sicily',
+  'sardinia',
+  'crete',
+  'rhodes',
+  'corfu',
+  'zakynthos',
   // Italy (expanded - many cooking/food experience suppliers)
-  'bologna', 'palermo', 'siena', 'verona', 'turin', 'genoa', 'pisa',
-  'lucca', 'como', 'rimini', 'perugia', 'parma', 'modena', 'ravenna',
-  'lecce', 'bari', 'alberobello', 'matera', 'sorrento', 'positano',
-  'taormina', 'catania', 'cagliari', 'trieste', 'padua', 'bergamo',
-  'arezzo', 'orvieto', 'assisi', 'cortona', 'varenna', 'bellagio',
-  'cinque terre', 'portofino', 'san gimignano',
+  'bologna',
+  'palermo',
+  'siena',
+  'verona',
+  'turin',
+  'genoa',
+  'pisa',
+  'lucca',
+  'como',
+  'rimini',
+  'perugia',
+  'parma',
+  'modena',
+  'ravenna',
+  'lecce',
+  'bari',
+  'alberobello',
+  'matera',
+  'sorrento',
+  'positano',
+  'taormina',
+  'catania',
+  'cagliari',
+  'trieste',
+  'padua',
+  'bergamo',
+  'arezzo',
+  'orvieto',
+  'assisi',
+  'cortona',
+  'varenna',
+  'bellagio',
+  'cinque terre',
+  'portofino',
+  'san gimignano',
   // Spain (expanded)
-  'san sebastian', 'toledo', 'cordoba', 'cadiz', 'salamanca',
-  'ibiza', 'mallorca', 'tenerife', 'gran canaria', 'lanzarote',
+  'san sebastian',
+  'toledo',
+  'cordoba',
+  'cadiz',
+  'salamanca',
+  'ibiza',
+  'mallorca',
+  'tenerife',
+  'gran canaria',
+  'lanzarote',
   // France (expanded)
-  'avignon', 'aix-en-provence', 'cannes', 'monaco', 'toulouse',
-  'nantes', 'montpellier', 'dijon', 'colmar', 'annecy',
+  'avignon',
+  'aix-en-provence',
+  'cannes',
+  'monaco',
+  'toulouse',
+  'nantes',
+  'montpellier',
+  'dijon',
+  'colmar',
+  'annecy',
   // Germany/Austria/Switzerland
-  'salzburg', 'innsbruck', 'graz', 'heidelberg', 'dresden',
-  'cologne', 'hamburg', 'frankfurt', 'nuremberg', 'rothenburg',
-  'lucerne', 'interlaken', 'zermatt', 'grindelwald',
+  'salzburg',
+  'innsbruck',
+  'graz',
+  'heidelberg',
+  'dresden',
+  'cologne',
+  'hamburg',
+  'frankfurt',
+  'nuremberg',
+  'rothenburg',
+  'lucerne',
+  'interlaken',
+  'zermatt',
+  'grindelwald',
   // Scandinavia
-  'bergen', 'gothenburg', 'malmo', 'turku', 'rovaniemi', 'tromso',
+  'bergen',
+  'gothenburg',
+  'malmo',
+  'turku',
+  'rovaniemi',
+  'tromso',
   // Eastern Europe
-  'tallinn', 'riga', 'vilnius', 'bratislava', 'ljubljana', 'zagreb',
-  'sarajevo', 'kotor', 'mostar', 'ohrid', 'plovdiv', 'sofia', 'bucharest',
+  'tallinn',
+  'riga',
+  'vilnius',
+  'bratislava',
+  'ljubljana',
+  'zagreb',
+  'sarajevo',
+  'kotor',
+  'mostar',
+  'ohrid',
+  'plovdiv',
+  'sofia',
+  'bucharest',
   // Greece (expanded)
-  'thessaloniki', 'heraklion', 'chania', 'naxos', 'paros', 'meteora',
-  'delphi', 'olympia', 'corinth', 'nafplio', 'hydra',
+  'thessaloniki',
+  'heraklion',
+  'chania',
+  'naxos',
+  'paros',
+  'meteora',
+  'delphi',
+  'olympia',
+  'corinth',
+  'nafplio',
+  'hydra',
   // UK & Ireland
-  'stonehenge', 'cotswolds', 'lake district', 'snowdonia', 'highlands',
-  'isle of skye', 'loch ness', 'windsor', 'canterbury', 'stratford',
-  'aberdeen', 'st andrews', 'whitby', 'durham', 'chester', 'salisbury',
-  'bournemouth', 'portsmouth', 'southampton', 'nottingham', 'leeds',
-  'birmingham', 'swansea', 'killarney', 'limerick', 'waterford',
+  'stonehenge',
+  'cotswolds',
+  'lake district',
+  'snowdonia',
+  'highlands',
+  'isle of skye',
+  'loch ness',
+  'windsor',
+  'canterbury',
+  'stratford',
+  'aberdeen',
+  'st andrews',
+  'whitby',
+  'durham',
+  'chester',
+  'salisbury',
+  'bournemouth',
+  'portsmouth',
+  'southampton',
+  'nottingham',
+  'leeds',
+  'birmingham',
+  'swansea',
+  'killarney',
+  'limerick',
+  'waterford',
   // Americas
-  'new york', 'los angeles', 'san francisco', 'las vegas', 'miami',
-  'chicago', 'boston', 'washington', 'seattle', 'san diego', 'honolulu',
-  'new orleans', 'nashville', 'austin', 'denver', 'portland',
-  'savannah', 'charleston', 'minneapolis', 'philadelphia', 'atlanta',
-  'dallas', 'houston', 'phoenix', 'san antonio', 'orlando', 'tampa',
-  'pittsburgh', 'detroit', 'baltimore', 'memphis', 'st louis',
-  'santa fe', 'sedona', 'aspen', 'key west', 'maui', 'kauai',
-  'anchorage', 'juneau', 'niagara falls',
+  'new york',
+  'los angeles',
+  'san francisco',
+  'las vegas',
+  'miami',
+  'chicago',
+  'boston',
+  'washington',
+  'seattle',
+  'san diego',
+  'honolulu',
+  'new orleans',
+  'nashville',
+  'austin',
+  'denver',
+  'portland',
+  'savannah',
+  'charleston',
+  'minneapolis',
+  'philadelphia',
+  'atlanta',
+  'dallas',
+  'houston',
+  'phoenix',
+  'san antonio',
+  'orlando',
+  'tampa',
+  'pittsburgh',
+  'detroit',
+  'baltimore',
+  'memphis',
+  'st louis',
+  'santa fe',
+  'sedona',
+  'aspen',
+  'key west',
+  'maui',
+  'kauai',
+  'anchorage',
+  'juneau',
+  'niagara falls',
   // Canada
-  'toronto', 'vancouver', 'montreal', 'quebec city', 'ottawa', 'calgary',
-  'banff', 'victoria', 'halifax', 'whistler',
+  'toronto',
+  'vancouver',
+  'montreal',
+  'quebec city',
+  'ottawa',
+  'calgary',
+  'banff',
+  'victoria',
+  'halifax',
+  'whistler',
   // Latin America
-  'cancun', 'mexico city', 'cabo', 'playa del carmen', 'tulum',
-  'oaxaca', 'guanajuato', 'merida', 'puebla', 'guadalajara',
-  'havana', 'nassau', 'punta cana', 'cartagena', 'bogota', 'medellin',
-  'lima', 'cusco', 'buenos aires', 'rio de janeiro', 'sao paulo',
-  'santiago', 'montevideo', 'quito', 'galapagos',
-  'san jose', 'monteverde', 'la fortuna', 'antigua guatemala',
-  'guayaquil', 'valparaiso', 'bariloche', 'ushuaia',
+  'cancun',
+  'mexico city',
+  'cabo',
+  'playa del carmen',
+  'tulum',
+  'oaxaca',
+  'guanajuato',
+  'merida',
+  'puebla',
+  'guadalajara',
+  'havana',
+  'nassau',
+  'punta cana',
+  'cartagena',
+  'bogota',
+  'medellin',
+  'lima',
+  'cusco',
+  'buenos aires',
+  'rio de janeiro',
+  'sao paulo',
+  'santiago',
+  'montevideo',
+  'quito',
+  'galapagos',
+  'san jose',
+  'monteverde',
+  'la fortuna',
+  'antigua guatemala',
+  'guayaquil',
+  'valparaiso',
+  'bariloche',
+  'ushuaia',
   // Asia & Pacific
-  'tokyo', 'kyoto', 'osaka', 'bangkok', 'singapore', 'hong kong',
-  'bali', 'hanoi', 'ho chi minh', 'siem reap', 'kuala lumpur',
-  'seoul', 'taipei', 'shanghai', 'beijing', 'dubai', 'abu dhabi',
-  'delhi', 'mumbai', 'jaipur', 'agra', 'goa', 'colombo', 'kandy',
-  'kathmandu', 'phnom penh', 'yangon', 'manila', 'cebu',
-  'chiang mai', 'phuket', 'koh samui', 'ubud', 'yogyakarta',
-  'luang prabang', 'hoi an', 'da nang', 'nha trang',
-  'nagasaki', 'hiroshima', 'nara', 'hakone', 'kamakura',
-  'penang', 'langkawi', 'borneo', 'lombok',
+  'tokyo',
+  'kyoto',
+  'osaka',
+  'bangkok',
+  'singapore',
+  'hong kong',
+  'bali',
+  'hanoi',
+  'ho chi minh',
+  'siem reap',
+  'kuala lumpur',
+  'seoul',
+  'taipei',
+  'shanghai',
+  'beijing',
+  'dubai',
+  'abu dhabi',
+  'delhi',
+  'mumbai',
+  'jaipur',
+  'agra',
+  'goa',
+  'colombo',
+  'kandy',
+  'kathmandu',
+  'phnom penh',
+  'yangon',
+  'manila',
+  'cebu',
+  'chiang mai',
+  'phuket',
+  'koh samui',
+  'ubud',
+  'yogyakarta',
+  'luang prabang',
+  'hoi an',
+  'da nang',
+  'nha trang',
+  'nagasaki',
+  'hiroshima',
+  'nara',
+  'hakone',
+  'kamakura',
+  'penang',
+  'langkawi',
+  'borneo',
+  'lombok',
   // South Asia
-  'galle', 'ella', 'sigiriya', 'dambulla', 'trincomalee',
-  'varanasi', 'udaipur', 'jodhpur', 'rishikesh', 'kochi', 'munnar',
+  'galle',
+  'ella',
+  'sigiriya',
+  'dambulla',
+  'trincomalee',
+  'varanasi',
+  'udaipur',
+  'jodhpur',
+  'rishikesh',
+  'kochi',
+  'munnar',
   // Africa & Middle East
-  'cairo', 'cape town', 'johannesburg', 'nairobi', 'zanzibar',
-  'victoria falls', 'casablanca', 'fez', 'luxor', 'aswan',
-  'tel aviv', 'jerusalem', 'petra', 'amman', 'muscat',
-  'marrakech', 'essaouira', 'chefchaouen', 'mombasa', 'arusha',
-  'windhoek', 'livingstone', 'addis ababa', 'dakar', 'accra',
+  'cairo',
+  'cape town',
+  'johannesburg',
+  'nairobi',
+  'zanzibar',
+  'victoria falls',
+  'casablanca',
+  'fez',
+  'luxor',
+  'aswan',
+  'tel aviv',
+  'jerusalem',
+  'petra',
+  'amman',
+  'muscat',
+  'marrakech',
+  'essaouira',
+  'chefchaouen',
+  'mombasa',
+  'arusha',
+  'windhoek',
+  'livingstone',
+  'addis ababa',
+  'dakar',
+  'accra',
   // Oceania
-  'sydney', 'melbourne', 'auckland', 'queenstown', 'cairns',
-  'fiji', 'tahiti', 'gold coast', 'brisbane', 'adelaide', 'perth',
-  'hobart', 'darwin', 'rotorua', 'wellington', 'christchurch',
+  'sydney',
+  'melbourne',
+  'auckland',
+  'queenstown',
+  'cairns',
+  'fiji',
+  'tahiti',
+  'gold coast',
+  'brisbane',
+  'adelaide',
+  'perth',
+  'hobart',
+  'darwin',
+  'rotorua',
+  'wellington',
+  'christchurch',
   // Caribbean
-  'jamaica', 'barbados', 'aruba', 'curacao', 'bermuda',
-  'st lucia', 'antigua', 'grenada', 'martinique',
-  'san juan', 'turks and caicos', 'cayman islands',
+  'jamaica',
+  'barbados',
+  'aruba',
+  'curacao',
+  'bermuda',
+  'st lucia',
+  'antigua',
+  'grenada',
+  'martinique',
+  'san juan',
+  'turks and caicos',
+  'cayman islands',
   // Countries (when no city is extractable)
-  'sri lanka', 'thailand', 'vietnam', 'cambodia', 'nepal',
-  'morocco', 'egypt', 'kenya', 'tanzania', 'south africa',
-  'iceland', 'scotland', 'ireland', 'portugal', 'spain',
-  'italy', 'france', 'greece', 'croatia', 'turkey',
-  'japan', 'indonesia', 'malaysia', 'philippines', 'india',
-  'mexico', 'peru', 'colombia', 'brazil', 'argentina', 'costa rica',
-  'australia', 'new zealand', 'fiji', 'malta', 'cyprus', 'montenegro',
-  'oman', 'jordan', 'israel', 'georgia', 'armenia',
+  'sri lanka',
+  'thailand',
+  'vietnam',
+  'cambodia',
+  'nepal',
+  'morocco',
+  'egypt',
+  'kenya',
+  'tanzania',
+  'south africa',
+  'iceland',
+  'scotland',
+  'ireland',
+  'portugal',
+  'spain',
+  'italy',
+  'france',
+  'greece',
+  'croatia',
+  'turkey',
+  'japan',
+  'indonesia',
+  'malaysia',
+  'philippines',
+  'india',
+  'mexico',
+  'peru',
+  'colombia',
+  'brazil',
+  'argentina',
+  'costa rica',
+  'australia',
+  'new zealand',
+  'fiji',
+  'malta',
+  'cyprus',
+  'montenegro',
+  'oman',
+  'jordan',
+  'israel',
+  'georgia',
+  'armenia',
 ]);
 
 // ---------------------------------------------------------------------------
@@ -267,7 +680,9 @@ export async function runBulkEnrichment(
   } = options;
 
   console.log('[Enrichment] Starting bulk keyword enrichment pipeline');
-  console.log(`[Enrichment] Options: maxProducts=${maxProductsPerSupplier}, skipDataForSeo=${skipDataForSeo}, dryRun=${dryRun}, location=${location}`);
+  console.log(
+    `[Enrichment] Options: maxProducts=${maxProductsPerSupplier}, skipDataForSeo=${skipDataForSeo}, dryRun=${dryRun}, location=${location}`
+  );
 
   // ----- Get Holibob client -----
   const client = getHolibobClient();
@@ -299,7 +714,9 @@ export async function runBulkEnrichment(
     suppliers = suppliers.slice(0, maxSuppliersPerRun);
   }
 
-  console.log(`[Enrichment] Found ${totalRemaining} unenriched suppliers, processing ${suppliers.length}`);
+  console.log(
+    `[Enrichment] Found ${totalRemaining} unenriched suppliers, processing ${suppliers.length}`
+  );
 
   // =========================================================================
   // PHASE 1: Extract keywords from product data
@@ -349,7 +766,7 @@ export async function runBulkEnrichment(
     if ((i + 1) % 100 === 0) {
       console.log(
         `[Enrichment] Phase 1 progress: ${i + 1}/${suppliers.length} suppliers, ` +
-        `${totalRawSeeds} seeds extracted, ${totalProductsAnalyzed} products analyzed`
+          `${totalRawSeeds} seeds extracted, ${totalProductsAnalyzed} products analyzed`
       );
     }
   }
@@ -357,7 +774,7 @@ export async function runBulkEnrichment(
   const uniqueSeeds = [...seedToSupplierIds.keys()];
   console.log(
     `[Enrichment] Phase 1 complete: ${allExtractions.length} suppliers processed, ` +
-    `${totalProductsAnalyzed} products analyzed, ${totalRawSeeds} raw seeds → ${uniqueSeeds.length} unique`
+      `${totalProductsAnalyzed} products analyzed, ${totalRawSeeds} raw seeds → ${uniqueSeeds.length} unique`
   );
 
   // Log sample seeds for quality review
@@ -371,12 +788,15 @@ export async function runBulkEnrichment(
   // =========================================================================
   // PHASE 2: Validate keywords via DataForSEO
   // =========================================================================
-  let validatedKeywords = new Map<string, {
-    searchVolume: number;
-    cpc: number;
-    competition: number;
-    competitionLevel?: string;
-  }>();
+  let validatedKeywords = new Map<
+    string,
+    {
+      searchVolume: number;
+      cpc: number;
+      competition: number;
+      competitionLevel?: string;
+    }
+  >();
   let estimatedCost = 0;
 
   if (!skipDataForSeo && uniqueSeeds.length > 0) {
@@ -396,18 +816,18 @@ export async function runBulkEnrichment(
       });
       for (const k of existing) existingSet.add(k.keyword.toLowerCase());
     }
-    const novelSeeds = uniqueSeeds.filter(s => !existingSet.has(s.toLowerCase()));
+    const novelSeeds = uniqueSeeds.filter((s) => !existingSet.has(s.toLowerCase()));
     const skippedCount = uniqueSeeds.length - novelSeeds.length;
 
     console.log(
       `[Enrichment] Phase 2 dedup: ${uniqueSeeds.length} unique seeds, ` +
-      `${skippedCount} already validated, ${novelSeeds.length} novel seeds to check`
+        `${skippedCount} already validated, ${novelSeeds.length} novel seeds to check`
     );
 
     estimatedCost = novelSeeds.length * COST_PER_KEYWORD;
     console.log(
       `[Enrichment] Phase 2: Validating ${novelSeeds.length} novel seeds via DataForSEO ` +
-      `(estimated cost: $${estimatedCost.toFixed(2)}, saved $${(skippedCount * COST_PER_KEYWORD).toFixed(2)} from dedup)`
+        `(estimated cost: $${estimatedCost.toFixed(2)}, saved $${(skippedCount * COST_PER_KEYWORD).toFixed(2)} from dedup)`
     );
 
     if (estimatedCost > MAX_COST_SAFETY_LIMIT) {
@@ -421,7 +841,7 @@ export async function runBulkEnrichment(
         validatedKeywords = await validateKeywords(novelSeeds, location);
         console.log(
           `[Enrichment] Phase 2 complete: ${validatedKeywords.size} keywords validated ` +
-          `(${novelSeeds.length - validatedKeywords.size} filtered out)`
+            `(${novelSeeds.length - validatedKeywords.size} filtered out)`
         );
       } catch (err) {
         const msg = `DataForSEO validation failed: ${err}`;
@@ -484,7 +904,9 @@ export async function runBulkEnrichment(
     console.log(`[Enrichment] Phase 3 complete: ${suppliersEnriched} suppliers enriched`);
   } else {
     console.log('[Enrichment] Phase 3 skipped (dryRun=true)');
-    console.log(`[Enrichment] Would store ${validatedKeywords.size} keywords and enrich ${allExtractions.length} suppliers`);
+    console.log(
+      `[Enrichment] Would store ${validatedKeywords.size} keywords and enrich ${allExtractions.length} suppliers`
+    );
   }
 
   const duration = Date.now() - startTime;
@@ -505,9 +927,9 @@ export async function runBulkEnrichment(
 
   console.log(
     `[Enrichment] Pipeline complete in ${(duration / 1000).toFixed(1)}s: ` +
-    `${result.suppliersProcessed} suppliers, ${result.uniqueSeedsAfterDedup} unique seeds, ` +
-    `${result.keywordsValidated} validated, ${result.keywordsStored} stored, ` +
-    `$${result.estimatedCost.toFixed(2)} cost, ${errors.length} errors`
+      `${result.suppliersProcessed} suppliers, ${result.uniqueSeedsAfterDedup} unique seeds, ` +
+      `${result.keywordsValidated} validated, ${result.keywordsStored} stored, ` +
+      `$${result.estimatedCost.toFixed(2)} cost, ${errors.length} errors`
   );
 
   return result;
@@ -523,10 +945,9 @@ async function extractKeywordsFromSupplier(
   maxProducts: number
 ): Promise<SupplierExtraction> {
   // Fetch products from Holibob
-  const response = await client.getProductsByProvider(
-    supplier.holibobSupplierId,
-    { pageSize: maxProducts }
-  );
+  const response = await client.getProductsByProvider(supplier.holibobSupplierId, {
+    pageSize: maxProducts,
+  });
 
   const allProducts = response.nodes;
   const citySet = new Set<string>();
@@ -549,10 +970,13 @@ async function extractKeywordsFromSupplier(
   }
 
   // Skip supplier if overwhelmingly transfer-focused
-  if (allProducts.length > 0 && experienceProducts.length / allProducts.length < MIN_EXPERIENCE_RATIO) {
+  if (
+    allProducts.length > 0 &&
+    experienceProducts.length / allProducts.length < MIN_EXPERIENCE_RATIO
+  ) {
     console.log(
       `[Enrichment] Skipping ${supplier.name}: ${transferCount}/${allProducts.length} products are transfers ` +
-      `(${experienceProducts.length} experiences, below ${MIN_EXPERIENCE_RATIO * 100}% threshold)`
+        `(${experienceProducts.length} experiences, below ${MIN_EXPERIENCE_RATIO * 100}% threshold)`
     );
     return {
       supplierId: supplier.id,
@@ -567,9 +991,22 @@ async function extractKeywordsFromSupplier(
   // Key insight: each product's activity should only be paired with ITS OWN city,
   // not cross-multiplied with all cities from other products.
   const seeds = new Set<string>();
-  const SKIP_CATEGORIES = new Set(['general', 'private', 'other', 'multi-day',
-    'full day', 'half day', 'car, bus or mini-van', 'passes', 'city',
-    'natural', 'iconic', 'themed', 'classes', 'general']);
+  const SKIP_CATEGORIES = new Set([
+    'general',
+    'private',
+    'other',
+    'multi-day',
+    'full day',
+    'half day',
+    'car, bus or mini-van',
+    'passes',
+    'city',
+    'natural',
+    'iconic',
+    'themed',
+    'classes',
+    'general',
+  ]);
 
   for (const product of experienceProducts) {
     // Extract THIS product's city
@@ -621,7 +1058,7 @@ async function extractKeywordsFromSupplier(
   }
 
   const cities = [...citySet];
-  const categories = [...categorySet].filter(c => !SKIP_CATEGORIES.has(c.toLowerCase()));
+  const categories = [...categorySet].filter((c) => !SKIP_CATEGORIES.has(c.toLowerCase()));
 
   // ---- Discovery / trip-planning keywords (high volume, booking intent) ----
   // People searching "things to do in Rome" are planning trips and ready to book.
@@ -658,13 +1095,14 @@ async function extractKeywordsFromSupplier(
 
   // Final cleanup: normalize seeds and reject noise
   const cleanedSeeds = [...seeds]
-    .map(seed => seed
-      .replace(/[()[\]{}"']/g, '') // Strip brackets/quotes (DataForSEO rejects them)
-      .replace(/[/\\|&+]/g, ' ')   // Replace special chars with spaces
-      .replace(/\s+/g, ' ')        // Collapse whitespace
-      .trim()
+    .map((seed) =>
+      seed
+        .replace(/[()[\]{}"']/g, '') // Strip brackets/quotes (DataForSEO rejects them)
+        .replace(/[/\\|&+]/g, ' ') // Replace special chars with spaces
+        .replace(/\s+/g, ' ') // Collapse whitespace
+        .trim()
     )
-    .filter(seed => {
+    .filter((seed) => {
       // Max 8 words (anything longer is too specific to have search volume)
       if (seed.split(/\s+/).length > 8) return false;
       // Must be at least 5 characters
@@ -699,12 +1137,12 @@ async function extractKeywordsFromSupplier(
  *   "Europe Journey - Private Sightseeing Transfers" → "europe journey"
  */
 function cleanBrandName(supplierName: string): string | null {
-  let name = supplierName
+  const name = supplierName
     .replace(/\b(s\.r\.l\.?|llc|ltd|inc|gmbh|pty|co\.?|corp|limited)\b/gi, '')
-    .replace(/\s*[-–—]\s*.+$/, '')  // Remove everything after dash (e.g., "taxiGo - Booking Transfer")
-    .replace(/\s*\(.*\)/, '')       // Remove parenthetical
-    .replace(/\.[a-z]+$/i, '')       // Remove domain extensions (.online, .com)
-    .replace(/[^a-zA-Z\s]/g, '')    // Remove special characters
+    .replace(/\s*[-–—]\s*.+$/, '') // Remove everything after dash (e.g., "taxiGo - Booking Transfer")
+    .replace(/\s*\(.*\)/, '') // Remove parenthetical
+    .replace(/\.[a-z]+$/i, '') // Remove domain extensions (.online, .com)
+    .replace(/[^a-zA-Z\s]/g, '') // Remove special characters
     .trim()
     .toLowerCase();
 
@@ -714,7 +1152,7 @@ function cleanBrandName(supplierName: string): string | null {
 
   // Skip if the brand name itself contains transfer/transport terms
   const skipTerms = ['taxi', 'transfer', 'shuttle', 'driver', 'transport', 'limo'];
-  if (skipTerms.some(t => name.includes(t))) return null;
+  if (skipTerms.some((t) => name.includes(t))) return null;
 
   return name;
 }
@@ -725,18 +1163,23 @@ function isTransferProduct(product: HolibobProduct): boolean {
   if (cats.length === 0) return false;
 
   // If the product has ONLY transport-related categories, it's a transfer
-  const experienceCats = cats.filter(c => !TRANSPORT_CATEGORIES.has(c.toLowerCase()));
+  const experienceCats = cats.filter((c) => !TRANSPORT_CATEGORIES.has(c.toLowerCase()));
   if (experienceCats.length === 0) return true;
 
   // Also check the product name for strong transfer signals
   const nameLower = product.name.toLowerCase();
   const transferNamePatterns = [
-    /\btransfer\b/, /\bairport\s+(to|from)\b/, /\bshuttle\b/,
-    /\bport\s+(to|from)\b/, /\b(arrival|departure)\s+transfer\b/,
+    /\btransfer\b/,
+    /\bairport\s+(to|from)\b/,
+    /\bshuttle\b/,
+    /\bport\s+(to|from)\b/,
+    /\b(arrival|departure)\s+transfer\b/,
   ];
   // If name screams "transfer" and categories include Transfer, skip it
-  if (cats.some(c => c.toLowerCase() === 'transfer') &&
-      transferNamePatterns.some(p => p.test(nameLower))) {
+  if (
+    cats.some((c) => c.toLowerCase() === 'transfer') &&
+    transferNamePatterns.some((p) => p.test(nameLower))
+  ) {
     return true;
   }
 
@@ -771,24 +1214,54 @@ function extractCityFromProductName(productName: string): string | null {
   }
 
   if (bestMatch) {
-    return bestMatch.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+    return bestMatch
+      .split(' ')
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
   }
 
   // Strategy 2: Pattern-based extraction from title structure
   // Reject words that look like city names but aren't
   const NON_CITY_WORDS = new Set([
-    'private', 'tour', 'day', 'trip', 'group', 'class', 'experience',
-    'adventure', 'excursion', 'safari', 'cruise', 'transfer', 'boat',
-    'walk', 'hike', 'bike', 'ride', 'drive', 'flight', 'show',
-    'sunrise', 'sunset', 'morning', 'afternoon', 'evening', 'night',
-    'standard', 'premium', 'luxury', 'budget', 'basic', 'deluxe',
+    'private',
+    'tour',
+    'day',
+    'trip',
+    'group',
+    'class',
+    'experience',
+    'adventure',
+    'excursion',
+    'safari',
+    'cruise',
+    'transfer',
+    'boat',
+    'walk',
+    'hike',
+    'bike',
+    'ride',
+    'drive',
+    'flight',
+    'show',
+    'sunrise',
+    'sunset',
+    'morning',
+    'afternoon',
+    'evening',
+    'night',
+    'standard',
+    'premium',
+    'luxury',
+    'budget',
+    'basic',
+    'deluxe',
   ]);
 
   function isValidCity(candidate: string): boolean {
     if (candidate.length < 3 || candidate.length > 30) return false;
     // Reject if ALL words are common non-city words
     const words = candidate.toLowerCase().split(/\s+/);
-    if (words.every(w => NON_CITY_WORDS.has(w))) return false;
+    if (words.every((w) => NON_CITY_WORDS.has(w))) return false;
     // Reject if it contains numbers
     if (/\d/.test(candidate)) return false;
     // Must start with uppercase (already ensured by regex)
@@ -886,10 +1359,7 @@ function extractCategories(product: HolibobProduct): string[] {
  *   "Skip-the-Line Colosseum Guided Tour" → "colosseum tour"
  *   "Tuk Tuk Safari" → "tuk tuk safari"
  */
-function extractActivityPhrase(
-  productName: string,
-  citiesToRemove: Set<string>
-): string | null {
+function extractActivityPhrase(productName: string, citiesToRemove: Set<string>): string | null {
   let name = productName.toLowerCase();
 
   // Remove city/location names (so they don't pollute the activity phrase)
@@ -906,32 +1376,58 @@ function extractActivityPhrase(
 
   // Remove common title patterns that add noise
   name = name
-    .replace(/[-–—:/\\]/g, ' ')  // Hyphens, colons, slashes
-    .replace(/[^a-z\s]/g, '')    // Non-alpha characters
-    .replace(/\bself\s+guided\b/g, 'self-guided')  // Keep as compound
+    .replace(/[-–—:/\\]/g, ' ') // Hyphens, colons, slashes
+    .replace(/[^a-z\s]/g, '') // Non-alpha characters
+    .replace(/\bself\s+guided\b/g, 'self-guided') // Keep as compound
     .replace(/\bshore\s+excursion\b/g, 'shore excursion');
 
   // Split into words
-  let words = name.split(/\s+/).filter(w => w.length > 0);
+  let words = name.split(/\s+/).filter((w) => w.length > 0);
 
   // Remove modifier, filler, and noise words
-  words = words.filter(
-    w => !MODIFIER_WORDS.has(w) && !FILLER_WORDS.has(w) && w.length > 1
-  );
+  words = words.filter((w) => !MODIFIER_WORDS.has(w) && !FILLER_WORDS.has(w) && w.length > 1);
 
   // Remove duration patterns and numbers
-  words = words.filter(w => !/^\d+h?o?u?r?s?$/.test(w) && !/^\d+$/.test(w));
+  words = words.filter((w) => !/^\d+h?o?u?r?s?$/.test(w) && !/^\d+$/.test(w));
 
   // Remove additional noise: directional/logistic words
   const NOISE_WORDS = new Set([
-    'hotel', 'hotels', 'pickup', 'pick', 'drop', 'off', 'optional',
-    'included', 'includes', 'including', 'transport', 'return',
-    'round', 'way', 'standard', 'rental', 'chauffeur', 'driven',
-    'home', 'port', 'center', 'centre', 'city', 'airport',
-    'station', 'departure', 'arrival', 'local', 'transfers',
-    'transfer', 'stops', 'highlights', 'based', 'one',
+    'hotel',
+    'hotels',
+    'pickup',
+    'pick',
+    'drop',
+    'off',
+    'optional',
+    'included',
+    'includes',
+    'including',
+    'transport',
+    'return',
+    'round',
+    'way',
+    'standard',
+    'rental',
+    'chauffeur',
+    'driven',
+    'home',
+    'port',
+    'center',
+    'centre',
+    'city',
+    'airport',
+    'station',
+    'departure',
+    'arrival',
+    'local',
+    'transfers',
+    'transfer',
+    'stops',
+    'highlights',
+    'based',
+    'one',
   ]);
-  words = words.filter(w => !NOISE_WORDS.has(w));
+  words = words.filter((w) => !NOISE_WORDS.has(w));
 
   // Take first 4 meaningful words (longer phrases are too specific)
   words = words.slice(0, 4);
@@ -955,20 +1451,29 @@ function escapeRegex(str: string): string {
 async function validateKeywords(
   seeds: string[],
   location: string
-): Promise<Map<string, { searchVolume: number; cpc: number; competition: number; competitionLevel?: string }>> {
+): Promise<
+  Map<string, { searchVolume: number; cpc: number; competition: number; competitionLevel?: string }>
+> {
   const dataForSeo = new DataForSEOClient();
-  const validated = new Map<string, { searchVolume: number; cpc: number; competition: number; competitionLevel?: string }>();
+  const validated = new Map<
+    string,
+    { searchVolume: number; cpc: number; competition: number; competitionLevel?: string }
+  >();
 
   // getBulkSearchVolume handles batching internally (1000/batch)
   console.log(`[Enrichment] Sending ${seeds.length} keywords to DataForSEO for validation...`);
 
   const results = await dataForSeo.getBulkSearchVolume(seeds, location);
-  console.log(`[Enrichment] DataForSEO returned ${results.length} results for ${seeds.length} seeds`);
+  console.log(
+    `[Enrichment] DataForSEO returned ${results.length} results for ${seeds.length} seeds`
+  );
   if (results.length > 0) {
     // Log top 5 results by volume for quality check
     const topResults = [...results].sort((a, b) => b.searchVolume - a.searchVolume).slice(0, 5);
     for (const r of topResults) {
-      console.log(`[Enrichment]   Top result: "${r.keyword}" vol=${r.searchVolume} cpc=${r.cpc} comp=${r.competitionLevel}`);
+      console.log(
+        `[Enrichment]   Top result: "${r.keyword}" vol=${r.searchVolume} cpc=${r.cpc} comp=${r.competitionLevel}`
+      );
     }
   } else {
     // Debug: log first 5 seeds that were sent
@@ -982,12 +1487,24 @@ async function validateKeywords(
 
   for (const kw of results) {
     // Filter criteria — tuned for tourism/experience keywords
-    if (kw.searchVolume < 10) { filteredNoVolume++; continue; }
-    if (kw.cpc <= 0) { filteredNoCpc++; continue; }
+    if (kw.searchVolume < 10) {
+      filteredNoVolume++;
+      continue;
+    }
+    if (kw.cpc <= 0) {
+      filteredNoCpc++;
+      continue;
+    }
     // Tourism keywords legitimately have CPCs of $2-8. Higher CPC = higher booking intent.
     // An experience selling for £80-200 can profitably bid up to £8-10 CPC.
-    if (kw.cpc > 10.0) { filteredHighCpc++; continue; }
-    if (isLowIntentKeyword(kw.keyword)) { filteredLowIntent++; continue; }
+    if (kw.cpc > 10.0) {
+      filteredHighCpc++;
+      continue;
+    }
+    if (isLowIntentKeyword(kw.keyword)) {
+      filteredLowIntent++;
+      continue;
+    }
 
     validated.set(kw.keyword.toLowerCase(), {
       searchVolume: kw.searchVolume,
@@ -999,8 +1516,8 @@ async function validateKeywords(
 
   console.log(
     `[Enrichment] Validation breakdown: ${results.length} total, ${validated.size} passed, ` +
-    `${filteredNoVolume} no volume, ${filteredNoCpc} no CPC, ${filteredHighCpc} CPC>£10, ` +
-    `${filteredLowIntent} low intent`
+      `${filteredNoVolume} no volume, ${filteredNoCpc} no CPC, ${filteredHighCpc} CPC>£10, ` +
+      `${filteredLowIntent} low intent`
   );
 
   return validated;
@@ -1020,7 +1537,10 @@ function isLowIntentKeyword(keyword: string): boolean {
 // ---------------------------------------------------------------------------
 
 async function storeValidatedKeywords(
-  validated: Map<string, { searchVolume: number; cpc: number; competition: number; competitionLevel?: string }>,
+  validated: Map<
+    string,
+    { searchVolume: number; cpc: number; competition: number; competitionLevel?: string }
+  >,
   seedToSupplierIds: Map<string, Set<string>>,
   location: string
 ): Promise<{ stored: number; updated: number }> {
@@ -1034,7 +1554,9 @@ async function storeValidatedKeywords(
 
     // Log first keyword's data for debugging
     if (!loggedFirst) {
-      console.log(`[Enrichment] First keyword store data: keyword="${keyword}" vol=${data.searchVolume} cpc=${data.cpc} comp=${data.competition} score=${score} supplierIds=${supplierIds ? [...supplierIds].length : 0}`);
+      console.log(
+        `[Enrichment] First keyword store data: keyword="${keyword}" vol=${data.searchVolume} cpc=${data.cpc} comp=${data.competition} score=${score} supplierIds=${supplierIds ? [...supplierIds].length : 0}`
+      );
       loggedFirst = true;
     }
 
@@ -1108,12 +1630,14 @@ async function storeValidatedKeywords(
         }
       } else {
         const errMsg = err instanceof Error ? err.message : String(err);
-      console.error(`[Enrichment] Failed to store keyword "${keyword}": ${errMsg.substring(0, 300)}`);
+        console.error(
+          `[Enrichment] Failed to store keyword "${keyword}": ${errMsg.substring(0, 300)}`
+        );
       }
     }
 
     // Progress logging every 500 keywords
-    if ((stored + updated) % 500 === 0 && (stored + updated) > 0) {
+    if ((stored + updated) % 500 === 0 && stored + updated > 0) {
       console.log(`[Enrichment] Phase 3 progress: ${stored} stored, ${updated} updated`);
     }
   }

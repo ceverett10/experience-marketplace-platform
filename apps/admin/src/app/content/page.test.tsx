@@ -54,6 +54,25 @@ const mockContentData = [
   },
 ];
 
+function buildMockResponse(items: typeof mockContentData) {
+  return {
+    items,
+    pagination: {
+      page: 1,
+      pageSize: 50,
+      totalCount: items.length,
+      totalPages: items.length > 0 ? 1 : 0,
+    },
+    stats: {
+      total: mockContentData.length,
+      pending: mockContentData.filter((c) => c.status === 'pending').length,
+      approved: mockContentData.filter((c) => c.status === 'approved').length,
+      published: mockContentData.filter((c) => c.status === 'published').length,
+      rejected: mockContentData.filter((c) => c.status === 'rejected').length,
+    },
+  };
+}
+
 beforeEach(() => {
   vi.stubGlobal(
     'fetch',
@@ -65,10 +84,25 @@ beforeEach(() => {
           json: () => Promise.resolve({ success: true }),
         });
       }
-      // GET request for content list
+      // GET request for content list — simulate server-side filtering
+      const parsedUrl = new URL(url, 'http://localhost');
+      const search = parsedUrl.searchParams.get('search') || '';
+      const status = parsedUrl.searchParams.get('status') || '';
+
+      let filtered = mockContentData;
+      if (search) {
+        const q = search.toLowerCase();
+        filtered = filtered.filter(
+          (c) => c.title.toLowerCase().includes(q) || c.siteName.toLowerCase().includes(q)
+        );
+      }
+      if (status && status !== 'all') {
+        filtered = filtered.filter((c) => c.status === status);
+      }
+
       return Promise.resolve({
         ok: true,
-        json: () => Promise.resolve(mockContentData),
+        json: () => Promise.resolve(buildMockResponse(filtered)),
       });
     })
   );
@@ -136,7 +170,9 @@ describe('AdminContentPage', () => {
         fireEvent.click(statsCard);
       }
 
-      expect(screen.getByText('London Eye Sunset Experience')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByText('London Eye Sunset Experience')).toBeInTheDocument();
+      });
     });
   });
 
@@ -321,15 +357,19 @@ describe('AdminContentPage', () => {
         expect(screen.getAllByTitle('Reject').length).toBeGreaterThan(0);
       });
 
-      const initialRejected = screen.getAllByText('Rejected');
-      const initialCount = initialRejected.length;
-
       const rejectButtons = screen.getAllByTitle('Reject');
       fireEvent.click(rejectButtons[0]!);
 
+      // Verify the PATCH was called with reject status
       await waitFor(() => {
-        const rejectedTexts = screen.getAllByText('Rejected');
-        expect(rejectedTexts.length).toBeGreaterThan(initialCount);
+        const fetchMock = global.fetch as ReturnType<typeof vi.fn>;
+        const patchCall = fetchMock.mock.calls.find(
+          (call: unknown[]) => (call[1] as RequestInit)?.method === 'PATCH'
+        );
+        expect(patchCall).toBeTruthy();
+        const body = JSON.parse((patchCall![1] as RequestInit).body as string);
+        expect(body.status).toBe('rejected');
+        expect(body.id).toBe('1');
       });
     });
 

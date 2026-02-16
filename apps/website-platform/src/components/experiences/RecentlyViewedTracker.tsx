@@ -11,7 +11,7 @@ import { trackRecentlyViewed, type RecentlyViewedItem } from './RecentlyViewed';
 export function RecentlyViewedTracker({ item }: { item: RecentlyViewedItem }) {
   useEffect(() => {
     trackRecentlyViewed(item);
-  }, [item.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [item.id]);
 
   return null;
 }

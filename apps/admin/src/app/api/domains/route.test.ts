@@ -44,11 +44,44 @@ const mockDomain = {
   site: { id: 'site-1', name: 'London Tours', slug: 'london-tours' },
 };
 
+/** Helper: mock the parallel queries in GET (count, findMany, groupBy, 3x count, site.count) */
+function mockGetQueries(opts: {
+  registeredDomains: any[];
+  statusCounts?: { status: string; _count: { id: number } }[];
+  orphanCount?: number;
+  sslCount?: number;
+  expiringCount?: number;
+  suggestedCount?: number;
+  totalCount?: number;
+}) {
+  const {
+    registeredDomains,
+    statusCounts = registeredDomains.map((d) => ({ status: d.status, _count: { id: 1 } })),
+    orphanCount = 0,
+    sslCount = registeredDomains.filter((d) => d.sslEnabled).length,
+    expiringCount = 0,
+    suggestedCount = 0,
+    totalCount = registeredDomains.length,
+  } = opts;
+
+  // Promise.all order: count, findMany, groupBy, orphanCount, sslCount, expiringCount, site.count
+  mockPrisma.domain.count
+    .mockResolvedValueOnce(totalCount) // totalCount
+    .mockResolvedValueOnce(orphanCount) // orphanCount
+    .mockResolvedValueOnce(sslCount) // sslCount
+    .mockResolvedValueOnce(expiringCount); // expiringCount
+  mockPrisma.domain.findMany.mockResolvedValueOnce(registeredDomains);
+  mockPrisma.domain.groupBy.mockResolvedValueOnce(statusCounts);
+  mockPrisma.site.count.mockResolvedValueOnce(suggestedCount);
+}
+
 describe('GET /api/domains', () => {
   it('returns registered domains and suggested domains', async () => {
-    mockPrisma.domain.findMany
-      .mockResolvedValueOnce([mockDomain]) // registered domains
-      .mockResolvedValueOnce([mockDomain]); // all domains for stats
+    mockGetQueries({
+      registeredDomains: [mockDomain],
+      statusCounts: [{ status: 'ACTIVE', _count: { id: 1 } }],
+      suggestedCount: 1,
+    });
 
     mockPrisma.site.findMany.mockResolvedValue([
       {
@@ -72,12 +105,15 @@ describe('GET /api/domains', () => {
   });
 
   it('returns stats with correct counts', async () => {
-    mockPrisma.domain.findMany
-      .mockResolvedValueOnce([mockDomain]) // registered domains
-      .mockResolvedValueOnce([
-        { ...mockDomain, status: 'ACTIVE', sslEnabled: true },
-        { ...mockDomain, id: 'dom-2', status: 'DNS_PENDING', sslEnabled: false },
-      ]); // all domains for stats
+    mockGetQueries({
+      registeredDomains: [mockDomain],
+      statusCounts: [
+        { status: 'ACTIVE', _count: { id: 1 } },
+        { status: 'DNS_PENDING', _count: { id: 1 } },
+      ],
+      sslCount: 1,
+      suggestedCount: 0,
+    });
 
     mockPrisma.site.findMany.mockResolvedValue([]);
 
@@ -90,11 +126,12 @@ describe('GET /api/domains', () => {
   });
 
   it('filters by status', async () => {
-    mockPrisma.domain.findMany
-      .mockResolvedValueOnce([mockDomain]) // registered with filter
-      .mockResolvedValueOnce([mockDomain]); // all for stats
+    mockGetQueries({
+      registeredDomains: [mockDomain],
+      statusCounts: [{ status: 'ACTIVE', _count: { id: 1 } }],
+    });
 
-    mockPrisma.site.findMany.mockResolvedValue([]);
+    // ACTIVE filter suppresses suggested domains, so no site.findMany needed
 
     const response = await GET(createGetRequest({ status: 'ACTIVE' }));
     const data = await response.json();
@@ -108,9 +145,12 @@ describe('GET /api/domains', () => {
   });
 
   it('uses domain from job payload when available', async () => {
-    mockPrisma.domain.findMany
-      .mockResolvedValueOnce([]) // no registered domains
-      .mockResolvedValueOnce([]); // all domains for stats
+    mockGetQueries({
+      registeredDomains: [],
+      statusCounts: [],
+      totalCount: 0,
+      suggestedCount: 1,
+    });
 
     mockPrisma.site.findMany.mockResolvedValue([
       {
@@ -137,7 +177,7 @@ describe('GET /api/domains', () => {
   });
 
   it('returns 500 when database query fails', async () => {
-    mockPrisma.domain.findMany.mockRejectedValue(new Error('DB error'));
+    mockPrisma.domain.count.mockRejectedValue(new Error('DB error'));
 
     const response = await GET(createGetRequest());
     const data = await response.json();

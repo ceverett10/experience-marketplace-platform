@@ -47,7 +47,7 @@ describe('GET /api/operations/schedules', () => {
     expect(data.schedules[1].jobType).toBe('GSC_SYNC');
   });
 
-  it('skips DB queries for AUTONOMOUS_ROADMAP', async () => {
+  it('queries DB for AUTONOMOUS_ROADMAP', async () => {
     mockGetScheduledJobs.mockReturnValue([
       { jobType: 'AUTONOMOUS_ROADMAP', schedule: '*/5 * * * *', description: 'Process roadmaps' },
       { jobType: 'SEO_ANALYZE', schedule: '0 3 * * *', description: 'Daily SEO analysis' },
@@ -59,15 +59,13 @@ describe('GET /api/operations/schedules', () => {
     expect(response.status).toBe(200);
     expect(data.schedules).toHaveLength(2);
 
-    // AUTONOMOUS_ROADMAP should have empty history (no DB query)
-    const roadmap = data.schedules.find(
-      (s: { jobType: string }) => s.jobType === 'AUTONOMOUS_ROADMAP'
+    // Both types now query the DB
+    expect(mockPrisma.job.findMany).toHaveBeenCalledTimes(2);
+    expect(mockPrisma.job.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { type: 'AUTONOMOUS_ROADMAP' },
+      })
     );
-    expect(roadmap.lastExecution).toBeNull();
-    expect(roadmap.recentHistory).toEqual([]);
-
-    // Only SEO_ANALYZE should have triggered a findMany call
-    expect(mockPrisma.job.findMany).toHaveBeenCalledTimes(1);
     expect(mockPrisma.job.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { type: 'SEO_ANALYZE' },
@@ -75,7 +73,7 @@ describe('GET /api/operations/schedules', () => {
     );
   });
 
-  it('skips DB queries for WEEKLY_BLOG_GENERATE', async () => {
+  it('resolves WEEKLY_BLOG_GENERATE via TYPE_ALIASES to CONTENT_GENERATE', async () => {
     mockGetScheduledJobs.mockReturnValue([
       {
         jobType: 'WEEKLY_BLOG_GENERATE',
@@ -88,10 +86,15 @@ describe('GET /api/operations/schedules', () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    const blog = data.schedules[0];
-    expect(blog.lastExecution).toBeNull();
-    expect(blog.recentHistory).toEqual([]);
-    expect(mockPrisma.job.findMany).not.toHaveBeenCalled();
+    // WEEKLY_BLOG_GENERATE is aliased to CONTENT_GENERATE for DB queries
+    expect(mockPrisma.job.findMany).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.job.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { type: 'CONTENT_GENERATE' },
+      })
+    );
+    // The schedule should still show the original jobType
+    expect(data.schedules[0].jobType).toBe('WEEKLY_BLOG_GENERATE');
   });
 
   it('handles SEO_ANALYZE (deep) job type correctly', async () => {

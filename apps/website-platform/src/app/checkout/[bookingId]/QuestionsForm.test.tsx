@@ -7,32 +7,63 @@ vi.mock('@/components/checkout/TermsModal', () => ({
   TermsModal: () => null,
 }));
 
+const defaultAvailability = {
+  id: 'avail-1',
+  date: '2026-03-15',
+  product: { name: 'Test Experience' },
+  questionList: {
+    nodes: [] as {
+      id: string;
+      label: string;
+      type: string;
+      dataType: string;
+      answerValue: string | undefined;
+      isRequired: boolean;
+      availableOptions?: { label: string; value: string }[];
+    }[],
+  },
+  personList: {
+    nodes: [
+      {
+        id: 'person-1',
+        pricingCategoryLabel: 'Adult',
+        isQuestionsComplete: false,
+        questionList: {
+          nodes: [
+            {
+              id: 'pq-fn',
+              label: 'First name',
+              type: 'TEXT',
+              dataType: 'STRING',
+              answerValue: undefined as string | undefined,
+              isRequired: true,
+            },
+            {
+              id: 'pq-ln',
+              label: 'Last name',
+              type: 'TEXT',
+              dataType: 'STRING',
+              answerValue: undefined as string | undefined,
+              isRequired: true,
+            },
+          ],
+        },
+      },
+    ],
+  },
+};
+
 const defaultProps = {
   bookingId: 'test-booking-1',
-  bookingQuestions: [],
-  availabilities: [
-    {
-      id: 'avail-1',
-      date: '2026-03-15',
-      product: { name: 'Test Experience' },
-      questionList: { nodes: [] },
-      personList: {
-        nodes: [
-          {
-            id: 'person-1',
-            pricingCategoryLabel: 'Adult',
-            isQuestionsComplete: false,
-            questionList: {
-              nodes: [
-                { id: 'pq-fn', label: 'First name', type: 'TEXT', dataType: 'STRING', answerValue: undefined, isRequired: true },
-                { id: 'pq-ln', label: 'Last name', type: 'TEXT', dataType: 'STRING', answerValue: undefined, isRequired: true },
-              ],
-            },
-          },
-        ],
-      },
-    },
-  ],
+  bookingQuestions: [] as {
+    id: string;
+    label: string;
+    type: string;
+    dataType: string;
+    answerValue: string | undefined;
+    isRequired: boolean;
+  }[],
+  availabilities: [defaultAvailability],
   onSubmit: vi.fn(),
   isSubmitting: false,
 };
@@ -69,7 +100,9 @@ describe('QuestionsForm', () => {
 
     fireEvent.change(screen.getByPlaceholderText('First name *'), { target: { value: 'John' } });
     fireEvent.change(screen.getByPlaceholderText('Last name *'), { target: { value: 'Smith' } });
-    fireEvent.change(screen.getByPlaceholderText('Email Address *'), { target: { value: 'bad-email' } });
+    fireEvent.change(screen.getByPlaceholderText('Email Address *'), {
+      target: { value: 'bad-email' },
+    });
     fireEvent.change(screen.getByPlaceholderText('Phone Number *'), { target: { value: '123' } });
 
     // Check the terms checkbox using change event
@@ -89,8 +122,12 @@ describe('QuestionsForm', () => {
 
     fireEvent.change(screen.getByPlaceholderText('First name *'), { target: { value: 'John' } });
     fireEvent.change(screen.getByPlaceholderText('Last name *'), { target: { value: 'Smith' } });
-    fireEvent.change(screen.getByPlaceholderText('Email Address *'), { target: { value: 'john@test.com' } });
-    fireEvent.change(screen.getByPlaceholderText('Phone Number *'), { target: { value: '7700900123' } });
+    fireEvent.change(screen.getByPlaceholderText('Email Address *'), {
+      target: { value: 'john@test.com' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('Phone Number *'), {
+      target: { value: '7700900123' },
+    });
     fireEvent.click(screen.getByTestId('terms-checkbox'));
 
     fireEvent.click(screen.getByTestId('submit-questions'));
@@ -139,7 +176,7 @@ describe('QuestionsForm - Dynamic Questions', () => {
       ...defaultProps,
       availabilities: [
         {
-          ...defaultProps.availabilities[0],
+          ...defaultAvailability,
           questionList: {
             nodes: [
               {
@@ -179,7 +216,7 @@ describe('QuestionsForm - Dynamic Questions', () => {
       ...defaultProps,
       availabilities: [
         {
-          ...defaultProps.availabilities[0],
+          ...defaultAvailability,
           questionList: {
             nodes: [
               {
@@ -210,7 +247,7 @@ describe('QuestionsForm - Dynamic Questions', () => {
       ...defaultProps,
       availabilities: [
         {
-          ...defaultProps.availabilities[0],
+          ...defaultAvailability,
           questionList: {
             nodes: [
               {
@@ -241,7 +278,7 @@ describe('QuestionsForm - Dynamic Questions', () => {
       ...defaultProps,
       availabilities: [
         {
-          ...defaultProps.availabilities[0],
+          ...defaultAvailability,
           questionList: {
             nodes: [
               {
@@ -270,7 +307,7 @@ describe('QuestionsForm - Dynamic Questions', () => {
       ...defaultProps,
       availabilities: [
         {
-          ...defaultProps.availabilities[0],
+          ...defaultAvailability,
           questionList: {
             nodes: [
               {
@@ -301,7 +338,7 @@ describe('QuestionsForm - Dynamic Questions', () => {
       ...defaultProps,
       availabilities: [
         {
-          ...defaultProps.availabilities[0],
+          ...defaultAvailability,
           questionList: {
             nodes: [
               {
@@ -339,7 +376,7 @@ describe('QuestionsForm - Dynamic Questions', () => {
       ...defaultProps,
       availabilities: [
         {
-          ...defaultProps.availabilities[0],
+          ...defaultAvailability,
           questionList: {
             nodes: [
               {
@@ -377,7 +414,7 @@ describe('QuestionsForm - Dynamic Questions', () => {
       onSubmit,
       availabilities: [
         {
-          ...defaultProps.availabilities[0],
+          ...defaultAvailability,
           questionList: {
             nodes: [
               {
@@ -403,7 +440,9 @@ describe('QuestionsForm - Dynamic Questions', () => {
     // Fill lead person
     fireEvent.change(screen.getByPlaceholderText('First name *'), { target: { value: 'John' } });
     fireEvent.change(screen.getByPlaceholderText('Last name *'), { target: { value: 'Smith' } });
-    fireEvent.change(screen.getByPlaceholderText('Email Address *'), { target: { value: 'john@test.com' } });
+    fireEvent.change(screen.getByPlaceholderText('Email Address *'), {
+      target: { value: 'john@test.com' },
+    });
     fireEvent.change(screen.getByPlaceholderText('Phone Number *'), { target: { value: '123' } });
     fireEvent.click(screen.getByTestId('terms-checkbox'));
 
@@ -416,9 +455,7 @@ describe('QuestionsForm - Dynamic Questions', () => {
     await waitFor(() => {
       expect(onSubmit).toHaveBeenCalledWith(
         expect.objectContaining({
-          questionAnswers: expect.arrayContaining([
-            { questionId: 'aq-pickup', value: 'hotel' },
-          ]),
+          questionAnswers: expect.arrayContaining([{ questionId: 'aq-pickup', value: 'hotel' }]),
         })
       );
     });
@@ -431,7 +468,7 @@ describe('QuestionsForm - Dynamic Questions', () => {
       onSubmit,
       availabilities: [
         {
-          ...defaultProps.availabilities[0],
+          ...defaultAvailability,
           questionList: {
             nodes: [
               {
@@ -441,9 +478,7 @@ describe('QuestionsForm - Dynamic Questions', () => {
                 dataType: 'STRING',
                 answerValue: undefined,
                 isRequired: true,
-                availableOptions: [
-                  { label: 'Hotel', value: 'hotel' },
-                ],
+                availableOptions: [{ label: 'Hotel', value: 'hotel' }],
               },
             ],
           },
@@ -456,7 +491,9 @@ describe('QuestionsForm - Dynamic Questions', () => {
     // Fill lead person but NOT the dynamic question
     fireEvent.change(screen.getByPlaceholderText('First name *'), { target: { value: 'John' } });
     fireEvent.change(screen.getByPlaceholderText('Last name *'), { target: { value: 'Smith' } });
-    fireEvent.change(screen.getByPlaceholderText('Email Address *'), { target: { value: 'john@test.com' } });
+    fireEvent.change(screen.getByPlaceholderText('Email Address *'), {
+      target: { value: 'john@test.com' },
+    });
     fireEvent.change(screen.getByPlaceholderText('Phone Number *'), { target: { value: '123' } });
     fireEvent.click(screen.getByTestId('terms-checkbox'));
 
@@ -473,7 +510,7 @@ describe('QuestionsForm - Per-Person Questions', () => {
       ...defaultProps,
       availabilities: [
         {
-          ...defaultProps.availabilities[0],
+          ...defaultAvailability,
           personList: {
             nodes: [
               {
@@ -482,7 +519,14 @@ describe('QuestionsForm - Per-Person Questions', () => {
                 isQuestionsComplete: true,
                 questionList: {
                   nodes: [
-                    { id: 'pq-complete', label: 'Age', type: 'NUMBER', dataType: 'NUMBER', answerValue: undefined, isRequired: true },
+                    {
+                      id: 'pq-complete',
+                      label: 'Age',
+                      type: 'NUMBER',
+                      dataType: 'NUMBER',
+                      answerValue: undefined,
+                      isRequired: true,
+                    },
                   ],
                 },
               },
@@ -492,7 +536,14 @@ describe('QuestionsForm - Per-Person Questions', () => {
                 isQuestionsComplete: false,
                 questionList: {
                   nodes: [
-                    { id: 'pq-incomplete', label: 'Age', type: 'NUMBER', dataType: 'NUMBER', answerValue: undefined, isRequired: true },
+                    {
+                      id: 'pq-incomplete',
+                      label: 'Age',
+                      type: 'NUMBER',
+                      dataType: 'NUMBER',
+                      answerValue: undefined,
+                      isRequired: true,
+                    },
                   ],
                 },
               },
@@ -515,7 +566,7 @@ describe('QuestionsForm - Per-Person Questions', () => {
       ...defaultProps,
       availabilities: [
         {
-          ...defaultProps.availabilities[0],
+          ...defaultAvailability,
           personList: {
             nodes: [
               {
@@ -524,7 +575,14 @@ describe('QuestionsForm - Per-Person Questions', () => {
                 isQuestionsComplete: false,
                 questionList: {
                   nodes: [
-                    { id: 'pq-age', label: 'Age', type: 'NUMBER', dataType: 'NUMBER', answerValue: undefined, isRequired: true },
+                    {
+                      id: 'pq-age',
+                      label: 'Age',
+                      type: 'NUMBER',
+                      dataType: 'NUMBER',
+                      answerValue: undefined,
+                      isRequired: true,
+                    },
                   ],
                 },
               },

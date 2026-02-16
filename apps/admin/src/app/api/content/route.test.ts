@@ -37,6 +37,30 @@ function createRequest(url: string, options?: RequestInit) {
   return new Request(url, options);
 }
 
+function createGetRequest(params?: Record<string, string>) {
+  const url = new URL('http://localhost/api/content');
+  if (params) {
+    Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+  }
+  return new Request(url.toString());
+}
+
+/** Helper: set up count + groupBy mocks so GET doesn't throw on parallel queries */
+function mockCountAndStats(pages: any[]) {
+  mockPrisma.page.count.mockResolvedValue(pages.length);
+  mockPrisma.page.groupBy.mockResolvedValue(
+    Object.entries(
+      pages.reduce(
+        (acc: Record<string, number>, p: any) => {
+          acc[p.status] = (acc[p.status] || 0) + 1;
+          return acc;
+        },
+        {} as Record<string, number>
+      )
+    ).map(([status, count]) => ({ status, _count: { id: count } }))
+  );
+}
+
 describe('GET /api/content', () => {
   it('returns all pages with content info', async () => {
     const content = createMockContent({ qualityScore: 85 });
@@ -61,26 +85,27 @@ describe('GET /api/content', () => {
       },
     ];
     mockPrisma.page.findMany.mockResolvedValue(pages);
+    mockCountAndStats(pages);
 
-    const response = await GET();
+    const response = await GET(createGetRequest());
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data).toHaveLength(2);
+    expect(data.items).toHaveLength(2);
 
     // First page — has content, is PRODUCT type
-    expect(data[0].type).toBe('experience'); // PRODUCT → experience
-    expect(data[0].status).toBe('published'); // PUBLISHED → published
-    expect(data[0].hasContent).toBe(true);
-    expect(data[0].qualityScore).toBe(85);
-    expect(data[0].siteName).toBe('Test Site');
+    expect(data.items[0].type).toBe('experience'); // PRODUCT → experience
+    expect(data.items[0].status).toBe('published'); // PUBLISHED → published
+    expect(data.items[0].hasContent).toBe(true);
+    expect(data.items[0].qualityScore).toBe(85);
+    expect(data.items[0].siteName).toBe('Test Site');
 
     // Second page — no content, is BLOG type
-    expect(data[1].type).toBe('blog');
-    expect(data[1].status).toBe('pending'); // DRAFT → pending
-    expect(data[1].hasContent).toBe(false);
-    expect(data[1].content).toBe('');
-    expect(data[1].qualityScore).toBe(0);
+    expect(data.items[1].type).toBe('blog');
+    expect(data.items[1].status).toBe('pending'); // DRAFT → pending
+    expect(data.items[1].hasContent).toBe(false);
+    expect(data.items[1].content).toBe('');
+    expect(data.items[1].qualityScore).toBe(0);
   });
 
   it('uses page createdAt when content createdAt is null', async () => {
@@ -96,17 +121,20 @@ describe('GET /api/content', () => {
       },
     ];
     mockPrisma.page.findMany.mockResolvedValue(pages);
+    mockCountAndStats(pages);
 
-    const response = await GET();
+    const response = await GET(createGetRequest());
     const data = await response.json();
 
-    expect(data[0].generatedAt).toBe(pageDate.toISOString());
+    expect(data.items[0].generatedAt).toBe(pageDate.toISOString());
   });
 
   it('returns 500 when database fails', async () => {
+    mockPrisma.page.count.mockRejectedValue(new Error('DB error'));
     mockPrisma.page.findMany.mockRejectedValue(new Error('DB error'));
+    mockPrisma.page.groupBy.mockRejectedValue(new Error('DB error'));
 
-    const response = await GET();
+    const response = await GET(createGetRequest());
     const data = await response.json();
 
     expect(response.status).toBe(500);
@@ -129,12 +157,13 @@ describe('GET /api/content', () => {
       site: { id: 'site-1', name: 'Test Site' },
     }));
     mockPrisma.page.findMany.mockResolvedValue(pages);
+    mockCountAndStats(pages);
 
-    const response = await GET();
+    const response = await GET(createGetRequest());
     const data = await response.json();
 
     typeMap.forEach(({ expected }, i) => {
-      expect(data[i].type).toBe(expected);
+      expect(data.items[i].type).toBe(expected);
     });
   });
 });
