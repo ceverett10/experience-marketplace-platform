@@ -326,6 +326,7 @@ export function registerDiscoveryTools(
               { tool: 'search_experiences', reason: 'Try different search terms or destination' },
             ] as NextAction[],
           },
+          _meta: WIDGET_META,
         };
       }
 
@@ -350,6 +351,7 @@ export function registerDiscoveryTools(
             },
           ] as NextAction[],
         },
+        _meta: WIDGET_META,
       };
     }
   );
@@ -383,6 +385,7 @@ export function registerDiscoveryTools(
             { tool: 'check_availability', reason: 'Check available dates to book this experience' },
           ] as NextAction[],
         },
+        _meta: WIDGET_META,
       };
     }
   );
@@ -470,6 +473,7 @@ export function registerDiscoveryTools(
             { type: 'text' as const, text: 'No more experiences available for this search.' },
           ],
           structuredContent: { experiences: [], destination, hasMore: false },
+          _meta: WIDGET_META,
         };
       }
 
@@ -483,6 +487,7 @@ export function registerDiscoveryTools(
           destination,
           hasMore: result.pageInfo.hasNextPage,
         },
+        _meta: WIDGET_META,
       };
     }
   );
@@ -566,6 +571,7 @@ export function registerDiscoveryTools(
             what: ['Walking Tours', 'Food & Drink', 'Museums', 'Outdoor Activities', 'Day Trips'],
           },
         },
+        _meta: WIDGET_META,
       };
     }
   );

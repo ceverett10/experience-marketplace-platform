@@ -54,34 +54,47 @@ export function createServer(client: HolibobClient, context?: ServerContext): Mc
     } catch {}
   }
 
+  // CSP metadata — declared on both the resource config (so the host reads it at
+  // connection/listing time) and on the resource contents (for hosts that read it
+  // when the resource is actually fetched).
+  const cspMeta = {
+    // Modern MCP Apps format
+    ui: {
+      domain: 'https://holibob.com',
+      csp: {
+        connectDomains: [] as string[],
+        resourceDomains,
+        redirectDomains,
+      },
+    },
+    // Legacy OpenAI format (published mode)
+    'openai/widgetCSP': {
+      connect_domains: [] as string[],
+      resource_domains: resourceDomains,
+      redirect_domains: redirectDomains,
+    },
+  };
+
   for (const [name, uri, html] of widgets) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- CJS/ESM type resolution mismatch
-    registerAppResource(server as any, name, uri, { mimeType: RESOURCE_MIME_TYPE }, async () => ({
-      contents: [
-        {
-          uri,
-          mimeType: RESOURCE_MIME_TYPE,
-          text: html,
-          _meta: {
-            // Modern format
-            ui: {
-              domain: 'https://holibob.com',
-              csp: {
-                connectDomains: [],
-                resourceDomains,
-                redirectDomains,
-              },
-            },
-            // Legacy format (published mode)
-            'openai/widgetCSP': {
-              connect_domains: [] as string[],
-              resource_domains: resourceDomains,
-              redirect_domains: redirectDomains,
-            },
+    registerAppResource(
+      server as any,
+      name,
+      uri,
+      // Config _meta — host reads this at connection time to configure iframe CSP
+      { mimeType: RESOURCE_MIME_TYPE, _meta: cspMeta },
+      async () => ({
+        contents: [
+          {
+            uri,
+            mimeType: RESOURCE_MIME_TYPE,
+            text: html,
+            // Contents _meta — host reads this when resource is fetched
+            _meta: cspMeta,
           },
-        },
-      ],
-    }));
+        ],
+      })
+    );
   }
 
   return server;
