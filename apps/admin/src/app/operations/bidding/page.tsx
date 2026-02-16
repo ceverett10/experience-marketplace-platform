@@ -19,16 +19,36 @@ interface Profile {
   lastCalculatedAt: string | null;
 }
 
-interface ProposalEstimates {
-  estimatedCpc: number;
-  maxBid: number;
+interface ProposalKeywordDetail {
+  keyword: string;
   searchVolume: number;
-  expectedClicksPerDay: number;
+  estimatedCpc: number;
   expectedDailyCost: number;
   expectedDailyRevenue: number;
   profitabilityScore: number;
   intent: string;
-  assumptions: {
+  landingPagePath?: string;
+}
+
+interface ProposalEstimates {
+  // Grouped campaign fields (new format)
+  keywordCount?: number;
+  adGroupCount?: number;
+  totalExpectedDailyCost?: number;
+  totalExpectedDailyRevenue?: number;
+  avgProfitabilityScore?: number;
+  weightedRoas?: number;
+  keywords?: ProposalKeywordDetail[];
+  // Legacy single-keyword fields
+  estimatedCpc?: number;
+  maxBid?: number;
+  searchVolume?: number;
+  expectedClicksPerDay?: number;
+  expectedDailyCost?: number;
+  expectedDailyRevenue?: number;
+  profitabilityScore?: number;
+  intent?: string;
+  assumptions?: {
     avgOrderValue: number;
     commissionRate: number;
     conversionRate: number;
@@ -418,6 +438,7 @@ export default function PaidTrafficDashboard() {
   const [platformFilter, setPlatformFilter] = useState('');
   const [sortField, setSortField] = useState<string>('spend');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const [expandedCampaigns, setExpandedCampaigns] = useState<Set<string>>(new Set());
 
   const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
 
@@ -564,16 +585,16 @@ export default function PaidTrafficDashboard() {
     let micrositeCampaigns = 0;
     for (const d of drafts) {
       const p = d.proposalData!;
-      totalDailySpend += p.expectedDailyCost;
-      totalClicksPerDay += p.expectedClicksPerDay;
-      totalDailyRevenue += p.expectedDailyRevenue;
+      totalDailySpend += p.totalExpectedDailyCost ?? p.expectedDailyCost ?? 0;
+      totalClicksPerDay += p.expectedClicksPerDay ?? 0;
+      totalDailyRevenue += p.totalExpectedDailyRevenue ?? p.expectedDailyRevenue ?? 0;
       if (d.isMicrosite) micrositeCampaigns++;
       else mainSiteCampaigns++;
     }
 
     const firstAssumptions = drafts[0]!.proposalData!.assumptions;
     const avgCpc = totalClicksPerDay > 0 ? totalDailySpend / totalClicksPerDay : 0;
-    const conversionRate = firstAssumptions.conversionRate;
+    const conversionRate = firstAssumptions?.conversionRate ?? 0.015;
     const dailyBookings = totalClicksPerDay * conversionRate;
     const cpa = dailyBookings > 0 ? totalDailySpend / dailyBookings : 0;
     const roas = totalDailySpend > 0 ? totalDailyRevenue / totalDailySpend : 0;
@@ -626,8 +647,14 @@ export default function PaidTrafficDashboard() {
     if (campaignFilter !== 'ALL') list = list.filter((c) => c.status === campaignFilter);
     if (platformFilter) list = list.filter((c) => c.platform === platformFilter);
     return [...list].sort((a, b) => {
-      const aVal = (a as any)[sortField] ?? 0;
-      const bVal = (b as any)[sortField] ?? 0;
+      let aVal: number, bVal: number;
+      if (sortField === 'keywords') {
+        aVal = (a as any).keywords?.length ?? 0;
+        bVal = (b as any).keywords?.length ?? 0;
+      } else {
+        aVal = (a as any)[sortField] ?? 0;
+        bVal = (b as any)[sortField] ?? 0;
+      }
       return sortDir === 'desc' ? bVal - aVal : aVal - bVal;
     });
   }, [allCampaigns, campaignFilter, platformFilter, sortField, sortDir]);
@@ -1979,6 +2006,7 @@ export default function PaidTrafficDashboard() {
                       { key: 'name', label: 'Campaign' },
                       { key: 'platform', label: 'Platform' },
                       { key: 'status', label: 'Status' },
+                      { key: 'keywords', label: 'Keywords' },
                       { key: 'landingPageType', label: 'LP Type' },
                       { key: 'qualityScore', label: 'QS' },
                       { key: 'spend', label: 'Spend' },
@@ -2007,109 +2035,227 @@ export default function PaidTrafficDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredCampaigns.map((c) => (
-                    <tr key={c.id} className="border-b border-slate-100 hover:bg-slate-50">
-                      <td className="px-4 py-3">
-                        <div
-                          className="font-medium text-slate-900 truncate max-w-[200px]"
-                          title={c.name}
+                  {filteredCampaigns.map((c) => {
+                    const isExpanded = expandedCampaigns.has(c.id);
+                    const cAny = c as any;
+                    const kwDetails: ProposalKeywordDetail[] =
+                      cAny.proposalData?.keywords ?? [];
+                    const hasDetails = kwDetails.length > 0;
+                    const toggleExpand = () => {
+                      setExpandedCampaigns((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(c.id)) next.delete(c.id);
+                        else next.add(c.id);
+                        return next;
+                      });
+                    };
+                    return (
+                      <React.Fragment key={c.id}>
+                        <tr
+                          className={`border-b border-slate-100 hover:bg-slate-50 ${hasDetails ? 'cursor-pointer' : ''}`}
+                          onClick={hasDetails ? toggleExpand : undefined}
                         >
-                          {c.name}
-                        </div>
-                        <div className="text-xs text-slate-400">{c.siteName}</div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                            platformColors[c.platform] || 'bg-slate-100 text-slate-700'
-                          }`}
-                        >
-                          {platformLabel(c.platform)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                            statusColors[c.status] || 'bg-slate-100 text-slate-600'
-                          }`}
-                        >
-                          {c.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        {c.landingPageType ? (
-                          <span
-                            className={`inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium ${
-                              c.landingPageType === 'DESTINATION' ||
-                              c.landingPageType === 'CATEGORY'
-                                ? 'bg-emerald-50 text-emerald-700'
-                                : c.landingPageType === 'EXPERIENCES_FILTERED'
-                                  ? 'bg-amber-50 text-amber-700'
-                                  : c.landingPageType === 'BLOG'
-                                    ? 'bg-purple-50 text-purple-700'
-                                    : 'bg-slate-50 text-slate-600'
-                            }`}
-                            title={c.landingPagePath || ''}
-                          >
-                            {c.landingPageType.replace(/_/g, ' ').substring(0, 12)}
-                          </span>
-                        ) : (
-                          '\u2014'
+                          <td className="px-4 py-3">
+                            <div
+                              className="font-medium text-slate-900 truncate max-w-[200px]"
+                              title={c.name}
+                            >
+                              {hasDetails && (
+                                <span className="mr-1 text-slate-400">
+                                  {isExpanded ? '\u25BC' : '\u25B6'}
+                                </span>
+                              )}
+                              {c.name}
+                            </div>
+                            <div className="text-xs text-slate-400">
+                              {cAny.isMicrosite && cAny.micrositeDomain
+                                ? cAny.micrositeDomain
+                                : c.siteName}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span
+                              className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                                platformColors[c.platform] || 'bg-slate-100 text-slate-700'
+                              }`}
+                            >
+                              {platformLabel(c.platform)}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span
+                              className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                                statusColors[c.status] || 'bg-slate-100 text-slate-600'
+                              }`}
+                            >
+                              {c.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            {c.keywords.length} kw
+                            {cAny.proposalData?.adGroupCount != null && (
+                              <span className="text-slate-400">
+                                {' / '}
+                                {cAny.proposalData.adGroupCount} ag
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            {c.landingPageType ? (
+                              <span
+                                className={`inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium ${
+                                  c.landingPageType === 'DESTINATION' ||
+                                  c.landingPageType === 'CATEGORY'
+                                    ? 'bg-emerald-50 text-emerald-700'
+                                    : c.landingPageType === 'EXPERIENCES_FILTERED'
+                                      ? 'bg-amber-50 text-amber-700'
+                                      : c.landingPageType === 'BLOG'
+                                        ? 'bg-purple-50 text-purple-700'
+                                        : 'bg-slate-50 text-slate-600'
+                                }`}
+                                title={c.landingPagePath || ''}
+                              >
+                                {c.landingPageType.replace(/_/g, ' ').substring(0, 12)}
+                              </span>
+                            ) : (
+                              '\u2014'
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            {c.qualityScore != null ? (
+                              <span
+                                className={`text-sm font-semibold ${
+                                  c.qualityScore >= 7
+                                    ? 'text-emerald-600'
+                                    : c.qualityScore >= 4
+                                      ? 'text-amber-600'
+                                      : 'text-red-600'
+                                }`}
+                              >
+                                {c.qualityScore}
+                              </span>
+                            ) : (
+                              '\u2014'
+                            )}
+                          </td>
+                          <td className="px-4 py-3 font-medium">{fmt(c.spend, 'currency')}</td>
+                          <td className="px-4 py-3 font-medium">{fmt(c.revenue, 'currency')}</td>
+                          <td className={`px-4 py-3 font-bold ${roasColor(c.roas)}`}>
+                            {fmt(c.roas, 'roas')}
+                          </td>
+                          <td className="px-4 py-3">{fmt(c.clicks)}</td>
+                          <td className="px-4 py-3">{fmt((c as any).ctr, 'percent')}</td>
+                          <td className="px-4 py-3">
+                            {fmt((c as any).cpc ?? (c as any).avgCpc, 'currency')}
+                          </td>
+                          <td className="px-4 py-3">{fmt(c.conversions)}</td>
+                          <td className="px-4 py-3">{fmt(c.dailyBudget, 'currency')}</td>
+                          <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                            {c.status === 'ACTIVE' && (
+                              <button
+                                onClick={() =>
+                                  triggerAdsAction('pause_campaign', { campaignId: c.id })
+                                }
+                                disabled={actionLoading === `pause_${c.id}`}
+                                className="text-xs text-amber-600 hover:text-amber-700 font-medium"
+                              >
+                                Pause
+                              </button>
+                            )}
+                            {c.status === 'PAUSED' && (
+                              <button
+                                onClick={() =>
+                                  triggerAdsAction('resume_campaign', { campaignId: c.id })
+                                }
+                                disabled={actionLoading === `resume_${c.id}`}
+                                className="text-xs text-emerald-600 hover:text-emerald-700 font-medium"
+                              >
+                                Resume
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                        {isExpanded && kwDetails.length > 0 && (
+                          <tr className="bg-slate-50">
+                            <td colSpan={15} className="px-6 py-3">
+                              <div className="text-xs font-medium text-slate-500 mb-2">
+                                Keywords in this campaign
+                              </div>
+                              <table className="w-full text-xs">
+                                <thead>
+                                  <tr className="text-slate-400">
+                                    <th className="text-left py-1 pr-3">Keyword</th>
+                                    <th className="text-left py-1 pr-3">Intent</th>
+                                    <th className="text-right py-1 pr-3">Volume</th>
+                                    <th className="text-right py-1 pr-3">CPC</th>
+                                    <th className="text-right py-1 pr-3">Cost/day</th>
+                                    <th className="text-right py-1 pr-3">Rev/day</th>
+                                    <th className="text-right py-1 pr-3">Score</th>
+                                    <th className="text-left py-1">Landing</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {kwDetails.map((kw, i) => {
+                                    const kwRoas =
+                                      kw.expectedDailyCost > 0
+                                        ? kw.expectedDailyRevenue / kw.expectedDailyCost
+                                        : 0;
+                                    return (
+                                      <tr
+                                        key={i}
+                                        className="border-t border-slate-200 text-slate-600"
+                                      >
+                                        <td className="py-1 pr-3 font-medium">{kw.keyword}</td>
+                                        <td className="py-1 pr-3">
+                                          <span
+                                            className={`px-1.5 py-0.5 rounded ${
+                                              kw.intent === 'transactional'
+                                                ? 'bg-emerald-50 text-emerald-700'
+                                                : kw.intent === 'commercial'
+                                                  ? 'bg-blue-50 text-blue-700'
+                                                  : 'bg-slate-100 text-slate-600'
+                                            }`}
+                                          >
+                                            {kw.intent}
+                                          </span>
+                                        </td>
+                                        <td className="py-1 pr-3 text-right tabular-nums">
+                                          {kw.searchVolume.toLocaleString()}
+                                        </td>
+                                        <td className="py-1 pr-3 text-right tabular-nums">
+                                          {fmt(kw.estimatedCpc, 'currency')}
+                                        </td>
+                                        <td className="py-1 pr-3 text-right tabular-nums">
+                                          {fmt(kw.expectedDailyCost, 'currency')}
+                                        </td>
+                                        <td className="py-1 pr-3 text-right tabular-nums">
+                                          {fmt(kw.expectedDailyRevenue, 'currency')}
+                                        </td>
+                                        <td
+                                          className={`py-1 pr-3 text-right tabular-nums font-medium ${
+                                            kwRoas >= 3
+                                              ? 'text-emerald-600'
+                                              : kwRoas >= 1
+                                                ? 'text-amber-600'
+                                                : 'text-red-600'
+                                          }`}
+                                        >
+                                          {kwRoas.toFixed(1)}x
+                                        </td>
+                                        <td className="py-1 text-slate-400 truncate max-w-[200px]">
+                                          {kw.landingPagePath || '\u2014'}
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </td>
+                          </tr>
                         )}
-                      </td>
-                      <td className="px-4 py-3">
-                        {c.qualityScore != null ? (
-                          <span
-                            className={`text-sm font-semibold ${
-                              c.qualityScore >= 7
-                                ? 'text-emerald-600'
-                                : c.qualityScore >= 4
-                                  ? 'text-amber-600'
-                                  : 'text-red-600'
-                            }`}
-                          >
-                            {c.qualityScore}
-                          </span>
-                        ) : (
-                          '\u2014'
-                        )}
-                      </td>
-                      <td className="px-4 py-3 font-medium">{fmt(c.spend, 'currency')}</td>
-                      <td className="px-4 py-3 font-medium">{fmt(c.revenue, 'currency')}</td>
-                      <td className={`px-4 py-3 font-bold ${roasColor(c.roas)}`}>
-                        {fmt(c.roas, 'roas')}
-                      </td>
-                      <td className="px-4 py-3">{fmt(c.clicks)}</td>
-                      <td className="px-4 py-3">{fmt((c as any).ctr, 'percent')}</td>
-                      <td className="px-4 py-3">
-                        {fmt((c as any).cpc ?? (c as any).avgCpc, 'currency')}
-                      </td>
-                      <td className="px-4 py-3">{fmt(c.conversions)}</td>
-                      <td className="px-4 py-3">{fmt(c.dailyBudget, 'currency')}</td>
-                      <td className="px-4 py-3">
-                        {c.status === 'ACTIVE' && (
-                          <button
-                            onClick={() => triggerAdsAction('pause_campaign', { campaignId: c.id })}
-                            disabled={actionLoading === `pause_${c.id}`}
-                            className="text-xs text-amber-600 hover:text-amber-700 font-medium"
-                          >
-                            Pause
-                          </button>
-                        )}
-                        {c.status === 'PAUSED' && (
-                          <button
-                            onClick={() =>
-                              triggerAdsAction('resume_campaign', { campaignId: c.id })
-                            }
-                            disabled={actionLoading === `resume_${c.id}`}
-                            className="text-xs text-emerald-600 hover:text-emerald-700 font-medium"
-                          >
-                            Resume
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                      </React.Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
