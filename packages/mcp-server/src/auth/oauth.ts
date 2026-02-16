@@ -16,7 +16,7 @@ function getTokenSecret(): Buffer {
   return createHash('sha256').update(secret).digest();
 }
 
-interface TokenPayload {
+export interface TokenPayload {
   /** 'access' or 'refresh' */
   typ: string;
   clientId: string;
@@ -26,7 +26,7 @@ interface TokenPayload {
   exp: number;
 }
 
-function encryptToken(payload: TokenPayload): string {
+export function encryptToken(payload: TokenPayload): string {
   const key = getTokenSecret();
   const iv = randomBytes(12);
   const cipher = createCipheriv('aes-256-gcm', key, iv);
@@ -38,7 +38,7 @@ function encryptToken(payload: TokenPayload): string {
   return combined.toString('base64url');
 }
 
-function decryptToken(token: string): TokenPayload | null {
+export function decryptToken(token: string): TokenPayload | null {
   try {
     const key = getTokenSecret();
     const combined = Buffer.from(token, 'base64url');

@@ -43,11 +43,15 @@ async function startHttp(port: number): Promise<void> {
   let handleToken: Awaited<typeof import('../auth/oauth.js')>['handleToken'];
   let handleRegister: Awaited<typeof import('../auth/oauth.js')>['handleRegister'];
   let validateAccessToken: Awaited<typeof import('../auth/oauth.js')>['validateAccessToken'];
+  let validateCheckoutToken: Awaited<
+    typeof import('../auth/checkout-token.js')
+  >['validateCheckoutToken'];
 
   try {
     ({ authenticateApiKey } = await import('../auth/api-key.js'));
     ({ handleAuthorize, handleAuthorizePost, handleToken, handleRegister, validateAccessToken } =
       await import('../auth/oauth.js'));
+    ({ validateCheckoutToken } = await import('../auth/checkout-token.js'));
   } catch {
     console.error(
       'HTTP transport requires database dependencies (@prisma/client) which are not installed.'
@@ -172,6 +176,15 @@ async function startHttp(port: number): Promise<void> {
   }
 
   /**
+   * Resolve the MCP API key from a Bearer token (could be raw key or OAuth token).
+   */
+  function resolveMcpApiKey(token: string): string {
+    if (token.startsWith('mcp_live_') || token.startsWith('mcp_test_')) return token;
+    const tokenData = validateAccessToken(token);
+    return tokenData?.mcpApiKey ?? '';
+  }
+
+  /**
    * Authenticate request and create a partner-scoped MCP server,
    * or fall back to env vars.
    */
@@ -184,7 +197,11 @@ async function startHttp(port: number): Promise<void> {
     if (token) {
       const auth = await authenticateToken(token);
       if (!auth) return null;
-      return { server: createServer(auth.client), partnerName: auth.partnerName };
+      const mcpApiKey = resolveMcpApiKey(token);
+      return {
+        server: createServer(auth.client, { mcpApiKey, publicUrl: publicBaseUrl }),
+        partnerName: auth.partnerName,
+      };
     }
 
     if (envPartnerId && envApiKey) {
@@ -194,7 +211,10 @@ async function startHttp(port: number): Promise<void> {
         apiKey: envApiKey,
         apiSecret: envApiSecret,
       });
-      return { server: createServer(client), partnerName: 'env' };
+      return {
+        server: createServer(client, { mcpApiKey: envApiKey, publicUrl: publicBaseUrl }),
+        partnerName: 'env',
+      };
     }
 
     return null;
@@ -320,6 +340,145 @@ async function startHttp(port: number): Promise<void> {
           error: 'invalid_request',
           error_description: 'Failed to parse request body',
         });
+      }
+      return;
+    }
+
+    // ── Image proxy — route supplier CDN images through our whitelisted domain ──
+    if (url.pathname === '/image-proxy' && req.method === 'GET') {
+      const imageUrl = url.searchParams.get('url');
+      if (!imageUrl || !imageUrl.startsWith('https://')) {
+        jsonResponse(res, 400, { error: 'Missing or invalid url parameter (https only)' });
+        return;
+      }
+
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10_000);
+
+        const upstream = await fetch(imageUrl, {
+          signal: controller.signal,
+          headers: { Accept: 'image/*' },
+        });
+        clearTimeout(timeout);
+
+        const contentType = upstream.headers.get('content-type') ?? '';
+        if (!contentType.startsWith('image/')) {
+          jsonResponse(res, 400, { error: 'URL does not point to an image' });
+          return;
+        }
+
+        const contentLength = upstream.headers.get('content-length');
+        if (contentLength && parseInt(contentLength, 10) > 10 * 1024 * 1024) {
+          jsonResponse(res, 413, { error: 'Image too large (max 10MB)' });
+          return;
+        }
+
+        res.writeHead(200, {
+          'Content-Type': contentType,
+          'Cache-Control': 'public, max-age=86400',
+          ...(contentLength ? { 'Content-Length': contentLength } : {}),
+        });
+
+        if (upstream.body) {
+          const reader = (upstream.body as ReadableStream<Uint8Array>).getReader();
+          const pump = async () => {
+            for (;;) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              res.write(value);
+            }
+            res.end();
+          };
+          pump().catch(() => res.end());
+        } else {
+          const buffer = Buffer.from(await upstream.arrayBuffer());
+          res.end(buffer);
+        }
+      } catch (err) {
+        if (!res.headersSent) {
+          jsonResponse(res, 502, {
+            error: `Failed to fetch image: ${err instanceof Error ? err.message : 'unknown'}`,
+          });
+        }
+      }
+      return;
+    }
+
+    // ── Hosted checkout page — Stripe payment form ──
+    if (url.pathname.startsWith('/checkout/') && req.method === 'GET') {
+      const token = url.pathname.slice('/checkout/'.length).replace(/\/success$/, '');
+      const isSuccess = url.pathname.endsWith('/success');
+
+      if (!token) {
+        res.writeHead(400, { 'Content-Type': 'text/html' });
+        res.end('<h1>Invalid checkout link</h1>');
+        return;
+      }
+
+      const checkout = validateCheckoutToken(token);
+      if (!checkout) {
+        res.writeHead(400, { 'Content-Type': 'text/html' });
+        res.end(
+          '<h1>Checkout link expired or invalid</h1><p>Please go back to ChatGPT and request a new payment link.</p>'
+        );
+        return;
+      }
+
+      const auth = await authenticateApiKey(checkout.mcpApiKey);
+      if (!auth) {
+        res.writeHead(401, { 'Content-Type': 'text/html' });
+        res.end('<h1>Authentication failed</h1>');
+        return;
+      }
+
+      if (isSuccess) {
+        // Success page — commit the booking
+        try {
+          const booking = await auth.client.commitBooking({ id: checkout.bookingId });
+          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+          res.end(buildCheckoutSuccessHtml({
+            bookingId: booking.id,
+            bookingCode: booking.code ?? undefined,
+            voucherUrl: booking.voucherUrl ?? undefined,
+          }));
+        } catch {
+          // Booking may already be committed or pending
+          try {
+            const booking = await auth.client.getBooking(checkout.bookingId);
+            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+            res.end(buildCheckoutSuccessHtml({
+              bookingId: booking?.id ?? checkout.bookingId,
+              bookingCode: booking?.code ?? undefined,
+              voucherUrl: booking?.voucherUrl ?? undefined,
+            }));
+          } catch {
+            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+            res.end(buildCheckoutSuccessHtml({ bookingId: checkout.bookingId }));
+          }
+        }
+        return;
+      }
+
+      // Payment page — get fresh Stripe payment intent
+      try {
+        const paymentIntent = await auth.client.getStripePaymentIntent({ id: checkout.bookingId });
+        const amount = paymentIntent.amount / 100;
+        const currency = (checkout.currency ?? 'GBP').toUpperCase();
+
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end(buildCheckoutPageHtml({
+          publishableKey: paymentIntent.apiKey,
+          clientSecret: paymentIntent.clientSecret,
+          amount,
+          currency,
+          successUrl: `${publicBaseUrl}/checkout/${token}/success`,
+        }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'text/html' });
+        res.end(
+          `<h1>Payment Error</h1><p>${err instanceof Error ? err.message : 'Failed to load payment details'}</p>`
+        );
       }
       return;
     }
@@ -453,7 +612,8 @@ async function startHttp(port: number): Promise<void> {
           res.end(JSON.stringify({ error: 'Invalid or expired token' }));
           return;
         }
-        server = createServer(auth.client);
+        const mcpApiKey = resolveMcpApiKey(token);
+        server = createServer(auth.client, { mcpApiKey, publicUrl: publicBaseUrl });
         partnerName = auth.partnerName;
         console.error(
           `[MCP] Partner "${partnerName}" connected (holibob: ${auth.holibobPartnerId})`
@@ -465,7 +625,7 @@ async function startHttp(port: number): Promise<void> {
           apiKey: envApiKey,
           apiSecret: envApiSecret,
         });
-        server = createServer(client);
+        server = createServer(client, { mcpApiKey: envApiKey, publicUrl: publicBaseUrl });
         console.error('[MCP] Session connected using env var credentials');
       } else {
         res.writeHead(401, {
@@ -515,11 +675,144 @@ async function startHttp(port: number): Promise<void> {
     console.error(`  Public URL: ${publicBaseUrl}`);
     console.error(`  Streamable HTTP: ${publicBaseUrl}/mcp (POST/GET/DELETE)`);
     console.error(`  SSE endpoint: ${publicBaseUrl}/mcp/sse (deprecated, Claude Desktop)`);
+    console.error(`  Image proxy: ${publicBaseUrl}/image-proxy?url=...`);
+    console.error(`  Checkout: ${publicBaseUrl}/checkout/:token`);
     console.error(`  DCR: ${publicBaseUrl}/oauth/register`);
     console.error(`  OAuth authorize: ${publicBaseUrl}/authorize`);
     console.error(`  OAuth token: ${publicBaseUrl}/oauth/token`);
     console.error(`  Health check: ${publicBaseUrl}/health`);
   });
+}
+
+// ── Checkout page HTML builders ──
+
+function escHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function buildCheckoutPageHtml(opts: {
+  publishableKey: string;
+  clientSecret: string;
+  amount: number;
+  currency: string;
+  successUrl: string;
+}): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Complete Payment — Holibob</title>
+<script src="https://js.stripe.com/v3/"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, sans-serif; background: #F0F4F8; min-height: 100vh; display: flex; align-items: center; justify-content: center; -webkit-font-smoothing: antialiased; }
+  .card { background: white; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); padding: 40px; max-width: 480px; width: 100%; }
+  .logo { text-align: center; margin-bottom: 20px; }
+  .logo span { font-size: 28px; font-weight: 700; color: #0F766E; }
+  h1 { font-size: 20px; font-weight: 700; text-align: center; color: #111827; margin-bottom: 4px; }
+  .amount { font-size: 32px; font-weight: 700; text-align: center; color: #0F766E; margin: 16px 0 24px; }
+  #payment-element { margin-bottom: 24px; }
+  #error-message { color: #DC2626; font-size: 14px; margin-bottom: 16px; display: none; }
+  button { width: 100%; padding: 14px; background: #0F766E; color: white; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; transition: background 0.15s; }
+  button:hover { background: #0D6B63; }
+  button:disabled { background: #9CA3AF; cursor: not-allowed; }
+  .secure { text-align: center; font-size: 12px; color: #9CA3AF; margin-top: 16px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo"><span>holibob</span></div>
+  <h1>Complete Your Booking</h1>
+  <div class="amount">${escHtml(opts.currency)} ${escHtml(opts.amount.toFixed(2))}</div>
+  <form id="payment-form">
+    <div id="payment-element"></div>
+    <div id="error-message"></div>
+    <button id="submit-btn" type="submit">Pay Now</button>
+  </form>
+  <p class="secure">Secured by Stripe. Your payment details are encrypted.</p>
+</div>
+<script>
+  const stripe = Stripe('${escHtml(opts.publishableKey)}');
+  const elements = stripe.elements({ clientSecret: '${escHtml(opts.clientSecret)}' });
+  const paymentElement = elements.create('payment');
+  paymentElement.mount('#payment-element');
+
+  const form = document.getElementById('payment-form');
+  const btn = document.getElementById('submit-btn');
+  const errorEl = document.getElementById('error-message');
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    btn.disabled = true;
+    btn.textContent = 'Processing...';
+    errorEl.style.display = 'none';
+
+    const { error } = await stripe.confirmPayment({
+      elements,
+      confirmParams: { return_url: '${escHtml(opts.successUrl)}' },
+    });
+
+    if (error) {
+      errorEl.textContent = error.message;
+      errorEl.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = 'Pay Now';
+    }
+  });
+</script>
+</body>
+</html>`;
+}
+
+function buildCheckoutSuccessHtml(opts: {
+  bookingId: string;
+  bookingCode?: string;
+  voucherUrl?: string;
+}): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Booking Confirmed — Holibob</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, sans-serif; background: #F0F4F8; min-height: 100vh; display: flex; align-items: center; justify-content: center; -webkit-font-smoothing: antialiased; }
+  .card { background: white; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); padding: 40px; max-width: 480px; width: 100%; text-align: center; }
+  .checkmark { font-size: 64px; margin-bottom: 16px; }
+  h1 { font-size: 24px; font-weight: 700; color: #111827; margin-bottom: 8px; }
+  .subtitle { font-size: 16px; color: #6B7280; margin-bottom: 24px; }
+  .detail { background: #F0FDF4; border-radius: 10px; padding: 16px; margin-bottom: 16px; text-align: left; }
+  .detail-row { display: flex; justify-content: space-between; font-size: 14px; padding: 4px 0; }
+  .detail-label { color: #6B7280; }
+  .detail-value { font-weight: 600; color: #111827; }
+  .voucher-btn { display: inline-block; padding: 14px 28px; background: #0F766E; color: white; border-radius: 10px; font-size: 16px; font-weight: 600; text-decoration: none; margin-top: 8px; transition: background 0.15s; }
+  .voucher-btn:hover { background: #0D6B63; }
+  .return-msg { font-size: 14px; color: #9CA3AF; margin-top: 20px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="checkmark">&#10003;</div>
+  <h1>Payment Successful!</h1>
+  <p class="subtitle">Your booking has been confirmed.</p>
+  <div class="detail">
+    <div class="detail-row">
+      <span class="detail-label">Booking ID</span>
+      <span class="detail-value">${escHtml(opts.bookingId)}</span>
+    </div>
+    ${opts.bookingCode ? `<div class="detail-row"><span class="detail-label">Booking Code</span><span class="detail-value">${escHtml(opts.bookingCode)}</span></div>` : ''}
+  </div>
+  ${opts.voucherUrl ? `<a class="voucher-btn" href="${escHtml(opts.voucherUrl)}" target="_blank">Download Voucher</a>` : ''}
+  <p class="return-msg">You can now close this tab and return to ChatGPT.</p>
+</div>
+</body>
+</html>`;
 }
 
 async function main(): Promise<void> {

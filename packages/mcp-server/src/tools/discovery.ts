@@ -4,7 +4,8 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { HolibobClient } from '@experience-marketplace/holibob-api';
 import type { Product } from '@experience-marketplace/holibob-api/types';
 import type { NextAction } from './helpers.js';
-import { WIDGET_RESOURCE_DOMAINS } from '../constants.js';
+import { WIDGET_RESOURCE_DOMAINS, getWidgetResourceDomains } from '../constants.js';
+import type { ServerContext } from '../server.js';
 
 function formatProduct(p: Product): string {
   const lines: string[] = [];
@@ -30,13 +31,30 @@ function formatProduct(p: Product): string {
   return lines.join('\n');
 }
 
-function productToStructured(p: Product) {
+/**
+ * Rewrite an image URL through the proxy if its origin isn't in the CSP whitelist.
+ */
+function proxyImageUrl(url: string | undefined, publicUrl?: string): string | undefined {
+  if (!url || !publicUrl) return url;
+  try {
+    const origin = new URL(url).origin;
+    if (WIDGET_RESOURCE_DOMAINS.includes(origin)) return url;
+    return `${publicUrl}/image-proxy?url=${encodeURIComponent(url)}`;
+  } catch {
+    return url;
+  }
+}
+
+function productToStructured(p: Product, publicUrl?: string) {
   const price =
     p.guidePriceFormattedText ||
     p.priceFromFormatted ||
     (p.guidePrice ? `${p.guidePriceCurrency ?? 'GBP'} ${p.guidePrice}` : null);
   const rating = p.reviewRating ?? p.rating;
-  const imgUrl = p.primaryImageUrl ?? p.imageUrl ?? p.imageList?.[0]?.url;
+  const imgUrl = proxyImageUrl(
+    p.primaryImageUrl ?? p.imageUrl ?? p.imageList?.[0]?.url,
+    publicUrl
+  );
 
   return {
     id: p.id,
@@ -144,12 +162,15 @@ function formatProductDetails(p: Product): string {
   return sections.join('\n');
 }
 
-function productToDetailStructured(p: Product) {
+function productToDetailStructured(p: Product, publicUrl?: string) {
   const price =
     p.guidePriceFormattedText ||
     (p.guidePrice ? `${p.guidePriceCurrency ?? 'GBP'} ${p.guidePrice}` : null);
   const rating = p.reviewRating ?? p.rating;
-  const imgUrl = p.primaryImageUrl ?? p.imageUrl ?? p.imageList?.[0]?.url;
+  const imgUrl = proxyImageUrl(
+    p.primaryImageUrl ?? p.imageUrl ?? p.imageList?.[0]?.url,
+    publicUrl
+  );
 
   const highlights =
     p.contentList?.nodes
@@ -173,7 +194,7 @@ function productToDetailStructured(p: Product) {
 
   const images =
     p.imageList?.slice(0, 6).map((img) => ({
-      url: img.url,
+      url: proxyImageUrl(img.url, publicUrl) ?? img.url,
       alt: img.altText ?? undefined,
     })) ?? [];
 
@@ -212,16 +233,40 @@ function productToDetailStructured(p: Product) {
   };
 }
 
-const WIDGET_META = {
-  ui: { resourceUri: 'ui://holibob/combined-experience.html' },
-  // Legacy format for published mode CSP enforcement
-  'openai/widgetCSP': {
-    connect_domains: [] as string[],
-    resource_domains: WIDGET_RESOURCE_DOMAINS,
-  },
-};
+function buildWidgetMeta(publicUrl?: string) {
+  const resourceDomains = getWidgetResourceDomains(publicUrl);
+  const redirectDomains: string[] = [];
+  if (publicUrl) {
+    try {
+      redirectDomains.push(new URL(publicUrl).hostname);
+    } catch {}
+  }
 
-export function registerDiscoveryTools(server: McpServer, client: HolibobClient): void {
+  return {
+    ui: {
+      resourceUri: 'ui://holibob/combined-experience.html',
+      csp: {
+        connectDomains: [] as string[],
+        resourceDomains,
+        redirectDomains,
+      },
+    },
+    // Legacy format for published mode CSP enforcement
+    'openai/widgetCSP': {
+      connect_domains: [] as string[],
+      resource_domains: resourceDomains,
+      redirect_domains: redirectDomains,
+    },
+  };
+}
+
+export function registerDiscoveryTools(
+  server: McpServer,
+  client: HolibobClient,
+  context?: ServerContext
+): void {
+  const publicUrl = context?.publicUrl;
+  const WIDGET_META = buildWidgetMeta(publicUrl);
   registerAppTool(
     server,
     'search_experiences',
@@ -294,7 +339,7 @@ export function registerDiscoveryTools(server: McpServer, client: HolibobClient)
       return {
         content: [{ type: 'text' as const, text: header + formatted }],
         structuredContent: {
-          experiences: result.products.map(productToStructured),
+          experiences: result.products.map((p) => productToStructured(p, publicUrl)),
           destination,
           hasMore: result.pageInfo.hasNextPage,
           prefilled: {
@@ -337,7 +382,7 @@ export function registerDiscoveryTools(server: McpServer, client: HolibobClient)
       return {
         content: [{ type: 'text' as const, text: formatProductDetails(product) }],
         structuredContent: {
-          experience: productToDetailStructured(product),
+          experience: productToDetailStructured(product, publicUrl),
           nextActions: [
             { tool: 'check_availability', reason: 'Check available dates to book this experience' },
           ] as NextAction[],
@@ -438,7 +483,7 @@ export function registerDiscoveryTools(server: McpServer, client: HolibobClient)
       return {
         content: [{ type: 'text' as const, text: header + formatted }],
         structuredContent: {
-          experiences: result.products.map(productToStructured),
+          experiences: result.products.map((p) => productToStructured(p, publicUrl)),
           destination,
           hasMore: result.pageInfo.hasNextPage,
         },

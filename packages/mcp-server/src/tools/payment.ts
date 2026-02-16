@@ -4,8 +4,14 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { HolibobClient } from '@experience-marketplace/holibob-api';
 import type { NextAction } from './helpers.js';
 import { classifyError, computeBookingPhase, collectMissingQuestions } from './helpers.js';
+import type { ServerContext } from '../server.js';
+import { generateCheckoutToken } from '../auth/checkout-token.js';
 
-export function registerPaymentTools(server: McpServer, client: HolibobClient): void {
+export function registerPaymentTools(
+  server: McpServer,
+  client: HolibobClient,
+  context?: ServerContext
+): void {
   registerAppTool(
     server,
     'get_payment_info',
@@ -27,19 +33,38 @@ export function registerPaymentTools(server: McpServer, client: HolibobClient): 
         sections.push(
           `**Amount:** ${paymentIntent.amount / 100} (in minor currency units: ${paymentIntent.amount})`
         );
-        sections.push(`**Payment Intent ID:** ${paymentIntent.id}`);
-        sections.push(`\n**Stripe Client Secret:** ${paymentIntent.clientSecret}`);
-        sections.push(`**Stripe Publishable Key:** ${paymentIntent.apiKey}`);
-        sections.push(
-          '\nThe consumer needs to complete payment using Stripe before the booking can be committed.'
-        );
-        sections.push('Once payment is confirmed, use commit_booking to finalize.');
+
+        // Generate a hosted checkout URL if server context is available
+        let checkoutUrl: string | undefined;
+        if (context?.publicUrl && context?.mcpApiKey) {
+          const token = generateCheckoutToken({
+            bookingId,
+            mcpApiKey: context.mcpApiKey,
+            amount: paymentIntent.amount,
+            currency: 'GBP',
+          });
+          checkoutUrl = `${context.publicUrl}/checkout/${token}`;
+          sections.push(`\n**Checkout URL:** ${checkoutUrl}`);
+          sections.push(
+            'Share this link with the customer to complete payment securely in their browser.'
+          );
+          sections.push('The link expires in 15 minutes.');
+        } else {
+          sections.push(`**Payment Intent ID:** ${paymentIntent.id}`);
+          sections.push(`\n**Stripe Client Secret:** ${paymentIntent.clientSecret}`);
+          sections.push(`**Stripe Publishable Key:** ${paymentIntent.apiKey}`);
+          sections.push(
+            '\nThe consumer needs to complete payment using Stripe before the booking can be committed.'
+          );
+        }
+        sections.push('\nOnce payment is confirmed, use commit_booking to finalize.');
 
         return {
           content: [{ type: 'text' as const, text: sections.join('\n') }],
           structuredContent: {
             bookingId,
             status: 'payment_required' as const,
+            checkoutUrl,
             payment: {
               amount: paymentIntent.amount / 100,
               amountMinor: paymentIntent.amount,

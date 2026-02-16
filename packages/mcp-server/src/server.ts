@@ -11,19 +11,26 @@ import { TRIP_PLANNER_HTML } from './widgets/trip-planner.js';
 import { EXPERIENCE_CAROUSEL_HTML } from './widgets/experience-carousel.js';
 import { EXPERIENCE_DETAIL_HTML } from './widgets/experience-detail.js';
 import { COMBINED_EXPERIENCE_HTML } from './widgets/combined-experience.js';
-import { WIDGET_RESOURCE_DOMAINS } from './constants.js';
+import { getWidgetResourceDomains } from './constants.js';
 
-export function createServer(client: HolibobClient): McpServer {
+export interface ServerContext {
+  /** The MCP API key used to authenticate this session */
+  mcpApiKey: string;
+  /** The public base URL of the MCP server (for image proxy and checkout URLs) */
+  publicUrl: string;
+}
+
+export function createServer(client: HolibobClient, context?: ServerContext): McpServer {
   const server = new McpServer({
     name: 'holibob',
     version: '0.1.0',
   });
 
   // Register all tools
-  registerDiscoveryTools(server, client);
+  registerDiscoveryTools(server, client, context);
   registerAvailabilityTools(server, client);
   registerBookingTools(server, client);
-  registerPaymentTools(server, client);
+  registerPaymentTools(server, client, context);
 
   // Register resources
   registerResources(server, client);
@@ -39,6 +46,14 @@ export function createServer(client: HolibobClient): McpServer {
     ['combined-experience', 'ui://holibob/combined-experience.html', COMBINED_EXPERIENCE_HTML],
   ];
 
+  const resourceDomains = getWidgetResourceDomains(context?.publicUrl);
+  const redirectDomains: string[] = [];
+  if (context?.publicUrl) {
+    try {
+      redirectDomains.push(new URL(context.publicUrl).hostname);
+    } catch {}
+  }
+
   for (const [name, uri, html] of widgets) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- CJS/ESM type resolution mismatch
     registerAppResource(server as any, name, uri, { mimeType: RESOURCE_MIME_TYPE }, async () => ({
@@ -48,18 +63,20 @@ export function createServer(client: HolibobClient): McpServer {
           mimeType: RESOURCE_MIME_TYPE,
           text: html,
           _meta: {
-            // Modern format (dev mode)
+            // Modern format
             ui: {
               domain: 'https://holibob.com',
               csp: {
                 connectDomains: [],
-                resourceDomains: WIDGET_RESOURCE_DOMAINS,
+                resourceDomains,
+                redirectDomains,
               },
             },
             // Legacy format (published mode)
             'openai/widgetCSP': {
               connect_domains: [] as string[],
-              resource_domains: WIDGET_RESOURCE_DOMAINS,
+              resource_domains: resourceDomains,
+              redirect_domains: redirectDomains,
             },
           },
         },
