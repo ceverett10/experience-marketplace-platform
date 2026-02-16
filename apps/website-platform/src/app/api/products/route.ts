@@ -108,8 +108,8 @@ async function fetchFromLocalDB(
     imageUrl: product.primaryImageUrl ?? '/placeholder-experience.jpg',
     price: {
       amount: product.priceFrom ? Number(product.priceFrom) : 0,
-      currency: product.currency,
-      formatted: formatPrice(product.priceFrom ? Number(product.priceFrom) : 0, product.currency),
+      currency: 'GBP',
+      formatted: formatPrice(product.priceFrom ? Number(product.priceFrom) : 0, 'GBP'),
     },
     duration: {
       formatted: product.duration ?? '',
@@ -186,8 +186,8 @@ async function fetchFromHolibob(options: {
     imageUrl: product.imageUrl ?? '/placeholder-experience.jpg',
     price: {
       amount: product.priceFrom ?? 0,
-      currency: product.currency ?? 'GBP',
-      formatted: formatPrice(product.priceFrom ?? 0, product.currency ?? 'GBP'),
+      currency: 'GBP',
+      formatted: formatPrice(product.priceFrom ?? 0, 'GBP'),
     },
     duration: {
       formatted: formatDuration(product.duration ?? 0),

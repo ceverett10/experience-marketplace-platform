@@ -44,8 +44,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       images: product.images?.map((img: { url?: string }) => img.url).filter(Boolean) ?? [],
       price: {
         amount: product.priceFrom ?? 0,
-        currency: product.currency ?? 'GBP',
-        formatted: formatPrice(product.priceFrom ?? 0, product.currency ?? 'GBP'),
+        currency: 'GBP',
+        formatted: formatPrice(product.priceFrom ?? 0, 'GBP'),
       },
       duration: {
         value: product.duration ?? 0,

@@ -137,12 +137,11 @@ async function getRelatedExperiences(
             product.imageList?.[0]?.url ?? product.imageUrl ?? '/placeholder-experience.jpg';
           // ProductList API returns guidePrice in MAJOR units (e.g., 71 EUR, not 7100 cents)
           const priceAmount = product.guidePrice ?? product.priceFrom ?? 0;
-          const priceCurrency = product.guidePriceCurrency ?? product.priceCurrency ?? 'GBP';
-          const priceFormatted =
-            product.guidePriceFormattedText ??
-            new Intl.NumberFormat('en-GB', { style: 'currency', currency: priceCurrency }).format(
-              priceAmount
-            );
+          const priceCurrency = 'GBP';
+          const priceFormatted = new Intl.NumberFormat('en-GB', {
+            style: 'currency',
+            currency: 'GBP',
+          }).format(priceAmount);
 
           let durationFormatted = 'Duration varies';
           if (product.durationText) {
@@ -207,8 +206,7 @@ async function getRelatedExperiences(
           product.imageList?.[0]?.url ?? product.imageUrl ?? '/placeholder-experience.jpg';
         const primaryImage = optimizeHolibobImageWithPreset(rawImageUrl, 'card');
         const priceAmount = product.guidePrice ?? product.priceFrom ?? 0;
-        const priceCurrency =
-          product.guidePriceCurrency ?? product.priceCurrency ?? product.currency ?? 'GBP';
+        const priceCurrency = 'GBP';
 
         let durationFormatted = 'Duration varies';
         if (product.durationText) {
@@ -223,12 +221,10 @@ async function getRelatedExperiences(
           }
         }
 
-        const priceFormatted =
-          product.guidePriceFormattedText ??
-          product.priceFromFormatted ??
-          new Intl.NumberFormat('en-GB', { style: 'currency', currency: priceCurrency }).format(
-            priceAmount / 100
-          );
+        const priceFormatted = new Intl.NumberFormat('en-GB', {
+          style: 'currency',
+          currency: 'GBP',
+        }).format(priceAmount / 100);
 
         return {
           id: product.id,

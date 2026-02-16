@@ -248,7 +248,9 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-gray-900">Total</span>
                     <span className="text-lg font-bold" style={{ color: primaryColor }}>
-                      {booking.totalPrice?.grossFormattedText ?? '-'}
+                      {booking.totalPrice?.gross
+                        ? new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(booking.totalPrice.gross / 100)
+                        : '-'}
                     </span>
                   </div>
                 </div>

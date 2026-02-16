@@ -112,9 +112,8 @@ export async function GET(request: NextRequest) {
         : rawImageUrl;
 
       const priceAmount = product.guidePrice ?? 0;
-      const priceCurrency = product.guidePriceCurrency ?? 'GBP';
-      const priceFormatted =
-        product.guidePriceFormattedText ?? formatPrice(priceAmount, priceCurrency);
+      const priceCurrency = 'GBP';
+      const priceFormatted = formatPrice(priceAmount, priceCurrency);
 
       // Get duration
       let durationFormatted = 'Duration varies';

@@ -212,12 +212,8 @@ async function getFeaturedExperiences(
 
       // Get price - Product Detail API uses guidePrice, Product Discovery uses priceFrom
       const priceAmount = product.guidePrice ?? product.priceFrom ?? 0;
-      const priceCurrency =
-        product.guidePriceCurrency ?? product.priceCurrency ?? product.currency ?? 'GBP';
-      const priceFormatted =
-        product.guidePriceFormattedText ??
-        product.priceFromFormatted ??
-        formatPrice(priceAmount, priceCurrency);
+      const priceCurrency = 'GBP';
+      const priceFormatted = formatPrice(priceAmount, priceCurrency);
 
       // Get duration - Product Discovery API returns maxDuration as ISO 8601 (e.g., "PT210M")
       // Product Detail API returns durationText as a string

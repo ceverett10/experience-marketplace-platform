@@ -28,6 +28,11 @@ import {
   DEFAULT_PRICING_CONFIG,
 } from '@/lib/pricing';
 
+/** Format a price amount (in minor units / cents) as GBP */
+function formatGBP(amount: number): string {
+  return new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(amount / 100);
+}
+
 interface CheckoutClientProps {
   booking: Booking;
   site: SiteConfig;
@@ -355,7 +360,7 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
                   onSubmit={handleQuestionsSubmit}
                   isSubmitting={isSubmitting}
                   primaryColor={primaryColor}
-                  totalPrice={booking.totalPrice?.grossFormattedText}
+                  totalPrice={booking.totalPrice?.gross ? formatGBP(booking.totalPrice.gross) : undefined}
                   isResubmission={submitAttempts > 0}
                 />
               </div>
@@ -525,7 +530,7 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
                         onSuccess={handlePaymentSuccess}
                         onError={handlePaymentError}
                         primaryColor={primaryColor}
-                        totalPrice={booking.totalPrice?.grossFormattedText}
+                        totalPrice={booking.totalPrice?.gross ? formatGBP(booking.totalPrice.gross) : undefined}
                       />
                     )}
                   </div>
@@ -578,7 +583,7 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
                           {formatDate(avail.date).split(',')[0]}
                         </span>
                         <span className="font-medium text-gray-900">
-                          {avail.totalPrice?.grossFormattedText ?? '-'}
+                          {avail.totalPrice?.gross ? formatGBP(avail.totalPrice.gross) : '-'}
                         </span>
                       </div>
                       {/* Per-person breakdown */}
@@ -605,9 +610,9 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
                         ? getProductPricingConfig(productId)
                         : DEFAULT_PRICING_CONFIG;
                       const promo = calculatePromoPrice(
-                        booking.totalPrice!.grossFormattedText ?? '',
+                        formatGBP(booking.totalPrice!.gross),
                         booking.totalPrice!.gross,
-                        booking.totalPrice!.currency ?? 'GBP',
+                        'GBP',
                         pricingConfig
                       );
                       return promo.hasPromo ? (
@@ -626,7 +631,7 @@ export function CheckoutClient({ booking: initialBooking, site }: CheckoutClient
                   <div className="flex items-center justify-between">
                     <span className="text-base font-semibold text-gray-900">You pay</span>
                     <span className="text-lg font-bold" style={{ color: primaryColor }}>
-                      {booking.totalPrice?.grossFormattedText ?? '-'}
+                      {booking.totalPrice?.gross ? formatGBP(booking.totalPrice.gross) : '-'}
                     </span>
                   </div>
                 </div>

@@ -15,13 +15,13 @@ export const mockAvailabilitySlots = {
       {
         id: MOCK_AVAILABILITY_ID,
         date: '2026-03-15',
-        guidePriceFormattedText: '$25.00',
+        guidePriceFormattedText: '£25.00',
         soldOut: false,
       },
       {
         id: 'mock-avail-002',
         date: '2026-03-16',
-        guidePriceFormattedText: '$25.00',
+        guidePriceFormattedText: '£25.00',
         soldOut: false,
       },
     ],
@@ -82,11 +82,11 @@ export const mockAvailabilityPricing = {
     optionList: { isComplete: true, nodes: [] },
     isValid: true,
     totalPrice: {
-      grossFormattedText: '$50.00',
-      netFormattedText: '$45.00',
+      grossFormattedText: '£50.00',
+      netFormattedText: '£45.00',
       gross: 5000,
       net: 4500,
-      currency: 'USD',
+      currency: 'GBP',
     },
     pricingCategoryList: {
       nodes: [
@@ -97,16 +97,16 @@ export const mockAvailabilityPricing = {
           maxParticipants: 10,
           units: 2,
           unitPrice: {
-            netFormattedText: '$22.50',
-            grossFormattedText: '$25.00',
+            netFormattedText: '£22.50',
+            grossFormattedText: '£25.00',
             gross: 2500,
             net: 2250,
-            currency: 'USD',
+            currency: 'GBP',
           },
           totalPrice: {
-            grossFormattedText: '$50.00',
+            grossFormattedText: '£50.00',
             gross: 5000,
-            currency: 'USD',
+            currency: 'GBP',
           },
         },
         {
@@ -116,11 +116,11 @@ export const mockAvailabilityPricing = {
           maxParticipants: 10,
           units: 0,
           unitPrice: {
-            netFormattedText: '$15.00',
-            grossFormattedText: '$15.00',
+            netFormattedText: '£15.00',
+            grossFormattedText: '£15.00',
             gross: 1500,
             net: 1500,
-            currency: 'USD',
+            currency: 'GBP',
           },
         },
       ],
@@ -149,9 +149,9 @@ export const mockAddAvailability = {
       state: 'OPEN',
       canCommit: false,
       totalPrice: {
-        grossFormattedText: '$50.00',
+        grossFormattedText: '£50.00',
         gross: 5000,
-        currency: 'USD',
+        currency: 'GBP',
       },
     },
   },
@@ -168,9 +168,9 @@ export const mockBookingQuestions = {
       canCommit: false,
       leadPassengerName: null,
       totalPrice: {
-        grossFormattedText: '$50.00',
+        grossFormattedText: '£50.00',
         gross: 5000,
-        currency: 'USD',
+        currency: 'GBP',
       },
       questionList: { nodes: [] },
       availabilityList: {
@@ -180,9 +180,9 @@ export const mockBookingQuestions = {
             date: '2026-03-15',
             product: { id: MOCK_PRODUCT_ID, name: 'Sunset Kayak Tour' },
             totalPrice: {
-              grossFormattedText: '$50.00',
+              grossFormattedText: '£50.00',
               gross: 5000,
-              currency: 'USD',
+              currency: 'GBP',
             },
             questionList: { nodes: [] },
             personList: {
@@ -586,9 +586,9 @@ export const mockBookingGet = {
     state: 'OPEN',
     canCommit: false,
     totalPrice: {
-      grossFormattedText: '$50.00',
+      grossFormattedText: '£50.00',
       gross: 5000,
-      currency: 'USD',
+      currency: 'GBP',
     },
     availabilityList: {
       nodes: [
@@ -596,7 +596,7 @@ export const mockBookingGet = {
           id: MOCK_AVAILABILITY_ID,
           date: '2026-03-15',
           product: { id: MOCK_PRODUCT_ID, name: 'Sunset Kayak Tour' },
-          totalPrice: { grossFormattedText: '$50.00', gross: 5000, currency: 'USD' },
+          totalPrice: { grossFormattedText: '£50.00', gross: 5000, currency: 'GBP' },
           personList: {
             nodes: [
               { id: 'person-1', pricingCategoryLabel: 'Adult' },

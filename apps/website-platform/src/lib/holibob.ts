@@ -294,16 +294,12 @@ export function mapProductToExperience(product: {
     product.pricing?.retailPrice?.amount ??
     product.priceFrom ?? // Product Discovery API
     0;
-  const currency =
-    product.guidePriceCurrency ?? // Product Detail API
-    product.pricing?.retailPrice?.currency ??
-    product.priceCurrency ?? // Product Discovery API
-    product.currency ??
-    'GBP';
-  const priceFormatted =
-    product.guidePriceFormattedText ??
-    product.priceFromFormatted ??
-    formatPrice(priceAmount, currency);
+  // Force GBP — the Holibob API may return USD as guidePriceCurrency but
+  // all prices on our platform are sold and displayed in GBP.
+  const currency = 'GBP';
+  // Always format ourselves to ensure £ symbol (ignore guidePriceFormattedText
+  // which may use $ if the product is listed in USD in the Holibob system)
+  const priceFormatted = formatPrice(priceAmount, currency);
 
   // Handle duration as either number, ISO 8601 string, or object
   // Product Discovery API uses maxDuration which can be ISO 8601 format (e.g., "PT210M")
