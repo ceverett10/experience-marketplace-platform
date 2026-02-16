@@ -20,6 +20,8 @@ export const PAID_TRAFFIC_CONFIG = {
   maxDailyBudget: parseFloat(process.env['BIDDING_MAX_DAILY_BUDGET'] || '1200'),
   /** Max daily budget for a single campaign (scaling cap) */
   maxPerCampaignBudget: 50,
+  /** Minimum daily budget per campaign (Meta requires ~£1, Google ~$1) */
+  minDailyBudget: 1.0,
 
   // ---------------------------------------------------------------------------
   // ROAS thresholds

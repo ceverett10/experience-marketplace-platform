@@ -708,6 +708,7 @@ async function deployCampaignToPlatform(campaign: {
   utmSource: string | null;
   utmMedium: string | null;
   utmCampaign: string | null;
+  audiences?: unknown;
   site?: { name: string; primaryDomain: string | null } | null;
 }): Promise<string | null> {
   const landingUrl = buildLandingUrl(campaign);
@@ -808,10 +809,15 @@ async function deployToMeta(
       .filter((c): c is string => c !== null);
     if (countries.length === 0) countries.push('GB', 'US'); // Default markets
 
-    // Search for relevant interests based on the keyword
-    const keyword = campaign.keywords[0] || 'travel';
-    const interests = await metaClient.searchInterests(keyword);
-    const interestTargeting = interests.map((i) => ({ id: i.id, name: i.name }));
+    // Search for relevant interests based on top keywords (merge from multiple)
+    const topKeywords = campaign.keywords.slice(0, 5);
+    if (topKeywords.length === 0) topKeywords.push('travel');
+    const allInterests = new Map<string, { id: string; name: string }>();
+    for (const kw of topKeywords) {
+      const interests = await metaClient.searchInterests(kw);
+      for (const i of interests) allInterests.set(i.id, { id: i.id, name: i.name });
+    }
+    const interestTargeting = [...allInterests.values()];
 
     const adSetResult = await metaClient.createAdSet({
       campaignId: campaignResult.campaignId,
@@ -836,11 +842,12 @@ async function deployToMeta(
       return campaignResult.campaignId; // Still return — campaign was created
     }
 
-    // Step 3: Create ad creative
+    // Step 3: Create ad creative (use primary keyword for headline)
     const siteName = campaign.site?.name || 'Holibob';
+    const primaryKw = campaign.keywords[0] || 'travel';
     const headline =
-      `${keyword.charAt(0).toUpperCase() + keyword.slice(1)} | ${siteName}`.substring(0, 40);
-    const body = `Discover and book amazing ${keyword} experiences. Best prices, instant confirmation.`;
+      `${primaryKw.charAt(0).toUpperCase() + primaryKw.slice(1)} | ${siteName}`.substring(0, 40);
+    const body = `Discover and book amazing ${primaryKw} experiences. Best prices, instant confirmation.`;
 
     await metaClient.createAd({
       adSetId: adSetResult.adSetId,
@@ -869,6 +876,31 @@ async function deployToMeta(
  * 2. Create ad group with keywords
  * 3. Create responsive search ad
  */
+function generateHeadlines(keyword: string, siteName: string): string[] {
+  const kwTitle = keyword.charAt(0).toUpperCase() + keyword.slice(1);
+  return [
+    kwTitle.substring(0, 30),
+    `Book ${kwTitle}`.substring(0, 30),
+    `${kwTitle} | ${siteName}`.substring(0, 30),
+    'Best Prices Guaranteed',
+    'Instant Confirmation',
+    'Book Online Today',
+  ];
+}
+
+function generateDescriptions(keyword: string): string[] {
+  return [
+    `Discover and book amazing ${keyword} experiences. Best prices, instant confirmation.`.substring(
+      0,
+      90
+    ),
+    `Browse ${keyword} from top-rated local providers. Free cancellation available.`.substring(
+      0,
+      90
+    ),
+  ];
+}
+
 async function deployToGoogle(
   campaign: {
     id: string;
@@ -876,6 +908,7 @@ async function deployToGoogle(
     dailyBudget: number;
     maxCpc: number;
     keywords: string[];
+    audiences?: unknown;
     site?: { name: string } | null;
   },
   landingUrl: string
@@ -899,56 +932,76 @@ async function deployToGoogle(
       return null;
     }
 
-    // Step 2: Create ad group with keywords (exact + phrase match)
-    const cpcBidMicros = Math.round(campaign.maxCpc * 1_000_000);
-    const keywords = campaign.keywords.flatMap((kw) => [
-      { text: kw, matchType: 'PHRASE' as const },
-      { text: kw, matchType: 'EXACT' as const },
-    ]);
-
-    const adGroupResult = await createKeywordAdGroup({
-      campaignId: campaignResult.campaignId,
-      name: `${campaign.name} - Ad Group`,
-      cpcBidMicros,
-      keywords,
-    });
-
-    if (!adGroupResult) {
-      console.error(
-        `[Ads Worker] Failed to create Google ad group for: ${campaignResult.campaignId}`
-      );
-      return campaignResult.campaignId;
-    }
-
-    // Step 3: Create responsive search ad
-    const keyword = campaign.keywords[0] || 'experiences';
     const siteName = campaign.site?.name || 'Holibob';
-    const kwTitle = keyword.charAt(0).toUpperCase() + keyword.slice(1);
 
-    await createResponsiveSearchAd({
-      adGroupId: adGroupResult.adGroupId,
-      headlines: [
-        `${kwTitle}`.substring(0, 30),
-        `Book ${kwTitle}`.substring(0, 30),
-        `${kwTitle} | ${siteName}`.substring(0, 30),
-        'Best Prices Guaranteed',
-        'Instant Confirmation',
-        'Book Online Today',
-      ],
-      descriptions: [
-        `Discover and book amazing ${keyword} experiences. Best prices, instant confirmation.`.substring(
-          0,
-          90
-        ),
-        `Browse ${keyword} from top-rated local providers. Free cancellation available.`.substring(
-          0,
-          90
-        ),
-      ],
-      finalUrl: landingUrl,
-      path1: 'experiences',
-      path2: keyword.split(' ')[0]?.substring(0, 15),
-    });
+    // Step 2: Create ad groups — one per landing page path if audiences.adGroups exists
+    const adGroupConfigs = (campaign.audiences as { adGroups?: Array<{
+      primaryKeyword: string;
+      keywords: string[];
+      maxBid: number;
+      targetUrl: string;
+    }> })?.adGroups;
+
+    if (adGroupConfigs && adGroupConfigs.length > 0) {
+      for (const agConfig of adGroupConfigs) {
+        const keywords = agConfig.keywords.flatMap((kw) => [
+          { text: kw, matchType: 'PHRASE' as const },
+          { text: kw, matchType: 'EXACT' as const },
+        ]);
+
+        const adGroupResult = await createKeywordAdGroup({
+          campaignId: campaignResult.campaignId,
+          name: `${campaign.name} - ${agConfig.primaryKeyword}`.substring(0, 100),
+          cpcBidMicros: Math.round(agConfig.maxBid * 1_000_000),
+          keywords,
+        });
+
+        if (!adGroupResult) continue;
+
+        // Build per-ad-group landing URL with UTMs
+        const agUrl = new URL(agConfig.targetUrl);
+        const baseUrl = new URL(landingUrl);
+        // Copy UTM params from the campaign-level landing URL
+        for (const [key, val] of baseUrl.searchParams) {
+          if (key.startsWith('utm_')) agUrl.searchParams.set(key, val);
+        }
+
+        await createResponsiveSearchAd({
+          adGroupId: adGroupResult.adGroupId,
+          headlines: generateHeadlines(agConfig.primaryKeyword, siteName),
+          descriptions: generateDescriptions(agConfig.primaryKeyword),
+          finalUrl: agUrl.toString(),
+          path1: 'experiences',
+          path2: agConfig.primaryKeyword.split(' ')[0]?.substring(0, 15),
+        });
+      }
+    } else {
+      // Fallback: single ad group (backward compat with old campaigns)
+      const cpcBidMicros = Math.round(campaign.maxCpc * 1_000_000);
+      const keywords = campaign.keywords.flatMap((kw) => [
+        { text: kw, matchType: 'PHRASE' as const },
+        { text: kw, matchType: 'EXACT' as const },
+      ]);
+
+      const adGroupResult = await createKeywordAdGroup({
+        campaignId: campaignResult.campaignId,
+        name: `${campaign.name} - Ad Group`,
+        cpcBidMicros,
+        keywords,
+      });
+
+      if (adGroupResult) {
+        const keyword = campaign.keywords[0] || 'experiences';
+        await createResponsiveSearchAd({
+          adGroupId: adGroupResult.adGroupId,
+          headlines: generateHeadlines(keyword, siteName),
+          descriptions: generateDescriptions(keyword),
+          finalUrl: landingUrl,
+          path1: 'experiences',
+          path2: keyword.split(' ')[0]?.substring(0, 15),
+        });
+      }
+    }
 
     console.log(
       `[Ads Worker] Deployed Google campaign ${campaignResult.campaignId}: "${campaign.name}"`
@@ -1002,6 +1055,7 @@ export async function deployDraftCampaigns(): Promise<{
       utmSource: draft.utmSource,
       utmMedium: draft.utmMedium,
       utmCampaign: draft.utmCampaign,
+      audiences: draft.audiences,
       site: draft.site,
     });
 
@@ -1058,64 +1112,74 @@ export async function handleBiddingEngineRun(job: Job): Promise<JobResult> {
 
   const result = await runBiddingEngine({ mode, maxDailyBudget });
 
-  // In full mode, create AdCampaign records for selected candidates
+  // In full mode, create AdCampaign records for grouped candidates (per-microsite)
   let campaignsCreated = 0;
-  if ((mode || 'full') === 'full' && result.candidates.length > 0) {
-    for (const candidate of result.candidates) {
-      // Check if campaign already exists for this opportunity+platform
+  const { minDailyBudget, maxPerCampaignBudget } = PAID_TRAFFIC_CONFIG;
+
+  if ((mode || 'full') === 'full' && result.groups.length > 0) {
+    for (const group of result.groups) {
+      // Skip if campaign already exists for this microsite+platform (or site+platform if no microsite)
       const existing = await prisma.adCampaign.findFirst({
         where: {
-          opportunityId: candidate.opportunityId,
-          platform: candidate.platform as any,
+          ...(group.micrositeId
+            ? { micrositeId: group.micrositeId }
+            : { siteId: group.siteId, micrositeId: null }),
+          platform: group.platform as any,
           status: { in: ['ACTIVE', 'PAUSED', 'DRAFT'] },
         },
       });
       if (existing) continue;
 
-      // Create campaign record as DRAFT with proposal estimates for user review
-      const campaignName = `${candidate.siteName} - ${candidate.keyword}`;
-      const profile = result.profiles.find((p) => p.siteId === candidate.siteId);
+      const campaignName = group.isMicrosite
+        ? `${group.siteName} - ${group.platform === 'GOOGLE_SEARCH' ? 'Google' : 'Meta'}`
+        : `${group.siteName} - ${group.primaryKeyword} - ${group.platform === 'GOOGLE_SEARCH' ? 'Google' : 'Meta'}`;
+
+      const clampedBudget = Math.min(
+        Math.max(group.totalExpectedDailyCost, minDailyBudget),
+        maxPerCampaignBudget
+      );
+
       await prisma.adCampaign.create({
         data: {
-          siteId: candidate.siteId,
-          micrositeId: candidate.micrositeId || null,
-          platform: candidate.platform as any,
+          siteId: group.siteId,
+          micrositeId: group.micrositeId || null,
+          platform: group.platform as any,
           name: campaignName.substring(0, 100),
           status: 'DRAFT',
-          dailyBudget: candidate.expectedDailyCost,
-          maxCpc: candidate.maxBid,
-          keywords: [candidate.keyword],
-          targetUrl: candidate.targetUrl,
-          geoTargets: candidate.location ? [candidate.location] : [],
-          utmSource: candidate.utmParams.source,
-          utmMedium: candidate.utmParams.medium,
-          utmCampaign: candidate.utmParams.campaign,
-          opportunityId: candidate.opportunityId,
-          landingPagePath: candidate.landingPagePath,
-          landingPageType: candidate.landingPageType,
-          landingPageProducts: candidate.landingPageProducts ?? null,
+          dailyBudget: clampedBudget,
+          maxCpc: group.maxBid,
+          keywords: group.candidates.map((c) => c.keyword),
+          targetUrl: group.primaryTargetUrl,
+          geoTargets: [
+            ...new Set(group.candidates.flatMap((c) => (c.location ? [c.location] : []))),
+          ],
+          utmSource: group.platform === 'FACEBOOK' ? 'facebook_ads' : 'google_ads',
+          utmMedium: 'cpc',
+          utmCampaign: `auto_${(group.micrositeDomain || group.siteName).replace(/[.\s]+/g, '_').substring(0, 50)}`,
+          landingPagePath: group.adGroups[0]?.landingPagePath,
+          landingPageType: group.adGroups[0]?.landingPageType,
+          audiences: JSON.parse(JSON.stringify({ adGroups: group.adGroups })),
           proposalData: {
-            estimatedCpc: candidate.estimatedCpc,
-            maxBid: candidate.maxBid,
-            searchVolume: candidate.searchVolume,
-            expectedClicksPerDay: candidate.expectedClicksPerDay,
-            expectedDailyCost: candidate.expectedDailyCost,
-            expectedDailyRevenue: candidate.expectedDailyRevenue,
-            profitabilityScore: candidate.profitabilityScore,
-            intent: candidate.intent,
-            isMicrosite: candidate.isMicrosite,
-            micrositeDomain: candidate.micrositeDomain || null,
-            landingPagePath: candidate.landingPagePath,
-            landingPageType: candidate.landingPageType,
-            landingPageProducts: candidate.landingPageProducts,
-            assumptions: {
-              avgOrderValue: profile?.avgOrderValue ?? PAID_TRAFFIC_CONFIG.defaults.aov,
-              commissionRate:
-                profile?.avgCommissionRate ?? PAID_TRAFFIC_CONFIG.defaults.commissionRate,
-              conversionRate: profile?.conversionRate ?? PAID_TRAFFIC_CONFIG.defaults.cvr,
-              targetRoas: PAID_TRAFFIC_CONFIG.targetRoas,
-              revenuePerClick: profile?.revenuePerClick ?? 0,
-            },
+            keywordCount: group.candidates.length,
+            adGroupCount: group.adGroups.length,
+            totalExpectedDailyCost: group.totalExpectedDailyCost,
+            totalExpectedDailyRevenue: group.totalExpectedDailyRevenue,
+            avgProfitabilityScore: group.avgProfitabilityScore,
+            weightedRoas:
+              group.totalExpectedDailyCost > 0
+                ? group.totalExpectedDailyRevenue / group.totalExpectedDailyCost
+                : 0,
+            keywords: group.candidates.map((c) => ({
+              keyword: c.keyword,
+              opportunityId: c.opportunityId,
+              searchVolume: c.searchVolume,
+              estimatedCpc: c.estimatedCpc,
+              expectedDailyCost: c.expectedDailyCost,
+              expectedDailyRevenue: c.expectedDailyRevenue,
+              profitabilityScore: c.profitabilityScore,
+              intent: c.intent,
+              landingPagePath: c.landingPagePath,
+            })),
           },
         },
       });
@@ -1123,7 +1187,9 @@ export async function handleBiddingEngineRun(job: Job): Promise<JobResult> {
       campaignsCreated++;
     }
 
-    console.log(`[Ads Worker] Created ${campaignsCreated} draft campaigns`);
+    console.log(
+      `[Ads Worker] Created ${campaignsCreated} draft campaigns from ${result.groups.length} groups`
+    );
 
     // Auto-deploy new drafts to platforms (as PAUSED — no money spent until manually activated)
     console.log('[Ads Worker] Auto-deploying draft campaigns to platforms...');

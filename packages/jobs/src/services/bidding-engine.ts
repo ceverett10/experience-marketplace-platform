@@ -74,10 +74,38 @@ export interface CampaignCandidate {
   landingPageProducts?: number;
 }
 
+export interface CampaignGroupAdGroup {
+  landingPagePath: string;
+  landingPageType: LandingPageType;
+  targetUrl: string;
+  keywords: string[];
+  primaryKeyword: string;
+  maxBid: number;
+  totalExpectedDailyCost: number;
+}
+
+export interface CampaignGroup {
+  siteId: string;
+  micrositeId?: string;
+  platform: 'FACEBOOK' | 'GOOGLE_SEARCH';
+  siteName: string;
+  micrositeDomain?: string;
+  isMicrosite: boolean;
+  totalExpectedDailyCost: number;
+  totalExpectedDailyRevenue: number;
+  avgProfitabilityScore: number;
+  maxBid: number;
+  primaryKeyword: string;
+  primaryTargetUrl: string;
+  candidates: CampaignCandidate[];
+  adGroups: CampaignGroupAdGroup[];
+}
+
 export interface BiddingEngineResult {
   sitesAnalyzed: number;
   profiles: SiteProfitability[];
   candidates: CampaignCandidate[];
+  groups: CampaignGroup[];
   budgetAllocated: number;
   budgetRemaining: number;
 }
@@ -864,6 +892,103 @@ export async function scoreCampaignOpportunities(
   return candidates;
 }
 
+// --- Grouping ----------------------------------------------------------------
+
+/**
+ * Group selected candidates into per-microsite (or per-site) campaigns.
+ * Each group becomes one campaign per platform, with ad groups by landing page path.
+ */
+export function groupCandidatesIntoCampaigns(
+  candidates: CampaignCandidate[]
+): CampaignGroup[] {
+  // Build map keyed by "(micrositeId || siteId)|(platform)"
+  const groupMap = new Map<string, CampaignCandidate[]>();
+  for (const c of candidates) {
+    const groupId = c.micrositeId || c.siteId;
+    const key = `${groupId}|${c.platform}`;
+    const existing = groupMap.get(key);
+    if (existing) {
+      existing.push(c);
+    } else {
+      groupMap.set(key, [c]);
+    }
+  }
+
+  const groups: CampaignGroup[] = [];
+
+  for (const [, groupCandidates] of groupMap) {
+    const first = groupCandidates[0]!;
+
+    // Sub-group by landing page path → these become ad groups
+    const adGroupMap = new Map<string, CampaignCandidate[]>();
+    for (const c of groupCandidates) {
+      const lpKey = c.landingPagePath || '/';
+      const existing = adGroupMap.get(lpKey);
+      if (existing) {
+        existing.push(c);
+      } else {
+        adGroupMap.set(lpKey, [c]);
+      }
+    }
+
+    const adGroups: CampaignGroupAdGroup[] = [];
+    for (const [path, agCandidates] of adGroupMap) {
+      // Pick primary keyword (highest profitabilityScore)
+      const primary = agCandidates.reduce((best, c) =>
+        c.profitabilityScore > best.profitabilityScore ? c : best
+      );
+      adGroups.push({
+        landingPagePath: path,
+        landingPageType: primary.landingPageType,
+        targetUrl: primary.targetUrl,
+        keywords: agCandidates.map((c) => c.keyword),
+        primaryKeyword: primary.keyword,
+        maxBid: Math.max(...agCandidates.map((c) => c.maxBid)),
+        totalExpectedDailyCost: agCandidates.reduce((s, c) => s + c.expectedDailyCost, 0),
+      });
+    }
+
+    // Sort ad groups by total cost DESC
+    adGroups.sort((a, b) => b.totalExpectedDailyCost - a.totalExpectedDailyCost);
+
+    // Compute group-level aggregates
+    const totalExpectedDailyCost = groupCandidates.reduce((s, c) => s + c.expectedDailyCost, 0);
+    const totalExpectedDailyRevenue = groupCandidates.reduce(
+      (s, c) => s + c.expectedDailyRevenue,
+      0
+    );
+    const avgProfitabilityScore =
+      groupCandidates.reduce((s, c) => s + c.profitabilityScore, 0) / groupCandidates.length;
+
+    // Primary keyword = highest profitabilityScore across the whole group
+    const primaryCandidate = groupCandidates.reduce((best, c) =>
+      c.profitabilityScore > best.profitabilityScore ? c : best
+    );
+
+    groups.push({
+      siteId: first.siteId,
+      micrositeId: first.micrositeId,
+      platform: first.platform,
+      siteName: first.siteName,
+      micrositeDomain: first.micrositeDomain,
+      isMicrosite: first.isMicrosite,
+      totalExpectedDailyCost,
+      totalExpectedDailyRevenue,
+      avgProfitabilityScore,
+      maxBid: Math.max(...groupCandidates.map((c) => c.maxBid)),
+      primaryKeyword: primaryCandidate.keyword,
+      primaryTargetUrl: primaryCandidate.targetUrl,
+      candidates: groupCandidates,
+      adGroups,
+    });
+  }
+
+  // Sort groups by avgProfitabilityScore DESC
+  groups.sort((a, b) => b.avgProfitabilityScore - a.avgProfitabilityScore);
+
+  return groups;
+}
+
 // --- Budget Allocation -------------------------------------------------------
 
 /**
@@ -949,6 +1074,7 @@ export async function runBiddingEngine(options?: {
       sitesAnalyzed: allProfiles.length,
       profiles: allProfiles,
       candidates: [],
+      groups: [],
       budgetAllocated: 0,
       budgetRemaining: maxBudget,
     };
@@ -967,10 +1093,19 @@ export async function runBiddingEngine(options?: {
     `[BiddingEngine] Selected ${selected.length} campaigns, budget: £${budgetAllocated.toFixed(2)} allocated, £${budgetRemaining.toFixed(2)} remaining`
   );
 
+  // Step 3.5: Group selected candidates into per-microsite campaigns
+  const groups = groupCandidatesIntoCampaigns(selected);
+  const msGroups = groups.filter((g) => g.isMicrosite);
+  const mainGroups = groups.filter((g) => !g.isMicrosite);
+  console.log(
+    `[BiddingEngine] Grouped into ${groups.length} campaigns (${msGroups.length} microsite, ${mainGroups.length} main site)`
+  );
+
   return {
     sitesAnalyzed: allProfiles.length,
     profiles: allProfiles,
     candidates: selected,
+    groups,
     budgetAllocated,
     budgetRemaining,
   };

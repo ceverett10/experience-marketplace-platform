@@ -88,6 +88,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         avgCpc: clicks > 0 ? spend / clicks : 0,
         daysWithData: c.dailyMetrics.length,
         proposalData: c.proposalData || null,
+        landingPagePath: (c as any).landingPagePath || null,
+        landingPageType: (c as any).landingPageType || null,
+        landingPageProducts: (c as any).landingPageProducts || null,
+        qualityScore: (c as any).qualityScore || null,
       };
     });
 
@@ -344,27 +348,31 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     );
     let projection: Record<string, unknown> | null = null;
     if (draftsWithProposals.length > 0) {
-      const uniqueKws = new Set(draftsWithProposals.map((c) => c.keywords[0] || c.name));
+      const uniqueKws = new Set(draftsWithProposals.flatMap((c) => c.keywords));
       const micrositeDrafts = draftsWithProposals.filter((c) => c.isMicrosite);
       const mainDrafts = draftsWithProposals.filter((c) => !c.isMicrosite);
       const uniqueMs = new Set(micrositeDrafts.map((c) => c.micrositeDomain).filter(Boolean));
       const googleDrafts = draftsWithProposals.filter((c) => c.platform === 'GOOGLE_SEARCH');
       const fbDrafts = draftsWithProposals.filter((c) => c.platform === 'FACEBOOK');
-      const dSpend = draftsWithProposals.reduce(
-        (s, c) => s + (c.proposalData as any).expectedDailyCost,
-        0
-      );
-      const dRev = draftsWithProposals.reduce(
-        (s, c) => s + (c.proposalData as any).expectedDailyRevenue,
-        0
-      );
+      const dSpend = draftsWithProposals.reduce((s, c) => {
+        const p = c.proposalData as any;
+        return s + (p.totalExpectedDailyCost ?? p.expectedDailyCost ?? 0);
+      }, 0);
+      const dRev = draftsWithProposals.reduce((s, c) => {
+        const p = c.proposalData as any;
+        return s + (p.totalExpectedDailyRevenue ?? p.expectedDailyRevenue ?? 0);
+      }, 0);
       const profitable = draftsWithProposals.filter((c) => {
         const p = c.proposalData as any;
-        return p.expectedDailyCost > 0 && p.expectedDailyRevenue / p.expectedDailyCost >= 3;
+        const cost = p.totalExpectedDailyCost ?? p.expectedDailyCost ?? 0;
+        const rev = p.totalExpectedDailyRevenue ?? p.expectedDailyRevenue ?? 0;
+        return cost > 0 && rev / cost >= 3;
       });
       const breakEven = draftsWithProposals.filter((c) => {
         const p = c.proposalData as any;
-        const r = p.expectedDailyCost > 0 ? p.expectedDailyRevenue / p.expectedDailyCost : 0;
+        const cost = p.totalExpectedDailyCost ?? p.expectedDailyCost ?? 0;
+        const rev = p.totalExpectedDailyRevenue ?? p.expectedDailyRevenue ?? 0;
+        const r = cost > 0 ? rev / cost : 0;
         return r >= 1 && r < 3;
       });
       const firstAssumptions = (draftsWithProposals[0]!.proposalData as any)?.assumptions;

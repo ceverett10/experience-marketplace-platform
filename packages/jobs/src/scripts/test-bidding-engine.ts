@@ -181,6 +181,60 @@ async function main() {
     );
   }
 
+  // ─── Campaign Groups (per-microsite) ──────────────────────────────────
+  if (result.groups && result.groups.length > 0) {
+    console.log('\n=== CAMPAIGN GROUPS (per-microsite) ===');
+    console.log(`Total groups: ${result.groups.length} (campaigns to create)`);
+    const msGroups = result.groups.filter((g) => g.isMicrosite);
+    const mainGroups = result.groups.filter((g) => !g.isMicrosite);
+    console.log(`  Microsite campaigns: ${msGroups.length}`);
+    console.log(`  Main site campaigns: ${mainGroups.length}`);
+
+    const subThreshold = result.groups.filter((g) => g.totalExpectedDailyCost < 1.0);
+    console.log(`  Sub-£1 natural budget (will be floored to £1): ${subThreshold.length}`);
+
+    const totalNatural = result.groups.reduce((s, g) => s + g.totalExpectedDailyCost, 0);
+    const totalFloored = result.groups.reduce(
+      (s, g) => s + Math.max(g.totalExpectedDailyCost, 1.0),
+      0
+    );
+    console.log(`  Total natural budget: £${totalNatural.toFixed(2)}/day`);
+    console.log(`  Total with £1 floor: £${totalFloored.toFixed(2)}/day`);
+
+    // Keywords per group distribution
+    const groupSizes = result.groups.map((g) => g.candidates.length);
+    const avgSize = groupSizes.reduce((a, b) => a + b, 0) / groupSizes.length;
+    const maxSize = Math.max(...groupSizes);
+    const singleKw = groupSizes.filter((s) => s === 1).length;
+    console.log(
+      `\n  Keywords per group: avg=${avgSize.toFixed(1)}, max=${maxSize}, single-kw=${singleKw}`
+    );
+
+    // Ad groups per campaign distribution
+    const agCounts = result.groups.map((g) => g.adGroups.length);
+    const avgAg = agCounts.reduce((a, b) => a + b, 0) / agCounts.length;
+    console.log(
+      `  Ad groups per campaign: avg=${avgAg.toFixed(1)}, max=${Math.max(...agCounts)}`
+    );
+
+    console.log('\nTop 20 groups by profitability:');
+    for (const g of result.groups.slice(0, 20)) {
+      const roas =
+        g.totalExpectedDailyCost > 0
+          ? g.totalExpectedDailyRevenue / g.totalExpectedDailyCost
+          : 0;
+      const budgetLabel =
+        g.totalExpectedDailyCost < 1.0
+          ? `£${g.totalExpectedDailyCost.toFixed(2)}->£1.00`
+          : `£${g.totalExpectedDailyCost.toFixed(2)}`;
+      console.log(
+        `  ${(g.micrositeDomain || g.siteName).substring(0, 45)} (${g.platform === 'GOOGLE_SEARCH' ? 'Google' : 'Meta'}): ` +
+          `${g.candidates.length} kw, ${g.adGroups.length} ag, ` +
+          `budget=${budgetLabel}/day, ROAS ${roas.toFixed(1)}x`
+      );
+    }
+  }
+
   await prisma.$disconnect();
 }
 
