@@ -51,10 +51,7 @@ function productToStructured(p: Product, publicUrl?: string) {
     p.priceFromFormatted ||
     (p.guidePrice ? `${p.guidePriceCurrency ?? 'GBP'} ${p.guidePrice}` : null);
   const rating = p.reviewRating ?? p.rating;
-  const imgUrl = proxyImageUrl(
-    p.primaryImageUrl ?? p.imageUrl ?? p.imageList?.[0]?.url,
-    publicUrl
-  );
+  const imgUrl = proxyImageUrl(p.primaryImageUrl ?? p.imageUrl ?? p.imageList?.[0]?.url, publicUrl);
 
   return {
     id: p.id,
@@ -167,10 +164,7 @@ function productToDetailStructured(p: Product, publicUrl?: string) {
     p.guidePriceFormattedText ||
     (p.guidePrice ? `${p.guidePriceCurrency ?? 'GBP'} ${p.guidePrice}` : null);
   const rating = p.reviewRating ?? p.rating;
-  const imgUrl = proxyImageUrl(
-    p.primaryImageUrl ?? p.imageUrl ?? p.imageList?.[0]?.url,
-    publicUrl
-  );
+  const imgUrl = proxyImageUrl(p.primaryImageUrl ?? p.imageUrl ?? p.imageList?.[0]?.url, publicUrl);
 
   const highlights =
     p.contentList?.nodes
@@ -239,7 +233,9 @@ function buildWidgetMeta(publicUrl?: string) {
   if (publicUrl) {
     try {
       redirectDomains.push(new URL(publicUrl).hostname);
-    } catch {}
+    } catch {
+      // ignore invalid publicUrl
+    }
   }
 
   return {

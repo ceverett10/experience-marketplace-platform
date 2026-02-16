@@ -6,6 +6,9 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
 <title>Holibob Experiences</title>
 <style>
   :root { --primary: #14B8A6; --primary-light: rgba(20,184,166,0.1); --primary-dark: #0D9488; --bg: #111827; --surface: rgba(255,255,255,0.05); --surface-hover: rgba(255,255,255,0.08); --surface-raised: rgba(255,255,255,0.07); --border: rgba(255,255,255,0.1); --border-hover: rgba(255,255,255,0.2); --text: #F5F7FA; --text-secondary: #D1D5DB; --text-muted: #9CA3AF; --text-dim: #6B7280; --yellow: #FACC15; --green: #4ADE80; --red: #F87171; --shadow-sm: 0 1px 3px rgba(0,0,0,0.3); --shadow: 0 4px 12px rgba(0,0,0,0.4); --shadow-lg: 0 8px 24px rgba(0,0,0,0.5); --radius: 12px; --card-w: 260px; --gap: 14px; }
+  @media (prefers-color-scheme: light) {
+    :root { --bg: #FFFFFF; --surface: rgba(0,0,0,0.03); --surface-hover: rgba(0,0,0,0.05); --surface-raised: rgba(0,0,0,0.02); --border: rgba(0,0,0,0.1); --border-hover: rgba(0,0,0,0.2); --text: #111827; --text-secondary: #374151; --text-muted: #6B7280; --text-dim: #9CA3AF; --shadow-sm: 0 1px 3px rgba(0,0,0,0.08); --shadow: 0 4px 12px rgba(0,0,0,0.1); --shadow-lg: 0 8px 24px rgba(0,0,0,0.12); }
+  }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; color: var(--text); background: transparent; -webkit-font-smoothing: antialiased; line-height: 1.5; }
 
@@ -29,7 +32,7 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
   .section { border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 8px; overflow: hidden; transition: all 0.2s; background: var(--surface); }
   .section.active { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(20,184,166,0.1); }
   .section-header { display: flex; align-items: center; gap: 10px; padding: 12px 14px; cursor: pointer; user-select: none; }
-  .section-icon { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 15px; background: rgba(255,255,255,0.05); flex-shrink: 0; transition: background 0.15s; }
+  .section-icon { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 15px; background: var(--surface); flex-shrink: 0; transition: background 0.15s; }
   .section.active .section-icon { background: var(--primary-light); }
   .section-label { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.6px; }
   .section-value { font-size: 13px; font-weight: 600; color: var(--text); margin-top: 2px; }
@@ -38,12 +41,12 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
   .section-body { display: none; padding: 0 14px 14px; }
   .section.active .section-body { display: block; }
   .input-row { margin-bottom: 10px; }
-  .input-row input { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; color: var(--text); background: rgba(255,255,255,0.03); outline: none; transition: all 0.15s; }
+  .input-row input { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; color: var(--text); background: var(--surface-raised); outline: none; transition: all 0.15s; }
   .input-row input::placeholder { color: var(--text-dim); }
-  .input-row input:focus { border-color: var(--primary); background: rgba(255,255,255,0.06); box-shadow: 0 0 0 3px rgba(20,184,166,0.12); }
+  .input-row input:focus { border-color: var(--primary); background: var(--surface-hover); box-shadow: 0 0 0 3px rgba(20,184,166,0.12); }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; }
   .chip { padding: 7px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; background: transparent; color: var(--text-secondary); border: 1px solid var(--border); cursor: pointer; transition: all 0.15s; white-space: nowrap; }
-  .chip:hover { background: rgba(255,255,255,0.06); border-color: var(--border-hover); color: var(--text); }
+  .chip:hover { background: var(--surface-hover); border-color: var(--border-hover); color: var(--text); }
   .chip.selected { background: var(--primary); color: white; border-color: var(--primary); }
   .cta { width: 100%; padding: 13px; background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: white; border: none; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; margin-top: 14px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 2px 12px rgba(20,184,166,0.3); }
   .cta:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(20,184,166,0.4); }
@@ -62,7 +65,7 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
   .track { display: flex; gap: var(--gap); transition: transform 0.35s cubic-bezier(0.25, 0.1, 0.25, 1); }
   .card { width: var(--card-w); flex-shrink: 0; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-raised); overflow: hidden; cursor: pointer; transition: all 0.2s; }
   .card:hover { box-shadow: var(--shadow-lg); transform: translateY(-3px); border-color: var(--border-hover); }
-  .card-img { position: relative; width: 100%; aspect-ratio: 4/3; background: rgba(255,255,255,0.03); overflow: hidden; }
+  .card-img { position: relative; width: 100%; aspect-ratio: 4/3; background: var(--surface); overflow: hidden; }
   .card-img img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s; }
   .card:hover .card-img img { transform: scale(1.05); }
   .badge { position: absolute; top: 8px; left: 8px; padding: 4px 8px; border-radius: 6px; font-size: 10px; font-weight: 700; background: var(--primary); color: white; letter-spacing: 0.3px; }
@@ -80,7 +83,7 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
   .price-label { font-size: 10px; color: var(--text-muted); font-weight: 400; }
   .view-btn { padding: 6px 12px; border-radius: 8px; border: 1.5px solid var(--primary); background: transparent; color: var(--primary); font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.15s; }
   .view-btn:hover { background: var(--primary); color: white; }
-  .nav-btn { position: absolute; top: 50%; transform: translateY(-80%); width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--border); background: var(--bg); box-shadow: var(--shadow); cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 10; transition: all 0.15s; }
+  .nav-btn { position: absolute; top: 50%; transform: translateY(-80%); width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface-raised); box-shadow: var(--shadow); cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 10; transition: all 0.15s; }
   .nav-btn:hover { background: var(--surface-hover); box-shadow: var(--shadow-lg); }
   .nav-btn.left { left: -12px; }
   .nav-btn.right { right: -12px; }
@@ -99,7 +102,7 @@ export const COMBINED_EXPERIENCE_HTML = `<!DOCTYPE html>
   .back-link { font-size: 13px; color: var(--primary); font-weight: 600; cursor: pointer; margin-bottom: 14px; display: inline-flex; align-items: center; gap: 4px; padding: 4px 0; }
   .back-link:hover { text-decoration: underline; }
   .back-link svg { width: 14px; height: 14px; }
-  .detail-hero { width: 100%; height: 200px; border-radius: var(--radius); overflow: hidden; position: relative; background: rgba(255,255,255,0.03); margin-bottom: 16px; }
+  .detail-hero { width: 100%; height: 200px; border-radius: var(--radius); overflow: hidden; position: relative; background: var(--surface); margin-bottom: 16px; }
   .detail-hero img { width: 100%; height: 100%; object-fit: cover; }
   .detail-hero .overlay { position: absolute; bottom: 0; left: 0; right: 0; padding: 16px; background: linear-gradient(transparent, rgba(0,0,0,0.75)); color: white; }
   .detail-hero .overlay h2 { font-size: 18px; font-weight: 700; line-height: 1.3; }

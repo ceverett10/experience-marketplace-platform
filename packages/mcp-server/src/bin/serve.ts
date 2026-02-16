@@ -437,21 +437,25 @@ async function startHttp(port: number): Promise<void> {
         try {
           const booking = await auth.client.commitBooking({ id: checkout.bookingId });
           res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-          res.end(buildCheckoutSuccessHtml({
-            bookingId: booking.id,
-            bookingCode: booking.code ?? undefined,
-            voucherUrl: booking.voucherUrl ?? undefined,
-          }));
+          res.end(
+            buildCheckoutSuccessHtml({
+              bookingId: booking.id,
+              bookingCode: booking.code ?? undefined,
+              voucherUrl: booking.voucherUrl ?? undefined,
+            })
+          );
         } catch {
           // Booking may already be committed or pending
           try {
             const booking = await auth.client.getBooking(checkout.bookingId);
             res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-            res.end(buildCheckoutSuccessHtml({
-              bookingId: booking?.id ?? checkout.bookingId,
-              bookingCode: booking?.code ?? undefined,
-              voucherUrl: booking?.voucherUrl ?? undefined,
-            }));
+            res.end(
+              buildCheckoutSuccessHtml({
+                bookingId: booking?.id ?? checkout.bookingId,
+                bookingCode: booking?.code ?? undefined,
+                voucherUrl: booking?.voucherUrl ?? undefined,
+              })
+            );
           } catch {
             res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
             res.end(buildCheckoutSuccessHtml({ bookingId: checkout.bookingId }));
@@ -467,13 +471,15 @@ async function startHttp(port: number): Promise<void> {
         const currency = (checkout.currency ?? 'GBP').toUpperCase();
 
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        res.end(buildCheckoutPageHtml({
-          publishableKey: paymentIntent.apiKey,
-          clientSecret: paymentIntent.clientSecret,
-          amount,
-          currency,
-          successUrl: `${publicBaseUrl}/checkout/${token}/success`,
-        }));
+        res.end(
+          buildCheckoutPageHtml({
+            publishableKey: paymentIntent.apiKey,
+            clientSecret: paymentIntent.clientSecret,
+            amount,
+            currency,
+            successUrl: `${publicBaseUrl}/checkout/${token}/success`,
+          })
+        );
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'text/html' });
         res.end(
