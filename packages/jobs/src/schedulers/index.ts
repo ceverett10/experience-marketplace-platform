@@ -117,15 +117,16 @@ export async function initializeScheduledJobs(): Promise<void> {
   );
   console.log('[Scheduler] ✓ GSC Sync - Every 6 hours');
 
-  // Opportunity Scan - Daily at 2 AM
-  await scheduleJob(
-    'SEO_OPPORTUNITY_SCAN',
-    {
-      forceRescan: false,
-    },
-    '0 2 * * *' // Daily at 2 AM
-  );
-  console.log('[Scheduler] ✓ Opportunity Scan - Daily at 2 AM');
+  // Opportunity Scan - PAUSED (DataForSEO costs)
+  // await scheduleJob(
+  //   'SEO_OPPORTUNITY_SCAN',
+  //   {
+  //     forceRescan: false,
+  //   },
+  //   '0 2 * * *' // Daily at 2 AM
+  // );
+  // console.log('[Scheduler] ✓ Opportunity Scan - Daily at 2 AM');
+  console.log('[Scheduler] ⏸ Opportunity Scan - PAUSED (DataForSEO)');
 
   // Performance Analysis / SEO Health Audit - Daily at 3 AM
   // This triggers recursive optimization for underperforming pages
@@ -244,25 +245,27 @@ export async function initializeScheduledJobs(): Promise<void> {
   );
   console.log('[Scheduler] ✓ A/B Test Rebalancing - Every hour');
 
-  // Link Building - Backlink Monitor - Weekly on Wednesdays at 3 AM
-  await scheduleJob(
-    'LINK_BACKLINK_MONITOR' as any,
-    {
-      siteId: 'all',
-    },
-    '0 3 * * 3' // Wednesdays at 3 AM
-  );
-  console.log('[Scheduler] ✓ Backlink Monitor - Wednesdays at 3 AM');
+  // Link Building - Backlink Monitor - PAUSED (DataForSEO costs)
+  // await scheduleJob(
+  //   'LINK_BACKLINK_MONITOR' as any,
+  //   {
+  //     siteId: 'all',
+  //   },
+  //   '0 3 * * 3' // Wednesdays at 3 AM
+  // );
+  // console.log('[Scheduler] ✓ Backlink Monitor - Wednesdays at 3 AM');
+  console.log('[Scheduler] ⏸ Backlink Monitor - PAUSED (DataForSEO)');
 
-  // Link Building - Opportunity Scan - Weekly on Tuesdays at 2 AM
-  await scheduleJob(
-    'LINK_OPPORTUNITY_SCAN' as any,
-    {
-      siteId: 'all',
-    },
-    '0 2 * * 2' // Tuesdays at 2 AM
-  );
-  console.log('[Scheduler] ✓ Link Opportunity Scan - Tuesdays at 2 AM');
+  // Link Building - Opportunity Scan - PAUSED (DataForSEO costs)
+  // await scheduleJob(
+  //   'LINK_OPPORTUNITY_SCAN' as any,
+  //   {
+  //     siteId: 'all',
+  //   },
+  //   '0 2 * * 2' // Tuesdays at 2 AM
+  // );
+  // console.log('[Scheduler] ✓ Link Opportunity Scan - Tuesdays at 2 AM');
+  console.log('[Scheduler] ⏸ Link Opportunity Scan - PAUSED (DataForSEO)');
 
   // Daily Content Generation - Staggered throughout the day
   // Uses setInterval with cron-like scheduling since it doesn't need job queue tracking
@@ -340,18 +343,19 @@ export async function initializeScheduledJobs(): Promise<void> {
   // PAID TRAFFIC SCHEDULES
   // =========================================================================
 
-  // Paid Keyword Scanner — Daily at 3 AM (runs BEFORE bidding engine so new keywords are scored same day)
+  // Paid Keyword Scanner — PAUSED (DataForSEO costs)
   // Discovers new low-CPC keyword opportunities from GSC, DataForSEO, Pinterest Ads, Meta, and microsite keywords
-  await scheduleJob(
-    'PAID_KEYWORD_SCAN' as any,
-    {
-      maxCpc: PAID_TRAFFIC_CONFIG.maxCpc,
-      minVolume: PAID_TRAFFIC_CONFIG.minVolume,
-      modes: ['gsc', 'expansion', 'discovery', 'pinterest', 'meta'],
-    },
-    '0 3 * * *' // Daily at 3 AM (~$1.10/day via DataForSEO)
-  );
-  console.log('[Scheduler] ✓ Paid Keyword Scanner - Daily at 3 AM');
+  // await scheduleJob(
+  //   'PAID_KEYWORD_SCAN' as any,
+  //   {
+  //     maxCpc: PAID_TRAFFIC_CONFIG.maxCpc,
+  //     minVolume: PAID_TRAFFIC_CONFIG.minVolume,
+  //     modes: ['gsc', 'expansion', 'discovery', 'pinterest', 'meta'],
+  //   },
+  //   '0 3 * * *' // Daily at 3 AM (~$1.10/day via DataForSEO)
+  // );
+  // console.log('[Scheduler] ✓ Paid Keyword Scanner - Daily at 3 AM');
+  console.log('[Scheduler] ⏸ Paid Keyword Scanner - PAUSED (DataForSEO)');
 
   // Bidding Engine Run — Daily at 5 AM (after keyword scanner discovers new keywords)
   // Calculates site profitability, scores keyword opportunities, creates + auto-deploys campaigns
