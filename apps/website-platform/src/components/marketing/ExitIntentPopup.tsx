@@ -6,7 +6,10 @@
  * Detects when the user moves their mouse toward the browser's address bar
  * (leaving the page) and shows a time-limited incentive to complete booking.
  * Session-scoped (sessionStorage) — only shows once per visit.
- * Only shows on experience detail pages.
+ *
+ * Shows on:
+ * - Experience detail pages (all visitors)
+ * - Homepage when visitor came from a paid ad (PPC)
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -16,19 +19,42 @@ import { useBrand } from '@/lib/site-context';
 
 const EXIT_SHOWN_KEY = 'holibob_exit_popup_shown';
 
+/**
+ * Detect PPC traffic from the utm_params cookie (set by middleware)
+ */
+function isPpcFromCookie(): boolean {
+  try {
+    const match = document.cookie.match(/(?:^|;\s*)utm_params=([^;]*)/);
+    if (!match?.[1]) return false;
+    const utm = JSON.parse(decodeURIComponent(match[1]));
+    return !!(utm.gclid || utm.fbclid || utm.medium === 'cpc');
+  } catch {
+    return false;
+  }
+}
+
 export function ExitIntentPopup() {
   const [isOpen, setIsOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [isHomepagePpc, setIsHomepagePpc] = useState(false);
   const brand = useBrand();
   const pathname = usePathname();
   const primaryColor = brand?.primaryColor ?? '#0d9488';
 
-  // Only show on experience detail pages
+  // Experience detail page — all visitors
   const isExperiencePage = pathname.startsWith('/experiences/') && pathname !== '/experiences';
+  // Homepage — PPC visitors only
+  const isHomepage = pathname === '/';
 
   useEffect(() => {
     setMounted(true);
-  }, []);
+    // Check PPC status client-side from cookie
+    if (isHomepage && isPpcFromCookie()) {
+      setIsHomepagePpc(true);
+    }
+  }, [isHomepage]);
+
+  const shouldShowPopup = isExperiencePage || isHomepagePpc;
 
   const handleMouseLeave = useCallback((e: MouseEvent) => {
     // Only trigger when mouse moves toward the top of the viewport (address bar)
@@ -42,7 +68,7 @@ export function ExitIntentPopup() {
   }, []);
 
   useEffect(() => {
-    if (!mounted || !isExperiencePage) return;
+    if (!mounted || !shouldShowPopup) return;
 
     // Delay adding the listener so it doesn't fire immediately
     const timer = setTimeout(() => {
@@ -53,13 +79,23 @@ export function ExitIntentPopup() {
       clearTimeout(timer);
       document.removeEventListener('mouseleave', handleMouseLeave);
     };
-  }, [mounted, isExperiencePage, handleMouseLeave]);
+  }, [mounted, shouldShowPopup, handleMouseLeave]);
 
   const handleClose = () => {
     setIsOpen(false);
   };
 
   if (!mounted || !isOpen) return null;
+
+  // Adjust copy for homepage PPC vs experience detail page
+  const headerTitle = isHomepagePpc
+    ? 'Wait — check out these experiences!'
+    : 'Still deciding?';
+  const headerSubtitle = isHomepagePpc
+    ? 'Don\u2019t leave without browsing our top-rated experiences'
+    : 'Don\u2019t miss out on this experience';
+  const ctaText = isHomepagePpc ? 'Browse Experiences' : 'Continue browsing';
+  const ctaHref = isHomepagePpc ? '/experiences' : undefined;
 
   const modalContent = (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
@@ -105,8 +141,8 @@ export function ExitIntentPopup() {
               />
             </svg>
           </div>
-          <h2 className="text-2xl font-bold">Still deciding?</h2>
-          <p className="mt-2 text-white/90">Don&apos;t miss out on this experience</p>
+          <h2 className="text-2xl font-bold">{headerTitle}</h2>
+          <p className="mt-2 text-white/90">{headerSubtitle}</p>
         </div>
 
         {/* Content */}
@@ -173,13 +209,23 @@ export function ExitIntentPopup() {
             </div>
           </div>
 
-          <button
-            onClick={handleClose}
-            className="mt-6 w-full rounded-xl py-3.5 text-base font-semibold text-white transition-opacity hover:opacity-90"
-            style={{ backgroundColor: primaryColor }}
-          >
-            Continue browsing
-          </button>
+          {ctaHref ? (
+            <a
+              href={ctaHref}
+              className="mt-6 block w-full rounded-xl py-3.5 text-center text-base font-semibold text-white transition-opacity hover:opacity-90"
+              style={{ backgroundColor: primaryColor }}
+            >
+              {ctaText}
+            </a>
+          ) : (
+            <button
+              onClick={handleClose}
+              className="mt-6 w-full rounded-xl py-3.5 text-base font-semibold text-white transition-opacity hover:opacity-90"
+              style={{ backgroundColor: primaryColor }}
+            >
+              {ctaText}
+            </button>
+          )}
 
           <p className="mt-3 text-center text-xs text-gray-400">
             Availability is limited and prices may change

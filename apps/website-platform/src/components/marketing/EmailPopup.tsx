@@ -55,14 +55,30 @@ export function EmailPopup({ prizeDrawId }: EmailPopupProps) {
   // Check if current page should show popup
   const shouldExcludePage = EXCLUDED_PATHS.some((path) => pathname.startsWith(path));
 
+  // Suppress for PPC visitors — they have high purchase intent,
+  // email collection adds friction. Exit-intent popup handles PPC rescue instead.
+  const [isPpcVisitor, setIsPpcVisitor] = useState(false);
+
   // Portal mounting (SSR safety)
   useEffect(() => {
     setMounted(true);
+    // Check PPC status from utm_params cookie
+    try {
+      const match = document.cookie.match(/(?:^|;\s*)utm_params=([^;]*)/);
+      if (match?.[1]) {
+        const utm = JSON.parse(decodeURIComponent(match[1]));
+        if (utm.gclid || utm.fbclid || utm.medium === 'cpc') {
+          setIsPpcVisitor(true);
+        }
+      }
+    } catch {
+      // Ignore parse errors
+    }
   }, []);
 
   // Show popup after delay (if not dismissed/submitted before)
   useEffect(() => {
-    if (!mounted || shouldExcludePage) return;
+    if (!mounted || shouldExcludePage || isPpcVisitor) return;
 
     // Check localStorage for previous dismissal/submission
     const dismissed = localStorage.getItem(POPUP_DISMISSED_KEY);
@@ -78,7 +94,7 @@ export function EmailPopup({ prizeDrawId }: EmailPopupProps) {
     }, POPUP_DELAY_MS);
 
     return () => clearTimeout(timer);
-  }, [mounted, shouldExcludePage]);
+  }, [mounted, shouldExcludePage, isPpcVisitor]);
 
   // Handle escape key and body scroll lock
   useEffect(() => {

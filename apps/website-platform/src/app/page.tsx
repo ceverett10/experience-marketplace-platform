@@ -1,4 +1,4 @@
-import { headers } from 'next/headers';
+import { headers, cookies } from 'next/headers';
 import { Hero } from '@/components/layout/Hero';
 import { FeaturedExperiences } from '@/components/experiences/FeaturedExperiences';
 import { CategoryGrid } from '@/components/experiences/CategoryGrid';
@@ -514,6 +514,21 @@ export async function generateMetadata() {
   };
 }
 
+/**
+ * Detect PPC traffic from the utm_params cookie (set by middleware on ad click)
+ */
+async function detectPpcTraffic(): Promise<boolean> {
+  try {
+    const cookieStore = await cookies();
+    const utmCookie = cookieStore.get('utm_params')?.value;
+    if (!utmCookie) return false;
+    const utm = JSON.parse(utmCookie);
+    return !!(utm.gclid || utm.fbclid || utm.medium === 'cpc');
+  } catch {
+    return false;
+  }
+}
+
 export default async function HomePage() {
   const headersList = await headers();
   // On Heroku/Cloudflare, use x-forwarded-host to get the actual external domain
@@ -606,12 +621,13 @@ export default async function HomePage() {
         );
       }
 
-      // Fetch blog posts and collections for microsite
-      const [micrositeBlogPosts, micrositeCollections] = await Promise.all([
+      // Fetch blog posts, collections, and PPC status for microsite
+      const [micrositeBlogPosts, micrositeCollections, isPpc] = await Promise.all([
         getLatestBlogPosts(site.id, site.micrositeContext.micrositeId),
         site.micrositeContext.micrositeId
           ? getHomepageCollections(site.micrositeContext.micrositeId)
           : Promise.resolve([]),
+        detectPpcTraffic(),
       ]);
 
       return (
@@ -625,6 +641,7 @@ export default async function HomePage() {
           relatedMicrosites={relatedMicrosites}
           blogPosts={micrositeBlogPosts}
           collections={micrositeCollections}
+          isPpc={isPpc}
         />
       );
     }
@@ -678,10 +695,11 @@ export default async function HomePage() {
     return undefined;
   })();
 
-  const { experiences } = await getFeaturedExperiences(site, popularExperiencesConfig);
-
-  // Fetch latest blog posts
-  const blogPosts = await getLatestBlogPosts(site.id);
+  const [{ experiences }, blogPosts, isPpc] = await Promise.all([
+    getFeaturedExperiences(site, popularExperiencesConfig),
+    getLatestBlogPosts(site.id),
+    detectPpcTraffic(),
+  ]);
 
   // Note: Related microsites cross-linking is handled in CatalogHomepage for microsites
   // Regular marketplace sites don't need cross-linking to microsites
@@ -745,6 +763,8 @@ export default async function HomePage() {
         subtitle={heroConfig?.subtitle}
         backgroundImage={heroConfig?.backgroundImage}
         backgroundImageAttribution={heroConfig?.backgroundImageAttribution}
+        isPpc={isPpc}
+        experienceCount={experiences.length}
       />
 
       {/* Featured Experiences */}

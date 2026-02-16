@@ -15,18 +15,24 @@ interface HeroProps {
     photographerUrl: string;
     unsplashUrl: string;
   };
+  isPpc?: boolean;
+  experienceCount?: number;
 }
 
-export function Hero({ title, subtitle, backgroundImage, backgroundImageAttribution }: HeroProps) {
+export function Hero({ title, subtitle, backgroundImage, backgroundImageAttribution, isPpc, experienceCount }: HeroProps) {
   const site = useSite();
   const brand = useBrand();
+  const primaryColor = brand?.primaryColor ?? '#0d9488';
 
-  const heroTitle = title ?? `Discover Unique Experiences`;
-  const heroSubtitle =
-    subtitle ??
-    brand?.tagline ??
-    (site.description !== heroTitle ? site.description : null) ??
-    'Find and book unforgettable tours, activities, and attractions worldwide';
+  const heroTitle = isPpc
+    ? `Book ${site.name} — Free Cancellation`
+    : (title ?? `Discover Unique Experiences`);
+  const heroSubtitle = isPpc
+    ? `${experienceCount ? `${experienceCount.toLocaleString()} experiences available` : 'Experiences available'} · Instant confirmation`
+    : (subtitle ??
+      brand?.tagline ??
+      (site.description !== heroTitle ? site.description : null) ??
+      'Find and book unforgettable tours, activities, and attractions worldwide');
 
   return (
     <section className="relative">
@@ -98,12 +104,47 @@ export function Hero({ title, subtitle, backgroundImage, backgroundImageAttribut
             {heroSubtitle}
           </p>
 
-          {/* Product Discovery Search */}
-          <div className="hero-animate-search mt-10">
-            <div className="search-glow rounded-2xl md:rounded-full">
-              <ProductDiscoverySearch variant="hero" />
+          {/* PPC: Action CTA + trust badges | Organic: Search widget */}
+          {isPpc ? (
+            <div className="hero-animate-search mt-10">
+              <a
+                href="/experiences"
+                className="inline-flex items-center gap-2 rounded-xl px-8 py-4 text-lg font-bold text-white shadow-lg transition-transform hover:scale-105"
+                style={{ backgroundColor: primaryColor }}
+              >
+                Browse Experiences
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                </svg>
+              </a>
+              <div className="mt-6 flex flex-wrap justify-center gap-4 text-xs text-white/90 sm:gap-6 sm:text-sm">
+                <div className="flex items-center gap-1.5">
+                  <svg className="h-4 w-4 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" />
+                  </svg>
+                  <span>Free Cancellation</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <svg className="h-4 w-4 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" />
+                  </svg>
+                  <span>Best Price Guarantee</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <svg className="h-4 w-4 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" />
+                  </svg>
+                  <span>Secure Payment</span>
+                </div>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="hero-animate-search mt-10">
+              <div className="search-glow rounded-2xl md:rounded-full">
+                <ProductDiscoverySearch variant="hero" />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

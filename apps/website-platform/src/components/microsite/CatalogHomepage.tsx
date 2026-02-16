@@ -68,6 +68,7 @@ interface CatalogHomepageProps {
   relatedMicrosites?: RelatedMicrosite[];
   blogPosts?: BlogPost[];
   collections?: Collection[];
+  isPpc?: boolean;
 }
 
 export function CatalogHomepage({
@@ -80,6 +81,7 @@ export function CatalogHomepage({
   relatedMicrosites,
   blogPosts,
   collections,
+  isPpc,
 }: CatalogHomepageProps) {
   const primaryColor = site.brand?.primaryColor ?? '#6366f1';
   const gridColumns = layoutConfig.gridColumns;
@@ -203,6 +205,22 @@ export function CatalogHomepage({
                 <span>Secure Booking</span>
               </div>
             </div>
+
+            {/* PPC: Prominent CTA for paid traffic */}
+            {isPpc && (
+              <div className="mt-8">
+                <Link
+                  href="/experiences"
+                  className="inline-flex items-center gap-2 rounded-xl px-8 py-4 text-lg font-bold text-white shadow-lg transition-transform hover:scale-105"
+                  style={{ backgroundColor: primaryColor }}
+                >
+                  Browse {displayCount > 0 ? `${displayCount.toLocaleString()} ` : ''}Experiences
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                  </svg>
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       </section>

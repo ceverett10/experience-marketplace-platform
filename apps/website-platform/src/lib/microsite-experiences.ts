@@ -400,7 +400,8 @@ export interface RelatedMicrosite {
 
 /**
  * Get related microsites for cross-linking
- * Finds microsites with similar cities or categories
+ * Uses relevance scoring: shared cities (+3 each) and categories (+2 each)
+ * to surface the most relevant operators instead of random matches.
  */
 export async function getRelatedMicrosites(
   currentMicrositeId: string,
@@ -408,17 +409,12 @@ export async function getRelatedMicrosites(
   categories: string[],
   limit: number = 6
 ): Promise<RelatedMicrosite[]> {
-  // Get active microsites that share cities or categories
-  const microsites = await prisma.micrositeConfig.findMany({
+  // Fetch a broader candidate pool — we'll score and filter in JS
+  const candidates = await prisma.micrositeConfig.findMany({
     where: {
       id: { not: currentMicrositeId },
       status: 'ACTIVE',
-      supplier: {
-        OR: [
-          { cities: { hasSome: cities.length > 0 ? cities : ['_none_'] } },
-          { categories: { hasSome: categories.length > 0 ? categories : ['_none_'] } },
-        ],
-      },
+      cachedProductCount: { gt: 0 },
     },
     include: {
       supplier: {
@@ -427,28 +423,47 @@ export async function getRelatedMicrosites(
           categories: true,
           productCount: true,
           rating: true,
-          logoUrl: true,
-        },
-      },
-      brand: {
-        select: {
-          logoUrl: true,
         },
       },
     },
-    orderBy: [{ supplier: { rating: 'desc' } }, { supplier: { productCount: 'desc' } }],
-    take: limit,
+    take: 50,
   });
 
-  return microsites.map((ms) => ({
+  // Build lookup sets for O(1) membership checks
+  const citySet = new Set(cities.map((c) => c.toLowerCase()));
+  const categorySet = new Set(categories.map((c) => c.toLowerCase()));
+
+  // Score each candidate by relevance
+  const scored = candidates
+    .map((ms) => {
+      const msCities = ms.supplier?.cities || [];
+      const msCategories = ms.supplier?.categories || [];
+
+      // +3 per shared city (strongest signal — location relevance)
+      const sharedCities = msCities.filter((c) => citySet.has(c.toLowerCase())).length;
+      // +2 per shared category (thematic relevance)
+      const sharedCategories = msCategories.filter((c) => categorySet.has(c.toLowerCase())).length;
+      // +1 bonus for having a rating (social proof value)
+      const ratingBonus = ms.supplier?.rating ? 1 : 0;
+
+      const score = sharedCities * 3 + sharedCategories * 2 + ratingBonus;
+
+      return { ms, score, rating: ms.supplier?.rating || 0 };
+    })
+    // Exclude candidates with zero relevance
+    .filter((item) => item.score > 0)
+    // Sort by score DESC, then rating DESC as tiebreaker
+    .sort((a, b) => b.score - a.score || b.rating - a.rating)
+    .slice(0, limit);
+
+  return scored.map(({ ms }) => ({
     fullDomain: ms.fullDomain,
     siteName: ms.siteName,
     tagline: ms.tagline,
-    // Generated logos disabled - using text-only branding (standard design) for all sites
     logoUrl: null,
     categories: ms.supplier?.categories || [],
     cities: ms.supplier?.cities || [],
-    productCount: ms.supplier?.productCount || 0,
+    productCount: ms.supplier?.productCount || ms.cachedProductCount || 0,
     rating: ms.supplier?.rating || null,
   }));
 }
