@@ -269,6 +269,7 @@ export class MetaAdsClient {
     bidAmount: number; // Max CPC bid in account currency
     targeting: {
       countries: string[];
+      locationTypes?: string[]; // e.g. ['home'] — default is ['everyone']
       interests?: Array<{ id: string; name: string }>;
       ageMin?: number;
       ageMax?: number;
@@ -280,8 +281,12 @@ export class MetaAdsClient {
     try {
       await this.enforceRateLimit();
 
+      const geoLocations: Record<string, unknown> = { countries: config.targeting.countries };
+      if (config.targeting.locationTypes?.length) {
+        geoLocations['location_types'] = config.targeting.locationTypes;
+      }
       const targetingSpec: Record<string, unknown> = {
-        geo_locations: { countries: config.targeting.countries },
+        geo_locations: geoLocations,
       };
       if (config.targeting.interests?.length) {
         targetingSpec['flexible_spec'] = [

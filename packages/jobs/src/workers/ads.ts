@@ -889,33 +889,9 @@ async function deployToMeta(
     }
 
     // Step 2: Create ad set with geo + interest targeting
-    // Map geoTargets to country codes (simplified — expand as needed)
-    const countryMap: Record<string, string> = {
-      'United Kingdom': 'GB',
-      'United States': 'US',
-      UK: 'GB',
-      US: 'US',
-      Canada: 'CA',
-      Australia: 'AU',
-      Germany: 'DE',
-      France: 'FR',
-      Spain: 'ES',
-      Italy: 'IT',
-      Netherlands: 'NL',
-      Portugal: 'PT',
-      Greece: 'GR',
-      Croatia: 'HR',
-      Thailand: 'TH',
-      Japan: 'JP',
-      Mexico: 'MX',
-      Brazil: 'BR',
-      India: 'IN',
-      UAE: 'AE',
-    };
-    const countries = campaign.geoTargets
-      .map((g) => countryMap[g] || null)
-      .filter((c): c is string => c !== null);
-    if (countries.length === 0) countries.push('GB', 'US'); // Default markets
+    // Target key English-speaking source markets (people planning trips from home)
+    const SOURCE_MARKETS = ['GB', 'US', 'CA', 'AU', 'IE', 'NZ'];
+    const countries = [...SOURCE_MARKETS];
 
     // Search for relevant interests using extracted destination/activity terms.
     // Long-tail keywords like "things to do in curitiba" return nothing from Meta's
@@ -929,6 +905,7 @@ async function deployToMeta(
       bidAmount: campaign.maxCpc,
       targeting: {
         countries,
+        locationTypes: ['home'], // Reach people from these markets even when traveling abroad
         interests: interestTargeting.length > 0 ? interestTargeting : undefined,
         ageMin: 18,
         ageMax: 65,
@@ -1344,9 +1321,7 @@ export async function handleBiddingEngineRun(job: Job): Promise<JobResult> {
           maxCpc: group.maxBid,
           keywords: group.candidates.map((c) => c.keyword),
           targetUrl: group.primaryTargetUrl,
-          geoTargets: [
-            ...new Set(group.candidates.flatMap((c) => (c.location ? [c.location] : []))),
-          ],
+          geoTargets: ['GB', 'US', 'CA', 'AU', 'IE', 'NZ'],
           utmSource: group.platform === 'FACEBOOK' ? 'facebook_ads' : 'google_ads',
           utmMedium: 'cpc',
           utmCampaign: `auto_${(group.micrositeDomain || group.siteName).replace(/[.\s]+/g, '_').substring(0, 50)}`,
