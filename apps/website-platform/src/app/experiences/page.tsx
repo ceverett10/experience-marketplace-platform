@@ -551,8 +551,9 @@ async function getExperiencesFromHolibobAPI(
         }
       }
 
-      // Get location from place field
-      const locationName = product.place?.name ?? '';
+      // Get location name: use city filter value when filtering (API doesn't return place.name),
+      // otherwise empty (no regression from previous behavior)
+      const locationName = options.filters?.cities?.[0] ?? '';
 
       return {
         id: product.id,
@@ -939,9 +940,28 @@ async function getFilterOptionsFromAPI(
         if (product.reviewRating >= 3.5) ratingCounts.good++;
       }
 
-      // Cities from place field
-      if (product.place?.name) {
-        cityMap.set(product.place.name, (cityMap.get(product.place.name) ?? 0) + 1);
+      // Collect unique cityIds from place field for resolution
+      if (product.place?.cityId) {
+        cityMap.set(product.place.cityId, (cityMap.get(product.place.cityId) ?? 0) + 1);
+      }
+    }
+
+    // Resolve cityIds to city names via Places API
+    const cityIds = Array.from(cityMap.keys());
+    let resolvedCities: { name: string; count: number }[] = [];
+    if (cityIds.length > 0) {
+      try {
+        const places = await client.getPlaces({ type: 'CITY' });
+        const placeMap = new Map(places.map((p) => [p.id, p.name]));
+        resolvedCities = cityIds
+          .map((cityId) => ({
+            name: placeMap.get(cityId) ?? cityId,
+            count: cityMap.get(cityId) ?? 0,
+          }))
+          .filter((c) => c.name !== c.name.match(/^[a-f0-9-]+$/)?.[0]) // skip unresolved UUIDs
+          .sort((a, b) => b.count - a.count);
+      } catch {
+        // Places API failed - skip city filter options
       }
     }
 
@@ -950,9 +970,7 @@ async function getFilterOptionsFromAPI(
       .sort((a, b) => b.count - a.count)
       .slice(0, 10);
 
-    const cities = Array.from(cityMap.entries())
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count);
+    const cities = resolvedCities;
 
     // Build price ranges
     const priceRanges: FilterOptions['priceRanges'] = [];
