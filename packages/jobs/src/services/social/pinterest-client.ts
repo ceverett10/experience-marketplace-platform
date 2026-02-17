@@ -60,3 +60,49 @@ export async function createPinterestPin(input: PinterestPostInput): Promise<Pin
     platformUrl: `https://www.pinterest.com/pin/${data.id}/`,
   };
 }
+
+/**
+ * Find or create a Pinterest board by name.
+ * Returns the board ID if found/created, or null on failure.
+ */
+export async function findOrCreatePinterestBoard(
+  accessToken: string,
+  boardName: string
+): Promise<{ id: string; name: string } | null> {
+  // List existing boards
+  const listResponse = await fetch(`${PINTEREST_API_BASE}/v5/boards`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (listResponse.ok) {
+    const data = (await listResponse.json()) as { items?: { id: string; name: string }[] };
+    const existing = data.items?.find(
+      (b) => b.name.toLowerCase() === boardName.toLowerCase()
+    );
+    if (existing) return existing;
+  }
+
+  // Create new board
+  const createResponse = await fetch(`${PINTEREST_API_BASE}/v5/boards`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({
+      name: boardName,
+      description: `Curated experiences and travel inspiration from ${boardName}`,
+      privacy: 'PUBLIC',
+    }),
+  });
+
+  if (!createResponse.ok) {
+    const error = await createResponse.text();
+    console.error(`[Pinterest] Failed to create board "${boardName}": ${error}`);
+    return null;
+  }
+
+  const board = (await createResponse.json()) as { id: string; name: string };
+  console.log(`[Pinterest] Created board "${board.name}" (${board.id})`);
+  return board;
+}

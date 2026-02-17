@@ -73,7 +73,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ plat
 
     switch (platform.toLowerCase()) {
       case 'pinterest':
-        tokenData = await exchangePinterestCode(code);
+        tokenData = await exchangePinterestCode(code, siteId);
         break;
       case 'facebook':
         tokenData = await exchangeFacebookCode(code);
@@ -158,7 +158,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ plat
   }
 }
 
-async function exchangePinterestCode(code: string) {
+async function exchangePinterestCode(code: string, siteId: string) {
   const appId = process.env['PINTEREST_APP_ID']!;
   const appSecret = process.env['PINTEREST_APP_SECRET']!;
   const callbackUrl = getCallbackUrl('pinterest');
@@ -183,33 +183,79 @@ async function exchangePinterestCode(code: string) {
 
   const tokens = await tokenResponse.json();
 
-  // Get user info
+  // Get user info — use 'username' for display, 'id' for accountId (always present)
   const userResponse = await fetch('https://api.pinterest.com/v5/user_account', {
     headers: { Authorization: `Bearer ${tokens.access_token}` },
   });
   const user = userResponse.ok ? await userResponse.json() : {};
+  const pinterestUserId = user.username || user.id || null;
 
-  // Get first board for pinning
+  // Get all existing boards
   const boardsResponse = await fetch('https://api.pinterest.com/v5/boards', {
     headers: { Authorization: `Bearer ${tokens.access_token}` },
   });
   const boards = boardsResponse.ok ? await boardsResponse.json() : { items: [] };
-  const firstBoard = boards.items?.[0];
+  const allBoards = (boards.items || []) as { id: string; name: string }[];
+
+  // Find or create a board matching the site name
+  const site = await prisma.site.findUnique({
+    where: { id: siteId },
+    select: { name: true },
+  });
+  const siteName = site?.name || 'Experiences';
+
+  // Look for an existing board that matches the site name (case-insensitive)
+  let siteBoard = allBoards.find(
+    (b) => b.name.toLowerCase() === siteName.toLowerCase()
+  );
+
+  // If no matching board, create one
+  if (!siteBoard) {
+    try {
+      const createBoardResponse = await fetch('https://api.pinterest.com/v5/boards', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${tokens.access_token}`,
+        },
+        body: JSON.stringify({
+          name: siteName,
+          description: `Curated experiences and travel inspiration from ${siteName}`,
+          privacy: 'PUBLIC',
+        }),
+      });
+
+      if (createBoardResponse.ok) {
+        const newBoard = (await createBoardResponse.json()) as { id: string; name: string };
+        siteBoard = { id: newBoard.id, name: newBoard.name };
+        allBoards.push(siteBoard);
+        console.log(`[Pinterest OAuth] Created board "${siteName}" (${siteBoard.id}) for site ${siteId}`);
+      } else {
+        const err = await createBoardResponse.text();
+        console.warn(`[Pinterest OAuth] Could not create board "${siteName}": ${err}`);
+        // Fall back to first existing board
+        siteBoard = allBoards[0];
+      }
+    } catch (e) {
+      console.warn(`[Pinterest OAuth] Board creation error:`, e);
+      siteBoard = allBoards[0];
+    }
+  }
 
   return {
     accessToken: tokens.access_token,
     refreshToken: tokens.refresh_token,
     expiresIn: tokens.expires_in,
-    accountId: user.username,
-    accountName: user.username || 'Pinterest Account',
-    accountUrl: user.website_url || `https://pinterest.com/${user.username}`,
+    accountId: pinterestUserId,
+    accountName: user.username || user.business_name || 'Pinterest Account',
+    accountUrl: user.username
+      ? `https://pinterest.com/${user.username}`
+      : user.website_url || undefined,
     metadata: {
-      boardId: firstBoard?.id,
-      boardName: firstBoard?.name,
-      boards: (boards.items || []).map((b: { id: string; name: string }) => ({
-        id: b.id,
-        name: b.name,
-      })),
+      pinterestUserId: user.id,
+      boardId: siteBoard?.id,
+      boardName: siteBoard?.name,
+      boards: allBoards.map((b) => ({ id: b.id, name: b.name })),
     },
   };
 }

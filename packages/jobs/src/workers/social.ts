@@ -14,7 +14,7 @@ import {
 } from '../services/social/caption-generator';
 import { selectImageForPost } from '../services/social/image-selector';
 import { refreshTokenIfNeeded } from '../services/social/token-refresh';
-import { createPinterestPin } from '../services/social/pinterest-client';
+import { createPinterestPin, findOrCreatePinterestBoard } from '../services/social/pinterest-client';
 import { createFacebookPost, getPageAccessToken } from '../services/social/facebook-client';
 import { createTweet } from '../services/social/twitter-client';
 import { canExecuteAutonomousOperation } from '../services/pause-control';
@@ -551,6 +551,7 @@ export async function handleSocialPostPublish(
     where: { id: socialPostId },
     include: {
       account: true,
+      site: { select: { name: true } },
     },
   });
 
@@ -595,10 +596,44 @@ export async function handleSocialPostPublish(
 
     switch (post.platform) {
       case 'PINTEREST': {
-        const boardId = (metadata?.['boardId'] as string) || '';
-        if (!boardId) {
-          throw new Error('No Pinterest board configured. Please set a board in account settings.');
+        // Ensure we have a board for this site. If the stored boardId doesn't match
+        // the site name (e.g., shared account across multiple sites), find or create one.
+        let boardId = (metadata?.['boardId'] as string) || '';
+        const boardName = (metadata?.['boardName'] as string) || '';
+        const siteName = post.site?.name || '';
+
+        if (siteName && boardName && boardName.toLowerCase() !== siteName.toLowerCase()) {
+          // Board doesn't match site — find or create the correct one
+          console.log(
+            `[Social] Pinterest board "${boardName}" doesn't match site "${siteName}", finding/creating correct board`
+          );
+          const board = await findOrCreatePinterestBoard(accessToken, siteName);
+          if (board) {
+            boardId = board.id;
+            // Update the account metadata so future posts use the correct board
+            const updatedMeta = { ...(metadata || {}), boardId: board.id, boardName: board.name };
+            await prisma.socialAccount.update({
+              where: { id: post.account.id },
+              data: { metadata: updatedMeta },
+            });
+          }
         }
+
+        if (!boardId) {
+          // No board at all — try to create one matching the site name
+          const board = await findOrCreatePinterestBoard(accessToken, siteName || 'Experiences');
+          if (board) {
+            boardId = board.id;
+            const updatedMeta = { ...(metadata || {}), boardId: board.id, boardName: board.name };
+            await prisma.socialAccount.update({
+              where: { id: post.account.id },
+              data: { metadata: updatedMeta },
+            });
+          } else {
+            throw new Error('No Pinterest board configured and could not create one.');
+          }
+        }
+
         result = await createPinterestPin({
           accessToken,
           boardId,
