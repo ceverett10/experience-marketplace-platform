@@ -3,8 +3,7 @@ import { prisma } from '@experience-marketplace/database';
 import { createCipheriv, randomBytes } from 'crypto';
 
 const ADMIN_BASE_URL =
-  process.env['ADMIN_BASE_URL'] ||
-  'https://holibob-experiences-demand-gen-c27f61accbd2.herokuapp.com/admin';
+  process.env['ADMIN_BASE_URL'] || 'https://admin.experiencess.com';
 
 function getCallbackUrl(platform: string): string {
   return `${ADMIN_BASE_URL}/api/social/callback/${platform}`;

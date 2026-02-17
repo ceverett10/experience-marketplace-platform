@@ -4,7 +4,12 @@ import type { NextRequest } from 'next/server';
 const SESSION_COOKIE_NAME = 'admin_session';
 
 // Routes that don't require authentication
-const PUBLIC_PATHS = ['/login', '/api/auth/login', '/api/auth/logout'];
+const PUBLIC_PATHS = [
+  '/login',
+  '/api/auth/login',
+  '/api/auth/logout',
+  '/api/social/callback', // OAuth callbacks from external platforms (Pinterest, Facebook, Twitter)
+];
 
 /**
  * Derive the AES-256 key from the session secret using Web Crypto API.
