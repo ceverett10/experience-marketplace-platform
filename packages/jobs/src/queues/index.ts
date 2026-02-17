@@ -80,6 +80,9 @@ class QueueRegistry {
           removeOnComplete: 100,
           removeOnFail: 500,
         },
+        // Cap event streams to prevent unbounded Redis memory growth.
+        // Without this, bull:*:events streams grow indefinitely and can OOM small Redis instances.
+        streams: { events: { maxLen: 200 } },
       };
 
       const queue = new Queue(queueName, queueOptions);
@@ -381,6 +384,19 @@ class QueueRegistry {
       } catch (err) {
         console.error(`[Queue] Failed to clean ${queueName}:`, err);
       }
+    }
+
+    // Trim event streams — these grow unbounded and are the #1 Redis memory consumer
+    try {
+      const eventKeys: string[] = await this.connection.keys('bull:*:events');
+      for (const key of eventKeys) {
+        await this.connection.xtrim(key, 'MAXLEN', '~', 200);
+      }
+      if (eventKeys.length > 0) {
+        console.log(`[Queue] Trimmed ${eventKeys.length} event streams to max 200 entries`);
+      }
+    } catch (err) {
+      console.error('[Queue] Failed to trim event streams:', err);
     }
 
     const memoryAfter = await this.getRedisMemory();

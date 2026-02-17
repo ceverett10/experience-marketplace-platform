@@ -194,6 +194,8 @@ function makeWorkerOptions(queueName: string, concurrency: number) {
     lockDuration: timeout + 60_000,
     // Check for stalled jobs every 30 seconds
     stalledInterval: 30_000,
+    // Cap event streams to prevent unbounded Redis memory growth (matches Queue config)
+    metrics: { maxDataPoints: 200 },
   };
 }
 
