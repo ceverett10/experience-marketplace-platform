@@ -11,10 +11,12 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const siteId = searchParams.get('siteId');
     const status = searchParams.get('status');
+    const platform = searchParams.get('platform');
 
     const where: Record<string, unknown> = {};
     if (siteId) where['siteId'] = siteId;
     if (status) where['status'] = status;
+    if (platform) where['platform'] = platform;
 
     const posts = await prisma.socialPost.findMany({
       where,

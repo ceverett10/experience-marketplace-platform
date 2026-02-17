@@ -17,14 +17,19 @@ interface SocialPost {
   page: { id: string; title: string; slug: string } | null;
 }
 
+type PlatformFilter = '' | 'TWITTER' | 'PINTEREST' | 'FACEBOOK';
+
 export default function SocialOverviewPage() {
   const [posts, setPosts] = useState<SocialPost[]>([]);
   const [loading, setLoading] = useState(true);
+  const [platformFilter, setPlatformFilter] = useState<PlatformFilter>('');
 
   const fetchPosts = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch('/admin/api/social/posts');
+      const params = new URLSearchParams();
+      if (platformFilter) params.set('platform', platformFilter);
+      const response = await fetch(`/admin/api/social/posts?${params}`);
       const data = await response.json();
       if (data.success) {
         setPosts(data.posts || []);
@@ -34,7 +39,7 @@ export default function SocialOverviewPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [platformFilter]);
 
   useEffect(() => {
     fetchPosts();
@@ -71,26 +76,48 @@ export default function SocialOverviewPage() {
           <h1 className="text-2xl font-bold text-slate-900">Social Media</h1>
           <p className="text-slate-500 mt-1">Automated social posting across all connected sites</p>
         </div>
-        <button
-          onClick={async () => {
-            try {
-              const res = await fetch('/admin/api/operations/schedules', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ jobType: 'SOCIAL_DAILY_POSTING' }),
-              });
-              const data = await res.json();
-              if (data.success) {
-                alert('Daily social posting triggered');
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5">
+            {([
+              { value: '', label: 'All' },
+              { value: 'TWITTER', label: 'X' },
+              { value: 'PINTEREST', label: 'Pinterest' },
+              { value: 'FACEBOOK', label: 'Facebook' },
+            ] as const).map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setPlatformFilter(opt.value as PlatformFilter)}
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                  platformFilter === opt.value
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                {opt.value ? platformIcons[opt.value] + ' ' : ''}{opt.label}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={async () => {
+              try {
+                const res = await fetch('/admin/api/operations/schedules', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ jobType: 'SOCIAL_DAILY_POSTING' }),
+                });
+                const data = await res.json();
+                if (data.success) {
+                  alert('Daily social posting triggered');
+                }
+              } catch (err) {
+                console.error('Failed to trigger:', err);
               }
-            } catch (err) {
-              console.error('Failed to trigger:', err);
-            }
-          }}
-          className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white text-sm font-medium rounded-lg transition-colors"
-        >
-          Trigger Daily Posting
-        </button>
+            }}
+            className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white text-sm font-medium rounded-lg transition-colors"
+          >
+            Trigger Daily Posting
+          </button>
+        </div>
       </div>
 
       {/* Summary Cards */}
