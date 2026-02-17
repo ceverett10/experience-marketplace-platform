@@ -31,6 +31,7 @@ import {
   updateContentFreshness,
   analyzeKeywordOptimization,
   fixMissingImageAltText,
+  type PageOwnerFilter,
 } from '../services/seo-optimizer';
 import { autoFixClusterLinks, getClusterHealthSummary } from '../services/internal-linking';
 import { findSnippetOpportunities } from '../services/content-optimizer';
@@ -691,19 +692,21 @@ export async function handleWeeklyAuditScheduler(job: Job): Promise<JobResult> {
  */
 export interface SEOAutoOptimizePayload {
   siteId: string;
+  micrositeId?: string; // If set, optimize a microsite instead of a site
   scope?: 'all' | 'metadata' | 'structured-data' | 'content';
 }
 
 export async function handleAutoOptimize(job: Job<SEOAutoOptimizePayload>): Promise<JobResult> {
-  const { siteId, scope = 'all' } = job.data;
+  const { siteId, micrositeId, scope = 'all' } = job.data;
   const startTime = Date.now();
 
-  console.log(`[Auto SEO] Starting automatic optimization for site ${siteId} (scope: ${scope})`);
+  const entityLabel = micrositeId ? `microsite ${micrositeId}` : `site ${siteId}`;
+  console.log(`[Auto SEO] Starting automatic optimization for ${entityLabel} (scope: ${scope})`);
 
   try {
-    // Handle special "all" siteId value - queue jobs for all active sites
+    // Handle special "all" siteId value - queue jobs for all active sites AND microsites
     if (siteId === 'all') {
-      console.log('[Auto SEO] Processing all active sites');
+      console.log('[Auto SEO] Processing all active sites and microsites');
       const sites = await prisma.site.findMany({
         where: {
           status: 'ACTIVE',
@@ -726,27 +729,60 @@ export async function handleAutoOptimize(job: Job<SEOAutoOptimizePayload>): Prom
           }
         );
         scheduled++;
-        console.log(`[Auto SEO] Scheduled optimization for ${site.name}`);
+        console.log(`[Auto SEO] Scheduled optimization for site: ${site.name}`);
+      }
+
+      // Also fan out to active microsites
+      const microsites = await prisma.micrositeConfig.findMany({
+        where: {
+          status: 'ACTIVE',
+        },
+        select: { id: true, siteName: true },
+      });
+
+      for (const ms of microsites) {
+        await addJob(
+          'SEO_AUTO_OPTIMIZE',
+          {
+            siteId: '__microsite__', // Marker — micrositeId carries the real ID
+            micrositeId: ms.id,
+            scope,
+          },
+          {
+            delay: scheduled * 5 * 60 * 1000, // Continue staggering after sites
+            priority: 10,
+          }
+        );
+        scheduled++;
+        console.log(`[Auto SEO] Scheduled optimization for microsite: ${ms.siteName}`);
       }
 
       const duration = Date.now() - startTime;
       return {
         success: true,
         data: {
-          sitesScheduled: scheduled,
+          sitesScheduled: sites.length,
+          micrositesScheduled: microsites.length,
+          totalScheduled: scheduled,
           sites: sites.map((s) => s.name),
+          microsites: microsites.map((m) => m.siteName),
           duration,
         },
         timestamp: new Date(),
       };
     }
 
+    // Determine page owner filter — either a site or a microsite
+    const owner: import('../services/seo-optimizer').PageOwnerFilter = micrositeId
+      ? { micrositeId }
+      : { siteId };
+
     const results: Record<string, any> = {};
 
     // 1. Fix metadata issues (meta titles, descriptions, priorities)
     if (scope === 'all' || scope === 'metadata') {
       console.log('[Auto SEO] Optimizing metadata...');
-      const metadataOptimizations = await autoOptimizeSiteSEO(siteId);
+      const metadataOptimizations = await autoOptimizeSiteSEO(siteId, owner);
       results['metadata'] = {
         pagesOptimized: metadataOptimizations.length,
         changes: metadataOptimizations.map((opt) => ({
@@ -760,7 +796,7 @@ export async function handleAutoOptimize(job: Job<SEOAutoOptimizePayload>): Prom
     // 2. Add missing structured data
     if (scope === 'all' || scope === 'structured-data') {
       console.log('[Auto SEO] Adding structured data...');
-      const structuredDataCount = await addMissingStructuredData(siteId);
+      const structuredDataCount = await addMissingStructuredData(siteId, owner);
       results['structuredData'] = {
         pagesUpdated: structuredDataCount,
       };
@@ -770,7 +806,7 @@ export async function handleAutoOptimize(job: Job<SEOAutoOptimizePayload>): Prom
     // 3. Flag thin content for expansion (doesn't auto-fix, just flags)
     if (scope === 'all' || scope === 'content') {
       console.log('[Auto SEO] Checking for thin content...');
-      const thinPages = await flagThinContentForExpansion(siteId);
+      const thinPages = await flagThinContentForExpansion(siteId, owner);
       const thinContentResult: Record<string, any> = {
         flaggedPages: thinPages.length,
         pages: thinPages,
@@ -814,7 +850,7 @@ export async function handleAutoOptimize(job: Job<SEOAutoOptimizePayload>): Prom
     // 4. Update content freshness (auto-fix: update timestamps for outdated content)
     if (scope === 'all' || scope === 'content') {
       console.log('[Auto SEO] Checking content freshness...');
-      const freshnessResult = await updateContentFreshness(siteId);
+      const freshnessResult = await updateContentFreshness(siteId, owner);
       results['contentFreshness'] = {
         pagesUpdated: freshnessResult.updatedCount,
         details: freshnessResult.updates,
@@ -829,7 +865,7 @@ export async function handleAutoOptimize(job: Job<SEOAutoOptimizePayload>): Prom
     // 5. Fix missing image alt text (auto-fix)
     if (scope === 'all' || scope === 'content') {
       console.log('[Auto SEO] Fixing missing image alt text...');
-      const altTextResult = await fixMissingImageAltText(siteId);
+      const altTextResult = await fixMissingImageAltText(siteId, owner);
       results['imageAltText'] = {
         pagesFixed: altTextResult.pagesFixed,
         imagesFixed: altTextResult.imagesFixed,
@@ -862,10 +898,11 @@ export async function handleAutoOptimize(job: Job<SEOAutoOptimizePayload>): Prom
       }
     }
 
-    // 7. Analyze keyword optimization (creates issues for human review)
-    if (scope === 'all' || scope === 'content') {
+    // 7. Analyze keyword optimization (creates issues for human review — sites only)
+    const isSite = !micrositeId;
+    if (isSite && (scope === 'all' || scope === 'content')) {
       console.log('[Auto SEO] Analyzing keyword optimization...');
-      const keywordIssues = await analyzeKeywordOptimization(siteId);
+      const keywordIssues = await analyzeKeywordOptimization(siteId, owner);
       let issuesCreated = 0;
 
       for (const issue of keywordIssues) {
@@ -901,8 +938,8 @@ export async function handleAutoOptimize(job: Job<SEOAutoOptimizePayload>): Prom
       }
     }
 
-    // 8. Find featured snippet opportunities (creates issues for human review)
-    if (scope === 'all' || scope === 'content') {
+    // 8. Find featured snippet opportunities (creates issues for human review — sites only)
+    if (isSite && (scope === 'all' || scope === 'content')) {
       console.log('[Auto SEO] Finding featured snippet opportunities...');
       const snippetOpportunities = await findSnippetOpportunities(siteId);
       let snippetIssuesCreated = 0;
@@ -943,8 +980,8 @@ export async function handleAutoOptimize(job: Job<SEOAutoOptimizePayload>): Prom
       }
     }
 
-    // 9. Auto-resolve OPEN keyword/snippet issues by queuing CONTENT_OPTIMIZE jobs
-    if (scope === 'all' || scope === 'content') {
+    // 9. Auto-resolve OPEN keyword/snippet issues by queuing CONTENT_OPTIMIZE jobs (sites only)
+    if (isSite && (scope === 'all' || scope === 'content')) {
       console.log('[Auto SEO] Processing OPEN SEO issues for auto-resolution...');
       const openIssues = await prisma.sEOIssue.findMany({
         where: {
@@ -964,7 +1001,7 @@ export async function handleAutoOptimize(job: Job<SEOAutoOptimizePayload>): Prom
           },
         },
         orderBy: { severity: 'desc' },
-        take: 10, // Limit to 10 per run to avoid overwhelming the content queue
+        take: 1000, // Process up to 1000 issues per run (these are lightweight content optimize jobs)
       });
 
       let issuesQueued = 0;

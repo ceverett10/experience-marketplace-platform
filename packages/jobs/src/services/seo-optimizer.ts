@@ -1,9 +1,25 @@
 /**
  * SEO Optimization Service
- * Automatically fixes common SEO issues on sites
+ * Automatically fixes common SEO issues on sites and microsites
  */
 
 import { prisma, PageType } from '@experience-marketplace/database';
+
+/**
+ * Page owner filter — pages belong to either a Site (siteId) or a MicrositeConfig (micrositeId).
+ * All SEO optimizer functions accept this to work with both.
+ */
+export type PageOwnerFilter = { siteId: string } | { micrositeId: string };
+
+/** Build a Prisma where clause for pages owned by a site or microsite */
+export function pageOwnerWhere(owner: PageOwnerFilter): { siteId: string } | { micrositeId: string } {
+  return owner;
+}
+
+/** Get the ID value from a PageOwnerFilter (for SEO issues, which require siteId) */
+export function getOwnerSiteId(owner: PageOwnerFilter): string | null {
+  return 'siteId' in owner ? owner.siteId : null;
+}
 
 export interface SEOOptimization {
   pageId: string;
@@ -21,14 +37,15 @@ export interface SEOOptimization {
 }
 
 /**
- * Auto-fix common SEO issues for a site
+ * Auto-fix common SEO issues for a site or microsite
  */
-export async function autoOptimizeSiteSEO(siteId: string): Promise<SEOOptimization[]> {
+export async function autoOptimizeSiteSEO(siteId: string, owner?: PageOwnerFilter): Promise<SEOOptimization[]> {
   const optimizations: SEOOptimization[] = [];
+  const ownerFilter = owner ?? { siteId };
 
   const pages = await prisma.page.findMany({
     where: {
-      siteId,
+      ...pageOwnerWhere(ownerFilter),
       status: 'PUBLISHED',
     },
     include: {
@@ -260,12 +277,13 @@ function calculateOptimalPriority(pageType: PageType, slug: string): number {
 /**
  * Add missing structured data to pages
  */
-export async function addMissingStructuredData(siteId: string): Promise<number> {
+export async function addMissingStructuredData(siteId: string, owner?: PageOwnerFilter): Promise<number> {
   let updatedCount = 0;
+  const ownerFilter = owner ?? { siteId };
 
   const pages = await prisma.page.findMany({
     where: {
-      siteId,
+      ...pageOwnerWhere(ownerFilter),
       status: 'PUBLISHED',
     },
     include: {
@@ -335,7 +353,8 @@ export async function addMissingStructuredData(siteId: string): Promise<number> 
  * Returns pages with thin content including contentId for proper job queuing
  */
 export async function flagThinContentForExpansion(
-  siteId: string
+  siteId: string,
+  owner?: PageOwnerFilter
 ): Promise<
   Array<{ pageId: string; contentId: string | null; wordCount: number; minWords: number }>
 > {
@@ -345,10 +364,11 @@ export async function flagThinContentForExpansion(
     wordCount: number;
     minWords: number;
   }> = [];
+  const ownerFilter = owner ?? { siteId };
 
   const pages = await prisma.page.findMany({
     where: {
-      siteId,
+      ...pageOwnerWhere(ownerFilter),
       status: 'PUBLISHED',
     },
     include: {
@@ -440,16 +460,17 @@ export function generateCTROptimizedTitle(
 /**
  * Update content freshness by updating dates in content that reference outdated years
  */
-export async function updateContentFreshness(siteId: string): Promise<{
+export async function updateContentFreshness(siteId: string, owner?: PageOwnerFilter): Promise<{
   updatedCount: number;
   updates: Array<{ pageId: string; title: string; reason: string }>;
 }> {
   const currentYear = new Date().getFullYear();
   const updates: Array<{ pageId: string; title: string; reason: string }> = [];
+  const ownerFilter = owner ?? { siteId };
 
   const pages = await prisma.page.findMany({
     where: {
-      siteId,
+      ...pageOwnerWhere(ownerFilter),
       status: 'PUBLISHED',
       type: PageType.BLOG,
     },
@@ -507,11 +528,12 @@ export interface KeywordOptimization {
  * Analyze keyword optimization for all pages in a site
  * Returns recommendations for pages that need keyword improvements
  */
-export async function analyzeKeywordOptimization(siteId: string): Promise<KeywordOptimization[]> {
+export async function analyzeKeywordOptimization(siteId: string, owner?: PageOwnerFilter): Promise<KeywordOptimization[]> {
   const optimizations: KeywordOptimization[] = [];
+  const ownerFilter = owner ?? { siteId };
 
   const pages = await prisma.page.findMany({
-    where: { siteId, status: 'PUBLISHED' },
+    where: { ...pageOwnerWhere(ownerFilter), status: 'PUBLISHED' },
     include: { content: true },
   });
 
@@ -606,7 +628,7 @@ function escapeRegex(string: string): string {
  * Fix missing image alt text in page content
  * Returns count of pages with fixed images
  */
-export async function fixMissingImageAltText(siteId: string): Promise<{
+export async function fixMissingImageAltText(siteId: string, owner?: PageOwnerFilter): Promise<{
   pagesFixed: number;
   imagesFixed: number;
   details: Array<{ pageId: string; pageTitle: string; imagesFixed: number }>;
@@ -614,9 +636,10 @@ export async function fixMissingImageAltText(siteId: string): Promise<{
   let pagesFixed = 0;
   let totalImagesFixed = 0;
   const details: Array<{ pageId: string; pageTitle: string; imagesFixed: number }> = [];
+  const ownerFilter = owner ?? { siteId };
 
   const pages = await prisma.page.findMany({
-    where: { siteId, status: 'PUBLISHED' },
+    where: { ...pageOwnerWhere(ownerFilter), status: 'PUBLISHED' },
     include: { content: true },
   });
 
