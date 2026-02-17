@@ -238,13 +238,13 @@ async function validateTaskArtifacts(
     CROSS_SITE_LINK_ENRICHMENT: {
       valid: true,
     },
-    ['LINK_COMPETITOR_DISCOVERY' as any]: {
+    LINK_COMPETITOR_DISCOVERY: {
       valid: true,
     },
-    ['LINK_BROKEN_LINK_SCAN' as any]: {
+    LINK_BROKEN_LINK_SCAN: {
       valid: true,
     },
-    ['LINK_CONTENT_GAP_ANALYSIS' as any]: {
+    LINK_CONTENT_GAP_ANALYSIS: {
       valid: true,
     },
 
@@ -416,15 +416,15 @@ export const TASK_DESCRIPTIONS: Record<JobType, { label: string; description: st
     label: 'Cross-Site Link Enrichment',
     description: 'Inject cross-site links into existing blog posts',
   },
-  ['LINK_COMPETITOR_DISCOVERY' as any]: {
+  LINK_COMPETITOR_DISCOVERY: {
     label: 'Competitor Discovery',
     description: 'Discover competitors from SERP data and find backlink opportunities',
   },
-  ['LINK_BROKEN_LINK_SCAN' as any]: {
+  LINK_BROKEN_LINK_SCAN: {
     label: 'Broken Link Scan',
     description: 'Find broken links on competitor sites for replacement opportunities',
   },
-  ['LINK_CONTENT_GAP_ANALYSIS' as any]: {
+  LINK_CONTENT_GAP_ANALYSIS: {
     label: 'Content Gap Analysis',
     description: 'Identify keyword gaps for linkable asset content',
   },
