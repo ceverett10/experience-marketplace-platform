@@ -8,8 +8,9 @@ import { ProductDiscoverySearch } from '@/components/search/ProductDiscoverySear
 import { TrustBadges } from '@/components/ui/TrustSignals';
 import { ExperienceListSchema, BreadcrumbSchema } from '@/components/seo/StructuredData';
 import { prisma } from '@/lib/prisma';
-import { MarketplaceExperiencesPage } from './MarketplaceExperiencesPage';
+import { MarketplaceFilteredPage } from '@/components/experiences/MarketplaceFilteredPage';
 import type { FilterOptions } from '@/components/experiences/FilterSidebar';
+import type { FilterCounts } from '@/hooks/useMarketplaceExperiences';
 import { isTickittoSite } from '@/lib/supplier';
 import { getTickittoClient, mapTickittoEventToExperienceListItem } from '@/lib/tickitto';
 
@@ -1107,7 +1108,7 @@ export default async function ExperiencesPage({ searchParams }: Props) {
     !!site.micrositeContext?.discoveryConfig ||
     isTickittoSite(site);
 
-  // For MARKETPLACE microsites (50+ products), show filter sidebar
+  // For MARKETPLACE microsites (50+ products), show horizontal filter bar
   if (isMicrosite && site.micrositeContext?.supplierId) {
     const layoutType = site.micrositeContext.layoutConfig?.resolvedType;
 
@@ -1126,18 +1127,56 @@ export default async function ExperiencesPage({ searchParams }: Props) {
         }
       }
 
+      // Convert FilterOptions to FilterCounts for the new component
+      const initialFilterCounts: FilterCounts = {
+        categories: filterOptions.categories,
+        priceRanges: filterOptions.priceRanges,
+        durations: filterOptions.durations,
+        ratings: filterOptions.ratings,
+        cities: filterOptions.cities,
+      };
+
+      // Build page title for marketplace
+      const ctx = site.micrositeContext;
+      const topCity =
+        ctx?.supplierCities?.[0] ?? site.homepageConfig?.destinations?.[0]?.name;
+      const topCategory =
+        ctx?.supplierCategories?.[0] ?? site.homepageConfig?.categories?.map((c) => c.name)?.[0];
+
+      let marketplaceTitle = 'All Experiences & Tours';
+      let marketplaceSubtitle = `Explore our curated collection of tours and activities`;
+
+      if (topCategory && topCity) {
+        marketplaceTitle = `${topCategory} in ${topCity}`;
+        marketplaceSubtitle = `Browse the best ${topCategory.toLowerCase()} and more in ${topCity}`;
+      } else if (topCity) {
+        marketplaceTitle = `Things to Do in ${topCity}`;
+        marketplaceSubtitle = `Explore tours, activities, and unique experiences in ${topCity}`;
+      } else if (topCategory) {
+        marketplaceTitle = `${topCategory} & Experiences`;
+        marketplaceSubtitle = `Browse our collection of ${topCategory.toLowerCase()} and more`;
+      }
+
+      // Build extra API params for the client-side fetch hook
+      const extraApiParams: Record<string, string> = {};
+      if (site.micrositeContext['holibobSupplierId']) {
+        extraApiParams['holibobSupplierId'] = site.micrositeContext['holibobSupplierId'];
+      }
+
       return (
-        <MarketplaceExperiencesPage
-          site={site}
-          experiences={experiences}
-          totalCount={totalCount}
-          filteredCount={filteredCount}
-          hasMore={hasMore}
-          searchParams={resolvedSearchParams}
-          filterOptions={filterOptions}
-          apiError={apiError}
+        <MarketplaceFilteredPage
+          siteName={site.name}
+          primaryColor={site.brand?.primaryColor ?? '#0F766E'}
           hostname={hostname}
-          holibobSupplierId={site.micrositeContext.holibobSupplierId ?? undefined}
+          pageTitle={marketplaceTitle}
+          pageSubtitle={marketplaceSubtitle}
+          initialExperiences={experiences}
+          initialTotalCount={totalCount}
+          initialFilteredCount={filteredCount}
+          initialHasMore={hasMore}
+          initialFilterCounts={initialFilterCounts}
+          extraApiParams={extraApiParams}
+          apiError={apiError}
         />
       );
     }
