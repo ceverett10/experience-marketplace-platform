@@ -44,7 +44,9 @@ async function getMetaAdsClient(): Promise<MetaAdsClient | null> {
   const adAccountId = process.env['META_AD_ACCOUNT_ID'];
   if (!adAccountId) return null;
 
-  const account = await prisma.socialAccount.findFirst({
+  // Prefer encrypted tokens (created by our OAuth flow with ads_management scope)
+  // over plaintext tokens which may be from a different app (e.g. CAPI tokens).
+  const accounts = await prisma.socialAccount.findMany({
     where: { platform: 'FACEBOOK', isActive: true },
     select: {
       id: true,
@@ -54,16 +56,33 @@ async function getMetaAdsClient(): Promise<MetaAdsClient | null> {
       tokenExpiresAt: true,
       accountId: true,
     },
+    orderBy: { updatedAt: 'desc' },
   });
-  if (!account?.accessToken) return null;
 
-  try {
-    const { accessToken } = await refreshTokenIfNeeded(account);
-    return new MetaAdsClient({ accessToken, adAccountId });
-  } catch (error) {
-    console.error('[Ads Worker] Failed to get Meta access token:', error);
-    return null;
+  // Sort: encrypted tokens first (contain ':'), then plaintext
+  const sorted = [...accounts].sort((a, b) => {
+    const aEnc = a.accessToken?.includes(':') ? 0 : 1;
+    const bEnc = b.accessToken?.includes(':') ? 0 : 1;
+    return aEnc - bEnc;
+  });
+
+  for (const account of sorted) {
+    if (!account.accessToken) continue;
+    try {
+      const { accessToken } = await refreshTokenIfNeeded(account);
+      console.log(
+        `[Ads Worker] Using Meta token from account ${account.id} (accountId=${account.accountId})`
+      );
+      return new MetaAdsClient({ accessToken, adAccountId });
+    } catch (error) {
+      console.warn(
+        `[Ads Worker] Skipping account ${account.id} (accountId=${account.accountId}): ${error instanceof Error ? error.message : error}`
+      );
+    }
   }
+
+  console.error('[Ads Worker] No usable Meta access token found across all Facebook accounts');
+  return null;
 }
 
 /** Format a date as YYYY-MM-DD. */
