@@ -5,7 +5,8 @@
  * based on campaign context (keywords, brand, landing page, geo targets).
  * Falls back to template-based generation if AI is unavailable.
  *
- * Reuses the circuit breaker + Anthropic API pattern from caption-generator.ts.
+ * Uses its OWN circuit breaker key ('ad-creative-ai') separate from
+ * caption-generator to avoid cross-service interference.
  */
 
 import { prisma } from '@experience-marketplace/database';
@@ -49,8 +50,8 @@ export async function generateAdCreative(input: AdCreativeInput): Promise<AdCrea
     );
   }
 
-  // Fallback: template-based generation
-  return generateFromTemplate(primaryKw, input.siteName, context?.imageUrl ?? null);
+  // Fallback: template-based generation (improved quality)
+  return generateFromTemplate(primaryKw, input, context);
 }
 
 // --- Context Fetching --------------------------------------------------------
@@ -141,12 +142,15 @@ async function generateWithAI(
     context?.tonePersonality.length ? context.tonePersonality.join(', ') : 'friendly, enthusiastic';
   const niche = context?.niche || 'travel experiences';
 
+  // Extract destination from keyword (title-case it)
+  const destination = toTitleCase(extractDestination(primaryKw));
+
   // Build context lines for the prompt
   const contextLines: string[] = [];
   if (input.landingPageType) {
     const parts = [`Landing page type: ${input.landingPageType}`];
     if (context?.pageTitle) parts.push(`"${context.pageTitle}"`);
-    if (input.landingPageProducts) parts.push(`(${input.landingPageProducts} experiences)`);
+    if (input.landingPageProducts) parts.push(`(${input.landingPageProducts} experiences available)`);
     contextLines.push(parts.join(' — '));
   }
   if (input.geoTargets.length > 0) {
@@ -155,23 +159,27 @@ async function generateWithAI(
   if (input.keywords.length > 1) {
     contextLines.push(`Related keywords: ${input.keywords.slice(1, 5).join(', ')}`);
   }
+  if (context?.pageDescription) {
+    contextLines.push(`Page description: ${context.pageDescription.substring(0, 150)}`);
+  }
 
   const prompt = `You are a performance marketing copywriter for "${brand}"${tagline}, a ${niche} brand.
 Brand tone: ${tone}.
 Target keyword: ${primaryKw}
+Destination/activity: ${destination}
 ${contextLines.length > 0 ? contextLines.join('\n') : ''}
 
 Write a Facebook ad that drives clicks to book experiences.
 
 Rules:
-- HEADLINE: Max 40 characters. Include the destination or activity name. Be specific and enticing — use numbers, questions, or urgency where natural.
-- BODY: Max 125 characters. Lead with the benefit. Include a proof point (number of experiences, rating, or value). Match the brand tone.
+- HEADLINE: Max 40 characters. Include "${destination}" or a shortened version. Be specific and enticing — use questions or urgency.
+- BODY: Max 125 characters. Lead with the benefit. Do NOT invent specific numbers (like star ratings, prices, or experience counts) unless provided above. Match the brand tone.
 - CTA: Pick the best fit: BOOK_TRAVEL, LEARN_MORE, or SHOP_NOW
 
-Good headlines: "48 Top-Rated Ghent Tours from £12" / "Wine Tasting in Tuscany?" / "Explore Leiden: 23 Experiences"
-Bad headlines: "Restaurants Ghent | Harry Potter Tours" / "Book Travel Experiences"
+Good headlines: "Discover Ghent: Tours & Activities" / "Wine Tasting in Tuscany?" / "Explore Leiden Today"
+Bad headlines: "Restaurants Ghent | Harry Potter Tours" / "Book Travel Experiences" / "48 Top-Rated Tours from £12"
 
-Good body: "4.8★ food tours, walking tours & more in Ghent. Free cancellation. Book today."
+Good body: "Walking tours, food tours & more in Ghent. Free cancellation. Book today!"
 Bad body: "Discover and book amazing restaurants ghent experiences. Best prices."
 
 Format EXACTLY as:
@@ -179,9 +187,10 @@ HEADLINE: [headline]
 BODY: [body text]
 CTA: [BOOK_TRAVEL or LEARN_MORE or SHOP_NOW]`;
 
-  const breaker = circuitBreakers.getBreaker('anthropic-api', {
-    failureThreshold: 3,
-    timeout: 30000,
+  // Use dedicated circuit breaker for ad creatives, separate from caption generation
+  const breaker = circuitBreakers.getBreaker('ad-creative-ai', {
+    failureThreshold: 5,
+    timeout: 60000,
   });
 
   const response = await breaker.execute(async () => {
@@ -230,17 +239,89 @@ function parseAIResponse(text: string, imageUrl: string | null): AdCreative | nu
 
 // --- Template Fallback -------------------------------------------------------
 
+/**
+ * Improved template fallback — generates decent copy even without AI.
+ * Uses destination extraction and title-casing instead of raw keywords.
+ */
 function generateFromTemplate(
   primaryKw: string,
-  siteName: string,
-  imageUrl: string | null
+  input: AdCreativeInput,
+  context: SiteContext | null
 ): AdCreative {
-  const kwTitle = primaryKw.charAt(0).toUpperCase() + primaryKw.slice(1);
+  const destination = toTitleCase(extractDestination(primaryKw));
+  const brand = context?.brandName || input.siteName;
+  const imageUrl = context?.imageUrl ?? null;
+
+  // Build a clean headline: "Explore {Destination}" or "Discover {Destination}"
+  // Try different prefixes to fit within 40 chars
+  const prefixes = ['Explore', 'Discover', 'Visit'];
+  let headline = '';
+  for (const prefix of prefixes) {
+    const candidate = `${prefix} ${destination} Today`;
+    if (candidate.length <= 40) {
+      headline = candidate;
+      break;
+    }
+  }
+  if (!headline) {
+    // Destination alone is long — just use it with a question mark
+    headline = `${destination}?`.substring(0, 40);
+  }
+
+  // Build a better body using destination name
+  const body = `Tours, activities & experiences in ${destination}. Free cancellation. Book today!`.substring(
+    0,
+    125
+  );
+
   return {
-    headline: `${kwTitle} | ${siteName}`.substring(0, 40),
-    body: `Discover and book amazing ${primaryKw} experiences. Best prices, instant confirmation.`,
+    headline,
+    body,
     callToAction: 'BOOK_TRAVEL',
     imageUrl,
     source: 'template',
   };
+}
+
+// --- Utilities ---------------------------------------------------------------
+
+/**
+ * Extract the destination/activity name from a keyword.
+ * "things to do in curitiba" → "curitiba"
+ * "wine tours croatia" → "croatia"
+ * "legoland windsor resort hours" → "legoland windsor"
+ * "restaurants ghent" → "ghent"
+ */
+function extractDestination(keyword: string): string {
+  // Remove common prefixes
+  const cleaned = keyword
+    .replace(/^(things to do in|what to do in|best things to do in|top things to do in)\s+/i, '')
+    .replace(/^(restaurants in|restaurants|hotels in|hotels)\s+/i, '')
+    .replace(/\s+(opening hours|opening times|hours|tickets|prices|cost|review|reviews)$/i, '')
+    .replace(/\s+(resort|park|museum|gallery)$/i, '')
+    .trim();
+
+  // If the cleaned result is very long, take the first 2-3 meaningful words
+  const words = cleaned.split(/\s+/);
+  if (words.length > 3) {
+    return words.slice(0, 3).join(' ');
+  }
+
+  return cleaned || keyword;
+}
+
+/**
+ * Title-case a string: "curitiba" → "Curitiba", "things to do" → "Things to Do"
+ */
+function toTitleCase(str: string): string {
+  const minorWords = new Set(['in', 'of', 'the', 'and', 'to', 'a', 'an', 'at', 'by', 'for', 'on']);
+  return str
+    .split(/\s+/)
+    .map((word, i) => {
+      if (i === 0 || !minorWords.has(word.toLowerCase())) {
+        return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+      }
+      return word.toLowerCase();
+    })
+    .join(' ');
 }

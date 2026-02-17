@@ -766,6 +766,79 @@ function buildLandingUrl(campaign: {
 }
 
 /**
+ * Extract search terms from keywords and find relevant Meta interests.
+ * Long-tail keywords like "things to do in curitiba" return nothing from Meta's
+ * interest search API, so we:
+ * 1. Extract the destination/activity core (e.g. "curitiba", "phuket wildlife")
+ * 2. Search Meta for each extracted term
+ * 3. Fall back to broader terms like "travel" + destination if needed
+ * 4. Filter out clearly irrelevant interests (shopping, finance, etc.)
+ */
+async function findRelevantInterests(
+  metaClient: MetaAdsClient,
+  keywords: string[]
+): Promise<Array<{ id: string; name: string }>> {
+  const allInterests = new Map<string, { id: string; name: string }>();
+
+  // Extract core search terms from keywords
+  const searchTerms = new Set<string>();
+  for (const kw of keywords.slice(0, 5)) {
+    // Extract destination/activity from long-tail keywords
+    const core = kw
+      .replace(/^(things to do in|what to do in|best things to do in|top)\s+/i, '')
+      .replace(/^(restaurants in|restaurants|hotels in|hotels)\s+/i, '')
+      .replace(/\s+(opening hours|opening times|hours|tickets|prices|cost|reviews?)$/i, '')
+      .trim();
+
+    if (core.length > 2) searchTerms.add(core);
+
+    // Also try individual significant words (for multi-word keywords)
+    const words = core.split(/\s+/).filter((w) => w.length > 3);
+    for (const word of words) {
+      // Skip generic filler words
+      if (!['with', 'from', 'near', 'best', 'tour', 'tours'].includes(word.toLowerCase())) {
+        searchTerms.add(word);
+      }
+    }
+  }
+
+  if (searchTerms.size === 0) searchTerms.add('travel');
+
+  // Search Meta for each term (limit API calls)
+  const termsArray = [...searchTerms].slice(0, 4);
+  for (const term of termsArray) {
+    const interests = await metaClient.searchInterests(term);
+    for (const i of interests) {
+      allInterests.set(i.id, { id: i.id, name: i.name });
+    }
+  }
+
+  // If no interests found, try broader "travel {destination}" or just "travel"
+  if (allInterests.size === 0) {
+    const firstTerm = termsArray[0] || 'travel';
+    const broadTerms = [`${firstTerm} travel`, `${firstTerm} tourism`, 'travel'];
+    for (const term of broadTerms) {
+      const interests = await metaClient.searchInterests(term);
+      if (interests.length > 0) {
+        for (const i of interests) {
+          allInterests.set(i.id, { id: i.id, name: i.name });
+        }
+        break; // Found interests, stop broadening
+      }
+    }
+  }
+
+  // Filter out clearly irrelevant interests
+  const irrelevantPatterns = /\b(department store|personal finance|online shopping|fast food|cryptocurrency|real estate|insurance|banking)\b/i;
+  const filtered = [...allInterests.values()].filter(
+    (interest) => !irrelevantPatterns.test(interest.name)
+  );
+
+  // Return at most 10 interests to avoid over-targeting
+  return filtered.slice(0, 10);
+}
+
+/**
  * Deploy campaign to Meta (Facebook) Ads:
  * 1. Create campaign shell
  * 2. Create ad set with interest targeting + CPC bid
@@ -842,15 +915,10 @@ async function deployToMeta(
       .filter((c): c is string => c !== null);
     if (countries.length === 0) countries.push('GB', 'US'); // Default markets
 
-    // Search for relevant interests based on top keywords (merge from multiple)
-    const topKeywords = campaign.keywords.slice(0, 5);
-    if (topKeywords.length === 0) topKeywords.push('travel');
-    const allInterests = new Map<string, { id: string; name: string }>();
-    for (const kw of topKeywords) {
-      const interests = await metaClient.searchInterests(kw);
-      for (const i of interests) allInterests.set(i.id, { id: i.id, name: i.name });
-    }
-    const interestTargeting = [...allInterests.values()];
+    // Search for relevant interests using extracted destination/activity terms.
+    // Long-tail keywords like "things to do in curitiba" return nothing from Meta's
+    // interest search, so we extract the core terms and broaden the search.
+    const interestTargeting = await findRelevantInterests(metaClient, campaign.keywords);
 
     const adSetResult = await metaClient.createAdSet({
       campaignId: campaignResult.campaignId,
