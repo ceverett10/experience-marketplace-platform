@@ -786,8 +786,9 @@ async function findRelevantInterests(
     // Extract destination/activity from long-tail keywords
     const core = kw
       .replace(/^(things to do in|what to do in|best things to do in|top)\s+/i, '')
-      .replace(/^(restaurants in|restaurants|hotels in|hotels)\s+/i, '')
-      .replace(/\s+(opening hours|opening times|hours|tickets|prices|cost|reviews?)$/i, '')
+      .replace(/^(restaurants in|restaurants|hotels in|hotels|wildlife in|activities in|tours in)\s+/i, '')
+      .replace(/^(train|bus|flight|ferry|transfer)\s+/i, '')
+      .replace(/\s+(opening hours|opening times|hours|tickets|prices|cost|reviews?|tourism)$/i, '')
       .trim();
 
     if (core.length > 2) searchTerms.add(core);

@@ -293,12 +293,13 @@ function generateFromTemplate(
  * "restaurants ghent" → "ghent"
  */
 function extractDestination(keyword: string): string {
-  // Remove common prefixes
+  // Remove common prefixes and suffixes to extract the destination/activity core
   const cleaned = keyword
     .replace(/^(things to do in|what to do in|best things to do in|top things to do in)\s+/i, '')
-    .replace(/^(restaurants in|restaurants|hotels in|hotels)\s+/i, '')
+    .replace(/^(restaurants in|restaurants|hotels in|hotels|wildlife in|activities in|tours in)\s+/i, '')
+    .replace(/^(train|bus|flight|ferry|transfer)\s+/i, '')
     .replace(/\s+(opening hours|opening times|hours|tickets|prices|cost|review|reviews)$/i, '')
-    .replace(/\s+(resort|park|museum|gallery)$/i, '')
+    .replace(/\s+(tourism|resort|park|museum|gallery)$/i, '')
     .trim();
 
   // If the cleaned result is very long, take the first 2-3 meaningful words
