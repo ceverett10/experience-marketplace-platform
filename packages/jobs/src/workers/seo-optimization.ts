@@ -732,40 +732,53 @@ export async function handleAutoOptimize(job: Job<SEOAutoOptimizePayload>): Prom
         console.log(`[Auto SEO] Scheduled optimization for site: ${site.name}`);
       }
 
-      // Also fan out to active microsites
-      const microsites = await prisma.micrositeConfig.findMany({
-        where: {
-          status: 'ACTIVE',
-        },
-        select: { id: true, siteName: true },
-      });
+      // Process microsites in-line in batches (too many for individual Redis jobs — ~11k active)
+      const micrositeCount = await prisma.micrositeConfig.count({ where: { status: 'ACTIVE' } });
+      console.log(`[Auto SEO] Processing ${micrositeCount} active microsites in-line...`);
 
-      for (const ms of microsites) {
-        await addJob(
-          'SEO_AUTO_OPTIMIZE',
-          {
-            siteId: '', // Empty — micrositeId carries the real ID; '' is treated as null by addJob
-            micrositeId: ms.id,
-            scope,
-          },
-          {
-            delay: scheduled * 5 * 60 * 1000, // Continue staggering after sites
-            priority: 10,
+      const BATCH_SIZE = 200;
+      let micrositesProcessed = 0;
+      let cursor: string | undefined;
+
+      while (true) {
+        const batch = await prisma.micrositeConfig.findMany({
+          where: { status: 'ACTIVE' },
+          select: { id: true, siteName: true },
+          take: BATCH_SIZE,
+          ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+          orderBy: { id: 'asc' },
+        });
+
+        if (batch.length === 0) break;
+        cursor = batch[batch.length - 1]!.id;
+
+        for (const ms of batch) {
+          try {
+            const msOwner: import('../services/seo-optimizer').PageOwnerFilter = { micrositeId: ms.id };
+            await autoOptimizeSiteSEO('', msOwner);
+            await addMissingStructuredData('', msOwner);
+            await flagThinContentForExpansion('', msOwner);
+            await updateContentFreshness('', msOwner);
+            await fixMissingImageAltText('', msOwner);
+            micrositesProcessed++;
+          } catch (err) {
+            console.warn(`[Auto SEO] Microsite ${ms.siteName} failed:`, err instanceof Error ? err.message : err);
           }
-        );
-        scheduled++;
-        console.log(`[Auto SEO] Scheduled optimization for microsite: ${ms.siteName}`);
+        }
+
+        console.log(`[Auto SEO] Processed ${micrositesProcessed}/${micrositeCount} microsites...`);
       }
+
+      console.log(`[Auto SEO] Finished processing ${micrositesProcessed} microsites`);
 
       const duration = Date.now() - startTime;
       return {
         success: true,
         data: {
           sitesScheduled: sites.length,
-          micrositesScheduled: microsites.length,
+          micrositesProcessed,
           totalScheduled: scheduled,
           sites: sites.map((s) => s.name),
-          microsites: microsites.map((m) => m.siteName),
           duration,
         },
         timestamp: new Date(),
