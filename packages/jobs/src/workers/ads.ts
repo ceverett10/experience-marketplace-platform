@@ -898,6 +898,9 @@ async function deployToMeta(
     // interest search, so we extract the core terms and broaden the search.
     const interestTargeting = await findRelevantInterests(metaClient, campaign.keywords);
 
+    // DSA compliance: required when targeting EU countries (IE is in our SOURCE_MARKETS)
+    const siteName = campaign.site?.name || 'Holibob';
+
     const adSetResult = await metaClient.createAdSet({
       campaignId: campaignResult.campaignId,
       name: `${campaign.name} - Ad Set`,
@@ -905,7 +908,8 @@ async function deployToMeta(
       bidAmount: campaign.maxCpc,
       targeting: {
         countries,
-        locationTypes: ['home'], // Reach people from these markets even when traveling abroad
+        // Note: location_types is deprecated by Meta — all targeting now automatically
+        // reaches "people living in or recently in" selected locations.
         interests: interestTargeting.length > 0 ? interestTargeting : undefined,
         ageMin: 18,
         ageMax: 65,
@@ -913,6 +917,8 @@ async function deployToMeta(
       optimizationGoal: 'LINK_CLICKS',
       billingEvent: 'IMPRESSIONS',
       status: 'PAUSED',
+      dsaBeneficiary: siteName,
+      dsaPayor: siteName,
     });
 
     if (!adSetResult) {

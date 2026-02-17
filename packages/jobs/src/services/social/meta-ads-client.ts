@@ -269,7 +269,6 @@ export class MetaAdsClient {
     bidAmount: number; // Max CPC bid in account currency
     targeting: {
       countries: string[];
-      locationTypes?: string[]; // e.g. ['home'] — default is ['everyone']
       interests?: Array<{ id: string; name: string }>;
       ageMin?: number;
       ageMax?: number;
@@ -277,14 +276,16 @@ export class MetaAdsClient {
     optimizationGoal?: string;
     billingEvent?: string;
     status?: 'ACTIVE' | 'PAUSED';
+    // EU Digital Services Act (DSA) compliance — required when targeting EU countries
+    dsaBeneficiary?: string;
+    dsaPayor?: string;
   }): Promise<{ adSetId: string } | null> {
     try {
       await this.enforceRateLimit();
 
+      // Note: location_types is deprecated by Meta — all targeting now reaches
+      // "people living in or recently in" selected locations automatically.
       const geoLocations: Record<string, unknown> = { countries: config.targeting.countries };
-      if (config.targeting.locationTypes?.length) {
-        geoLocations['location_types'] = config.targeting.locationTypes;
-      }
       const targetingSpec: Record<string, unknown> = {
         geo_locations: geoLocations,
       };
@@ -309,6 +310,13 @@ export class MetaAdsClient {
       // Only set ad set budget if not using Campaign Budget Optimization (CBO)
       if (config.dailyBudget != null) {
         params.set('daily_budget', Math.round(config.dailyBudget * 100).toString());
+      }
+      // EU Digital Services Act (DSA) — required when targeting EU countries (e.g. Ireland)
+      if (config.dsaBeneficiary) {
+        params.set('dsa_beneficiary', config.dsaBeneficiary);
+      }
+      if (config.dsaPayor) {
+        params.set('dsa_payor', config.dsaPayor);
       }
 
       const response = await fetch(`${META_API_BASE}/${this.adAccountId}/adsets`, {
