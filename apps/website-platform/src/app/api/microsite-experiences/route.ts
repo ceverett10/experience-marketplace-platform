@@ -303,7 +303,7 @@ export async function GET(request: NextRequest) {
     const responseData = {
       experiences: paginatedExperiences,
       page,
-      totalCount: response.unfilteredRecordCount ?? response.recordCount ?? 0,
+      totalCount: response.recordCount ?? paginatedExperiences.length,
       filteredCount: hasClientFilters
         ? filteredExperiences.length
         : response.recordCount ?? paginatedExperiences.length,
