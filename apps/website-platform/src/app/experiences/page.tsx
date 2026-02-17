@@ -523,6 +523,10 @@ async function getExperiencesFromHolibobAPI(
     const response = await client.getProductsByProvider(holibobSupplierId, {
       pageSize,
       page,
+      filters: {
+        placeName: options.filters?.cities?.[0],
+        categoryIds: options.filters?.categories,
+      },
     });
 
     // Map Holibob products to ExperienceListItem format
@@ -547,8 +551,8 @@ async function getExperiencesFromHolibobAPI(
         }
       }
 
-      // Get location from place field (cityId available, name not in API response)
-      const locationName = '';
+      // Get location from place field
+      const locationName = product.place?.name ?? '';
 
       return {
         id: product.id,

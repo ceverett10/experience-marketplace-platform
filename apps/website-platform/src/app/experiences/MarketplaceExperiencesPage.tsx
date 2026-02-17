@@ -121,7 +121,9 @@ export function MarketplaceExperiencesPage({
         if (currentFilters.categories) {
           params.set('categories', currentFilters.categories);
         }
-        // Note: search, city filters would go here when supported by UI
+        if (currentFilters.cities) {
+          params.set('city', currentFilters.cities);
+        }
 
         const res = await fetch(`/api/microsite-experiences?${params.toString()}`);
         const data = await res.json();
@@ -159,6 +161,9 @@ export function MarketplaceExperiencesPage({
       // Preserve current filters
       if (currentFilters.categories) {
         params.set('categories', currentFilters.categories);
+      }
+      if (currentFilters.cities) {
+        params.set('city', currentFilters.cities);
       }
 
       const res = await fetch(`/api/microsite-experiences?${params.toString()}`);

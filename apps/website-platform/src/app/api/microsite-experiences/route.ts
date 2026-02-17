@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
     // Filters - these go directly to Holibob API
     const categories = searchParams.get('categories');
     const search = searchParams.get('search');
-    const city = searchParams.get('city');
+    const city = searchParams.get('city') || searchParams.get('cities')?.split(',')[0];
 
     // Build filter options for Holibob API
     const filters: {
