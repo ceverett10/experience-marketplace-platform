@@ -981,6 +981,39 @@ async function deployToMeta(
       `[Ads Worker] Creative (${creative.source}): "${creative.headline}" / "${creative.body.substring(0, 60)}..."`
     );
 
+    // Persist generated creative + targeting to proposalData for audit trail
+    try {
+      const existing = await prisma.adCampaign.findUnique({
+        where: { id: campaign.id },
+        select: { proposalData: true },
+      });
+      await prisma.adCampaign.update({
+        where: { id: campaign.id },
+        data: {
+          proposalData: {
+            ...(typeof existing?.proposalData === 'object' && existing?.proposalData !== null
+              ? existing.proposalData
+              : {}),
+            generatedCreative: {
+              headline: creative.headline,
+              body: creative.body,
+              callToAction: creative.callToAction,
+              imageUrl: creative.imageUrl,
+              source: creative.source,
+              generatedAt: new Date().toISOString(),
+            },
+            deployedTargeting: {
+              countries,
+              interests: interestTargeting.map((i) => i.name),
+              interestCount: interestTargeting.length,
+            },
+          },
+        },
+      });
+    } catch {
+      // Don't block deployment if persistence fails
+    }
+
     const adResult = await metaClient.createAd({
       adSetId: adSetResult.adSetId,
       name: `${campaign.name} - Ad`,
