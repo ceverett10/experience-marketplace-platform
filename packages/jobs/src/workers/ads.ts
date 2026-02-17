@@ -36,6 +36,7 @@ import {
   setCampaignStatus as setGoogleCampaignStatus,
 } from '../services/google-ads-client';
 import { PAID_TRAFFIC_CONFIG } from '../config/paid-traffic';
+import { generateAdCreative } from '../services/ad-creative-generator';
 
 // --- Helpers -----------------------------------------------------------------
 
@@ -733,6 +734,10 @@ async function deployCampaignToPlatform(campaign: {
   utmMedium: string | null;
   utmCampaign: string | null;
   audiences?: unknown;
+  siteId?: string | null;
+  landingPagePath?: string | null;
+  landingPageType?: string | null;
+  landingPageProducts?: number | null;
   site?: { name: string; primaryDomain: string | null } | null;
 }): Promise<string | null> {
   const landingUrl = buildLandingUrl(campaign);
@@ -774,6 +779,10 @@ async function deployToMeta(
     maxCpc: number;
     keywords: string[];
     geoTargets: string[];
+    siteId?: string | null;
+    landingPagePath?: string | null;
+    landingPageType?: string | null;
+    landingPageProducts?: number | null;
     site?: { name: string } | null;
   },
   landingUrl: string
@@ -888,21 +897,30 @@ async function deployToMeta(
       return null;
     }
 
-    // Step 3: Create ad creative (use primary keyword for headline)
-    const siteName = campaign.site?.name || 'Holibob';
-    const primaryKw = campaign.keywords[0] || 'travel';
-    const headline =
-      `${primaryKw.charAt(0).toUpperCase() + primaryKw.slice(1)} | ${siteName}`.substring(0, 40);
-    const body = `Discover and book amazing ${primaryKw} experiences. Best prices, instant confirmation.`;
+    // Step 3: Generate ad creative (AI-powered with template fallback)
+    const creative = await generateAdCreative({
+      keywords: campaign.keywords,
+      siteId: campaign.siteId,
+      siteName: campaign.site?.name || 'Holibob',
+      landingPagePath: campaign.landingPagePath,
+      landingPageType: campaign.landingPageType,
+      landingPageProducts: campaign.landingPageProducts,
+      geoTargets: campaign.geoTargets,
+    });
+
+    console.log(
+      `[Ads Worker] Creative (${creative.source}): "${creative.headline}" / "${creative.body.substring(0, 60)}..."`
+    );
 
     const adResult = await metaClient.createAd({
       adSetId: adSetResult.adSetId,
       name: `${campaign.name} - Ad`,
       pageId,
       linkUrl: landingUrl,
-      headline,
-      body,
-      callToAction: 'BOOK_TRAVEL',
+      headline: creative.headline,
+      body: creative.body,
+      imageUrl: creative.imageUrl || undefined,
+      callToAction: creative.callToAction,
       status: 'PAUSED',
     });
 
@@ -922,7 +940,8 @@ async function deployToMeta(
               adSetId: adSetResult.adSetId,
               campaignName: campaign.name,
               step: 'createAd',
-              headline,
+              headline: creative.headline,
+              creativeSource: creative.source,
               landingUrl,
             },
           },
@@ -1148,6 +1167,10 @@ export async function deployDraftCampaigns(): Promise<{
       utmMedium: draft.utmMedium,
       utmCampaign: draft.utmCampaign,
       audiences: draft.audiences,
+      siteId: draft.siteId,
+      landingPagePath: draft.landingPagePath,
+      landingPageType: draft.landingPageType,
+      landingPageProducts: draft.landingPageProducts,
       site: draft.site,
     });
 
