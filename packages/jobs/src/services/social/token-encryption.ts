@@ -36,12 +36,14 @@ export function encryptToken(plaintext: string): string {
 /**
  * Decrypt an encrypted token string.
  * Expects format: iv:authTag:ciphertext (all base64-encoded)
+ * If the token is not in encrypted format (plaintext), returns it as-is.
  */
 export function decryptToken(encrypted: string): string {
   const key = getEncryptionKey();
   const parts = encrypted.split(':');
   if (parts.length !== 3) {
-    throw new Error('Invalid encrypted token format');
+    // Token is stored as plaintext (pre-encryption migration) — return as-is
+    return encrypted;
   }
 
   const [ivPart, authTagPart, ciphertext] = parts as [string, string, string];

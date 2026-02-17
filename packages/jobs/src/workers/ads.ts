@@ -57,8 +57,13 @@ async function getMetaAdsClient(): Promise<MetaAdsClient | null> {
   });
   if (!account?.accessToken) return null;
 
-  const { accessToken } = await refreshTokenIfNeeded(account);
-  return new MetaAdsClient({ accessToken, adAccountId });
+  try {
+    const { accessToken } = await refreshTokenIfNeeded(account);
+    return new MetaAdsClient({ accessToken, adAccountId });
+  } catch (error) {
+    console.error('[Ads Worker] Failed to get Meta access token:', error);
+    return null;
+  }
 }
 
 /** Format a date as YYYY-MM-DD. */
