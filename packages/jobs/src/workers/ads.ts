@@ -829,8 +829,9 @@ async function findRelevantInterests(
     }
   }
 
-  // Filter out clearly irrelevant interests
-  const irrelevantPatterns = /\b(department store|personal finance|online shopping|fast food|cryptocurrency|real estate|insurance|banking)\b/i;
+  // Filter out clearly irrelevant interests (Meta's interest search returns many false positives)
+  const irrelevantPatterns =
+    /\b(department store|personal finance|online shopping|fast food|cryptocurrency|real estate|insurance|banking|banks and financial|psychedelic|gangsta rap|subculture|popular culture|american culture|japanese popular culture|video game culture|chinese culture|coffee culture|martha stewart|compact car|toyota|soccer player|german soccer|brazilian soccer|rugby union|french soccer|drama actor|government in)\b/i;
   const filtered = [...allInterests.values()].filter(
     (interest) => !irrelevantPatterns.test(interest.name)
   );

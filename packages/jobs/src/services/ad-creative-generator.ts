@@ -163,24 +163,26 @@ async function generateWithAI(
     contextLines.push(`Page description: ${context.pageDescription.substring(0, 150)}`);
   }
 
-  const prompt = `You are a performance marketing copywriter for "${brand}"${tagline}, a ${niche} brand.
-Brand tone: ${tone}.
+  const prompt = `You are a performance marketing copywriter for a travel experiences platform.
+Brand: "${brand}". Tone: ${tone}.
 Target keyword: ${primaryKw}
 Destination/activity: ${destination}
 ${contextLines.length > 0 ? contextLines.join('\n') : ''}
 
-Write a Facebook ad that drives clicks to book experiences.
+Write a Facebook ad for "${destination}" experiences that drives clicks.
 
-Rules:
-- HEADLINE: Max 40 characters. Include "${destination}" or a shortened version. Be specific and enticing — use questions or urgency.
-- BODY: Max 125 characters. Lead with the benefit. Do NOT invent specific numbers (like star ratings, prices, or experience counts) unless provided above. Match the brand tone.
-- CTA: Pick the best fit: BOOK_TRAVEL, LEARN_MORE, or SHOP_NOW
+CRITICAL RULES:
+- The ad MUST be specifically about "${destination}". Do NOT mention activities or locations that are not relevant to "${destination}".
+- Do NOT reference the brand's other activities (e.g., do NOT mention whitewater, rafting, or other sports unless the keyword is specifically about those activities in ${destination}).
+- HEADLINE: Max 40 characters. Include "${destination}" or a shortened form. Be specific and enticing.
+- BODY: Max 125 characters. Focus on what travelers can do in ${destination}. Do NOT invent specific numbers (star ratings, prices, experience counts). Mention "free cancellation" or "book today" as CTA.
+- CTA: BOOK_TRAVEL, LEARN_MORE, or SHOP_NOW
 
 Good headlines: "Discover Ghent: Tours & Activities" / "Wine Tasting in Tuscany?" / "Explore Leiden Today"
-Bad headlines: "Restaurants Ghent | Harry Potter Tours" / "Book Travel Experiences" / "48 Top-Rated Tours from £12"
+Bad headlines: "Restaurants Ghent | Harry Potter Tours" / "Book Travel Experiences" / "Epic Whitewater in Ghent"
 
 Good body: "Walking tours, food tours & more in Ghent. Free cancellation. Book today!"
-Bad body: "Discover and book amazing restaurants ghent experiences. Best prices."
+Bad body: "Whitewater thrills and epic adventures await. Trusted by 10K+ explorers."
 
 Format EXACTLY as:
 HEADLINE: [headline]
