@@ -1,4 +1,5 @@
 import { headers } from 'next/headers';
+import { redirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getSiteFromHostname, type SiteConfig } from '@/lib/tenant';
 import { getHolibobClient, type ExperienceListItem, parseIsoDuration } from '@/lib/holibob';
@@ -1078,6 +1079,27 @@ export default async function ExperiencesPage({ searchParams }: Props) {
     site,
     resolvedSearchParams
   );
+
+  // PPC fallback: if filtered page returns 0 results and traffic is from PPC, redirect to homepage
+  const hasFilters = resolvedSearchParams['cities'] || resolvedSearchParams['categories'];
+  const isPpcTraffic =
+    resolvedSearchParams['utm_source'] ||
+    resolvedSearchParams['utm_medium'] ||
+    resolvedSearchParams['utm_campaign'] ||
+    resolvedSearchParams['fbclid'] ||
+    resolvedSearchParams['gclid'];
+
+  if (hasFilters && isPpcTraffic && experiences.length === 0) {
+    // Preserve UTM params on redirect so attribution isn't lost
+    const utmParams = new URLSearchParams();
+    for (const key of ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'fbclid', 'gclid']) {
+      if (resolvedSearchParams[key]) {
+        utmParams.set(key, resolvedSearchParams[key]!);
+      }
+    }
+    const query = utmParams.toString();
+    redirect(query ? `/?${query}` : '/');
+  }
 
   const destination = resolvedSearchParams.destination || resolvedSearchParams.location;
   const isMicrosite =
