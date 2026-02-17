@@ -41,9 +41,12 @@ const adminSubdomainProxy = createProxyMiddleware({
 app.use((req, res, next) => {
   const host = (req.headers['x-forwarded-host'] || req.headers.host || '').toString().split(':')[0];
   if (host === 'admin.experiencess.com') {
-    // Prepend /admin if path doesn't already start with it
+    // Prepend /admin if path doesn't already start with it.
+    // Must update both req.url AND req.originalUrl because http-proxy-middleware
+    // reads req.originalUrl (falling back to req.url) for the forwarded path.
     if (!req.url.startsWith('/admin')) {
       req.url = '/admin' + req.url;
+      req.originalUrl = '/admin' + req.originalUrl;
     }
     return adminSubdomainProxy(req, res, next);
   }
