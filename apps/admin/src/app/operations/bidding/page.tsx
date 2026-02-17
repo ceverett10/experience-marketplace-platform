@@ -30,6 +30,31 @@ interface ProposalKeywordDetail {
   landingPagePath?: string;
 }
 
+interface GeneratedCreative {
+  headline: string;
+  body: string;
+  callToAction: string;
+  imageUrl?: string | null;
+  source: string;
+  generatedAt: string;
+}
+
+interface DeployedTargeting {
+  countries: string[];
+  interests: string[];
+  interestCount: number;
+}
+
+interface AdGroupConfig {
+  primaryKeyword: string;
+  keywords: string[];
+  maxBid: number;
+  targetUrl: string;
+  landingPagePath?: string;
+  landingPageType?: string;
+  totalExpectedDailyCost?: number;
+}
+
 interface ProposalEstimates {
   // Grouped campaign fields (new format)
   keywordCount?: number;
@@ -55,6 +80,8 @@ interface ProposalEstimates {
     targetRoas: number;
     revenuePerClick: number;
   };
+  generatedCreative?: GeneratedCreative;
+  deployedTargeting?: DeployedTargeting;
 }
 
 interface BiddingCampaign {
@@ -84,6 +111,8 @@ interface BiddingCampaign {
   landingPageType: string | null;
   landingPageProducts: number | null;
   qualityScore: number | null;
+  platformCampaignId: string | null;
+  audiences: { adGroups?: AdGroupConfig[] } | null;
 }
 
 interface Attribution {
@@ -2039,8 +2068,20 @@ export default function PaidTrafficDashboard() {
                   {filteredCampaigns.map((c) => {
                     const isExpanded = expandedCampaigns.has(c.id);
                     const cAny = c as any;
-                    const kwDetails: ProposalKeywordDetail[] = cAny.proposalData?.keywords ?? [];
-                    const hasDetails = kwDetails.length > 0;
+                    const bc = c as BiddingCampaign;
+                    const kwDetails: ProposalKeywordDetail[] = bc.proposalData?.keywords ?? [];
+                    const adGroups: AdGroupConfig[] = bc.audiences?.adGroups ?? [];
+                    const creative = bc.proposalData?.generatedCreative ?? null;
+                    const targeting = bc.proposalData?.deployedTargeting ?? null;
+                    const assumptions = bc.proposalData?.assumptions ?? null;
+                    const platformId = bc.platformCampaignId ?? null;
+                    const hasDetails =
+                      kwDetails.length > 0 ||
+                      adGroups.length > 0 ||
+                      !!creative ||
+                      !!targeting ||
+                      !!assumptions ||
+                      !!platformId;
                     const toggleExpand = () => {
                       setExpandedCampaigns((prev) => {
                         const next = new Set(prev);
@@ -2126,7 +2167,9 @@ export default function PaidTrafficDashboard() {
                                     title={c.targetUrl}
                                   >
                                     {c.targetUrl.replace(/^https?:\/\//, '').substring(0, 40)}
-                                    {c.targetUrl.replace(/^https?:\/\//, '').length > 40 ? '...' : ''}
+                                    {c.targetUrl.replace(/^https?:\/\//, '').length > 40
+                                      ? '...'
+                                      : ''}
                                   </a>
                                 )}
                               </div>
@@ -2199,102 +2242,317 @@ export default function PaidTrafficDashboard() {
                             )}
                           </td>
                         </tr>
-                        {isExpanded && kwDetails.length > 0 && (
+                        {isExpanded && hasDetails && (
                           <tr className="bg-slate-50">
-                            <td colSpan={15} className="px-6 py-3">
-                              <div className="text-xs font-medium text-slate-500 mb-2">
-                                Keywords in this campaign
+                            <td colSpan={15} className="px-6 py-4">
+                              {/* Campaign meta bar */}
+                              <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-xs text-slate-500 mb-3 pb-3 border-b border-slate-200">
+                                {platformId && (
+                                  <span>
+                                    Platform ID:{' '}
+                                    <code className="font-mono text-slate-700 bg-slate-100 px-1 py-0.5 rounded">
+                                      {platformId}
+                                    </code>
+                                  </span>
+                                )}
+                                <span>
+                                  Budget:{' '}
+                                  <span className="text-slate-700 font-medium">
+                                    {fmt(c.dailyBudget, 'currency')}/day
+                                  </span>
+                                </span>
+                                <span>
+                                  Max CPC:{' '}
+                                  <span className="text-slate-700 font-medium">
+                                    {fmt(c.maxCpc, 'currency')}
+                                  </span>
+                                </span>
+                                {bc.proposalData?.weightedRoas != null && (
+                                  <span>
+                                    Est. ROAS:{' '}
+                                    <span className="text-slate-700 font-medium">
+                                      {bc.proposalData.weightedRoas.toFixed(1)}x
+                                    </span>
+                                  </span>
+                                )}
                               </div>
-                              <table className="w-full text-xs">
-                                <thead>
-                                  <tr className="text-slate-400">
-                                    <th className="text-left py-1 pr-3">Keyword</th>
-                                    <th className="text-left py-1 pr-3">Intent</th>
-                                    <th className="text-right py-1 pr-3">Volume</th>
-                                    <th className="text-right py-1 pr-3">CPC</th>
-                                    <th className="text-right py-1 pr-3">Cost/day</th>
-                                    <th className="text-right py-1 pr-3">Rev/day</th>
-                                    <th className="text-right py-1 pr-3">Score</th>
-                                    <th className="text-left py-1">Landing</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {kwDetails.map((kw, i) => {
-                                    const kwRoas =
-                                      kw.expectedDailyCost > 0
-                                        ? kw.expectedDailyRevenue / kw.expectedDailyCost
-                                        : 0;
-                                    return (
-                                      <tr
-                                        key={i}
-                                        className="border-t border-slate-200 text-slate-600"
-                                      >
-                                        <td className="py-1 pr-3 font-medium">{kw.keyword}</td>
-                                        <td className="py-1 pr-3">
-                                          <span
-                                            className={`px-1.5 py-0.5 rounded ${
-                                              kw.intent === 'transactional'
-                                                ? 'bg-emerald-50 text-emerald-700'
-                                                : kw.intent === 'commercial'
-                                                  ? 'bg-blue-50 text-blue-700'
-                                                  : 'bg-slate-100 text-slate-600'
-                                            }`}
-                                          >
-                                            {kw.intent}
+
+                              {/* Creative / Targeting / Assumptions cards */}
+                              {(creative || targeting || assumptions) && (
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                                  {creative && (
+                                    <div className="bg-white rounded-lg border border-slate-200 p-3">
+                                      <div className="text-xs font-semibold text-slate-700 mb-2 uppercase tracking-wide">
+                                        Creative
+                                      </div>
+                                      <div className="space-y-1.5 text-xs">
+                                        <div>
+                                          <span className="text-slate-400">Headline: </span>
+                                          <span className="font-medium text-slate-800">
+                                            {creative.headline}
                                           </span>
-                                        </td>
-                                        <td className="py-1 pr-3 text-right tabular-nums">
-                                          {kw.searchVolume.toLocaleString()}
-                                        </td>
-                                        <td className="py-1 pr-3 text-right tabular-nums">
-                                          {fmt(kw.estimatedCpc, 'currency')}
-                                        </td>
-                                        <td className="py-1 pr-3 text-right tabular-nums">
-                                          {fmt(kw.expectedDailyCost, 'currency')}
-                                        </td>
-                                        <td className="py-1 pr-3 text-right tabular-nums">
-                                          {fmt(kw.expectedDailyRevenue, 'currency')}
-                                        </td>
-                                        <td
-                                          className={`py-1 pr-3 text-right tabular-nums font-medium ${
-                                            kwRoas >= 3
-                                              ? 'text-emerald-600'
-                                              : kwRoas >= 1
-                                                ? 'text-amber-600'
-                                                : 'text-red-600'
-                                          }`}
-                                        >
-                                          {kwRoas.toFixed(1)}x
-                                        </td>
-                                        <td className="py-1 truncate max-w-[200px]">
-                                          {kw.landingPagePath ? (
-                                            <a
-                                              href={
-                                                cAny.micrositeDomain
-                                                  ? `https://${cAny.micrositeDomain}${kw.landingPagePath}`
-                                                  : kw.landingPagePath.startsWith('http')
-                                                    ? kw.landingPagePath
-                                                    : c.targetUrl
-                                                      ? new URL(kw.landingPagePath, c.targetUrl).href
-                                                      : kw.landingPagePath
-                                              }
-                                              target="_blank"
-                                              rel="noopener noreferrer"
-                                              className="text-blue-600 hover:text-blue-800 hover:underline"
-                                              title={kw.landingPagePath}
-                                              onClick={(e) => e.stopPropagation()}
-                                            >
-                                              {kw.landingPagePath}
-                                            </a>
-                                          ) : (
-                                            <span className="text-slate-400">{'\u2014'}</span>
+                                        </div>
+                                        <div>
+                                          <span className="text-slate-400">Body: </span>
+                                          <span className="text-slate-700">{creative.body}</span>
+                                        </div>
+                                        <div>
+                                          <span className="text-slate-400">CTA: </span>
+                                          <span className="font-medium text-blue-700">
+                                            {creative.callToAction}
+                                          </span>
+                                        </div>
+                                        {creative.imageUrl && (
+                                          <img
+                                            src={creative.imageUrl}
+                                            alt="Ad creative"
+                                            className="w-20 h-20 object-cover rounded mt-2 border border-slate-200"
+                                          />
+                                        )}
+                                        <div className="text-slate-400 pt-1">
+                                          {creative.source}
+                                          {creative.generatedAt && (
+                                            <>
+                                              {' '}
+                                              &middot;{' '}
+                                              {new Date(creative.generatedAt).toLocaleDateString()}
+                                            </>
                                           )}
-                                        </td>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {targeting && (
+                                    <div className="bg-white rounded-lg border border-slate-200 p-3">
+                                      <div className="text-xs font-semibold text-slate-700 mb-2 uppercase tracking-wide">
+                                        Targeting
+                                      </div>
+                                      <div className="space-y-2 text-xs">
+                                        {targeting.countries?.length > 0 && (
+                                          <div>
+                                            <span className="text-slate-400">Countries:</span>
+                                            <div className="flex flex-wrap gap-1 mt-1">
+                                              {targeting.countries.map((cc) => (
+                                                <span
+                                                  key={cc}
+                                                  className="px-1.5 py-0.5 bg-slate-100 rounded text-slate-700"
+                                                >
+                                                  {cc}
+                                                </span>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        )}
+                                        {targeting.interests?.length > 0 && (
+                                          <div>
+                                            <span className="text-slate-400">
+                                              Interests (
+                                              {targeting.interestCount ||
+                                                targeting.interests.length}
+                                              ):
+                                            </span>
+                                            <ul className="mt-1 space-y-0.5 text-slate-600">
+                                              {targeting.interests.map((interest) => (
+                                                <li key={interest} className="ml-3">
+                                                  &bull; {interest}
+                                                </li>
+                                              ))}
+                                            </ul>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {assumptions && (
+                                    <div className="bg-white rounded-lg border border-slate-200 p-3">
+                                      <div className="text-xs font-semibold text-slate-700 mb-2 uppercase tracking-wide">
+                                        Assumptions
+                                      </div>
+                                      <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                                        <dt className="text-slate-400">Avg Order Value</dt>
+                                        <dd className="text-slate-800 font-medium text-right">
+                                          {fmt(assumptions.avgOrderValue, 'currency')}
+                                        </dd>
+                                        <dt className="text-slate-400">Commission</dt>
+                                        <dd className="text-slate-800 font-medium text-right">
+                                          {(assumptions.commissionRate * 100).toFixed(0)}%
+                                        </dd>
+                                        <dt className="text-slate-400">Conversion Rate</dt>
+                                        <dd className="text-slate-800 font-medium text-right">
+                                          {(assumptions.conversionRate * 100).toFixed(1)}%
+                                        </dd>
+                                        <dt className="text-slate-400">Target ROAS</dt>
+                                        <dd className="text-slate-800 font-medium text-right">
+                                          {assumptions.targetRoas.toFixed(1)}x
+                                        </dd>
+                                        <dt className="text-slate-400">Rev / Click</dt>
+                                        <dd className="text-slate-800 font-medium text-right">
+                                          {fmt(assumptions.revenuePerClick, 'currency')}
+                                        </dd>
+                                      </dl>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Ad Groups table */}
+                              {adGroups.length > 0 && (
+                                <div className="mb-4">
+                                  <div className="text-xs font-medium text-slate-500 mb-2">
+                                    Ad Groups ({adGroups.length})
+                                  </div>
+                                  <table className="w-full text-xs">
+                                    <thead>
+                                      <tr className="text-slate-400">
+                                        <th className="text-left py-1 pr-3">Primary Keyword</th>
+                                        <th className="text-right py-1 pr-3">Keywords</th>
+                                        <th className="text-right py-1 pr-3">Max Bid</th>
+                                        <th className="text-left py-1 pr-3">Landing Page</th>
+                                        <th className="text-right py-1">Est. Cost/day</th>
                                       </tr>
-                                    );
-                                  })}
-                                </tbody>
-                              </table>
+                                    </thead>
+                                    <tbody>
+                                      {adGroups.map((ag, i) => (
+                                        <tr
+                                          key={i}
+                                          className="border-t border-slate-200 text-slate-600"
+                                        >
+                                          <td className="py-1 pr-3 font-medium">
+                                            {ag.primaryKeyword}
+                                          </td>
+                                          <td className="py-1 pr-3 text-right tabular-nums">
+                                            {ag.keywords.length}
+                                          </td>
+                                          <td className="py-1 pr-3 text-right tabular-nums">
+                                            {fmt(ag.maxBid, 'currency')}
+                                          </td>
+                                          <td className="py-1 pr-3 truncate max-w-[200px]">
+                                            {ag.targetUrl ? (
+                                              <a
+                                                href={ag.targetUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-blue-600 hover:text-blue-800 hover:underline"
+                                                title={ag.targetUrl}
+                                                onClick={(e) => e.stopPropagation()}
+                                              >
+                                                {ag.landingPagePath || ag.targetUrl}
+                                              </a>
+                                            ) : (
+                                              <span className="text-slate-400">{'\u2014'}</span>
+                                            )}
+                                          </td>
+                                          <td className="py-1 text-right tabular-nums">
+                                            {fmt(ag.totalExpectedDailyCost, 'currency')}
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              )}
+
+                              {/* Keywords table */}
+                              {kwDetails.length > 0 && (
+                                <div>
+                                  <div className="text-xs font-medium text-slate-500 mb-2">
+                                    Keywords ({kwDetails.length})
+                                  </div>
+                                  <table className="w-full text-xs">
+                                    <thead>
+                                      <tr className="text-slate-400">
+                                        <th className="text-left py-1 pr-3">Keyword</th>
+                                        <th className="text-left py-1 pr-3">Intent</th>
+                                        <th className="text-right py-1 pr-3">Volume</th>
+                                        <th className="text-right py-1 pr-3">CPC</th>
+                                        <th className="text-right py-1 pr-3">Cost/day</th>
+                                        <th className="text-right py-1 pr-3">Rev/day</th>
+                                        <th className="text-right py-1 pr-3">Score</th>
+                                        <th className="text-left py-1">Landing</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {kwDetails.map((kw, i) => {
+                                        const kwRoas =
+                                          kw.expectedDailyCost > 0
+                                            ? kw.expectedDailyRevenue / kw.expectedDailyCost
+                                            : 0;
+                                        return (
+                                          <tr
+                                            key={i}
+                                            className="border-t border-slate-200 text-slate-600"
+                                          >
+                                            <td className="py-1 pr-3 font-medium">{kw.keyword}</td>
+                                            <td className="py-1 pr-3">
+                                              <span
+                                                className={`px-1.5 py-0.5 rounded ${
+                                                  kw.intent === 'transactional'
+                                                    ? 'bg-emerald-50 text-emerald-700'
+                                                    : kw.intent === 'commercial'
+                                                      ? 'bg-blue-50 text-blue-700'
+                                                      : 'bg-slate-100 text-slate-600'
+                                                }`}
+                                              >
+                                                {kw.intent}
+                                              </span>
+                                            </td>
+                                            <td className="py-1 pr-3 text-right tabular-nums">
+                                              {kw.searchVolume.toLocaleString()}
+                                            </td>
+                                            <td className="py-1 pr-3 text-right tabular-nums">
+                                              {fmt(kw.estimatedCpc, 'currency')}
+                                            </td>
+                                            <td className="py-1 pr-3 text-right tabular-nums">
+                                              {fmt(kw.expectedDailyCost, 'currency')}
+                                            </td>
+                                            <td className="py-1 pr-3 text-right tabular-nums">
+                                              {fmt(kw.expectedDailyRevenue, 'currency')}
+                                            </td>
+                                            <td
+                                              className={`py-1 pr-3 text-right tabular-nums font-medium ${
+                                                kwRoas >= 3
+                                                  ? 'text-emerald-600'
+                                                  : kwRoas >= 1
+                                                    ? 'text-amber-600'
+                                                    : 'text-red-600'
+                                              }`}
+                                            >
+                                              {kwRoas.toFixed(1)}x
+                                            </td>
+                                            <td className="py-1 truncate max-w-[200px]">
+                                              {kw.landingPagePath ? (
+                                                <a
+                                                  href={
+                                                    cAny.micrositeDomain
+                                                      ? `https://${cAny.micrositeDomain}${kw.landingPagePath}`
+                                                      : kw.landingPagePath.startsWith('http')
+                                                        ? kw.landingPagePath
+                                                        : c.targetUrl
+                                                          ? new URL(kw.landingPagePath, c.targetUrl)
+                                                              .href
+                                                          : kw.landingPagePath
+                                                  }
+                                                  target="_blank"
+                                                  rel="noopener noreferrer"
+                                                  className="text-blue-600 hover:text-blue-800 hover:underline"
+                                                  title={kw.landingPagePath}
+                                                  onClick={(e) => e.stopPropagation()}
+                                                >
+                                                  {kw.landingPagePath}
+                                                </a>
+                                              ) : (
+                                                <span className="text-slate-400">{'\u2014'}</span>
+                                              )}
+                                            </td>
+                                          </tr>
+                                        );
+                                      })}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              )}
                             </td>
                           </tr>
                         )}

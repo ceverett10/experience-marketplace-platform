@@ -93,6 +93,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         landingPageType: (c as any).landingPageType || null,
         landingPageProducts: (c as any).landingPageProducts || null,
         qualityScore: (c as any).qualityScore || null,
+        platformCampaignId: c.platformCampaignId || null,
+        audiences: c.audiences || null,
       };
     });
 
