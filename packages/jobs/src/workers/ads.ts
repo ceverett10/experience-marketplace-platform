@@ -831,7 +831,7 @@ async function deployToMeta(
         ageMax: 65,
       },
       optimizationGoal: 'LINK_CLICKS',
-      billingEvent: 'LINK_CLICKS',
+      billingEvent: 'IMPRESSIONS',
       status: 'PAUSED',
     });
 
@@ -839,7 +839,29 @@ async function deployToMeta(
       console.error(
         `[Ads Worker] Failed to create Meta ad set for campaign: ${campaignResult.campaignId}`
       );
-      return campaignResult.campaignId; // Still return — campaign was created
+      // Create alert so the failure surfaces in the admin dashboard
+      try {
+        await prisma.adAlert.create({
+          data: {
+            type: 'DEPLOYMENT_FAILURE',
+            severity: 'ERROR',
+            siteId: campaign.id, // Use campaign.id as context
+            message: `Meta ad set creation failed for campaign "${campaign.name}" (${campaignResult.campaignId}). Campaign shell exists but has no ad sets or ads.`,
+            details: {
+              platformCampaignId: campaignResult.campaignId,
+              campaignName: campaign.name,
+              step: 'createAdSet',
+              keywords: campaign.keywords.slice(0, 5),
+              countries,
+              interestCount: interestTargeting.length,
+            },
+          },
+        });
+      } catch {
+        // Don't fail the whole deployment because alerting failed
+      }
+      // Return null — do NOT mark campaign as deployed when ad set is missing
+      return null;
     }
 
     // Step 3: Create ad creative (use primary keyword for headline)
@@ -849,7 +871,7 @@ async function deployToMeta(
       `${primaryKw.charAt(0).toUpperCase() + primaryKw.slice(1)} | ${siteName}`.substring(0, 40);
     const body = `Discover and book amazing ${primaryKw} experiences. Best prices, instant confirmation.`;
 
-    await metaClient.createAd({
+    const adResult = await metaClient.createAd({
       adSetId: adSetResult.adSetId,
       name: `${campaign.name} - Ad`,
       pageId,
@@ -860,8 +882,38 @@ async function deployToMeta(
       status: 'PAUSED',
     });
 
+    if (!adResult) {
+      console.error(
+        `[Ads Worker] Failed to create Meta ad for ad set: ${adSetResult.adSetId}`
+      );
+      try {
+        await prisma.adAlert.create({
+          data: {
+            type: 'DEPLOYMENT_FAILURE',
+            severity: 'WARNING',
+            siteId: campaign.id,
+            message: `Meta ad creative creation failed for campaign "${campaign.name}". Ad set exists but has no ads.`,
+            details: {
+              platformCampaignId: campaignResult.campaignId,
+              adSetId: adSetResult.adSetId,
+              campaignName: campaign.name,
+              step: 'createAd',
+              headline,
+              landingUrl,
+            },
+          },
+        });
+      } catch {
+        // Don't fail the whole deployment because alerting failed
+      }
+      // Still return campaign ID — ad set exists, just missing creative
+      // This is recoverable by re-running deployment
+      return campaignResult.campaignId;
+    }
+
     console.log(
-      `[Ads Worker] Deployed Meta campaign ${campaignResult.campaignId}: "${campaign.name}"`
+      `[Ads Worker] Deployed Meta campaign ${campaignResult.campaignId}: ` +
+        `ad set ${adSetResult.adSetId}, ad ${adResult.adId}: "${campaign.name}"`
     );
     return campaignResult.campaignId;
   } catch (err) {

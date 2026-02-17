@@ -233,7 +233,6 @@ export class MetaAdsClient {
         daily_budget: Math.round(config.dailyBudget * 100).toString(), // Convert to pennies/cents
         status: config.status || 'PAUSED',
         special_ad_categories: JSON.stringify(config.specialAdCategories || []),
-        is_adset_budget_sharing_enabled: 'false',
         access_token: this.accessToken,
       });
 
@@ -296,7 +295,7 @@ export class MetaAdsClient {
         name: config.name,
         campaign_id: config.campaignId,
         bid_amount: Math.round(config.bidAmount * 100).toString(),
-        billing_event: config.billingEvent || 'LINK_CLICKS',
+        billing_event: config.billingEvent || 'IMPRESSIONS',
         optimization_goal: config.optimizationGoal || 'LINK_CLICKS',
         targeting: JSON.stringify(targetingSpec),
         status: config.status || 'PAUSED',
