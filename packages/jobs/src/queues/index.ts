@@ -149,11 +149,13 @@ class QueueRegistry {
     // Deduplication: skip if a non-terminal job already exists for the same (siteId, type).
     // This prevents the roadmap processor from creating duplicates when a previous job
     // is still being processed or waiting in the queue.
-    // Social jobs are exempt: different platforms share the same job type for the same site.
+    // Some job types target different entities under the same site (different pages, platforms, etc.)
+    // so they must not be deduplicated at the site level.
     const dedupExemptTypes = [
       'SOCIAL_POST_GENERATE',
       'SOCIAL_POST_PUBLISH',
       'SOCIAL_DAILY_POSTING',
+      'CONTENT_OPTIMIZE', // Targets different pages/SEO issues under the same site
     ];
     if (siteId && !dedupExemptTypes.includes(jobType)) {
       const existing = await prisma.job.findFirst({
