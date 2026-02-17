@@ -275,6 +275,30 @@ export async function initializeScheduledJobs(): Promise<void> {
   );
   console.log('[Scheduler] ✓ Cross-Site Link Enrichment - Daily at 9 PM (5% per run)');
 
+  // Competitor Discovery - Monthly on 1st at 4 AM
+  await scheduleJob(
+    'LINK_COMPETITOR_DISCOVERY' as any,
+    { maxSites: 20 } as any,
+    '0 4 1 * *'
+  );
+  console.log('[Scheduler] ✓ Competitor Discovery - Monthly 1st at 4 AM');
+
+  // Broken Link Scan - Monthly on 15th at 4 AM
+  await scheduleJob(
+    'LINK_BROKEN_LINK_SCAN' as any,
+    { maxDomains: 20 } as any,
+    '0 4 15 * *'
+  );
+  console.log('[Scheduler] ✓ Broken Link Scan - Monthly 15th at 4 AM');
+
+  // Content Gap Analysis - Monthly on 20th at 4 AM
+  await scheduleJob(
+    'LINK_CONTENT_GAP_ANALYSIS' as any,
+    { maxSites: 10 } as any,
+    '0 4 20 * *'
+  );
+  console.log('[Scheduler] ✓ Content Gap Analysis - Monthly 20th at 4 AM');
+
   // Daily Content Generation - Staggered throughout the day
   // Uses setInterval with cron-like scheduling since it doesn't need job queue tracking
   initializeDailyContentSchedule();
@@ -939,6 +963,21 @@ export function getScheduledJobs(): Array<{
       jobType: 'CROSS_SITE_LINK_ENRICHMENT',
       schedule: '0 21 * * *',
       description: 'Batch inject cross-site links into existing blog posts (5% per day)',
+    },
+    {
+      jobType: 'LINK_COMPETITOR_DISCOVERY',
+      schedule: '0 4 1 * *',
+      description: 'Discover competitors from SERP data and find backlink opportunities (monthly)',
+    },
+    {
+      jobType: 'LINK_BROKEN_LINK_SCAN',
+      schedule: '0 4 15 * *',
+      description: 'Scan competitor domains for broken links to replace with our content (monthly)',
+    },
+    {
+      jobType: 'LINK_CONTENT_GAP_ANALYSIS',
+      schedule: '0 4 20 * *',
+      description: 'Analyze keyword gaps for linkable asset opportunities (monthly)',
     },
     {
       jobType: 'ABTEST_REBALANCE',

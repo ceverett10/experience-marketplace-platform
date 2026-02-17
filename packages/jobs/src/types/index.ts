@@ -293,6 +293,22 @@ export interface LinkAssetGeneratePayload {
   destination?: string;
 }
 
+export interface LinkCompetitorDiscoveryPayload {
+  maxSites?: number;
+}
+
+export interface LinkBrokenLinkScanPayload {
+  maxDomains?: number;
+}
+
+export interface LinkContentGapAnalysisPayload {
+  maxSites?: number;
+}
+
+export interface CrossSiteLinkEnrichmentPayload {
+  percentagePerRun?: number;
+}
+
 // Microsite Management Jobs
 export interface MicrositeCreatePayload {
   supplierId?: string;
@@ -376,7 +392,7 @@ export interface SocialPostGeneratePayload {
   siteId: string;
   platform: 'PINTEREST' | 'FACEBOOK' | 'TWITTER';
   pageId?: string; // Optional - specific blog post to promote
-  contentType?: 'blog_promo' | 'engagement' | 'travel_tip'; // Content variation
+  contentType?: 'blog_promo' | 'engagement' | 'travel_tip' | 'network_amplification'; // Content variation
 }
 
 export interface SocialPostPublishPayload {
@@ -450,6 +466,10 @@ export type JobPayload =
   | LinkBacklinkMonitorPayload
   | LinkOutreachGeneratePayload
   | LinkAssetGeneratePayload
+  | LinkCompetitorDiscoveryPayload
+  | LinkBrokenLinkScanPayload
+  | LinkContentGapAnalysisPayload
+  | CrossSiteLinkEnrichmentPayload
   | MicrositeCreatePayload
   | MicrositeBrandGeneratePayload
   | MicrositeContentGeneratePayload
@@ -562,6 +582,10 @@ export const JOB_TYPE_TO_QUEUE: Record<JobType, QueueName> = {
   LINK_BACKLINK_MONITOR: QUEUE_NAMES.SEO,
   LINK_OUTREACH_GENERATE: QUEUE_NAMES.SEO,
   LINK_ASSET_GENERATE: QUEUE_NAMES.SEO,
+  CROSS_SITE_LINK_ENRICHMENT: QUEUE_NAMES.SEO,
+  ['LINK_COMPETITOR_DISCOVERY' as any]: QUEUE_NAMES.SEO,
+  ['LINK_BROKEN_LINK_SCAN' as any]: QUEUE_NAMES.SEO,
+  ['LINK_CONTENT_GAP_ANALYSIS' as any]: QUEUE_NAMES.SEO,
 
   // Microsite Management
   MICROSITE_CREATE: QUEUE_NAMES.MICROSITE,

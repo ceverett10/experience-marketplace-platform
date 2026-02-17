@@ -125,20 +125,48 @@ export function Footer() {
                 </ul>
               </div>
             </div>
-            <div>
-              <h3 className="text-sm font-semibold leading-6 text-white">Legal</h3>
-              <ul role="list" className="mt-6 space-y-4">
-                {footerNavigation.legal.map((item) => (
-                  <li key={item.name}>
-                    <Link
-                      href={item.href}
-                      className="text-sm leading-6 text-gray-300 hover:text-white"
-                    >
-                      {item.name}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+            <div className="md:grid md:grid-cols-2 md:gap-8">
+              <div>
+                <h3 className="text-sm font-semibold leading-6 text-white">Legal</h3>
+                <ul role="list" className="mt-6 space-y-4">
+                  {footerNavigation.legal.map((item) => (
+                    <li key={item.name}>
+                      <Link
+                        href={item.href}
+                        className="text-sm leading-6 text-gray-300 hover:text-white"
+                      >
+                        {item.name}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              {/* Cross-site links to related microsites */}
+              {site.relatedMicrosites && site.relatedMicrosites.length > 0 && (
+                <div className="mt-10 md:mt-0">
+                  <h3 className="text-sm font-semibold leading-6 text-white">More Experiences</h3>
+                  <ul role="list" className="mt-6 space-y-4">
+                    {site.relatedMicrosites.slice(0, 5).map((ms) => (
+                      <li key={ms.fullDomain}>
+                        <a
+                          href={`https://${ms.fullDomain}`}
+                          className="text-sm leading-6 text-gray-300 hover:text-white"
+                        >
+                          {ms.siteName}
+                        </a>
+                      </li>
+                    ))}
+                    <li>
+                      <a
+                        href="https://experiencess.com"
+                        className="text-sm leading-6 text-indigo-400 hover:text-indigo-300"
+                      >
+                        Experiencess Network &rarr;
+                      </a>
+                    </li>
+                  </ul>
+                </div>
+              )}
             </div>
           </div>
         </div>

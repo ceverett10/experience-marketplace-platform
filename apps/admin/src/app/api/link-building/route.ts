@@ -3,13 +3,28 @@ import { prisma } from '@/lib/prisma';
 import { addJob } from '@experience-marketplace/jobs';
 
 /**
+ * Count cross-site links (links to *.experiencess.com) in a content body.
+ */
+function countCrossSiteLinksInBody(body: string): number {
+  const matches = body.match(/\]\(https?:\/\/[a-z0-9-]+\.experiencess\.com\//gi);
+  return matches?.length ?? 0;
+}
+
+/**
  * GET /api/link-building
- * Returns link building data: backlinks, opportunities, and linkable assets
+ * Returns link building data: backlinks, opportunities, linkable assets, and network stats.
+ * Use ?type=network for internal cross-site link network data.
  */
 export async function GET(request: Request): Promise<NextResponse> {
   try {
     const url = new URL(request.url);
     const siteId = url.searchParams.get('siteId');
+    const type = url.searchParams.get('type');
+
+    // --- Network Stats endpoint ---
+    if (type === 'network') {
+      return await getNetworkStats();
+    }
 
     const where = siteId ? { siteId } : {};
 
@@ -121,6 +136,172 @@ export async function GET(request: Request): Promise<NextResponse> {
 }
 
 /**
+ * Network stats: cross-site link health across the microsite network.
+ */
+async function getNetworkStats(): Promise<NextResponse> {
+  try {
+    // 1. Total active microsites
+    const totalMicrosites = await prisma.micrositeConfig.count({
+      where: { status: 'ACTIVE' },
+    });
+
+    // 2. Total PUBLISHED blog pages across all microsites
+    const totalBlogs = await prisma.page.count({
+      where: {
+        micrositeId: { not: null },
+        type: 'BLOG',
+        status: 'PUBLISHED',
+      },
+    });
+
+    // 3. Sample blog content to calculate cross-site link stats
+    // Get a random sample of 200 blog pages with their content
+    const samplePages = await prisma.page.findMany({
+      where: {
+        micrositeId: { not: null },
+        type: 'BLOG',
+        status: 'PUBLISHED',
+        contentId: { not: null },
+      },
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        contentId: true,
+        micrositeId: true,
+      },
+      take: 200,
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    const contentIds = samplePages
+      .map((p) => p.contentId)
+      .filter((id): id is string => id !== null);
+
+    const contents = contentIds.length > 0
+      ? await prisma.content.findMany({
+          where: { id: { in: contentIds } },
+          select: { id: true, body: true },
+        })
+      : [];
+    const contentMap = new Map(contents.map((c) => [c.id, c.body]));
+
+    // Count cross-site links in each sampled blog
+    let blogsWithLinks = 0;
+    let totalCrossSiteLinks = 0;
+    const recentLinks: Array<{
+      pageTitle: string;
+      pageSlug: string;
+      micrositeId: string;
+      linkCount: number;
+      targets: string[];
+    }> = [];
+
+    for (const page of samplePages) {
+      const body = contentMap.get(page.contentId || '');
+      if (!body) continue;
+
+      const linkCount = countCrossSiteLinksInBody(body);
+      if (linkCount > 0) {
+        blogsWithLinks++;
+        totalCrossSiteLinks += linkCount;
+
+        // Extract target domains for recent links display
+        const targetMatches = body.match(/\]\(https?:\/\/([a-z0-9-]+\.experiencess\.com)\/[^)]*\)/gi) || [];
+        const targets = targetMatches
+          .map((m) => {
+            const match = m.match(/https?:\/\/([a-z0-9-]+\.experiencess\.com)/i);
+            return match?.[1] || '';
+          })
+          .filter(Boolean);
+
+        if (recentLinks.length < 20) {
+          recentLinks.push({
+            pageTitle: page.title,
+            pageSlug: page.slug,
+            micrositeId: page.micrositeId || '',
+            linkCount,
+            targets: [...new Set(targets)],
+          });
+        }
+      }
+    }
+
+    const sampleSize = samplePages.length;
+    const enrichmentRate = sampleSize > 0 ? Math.round((blogsWithLinks / sampleSize) * 100) : 0;
+    const avgLinksPerEnrichedBlog = blogsWithLinks > 0
+      ? Math.round((totalCrossSiteLinks / blogsWithLinks) * 10) / 10
+      : 0;
+
+    // Extrapolate to full network
+    const estimatedTotalCrossSiteLinks = sampleSize > 0
+      ? Math.round((totalCrossSiteLinks / sampleSize) * totalBlogs)
+      : 0;
+    const estimatedBlogsWithLinks = sampleSize > 0
+      ? Math.round((blogsWithLinks / sampleSize) * totalBlogs)
+      : 0;
+
+    // 4. Enrichment job history
+    const recentJobs = await prisma.job.findMany({
+      where: {
+        type: {
+          in: [
+            'CROSS_SITE_LINK_ENRICHMENT',
+            'LINK_BACKLINK_MONITOR',
+            'LINK_OPPORTUNITY_SCAN',
+          ],
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+      select: {
+        id: true,
+        type: true,
+        status: true,
+        result: true,
+        createdAt: true,
+        completedAt: true,
+        error: true,
+      },
+    });
+
+    // 5. Microsites with footer links (all ACTIVE microsites have footer links deployed via layout.tsx)
+    const micrositesWithFooterLinks = totalMicrosites; // All active microsites get footer links
+
+    return NextResponse.json({
+      network: {
+        totalMicrosites,
+        totalBlogs,
+        micrositesWithFooterLinks,
+        estimatedFooterLinkInstances: totalMicrosites * 5, // 5 links per footer
+      },
+      crossSiteLinks: {
+        sampleSize,
+        blogsWithLinks,
+        totalCrossSiteLinksInSample: totalCrossSiteLinks,
+        enrichmentRate,
+        avgLinksPerEnrichedBlog,
+        estimatedTotalCrossSiteLinks,
+        estimatedBlogsWithLinks,
+      },
+      recentLinks,
+      jobs: recentJobs.map((j) => ({
+        id: j.id,
+        type: j.type,
+        status: j.status,
+        result: j.result as Record<string, unknown> | null,
+        createdAt: j.createdAt.toISOString(),
+        completedAt: j.completedAt?.toISOString() ?? null,
+        error: j.error,
+      })),
+    });
+  } catch (error) {
+    console.error('[API] Error fetching network stats:', error);
+    return NextResponse.json({ error: 'Failed to fetch network stats' }, { status: 500 });
+  }
+}
+
+/**
  * POST /api/link-building
  * Trigger link building actions: scan, monitor, generate outreach, create assets
  */
@@ -183,6 +364,13 @@ export async function POST(request: Request): Promise<NextResponse> {
           destination,
         });
         return NextResponse.json({ success: true, message: 'Asset generation queued', jobId });
+      }
+
+      case 'trigger-enrichment': {
+        const jobId = await addJob('CROSS_SITE_LINK_ENRICHMENT' as any, {
+          percentagePerRun: 10,
+        } as any);
+        return NextResponse.json({ success: true, message: 'Cross-site link enrichment queued', jobId });
       }
 
       default:

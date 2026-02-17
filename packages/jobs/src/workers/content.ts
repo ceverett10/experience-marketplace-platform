@@ -29,6 +29,7 @@ import {
   generateFAQSchema,
 } from '../services/structured-data';
 import { suggestInternalLinks } from '../services/internal-linking';
+import { suggestCrossSiteLinks } from '../services/cross-site-linking';
 import { resolveSEOIssue } from '../services/seo-issues';
 
 /**
@@ -818,11 +819,33 @@ async function handleMicrositePageContentGenerate(params: {
       console.log(`[Content Generate - Microsite] Removed ${removedCount} invalid links`);
     }
 
+    // Inject cross-site links to related microsites for SEO
+    let finalMicrositeContent = sanitizedContent;
+    try {
+      const crossSiteResult = await suggestCrossSiteLinks({
+        micrositeId,
+        content: sanitizedContent,
+        targetKeyword,
+        secondaryKeywords,
+        destination,
+        category,
+        maxLinks: 2,
+      });
+      if (crossSiteResult.links.length > 0) {
+        finalMicrositeContent = crossSiteResult.contentWithLinks;
+        console.log(
+          `[Content Generate - Microsite] Added ${crossSiteResult.links.length} cross-site links`
+        );
+      }
+    } catch (crossSiteError) {
+      console.warn('[Content Generate - Microsite] Cross-site linking failed, continuing:', crossSiteError);
+    }
+
     // Save Content record with micrositeId
     const content = await prisma.content.create({
       data: {
         micrositeId,
-        body: sanitizedContent,
+        body: finalMicrositeContent,
         bodyFormat: 'MARKDOWN',
         isAiGenerated: true,
         aiModel: result.content.generatedBy,
@@ -836,7 +859,7 @@ async function handleMicrositePageContentGenerate(params: {
     // Optimized meta tags
     const optimizedMetaDescription = generateOptimizedMetaDescription({
       aiMetaDescription: result.content.metaDescription,
-      contentBody: sanitizedContent,
+      contentBody: finalMicrositeContent,
       targetKeyword,
       contentType,
       siteName,
@@ -1084,7 +1107,7 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
 
     // Add internal links to improve SEO and user navigation
     // Skip for about pages - they should not have inline internal links
-    // Skip for microsites - internal linking is handled differently
+    // Microsites: internal linking handled in handleMicrositePageContentGenerate
     let finalContent = postSanitized;
     if (contentType !== 'about' && siteId) {
       const linkSuggestion = await suggestInternalLinks({

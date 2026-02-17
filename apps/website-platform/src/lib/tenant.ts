@@ -221,6 +221,15 @@ export interface SiteConfig {
 
   // Parent domain flag (only true for experiencess.com root domain)
   isParentDomain?: boolean;
+
+  // Related microsites for cross-linking (populated at layout level for microsites)
+  relatedMicrosites?: Array<{
+    fullDomain: string;
+    siteName: string;
+    tagline: string | null;
+    categories: string[];
+    cities: string[];
+  }>;
 }
 
 // Default site configuration for development/fallback

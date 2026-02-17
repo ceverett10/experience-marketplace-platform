@@ -26,6 +26,7 @@ import { AboutActivity } from '@/components/experiences/AboutActivity';
 import { MobileBookingCTA } from '@/components/experiences/MobileBookingCTA';
 import { RelatedExperiences } from '@/components/experiences/RelatedExperiences';
 import { RelatedArticles } from '@/components/experiences/RelatedArticles';
+import { RelatedMicrosites } from '@/components/microsites/RelatedMicrosites';
 import { TrackViewItem } from '@/components/analytics/TrackViewItem';
 import { TrackFunnelEvent } from '@/components/analytics/TrackFunnelEvent';
 import { LiveActivityIndicator } from '@/components/ui/TrustSignals';
@@ -1194,6 +1195,18 @@ export default async function ExperienceDetailPage({ params }: Props) {
               : `More things to do in ${experience.location.name || 'this area'}`
           }
         />
+
+        {/* Related Microsites (microsites only) */}
+        {site.relatedMicrosites && site.relatedMicrosites.length > 0 && (
+          <RelatedMicrosites
+            microsites={site.relatedMicrosites.map((ms) => ({
+              ...ms,
+              logoUrl: null,
+              productCount: 0,
+              rating: null,
+            }))}
+          />
+        )}
 
         {/* Recently Viewed */}
         <RecentlyViewed currentId={experience.id} />

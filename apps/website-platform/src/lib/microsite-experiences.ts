@@ -467,3 +467,108 @@ export async function getRelatedMicrosites(
     rating: ms.supplier?.rating || null,
   }));
 }
+
+/**
+ * Network-related blog post for cross-site content discovery
+ */
+export interface NetworkRelatedPost {
+  title: string;
+  slug: string;
+  siteName: string;
+  fullDomain: string;
+  publishedAt: Date | null;
+}
+
+/**
+ * Get related blog posts from other microsites in the network.
+ * Finds PUBLISHED blogs from related microsites matching by city or category keywords.
+ */
+export async function getNetworkRelatedBlogPosts(
+  micrositeId: string,
+  cities: string[],
+  categories: string[],
+  limit: number = 4
+): Promise<NetworkRelatedPost[]> {
+  try {
+    // Get related microsites first
+    const candidates = await prisma.micrositeConfig.findMany({
+      where: {
+        id: { not: micrositeId },
+        status: 'ACTIVE',
+        cachedProductCount: { gt: 0 },
+      },
+      include: {
+        supplier: {
+          select: { cities: true, categories: true },
+        },
+      },
+      take: 30,
+    });
+
+    const citySet = new Set(cities.map((c) => c.toLowerCase()));
+    const categorySet = new Set(categories.map((c) => c.toLowerCase()));
+
+    // Score by relevance, require minimum score 2
+    const relatedIds = candidates
+      .map((ms) => {
+        const msCities = (ms.supplier?.cities as string[]) || [];
+        const msCategories = (ms.supplier?.categories as string[]) || [];
+        const score =
+          msCities.filter((c) => citySet.has(c.toLowerCase())).length * 3 +
+          msCategories.filter((c) => categorySet.has(c.toLowerCase())).length * 2;
+        return { id: ms.id, fullDomain: ms.fullDomain, siteName: ms.siteName, score };
+      })
+      .filter((r) => r.score >= 2)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 10);
+
+    if (relatedIds.length === 0) return [];
+
+    const msMap = new Map(relatedIds.map((r) => [r.id, r]));
+
+    // Fetch recent published blog posts from related microsites
+    const posts = await prisma.page.findMany({
+      where: {
+        micrositeId: { in: relatedIds.map((r) => r.id) },
+        type: 'BLOG',
+        status: 'PUBLISHED',
+        contentId: { not: null },
+      },
+      select: {
+        title: true,
+        slug: true,
+        micrositeId: true,
+        publishedAt: true,
+      },
+      orderBy: { publishedAt: 'desc' },
+      take: limit * 3, // Get extra to pick best ones
+    });
+
+    // Deduplicate by microsite (max 1 post per microsite)
+    const seen = new Set<string>();
+    const result: NetworkRelatedPost[] = [];
+
+    for (const post of posts) {
+      if (result.length >= limit) break;
+      const msId = post.micrositeId || '';
+      if (seen.has(msId)) continue;
+      seen.add(msId);
+
+      const ms = msMap.get(msId);
+      if (!ms) continue;
+
+      result.push({
+        title: post.title,
+        slug: post.slug,
+        siteName: ms.siteName,
+        fullDomain: ms.fullDomain,
+        publishedAt: post.publishedAt,
+      });
+    }
+
+    return result;
+  } catch (error) {
+    console.error('[Network Related Posts] Error:', error);
+    return [];
+  }
+}

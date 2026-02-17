@@ -208,6 +208,72 @@ HASHTAGS: #tag1 #tag2 #tag3${platform === 'PINTEREST' ? '\nTITLE: [pin title her
   return { ...result, linkUrl: blogUrl };
 }
 
+interface NetworkAmplificationRequest {
+  siteId: string;
+  platform: SocialPlatform;
+  brandName: string;
+  tagline?: string | null;
+  seoConfig: Record<string, unknown> | null;
+  networkBlogTitle: string;
+  networkBlogSummary: string;
+  networkSiteName: string;
+  blogUrl: string;
+}
+
+/**
+ * Generate a network amplification caption — promote a blog post from a different
+ * microsite in the Experiencess network. Creates cross-promotion social signals.
+ */
+export async function generateNetworkAmplificationCaption(
+  request: NetworkAmplificationRequest
+): Promise<NonBlogCaptionResult> {
+  const {
+    platform,
+    brandName,
+    tagline,
+    seoConfig,
+    networkBlogTitle,
+    networkBlogSummary,
+    networkSiteName,
+  } = request;
+  const toneOfVoice = seoConfig?.['toneOfVoice'] as Record<string, unknown> | undefined;
+  const niche =
+    (seoConfig?.['niche'] as string) ||
+    (seoConfig?.['primaryCategory'] as string) ||
+    'travel experiences';
+  const limits = PLATFORM_LIMITS[platform];
+
+  const prompt = `You are a social media manager for "${brandName}"${tagline ? ` (${tagline})` : ''}, a travel experiences brand focused on ${niche}.
+${(toneOfVoice?.['personality'] as string[] | undefined)?.length ? `Brand tone: ${(toneOfVoice?.['personality'] as string[]).join(', ')}.` : 'Tone: friendly, collaborative, community-oriented.'}
+
+Create a NETWORK AMPLIFICATION post for ${platform}. You are promoting a blog article from "${networkSiteName}", a partner in your travel experiences network.
+
+Article to promote:
+- Title: "${networkBlogTitle}"
+- Summary: ${networkBlogSummary || 'A great article from our network partner.'}
+
+Guidelines:
+- Frame this as a genuine recommendation from your brand ("Our friends at ${networkSiteName} have a great piece on...", "Loved this article from ${networkSiteName}...")
+- Make it feel natural and collaborative, NOT like a paid promotion
+- Highlight what readers will learn or discover
+- Mention ${networkSiteName} by name as a fellow travel expert
+- Keep the tone warm and community-focused
+
+Rules:
+- Caption must be under ${limits.maxCaption} characters
+- Include exactly ${limits.maxHashtags} relevant hashtags (mix of niche-specific and travel)
+- Do NOT include any URLs in the caption (links are added separately)
+- Sound like a genuine recommendation, not corporate cross-promotion
+
+Format your response EXACTLY as:
+CAPTION: [your caption here]
+HASHTAGS: #tag1 #tag2 #tag3${platform === 'PINTEREST' ? '\nTITLE: [pin title here]' : ''}`;
+
+  const text = await callClaude(prompt);
+  const result = parseResponse(text, platform);
+  return { ...result, linkUrl: request.blogUrl };
+}
+
 /**
  * Call Claude Haiku API with a prompt.
  */

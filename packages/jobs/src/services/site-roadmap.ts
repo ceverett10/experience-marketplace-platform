@@ -235,6 +235,18 @@ async function validateTaskArtifacts(
     LINK_ASSET_GENERATE: {
       valid: true,
     },
+    CROSS_SITE_LINK_ENRICHMENT: {
+      valid: true,
+    },
+    ['LINK_COMPETITOR_DISCOVERY' as any]: {
+      valid: true,
+    },
+    ['LINK_BROKEN_LINK_SCAN' as any]: {
+      valid: true,
+    },
+    ['LINK_CONTENT_GAP_ANALYSIS' as any]: {
+      valid: true,
+    },
 
     // Microsite Management (not part of standard site roadmap)
     MICROSITE_CREATE: { valid: true },
@@ -399,6 +411,22 @@ export const TASK_DESCRIPTIONS: Record<JobType, { label: string; description: st
   LINK_ASSET_GENERATE: {
     label: 'Create Link Asset',
     description: 'Generate link-attracting content',
+  },
+  CROSS_SITE_LINK_ENRICHMENT: {
+    label: 'Cross-Site Link Enrichment',
+    description: 'Inject cross-site links into existing blog posts',
+  },
+  ['LINK_COMPETITOR_DISCOVERY' as any]: {
+    label: 'Competitor Discovery',
+    description: 'Discover competitors from SERP data and find backlink opportunities',
+  },
+  ['LINK_BROKEN_LINK_SCAN' as any]: {
+    label: 'Broken Link Scan',
+    description: 'Find broken links on competitor sites for replacement opportunities',
+  },
+  ['LINK_CONTENT_GAP_ANALYSIS' as any]: {
+    label: 'Content Gap Analysis',
+    description: 'Identify keyword gaps for linkable asset content',
   },
 
   // Microsite Management

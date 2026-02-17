@@ -11,6 +11,7 @@ import {
   generateCaption,
   generateEngagementCaption,
   generateTravelTipCaption,
+  generateNetworkAmplificationCaption,
 } from '../services/social/caption-generator';
 import { selectImageForPost } from '../services/social/image-selector';
 import { refreshTokenIfNeeded } from '../services/social/token-refresh';
@@ -20,7 +21,7 @@ import { createTweet } from '../services/social/twitter-client';
 import { canExecuteAutonomousOperation } from '../services/pause-control';
 
 type SocialPlatform = 'PINTEREST' | 'FACEBOOK' | 'TWITTER';
-type ContentType = 'blog_promo' | 'engagement' | 'travel_tip';
+type ContentType = 'blog_promo' | 'engagement' | 'travel_tip' | 'network_amplification';
 
 const MAX_POSTS_PER_DAY = 7; // Per platform account per day
 const PEAK_START_HOUR = 9; // 9 AM local
@@ -197,7 +198,7 @@ export async function handleSocialDailyPosting(
  */
 async function getContentTypeRotation(siteIds: string[]): Promise<Map<string, ContentType>> {
   const rotation: Map<string, ContentType> = new Map();
-  const contentCycle: ContentType[] = ['blog_promo', 'engagement', 'travel_tip'];
+  const contentCycle: ContentType[] = ['blog_promo', 'engagement', 'travel_tip', 'network_amplification'];
 
   for (const siteId of siteIds) {
     // Count recent posts by content type (last 7 days)
@@ -213,7 +214,7 @@ async function getContentTypeRotation(siteIds: string[]): Promise<Map<string, Co
     });
 
     // Count by content type
-    const counts: Record<ContentType, number> = { blog_promo: 0, engagement: 0, travel_tip: 0 };
+    const counts: Record<ContentType, number> = { blog_promo: 0, engagement: 0, travel_tip: 0, network_amplification: 0 };
     for (const post of recentPosts) {
       const data = post.generationData as Record<string, unknown> | null;
       const ct = (data?.['contentType'] as ContentType) || 'blog_promo';
@@ -317,6 +318,11 @@ export async function handleSocialPostGenerate(
   // For engagement and travel_tip content types, we don't need a blog post
   if (contentType === 'engagement' || contentType === 'travel_tip') {
     return await generateNonBlogPost(siteId, platform as SocialPlatform, account.id, contentType);
+  }
+
+  // Network amplification: promote a blog from a DIFFERENT related microsite
+  if (contentType === 'network_amplification') {
+    return await generateNetworkAmplificationPost(siteId, platform as SocialPlatform, account.id);
   }
 
   // blog_promo: Select a blog post to promote
@@ -531,6 +537,162 @@ async function generateNonBlogPost(
       socialPostId: socialPost.id,
       platform,
       contentType,
+      captionLength: fullCaption.length,
+      hasImage: !!imageUrl,
+    },
+    timestamp: new Date(),
+  };
+}
+
+/**
+ * Generate a network amplification post — promote a blog from a DIFFERENT related microsite.
+ * This drives cross-site referral traffic and creates social signals for the network.
+ */
+async function generateNetworkAmplificationPost(
+  siteId: string,
+  platform: SocialPlatform,
+  accountId: string
+): Promise<JobResult> {
+  // Get site info to extract keywords for matching
+  const site = await prisma.site.findUnique({
+    where: { id: siteId },
+    select: {
+      name: true,
+      primaryDomain: true,
+      seoConfig: true,
+      brand: { select: { name: true, tagline: true } },
+    },
+  });
+
+  if (!site) {
+    return { success: false, message: `Site ${siteId} not found`, timestamp: new Date() };
+  }
+
+  const seoConfig = site.seoConfig as Record<string, unknown> | null;
+  const keywords = (seoConfig?.['keywords'] as string[]) || [];
+  const niche = (seoConfig?.['niche'] as string) || (seoConfig?.['primaryCategory'] as string) || '';
+
+  // Find active microsites with published blogs
+  // Use keyword/niche matching in blog titles for relevance
+  const searchTerms = [...keywords.slice(0, 3), niche].filter(Boolean);
+
+  if (searchTerms.length === 0) {
+    console.log(`[Social] Site ${siteId} has no keywords for network matching, falling back to engagement`);
+    return await generateNonBlogPost(siteId, platform, accountId, 'engagement');
+  }
+
+  // Find recent blog posts from active microsites that match our keywords
+  const keywordConditions = searchTerms.map((term) => ({
+    title: { contains: term, mode: 'insensitive' as const },
+  }));
+
+  const networkBlog = await prisma.page.findFirst({
+    where: {
+      micrositeId: { not: null },
+      type: 'BLOG',
+      status: 'PUBLISHED',
+      contentId: { not: null },
+      OR: keywordConditions,
+      microsite: {
+        status: 'ACTIVE',
+        cachedProductCount: { gt: 0 },
+      },
+    },
+    orderBy: { publishedAt: 'desc' },
+    select: {
+      id: true,
+      title: true,
+      slug: true,
+      metaDescription: true,
+      micrositeId: true,
+      microsite: {
+        select: {
+          fullDomain: true,
+          siteName: true,
+          id: true,
+        },
+      },
+    },
+  });
+
+  if (!networkBlog?.microsite) {
+    console.log(`[Social] No matching network blogs for ${siteId}, falling back to engagement`);
+    return await generateNonBlogPost(siteId, platform, accountId, 'engagement');
+  }
+
+  const targetDomain = networkBlog.microsite.fullDomain;
+  const targetSiteName = networkBlog.microsite.siteName;
+  const blogUrl = `https://${targetDomain}/${networkBlog.slug}`;
+
+  // Generate caption promoting the network blog
+  const captionResult = await generateNetworkAmplificationCaption({
+    siteId,
+    platform,
+    brandName: site.brand?.name || site.name,
+    tagline: site.brand?.tagline,
+    seoConfig: site.seoConfig as Record<string, unknown> | null,
+    networkBlogTitle: networkBlog.title,
+    networkBlogSummary: networkBlog.metaDescription || '',
+    networkSiteName: targetSiteName,
+    blogUrl,
+  });
+
+  let fullCaption = captionResult.caption;
+
+  // For Twitter, append link
+  if (platform === 'TWITTER' && blogUrl) {
+    const maxTextLen = 280 - blogUrl.length - 1;
+    if (fullCaption.length > maxTextLen) {
+      fullCaption = fullCaption.substring(0, maxTextLen - 3) + '...';
+    }
+    fullCaption = `${fullCaption} ${blogUrl}`;
+  }
+
+  // Select an image from the source site (our site, not the target)
+  const imageUrl = await selectImageForPost(siteId);
+
+  const socialPost = await prisma.socialPost.create({
+    data: {
+      siteId,
+      accountId,
+      platform,
+      caption: fullCaption,
+      hashtags: captionResult.hashtags,
+      mediaUrls: imageUrl ? [imageUrl] : [],
+      linkUrl: blogUrl,
+      status: 'SCHEDULED',
+      scheduledFor: new Date(Date.now() + 60 * 1000),
+      generationData: {
+        model: 'claude-haiku-4-5-20251001',
+        contentType: 'network_amplification',
+        networkSiteId: networkBlog.microsite.id,
+        networkSiteName: targetSiteName,
+        networkBlogTitle: networkBlog.title,
+        pinTitle: captionResult.pinTitle,
+        rawCaption: captionResult.caption,
+      },
+    },
+  });
+
+  await addJob('SOCIAL_POST_PUBLISH', { socialPostId: socialPost.id } as SocialPostPublishPayload, {
+    delay: 60 * 1000,
+    attempts: 3,
+    backoff: { type: 'exponential', delay: 60000 },
+  });
+
+  console.log(
+    `[Social] Generated ${platform} network_amplification post ${socialPost.id}: promoting "${networkBlog.title}" from ${targetSiteName}`
+  );
+
+  return {
+    success: true,
+    message: `Generated ${platform} network amplification post, promoting ${targetSiteName}`,
+    data: {
+      socialPostId: socialPost.id,
+      platform,
+      contentType: 'network_amplification',
+      networkSiteName: targetSiteName,
+      networkBlogTitle: networkBlog.title,
       captionLength: fullCaption.length,
       hasImage: !!imageUrl,
     },

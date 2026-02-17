@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { cookies, headers } from 'next/headers';
 import { Inter, Playfair_Display } from 'next/font/google';
 import { getSiteFromHostname, generateBrandCSSVariables } from '@/lib/tenant';
+import { getRelatedMicrosites } from '@/lib/microsite-experiences';
 import { SiteProvider } from '@/lib/site-context';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
@@ -87,6 +88,27 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const hostname = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
   const site = await getSiteFromHostname(hostname);
   const brandCSS = generateBrandCSSVariables(site.brand);
+
+  // Fetch related microsites for footer cross-linking (only for microsites)
+  if (site.micrositeContext?.micrositeId) {
+    try {
+      const related = await getRelatedMicrosites(
+        site.micrositeContext.micrositeId,
+        site.micrositeContext.supplierCities || [],
+        site.micrositeContext.supplierCategories || [],
+        5
+      );
+      site.relatedMicrosites = related.map((m) => ({
+        fullDomain: m.fullDomain,
+        siteName: m.siteName,
+        tagline: m.tagline,
+        categories: m.categories,
+        cities: m.cities,
+      }));
+    } catch (err) {
+      console.warn('[Layout] Failed to fetch related microsites:', err);
+    }
+  }
 
   return (
     <html lang="en" className={`${inter.variable} ${playfair.variable}`}>

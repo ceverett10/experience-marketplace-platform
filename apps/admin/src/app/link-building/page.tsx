@@ -64,24 +64,67 @@ interface LinkBuildingData {
   assets: AssetItem[];
 }
 
+interface NetworkData {
+  network: {
+    totalMicrosites: number;
+    totalBlogs: number;
+    micrositesWithFooterLinks: number;
+    estimatedFooterLinkInstances: number;
+  };
+  crossSiteLinks: {
+    sampleSize: number;
+    blogsWithLinks: number;
+    totalCrossSiteLinksInSample: number;
+    enrichmentRate: number;
+    avgLinksPerEnrichedBlog: number;
+    estimatedTotalCrossSiteLinks: number;
+    estimatedBlogsWithLinks: number;
+  };
+  recentLinks: Array<{
+    pageTitle: string;
+    pageSlug: string;
+    micrositeId: string;
+    linkCount: number;
+    targets: string[];
+  }>;
+  jobs: Array<{
+    id: string;
+    type: string;
+    status: string;
+    result: Record<string, unknown> | null;
+    createdAt: string;
+    completedAt: string | null;
+    error: string | null;
+  }>;
+}
+
 export default function LinkBuildingPage() {
   const [data, setData] = useState<LinkBuildingData | null>(null);
+  const [networkData, setNetworkData] = useState<NetworkData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'backlinks' | 'opportunities' | 'assets'>(
-    'overview'
-  );
+  const [activeTab, setActiveTab] = useState<
+    'overview' | 'network' | 'backlinks' | 'opportunities' | 'assets'
+  >('overview');
   const [actionStatus, setActionStatus] = useState<string | null>(null);
+
+  const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
 
   const fetchData = async () => {
     try {
       setIsLoading(true);
       setError(null);
-      const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
-      const response = await fetch(`${basePath}/api/link-building`);
-      if (!response.ok) throw new Error('Failed to fetch data');
-      const result = await response.json();
+      const [mainRes, networkRes] = await Promise.all([
+        fetch(`${basePath}/api/link-building`),
+        fetch(`${basePath}/api/link-building?type=network`),
+      ]);
+      if (!mainRes.ok) throw new Error('Failed to fetch data');
+      const result = await mainRes.json();
       setData(result);
+      if (networkRes.ok) {
+        const netResult = await networkRes.json();
+        setNetworkData(netResult);
+      }
     } catch (err) {
       setError('Failed to load link building data');
       console.error(err);
@@ -98,8 +141,7 @@ export default function LinkBuildingPage() {
     try {
       setActionStatus('Processing...');
       // Use first available site as default
-      const siteId = data?.backlinks[0]?.siteName || data?.opportunities[0]?.siteName || '';
-      const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
+      const siteId = params['siteId'] || data?.backlinks[0]?.siteName || data?.opportunities[0]?.siteName || 'all';
       const response = await fetch(`${basePath}/api/link-building`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -152,7 +194,7 @@ export default function LinkBuildingPage() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <Card>
           <CardContent className="pt-4">
             <p className="text-sm text-gray-500">Total Backlinks</p>
@@ -181,6 +223,14 @@ export default function LinkBuildingPage() {
           <CardContent className="pt-4">
             <p className="text-sm text-gray-500">Linkable Assets</p>
             <p className="text-2xl font-bold">{summary.totalAssets}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4">
+            <p className="text-sm text-gray-500">Cross-Site Links</p>
+            <p className="text-2xl font-bold text-indigo-600">
+              {networkData ? `~${networkData.crossSiteLinks.estimatedTotalCrossSiteLinks.toLocaleString()}` : '—'}
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -239,7 +289,7 @@ export default function LinkBuildingPage() {
       {/* Tabs */}
       <div className="border-b border-gray-200">
         <nav className="flex gap-4">
-          {(['overview', 'backlinks', 'opportunities', 'assets'] as const).map((tab) => (
+          {(['overview', 'network', 'backlinks', 'opportunities', 'assets'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -476,70 +526,299 @@ export default function LinkBuildingPage() {
         </Card>
       )}
 
-      {activeTab === 'overview' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Recent Backlinks */}
+      {/* Network Tab */}
+      {activeTab === 'network' && networkData && (
+        <div className="space-y-6">
+          {/* Network Health Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card>
+              <CardContent className="pt-4">
+                <p className="text-sm text-gray-500">Active Microsites</p>
+                <p className="text-2xl font-bold">{networkData.network.totalMicrosites.toLocaleString()}</p>
+                <p className="text-xs text-gray-400 mt-1">All with footer cross-links</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-4">
+                <p className="text-sm text-gray-500">Footer Link Instances</p>
+                <p className="text-2xl font-bold text-indigo-600">
+                  ~{networkData.network.estimatedFooterLinkInstances.toLocaleString()}
+                </p>
+                <p className="text-xs text-gray-400 mt-1">5 cross-links per footer</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-4">
+                <p className="text-sm text-gray-500">Blog Cross-Site Links</p>
+                <p className="text-2xl font-bold text-indigo-600">
+                  ~{networkData.crossSiteLinks.estimatedTotalCrossSiteLinks.toLocaleString()}
+                </p>
+                <p className="text-xs text-gray-400 mt-1">
+                  Avg {networkData.crossSiteLinks.avgLinksPerEnrichedBlog} per enriched blog
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-4">
+                <p className="text-sm text-gray-500">Total Network Blogs</p>
+                <p className="text-2xl font-bold">{networkData.network.totalBlogs.toLocaleString()}</p>
+                <p className="text-xs text-gray-400 mt-1">Published across network</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Enrichment Progress */}
           <Card>
             <CardHeader>
-              <CardTitle>Recent Backlinks</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle>Blog Enrichment Progress</CardTitle>
+                <button
+                  onClick={() => triggerAction('trigger-enrichment')}
+                  className="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                >
+                  Trigger Enrichment
+                </button>
+              </div>
             </CardHeader>
             <CardContent>
-              {data.backlinks.slice(0, 5).map((bl) => (
-                <div
-                  key={bl.id}
-                  className="flex items-center justify-between py-2 border-b last:border-0"
-                >
-                  <div>
-                    <p className="text-sm font-medium">{bl.sourceDomain}</p>
-                    <p className="text-xs text-gray-500 truncate max-w-[250px]">
-                      {bl.anchorText || 'No anchor'}
-                    </p>
-                  </div>
-                  <span
-                    className={`text-sm font-bold ${bl.domainAuthority >= 40 ? 'text-green-600' : 'text-gray-500'}`}
-                  >
-                    DA {bl.domainAuthority}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-600">
+                    Blogs with cross-site links: ~{networkData.crossSiteLinks.estimatedBlogsWithLinks.toLocaleString()} / {networkData.network.totalBlogs.toLocaleString()}
                   </span>
+                  <span className="font-medium text-indigo-600">{networkData.crossSiteLinks.enrichmentRate}%</span>
                 </div>
-              ))}
-              {data.backlinks.length === 0 && (
-                <p className="text-sm text-gray-500 py-4 text-center">No backlinks tracked yet</p>
-              )}
+                <div className="w-full bg-gray-200 rounded-full h-3">
+                  <div
+                    className="bg-indigo-600 h-3 rounded-full transition-all"
+                    style={{ width: `${Math.min(networkData.crossSiteLinks.enrichmentRate, 100)}%` }}
+                  />
+                </div>
+                <p className="text-xs text-gray-400">
+                  Based on sample of {networkData.crossSiteLinks.sampleSize} recent blogs.
+                  Enrichment runs daily at 9 PM (5% of microsites per run, full coverage in ~20 days).
+                </p>
+              </div>
             </CardContent>
           </Card>
 
-          {/* Top Opportunities */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Top Opportunities</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {data.opportunities.slice(0, 5).map((opp) => (
-                <div
-                  key={opp.id}
-                  className="flex items-center justify-between py-2 border-b last:border-0"
-                >
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Recent Cross-Site Links */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent Cross-Site Links</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-sm">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left py-2 px-3">Blog Post</th>
+                        <th className="text-left py-2 px-3">Links</th>
+                        <th className="text-left py-2 px-3">Targets</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {networkData.recentLinks.map((link, i) => (
+                        <tr key={i} className="border-b hover:bg-gray-50">
+                          <td className="py-2 px-3">
+                            <p className="font-medium truncate max-w-[200px]">{link.pageTitle}</p>
+                            <p className="text-xs text-gray-400 truncate max-w-[200px]">{link.pageSlug}</p>
+                          </td>
+                          <td className="py-2 px-3">
+                            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold">
+                              {link.linkCount}
+                            </span>
+                          </td>
+                          <td className="py-2 px-3">
+                            <div className="flex flex-wrap gap-1">
+                              {link.targets.slice(0, 2).map((t) => (
+                                <span key={t} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
+                                  {t.replace('.experiencess.com', '')}
+                                </span>
+                              ))}
+                              {link.targets.length > 2 && (
+                                <span className="text-xs text-gray-400">+{link.targets.length - 2}</span>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      {networkData.recentLinks.length === 0 && (
+                        <tr>
+                          <td colSpan={3} className="py-8 text-center text-gray-500">
+                            No cross-site links detected yet. Run enrichment to inject links into existing blogs.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Job Status */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Link Building Jobs</CardTitle>
+                  <button
+                    onClick={() => triggerAction('monitor-backlinks')}
+                    className="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+                  >
+                    Run Backlink Monitor
+                  </button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {networkData.jobs.length === 0 && (
+                    <p className="text-sm text-gray-500 py-4 text-center">No link building jobs run yet</p>
+                  )}
+                  {networkData.jobs.map((job) => (
+                    <div key={job.id} className="flex items-center justify-between py-2 border-b last:border-0">
+                      <div>
+                        <p className="text-sm font-medium">
+                          {job.type.replace(/_/g, ' ')}
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          {new Date(job.createdAt).toLocaleString()}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <span
+                          className={`px-2 py-0.5 rounded text-xs ${
+                            job.status === 'COMPLETED'
+                              ? 'bg-green-100 text-green-700'
+                              : job.status === 'FAILED'
+                                ? 'bg-red-100 text-red-700'
+                                : job.status === 'PROCESSING'
+                                  ? 'bg-blue-100 text-blue-700'
+                                  : 'bg-gray-100 text-gray-700'
+                          }`}
+                        >
+                          {job.status}
+                        </span>
+                        {job.error && (
+                          <p className="text-xs text-red-500 mt-1 max-w-[150px] truncate" title={job.error}>
+                            {job.error}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-4 pt-3 border-t">
+                  <p className="text-xs text-gray-400">
+                    Scheduled: Enrichment daily 9 PM | Backlinks 1st &amp; 15th | Opportunities 1st of month
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )}
+      {activeTab === 'network' && !networkData && (
+        <div className="bg-yellow-50 text-yellow-700 p-4 rounded-lg">
+          Network data is loading or unavailable.
+        </div>
+      )}
+
+      {activeTab === 'overview' && (
+        <div className="space-y-6">
+          {/* Internal Network Summary (on overview) */}
+          {networkData && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Internal Link Network</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div>
-                    <p className="text-sm font-medium">{opp.targetDomain}</p>
-                    <p className="text-xs text-gray-500">
-                      {opp.opportunityType.replace(/_/g, ' ')}
-                    </p>
+                    <p className="text-xs text-gray-500 uppercase tracking-wide">Microsites</p>
+                    <p className="text-lg font-bold">{networkData.network.totalMicrosites.toLocaleString()}</p>
                   </div>
-                  <div className="text-right">
-                    <span
-                      className={`text-sm font-bold ${opp.domainAuthority >= 40 ? 'text-green-600' : 'text-gray-500'}`}
-                    >
-                      DA {opp.domainAuthority}
-                    </span>
-                    <p className="text-xs text-gray-400">{opp.status.replace(/_/g, ' ')}</p>
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase tracking-wide">Footer Links</p>
+                    <p className="text-lg font-bold text-indigo-600">~{networkData.network.estimatedFooterLinkInstances.toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase tracking-wide">Blog Cross-Links</p>
+                    <p className="text-lg font-bold text-indigo-600">~{networkData.crossSiteLinks.estimatedTotalCrossSiteLinks.toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase tracking-wide">Enrichment</p>
+                    <p className="text-lg font-bold">{networkData.crossSiteLinks.enrichmentRate}%</p>
                   </div>
                 </div>
-              ))}
-              {data.opportunities.length === 0 && (
-                <p className="text-sm text-gray-500 py-4 text-center">No opportunities found yet</p>
-              )}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Recent Backlinks */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent Backlinks</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {data.backlinks.slice(0, 5).map((bl) => (
+                  <div
+                    key={bl.id}
+                    className="flex items-center justify-between py-2 border-b last:border-0"
+                  >
+                    <div>
+                      <p className="text-sm font-medium">{bl.sourceDomain}</p>
+                      <p className="text-xs text-gray-500 truncate max-w-[250px]">
+                        {bl.anchorText || 'No anchor'}
+                      </p>
+                    </div>
+                    <span
+                      className={`text-sm font-bold ${bl.domainAuthority >= 40 ? 'text-green-600' : 'text-gray-500'}`}
+                    >
+                      DA {bl.domainAuthority}
+                    </span>
+                  </div>
+                ))}
+                {data.backlinks.length === 0 && (
+                  <p className="text-sm text-gray-500 py-4 text-center">No backlinks tracked yet</p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Top Opportunities */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Top Opportunities</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {data.opportunities.slice(0, 5).map((opp) => (
+                  <div
+                    key={opp.id}
+                    className="flex items-center justify-between py-2 border-b last:border-0"
+                  >
+                    <div>
+                      <p className="text-sm font-medium">{opp.targetDomain}</p>
+                      <p className="text-xs text-gray-500">
+                        {opp.opportunityType.replace(/_/g, ' ')}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <span
+                        className={`text-sm font-bold ${opp.domainAuthority >= 40 ? 'text-green-600' : 'text-gray-500'}`}
+                      >
+                        DA {opp.domainAuthority}
+                      </span>
+                      <p className="text-xs text-gray-400">{opp.status.replace(/_/g, ' ')}</p>
+                    </div>
+                  </div>
+                ))}
+                {data.opportunities.length === 0 && (
+                  <p className="text-sm text-gray-500 py-4 text-center">No opportunities found yet</p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </div>
       )}
     </div>

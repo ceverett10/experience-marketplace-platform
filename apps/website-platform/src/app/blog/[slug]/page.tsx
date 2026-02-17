@@ -3,7 +3,10 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getSiteFromHostname, type HomepageConfig, type SiteConfig } from '@/lib/tenant';
 import { prisma } from '@/lib/prisma';
+import { getRelatedMicrosites, getNetworkRelatedBlogPosts } from '@/lib/microsite-experiences';
 import { BlogPostTemplate } from '@/components/content/BlogPostTemplate';
+import { RelatedMicrosites } from '@/components/microsites/RelatedMicrosites';
+import { NetworkRelatedPosts } from '@/components/microsites/NetworkRelatedPosts';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -262,8 +265,50 @@ export default async function BlogPostPage({ params }: Props) {
 
       {/* Blog Post Content */}
       <BlogPostTemplate post={post} siteName={site.name} />
+
+      {/* Network cross-linking (microsites only) */}
+      {site.micrositeContext?.micrositeId && (
+        <NetworkRelatedPostsSection
+          micrositeId={site.micrositeContext.micrositeId}
+          cities={site.micrositeContext.supplierCities || []}
+          categories={site.micrositeContext.supplierCategories || []}
+        />
+      )}
+
+      {/* Related microsites grid (microsites only) */}
+      {site.relatedMicrosites && site.relatedMicrosites.length > 0 && (
+        <RelatedMicrosites
+          microsites={site.relatedMicrosites.map((ms) => ({
+            ...ms,
+            logoUrl: null,
+            productCount: 0,
+            rating: null,
+          }))}
+        />
+      )}
     </>
   );
+}
+
+/**
+ * Server component that fetches network related posts.
+ * Separated to avoid blocking the main page render.
+ */
+async function NetworkRelatedPostsSection({
+  micrositeId,
+  cities,
+  categories,
+}: {
+  micrositeId: string;
+  cities: string[];
+  categories: string[];
+}) {
+  try {
+    const posts = await getNetworkRelatedBlogPosts(micrositeId, cities, categories, 4);
+    return <NetworkRelatedPosts posts={posts} />;
+  } catch {
+    return null;
+  }
 }
 
 // Dynamic rendering - pages generated on-demand

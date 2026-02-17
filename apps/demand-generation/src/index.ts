@@ -65,6 +65,15 @@ import {
   handleSocialDailyPosting,
   handleSocialPostGenerate,
   handleSocialPostPublish,
+  // Link building handlers
+  handleLinkOpportunityScan,
+  handleLinkBacklinkMonitor,
+  handleLinkOutreachGenerate,
+  handleLinkAssetGenerate,
+  handleCrossSiteLinkEnrichment,
+  handleLinkCompetitorDiscovery,
+  handleLinkBrokenLinkScan,
+  handleLinkContentGapAnalysis,
   // Paid traffic handlers
   handlePaidKeywordScan,
   handleAdCampaignSync,
@@ -246,6 +255,23 @@ const seoWorker = new Worker(
         return await handleBatchOptimize(job);
       case 'weekly_scheduler':
         return await handleWeeklyAuditScheduler(job);
+      // Link building handlers
+      case 'LINK_OPPORTUNITY_SCAN':
+        return await handleLinkOpportunityScan(job);
+      case 'LINK_BACKLINK_MONITOR':
+        return await handleLinkBacklinkMonitor(job);
+      case 'LINK_OUTREACH_GENERATE':
+        return await handleLinkOutreachGenerate(job);
+      case 'LINK_ASSET_GENERATE':
+        return await handleLinkAssetGenerate(job);
+      case 'CROSS_SITE_LINK_ENRICHMENT':
+        return await handleCrossSiteLinkEnrichment(job);
+      case 'LINK_COMPETITOR_DISCOVERY':
+        return await handleLinkCompetitorDiscovery(job);
+      case 'LINK_BROKEN_LINK_SCAN':
+        return await handleLinkBrokenLinkScan(job);
+      case 'LINK_CONTENT_GAP_ANALYSIS':
+        return await handleLinkContentGapAnalysis(job);
       default:
         throw new Error(`Unknown job type: ${job.name}`);
     }

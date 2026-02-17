@@ -604,6 +604,114 @@ export class DataForSEOClient {
   }
 
   /**
+   * Get SERP competitors — domains that rank for the same keywords.
+   * Fetches SERP results for multiple keywords and extracts competing domains.
+   *
+   * Uses: SERP > Google > Organic
+   * Cost: ~$0.004 per keyword
+   */
+  async getSerpCompetitors(
+    keywords: string[],
+    location: string = 'United States',
+    language: string = 'English',
+    ourDomain?: string
+  ): Promise<
+    Array<{
+      domain: string;
+      keywordsShared: number;
+      avgPosition: number;
+      urls: string[];
+    }>
+  > {
+    const domainData = new Map<
+      string,
+      { positions: number[]; urls: Set<string> }
+    >();
+
+    // Check up to 10 keywords to keep costs reasonable
+    for (const keyword of keywords.slice(0, 10)) {
+      try {
+        const serp = await this.getSERP(keyword, location, language);
+        for (const result of serp.results.slice(0, 20)) {
+          // Skip our own domain
+          if (ourDomain && result.domain.includes(ourDomain)) continue;
+          // Skip generic aggregators
+          if (['tripadvisor.com', 'yelp.com', 'google.com', 'wikipedia.org', 'facebook.com'].some(
+            (d) => result.domain.includes(d)
+          )) continue;
+
+          if (!domainData.has(result.domain)) {
+            domainData.set(result.domain, { positions: [], urls: new Set() });
+          }
+          const data = domainData.get(result.domain)!;
+          data.positions.push(result.position);
+          data.urls.add(result.url);
+        }
+      } catch (error) {
+        console.warn(`[DataForSEO] SERP error for "${keyword}":`, error);
+      }
+    }
+
+    return [...domainData.entries()]
+      .map(([domain, data]) => ({
+        domain,
+        keywordsShared: data.positions.length,
+        avgPosition: Math.round(
+          data.positions.reduce((sum, p) => sum + p, 0) / data.positions.length
+        ),
+        urls: [...data.urls],
+      }))
+      .sort((a, b) => b.keywordsShared - a.keywordsShared);
+  }
+
+  /**
+   * Get broken backlinks — backlinks pointing to pages that return 404/error.
+   * Useful for finding replacement link opportunities.
+   *
+   * Uses: Backlinks > Broken Backlinks > Live
+   * Cost: ~$0.003 per request
+   */
+  async getBrokenBacklinks(
+    target: string,
+    limit: number = 100
+  ): Promise<
+    Array<{
+      sourceUrl: string;
+      sourceDomain: string;
+      targetUrl: string;
+      anchorText: string;
+      domainAuthority: number;
+      isDoFollow: boolean;
+    }>
+  > {
+    try {
+      const response = await this.makeRequest('/backlinks/broken_backlinks/live', {
+        method: 'POST',
+        body: JSON.stringify([
+          {
+            target,
+            limit,
+            order_by: ['rank,desc'],
+          },
+        ]),
+      });
+
+      const items = response.tasks?.[0]?.result?.[0]?.items || [];
+      return items.map((item: any) => ({
+        sourceUrl: item.url_from || '',
+        sourceDomain: item.domain_from || '',
+        targetUrl: item.url_to || '',
+        anchorText: item.anchor || '',
+        domainAuthority: item.domain_from_rank || 0,
+        isDoFollow: item.dofollow ?? true,
+      }));
+    } catch (error) {
+      console.error('[DataForSEO] Error getting broken backlinks:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Get current API usage and cost
    * Useful for monitoring spend
    */

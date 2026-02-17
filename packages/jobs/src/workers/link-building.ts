@@ -29,6 +29,10 @@ import {
   generateComprehensiveGuide,
   generateInfographicData,
 } from '../services/linkable-assets';
+import { runCrossSiteLinkEnrichment } from '../services/cross-site-link-enrichment';
+import { runCompetitorDiscovery } from '../services/competitor-discovery';
+import { runBrokenLinkDiscovery } from '../services/broken-link-discovery';
+import { runContentGapAnalysis } from '../services/content-gap-analysis';
 import { circuitBreakers } from '../errors/circuit-breaker';
 import { toJobError } from '../errors';
 import { errorTracking } from '../errors/tracking';
@@ -313,6 +317,134 @@ export async function handleLinkAssetGenerate(
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     console.error(`[Link Building] Asset generation failed:`, error);
+    return {
+      success: false,
+      error: message,
+      retryable: true,
+      timestamp: new Date(),
+    };
+  }
+}
+
+/**
+ * Handle CROSS_SITE_LINK_ENRICHMENT jobs
+ * Batch-processes existing blog posts to inject cross-site links where missing
+ */
+export async function handleCrossSiteLinkEnrichment(
+  job: Job<{ percentagePerRun?: number }>
+): Promise<JobResult> {
+  const { percentagePerRun = 5 } = job.data;
+
+  console.log(`[Link Building] Starting cross-site link enrichment (${percentagePerRun}% batch)`);
+
+  try {
+    const result = await runCrossSiteLinkEnrichment(percentagePerRun);
+
+    return {
+      success: true,
+      message: `Enriched ${result.blogsEnriched} blogs with ${result.linksAdded} cross-site links (${result.micrositesProcessed} microsites processed)`,
+      data: { ...result } as Record<string, unknown>,
+      timestamp: new Date(),
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[Link Building] Cross-site enrichment failed:', error);
+    return {
+      success: false,
+      error: message,
+      retryable: true,
+      timestamp: new Date(),
+    };
+  }
+}
+
+/**
+ * Handle LINK_COMPETITOR_DISCOVERY jobs
+ * Uses SERP data to find competitors and their backlink sources
+ */
+export async function handleLinkCompetitorDiscovery(
+  job: Job<{ maxSites?: number }>
+): Promise<JobResult> {
+  const { maxSites = 20 } = job.data;
+
+  console.log(`[Link Building] Starting competitor discovery (max ${maxSites} sites)`);
+
+  try {
+    const result = await runCompetitorDiscovery(maxSites);
+
+    return {
+      success: true,
+      message: `Discovered ${result.competitorsFound} competitors across ${result.sitesProcessed} sites, created ${result.opportunitiesCreated} opportunities`,
+      data: { ...result } as Record<string, unknown>,
+      timestamp: new Date(),
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[Link Building] Competitor discovery failed:', error);
+    return {
+      success: false,
+      error: message,
+      retryable: true,
+      timestamp: new Date(),
+    };
+  }
+}
+
+/**
+ * Handle LINK_BROKEN_LINK_SCAN jobs
+ * Scans competitor domains for broken links that we can replace
+ */
+export async function handleLinkBrokenLinkScan(
+  job: Job<{ maxDomains?: number }>
+): Promise<JobResult> {
+  const { maxDomains = 20 } = job.data;
+
+  console.log(`[Link Building] Starting broken link scan (max ${maxDomains} domains)`);
+
+  try {
+    const result = await runBrokenLinkDiscovery(maxDomains);
+
+    return {
+      success: true,
+      message: `Scanned ${result.domainsScanned} domains, found ${result.brokenLinksFound} broken links, created ${result.opportunitiesCreated} opportunities`,
+      data: { ...result } as Record<string, unknown>,
+      timestamp: new Date(),
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[Link Building] Broken link scan failed:', error);
+    return {
+      success: false,
+      error: message,
+      retryable: true,
+      timestamp: new Date(),
+    };
+  }
+}
+
+/**
+ * Handle LINK_CONTENT_GAP_ANALYSIS jobs
+ * Identifies keyword gaps where we can create linkable assets
+ */
+export async function handleLinkContentGapAnalysis(
+  job: Job<{ maxSites?: number }>
+): Promise<JobResult> {
+  const { maxSites = 10 } = job.data;
+
+  console.log(`[Link Building] Starting content gap analysis (max ${maxSites} sites)`);
+
+  try {
+    const result = await runContentGapAnalysis(maxSites);
+
+    return {
+      success: true,
+      message: `Analyzed ${result.sitesAnalyzed} sites, identified ${result.gapsIdentified} gaps, created ${result.assetsCreated} asset suggestions`,
+      data: { ...result } as Record<string, unknown>,
+      timestamp: new Date(),
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[Link Building] Content gap analysis failed:', error);
     return {
       success: false,
       error: message,
