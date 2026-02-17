@@ -31,8 +31,9 @@ const QUEUE_CONFIG: Record<QueueName, { timeout: number; attempts: number; backo
     [QUEUE_NAMES.MICROSITE]: { timeout: 300_000, attempts: 3, backoffDelay: 15_000 },
     // Social: Caption generation + external API posting
     [QUEUE_NAMES.SOCIAL]: { timeout: 120_000, attempts: 3, backoffDelay: 30_000 },
-    // Ads: Campaign sync, budget optimization, and paid keyword scanning with external APIs
-    [QUEUE_NAMES.ADS]: { timeout: 300_000, attempts: 3, backoffDelay: 30_000 },
+    // Ads: BIDDING_ENGINE_RUN deploys hundreds of campaigns at ~1/min (rate-limited).
+    // 300 campaigns × ~1 min each = ~5 hours. Use 6h timeout like sync queue.
+    [QUEUE_NAMES.ADS]: { timeout: 21_600_000, attempts: 2, backoffDelay: 60_000 },
   };
 
 /**

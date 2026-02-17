@@ -1165,7 +1165,7 @@ async function deployToGoogle(
  * Campaigns are created as PAUSED for safety — use the budget optimizer
  * or dashboard to activate them after review.
  */
-export async function deployDraftCampaigns(): Promise<{
+export async function deployDraftCampaigns(job?: Job): Promise<{
   deployed: number;
   failed: number;
   skipped: number;
@@ -1232,7 +1232,11 @@ export async function deployDraftCampaigns(): Promise<{
       });
       deployed++;
       consecutiveFailures[draft.platform] = 0;
-      console.log(`[Ads Worker] Campaign "${draft.name}" deployed → ${platformCampaignId}`);
+      // Report progress to keep BullMQ lock alive during long deployment runs
+      if (job) {
+        await job.updateProgress({ deployed, failed, skipped, total: drafts.length });
+      }
+      console.log(`[Ads Worker] Campaign "${draft.name}" deployed → ${platformCampaignId} (${deployed}/${drafts.length})`);
     } else {
       // Platform not configured or deployment failed — skip but don't fail
       const isConfigured =
@@ -1368,7 +1372,7 @@ export async function handleBiddingEngineRun(job: Job): Promise<JobResult> {
 
     // Auto-deploy new drafts to platforms (as PAUSED — no money spent until manually activated)
     console.log('[Ads Worker] Auto-deploying draft campaigns to platforms...');
-    const deployResult = await deployDraftCampaigns();
+    const deployResult = await deployDraftCampaigns(job);
     console.log(
       `[Ads Worker] Auto-deploy complete: ${deployResult.deployed} deployed, ` +
         `${deployResult.failed} failed, ${deployResult.skipped} skipped`
