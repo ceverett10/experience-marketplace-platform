@@ -744,7 +744,7 @@ export async function handleAutoOptimize(job: Job<SEOAutoOptimizePayload>): Prom
         await addJob(
           'SEO_AUTO_OPTIMIZE',
           {
-            siteId: '__microsite__', // Marker — micrositeId carries the real ID
+            siteId: '', // Empty — micrositeId carries the real ID; '' is treated as null by addJob
             micrositeId: ms.id,
             scope,
           },

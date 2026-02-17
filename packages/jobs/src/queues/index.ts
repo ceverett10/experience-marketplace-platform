@@ -135,6 +135,7 @@ class QueueRegistry {
       'KEYWORD_ENRICHMENT', // Bulk keyword extraction from products, no single siteId
       'AD_CONVERSION_UPLOAD', // Uploads conversions to Meta/Google CAPI, no single siteId
       'AD_PLATFORM_IDS_SYNC', // Fetches pixel/conversion IDs from ad platforms, no single siteId
+      'SEO_AUTO_OPTIMIZE', // Can be triggered for microsites with micrositeId instead of siteId
     ];
     if (!siteId && rawSiteId !== 'all' && !siteOptionalTypes.includes(jobType)) {
       const hasDomainId = !!(payload as { domainId?: string }).domainId;
