@@ -52,7 +52,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ plat
         `https://www.pinterest.com/oauth/?response_type=code` +
         `&client_id=${appId}` +
         `&redirect_uri=${encodeURIComponent(callbackUrl)}` +
-        `&scope=boards:read,boards:write,pins:read,pins:write,ads:read` +
+        `&scope=boards:read,boards:write,pins:read,pins:write,user_accounts:read,ads:read` +
         `&state=${state}`;
       break;
     }
