@@ -199,7 +199,54 @@ export async function suggestCrossSiteLinks(params: {
       return { links: [], contentWithLinks: content };
     }
 
-    // 5. Insert links into content at natural positions
+    // 5. Anti-reciprocal check: find microsites that already link TO us
+    // If microsite B already links to microsite A, we should NOT inject A→B links
+    const ourDomain = currentMicrosite.fullDomain;
+    const domainsLinkingToUs = new Set<string>();
+
+    // Check recent blogs from candidate microsites for links to our domain
+    const candidateMicrositeIds = scoredPages.map((sp) => sp.ms.id);
+    if (candidateMicrositeIds.length > 0) {
+      const theirBlogs = await prisma.page.findMany({
+        where: {
+          micrositeId: { in: candidateMicrositeIds },
+          type: 'BLOG',
+          status: 'PUBLISHED',
+          contentId: { not: null },
+        },
+        select: { micrositeId: true, contentId: true },
+        take: 50,
+      });
+
+      const theirContentIds = theirBlogs
+        .map((b) => b.contentId)
+        .filter((id): id is string => id !== null);
+
+      if (theirContentIds.length > 0) {
+        const theirContents = await prisma.content.findMany({
+          where: { id: { in: theirContentIds } },
+          select: { id: true, body: true },
+        });
+        const theirContentMap = new Map(theirContents.map((c) => [c.id, c.body]));
+
+        for (const blog of theirBlogs) {
+          const body = theirContentMap.get(blog.contentId || '');
+          if (body && body.includes(ourDomain) && blog.micrositeId) {
+            // Find which microsite this blog belongs to
+            const ms = relatedMicrosites.find((r) => r.ms.id === blog.micrositeId);
+            if (ms) domainsLinkingToUs.add(ms.ms.fullDomain);
+          }
+        }
+      }
+
+      if (domainsLinkingToUs.size > 0) {
+        console.log(
+          `[Cross-Site Linking] Anti-reciprocal: ${domainsLinkingToUs.size} domains already link to us, skipping`
+        );
+      }
+    }
+
+    // 6. Insert links into content at natural positions
     let contentWithLinks = content;
     const insertedLinks: CrossSiteLink[] = [];
     const usedDomains = new Set<string>(); // One link per domain max
@@ -207,6 +254,8 @@ export async function suggestCrossSiteLinks(params: {
     for (const item of scoredPages) {
       if (insertedLinks.length >= maxLinks) break;
       if (usedDomains.has(item.ms.fullDomain)) continue;
+      // Skip if this microsite already links to us (prevent reciprocal)
+      if (domainsLinkingToUs.has(item.ms.fullDomain)) continue;
 
       const targetUrl = `https://${item.ms.fullDomain}/${item.page.slug}`;
 
@@ -268,7 +317,7 @@ function findAndInsertCrossSiteLink(
   // Try to find matching phrases in the content body (not in existing links)
   for (const word of titleWords) {
     const regex = new RegExp(
-      `(?<!\\[)\\b(${escapeRegex(word)}(?:s|es|ing|ed)?)\\b(?!\\])(?![^\\[]*\\])`,
+      `\\b(${escapeRegex(word)}(?:s|es|ing|ed)?)\\b`,
       'gi'
     );
 
@@ -276,23 +325,28 @@ function findAndInsertCrossSiteLink(
     const introEnd = content.indexOf('\n\n');
     const searchStart = introEnd > 0 ? introEnd : 0;
     const searchContent = content.substring(searchStart);
-    const matchIndex = searchContent.search(regex);
 
-    if (matchIndex !== -1) {
-      const absoluteIndex = searchStart + matchIndex;
-      const matchedText = searchContent.match(regex)?.[0];
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(searchContent)) !== null) {
+      const absoluteIndex = searchStart + match.index;
+      const matchedText = match[0];
 
-      if (matchedText) {
-        const linkedText = `[${matchedText}](${link.url})`;
-        const before = content.substring(0, absoluteIndex);
-        const after = content.substring(absoluteIndex + matchedText.length);
+      // Skip if this match is inside an existing markdown link [text](url)
+      const surroundingBefore = content.substring(Math.max(0, absoluteIndex - 200), absoluteIndex);
+      const surroundingAfter = content.substring(absoluteIndex, Math.min(content.length, absoluteIndex + matchedText.length + 200));
+      const insideLink = /\[[^\]]*$/.test(surroundingBefore) || /^\]\(/.test(content.substring(absoluteIndex + matchedText.length));
+      const insideLinkUrl = /\]\([^)]*$/.test(surroundingBefore);
+      if (insideLink || insideLinkUrl) continue;
 
-        return {
-          content: before + linkedText + after,
-          inserted: true,
-          anchorText: matchedText,
-        };
-      }
+      const linkedText = `[${matchedText}](${link.url})`;
+      const before = content.substring(0, absoluteIndex);
+      const after = content.substring(absoluteIndex + matchedText.length);
+
+      return {
+        content: before + linkedText + after,
+        inserted: true,
+        anchorText: matchedText,
+      };
     }
   }
 
