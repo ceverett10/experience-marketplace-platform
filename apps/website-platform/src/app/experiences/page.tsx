@@ -525,7 +525,8 @@ async function getExperiencesFromHolibobAPI(
       page,
       filters: {
         placeName: options.filters?.cities?.[0],
-        categoryIds: options.filters?.categories,
+        // Note: categories from URL are names (e.g. "Watersports"), not IDs.
+        // Holibob API expects categoryIds (UUIDs). Client-side filtering handles category names.
       },
     });
 
