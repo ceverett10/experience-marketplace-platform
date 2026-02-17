@@ -270,7 +270,7 @@ export async function initializeScheduledJobs(): Promise<void> {
     'CROSS_SITE_LINK_ENRICHMENT' as any,
     {
       percentagePerRun: 5,
-    },
+    } as any,
     '0 21 * * *' // Daily at 9 PM
   );
   console.log('[Scheduler] ✓ Cross-Site Link Enrichment - Daily at 9 PM (5% per run)');
