@@ -993,69 +993,12 @@ export async function handleAutoOptimize(job: Job<SEOAutoOptimizePayload>): Prom
       }
     }
 
-    // 9. Auto-resolve OPEN keyword/snippet issues by queuing CONTENT_OPTIMIZE jobs (sites only)
-    if (isSite && (scope === 'all' || scope === 'content')) {
-      console.log('[Auto SEO] Processing OPEN SEO issues for auto-resolution...');
-      const openIssues = await prisma.sEOIssue.findMany({
-        where: {
-          siteId,
-          status: 'OPEN',
-          category: 'CONTENT',
-          severity: { in: ['HIGH', 'CRITICAL'] },
-          detectedBy: 'SEO_AUTO_OPTIMIZE',
-          OR: [
-            { title: { startsWith: 'Keyword optimization needed' } },
-            { title: { startsWith: 'Featured snippet opportunity' } },
-          ],
-        },
-        include: {
-          page: {
-            select: { id: true, contentId: true },
-          },
-        },
-        orderBy: { severity: 'desc' },
-        take: 1000, // Process up to 1000 issues per run (these are lightweight content optimize jobs)
-      });
-
-      let issuesQueued = 0;
-
-      for (const issue of openIssues) {
-        // Skip issues without a page or content
-        if (!issue.pageId || !issue.page?.contentId) continue;
-
-        const isKeyword = issue.title.startsWith('Keyword optimization needed');
-        const metadata = (issue.metadata as Record<string, unknown>) || {};
-
-        await addJob(
-          'CONTENT_OPTIMIZE',
-          {
-            siteId,
-            pageId: issue.pageId,
-            contentId: issue.page.contentId,
-            reason: isKeyword ? 'keyword_optimization' : 'snippet_optimization',
-            seoIssueId: issue.id,
-            optimizationContext: metadata,
-          },
-          {
-            priority: 5,
-            delay: issuesQueued * 30000, // Stagger by 30 seconds
-          }
-        );
-
-        // Mark issue as IN_PROGRESS
-        await updateSEOIssueStatus(issue.id, 'IN_PROGRESS');
-        issuesQueued++;
-      }
-
-      results['autoResolve'] = {
-        openIssuesFound: openIssues.length,
-        jobsQueued: issuesQueued,
-        skipped: openIssues.length - issuesQueued,
-      };
-      if (issuesQueued > 0) {
-        console.log(`[Auto SEO] Queued ${issuesQueued} CONTENT_OPTIMIZE jobs for OPEN issues`);
-      }
-    }
+    // 9. Auto-resolve OPEN keyword/snippet issues — DISABLED
+    // The CONTENT_OPTIMIZE pipeline regenerates content from scratch with a quality threshold
+    // of 85, which fails most of the time and burns AI credits. Issues are tracked in the
+    // dashboard for manual review instead. Steps 1-8 above handle all non-AI fixes automatically.
+    // TODO: Re-enable once we have a lightweight "SEO tweak" mode that edits existing content
+    //       rather than regenerating from scratch.
 
     const duration = Date.now() - startTime;
     console.log(`[Auto SEO] Completed in ${duration}ms`);
