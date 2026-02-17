@@ -245,27 +245,35 @@ export async function initializeScheduledJobs(): Promise<void> {
   );
   console.log('[Scheduler] ✓ A/B Test Rebalancing - Every hour');
 
-  // Link Building - Backlink Monitor - PAUSED (DataForSEO costs)
-  // await scheduleJob(
-  //   'LINK_BACKLINK_MONITOR' as any,
-  //   {
-  //     siteId: 'all',
-  //   },
-  //   '0 3 * * 3' // Wednesdays at 3 AM
-  // );
-  // console.log('[Scheduler] ✓ Backlink Monitor - Wednesdays at 3 AM');
-  console.log('[Scheduler] ⏸ Backlink Monitor - PAUSED (DataForSEO)');
+  // Link Building - Backlink Monitor (biweekly: 1st and 15th of each month)
+  await scheduleJob(
+    'LINK_BACKLINK_MONITOR' as any,
+    {
+      siteId: 'all',
+    },
+    '0 3 1,15 * *' // 1st and 15th of month at 3 AM
+  );
+  console.log('[Scheduler] ✓ Backlink Monitor - 1st & 15th of month at 3 AM');
 
-  // Link Building - Opportunity Scan - PAUSED (DataForSEO costs)
-  // await scheduleJob(
-  //   'LINK_OPPORTUNITY_SCAN' as any,
-  //   {
-  //     siteId: 'all',
-  //   },
-  //   '0 2 * * 2' // Tuesdays at 2 AM
-  // );
-  // console.log('[Scheduler] ✓ Link Opportunity Scan - Tuesdays at 2 AM');
-  console.log('[Scheduler] ⏸ Link Opportunity Scan - PAUSED (DataForSEO)');
+  // Link Building - Opportunity Scan (monthly: 1st of each month)
+  await scheduleJob(
+    'LINK_OPPORTUNITY_SCAN' as any,
+    {
+      siteId: 'all',
+    },
+    '0 2 1 * *' // 1st of month at 2 AM
+  );
+  console.log('[Scheduler] ✓ Link Opportunity Scan - 1st of month at 2 AM');
+
+  // Cross-Site Link Enrichment - Daily at 9 PM (processes 5% of microsites per run)
+  await scheduleJob(
+    'CROSS_SITE_LINK_ENRICHMENT' as any,
+    {
+      percentagePerRun: 5,
+    },
+    '0 21 * * *' // Daily at 9 PM
+  );
+  console.log('[Scheduler] ✓ Cross-Site Link Enrichment - Daily at 9 PM (5% per run)');
 
   // Daily Content Generation - Staggered throughout the day
   // Uses setInterval with cron-like scheduling since it doesn't need job queue tracking
@@ -293,15 +301,15 @@ export async function initializeScheduledJobs(): Promise<void> {
   );
   console.log('[Scheduler] ✓ Supplier Sync - Daily at 2 AM');
 
-  // Holibob Product Sync - Daily at 3:30 AM (after supplier sync)
+  // Holibob Product Sync - Weekly on Sundays at 3:30 AM (after supplier sync)
   await scheduleJob(
     'PRODUCT_SYNC' as any,
     {
       forceSync: false, // Only sync stale products
     },
-    '30 3 * * *' // Daily at 3:30 AM
+    '30 3 * * 0' // Weekly on Sundays at 3:30 AM
   );
-  console.log('[Scheduler] ✓ Product Sync - Daily at 3:30 AM');
+  console.log('[Scheduler] ✓ Product Sync - Weekly on Sundays at 3:30 AM');
 
   // Microsite Content Refresh - Daily at 6 AM (after syncs complete)
   // Refreshes 1% of microsites per day (rotating)
@@ -919,13 +927,18 @@ export function getScheduledJobs(): Array<{
     },
     {
       jobType: 'LINK_OPPORTUNITY_SCAN',
-      schedule: '0 2 * * 2',
-      description: 'Scan competitor backlinks for link building opportunities',
+      schedule: '0 2 1 * *',
+      description: 'Scan competitor backlinks for link building opportunities (monthly)',
     },
     {
       jobType: 'LINK_BACKLINK_MONITOR',
-      schedule: '0 3 * * 3',
-      description: 'Monitor existing backlinks for lost or broken links',
+      schedule: '0 3 1,15 * *',
+      description: 'Monitor existing backlinks for lost or broken links (biweekly)',
+    },
+    {
+      jobType: 'CROSS_SITE_LINK_ENRICHMENT',
+      schedule: '0 21 * * *',
+      description: 'Batch inject cross-site links into existing blog posts (5% per day)',
     },
     {
       jobType: 'ABTEST_REBALANCE',
@@ -945,8 +958,8 @@ export function getScheduledJobs(): Array<{
     },
     {
       jobType: 'PRODUCT_SYNC',
-      schedule: '30 3 * * *',
-      description: 'Sync products from Holibob API to local cache',
+      schedule: '30 3 * * 0',
+      description: 'Weekly incremental product sync from Holibob API',
     },
     {
       jobType: 'MICROSITE_CONTENT_REFRESH',

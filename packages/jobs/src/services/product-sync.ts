@@ -26,6 +26,7 @@ export interface ProductSyncResult {
   productsDiscovered: number;
   productsCreated: number;
   productsUpdated: number;
+  productsSkipped: number;
   errors: string[];
   duration: number;
 }
@@ -149,6 +150,7 @@ export async function syncProductsFromHolibob(
   let productsDiscovered = 0;
   let productsCreated = 0;
   let productsUpdated = 0;
+  let productsSkipped = 0;
 
   try {
     // Get suppliers to sync
@@ -213,7 +215,9 @@ export async function syncProductsFromHolibob(
           try {
             const result = await upsertProduct(product, supplier.id, existingSlugs);
 
-            if (result.created) {
+            if (result.skipped) {
+              productsSkipped++;
+            } else if (result.created) {
               productsCreated++;
             } else {
               productsUpdated++;
@@ -281,7 +285,7 @@ export async function syncProductsFromHolibob(
 
     const duration = Date.now() - startTime;
     console.log(
-      `[Product Sync] Complete. Suppliers: ${suppliersProcessed}, Products: ${productsDiscovered} (${productsCreated} created, ${productsUpdated} updated), Errors: ${errors.length}, Duration: ${duration}ms`
+      `[Product Sync] Complete. Suppliers: ${suppliersProcessed}, Products: ${productsDiscovered} (${productsCreated} created, ${productsUpdated} updated, ${productsSkipped} skipped), Errors: ${errors.length}, Duration: ${duration}ms`
     );
 
     return {
@@ -290,6 +294,7 @@ export async function syncProductsFromHolibob(
       productsDiscovered,
       productsCreated,
       productsUpdated,
+      productsSkipped,
       errors,
       duration,
     };
@@ -306,6 +311,7 @@ export async function syncProductsFromHolibob(
       productsDiscovered,
       productsCreated,
       productsUpdated,
+      productsSkipped,
       errors,
       duration: Date.now() - startTime,
     };
@@ -319,10 +325,7 @@ async function upsertProduct(
   product: HolibobProduct,
   supplierId: string,
   existingSlugs: Set<string>
-): Promise<{ created: boolean }> {
-  const slug = await generateUniqueSlug(product.name, product.id, existingSlugs);
-  existingSlugs.add(slug);
-
+): Promise<{ created: boolean; skipped: boolean }> {
   // Extract categories and tags
   const categories: string[] = [];
   const tags: string[] = [];
@@ -386,20 +389,64 @@ async function upsertProduct(
     duration = product.durationText;
   }
 
+  const newTitle = product.name;
+  const newPriceFrom = product.guidePrice ?? product.priceFrom ?? null;
+  const newRating = product.reviewRating ?? product.rating ?? null;
+  const newReviewCount = product.reviewCount ?? 0;
+
+  // Check if product exists and compare key fields to skip unchanged products
+  const existingProduct = await prisma.product.findUnique({
+    where: { holibobProductId: product.id },
+    select: {
+      id: true,
+      title: true,
+      priceFrom: true,
+      rating: true,
+      reviewCount: true,
+      primaryImageUrl: true,
+    },
+  });
+
+  if (existingProduct) {
+    const unchanged =
+      existingProduct.title === newTitle &&
+      existingProduct.priceFrom === newPriceFrom &&
+      existingProduct.rating === newRating &&
+      existingProduct.reviewCount === newReviewCount &&
+      existingProduct.primaryImageUrl === primaryImageUrl;
+
+    if (unchanged) {
+      // Touch lastSyncedAt without rewriting all fields
+      await prisma.product.update({
+        where: { holibobProductId: product.id },
+        data: { lastSyncedAt: new Date() },
+      });
+      return { created: false, skipped: true };
+    }
+  }
+
+  const slug = existingProduct
+    ? undefined // Keep existing slug for updates
+    : await generateUniqueSlug(product.name, product.id, existingSlugs);
+
+  if (slug) {
+    existingSlugs.add(slug);
+  }
+
   const productData = {
-    slug,
-    title: product.name,
+    ...(slug ? { slug } : {}),
+    title: newTitle,
     description: product.description ?? null,
     shortDescription: product.shortDescription ?? null,
-    priceFrom: product.guidePrice ?? product.priceFrom ?? null,
+    priceFrom: newPriceFrom,
     currency: product.guidePriceCurrency ?? product.priceCurrency ?? 'GBP',
     duration,
     city,
     country: null, // Not directly available in product response
     // Prisma requires special handling for nullable JSON fields
     coordinates: coordinates ?? Prisma.JsonNull,
-    rating: product.reviewRating ?? product.rating ?? null,
-    reviewCount: product.reviewCount ?? 0,
+    rating: newRating,
+    reviewCount: newReviewCount,
     primaryImageUrl,
     images: images.length > 0 ? images : Prisma.JsonNull,
     categories,
@@ -408,16 +455,17 @@ async function upsertProduct(
     lastSyncedAt: new Date(),
   };
 
-  // Check if product exists to determine if this is create or update
-  const existingProduct = await prisma.product.findUnique({
-    where: { holibobProductId: product.id },
-    select: { id: true, createdAt: true },
-  });
+  // For creates we need a slug
+  const createSlug = slug ?? (await generateUniqueSlug(product.name, product.id, existingSlugs));
+  if (!slug) {
+    existingSlugs.add(createSlug);
+  }
 
-  const result = await prisma.product.upsert({
+  await prisma.product.upsert({
     where: { holibobProductId: product.id },
     create: {
       holibobProductId: product.id,
+      slug: createSlug,
       ...productData,
     },
     update: productData,
@@ -425,6 +473,7 @@ async function upsertProduct(
 
   return {
     created: existingProduct === null,
+    skipped: false,
   };
 }
 

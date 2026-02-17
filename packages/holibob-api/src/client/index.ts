@@ -854,7 +854,7 @@ export class HolibobClient {
       productList: ProductListByProviderResponse;
     }>(PRODUCT_LIST_BY_PROVIDER_QUERY, {
       providerId,
-      pageSize: options?.pageSize ?? 5000, // Default to max to get all products
+      pageSize: options?.pageSize ?? 500,
       page: options?.page ?? 1,
       // Pass filter variables - undefined values are omitted by GraphQL
       categoryIds: options?.filters?.categoryIds,
@@ -867,7 +867,7 @@ export class HolibobClient {
 
   /**
    * Get ALL products for a provider (fetches all pages)
-   * Uses pageSize: 5000 (max) to minimize API calls
+   * Uses pageSize: 500 to avoid oversized API responses
    */
   async getAllProductsByProvider(providerId: string): Promise<Product[]> {
     const allProducts: Product[] = [];
@@ -875,7 +875,7 @@ export class HolibobClient {
     let hasMore = true;
 
     while (hasMore) {
-      const response = await this.getProductsByProvider(providerId, { pageSize: 5000, page });
+      const response = await this.getProductsByProvider(providerId, { pageSize: 500, page });
       allProducts.push(...response.nodes);
 
       // Check if there are more pages
