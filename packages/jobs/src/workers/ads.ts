@@ -1309,13 +1309,16 @@ export async function handleBiddingEngineRun(job: Job): Promise<JobResult> {
 
   if ((mode || 'full') === 'full' && result.groups.length > 0) {
     for (const group of result.groups) {
-      // Skip if campaign already exists for this microsite+platform (or site+platform if no microsite)
+      // Skip if campaign already exists for this microsite+platform+landingPage
+      // (or site+platform+landingPage if no microsite)
+      const lpPath = group.adGroups[0]?.landingPagePath || null;
       const existing = await prisma.adCampaign.findFirst({
         where: {
           ...(group.micrositeId
             ? { micrositeId: group.micrositeId }
             : { siteId: group.siteId, micrositeId: null }),
           platform: group.platform as any,
+          landingPagePath: lpPath,
           status: { in: ['ACTIVE', 'PAUSED', 'DRAFT'] },
         },
       });

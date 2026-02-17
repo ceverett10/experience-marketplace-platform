@@ -886,24 +886,55 @@ export async function scoreCampaignOpportunities(
     }
   }
 
-  // Sort by profitability score descending
-  candidates.sort((a, b) => b.profitabilityScore - a.profitabilityScore);
+  // Filter out candidates whose landing page is unlikely to show relevant products.
+  // These create ads that land on empty "no results" pages — wasted ad spend.
+  const beforeFilter = candidates.length;
+  const validCandidates = candidates.filter((c) => {
+    // If landing page has a validated product count of 0, skip it
+    if (c.landingPageProducts !== undefined && c.landingPageProducts <= 0) {
+      return false;
+    }
+    // Only allow EXPERIENCES_FILTERED pages on supplier microsites (which have
+    // product catalogs). For main sites and opportunity microsites, these are
+    // unvalidated search URLs (e.g., "/experiences?q=chessington") that often
+    // show 0 results, wasting ad spend.
+    if (c.landingPageType === 'EXPERIENCES_FILTERED' && !c.isMicrosite) {
+      return false;
+    }
+    return true;
+  });
+  if (validCandidates.length < beforeFilter) {
+    console.log(
+      `[Bidding Engine] Filtered out ${beforeFilter - validCandidates.length} candidates ` +
+        `with empty/unvalidated landing pages (${validCandidates.length} remaining)`
+    );
+  }
 
-  return candidates;
+  // Sort by profitability score descending
+  validCandidates.sort((a, b) => b.profitabilityScore - a.profitabilityScore);
+
+  return validCandidates;
 }
 
 // --- Grouping ----------------------------------------------------------------
 
 /**
- * Group selected candidates into per-microsite (or per-site) campaigns.
- * Each group becomes one campaign per platform, with ad groups by landing page path.
+ * Group selected candidates into per-landing-page campaigns.
+ * Each group = one campaign per site/microsite + platform + landing page.
+ * This ensures all keywords in a campaign target the same destination page,
+ * so the ad creative, targetUrl, and landing page all align.
+ *
+ * Previously grouped by (microsite|site)+platform only, which bundled Paris,
+ * Cartagena, Cannes keywords into one campaign with a single arbitrary targetUrl.
  */
 export function groupCandidatesIntoCampaigns(candidates: CampaignCandidate[]): CampaignGroup[] {
-  // Build map keyed by "(micrositeId || siteId)|(platform)"
+  // Build map keyed by "(micrositeId || siteId)|(platform)|(landingPagePath)"
+  // Each landing page (city/category) becomes its own campaign
   const groupMap = new Map<string, CampaignCandidate[]>();
   for (const c of candidates) {
     const groupId = c.micrositeId || c.siteId;
-    const key = `${groupId}|${c.platform}`;
+    const lpKey = c.landingPagePath || '/';
+    const key = `${groupId}|${c.platform}|${lpKey}`;
     const existing = groupMap.get(key);
     if (existing) {
       existing.push(c);
@@ -917,37 +948,23 @@ export function groupCandidatesIntoCampaigns(candidates: CampaignCandidate[]): C
   for (const [, groupCandidates] of groupMap) {
     const first = groupCandidates[0]!;
 
-    // Sub-group by landing page path → these become ad groups
-    const adGroupMap = new Map<string, CampaignCandidate[]>();
-    for (const c of groupCandidates) {
-      const lpKey = c.landingPagePath || '/';
-      const existing = adGroupMap.get(lpKey);
-      if (existing) {
-        existing.push(c);
-      } else {
-        adGroupMap.set(lpKey, [c]);
-      }
-    }
+    // All candidates in this group share the same landing page path,
+    // so there's effectively one ad group per campaign
+    const primaryCandidate = groupCandidates.reduce((best, c) =>
+      c.profitabilityScore > best.profitabilityScore ? c : best
+    );
 
-    const adGroups: CampaignGroupAdGroup[] = [];
-    for (const [path, agCandidates] of adGroupMap) {
-      // Pick primary keyword (highest profitabilityScore)
-      const primary = agCandidates.reduce((best, c) =>
-        c.profitabilityScore > best.profitabilityScore ? c : best
-      );
-      adGroups.push({
-        landingPagePath: path,
-        landingPageType: primary.landingPageType,
-        targetUrl: primary.targetUrl,
-        keywords: agCandidates.map((c) => c.keyword),
-        primaryKeyword: primary.keyword,
-        maxBid: Math.max(...agCandidates.map((c) => c.maxBid)),
-        totalExpectedDailyCost: agCandidates.reduce((s, c) => s + c.expectedDailyCost, 0),
-      });
-    }
-
-    // Sort ad groups by total cost DESC
-    adGroups.sort((a, b) => b.totalExpectedDailyCost - a.totalExpectedDailyCost);
+    const adGroups: CampaignGroupAdGroup[] = [
+      {
+        landingPagePath: first.landingPagePath || '/',
+        landingPageType: primaryCandidate.landingPageType,
+        targetUrl: primaryCandidate.targetUrl,
+        keywords: groupCandidates.map((c) => c.keyword),
+        primaryKeyword: primaryCandidate.keyword,
+        maxBid: Math.max(...groupCandidates.map((c) => c.maxBid)),
+        totalExpectedDailyCost: groupCandidates.reduce((s, c) => s + c.expectedDailyCost, 0),
+      },
+    ];
 
     // Compute group-level aggregates
     const totalExpectedDailyCost = groupCandidates.reduce((s, c) => s + c.expectedDailyCost, 0);
@@ -957,11 +974,6 @@ export function groupCandidatesIntoCampaigns(candidates: CampaignCandidate[]): C
     );
     const avgProfitabilityScore =
       groupCandidates.reduce((s, c) => s + c.profitabilityScore, 0) / groupCandidates.length;
-
-    // Primary keyword = highest profitabilityScore across the whole group
-    const primaryCandidate = groupCandidates.reduce((best, c) =>
-      c.profitabilityScore > best.profitabilityScore ? c : best
-    );
 
     groups.push({
       siteId: first.siteId,
