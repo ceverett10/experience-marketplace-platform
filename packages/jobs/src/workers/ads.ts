@@ -942,28 +942,9 @@ async function deployToMeta(
       console.error(
         `[Ads Worker] Failed to create Meta ad set for campaign: ${campaignResult.campaignId}`
       );
-      // Create alert so the failure surfaces in the admin dashboard
-      try {
-        await prisma.adAlert.create({
-          data: {
-            type: 'DEPLOYMENT_FAILURE',
-            severity: 'ERROR',
-            siteId: campaign.id, // Use campaign.id as context
-            message: `Meta ad set creation failed for campaign "${campaign.name}" (${campaignResult.campaignId}). Campaign shell exists but has no ad sets or ads.`,
-            details: {
-              platformCampaignId: campaignResult.campaignId,
-              campaignName: campaign.name,
-              step: 'createAdSet',
-              keywords: campaign.keywords.slice(0, 5),
-              countries,
-              interestCount: interestTargeting.length,
-            },
-          },
-        });
-      } catch {
-        // Don't fail the whole deployment because alerting failed
-      }
-      // Return null — do NOT mark campaign as deployed when ad set is missing
+      // Clean up the empty campaign shell on Meta to avoid orphaned campaigns
+      await metaClient.deleteCampaign(campaignResult.campaignId);
+      console.log(`[Ads Worker] Cleaned up empty campaign shell: ${campaignResult.campaignId}`);
       return null;
     }
 
@@ -1031,30 +1012,10 @@ async function deployToMeta(
       console.error(
         `[Ads Worker] Failed to create Meta ad for ad set: ${adSetResult.adSetId}`
       );
-      try {
-        await prisma.adAlert.create({
-          data: {
-            type: 'DEPLOYMENT_FAILURE',
-            severity: 'WARNING',
-            siteId: campaign.id,
-            message: `Meta ad creative creation failed for campaign "${campaign.name}". Ad set exists but has no ads.`,
-            details: {
-              platformCampaignId: campaignResult.campaignId,
-              adSetId: adSetResult.adSetId,
-              campaignName: campaign.name,
-              step: 'createAd',
-              headline: creative.headline,
-              creativeSource: creative.source,
-              landingUrl,
-            },
-          },
-        });
-      } catch {
-        // Don't fail the whole deployment because alerting failed
-      }
-      // Still return campaign ID — ad set exists, just missing creative
-      // This is recoverable by re-running deployment
-      return campaignResult.campaignId;
+      // Clean up — delete campaign shell since it has no working ad
+      await metaClient.deleteCampaign(campaignResult.campaignId);
+      console.log(`[Ads Worker] Cleaned up campaign with no ad: ${campaignResult.campaignId}`);
+      return null;
     }
 
     console.log(

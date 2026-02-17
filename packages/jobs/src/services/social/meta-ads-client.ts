@@ -422,6 +422,36 @@ export class MetaAdsClient {
   }
 
   /**
+   * Delete a campaign (used to clean up empty shells after failed deployment).
+   */
+  async deleteCampaign(campaignId: string): Promise<boolean> {
+    try {
+      await this.enforceRateLimit();
+
+      const params = new URLSearchParams({
+        access_token: this.accessToken,
+      });
+
+      const response = await fetch(`${META_API_BASE}/${campaignId}?${params}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        console.error(
+          `[MetaAds] Delete campaign error (${response.status}): ${error.substring(0, 200)}`
+        );
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('[MetaAds] Delete campaign failed:', error);
+      return false;
+    }
+  }
+
+  /**
    * Pause or resume a campaign.
    */
   async setCampaignStatus(campaignId: string, status: 'ACTIVE' | 'PAUSED'): Promise<boolean> {
