@@ -63,8 +63,16 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
     const cities =
       ctx?.supplierCities ?? site.homepageConfig?.destinations?.map((d) => d.name) ?? [];
     const count = ctx?.cachedProductCount ?? 0;
-    const topCategory = categories[0];
-    const topCity = cities[0];
+
+    // Use URL filter params when present (e.g. ?cities=London) — these override DB defaults
+    const urlCities = resolvedParams.cities?.split(',').filter(Boolean) ?? [];
+    const urlCategories = resolvedParams.categories?.split(',').filter(Boolean) ?? [];
+    const topCategory = urlCategories[0] ?? categories[0];
+    const topCity = urlCities.length === 1
+      ? urlCities[0]
+      : urlCities.length > 1
+        ? undefined // Multiple cities — use generic title
+        : cities[0];
 
     // Build specific title from site data
     if (topCategory && topCity) {
@@ -122,6 +130,13 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   }
   if (searchQuery) {
     canonicalParams.set('q', searchQuery);
+  }
+  // For microsites, include city/category filters in canonical (distinct PPC landing pages)
+  if (isMicrosite && resolvedParams.cities) {
+    canonicalParams.set('cities', resolvedParams.cities);
+  }
+  if (isMicrosite && resolvedParams.categories) {
+    canonicalParams.set('categories', resolvedParams.categories);
   }
   const pageNum = parseInt(resolvedParams.page ?? '1', 10);
   if (pageNum > 1) {
@@ -1136,17 +1151,32 @@ export default async function ExperiencesPage({ searchParams }: Props) {
         cities: filterOptions.cities,
       };
 
-      // Build page title for marketplace
+      // Build page title for marketplace — use URL filter params when present
       const ctx = site.micrositeContext;
-      const topCity =
-        ctx?.supplierCities?.[0] ?? site.homepageConfig?.destinations?.[0]?.name;
-      const topCategory =
-        ctx?.supplierCategories?.[0] ?? site.homepageConfig?.categories?.map((c) => c.name)?.[0];
+      const urlCities = resolvedSearchParams.cities?.split(',').filter(Boolean) ?? [];
+      const urlCategories = resolvedSearchParams.categories?.split(',').filter(Boolean) ?? [];
+
+      const topCity = urlCities.length === 1
+        ? urlCities[0]
+        : urlCities.length > 1
+          ? undefined
+          : ctx?.supplierCities?.[0] ?? site.homepageConfig?.destinations?.[0]?.name;
+      const topCategory = urlCategories.length === 1
+        ? urlCategories[0]
+        : urlCategories.length > 1
+          ? undefined
+          : ctx?.supplierCategories?.[0] ?? site.homepageConfig?.categories?.map((c) => c.name)?.[0];
 
       let marketplaceTitle = 'All Experiences & Tours';
       let marketplaceSubtitle = `Explore our curated collection of tours and activities`;
 
-      if (topCategory && topCity) {
+      if (urlCities.length > 1 && topCategory) {
+        marketplaceTitle = `${topCategory} in ${urlCities.length} Cities`;
+        marketplaceSubtitle = `Browse ${topCategory.toLowerCase()} in ${urlCities.join(', ')}`;
+      } else if (urlCities.length > 1) {
+        marketplaceTitle = `Experiences in ${urlCities.length} Cities`;
+        marketplaceSubtitle = `Browse experiences in ${urlCities.join(', ')}`;
+      } else if (topCategory && topCity) {
         marketplaceTitle = `${topCategory} in ${topCity}`;
         marketplaceSubtitle = `Browse the best ${topCategory.toLowerCase()} and more in ${topCity}`;
       } else if (topCity) {
@@ -1177,6 +1207,8 @@ export default async function ExperiencesPage({ searchParams }: Props) {
           initialFilterCounts={initialFilterCounts}
           extraApiParams={extraApiParams}
           apiError={apiError}
+          supplierCities={ctx?.supplierCities ?? []}
+          supplierCategories={ctx?.supplierCategories ?? []}
         />
       );
     }

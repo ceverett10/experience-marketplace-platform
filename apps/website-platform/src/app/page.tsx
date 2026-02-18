@@ -401,14 +401,26 @@ async function getLatestBlogPosts(siteId: string, micrositeId?: string) {
 
 /**
  * Build a compelling SEO title for the homepage.
- * Uses seoConfig.defaultTitle if it's already well-optimized (>30 chars, not just site name).
- * Otherwise generates dynamically from categories, cities, and keywords.
+ * Uses seoConfig.defaultTitle if it's genuinely customized and specific.
+ * Rejects known-generic templates (e.g. "Premium Travel Experiences | Experiences in Your Destination")
+ * and generates dynamically from categories, cities, and keywords instead.
  */
+const GENERIC_TITLE_PATTERNS = [
+  'your destination',
+  'premium travel experiences',
+  'book unique experiences',
+  'discover amazing experiences',
+];
+
 function buildHomepageTitle(site: SiteConfig): string {
   const existing = site.seoConfig?.defaultTitle;
-  // Use existing title if it's well-optimized (not just the site name, >30 chars)
+  // Use existing title if it's well-optimized: >30 chars, not the site name, and not a generic template
   if (existing && existing !== site.name && existing.length > 30) {
-    return existing;
+    const lower = existing.toLowerCase();
+    const isGeneric = GENERIC_TITLE_PATTERNS.some((pattern) => lower.includes(pattern));
+    if (!isGeneric) {
+      return existing;
+    }
   }
 
   const ctx = site.micrositeContext;
@@ -498,17 +510,26 @@ export async function generateMetadata() {
   const site = await getSiteFromHostname(hostname);
   const baseUrl = `https://${site.primaryDomain || hostname}`;
 
-  const ogImage = site.brand?.ogImageUrl || site.homepageConfig?.hero?.backgroundImage || undefined;
+  const ogImage =
+    site.brand?.ogImageUrl ||
+    site.homepageConfig?.hero?.backgroundImage ||
+    site.brand?.logoUrl ||
+    undefined;
+
+  const title = buildHomepageTitle(site);
+  const description = buildHomepageDescription(site);
 
   return {
-    title: buildHomepageTitle(site),
-    description: buildHomepageDescription(site),
+    title,
+    description,
     alternates: {
       canonical: baseUrl,
     },
     openGraph: {
-      title: buildHomepageTitle(site),
-      description: buildHomepageDescription(site),
+      title,
+      description,
+      url: baseUrl,
+      type: 'website',
       ...(ogImage ? { images: [ogImage] } : {}),
     },
   };
@@ -581,7 +602,29 @@ export default async function HomePage() {
           const product = await client.getProduct(site.micrositeContext.holibobProductId);
           if (product) {
             const experience = mapProductToExperience(product);
-            return <ProductSpotlightHomepage site={site} experience={experience} />;
+            const spotlightSiteUrl = `https://${site.primaryDomain || hostname}`;
+            const spotlightLogoUrl = site.brand?.logoUrl
+              ? site.brand.logoUrl.startsWith('http')
+                ? site.brand.logoUrl
+                : `${spotlightSiteUrl}${site.brand.logoUrl}`
+              : undefined;
+            return (
+              <>
+                <TourOperatorSchema
+                  name={site.name}
+                  url={spotlightSiteUrl}
+                  logo={spotlightLogoUrl}
+                  description={buildHomepageDescription(site)}
+                  priceRange="$$"
+                />
+                <WebSiteSchema
+                  name={site.name}
+                  url={spotlightSiteUrl}
+                  description={buildHomepageDescription(site)}
+                />
+                <ProductSpotlightHomepage site={site} experience={experience} />
+              </>
+            );
           }
         } catch (error) {
           console.error('[Homepage] Error fetching spotlight product:', error);
@@ -630,19 +673,63 @@ export default async function HomePage() {
         detectPpcTraffic(),
       ]);
 
+      // Build structured data for microsite homepage (same as main sites)
+      const micrositeSiteUrl = `https://${site.primaryDomain || hostname}`;
+      const micrositeLogoUrl = site.brand?.logoUrl
+        ? site.brand.logoUrl.startsWith('http')
+          ? site.brand.logoUrl
+          : `${micrositeSiteUrl}${site.brand.logoUrl}`
+        : undefined;
+      const micrositeRatedExperiences = experiences.filter(
+        (e) => e.rating && e.rating.average > 0
+      );
+      const micrositeAggregateRating =
+        micrositeRatedExperiences.length > 0
+          ? {
+              ratingValue:
+                micrositeRatedExperiences.reduce(
+                  (sum, exp) => sum + (exp.rating?.average || 0),
+                  0
+                ) / micrositeRatedExperiences.length,
+              reviewCount: micrositeRatedExperiences.reduce(
+                (sum, exp) => sum + (exp.rating?.count || 0),
+                0
+              ),
+            }
+          : undefined;
+      const micrositeAreaServed = (
+        site.micrositeContext.supplierCities || []
+      ).slice(0, 5);
+
       return (
-        <CatalogHomepage
-          site={site}
-          layoutConfig={layoutConfig}
-          experiences={experiences}
-          totalExperienceCount={totalCount}
-          heroConfig={site.homepageConfig?.hero}
-          testimonials={site.homepageConfig?.testimonials}
-          relatedMicrosites={relatedMicrosites}
-          blogPosts={micrositeBlogPosts}
-          collections={micrositeCollections}
-          isPpc={isPpc}
-        />
+        <>
+          <TourOperatorSchema
+            name={site.name}
+            url={micrositeSiteUrl}
+            logo={micrositeLogoUrl}
+            description={buildHomepageDescription(site)}
+            areaServed={micrositeAreaServed}
+            priceRange="$$"
+            aggregateRating={micrositeAggregateRating}
+          />
+          <WebSiteSchema
+            name={site.name}
+            url={micrositeSiteUrl}
+            description={buildHomepageDescription(site)}
+          />
+          <CatalogHomepage
+            site={site}
+            layoutConfig={layoutConfig}
+            experiences={experiences}
+            totalExperienceCount={totalCount}
+            heroConfig={site.homepageConfig?.hero}
+            testimonials={site.homepageConfig?.testimonials}
+            relatedMicrosites={relatedMicrosites}
+            blogPosts={micrositeBlogPosts}
+            collections={micrositeCollections}
+            isPpc={isPpc}
+          />
+        </>
       );
     }
   }

@@ -911,94 +911,12 @@ export async function handleAutoOptimize(job: Job<SEOAutoOptimizePayload>): Prom
       }
     }
 
-    // 7. Analyze keyword optimization (creates issues for human review — sites only)
+    // 7. Keyword optimization & 8. Featured snippet opportunities — DISABLED
+    // These create hundreds of low-value CONTENT issues (keyword density <0.5%, missing snippet
+    // formats) with no automated resolution, making the SEO issues dashboard unusable for
+    // spotting real TECHNICAL/PERFORMANCE problems. Keyword density is largely deprecated as a
+    // ranking signal. Re-enable when a lightweight "SEO tweak" mode is built that can act on them.
     const isSite = !micrositeId;
-    if (isSite && (scope === 'all' || scope === 'content')) {
-      console.log('[Auto SEO] Analyzing keyword optimization...');
-      const keywordIssues = await analyzeKeywordOptimization(siteId, owner);
-      let issuesCreated = 0;
-
-      for (const issue of keywordIssues) {
-        if (issue.recommendations.length > 0) {
-          await createSEOIssue({
-            siteId,
-            pageId: issue.pageId,
-            category: 'CONTENT',
-            severity: issue.currentDensity < 0.5 ? 'HIGH' : 'MEDIUM',
-            title: `Keyword optimization needed: "${issue.keyword}"`,
-            description: issue.recommendations.join('. '),
-            recommendation: `Review content and add primary keyword "${issue.keyword}" naturally. Current density: ${issue.currentDensity.toFixed(1)}%, target: 1-2%.`,
-            estimatedImpact: '+5-15% ranking improvement for target keyword',
-            detectedBy: 'SEO_AUTO_OPTIMIZE',
-            metadata: {
-              keyword: issue.keyword,
-              currentDensity: issue.currentDensity,
-              targetDensity: issue.targetDensity,
-              inFirstParagraph: issue.inFirstParagraph,
-              inH1: issue.inH1,
-            },
-          });
-          issuesCreated++;
-        }
-      }
-
-      results['keywordOptimization'] = {
-        pagesAnalyzed: keywordIssues.length,
-        issuesCreated,
-      };
-      if (issuesCreated > 0) {
-        console.log(`[Auto SEO] Created ${issuesCreated} keyword optimization issues`);
-      }
-    }
-
-    // 8. Find featured snippet opportunities (creates issues for human review — sites only)
-    if (isSite && (scope === 'all' || scope === 'content')) {
-      console.log('[Auto SEO] Finding featured snippet opportunities...');
-      const snippetOpportunities = await findSnippetOpportunities(siteId);
-      let snippetIssuesCreated = 0;
-
-      for (const opp of snippetOpportunities) {
-        await createSEOIssue({
-          siteId,
-          pageId: opp.pageId,
-          category: 'CONTENT',
-          severity: opp.priority === 'HIGH' ? 'HIGH' : 'MEDIUM',
-          title: `Featured snippet opportunity: ${opp.type}`,
-          description: `Current format: ${opp.currentFormat}. ${opp.recommendation}`,
-          recommendation: opp.suggestedFormat,
-          estimatedImpact: 'Potential position 0 ranking in search results',
-          detectedBy: 'SEO_AUTO_OPTIMIZE',
-          metadata: {
-            snippetType: opp.type,
-            targetQuery: opp.targetQuery,
-            currentFormat: opp.currentFormat,
-            suggestedFormat: opp.suggestedFormat,
-          },
-        });
-        snippetIssuesCreated++;
-      }
-
-      results['snippetOpportunities'] = {
-        opportunitiesFound: snippetOpportunities.length,
-        issuesCreated: snippetIssuesCreated,
-        byType: {
-          definition: snippetOpportunities.filter((o) => o.type === 'definition').length,
-          steps: snippetOpportunities.filter((o) => o.type === 'steps').length,
-          list: snippetOpportunities.filter((o) => o.type === 'list').length,
-          comparison: snippetOpportunities.filter((o) => o.type === 'comparison').length,
-        },
-      };
-      if (snippetIssuesCreated > 0) {
-        console.log(`[Auto SEO] Created ${snippetIssuesCreated} snippet opportunity issues`);
-      }
-    }
-
-    // 9. Auto-resolve OPEN keyword/snippet issues — DISABLED
-    // The CONTENT_OPTIMIZE pipeline regenerates content from scratch with a quality threshold
-    // of 85, which fails most of the time and burns AI credits. Issues are tracked in the
-    // dashboard for manual review instead. Steps 1-8 above handle all non-AI fixes automatically.
-    // TODO: Re-enable once we have a lightweight "SEO tweak" mode that edits existing content
-    //       rather than regenerating from scratch.
 
     const duration = Date.now() - startTime;
     console.log(`[Auto SEO] Completed in ${duration}ms`);
