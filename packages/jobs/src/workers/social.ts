@@ -12,6 +12,7 @@ import {
   generateEngagementCaption,
   generateTravelTipCaption,
   generateNetworkAmplificationCaption,
+  generateMicrositeBlogPromoCaption,
 } from '../services/social/caption-generator';
 import { selectImageForPost } from '../services/social/image-selector';
 import { refreshTokenIfNeeded } from '../services/social/token-refresh';
@@ -21,7 +22,7 @@ import { createTweet } from '../services/social/twitter-client';
 import { canExecuteAutonomousOperation } from '../services/pause-control';
 
 type SocialPlatform = 'PINTEREST' | 'FACEBOOK' | 'TWITTER';
-type ContentType = 'blog_promo' | 'engagement' | 'travel_tip' | 'network_amplification';
+type ContentType = 'blog_promo' | 'engagement' | 'travel_tip' | 'network_amplification' | 'microsite_blog_promo';
 
 const MAX_POSTS_PER_DAY = 7; // Per platform account per day
 const PEAK_START_HOUR = 9; // 9 AM local
@@ -180,14 +181,62 @@ export async function handleSocialDailyPosting(
     }
   }
 
+  // --- Microsite blog promo: 2 posts per account group per day ---
+  const MICROSITE_POSTS_PER_DAY = 2;
+  let micrositeQueued = 0;
+
+  for (const [groupKey, groupSites] of accountGroups) {
+    // Use the first non-paused site in the group as the posting site
+    const postingSite = groupSites.find((s) => {
+      const original = sites.find((site) => site.id === s.siteId);
+      return original && !original.autonomousProcessesPaused;
+    });
+
+    if (!postingSite) continue;
+
+    // Schedule 2 microsite blog promo posts at different times during peak hours
+    const micrositeSlots = calculatePostingSlots(MICROSITE_POSTS_PER_DAY + 2)
+      .slice(1, MICROSITE_POSTS_PER_DAY + 1); // Pick middle slots to avoid overlap with main posts
+
+    for (let i = 0; i < micrositeSlots.length; i++) {
+      const delayMs = calculateDelayForSlot(micrositeSlots[i]!, postingSite.timezone);
+      const actualDelay = Math.max(60 * 1000, delayMs);
+
+      try {
+        await addJob(
+          'SOCIAL_POST_GENERATE',
+          {
+            siteId: postingSite.siteId,
+            platform: postingSite.platform,
+            contentType: 'microsite_blog_promo' as const,
+          } as SocialPostGeneratePayload,
+          { priority: 5, attempts: 2, delay: actualDelay }
+        );
+        micrositeQueued++;
+        const delayMin = Math.round(actualDelay / 60000);
+        scheduledDetails.push({
+          site: postingSite.siteName,
+          platform: postingSite.platform,
+          delayMin,
+          contentType: 'microsite_blog_promo',
+        });
+        console.log(
+          `[Social] Scheduled ${postingSite.siteName}/${postingSite.platform} — microsite_blog_promo in ${delayMin} min`
+        );
+      } catch (err) {
+        console.warn(`[Social] Failed to queue microsite blog promo for ${postingSite.siteName}/${postingSite.platform}:`, err);
+      }
+    }
+  }
+
   console.log(
-    `[Social] Daily posting: scheduled ${totalQueued} posts across ${accountGroups.size} account groups (${totalDeferred} sites deferred)`
+    `[Social] Daily posting: scheduled ${totalQueued} site posts + ${micrositeQueued} microsite promos across ${accountGroups.size} account groups (${totalDeferred} sites deferred)`
   );
 
   return {
     success: true,
-    message: `Scheduled ${totalQueued} staggered social posts (${totalDeferred} deferred to tomorrow)`,
-    data: { queued: totalQueued, deferred: totalDeferred, schedule: scheduledDetails },
+    message: `Scheduled ${totalQueued} site posts + ${micrositeQueued} microsite promos (${totalDeferred} deferred)`,
+    data: { queued: totalQueued, micrositeQueued, deferred: totalDeferred, schedule: scheduledDetails },
     timestamp: new Date(),
   };
 }
@@ -214,7 +263,7 @@ async function getContentTypeRotation(siteIds: string[]): Promise<Map<string, Co
     });
 
     // Count by content type
-    const counts: Record<ContentType, number> = { blog_promo: 0, engagement: 0, travel_tip: 0, network_amplification: 0 };
+    const counts: Record<ContentType, number> = { blog_promo: 0, engagement: 0, travel_tip: 0, network_amplification: 0, microsite_blog_promo: 0 };
     for (const post of recentPosts) {
       const data = post.generationData as Record<string, unknown> | null;
       const ct = (data?.['contentType'] as ContentType) || 'blog_promo';
@@ -323,6 +372,11 @@ export async function handleSocialPostGenerate(
   // Network amplification: promote a blog from a DIFFERENT related microsite
   if (contentType === 'network_amplification') {
     return await generateNetworkAmplificationPost(siteId, platform as SocialPlatform, account.id);
+  }
+
+  // Microsite blog promo: promote a blog post from an active microsite
+  if (contentType === 'microsite_blog_promo') {
+    return await generateMicrositeBlogPromoPost(siteId, platform as SocialPlatform, account.id);
   }
 
   // blog_promo: Select a blog post to promote
@@ -693,6 +747,196 @@ async function generateNetworkAmplificationPost(
       contentType: 'network_amplification',
       networkSiteName: targetSiteName,
       networkBlogTitle: networkBlog.title,
+      captionLength: fullCaption.length,
+      hasImage: !!imageUrl,
+    },
+    timestamp: new Date(),
+  };
+}
+
+/**
+ * Generate a microsite blog promo post — promote a blog from an active microsite.
+ * Selects microsites that haven't been promoted recently and posts via the main site's account.
+ */
+async function generateMicrositeBlogPromoPost(
+  siteId: string,
+  platform: SocialPlatform,
+  accountId: string
+): Promise<JobResult> {
+  // Get posting site info for brand voice
+  const site = await prisma.site.findUnique({
+    where: { id: siteId },
+    select: {
+      name: true,
+      primaryDomain: true,
+      seoConfig: true,
+      brand: { select: { name: true, tagline: true } },
+    },
+  });
+
+  if (!site) {
+    return { success: false, message: `Site ${siteId} not found`, timestamp: new Date() };
+  }
+
+  // Find a published blog from an active microsite that hasn't been promoted recently
+  // Prefer blogs not yet posted to this platform, then least promoted
+  const micrositeBlog = await prisma.page.findFirst({
+    where: {
+      micrositeId: { not: null },
+      type: 'BLOG',
+      status: 'PUBLISHED',
+      contentId: { not: null },
+      microsite: {
+        status: 'ACTIVE',
+        cachedProductCount: { gt: 0 },
+      },
+      // Prefer blogs not yet promoted via social
+      socialPosts: {
+        none: {
+          platform,
+          generationData: { path: ['contentType'], equals: 'microsite_blog_promo' },
+        },
+      },
+    },
+    orderBy: { publishedAt: 'desc' },
+    select: {
+      id: true,
+      title: true,
+      slug: true,
+      metaDescription: true,
+      micrositeId: true,
+      content: { select: { body: true } },
+      microsite: {
+        select: {
+          fullDomain: true,
+          siteName: true,
+          id: true,
+        },
+      },
+    },
+  });
+
+  // Fallback: least promoted microsite blog
+  const selectedBlog =
+    micrositeBlog ||
+    (await prisma.page.findFirst({
+      where: {
+        micrositeId: { not: null },
+        type: 'BLOG',
+        status: 'PUBLISHED',
+        contentId: { not: null },
+        microsite: {
+          status: 'ACTIVE',
+          cachedProductCount: { gt: 0 },
+        },
+      },
+      orderBy: [{ socialPosts: { _count: 'asc' } }, { publishedAt: 'desc' }],
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        metaDescription: true,
+        micrositeId: true,
+        content: { select: { body: true } },
+        microsite: {
+          select: {
+            fullDomain: true,
+            siteName: true,
+            id: true,
+          },
+        },
+      },
+    }));
+
+  if (!selectedBlog?.microsite) {
+    console.log(`[Social] No microsite blogs available, falling back to engagement`);
+    return await generateNonBlogPost(siteId, platform, accountId, 'engagement');
+  }
+
+  const targetDomain = selectedBlog.microsite.fullDomain;
+  const targetSiteName = selectedBlog.microsite.siteName;
+  const blogUrl = `https://${targetDomain}/${selectedBlog.slug}`;
+
+  // Extract body excerpt for caption generation
+  const bodyExcerpt = selectedBlog.content?.body
+    ? selectedBlog.content.body
+        .replace(/#{1,6}\s/g, '')
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+        .replace(/[*_~`]/g, '')
+        .substring(0, 500)
+    : '';
+
+  // Generate caption
+  const captionResult = await generateMicrositeBlogPromoCaption({
+    siteId,
+    platform,
+    brandName: site.brand?.name || site.name,
+    tagline: site.brand?.tagline,
+    seoConfig: site.seoConfig as Record<string, unknown> | null,
+    micrositeName: targetSiteName,
+    blogTitle: selectedBlog.title,
+    blogSummary: selectedBlog.metaDescription || '',
+    bodyExcerpt,
+    blogUrl,
+  });
+
+  let fullCaption = captionResult.caption;
+
+  // For Twitter, append link
+  if (platform === 'TWITTER' && blogUrl) {
+    const maxTextLen = 280 - blogUrl.length - 1;
+    if (fullCaption.length > maxTextLen) {
+      fullCaption = fullCaption.substring(0, maxTextLen - 3) + '...';
+    }
+    fullCaption = `${fullCaption} ${blogUrl}`;
+  }
+
+  // Select image from the microsite's blog or the posting site
+  const imageUrl = await selectImageForPost(siteId, selectedBlog.id);
+
+  const socialPost = await prisma.socialPost.create({
+    data: {
+      siteId,
+      accountId,
+      pageId: selectedBlog.id,
+      platform,
+      caption: fullCaption,
+      hashtags: captionResult.hashtags,
+      mediaUrls: imageUrl ? [imageUrl] : [],
+      linkUrl: blogUrl,
+      status: 'SCHEDULED',
+      scheduledFor: new Date(Date.now() + 60 * 1000),
+      generationData: {
+        model: 'claude-haiku-4-5-20251001',
+        contentType: 'microsite_blog_promo',
+        micrositeId: selectedBlog.microsite.id,
+        micrositeName: targetSiteName,
+        micrositeBlogTitle: selectedBlog.title,
+        pinTitle: captionResult.pinTitle,
+        rawCaption: captionResult.caption,
+      },
+    },
+  });
+
+  await addJob('SOCIAL_POST_PUBLISH', { socialPostId: socialPost.id } as SocialPostPublishPayload, {
+    delay: 60 * 1000,
+    attempts: 3,
+    backoff: { type: 'exponential', delay: 60000 },
+  });
+
+  console.log(
+    `[Social] Generated ${platform} microsite_blog_promo post ${socialPost.id}: promoting "${selectedBlog.title}" from ${targetSiteName}`
+  );
+
+  return {
+    success: true,
+    message: `Generated ${platform} microsite blog promo, promoting ${targetSiteName}`,
+    data: {
+      socialPostId: socialPost.id,
+      platform,
+      contentType: 'microsite_blog_promo',
+      micrositeName: targetSiteName,
+      micrositeBlogTitle: selectedBlog.title,
       captionLength: fullCaption.length,
       hasImage: !!imageUrl,
     },

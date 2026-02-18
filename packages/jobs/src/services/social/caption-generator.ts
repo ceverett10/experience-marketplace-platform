@@ -208,6 +208,77 @@ HASHTAGS: #tag1 #tag2 #tag3${platform === 'PINTEREST' ? '\nTITLE: [pin title her
   return { ...result, linkUrl: blogUrl };
 }
 
+interface MicrositeBlogPromoRequest {
+  siteId: string;
+  platform: SocialPlatform;
+  brandName: string;
+  tagline?: string | null;
+  seoConfig: Record<string, unknown> | null;
+  micrositeName: string;
+  blogTitle: string;
+  blogSummary: string;
+  bodyExcerpt: string;
+  blogUrl: string;
+}
+
+/**
+ * Generate a caption promoting a microsite's blog post from the main site's account.
+ * Frames the content as a specialist recommendation from the network.
+ */
+export async function generateMicrositeBlogPromoCaption(
+  request: MicrositeBlogPromoRequest
+): Promise<NonBlogCaptionResult> {
+  const { platform, brandName, tagline, seoConfig, micrositeName, blogTitle, blogSummary, bodyExcerpt, blogUrl } =
+    request;
+  const toneOfVoice = seoConfig?.['toneOfVoice'] as Record<string, unknown> | undefined;
+  const niche =
+    (seoConfig?.['niche'] as string) ||
+    (seoConfig?.['primaryCategory'] as string) ||
+    'travel experiences';
+  const limits = PLATFORM_LIMITS[platform];
+
+  const platformInstructions: Record<SocialPlatform, string> = {
+    PINTEREST: `Create a Pinterest pin description that inspires users to save and click through.
+Include a clear call-to-action. Pinterest users love tips, lists, and aspirational content.
+Also provide a short pin TITLE (max 100 chars) on its own line starting with "TITLE:".`,
+    FACEBOOK: `Create a Facebook post that encourages engagement (likes, comments, shares).
+Start with a hook question or interesting fact. Keep it conversational and warm.`,
+    TWITTER: `Create a tweet that's engaging and concise. Must be under ${limits.maxCaption} characters.
+Use a hook, interesting stat, or question. Be punchy and direct.
+The link will be appended automatically - don't include it in the text.`,
+  };
+
+  const prompt = `You are a social media manager for "${brandName}"${tagline ? ` (${tagline})` : ''}, a travel experiences brand focused on ${niche}.
+${(toneOfVoice?.['personality'] as string[] | undefined)?.length ? `Brand tone: ${(toneOfVoice?.['personality'] as string[]).join(', ')}.` : 'Tone: friendly, expert, travel-enthusiast.'}
+
+Create a post for ${platform} promoting this article from ${micrositeName}, one of the specialist experience providers in your network:
+- Title: "${blogTitle}"
+- Summary: ${blogSummary}
+- Content preview: ${bodyExcerpt}
+
+${platformInstructions[platform]}
+
+Guidelines:
+- Present this as a curated recommendation — you're sharing great content from a specialist
+- Focus on the value readers will get from the article
+- Mention ${micrositeName} naturally (e.g., "The team at ${micrositeName} share their insider tips on..." or "Great guide from ${micrositeName}...")
+- Make readers want to click through and read
+
+Rules:
+- Caption must be under ${limits.maxCaption} characters
+- Include exactly ${limits.maxHashtags} relevant hashtags specific to the content
+- Do NOT include any URLs in the caption (links are added separately)
+- Sound like a genuine recommendation, not an ad
+
+Format your response EXACTLY as:
+CAPTION: [your caption here]
+HASHTAGS: #tag1 #tag2 #tag3${platform === 'PINTEREST' ? '\nTITLE: [pin title here]' : ''}`;
+
+  const text = await callClaude(prompt);
+  const result = parseResponse(text, platform);
+  return { ...result, linkUrl: blogUrl };
+}
+
 interface NetworkAmplificationRequest {
   siteId: string;
   platform: SocialPlatform;

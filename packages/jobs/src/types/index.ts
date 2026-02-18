@@ -392,7 +392,7 @@ export interface SocialPostGeneratePayload {
   siteId: string;
   platform: 'PINTEREST' | 'FACEBOOK' | 'TWITTER';
   pageId?: string; // Optional - specific blog post to promote
-  contentType?: 'blog_promo' | 'engagement' | 'travel_tip' | 'network_amplification'; // Content variation
+  contentType?: 'blog_promo' | 'engagement' | 'travel_tip' | 'network_amplification' | 'microsite_blog_promo'; // Content variation
 }
 
 export interface SocialPostPublishPayload {
