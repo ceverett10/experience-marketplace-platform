@@ -178,6 +178,15 @@ export function Footer() {
         <div className="mt-8 border-t border-white/10 pt-8">
           <p className="text-xs leading-5 text-gray-400">
             &copy; {new Date().getFullYear()} Holibob. All rights reserved.
+            {site.micrositeContext && (
+              <>
+                {' '}Part of the{' '}
+                <a href="https://experiencess.com" className="text-gray-300 hover:text-white">
+                  Experiencess.com
+                </a>
+                {' '}network.
+              </>
+            )}
           </p>
         </div>
       </div>

@@ -120,12 +120,26 @@ export function Header() {
                 />
               </div>
             ) : (
-              <span
-                className="text-xl font-bold"
-                style={{ color: brand?.primaryColor ?? '#6366f1' }}
-              >
-                {site.name}
-              </span>
+              <div className="flex items-baseline gap-2">
+                <span
+                  className="text-xl font-bold"
+                  style={{ color: brand?.primaryColor ?? '#6366f1' }}
+                >
+                  {site.name}
+                </span>
+                {isMicrosite && (
+                  <span className="hidden text-[11px] text-gray-400 sm:inline">
+                    powered by{' '}
+                    <a
+                      href="https://experiencess.com"
+                      className="text-gray-500 hover:text-gray-700 hover:underline"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      Experiencess.com
+                    </a>
+                  </span>
+                )}
+              </div>
             )}
           </Link>
         </div>
@@ -207,6 +221,17 @@ export function Header() {
             >
               {isParentDomainSite ? 'Explore Brands' : 'Book Now'}
             </Link>
+            {isMicrosite && (
+              <p className="mt-4 border-t border-gray-100 pt-4 text-center text-[11px] text-gray-400">
+                powered by{' '}
+                <a
+                  href="https://experiencess.com"
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  Experiencess.com
+                </a>
+              </p>
+            )}
           </div>
         </div>
       )}

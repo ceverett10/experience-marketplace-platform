@@ -205,6 +205,8 @@ function PaymentForm({
         <span>Secured by Stripe</span>
         <span>|</span>
         <span>PCI Compliant</span>
+        <span>|</span>
+        <span>Statement: HOLIBOB LTD UK</span>
       </div>
     </form>
   );

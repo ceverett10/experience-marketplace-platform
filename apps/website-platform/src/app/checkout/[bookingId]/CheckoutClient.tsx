@@ -430,6 +430,7 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
                   primaryColor={primaryColor}
                   totalPrice={booking.totalPrice?.grossFormattedText}
                   isResubmission={submitAttempts > 0}
+                  siteName={site.name}
                 />
               </div>
             )}
@@ -809,9 +810,25 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
                 </div>
               </div>
 
+              {/* Bank statement notice */}
+              <div className="mt-4 rounded-lg bg-gray-50 p-3 text-center">
+                <p className="text-xs text-gray-500">
+                  Charges will appear as{' '}
+                  <span className="font-semibold">&quot;HOLIBOB LTD UK&quot;</span> on your bank
+                  statement
+                </p>
+              </div>
+
               {/* Powered by */}
-              <p className="mt-4 text-center text-xs text-gray-400">
+              <p className="mt-3 text-center text-xs text-gray-400">
                 Powered by{' '}
+                <a
+                  href="https://experiencess.com"
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  Experiencess.com
+                </a>
+                {' '}&middot;{' '}
                 <a
                   href="https://holibob.tech"
                   target="_blank"

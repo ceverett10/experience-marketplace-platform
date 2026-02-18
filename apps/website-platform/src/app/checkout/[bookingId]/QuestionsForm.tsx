@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { TermsModal } from '@/components/checkout/TermsModal';
+import { PaymentInfoModal } from '@/components/checkout/PaymentInfoModal';
 
 interface BookingQuestion {
   id: string;
@@ -47,6 +48,7 @@ interface QuestionsFormProps {
   primaryColor?: string;
   totalPrice?: string;
   isResubmission?: boolean;
+  siteName?: string;
 }
 
 export interface GuestData {
@@ -278,6 +280,7 @@ export function QuestionsForm({
   primaryColor = '#0d9488',
   totalPrice,
   isResubmission = false,
+  siteName = 'this site',
 }: QuestionsFormProps) {
   const totalGuests = availabilities.reduce(
     (sum, avail) => sum + (avail.personList?.nodes.length ?? 0),
@@ -292,6 +295,7 @@ export function QuestionsForm({
   const [phone, setPhone] = useState('');
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
+  const [showPaymentInfoModal, setShowPaymentInfoModal] = useState(false);
 
   // Dynamic question answers (keyed by question ID)
   const [dynamicAnswers, setDynamicAnswers] = useState<Record<string, string>>({});
@@ -624,7 +628,7 @@ export function QuestionsForm({
         </h2>
 
         <p className="mb-4 text-sm text-gray-600">
-          You just need to accept Holibob{' '}
+          By completing this booking, you agree to the{' '}
           <button
             type="button"
             onClick={() => setShowTermsModal(true)}
@@ -632,8 +636,41 @@ export function QuestionsForm({
           >
             terms and conditions
           </button>{' '}
-          to continue.
+          of Experiencess.com, powered by Holibob.
         </p>
+
+        {/* Bank statement notice */}
+        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
+          <div className="flex items-start gap-2">
+            <svg
+              className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth="1.5"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"
+              />
+            </svg>
+            <div className="text-sm text-amber-800">
+              <p className="font-medium">Payment statement notice</p>
+              <p className="mt-1">
+                The charge on your bank statement will appear as{' '}
+                <span className="font-semibold">&quot;HOLIBOB LTD UK&quot;</span>.
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowPaymentInfoModal(true)}
+                className="mt-1 font-medium underline hover:text-amber-900"
+              >
+                Why does it say Holibob? Learn more
+              </button>
+            </div>
+          </div>
+        </div>
 
         <label className="flex cursor-pointer items-start gap-3">
           <input
@@ -643,7 +680,10 @@ export function QuestionsForm({
             className="mt-1 h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
             data-testid="terms-checkbox"
           />
-          <span className="text-sm text-gray-700">I accept the Terms and Conditions.</span>
+          <span className="text-sm text-gray-700">
+            I accept the Terms and Conditions and understand that &quot;HOLIBOB LTD UK&quot; will
+            appear on my bank statement.
+          </span>
         </label>
         {errors['terms'] && <p className="mt-2 text-xs text-red-500">{errors['terms']}</p>}
 
@@ -701,6 +741,14 @@ export function QuestionsForm({
       <TermsModal
         isOpen={showTermsModal}
         onClose={() => setShowTermsModal(false)}
+        primaryColor={primaryColor}
+      />
+
+      {/* Payment Info Modal */}
+      <PaymentInfoModal
+        isOpen={showPaymentInfoModal}
+        onClose={() => setShowPaymentInfoModal(false)}
+        siteName={siteName}
         primaryColor={primaryColor}
       />
     </form>
