@@ -1398,6 +1398,18 @@ export async function handleBiddingEngineRun(job: Job): Promise<JobResult> {
     );
   }
 
+  // Clean up old COMPLETED campaigns that were never deployed (superseded by new DRAFTs)
+  const staleCleanup = await prisma.adCampaign.deleteMany({
+    where: {
+      status: 'COMPLETED',
+      platformCampaignId: null,
+      totalSpend: { lte: 0 },
+    },
+  });
+  if (staleCleanup.count > 0) {
+    console.log(`[Ads Worker] Cleaned up ${staleCleanup.count} stale COMPLETED campaigns (never deployed, no spend)`);
+  }
+
   // Count final campaign states
   const finalCounts = await prisma.adCampaign.groupBy({
     by: ['status'],

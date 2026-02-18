@@ -30,7 +30,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     });
 
     // --- Campaign Performance ---
-    const campaignWhere: Record<string, unknown> = {};
+    const campaignWhere: Record<string, unknown> = {
+      status: { in: ['ACTIVE', 'PAUSED', 'DRAFT'] },
+    };
     if (siteId) campaignWhere['siteId'] = siteId;
 
     const campaigns = await prisma.adCampaign.findMany({
