@@ -518,7 +518,7 @@ const adsWorker = new Worker(
         throw new Error(`Unknown job type: ${job.name}`);
     }
   },
-  makeWorkerOptions(QUEUE_NAMES.ADS, 2) // Low: ad platform API rate limits
+  makeWorkerOptions(QUEUE_NAMES.ADS, 1) // Strict: all ad API calls share rate limits & credentials
 );
 
 // Worker event handlers
