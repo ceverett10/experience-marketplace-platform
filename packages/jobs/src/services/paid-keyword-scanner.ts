@@ -19,6 +19,7 @@ import { KeywordResearchService } from './keyword-research';
 import { PinterestAdsClient } from './social/pinterest-ads-client';
 import { MetaAdsClient } from './social/meta-ads-client';
 import { refreshTokenIfNeeded } from './social/token-refresh';
+import { extractDestinationFromKeyword } from '../utils/keyword-location';
 
 type ScanMode = 'gsc' | 'expansion' | 'discovery' | 'pinterest' | 'meta';
 
@@ -192,8 +193,7 @@ async function mineGSCKeywords(config: ScanConfig, existingKeys: Set<string>): P
     if (isLowIntentKeyword(kw.query)) return false;
     const avgPosition = kw._avg.position ?? 0;
     if (avgPosition <= 15) return false; // Already ranking well — skip
-    const key = `${kw.query.toLowerCase()}|`;
-    return !existingKeys.has(key);
+    return !existingKeys.has(kw.query.toLowerCase());
   });
 
   if (candidates.length === 0) {
@@ -222,8 +222,7 @@ async function mineGSCKeywords(config: ScanConfig, existingKeys: Set<string>): P
         if (metric.searchVolume < config.minVolume) continue;
         if (isLowIntentKeyword(metric.keyword)) continue;
 
-        const key = `${metric.keyword.toLowerCase()}|`;
-        if (existingKeys.has(key)) continue;
+        if (existingKeys.has(metric.keyword.toLowerCase())) continue;
 
         // Find matching GSC data
         const gscData = candidates.find(
@@ -255,7 +254,7 @@ async function mineGSCKeywords(config: ScanConfig, existingKeys: Set<string>): P
           },
         });
 
-        existingKeys.add(key);
+        existingKeys.add(metric.keyword.toLowerCase());
         stored++;
       }
     } catch (error) {
@@ -326,8 +325,7 @@ async function expandExistingKeywords(
         if (kw.cpc <= 0 || kw.cpc > config.maxCpc) return false;
         if (kw.searchVolume < config.minVolume) return false;
         if (isLowIntentKeyword(kw.keyword)) return false;
-        const key = `${kw.keyword.toLowerCase()}|`;
-        return !existingKeys.has(key);
+        return !existingKeys.has(kw.keyword.toLowerCase());
       });
 
       totalDiscovered += newKeywords.length;
@@ -351,7 +349,7 @@ async function expandExistingKeywords(
           },
         });
 
-        existingKeys.add(`${kw.keyword.toLowerCase()}|`);
+        existingKeys.add(kw.keyword.toLowerCase());
         stored++;
       }
     } catch (error) {
@@ -495,8 +493,7 @@ async function discoverCategoryKeywords(
         if (kw.cpc <= 0 || kw.cpc > config.maxCpc) return false;
         if (kw.searchVolume < config.minVolume) return false;
         if (isLowIntentKeyword(kw.keyword)) return false;
-        const key = `${kw.keyword.toLowerCase()}|`;
-        return !existingKeys.has(key);
+        return !existingKeys.has(kw.keyword.toLowerCase());
       });
 
       totalDiscovered += newKeywords.length;
@@ -522,7 +519,7 @@ async function discoverCategoryKeywords(
           },
         });
 
-        existingKeys.add(`${kw.keyword.toLowerCase()}|`);
+        existingKeys.add(kw.keyword.toLowerCase());
         stored++;
       }
     } catch (error) {
@@ -642,9 +639,8 @@ async function scanPinterestCpc(
         }
 
         // Store as new opportunity if it's a novel keyword
-        const key = `${metric.keyword.toLowerCase()}|`;
         if (
-          !existingKeys.has(key) &&
+          !existingKeys.has(metric.keyword.toLowerCase()) &&
           metric.bidSuggested <= config.maxCpc &&
           !isLowIntentKeyword(metric.keyword)
         ) {
@@ -666,7 +662,7 @@ async function scanPinterestCpc(
               pinterestCompetition: metric.competition,
             },
           });
-          existingKeys.add(key);
+          existingKeys.add(metric.keyword.toLowerCase());
           newStored++;
         }
       }
@@ -801,8 +797,7 @@ async function scanMetaAudiences(
       // Create new opportunities for interest-based keywords not already in DB
       for (const interest of topInterests) {
         if (isLowIntentKeyword(interest.name)) continue;
-        const key = `${interest.name.toLowerCase()}|`;
-        if (existingKeys.has(key)) continue;
+        if (existingKeys.has(interest.name.toLowerCase())) continue;
 
         const estimate = estimates.find((e) => e.interestId === interest.id);
         if (!estimate || estimate.estimatedCpc <= 0 || estimate.estimatedCpc > config.maxCpc)
@@ -835,7 +830,7 @@ async function scanMetaAudiences(
             seedKeyword: seed.keyword,
           },
         });
-        existingKeys.add(key);
+        existingKeys.add(interest.name.toLowerCase());
         newStored++;
       }
     } catch (error) {
@@ -861,15 +856,16 @@ async function scanMetaAudiences(
 // ============================================================================
 
 /**
- * Load all existing keyword|location keys from the database for deduplication.
+ * Load all existing keywords from the database for deduplication.
+ * Uses keyword text only (no location suffix) to prevent the same keyword
+ * being stored multiple times with different location formats.
+ * Task 1.3: Standardize keyword locations
  */
 async function getExistingKeywordKeys(): Promise<Set<string>> {
   const existing = await prisma.sEOOpportunity.findMany({
-    select: { keyword: true, location: true },
+    select: { keyword: true },
   });
-  return new Set(
-    existing.map((opp) => `${opp.keyword.toLowerCase()}|${(opp.location ?? '').toLowerCase()}`)
-  );
+  return new Set(existing.map((opp) => opp.keyword.toLowerCase()));
 }
 
 /**
@@ -898,6 +894,10 @@ function calculatePaidScore(volume: number, cpc: number, difficulty: number): nu
 /**
  * Upsert a keyword opportunity into the database.
  * Uses the unique [keyword, location] constraint for dedup.
+ *
+ * Task 1.3: Location is now extracted from the keyword's destination city
+ * instead of defaulting to empty string. This ensures consistent location
+ * values across all keyword sources.
  */
 async function upsertOpportunity(data: {
   keyword: string;
@@ -913,12 +913,15 @@ async function upsertOpportunity(data: {
   // Final safety net: reject low-intent keywords
   if (isLowIntentKeyword(data.keyword)) return;
 
+  // Task 1.3: Extract destination city from keyword for consistent location
+  const location = data.location || (await extractDestinationFromKeyword(data.keyword));
+
   try {
     await prisma.sEOOpportunity.upsert({
       where: {
         keyword_location: {
           keyword: data.keyword,
-          location: data.location ?? '',
+          location,
         },
       },
       create: {
@@ -928,7 +931,7 @@ async function upsertOpportunity(data: {
         cpc: data.cpc,
         intent: 'COMMERCIAL',
         niche: 'paid_traffic',
-        location: data.location ?? '',
+        location,
         priorityScore: data.priorityScore,
         status: 'PAID_CANDIDATE',
         source: data.source,

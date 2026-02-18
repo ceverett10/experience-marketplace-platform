@@ -31,7 +31,6 @@ export interface EnrichmentOptions {
   maxProductsPerSupplier?: number;
   skipDataForSeo?: boolean;
   dryRun?: boolean;
-  location?: string;
 }
 
 export interface EnrichmentResult {
@@ -52,6 +51,7 @@ export interface EnrichmentResult {
 interface SupplierExtraction {
   supplierId: string;
   seeds: string[];
+  seedToCity: Map<string, string>; // Task 1.3: maps seed → destination city
   cities: string[];
   categories: string[];
   productsAnalyzed: number;
@@ -676,12 +676,11 @@ export async function runBulkEnrichment(
     maxProductsPerSupplier = 100,
     skipDataForSeo = false,
     dryRun = false,
-    location = 'United Kingdom',
   } = options;
 
   console.log('[Enrichment] Starting bulk keyword enrichment pipeline');
   console.log(
-    `[Enrichment] Options: maxProducts=${maxProductsPerSupplier}, skipDataForSeo=${skipDataForSeo}, dryRun=${dryRun}, location=${location}`
+    `[Enrichment] Options: maxProducts=${maxProductsPerSupplier}, skipDataForSeo=${skipDataForSeo}, dryRun=${dryRun}`
   );
 
   // ----- Get Holibob client -----
@@ -725,6 +724,8 @@ export async function runBulkEnrichment(
 
   const allExtractions: SupplierExtraction[] = [];
   const seedToSupplierIds = new Map<string, Set<string>>();
+  // Task 1.3: Track per-seed destination city for location standardization
+  const globalSeedToCity = new Map<string, string>();
   let totalProductsAnalyzed = 0;
   let totalRawSeeds = 0;
   let suppliersSkipped = 0;
@@ -755,6 +756,13 @@ export async function runBulkEnrichment(
           seedToSupplierIds.set(key, new Set());
         }
         seedToSupplierIds.get(key)!.add(supplier.id);
+      }
+
+      // Task 1.3: Accumulate seed→city mapping (first supplier's city wins)
+      for (const [seed, city] of extraction.seedToCity) {
+        if (!globalSeedToCity.has(seed)) {
+          globalSeedToCity.set(seed, city);
+        }
       }
     } catch (err) {
       const msg = `Supplier ${supplier.name} (${supplier.id}): ${err}`;
@@ -799,8 +807,13 @@ export async function runBulkEnrichment(
   >();
   let estimatedCost = 0;
 
+  // Task 1.3: DataForSEO validation uses 'United Kingdom' as the search market
+  // (where the searchers are), but the stored location field reflects the keyword's
+  // destination city. These are different concepts.
+  const dataForSeoLocation = 'United Kingdom';
+
   if (!skipDataForSeo && uniqueSeeds.length > 0) {
-    // Dedup: skip seeds that already exist as PAID_CANDIDATE keywords
+    // Dedup: skip seeds that already exist as PAID_CANDIDATE keywords (any location)
     // Batch the query to stay under PostgreSQL's 32,767 bind variable limit
     const existingSet = new Set<string>();
     const DEDUP_BATCH_SIZE = 10000;
@@ -810,7 +823,6 @@ export async function runBulkEnrichment(
         where: {
           status: 'PAID_CANDIDATE',
           keyword: { in: batch },
-          location,
         },
         select: { keyword: true },
       });
@@ -838,7 +850,7 @@ export async function runBulkEnrichment(
       console.log('[Enrichment] Phase 2: No novel seeds to validate — all already in database');
     } else {
       try {
-        validatedKeywords = await validateKeywords(novelSeeds, location);
+        validatedKeywords = await validateKeywords(novelSeeds, dataForSeoLocation);
         console.log(
           `[Enrichment] Phase 2 complete: ${validatedKeywords.size} keywords validated ` +
             `(${novelSeeds.length - validatedKeywords.size} filtered out)`
@@ -864,11 +876,12 @@ export async function runBulkEnrichment(
     console.log('[Enrichment] Phase 3: Storing results...');
 
     // 3a. Upsert validated keywords as PAID_CANDIDATE
+    // Task 1.3: Pass per-keyword city map instead of single location
     if (validatedKeywords.size > 0) {
       const storeResult = await storeValidatedKeywords(
         validatedKeywords,
         seedToSupplierIds,
-        location
+        globalSeedToCity
       );
       keywordsStored = storeResult.stored;
       keywordsUpdated = storeResult.updated;
@@ -941,15 +954,30 @@ export async function runBulkEnrichment(
 
 async function extractKeywordsFromSupplier(
   supplier: { id: string; holibobSupplierId: string; name: string },
-  client: ReturnType<typeof createHolibobClient>,
+  _client: ReturnType<typeof createHolibobClient>,
   maxProducts: number
 ): Promise<SupplierExtraction> {
-  // Fetch products from Holibob
-  const response = await client.getProductsByProvider(supplier.holibobSupplierId, {
-    pageSize: maxProducts,
+  // Task 1.6: Read from local Product table instead of Holibob API.
+  // This uses the product cache built by bulkSyncAllProducts() (Task 1.1).
+  const localProducts = await prisma.product.findMany({
+    where: { supplierId: supplier.id },
+    select: {
+      title: true,
+      city: true,
+      categories: true,
+    },
+    take: maxProducts,
   });
 
-  const allProducts = response.nodes;
+  // Map local Product records to HolibobProduct-compatible shape
+  const allProducts: HolibobProduct[] = localProducts.map((p) => ({
+    id: '',
+    name: p.title,
+    place: p.city ? { name: p.city } : undefined,
+    categoryList: {
+      nodes: p.categories.map((c) => ({ id: '', name: c })),
+    },
+  })) as HolibobProduct[];
   const citySet = new Set<string>();
   const categorySet = new Set<string>();
   const activityPhrases = new Set<string>();
@@ -981,6 +1009,7 @@ async function extractKeywordsFromSupplier(
     return {
       supplierId: supplier.id,
       seeds: [],
+      seedToCity: new Map(),
       cities: [...citySet],
       categories: [],
       productsAnalyzed: allProducts.length,
@@ -990,7 +1019,18 @@ async function extractKeywordsFromSupplier(
   // Second pass: extract per-product city + activity pairs
   // Key insight: each product's activity should only be paired with ITS OWN city,
   // not cross-multiplied with all cities from other products.
+  // Task 1.3: Track which city each seed belongs to for location standardization
   const seeds = new Set<string>();
+  const seedToCity = new Map<string, string>();
+
+  /** Add a seed with its associated city (first city wins for a given seed) */
+  function addSeed(seed: string, city?: string | null): void {
+    const key = seed.toLowerCase();
+    seeds.add(key);
+    if (city && !seedToCity.has(key)) {
+      seedToCity.set(key, city);
+    }
+  }
   const SKIP_CATEGORIES = new Set([
     'general',
     'private',
@@ -1027,12 +1067,12 @@ async function extractKeywordsFromSupplier(
 
     // Generate seeds: pair THIS activity with THIS product's city
     if (phrase && city) {
-      seeds.add(`${phrase} in ${city}`.toLowerCase());
-      seeds.add(`${phrase} ${city}`.toLowerCase());
+      addSeed(`${phrase} in ${city}`, city);
+      addSeed(`${phrase} ${city}`, city);
     }
     // Add bare activity if descriptive enough
     if (phrase && phrase.split(' ').length >= 3) {
-      seeds.add(phrase.toLowerCase());
+      addSeed(phrase, city);
     }
 
     // Add category-based generic seeds for THIS product's city
@@ -1045,13 +1085,13 @@ async function extractKeywordsFromSupplier(
         const stems = CATEGORY_KEYWORD_STEMS[catLower];
         if (stems) {
           for (const stem of stems) {
-            seeds.add(`${stem} ${city}`.toLowerCase());
-            seeds.add(`${stem} in ${city}`.toLowerCase());
+            addSeed(`${stem} ${city}`, city);
+            addSeed(`${stem} in ${city}`, city);
           }
         } else {
           // Fallback: use raw category name
-          seeds.add(`${catLower} in ${city}`.toLowerCase());
-          seeds.add(`${catLower} ${city}`.toLowerCase());
+          addSeed(`${catLower} in ${city}`, city);
+          addSeed(`${catLower} ${city}`, city);
         }
       }
     }
@@ -1064,12 +1104,12 @@ async function extractKeywordsFromSupplier(
   // People searching "things to do in Rome" are planning trips and ready to book.
   for (const city of cities) {
     for (const stem of DISCOVERY_STEMS) {
-      seeds.add(`${stem} ${city}`.toLowerCase());
+      addSeed(`${stem} ${city}`, city);
     }
     // Also add bare "[city] tours" and "[city] activities"
-    seeds.add(`${city} tours`.toLowerCase());
-    seeds.add(`${city} activities`.toLowerCase());
-    seeds.add(`${city} excursions`.toLowerCase());
+    addSeed(`${city} tours`, city);
+    addSeed(`${city} activities`, city);
+    addSeed(`${city} excursions`, city);
   }
 
   // ---- Branded/direct search seeds ----
@@ -1079,18 +1119,18 @@ async function extractKeywordsFromSupplier(
   if (brandName) {
     // [brand] + city: "cesarine venice", "lakpura colombo"
     for (const city of cities) {
-      seeds.add(`${brandName} ${city}`.toLowerCase());
+      addSeed(`${brandName} ${city}`, city);
     }
     // [brand] + top category: "cesarine cooking class", "voicemap walking tour"
     for (const cat of categories.slice(0, 3)) {
-      seeds.add(`${brandName} ${cat}`.toLowerCase());
+      addSeed(`${brandName} ${cat}`);
     }
     // [brand] + booking intent: "book cesarine", "cesarine reviews"
-    seeds.add(`${brandName} booking`.toLowerCase());
-    seeds.add(`${brandName} reviews`.toLowerCase());
-    seeds.add(`book ${brandName}`.toLowerCase());
+    addSeed(`${brandName} booking`);
+    addSeed(`${brandName} reviews`);
+    addSeed(`book ${brandName}`);
     // bare brand name (people searching the supplier directly)
-    seeds.add(brandName.toLowerCase());
+    addSeed(brandName);
   }
 
   // Final cleanup: normalize seeds and reject noise
@@ -1115,9 +1155,17 @@ async function extractKeywordsFromSupplier(
   // Cap at MAX_SEEDS_PER_SUPPLIER
   const seedArray = cleanedSeeds.slice(0, MAX_SEEDS_PER_SUPPLIER);
 
+  // Task 1.3: Build cleaned seedToCity map (apply same normalization as seeds)
+  const cleanedSeedToCity = new Map<string, string>();
+  for (const seed of seedArray) {
+    const city = seedToCity.get(seed);
+    if (city) cleanedSeedToCity.set(seed, city);
+  }
+
   return {
     supplierId: supplier.id,
     seeds: seedArray,
+    seedToCity: cleanedSeedToCity,
     cities,
     categories,
     productsAnalyzed: allProducts.length,
@@ -1542,7 +1590,7 @@ async function storeValidatedKeywords(
     { searchVolume: number; cpc: number; competition: number; competitionLevel?: string }
   >,
   seedToSupplierIds: Map<string, Set<string>>,
-  location: string
+  seedToCity: Map<string, string> // Task 1.3: per-keyword destination city
 ): Promise<{ stored: number; updated: number }> {
   let stored = 0;
   let updated = 0;
@@ -1551,11 +1599,13 @@ async function storeValidatedKeywords(
   for (const [keyword, data] of validated) {
     const supplierIds = seedToSupplierIds.get(keyword);
     const score = calculatePaidScore(data.searchVolume, data.cpc, data.competition * 100);
+    // Task 1.3: Use per-keyword destination city as location
+    const location = seedToCity.get(keyword) ?? '';
 
     // Log first keyword's data for debugging
     if (!loggedFirst) {
       console.log(
-        `[Enrichment] First keyword store data: keyword="${keyword}" vol=${data.searchVolume} cpc=${data.cpc} comp=${data.competition} score=${score} supplierIds=${supplierIds ? [...supplierIds].length : 0}`
+        `[Enrichment] First keyword store data: keyword="${keyword}" location="${location}" vol=${data.searchVolume} cpc=${data.cpc} comp=${data.competition} score=${score} supplierIds=${supplierIds ? [...supplierIds].length : 0}`
       );
       loggedFirst = true;
     }

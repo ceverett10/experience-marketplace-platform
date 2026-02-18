@@ -11,7 +11,6 @@
  */
 
 import { prisma } from '@experience-marketplace/database';
-import { createHolibobClient } from '@experience-marketplace/holibob-api';
 import { evaluateKeywordQuality } from './keyword-quality-evaluator';
 import { PAID_TRAFFIC_CONFIG } from '../config/paid-traffic';
 import {
@@ -21,7 +20,6 @@ import {
   buildLandingPageUrl,
   loadPageCaches,
   getLandingPageBonus,
-  LandingPageValidator,
 } from './landing-page-routing';
 
 // --- Configuration -----------------------------------------------------------
@@ -977,81 +975,71 @@ export async function scoreCampaignOpportunities(
     );
   }
 
-  // Validate city-filtered landing pages against the Holibob API.
+  // Task 1.5: Validate city-filtered landing pages against the local Product table.
+  // Replaces Holibob API calls with fast local DB queries.
   // supplier.cities may list cities where the supplier has no actual products.
-  const apiUrl = process.env['HOLIBOB_API_URL'];
-  const partnerId = process.env['HOLIBOB_PARTNER_ID'];
-  const apiKey = process.env['HOLIBOB_API_KEY'];
-  const apiSecret = process.env['HOLIBOB_API_SECRET'];
   let cityValidated = 0;
   let cityRemoved = 0;
+  const cityValidationCache = new Map<string, boolean>();
 
-  if (apiUrl && partnerId && apiKey) {
-    const holibobClient = createHolibobClient({ apiUrl, partnerId, apiKey, apiSecret });
-    const validator = new LandingPageValidator(200); // Allow up to 200 API calls for city validation
+  const cityValidatedCandidates: CampaignCandidate[] = [];
+  for (const c of validCandidates) {
+    // Only validate EXPERIENCES_FILTERED pages with a ?cities= parameter on supplier microsites
+    if (c.landingPageType !== 'EXPERIENCES_FILTERED' || !c.micrositeId) {
+      cityValidatedCandidates.push(c);
+      continue;
+    }
 
-    const cityValidatedCandidates: CampaignCandidate[] = [];
-    for (const c of validCandidates) {
-      // Only validate EXPERIENCES_FILTERED pages with a ?cities= parameter on supplier microsites
-      if (c.landingPageType !== 'EXPERIENCES_FILTERED' || !c.micrositeId) {
-        cityValidatedCandidates.push(c);
-        continue;
-      }
+    // Extract city from landing page path (e.g., "/experiences?cities=Paris")
+    const cityParam = new URLSearchParams(c.landingPagePath.split('?')[1] ?? '').get('cities');
+    if (!cityParam) {
+      cityValidatedCandidates.push(c);
+      continue;
+    }
 
-      // Extract city from landing page path (e.g., "/experiences?cities=Paris")
-      const cityParam = new URLSearchParams(c.landingPagePath.split('?')[1] ?? '').get('cities');
-      if (!cityParam) {
-        cityValidatedCandidates.push(c);
-        continue;
-      }
+    // Get the supplier's local DB ID from the microsite config
+    const msConfig = supplierMicrositeById.get(c.micrositeId);
+    const supplierId = msConfig?.supplierId;
+    if (!supplierId) {
+      cityValidatedCandidates.push(c);
+      continue;
+    }
 
-      // Get the supplier's Holibob ID from the microsite config
-      const msConfig = supplierMicrositeById.get(c.micrositeId);
-      const holibobSupplierId = msConfig?.supplier?.holibobSupplierId;
-      if (!holibobSupplierId) {
-        cityValidatedCandidates.push(c);
-        continue;
-      }
+    // Cache key: supplierId|cityName — same supplier+city won't be re-checked
+    const cacheKey = `${supplierId}|${cityParam}`;
+    let hasProducts = cityValidationCache.get(cacheKey);
 
-      // Cache key: supplierId|cityName — same supplier+city won't be re-checked
-      const cacheKey = `${holibobSupplierId}|${cityParam}`;
-      const result = await validator.validate(cacheKey, async () => {
-        const resp = await holibobClient.getProductsByProvider(holibobSupplierId, {
-          pageSize: 1,
-          page: 1,
-          filters: { placeName: cityParam },
-        });
-        return {
-          valid: resp.recordCount > 0,
-          productCount: resp.recordCount,
-          reason: resp.recordCount === 0 ? 'CITY_NO_PRODUCTS' : 'OK',
-        };
+    if (hasProducts === undefined) {
+      // Query local Product table instead of Holibob API
+      const product = await prisma.product.findFirst({
+        where: {
+          supplierId,
+          city: { equals: cityParam, mode: 'insensitive' },
+        },
+        select: { id: true },
       });
-
-      if (result.valid) {
-        cityValidatedCandidates.push(c);
-        cityValidated++;
-      } else {
-        cityRemoved++;
-      }
+      hasProducts = product !== null;
+      cityValidationCache.set(cacheKey, hasProducts);
     }
 
-    if (cityRemoved > 0) {
-      console.log(
-        `[Bidding Engine] City product validation: ${cityValidated} passed, ${cityRemoved} removed ` +
-          `(cities with 0 products on Holibob API). Validator stats: ${JSON.stringify(validator.stats)}`
-      );
+    if (hasProducts) {
+      cityValidatedCandidates.push(c);
+      cityValidated++;
+    } else {
+      cityRemoved++;
     }
+  }
 
-    // Sort by profitability score descending
-    cityValidatedCandidates.sort((a, b) => b.profitabilityScore - a.profitabilityScore);
-    return cityValidatedCandidates;
+  if (cityRemoved > 0) {
+    console.log(
+      `[Bidding Engine] City product validation: ${cityValidated} passed, ${cityRemoved} removed ` +
+        `(cities with 0 products in local Product cache). Cache entries: ${cityValidationCache.size}`
+    );
   }
 
   // Sort by profitability score descending
-  validCandidates.sort((a, b) => b.profitabilityScore - a.profitabilityScore);
-
-  return validCandidates;
+  cityValidatedCandidates.sort((a, b) => b.profitabilityScore - a.profitabilityScore);
+  return cityValidatedCandidates;
 }
 
 // --- Grouping ----------------------------------------------------------------

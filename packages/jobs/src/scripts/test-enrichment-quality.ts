@@ -29,7 +29,6 @@ async function main() {
     maxProductsPerSupplier: productsPerSupplier,
     skipDataForSeo,
     dryRun,
-    location: 'United Kingdom',
   });
 
   console.log('\n=== RESULT ===');
