@@ -189,7 +189,7 @@ export function PaymentInfoModal({
                       d="M4.5 12.75l6 6 9-13.5"
                     />
                   </svg>
-                  Free cancellation up to 24 hours before your experience
+                  Free cancellation based on the terms of the experience you are booking
                 </li>
                 <li className="flex items-center gap-2 text-sm text-gray-600">
                   <svg
@@ -206,22 +206,6 @@ export function PaymentInfoModal({
                     />
                   </svg>
                   Full customer support from the Holibob team
-                </li>
-                <li className="flex items-center gap-2 text-sm text-gray-600">
-                  <svg
-                    className="h-4 w-4 flex-shrink-0 text-emerald-500"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    strokeWidth="2"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M4.5 12.75l6 6 9-13.5"
-                    />
-                  </svg>
-                  Money-back guarantee if the experience is not delivered
                 </li>
               </ul>
             </div>

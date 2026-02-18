@@ -323,11 +323,10 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
             </svg>
             <div>
               <p className="font-medium text-gray-900">
-                Free cancellation up to 24 hours in advance
+                Free cancellation based on experience terms
               </p>
               <p className="mt-1">
-                If you need to cancel, please do so at least 24 hours before your scheduled
-                experience time for a full refund.
+                Cancellation is subject to the terms of the experience you are booking.
               </p>
             </div>
           </div>

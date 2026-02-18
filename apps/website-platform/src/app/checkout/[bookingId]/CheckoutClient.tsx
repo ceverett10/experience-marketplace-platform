@@ -555,11 +555,10 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
                     </svg>
                     <div>
                       <p className="font-medium text-gray-900">
-                        Free cancellation up to 24 hours in advance
+                        Free cancellation based on experience terms
                       </p>
                       <p className="mt-1">
-                        Cancel for free before the experience starts. After that, no refunds will be
-                        given.
+                        Cancellation is subject to the terms of the experience you are booking.
                       </p>
                     </div>
                   </div>
@@ -776,20 +775,6 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
                       />
                     </svg>
                     Instant confirmation
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <svg
-                      className="h-4 w-4 text-emerald-500"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    Money-back guarantee
                   </div>
                 </div>
                 <div className="flex items-center justify-center gap-1.5 text-xs text-gray-400">
