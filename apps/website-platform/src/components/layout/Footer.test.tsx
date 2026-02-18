@@ -121,14 +121,18 @@ describe('Footer', () => {
   it('should render default social links when none configured', () => {
     renderWithProviders(<Footer />);
 
-    // DEFAULT_SOCIAL_LINKS provides Facebook and X (Twitter) as fallbacks
+    // DEFAULT_SOCIAL_LINKS provides Facebook, X (Twitter), and Pinterest as fallbacks
     expect(screen.getByRole('link', { name: 'Facebook' })).toHaveAttribute(
       'href',
-      'https://www.facebook.com/experiencess'
+      'https://www.facebook.com/profile.php?id=61587586815675'
     );
     expect(screen.getByRole('link', { name: 'X (Twitter)' })).toHaveAttribute(
       'href',
-      'https://x.com/experiencess'
+      'https://x.com/ExperiencessCom'
+    );
+    expect(screen.getByRole('link', { name: 'Pinterest' })).toHaveAttribute(
+      'href',
+      'https://www.pinterest.com/ExperiencessCom'
     );
     // Instagram is NOT in defaults
     expect(screen.queryByRole('link', { name: 'Instagram' })).not.toBeInTheDocument();
