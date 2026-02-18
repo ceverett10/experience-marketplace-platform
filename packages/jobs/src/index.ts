@@ -81,6 +81,7 @@ export type { SupplierSyncResult } from './services/supplier-sync';
 export {
   syncProductsFromHolibob,
   syncProductsForSupplier,
+  bulkSyncAllProducts,
   getProductSyncStatus,
 } from './services/product-sync';
 export type { ProductSyncResult, ProductSyncOptions } from './services/product-sync';

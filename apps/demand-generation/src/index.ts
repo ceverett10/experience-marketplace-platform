@@ -53,6 +53,7 @@ import {
   handleSupplierSyncIncremental,
   handleProductSync,
   handleProductSyncIncremental,
+  handleBulkProductSync,
   // Microsite handlers
   handleMicrositeCreate,
   handleMicrositeBrandGenerate,
@@ -440,7 +441,7 @@ const micrositeWorker = new Worker(
 
 /**
  * Holibob Sync Queue Worker
- * Handles: SUPPLIER_SYNC, SUPPLIER_SYNC_INCREMENTAL, PRODUCT_SYNC, PRODUCT_SYNC_INCREMENTAL, KEYWORD_ENRICHMENT
+ * Handles: SUPPLIER_SYNC, SUPPLIER_SYNC_INCREMENTAL, PRODUCT_SYNC, PRODUCT_SYNC_INCREMENTAL, BULK_PRODUCT_SYNC, KEYWORD_ENRICHMENT
  */
 const syncWorker = new Worker(
   QUEUE_NAMES.SYNC,
@@ -457,6 +458,8 @@ const syncWorker = new Worker(
         return await handleProductSync(job);
       case 'PRODUCT_SYNC_INCREMENTAL':
         return await handleProductSyncIncremental(job);
+      case 'BULK_PRODUCT_SYNC':
+        return await handleBulkProductSync(job);
       case 'KEYWORD_ENRICHMENT':
         return await handleKeywordEnrichment(job);
       default:

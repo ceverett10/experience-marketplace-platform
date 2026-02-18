@@ -1013,24 +1013,8 @@ async function batchValidateOpportunities(
       );
     }
   } catch (error) {
-    console.error('[Optimizer] Batch validation error:', error);
-    // Return with estimated data if API fails
-    for (const suggestion of suggestions) {
-      validated.push({
-        suggestion,
-        dataForSeo: {
-          searchVolume: estimateSearchVolume(suggestion.destination, suggestion.category),
-          difficulty: estimateDifficulty(),
-          cpc: estimateCpc(suggestion.category),
-          competition: 0.5,
-          trend: 'stable',
-          seasonality: false,
-        },
-        holibobInventory: { productCount: 10, categories: [suggestion.category] },
-        priorityScore: 50 + Math.random() * 20,
-        validatedAt: new Date(),
-      });
-    }
+    console.error('[Optimizer] Batch validation error — skipping batch (no fallback to random estimates):', error);
+    // Return empty validated array — do not generate fake metrics
   }
 
   return validated.sort((a, b) => b.priorityScore - a.priorityScore);
@@ -1504,26 +1488,3 @@ function shouldStopEarly(iterations: IterationResult[], threshold: number): bool
   return last2Improvements.every((imp) => Math.abs(imp) < threshold);
 }
 
-function estimateSearchVolume(destination: string, category: string): number {
-  const popularDestinations = ['london', 'paris', 'barcelona', 'rome', 'new york'];
-  const popularCategories = ['food tours', 'walking tours', 'museum tickets'];
-  const destLower = destination.toLowerCase();
-  const catLower = category.toLowerCase();
-  let baseVolume = 1000;
-  if (popularDestinations.some((d) => destLower.includes(d))) baseVolume *= 5;
-  if (popularCategories.includes(catLower)) baseVolume *= 3;
-  return baseVolume + Math.floor(Math.random() * 2000);
-}
-
-function estimateDifficulty(): number {
-  return Math.floor(Math.random() * 40) + 30;
-}
-
-function estimateCpc(category: string): number {
-  const premiumCategories = ['wine tasting', 'cooking classes', 'private tours'];
-  const base = 1.5;
-  if (premiumCategories.some((c) => category.toLowerCase().includes(c))) {
-    return base * 2 + Math.random() * 2;
-  }
-  return base + Math.random();
-}

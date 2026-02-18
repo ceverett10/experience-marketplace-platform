@@ -1297,18 +1297,10 @@ async function scanForOpportunities(
         } catch (keywordError) {
           const jobError = toJobError(keywordError);
           console.error(
-            `[Opportunity] Error getting keyword data for "${keyword}":`,
+            `[Opportunity] Error getting keyword data for "${keyword}" — skipping (no fallback to random estimates):`,
             jobError.toJSON()
           );
-
-          // Fallback to estimates if API fails
-          keywordData = {
-            searchVolume: estimateSearchVolume(destination, category),
-            keywordDifficulty: estimateDifficulty(destination, category),
-            cpc: estimateCpc(category),
-            trend: 'stable' as const,
-            competition: 0.5,
-          };
+          continue;
         }
 
         opportunities.push({
@@ -1592,49 +1584,6 @@ async function autoActionMicrositeOpportunities(): Promise<number> {
   return queued;
 }
 
-/**
- * Estimate search volume - TODO: Replace with actual keyword research API
- */
-function estimateSearchVolume(destination: string, category: string): number {
-  const popularDestinations = ['london', 'paris', 'barcelona', 'rome', 'new york'];
-  const popularCategories = ['food tours', 'walking tours', 'museum tickets'];
-
-  const destLower = destination.toLowerCase();
-  const catLower = category.toLowerCase();
-
-  let baseVolume = 1000;
-
-  if (popularDestinations.some((d) => destLower.includes(d))) {
-    baseVolume *= 5;
-  }
-
-  if (popularCategories.includes(catLower)) {
-    baseVolume *= 3;
-  }
-
-  return baseVolume + Math.floor(Math.random() * 2000);
-}
-
-/**
- * Estimate keyword difficulty - TODO: Replace with actual SEO API
- */
-function estimateDifficulty(destination: string, category: string): number {
-  return Math.floor(Math.random() * 40) + 30; // 30-70 range
-}
-
-/**
- * Estimate CPC - TODO: Replace with actual keyword research API
- */
-function estimateCpc(category: string): number {
-  const premiumCategories = ['wine tasting', 'cooking classes', 'private tours'];
-  const base = 1.5;
-
-  if (premiumCategories.some((c) => category.toLowerCase().includes(c))) {
-    return base * 2 + Math.random() * 2;
-  }
-
-  return base + Math.random();
-}
 
 /**
  * SEO Opportunity Optimizer Worker

@@ -262,6 +262,7 @@ async function validateTaskArtifacts(
     SUPPLIER_SYNC_INCREMENTAL: { valid: true },
     PRODUCT_SYNC: { valid: true },
     PRODUCT_SYNC_INCREMENTAL: { valid: true },
+    BULK_PRODUCT_SYNC: { valid: true },
 
     // Analytics (not part of standard site roadmap)
     GA4_DAILY_SYNC: { valid: true },
@@ -476,6 +477,10 @@ export const TASK_DESCRIPTIONS: Record<JobType, { label: string; description: st
   PRODUCT_SYNC_INCREMENTAL: {
     label: 'Incremental Product Sync',
     description: 'Update changed products',
+  },
+  BULK_PRODUCT_SYNC: {
+    label: 'Bulk Product Sync',
+    description: 'Full catalog sync from Holibob API (all products, all providers)',
   },
 
   // Analytics (scheduled jobs)

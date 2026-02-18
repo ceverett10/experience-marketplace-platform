@@ -478,6 +478,266 @@ async function upsertProduct(
 }
 
 /**
+ * Bulk sync ALL products from Holibob API in a single call.
+ * Uses the getAllProducts() endpoint which returns every product across all providers.
+ *
+ * This is the foundation for Phase 1 of the pipeline optimization:
+ * - Gives us a complete local product cache for keyword discovery, supplier attribution,
+ *   and landing page validation without needing live API calls.
+ * - Also backfills supplier cities/categories from real product data (Task 1.2).
+ *
+ * Should be run once initially, then monthly via PRODUCT_SYNC schedule.
+ */
+export async function bulkSyncAllProducts(): Promise<ProductSyncResult> {
+  const startTime = Date.now();
+  const errors: string[] = [];
+
+  let productsDiscovered = 0;
+  let productsCreated = 0;
+  let productsUpdated = 0;
+  let productsSkipped = 0;
+
+  console.log('[Bulk Product Sync] Starting full catalog sync from Holibob...');
+
+  const client = getHolibobClient();
+
+  try {
+    // Step 1: Fetch ALL products in a single API call
+    console.log('[Bulk Product Sync] Fetching entire product catalog...');
+    const response = await client.getAllProducts();
+    const allProducts = response.nodes;
+    productsDiscovered = allProducts.length;
+    console.log(`[Bulk Product Sync] Fetched ${productsDiscovered} products (recordCount: ${response.recordCount})`);
+
+    // Step 2: Build a map of holibobSupplierId → local Supplier record
+    const suppliers = await prisma.supplier.findMany({
+      select: { id: true, holibobSupplierId: true, name: true },
+    });
+    const supplierByHolibobId = new Map(suppliers.map((s) => [s.holibobSupplierId, s]));
+
+    // Step 3: Pre-load existing product slugs for collision detection
+    const existingProducts = await prisma.product.findMany({
+      select: { slug: true },
+    });
+    const existingSlugs = new Set(existingProducts.map((p) => p.slug));
+
+    // Step 4: Group products by provider for supplier aggregation
+    const productsByProvider = new Map<string, typeof allProducts>();
+    for (const product of allProducts) {
+      const providerId = product.provider?.id;
+      if (!providerId) {
+        errors.push(`Product "${product.name}" (${product.id}) has no provider — skipping`);
+        productsSkipped++;
+        continue;
+      }
+      const group = productsByProvider.get(providerId) ?? [];
+      group.push(product);
+      productsByProvider.set(providerId, group);
+    }
+
+    console.log(`[Bulk Product Sync] Products span ${productsByProvider.size} providers`);
+
+    // Step 5: Auto-create suppliers for providers not yet in our DB
+    let suppliersCreated = 0;
+    for (const [providerId, products] of productsByProvider) {
+      if (!supplierByHolibobId.has(providerId)) {
+        const providerName = products[0]?.provider?.name ?? `Provider ${providerId}`;
+        try {
+          const slug = generateSlug(providerName) || `supplier-${providerId.substring(0, 8)}`;
+          const newSupplier = await prisma.supplier.create({
+            data: {
+              holibobSupplierId: providerId,
+              name: providerName,
+              slug: await generateUniqueSupplierSlug(slug),
+              productCount: 0,
+            },
+          });
+          supplierByHolibobId.set(providerId, {
+            id: newSupplier.id,
+            holibobSupplierId: providerId,
+            name: providerName,
+          });
+          suppliersCreated++;
+        } catch (err) {
+          const msg = `Failed to create supplier for provider "${providerName}" (${providerId}): ${err instanceof Error ? err.message : String(err)}`;
+          console.error(`[Bulk Product Sync] ${msg}`);
+          errors.push(msg);
+        }
+      }
+    }
+
+    if (suppliersCreated > 0) {
+      console.log(`[Bulk Product Sync] Auto-created ${suppliersCreated} new suppliers`);
+    }
+
+    // Step 6: Upsert all products and aggregate supplier data
+    let processedCount = 0;
+    const supplierAggregates = new Map<
+      string,
+      {
+        cities: Set<string>;
+        categories: Set<string>;
+        minPrice: number | null;
+        maxPrice: number | null;
+        bestHeroImage: string | null;
+        bestHeroRating: number;
+        productCount: number;
+      }
+    >();
+
+    for (const [providerId, products] of productsByProvider) {
+      const supplier = supplierByHolibobId.get(providerId);
+      if (!supplier) {
+        productsSkipped += products.length;
+        continue;
+      }
+
+      // Initialize aggregates for this supplier
+      if (!supplierAggregates.has(supplier.id)) {
+        supplierAggregates.set(supplier.id, {
+          cities: new Set(),
+          categories: new Set(),
+          minPrice: null,
+          maxPrice: null,
+          bestHeroImage: null,
+          bestHeroRating: -1,
+          productCount: 0,
+        });
+      }
+      const agg = supplierAggregates.get(supplier.id)!;
+
+      for (const product of products) {
+        try {
+          const result = await upsertProduct(product, supplier.id, existingSlugs);
+
+          if (result.skipped) {
+            productsSkipped++;
+          } else if (result.created) {
+            productsCreated++;
+          } else {
+            productsUpdated++;
+          }
+
+          // Aggregate supplier metadata
+          agg.productCount++;
+          if (product.place?.name) {
+            agg.cities.add(product.place.name);
+          }
+          if (product.categoryList?.nodes) {
+            for (const cat of product.categoryList.nodes) {
+              if (cat.name) agg.categories.add(cat.name);
+            }
+          }
+          const price = product.guidePrice ?? product.priceFrom;
+          if (price != null) {
+            if (agg.minPrice === null || price < agg.minPrice) agg.minPrice = price;
+            if (agg.maxPrice === null || price > agg.maxPrice) agg.maxPrice = price;
+          }
+          const productImage =
+            product.primaryImageUrl ?? product.imageUrl ?? product.imageList?.[0]?.url;
+          if (productImage) {
+            const rating = product.reviewRating ?? product.rating ?? 0;
+            if (rating > agg.bestHeroRating || !agg.bestHeroImage) {
+              agg.bestHeroImage = productImage;
+              agg.bestHeroRating = rating;
+            }
+          }
+        } catch (productError) {
+          const msg = `Error upserting product "${product.name}": ${
+            productError instanceof Error ? productError.message : String(productError)
+          }`;
+          console.error(`[Bulk Product Sync] ${msg}`);
+          errors.push(msg);
+        }
+
+        processedCount++;
+        if (processedCount % 500 === 0) {
+          console.log(
+            `[Bulk Product Sync] Progress: ${processedCount}/${productsDiscovered} products processed`
+          );
+        }
+      }
+    }
+
+    // Step 7: Update all suppliers with aggregated data (Task 1.2: Backfill supplier cities/categories)
+    let suppliersUpdated = 0;
+    for (const [supplierId, agg] of supplierAggregates) {
+      try {
+        await prisma.supplier.update({
+          where: { id: supplierId },
+          data: {
+            lastSyncedAt: new Date(),
+            productCount: agg.productCount,
+            cities: Array.from(agg.cities),
+            categories: Array.from(agg.categories),
+            priceRangeMin: agg.minPrice,
+            priceRangeMax: agg.maxPrice,
+            ...(agg.bestHeroImage ? { heroImageUrl: agg.bestHeroImage } : {}),
+          },
+        });
+        suppliersUpdated++;
+      } catch (err) {
+        const msg = `Failed to update supplier ${supplierId}: ${err instanceof Error ? err.message : String(err)}`;
+        console.error(`[Bulk Product Sync] ${msg}`);
+        errors.push(msg);
+      }
+    }
+
+    const duration = Date.now() - startTime;
+    console.log(
+      `[Bulk Product Sync] Complete. Products: ${productsDiscovered} (${productsCreated} created, ${productsUpdated} updated, ${productsSkipped} skipped). Suppliers updated: ${suppliersUpdated}. New suppliers: ${suppliersCreated}. Errors: ${errors.length}. Duration: ${Math.round(duration / 1000)}s`
+    );
+
+    return {
+      success: errors.length === 0,
+      suppliersProcessed: suppliersUpdated,
+      productsDiscovered,
+      productsCreated,
+      productsUpdated,
+      productsSkipped,
+      errors,
+      duration,
+    };
+  } catch (error) {
+    const errorMsg = `Fatal error during bulk product sync: ${
+      error instanceof Error ? error.message : String(error)
+    }`;
+    console.error(`[Bulk Product Sync] ${errorMsg}`);
+    errors.push(errorMsg);
+
+    return {
+      success: false,
+      suppliersProcessed: 0,
+      productsDiscovered,
+      productsCreated,
+      productsUpdated,
+      productsSkipped,
+      errors,
+      duration: Date.now() - startTime,
+    };
+  }
+}
+
+/**
+ * Generate a unique supplier slug with collision handling
+ */
+async function generateUniqueSupplierSlug(baseSlug: string): Promise<string> {
+  let slug = baseSlug;
+  let suffix = 1;
+
+  while (await prisma.supplier.findUnique({ where: { slug }, select: { id: true } })) {
+    slug = `${baseSlug}-${suffix}`;
+    suffix++;
+    if (suffix > 100) {
+      slug = `${baseSlug}-${Date.now()}`;
+      break;
+    }
+  }
+
+  return slug;
+}
+
+/**
  * Sync products for a single supplier
  */
 export async function syncProductsForSupplier(supplierId: string): Promise<ProductSyncResult> {

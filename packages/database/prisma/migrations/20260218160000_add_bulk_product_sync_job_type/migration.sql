@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "JobType" ADD VALUE 'BULK_PRODUCT_SYNC';

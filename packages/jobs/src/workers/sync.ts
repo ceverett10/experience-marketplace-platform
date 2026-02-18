@@ -8,7 +8,11 @@ import { Job } from 'bullmq';
 import { prisma } from '@experience-marketplace/database';
 import type { JobResult, SupplierSyncPayload, ProductSyncPayload } from '../types/index.js';
 import { syncSuppliersFromHolibob } from '../services/supplier-sync.js';
-import { syncProductsFromHolibob, syncProductsForSupplier } from '../services/product-sync.js';
+import {
+  syncProductsFromHolibob,
+  syncProductsForSupplier,
+  bulkSyncAllProducts,
+} from '../services/product-sync.js';
 import { canExecuteAutonomousOperation } from '../services/pause-control.js';
 import { addJob } from '../queues/index.js';
 
@@ -175,6 +179,49 @@ export async function handleProductSync(job: Job<ProductSyncPayload>): Promise<J
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error during product sync',
+      timestamp: new Date(),
+    };
+  }
+}
+
+/**
+ * Bulk Product Sync Worker
+ * Fetches ALL products from Holibob in a single API call and caches locally.
+ * Also backfills supplier cities/categories from real product data.
+ * Use for initial population and periodic full refresh.
+ */
+export async function handleBulkProductSync(job: Job): Promise<JobResult> {
+  try {
+    console.log('[Bulk Product Sync Worker] Starting full catalog sync...');
+
+    const result = await bulkSyncAllProducts();
+
+    if (!result.success) {
+      console.warn(
+        `[Bulk Product Sync Worker] Completed with errors: ${result.errors.length} errors`
+      );
+    }
+
+    return {
+      success: result.success,
+      message: `Bulk product sync complete: ${result.productsDiscovered} discovered, ${result.productsCreated} created, ${result.productsUpdated} updated, ${result.productsSkipped} skipped. Suppliers updated: ${result.suppliersProcessed}`,
+      data: {
+        productsDiscovered: result.productsDiscovered,
+        productsCreated: result.productsCreated,
+        productsUpdated: result.productsUpdated,
+        productsSkipped: result.productsSkipped,
+        suppliersProcessed: result.suppliersProcessed,
+        errorCount: result.errors.length,
+        duration: result.duration,
+      },
+      timestamp: new Date(),
+    };
+  } catch (error) {
+    console.error('[Bulk Product Sync Worker] Fatal error:', error);
+
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error during bulk product sync',
       timestamp: new Date(),
     };
   }
