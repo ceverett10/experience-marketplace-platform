@@ -509,6 +509,14 @@ function buildSupplierMicrositeLandingPage(
     hasFilter = true;
   }
 
+  // Task 2.1: Add ?q= search param to help filter relevant products.
+  // Extract the activity/search term from the keyword (strips city, location, generic words).
+  const searchQuery = extractSearchQuery(keyword, cityMatch ?? location);
+  if (searchQuery && searchQuery.length >= 3) {
+    url.searchParams.set('q', searchQuery);
+    hasFilter = true;
+  }
+
   // If no filters matched, homepage is safest — shows all supplier products
   if (!hasFilter) {
     return { url: `https://${domain}`, path: '/', type: 'HOMEPAGE', validated: true };

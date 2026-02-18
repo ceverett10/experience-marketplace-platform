@@ -779,67 +779,108 @@ function buildLandingUrl(campaign: {
  * 3. Fall back to broader terms like "travel" + destination if needed
  * 4. Filter out clearly irrelevant interests (shopping, finance, etc.)
  */
+/**
+ * Task 2.5: Rebuild interest targeting.
+ *
+ * Improved strategy:
+ * 1. Extract BOTH destination and activity from keywords
+ * 2. Search for destination-specific interests first (e.g., "Barcelona tourism")
+ * 3. Then search for activity-specific interests (e.g., "food tours", "kayaking")
+ * 4. Combine for relevant audience: people interested in BOTH the place and the activity
+ * 5. Only fall back to "travel" if no destination or activity can be extracted
+ */
 async function findRelevantInterests(
   metaClient: MetaAdsClient,
   keywords: string[]
 ): Promise<Array<{ id: string; name: string }>> {
   const allInterests = new Map<string, { id: string; name: string }>();
 
-  // Extract core search terms from keywords
-  const searchTerms = new Set<string>();
+  // Separate destination and activity terms from keywords
+  const destinations = new Set<string>();
+  const activities = new Set<string>();
+  const FILLER = new Set([
+    'in', 'the', 'of', 'and', 'to', 'a', 'an', 'for', 'with', 'from', 'near',
+    'best', 'top', 'things', 'what', 'do', 'book', 'tour', 'tours',
+  ]);
+
   for (const kw of keywords.slice(0, 5)) {
-    // Extract destination/activity from long-tail keywords
-    const core = kw
+    // Extract activity phrase (strip destination and modifiers)
+    const cleaned = kw
       .replace(/^(things to do in|what to do in|best things to do in|top)\s+/i, '')
-      .replace(
-        /^(restaurants in|restaurants|hotels in|hotels|wildlife in|activities in|tours in)\s+/i,
-        ''
-      )
       .replace(/^(train|bus|flight|ferry|transfer)\s+/i, '')
       .replace(/\s+(opening hours|opening times|hours|tickets|prices|cost|reviews?|tourism)$/i, '')
       .trim();
 
-    if (core.length > 2) searchTerms.add(core);
+    // Split into meaningful words
+    const words = cleaned.toLowerCase().split(/\s+/).filter((w) => w.length > 2 && !FILLER.has(w));
 
-    // Also try individual significant words (for multi-word keywords)
-    const words = core.split(/\s+/).filter((w) => w.length > 3);
+    // Use location field from campaign data if available
+    // Check for known patterns: "activity in city", "activity city"
+    const inIndex = cleaned.toLowerCase().indexOf(' in ');
+    if (inIndex > 0) {
+      const activity = cleaned.substring(0, inIndex).trim();
+      const dest = cleaned.substring(inIndex + 4).trim();
+      if (activity.length > 2) activities.add(activity.toLowerCase());
+      if (dest.length > 2) destinations.add(dest.toLowerCase());
+    } else if (words.length >= 2) {
+      // Last word is often the city for patterns like "food tours barcelona"
+      // Use the full phrase as activity search term
+      activities.add(cleaned.toLowerCase());
+    }
+
+    // Add individual significant words as backup
     for (const word of words) {
-      // Skip generic filler words
-      if (!['with', 'from', 'near', 'best', 'tour', 'tours'].includes(word.toLowerCase())) {
-        searchTerms.add(word);
-      }
+      if (word.length > 4) activities.add(word);
     }
   }
 
-  if (searchTerms.size === 0) searchTerms.add('travel');
+  // Build prioritized search terms:
+  // 1. Destination-specific: "Barcelona tourism", "Barcelona travel"
+  // 2. Activity-specific: "food tours", "kayaking", "cooking class"
+  // 3. Combined: "Barcelona food" (if both available)
+  const searchTerms: string[] = [];
 
-  // Search Meta for each term (limit API calls)
-  const termsArray = [...searchTerms].slice(0, 4);
-  for (const term of termsArray) {
-    const interests = await metaClient.searchInterests(term);
-    for (const i of interests) {
-      allInterests.set(i.id, { id: i.id, name: i.name });
+  for (const dest of [...destinations].slice(0, 2)) {
+    searchTerms.push(dest); // City name alone (Meta often has city interests)
+    searchTerms.push(`${dest} tourism`);
+  }
+  for (const activity of [...activities].slice(0, 3)) {
+    searchTerms.push(activity);
+  }
+  // Cross-product: destination + activity
+  for (const dest of [...destinations].slice(0, 1)) {
+    for (const activity of [...activities].slice(0, 2)) {
+      searchTerms.push(`${activity} ${dest}`);
     }
   }
 
-  // If no interests found, try broader "travel {destination}" or just "travel"
-  if (allInterests.size === 0) {
-    const firstTerm = termsArray[0] || 'travel';
-    const broadTerms = [`${firstTerm} travel`, `${firstTerm} tourism`, 'travel'];
-    for (const term of broadTerms) {
+  // Deduplicate and limit API calls
+  const seen = new Set<string>();
+  const uniqueTerms = searchTerms.filter((t) => {
+    const key = t.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, 6);
+
+  // If no terms extracted at all, use "travel experiences" as last resort
+  if (uniqueTerms.length === 0) uniqueTerms.push('travel experiences');
+
+  // Search Meta for each term
+  for (const term of uniqueTerms) {
+    try {
       const interests = await metaClient.searchInterests(term);
-      if (interests.length > 0) {
-        for (const i of interests) {
-          allInterests.set(i.id, { id: i.id, name: i.name });
-        }
-        break; // Found interests, stop broadening
+      for (const i of interests.slice(0, 5)) {
+        allInterests.set(i.id, { id: i.id, name: i.name });
       }
+    } catch {
+      // Continue on search failure
     }
   }
 
-  // Filter out clearly irrelevant interests (Meta's interest search returns many false positives)
+  // Filter out clearly irrelevant interests (Meta's interest search returns false positives)
   const irrelevantPatterns =
-    /\b(department store|personal finance|online shopping|fast food|cryptocurrency|real estate|insurance|banking|banks and financial|psychedelic|gangsta rap|subculture|popular culture|american culture|japanese popular culture|video game culture|chinese culture|coffee culture|martha stewart|compact car|toyota|soccer player|german soccer|brazilian soccer|rugby union|french soccer|drama actor|government in)\b/i;
+    /\b(department store|personal finance|online shopping|fast food|cryptocurrency|real estate|insurance|banking|banks and financial|psychedelic|gangsta rap|subculture|popular culture|american culture|japanese popular culture|video game culture|chinese culture|coffee culture|martha stewart|compact car|toyota|soccer player|german soccer|brazilian soccer|rugby union|french soccer|drama actor|government in|fast food restaurant|supermarket|discount store|convenience store)\b/i;
   const filtered = [...allInterests.values()].filter(
     (interest) => !irrelevantPatterns.test(interest.name)
   );
@@ -1034,29 +1075,103 @@ async function deployToMeta(
  * 2. Create ad group with keywords
  * 3. Create responsive search ad
  */
-function generateHeadlines(keyword: string, siteName: string): string[] {
-  const kwTitle = keyword.charAt(0).toUpperCase() + keyword.slice(1);
-  return [
-    kwTitle.substring(0, 30),
-    `Book ${kwTitle}`.substring(0, 30),
-    `${kwTitle} | ${siteName}`.substring(0, 30),
-    'Best Prices Guaranteed',
-    'Instant Confirmation',
-    'Book Online Today',
-  ];
+/**
+ * Task 2.6: AI-powered Google RSA generation with template fallback.
+ * Generates keyword-specific headlines and descriptions using Claude Haiku.
+ * Falls back to templates if AI is unavailable.
+ */
+async function generateGoogleRSA(
+  keyword: string,
+  siteName: string
+): Promise<{ headlines: string[]; descriptions: string[] }> {
+  const apiKey = process.env['ANTHROPIC_API_KEY'] || process.env['CLAUDE_API_KEY'] || '';
+  if (!apiKey) {
+    return generateGoogleRSATemplate(keyword, siteName);
+  }
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 500,
+        messages: [
+          {
+            role: 'user',
+            content: `Generate a Google Responsive Search Ad for the keyword "${keyword}" on a travel experiences booking site called "${siteName}".
+
+RULES:
+- 6 headlines, each MAX 30 characters (hard limit - Google rejects longer)
+- 2 descriptions, each MAX 90 characters (hard limit)
+- Headlines must be specific to "${keyword}" — NOT generic
+- First 3 headlines MUST include the keyword or a close variant
+- DO NOT use "Free cancellation" (we cannot guarantee this for all products)
+- DO NOT invent prices, discounts, or percentages
+- Focus on booking intent: "Book Now", "Instant Confirmation", "Top-Rated"
+- Include the site name "${siteName}" in at most one headline
+
+Return JSON only:
+{"headlines":["..."],"descriptions":["..."]}`,
+          },
+        ],
+      }),
+    });
+
+    if (response.ok) {
+      const data = (await response.json()) as {
+        content: Array<{ type: string; text: string }>;
+      };
+      const text = data.content[0]?.text || '';
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]) as {
+          headlines: string[];
+          descriptions: string[];
+        };
+        // Enforce length limits
+        const headlines = (parsed.headlines || [])
+          .map((h: string) => h.substring(0, 30))
+          .slice(0, 6);
+        const descriptions = (parsed.descriptions || [])
+          .map((d: string) => d.substring(0, 90))
+          .slice(0, 2);
+        if (headlines.length >= 3 && descriptions.length >= 1) {
+          return { headlines, descriptions };
+        }
+      }
+    }
+  } catch {
+    // Fall through to template
+  }
+
+  return generateGoogleRSATemplate(keyword, siteName);
 }
 
-function generateDescriptions(keyword: string): string[] {
-  return [
-    `Discover and book amazing ${keyword} experiences. Best prices, instant confirmation.`.substring(
-      0,
-      90
-    ),
-    `Browse ${keyword} from top-rated local providers. Free cancellation available.`.substring(
-      0,
-      90
-    ),
-  ];
+/** Template fallback for Google RSA when AI is unavailable */
+function generateGoogleRSATemplate(
+  keyword: string,
+  siteName: string
+): { headlines: string[]; descriptions: string[] } {
+  const kwTitle = keyword.charAt(0).toUpperCase() + keyword.slice(1);
+  return {
+    headlines: [
+      kwTitle.substring(0, 30),
+      `Book ${kwTitle}`.substring(0, 30),
+      `${kwTitle} | ${siteName}`.substring(0, 30),
+      `Best ${kwTitle} Deals`.substring(0, 30),
+      'Instant Confirmation',
+      'Book Online Today',
+    ],
+    descriptions: [
+      `Discover and book ${keyword} experiences. Instant confirmation, top-rated providers.`.substring(0, 90),
+      `Compare and book the best ${keyword}. Trusted by thousands of travellers.`.substring(0, 90),
+    ],
+  };
 }
 
 async function deployToGoogle(
@@ -1128,10 +1243,12 @@ async function deployToGoogle(
           if (key.startsWith('utm_')) agUrl.searchParams.set(key, val);
         }
 
+        // Task 2.6: AI-powered RSA generation
+        const rsa = await generateGoogleRSA(agConfig.primaryKeyword, siteName);
         await createResponsiveSearchAd({
           adGroupId: adGroupResult.adGroupId,
-          headlines: generateHeadlines(agConfig.primaryKeyword, siteName),
-          descriptions: generateDescriptions(agConfig.primaryKeyword),
+          headlines: rsa.headlines,
+          descriptions: rsa.descriptions,
           finalUrl: agUrl.toString(),
           path1: 'experiences',
           path2: agConfig.primaryKeyword.split(' ')[0]?.substring(0, 15),
@@ -1154,10 +1271,12 @@ async function deployToGoogle(
 
       if (adGroupResult) {
         const keyword = campaign.keywords[0] || 'experiences';
+        // Task 2.6: AI-powered RSA generation
+        const rsa = await generateGoogleRSA(keyword, siteName);
         await createResponsiveSearchAd({
           adGroupId: adGroupResult.adGroupId,
-          headlines: generateHeadlines(keyword, siteName),
-          descriptions: generateDescriptions(keyword),
+          headlines: rsa.headlines,
+          descriptions: rsa.descriptions,
           finalUrl: landingUrl,
           path1: 'experiences',
           path2: keyword.split(' ')[0]?.substring(0, 15),

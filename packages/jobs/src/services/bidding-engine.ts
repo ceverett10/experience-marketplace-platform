@@ -601,7 +601,7 @@ export async function assignKeywordsToSites(): Promise<number> {
 export async function scoreCampaignOpportunities(
   profiles: SiteProfitability[]
 ): Promise<CampaignCandidate[]> {
-  const opportunities = await prisma.sEOOpportunity.findMany({
+  const allOpportunities = await prisma.sEOOpportunity.findMany({
     where: { status: 'PAID_CANDIDATE' },
     select: {
       id: true,
@@ -618,6 +618,21 @@ export async function scoreCampaignOpportunities(
     orderBy: { priorityScore: 'desc' },
     take: 10000, // Process all enriched keywords for microsite matching
   });
+
+  // Task 2.4: Only process keywords with AI decision = 'BID' (or not yet evaluated).
+  // REVIEW keywords need manual approval before creating campaigns.
+  const opportunities = allOpportunities.filter((opp) => {
+    const sd = opp.sourceData as { aiEvaluation?: { decision?: string } } | null;
+    const decision = sd?.aiEvaluation?.decision;
+    // Allow: not yet evaluated (null) or explicitly approved (BID)
+    return !decision || decision === 'BID';
+  });
+  const reviewFiltered = allOpportunities.length - opportunities.length;
+  if (reviewFiltered > 0) {
+    console.log(
+      `[BiddingEngine] AI gate: ${opportunities.length} BID/unevaluated, ${reviewFiltered} REVIEW keywords excluded`
+    );
+  }
 
   // Load active microsites for keyword→microsite matching
   // 1) OPPORTUNITY microsites: have discoveryConfig with keywords
@@ -647,7 +662,8 @@ export async function scoreCampaignOpportunities(
   });
 
   // Merge for unified type
-  type MicrositeMatch = { id: string; siteName: string; fullDomain: string; productCount: number };
+  // Task 2.2: Added categories for theme-aware city matching
+  type MicrositeMatch = { id: string; siteName: string; fullDomain: string; productCount: number; categories?: string[] };
 
   // Build keyword→microsite lookup from OPPORTUNITY discoveryConfig
   const micrositeByTerm = new Map<string, MicrositeMatch>();
@@ -681,6 +697,7 @@ export async function scoreCampaignOpportunities(
       siteName: ms.siteName,
       fullDomain: ms.fullDomain,
       productCount: ms.cachedProductCount,
+      categories: ms.supplier?.categories ?? [], // Task 2.2: include for theme matching
     };
     for (const city of cities) {
       const cityLower = city.toLowerCase();
@@ -822,14 +839,31 @@ export async function scoreCampaignOpportunities(
     }
 
     // 3) City-based match on SUPPLIER microsites — if keyword mentions a city,
-    //    route to a supplier in that city (prefer highest product count)
+    //    route to a supplier in that city.
+    //    Task 2.2: Theme-aware matching — prefer supplier whose categories match the keyword
+    //    over simply picking the one with the most products (avoids routing "walking tours london"
+    //    to a taxi transfer company with 500 products instead of a walking tour company with 30).
     if (!matchedMicrosite) {
       for (const [city, micrositesInCity] of micrositesByCity) {
         if (kwLower.includes(city)) {
-          // Pick the supplier with the most products in this city
-          matchedMicrosite = micrositesInCity.reduce((best, ms) =>
-            ms.productCount > best.productCount ? ms : best
-          );
+          // Score each microsite by category relevance to keyword
+          let bestMs = micrositesInCity[0]!;
+          let bestScore = 0;
+
+          for (const ms of micrositesInCity) {
+            // Count how many of the supplier's categories appear in the keyword
+            const catMatches = (ms.categories ?? []).filter((cat) =>
+              kwLower.includes(cat.toLowerCase())
+            ).length;
+            // Score: category matches (×100) + product count (tiebreaker)
+            const score = catMatches * 100 + ms.productCount;
+            if (score > bestScore) {
+              bestScore = score;
+              bestMs = ms;
+            }
+          }
+
+          matchedMicrosite = bestMs;
           matchedMicrositeEntityType = 'SUPPLIER';
           break;
         }
@@ -959,12 +993,13 @@ export async function scoreCampaignOpportunities(
     if (c.landingPageProducts !== undefined && c.landingPageProducts <= 0) {
       return false;
     }
-    // Only allow EXPERIENCES_FILTERED pages on supplier microsites (which have
-    // product catalogs). For main sites and opportunity microsites, these are
-    // unvalidated search URLs (e.g., "/experiences?q=chessington") that often
-    // show 0 results, wasting ad spend.
+    // Task 2.3: Allow EXPERIENCES_FILTERED on main sites when a ?q= search term
+    // is present. Main sites use the Product Discovery API, which searches across
+    // all providers, so ?q=kayaking+tours will show relevant results.
+    // Only reject EXPERIENCES_FILTERED pages that have NO search/filter params.
     if (c.landingPageType === 'EXPERIENCES_FILTERED' && !c.isMicrosite) {
-      return false;
+      const hasSearchParam = c.landingPagePath.includes('q=');
+      if (!hasSearchParam) return false;
     }
     return true;
   });
