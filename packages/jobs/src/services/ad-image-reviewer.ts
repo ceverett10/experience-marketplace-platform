@@ -21,7 +21,7 @@ let unsplashService: {
 function getUnsplash() {
   if (!unsplashService) {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
       const mod = require('./unsplash-images') as {
         getUnsplashService: () => typeof unsplashService;
       };

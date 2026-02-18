@@ -740,6 +740,7 @@ export async function handleAutoOptimize(job: Job<SEOAutoOptimizePayload>): Prom
       let micrositesProcessed = 0;
       let cursor: string | undefined;
 
+      // eslint-disable-next-line no-constant-condition
       while (true) {
         const batch = await prisma.micrositeConfig.findMany({
           where: { status: 'ACTIVE' },
