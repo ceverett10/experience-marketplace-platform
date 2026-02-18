@@ -55,9 +55,7 @@ async function getKnownCities(): Promise<string[]> {
   _cityCache = [...citySet].sort((a, b) => b.length - a.length);
   _cityCacheTime = Date.now();
 
-  console.log(
-    `[KeywordLocation] Loaded ${_cityCache.length} known cities for location extraction`
-  );
+  console.log(`[KeywordLocation] Loaded ${_cityCache.length} known cities for location extraction`);
   return _cityCache;
 }
 

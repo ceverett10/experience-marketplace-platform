@@ -499,7 +499,9 @@ export async function handleAdBudgetOptimizer(job: Job): Promise<JobResult> {
         data: {
           status: 'PAUSED',
           proposalData: {
-            ...(typeof (campaign as any).proposalData === 'object' ? (campaign as any).proposalData : {}),
+            ...(typeof (campaign as any).proposalData === 'object'
+              ? (campaign as any).proposalData
+              : {}),
             pauseReason: 'ZERO_CONVERSION_FAST_FAIL',
             pausedAt: new Date().toISOString(),
           },
@@ -674,7 +676,9 @@ export async function handleAdBudgetOptimizer(job: Job): Promise<JobResult> {
             );
           }
         } catch (err) {
-          console.error(`[Ads Worker] Smart Bidding migration failed for "${campaign.name}": ${err}`);
+          console.error(
+            `[Ads Worker] Smart Bidding migration failed for "${campaign.name}": ${err}`
+          );
         }
       }
     }
@@ -992,8 +996,25 @@ async function findRelevantInterests(
   const destinations = new Set<string>();
   const activities = new Set<string>();
   const FILLER = new Set([
-    'in', 'the', 'of', 'and', 'to', 'a', 'an', 'for', 'with', 'from', 'near',
-    'best', 'top', 'things', 'what', 'do', 'book', 'tour', 'tours',
+    'in',
+    'the',
+    'of',
+    'and',
+    'to',
+    'a',
+    'an',
+    'for',
+    'with',
+    'from',
+    'near',
+    'best',
+    'top',
+    'things',
+    'what',
+    'do',
+    'book',
+    'tour',
+    'tours',
   ]);
 
   for (const kw of keywords.slice(0, 5)) {
@@ -1005,7 +1026,10 @@ async function findRelevantInterests(
       .trim();
 
     // Split into meaningful words
-    const words = cleaned.toLowerCase().split(/\s+/).filter((w) => w.length > 2 && !FILLER.has(w));
+    const words = cleaned
+      .toLowerCase()
+      .split(/\s+/)
+      .filter((w) => w.length > 2 && !FILLER.has(w));
 
     // Use location field from campaign data if available
     // Check for known patterns: "activity in city", "activity city"
@@ -1049,12 +1073,14 @@ async function findRelevantInterests(
 
   // Deduplicate and limit API calls
   const seen = new Set<string>();
-  const uniqueTerms = searchTerms.filter((t) => {
-    const key = t.toLowerCase();
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  }).slice(0, 6);
+  const uniqueTerms = searchTerms
+    .filter((t) => {
+      const key = t.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 6);
 
   // If no terms extracted at all, use "travel experiences" as last resort
   if (uniqueTerms.length === 0) uniqueTerms.push('travel experiences');
@@ -1364,7 +1390,10 @@ function generateGoogleRSATemplate(
       'Book Online Today',
     ],
     descriptions: [
-      `Discover and book ${keyword} experiences. Instant confirmation, top-rated providers.`.substring(0, 90),
+      `Discover and book ${keyword} experiences. Instant confirmation, top-rated providers.`.substring(
+        0,
+        90
+      ),
       `Compare and book the best ${keyword}. Trusted by thousands of travellers.`.substring(0, 90),
     ],
   };

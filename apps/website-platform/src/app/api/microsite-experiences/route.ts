@@ -160,8 +160,12 @@ export async function GET(request: NextRequest) {
     const city = searchParams.get('city') || searchParams.get('cities')?.split(',')[0];
 
     // Client-side filters (Holibob ProductList API doesn't support these natively)
-    const priceMin = searchParams.get('priceMin') ? parseFloat(searchParams.get('priceMin')!) : null;
-    const priceMax = searchParams.get('priceMax') ? parseFloat(searchParams.get('priceMax')!) : null;
+    const priceMin = searchParams.get('priceMin')
+      ? parseFloat(searchParams.get('priceMin')!)
+      : null;
+    const priceMax = searchParams.get('priceMax')
+      ? parseFloat(searchParams.get('priceMax')!)
+      : null;
     const durationPreset = searchParams.get('duration');
     const minRating = searchParams.get('minRating')
       ? parseFloat(searchParams.get('minRating')!)
@@ -279,8 +283,7 @@ export async function GET(request: NextRequest) {
       const range = DURATION_RANGES[durationPreset];
       filteredExperiences = filteredExperiences.filter(
         (e) =>
-          e.duration.minutes >= range.min &&
-          (range.max === null || e.duration.minutes < range.max)
+          e.duration.minutes >= range.min && (range.max === null || e.duration.minutes < range.max)
       );
     }
     if (minRating != null) {
@@ -306,7 +309,7 @@ export async function GET(request: NextRequest) {
       totalCount: response.recordCount ?? paginatedExperiences.length,
       filteredCount: hasClientFilters
         ? filteredExperiences.length
-        : response.recordCount ?? paginatedExperiences.length,
+        : (response.recordCount ?? paginatedExperiences.length),
       hasMore,
       filterCounts,
     };

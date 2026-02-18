@@ -141,7 +141,11 @@ export default function LinkBuildingPage() {
     try {
       setActionStatus('Processing...');
       // Use first available site as default
-      const siteId = params['siteId'] || data?.backlinks[0]?.siteName || data?.opportunities[0]?.siteName || 'all';
+      const siteId =
+        params['siteId'] ||
+        data?.backlinks[0]?.siteName ||
+        data?.opportunities[0]?.siteName ||
+        'all';
       const response = await fetch(`${basePath}/api/link-building`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -229,7 +233,9 @@ export default function LinkBuildingPage() {
           <CardContent className="pt-4">
             <p className="text-sm text-gray-500">Cross-Site Links</p>
             <p className="text-2xl font-bold text-indigo-600">
-              {networkData ? `~${networkData.crossSiteLinks.estimatedTotalCrossSiteLinks.toLocaleString()}` : '—'}
+              {networkData
+                ? `~${networkData.crossSiteLinks.estimatedTotalCrossSiteLinks.toLocaleString()}`
+                : '—'}
             </p>
           </CardContent>
         </Card>
@@ -534,7 +540,9 @@ export default function LinkBuildingPage() {
             <Card>
               <CardContent className="pt-4">
                 <p className="text-sm text-gray-500">Active Microsites</p>
-                <p className="text-2xl font-bold">{networkData.network.totalMicrosites.toLocaleString()}</p>
+                <p className="text-2xl font-bold">
+                  {networkData.network.totalMicrosites.toLocaleString()}
+                </p>
                 <p className="text-xs text-gray-400 mt-1">All with footer cross-links</p>
               </CardContent>
             </Card>
@@ -561,7 +569,9 @@ export default function LinkBuildingPage() {
             <Card>
               <CardContent className="pt-4">
                 <p className="text-sm text-gray-500">Total Network Blogs</p>
-                <p className="text-2xl font-bold">{networkData.network.totalBlogs.toLocaleString()}</p>
+                <p className="text-2xl font-bold">
+                  {networkData.network.totalBlogs.toLocaleString()}
+                </p>
                 <p className="text-xs text-gray-400 mt-1">Published across network</p>
               </CardContent>
             </Card>
@@ -584,19 +594,26 @@ export default function LinkBuildingPage() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-600">
-                    Blogs with cross-site links: ~{networkData.crossSiteLinks.estimatedBlogsWithLinks.toLocaleString()} / {networkData.network.totalBlogs.toLocaleString()}
+                    Blogs with cross-site links: ~
+                    {networkData.crossSiteLinks.estimatedBlogsWithLinks.toLocaleString()} /{' '}
+                    {networkData.network.totalBlogs.toLocaleString()}
                   </span>
-                  <span className="font-medium text-indigo-600">{networkData.crossSiteLinks.enrichmentRate}%</span>
+                  <span className="font-medium text-indigo-600">
+                    {networkData.crossSiteLinks.enrichmentRate}%
+                  </span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-3">
                   <div
                     className="bg-indigo-600 h-3 rounded-full transition-all"
-                    style={{ width: `${Math.min(networkData.crossSiteLinks.enrichmentRate, 100)}%` }}
+                    style={{
+                      width: `${Math.min(networkData.crossSiteLinks.enrichmentRate, 100)}%`,
+                    }}
                   />
                 </div>
                 <p className="text-xs text-gray-400">
                   Based on sample of {networkData.crossSiteLinks.sampleSize} recent blogs.
-                  Enrichment runs daily at 9 PM (5% of microsites per run, full coverage in ~20 days).
+                  Enrichment runs daily at 9 PM (5% of microsites per run, full coverage in ~20
+                  days).
                 </p>
               </div>
             </CardContent>
@@ -623,7 +640,9 @@ export default function LinkBuildingPage() {
                         <tr key={i} className="border-b hover:bg-gray-50">
                           <td className="py-2 px-3">
                             <p className="font-medium truncate max-w-[200px]">{link.pageTitle}</p>
-                            <p className="text-xs text-gray-400 truncate max-w-[200px]">{link.pageSlug}</p>
+                            <p className="text-xs text-gray-400 truncate max-w-[200px]">
+                              {link.pageSlug}
+                            </p>
                           </td>
                           <td className="py-2 px-3">
                             <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold">
@@ -633,12 +652,17 @@ export default function LinkBuildingPage() {
                           <td className="py-2 px-3">
                             <div className="flex flex-wrap gap-1">
                               {link.targets.slice(0, 2).map((t) => (
-                                <span key={t} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
+                                <span
+                                  key={t}
+                                  className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded"
+                                >
                                   {t.replace('.experiencess.com', '')}
                                 </span>
                               ))}
                               {link.targets.length > 2 && (
-                                <span className="text-xs text-gray-400">+{link.targets.length - 2}</span>
+                                <span className="text-xs text-gray-400">
+                                  +{link.targets.length - 2}
+                                </span>
                               )}
                             </div>
                           </td>
@@ -647,7 +671,8 @@ export default function LinkBuildingPage() {
                       {networkData.recentLinks.length === 0 && (
                         <tr>
                           <td colSpan={3} className="py-8 text-center text-gray-500">
-                            No cross-site links detected yet. Run enrichment to inject links into existing blogs.
+                            No cross-site links detected yet. Run enrichment to inject links into
+                            existing blogs.
                           </td>
                         </tr>
                       )}
@@ -673,14 +698,17 @@ export default function LinkBuildingPage() {
               <CardContent>
                 <div className="space-y-3">
                   {networkData.jobs.length === 0 && (
-                    <p className="text-sm text-gray-500 py-4 text-center">No link building jobs run yet</p>
+                    <p className="text-sm text-gray-500 py-4 text-center">
+                      No link building jobs run yet
+                    </p>
                   )}
                   {networkData.jobs.map((job) => (
-                    <div key={job.id} className="flex items-center justify-between py-2 border-b last:border-0">
+                    <div
+                      key={job.id}
+                      className="flex items-center justify-between py-2 border-b last:border-0"
+                    >
                       <div>
-                        <p className="text-sm font-medium">
-                          {job.type.replace(/_/g, ' ')}
-                        </p>
+                        <p className="text-sm font-medium">{job.type.replace(/_/g, ' ')}</p>
                         <p className="text-xs text-gray-400">
                           {new Date(job.createdAt).toLocaleString()}
                         </p>
@@ -700,7 +728,10 @@ export default function LinkBuildingPage() {
                           {job.status}
                         </span>
                         {job.error && (
-                          <p className="text-xs text-red-500 mt-1 max-w-[150px] truncate" title={job.error}>
+                          <p
+                            className="text-xs text-red-500 mt-1 max-w-[150px] truncate"
+                            title={job.error}
+                          >
                             {job.error}
                           </p>
                         )}
@@ -710,7 +741,8 @@ export default function LinkBuildingPage() {
                 </div>
                 <div className="mt-4 pt-3 border-t">
                   <p className="text-xs text-gray-400">
-                    Scheduled: Enrichment daily 9 PM | Backlinks 1st &amp; 15th | Opportunities 1st of month
+                    Scheduled: Enrichment daily 9 PM | Backlinks 1st &amp; 15th | Opportunities 1st
+                    of month
                   </p>
                 </div>
               </CardContent>
@@ -736,19 +768,29 @@ export default function LinkBuildingPage() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div>
                     <p className="text-xs text-gray-500 uppercase tracking-wide">Microsites</p>
-                    <p className="text-lg font-bold">{networkData.network.totalMicrosites.toLocaleString()}</p>
+                    <p className="text-lg font-bold">
+                      {networkData.network.totalMicrosites.toLocaleString()}
+                    </p>
                   </div>
                   <div>
                     <p className="text-xs text-gray-500 uppercase tracking-wide">Footer Links</p>
-                    <p className="text-lg font-bold text-indigo-600">~{networkData.network.estimatedFooterLinkInstances.toLocaleString()}</p>
+                    <p className="text-lg font-bold text-indigo-600">
+                      ~{networkData.network.estimatedFooterLinkInstances.toLocaleString()}
+                    </p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wide">Blog Cross-Links</p>
-                    <p className="text-lg font-bold text-indigo-600">~{networkData.crossSiteLinks.estimatedTotalCrossSiteLinks.toLocaleString()}</p>
+                    <p className="text-xs text-gray-500 uppercase tracking-wide">
+                      Blog Cross-Links
+                    </p>
+                    <p className="text-lg font-bold text-indigo-600">
+                      ~{networkData.crossSiteLinks.estimatedTotalCrossSiteLinks.toLocaleString()}
+                    </p>
                   </div>
                   <div>
                     <p className="text-xs text-gray-500 uppercase tracking-wide">Enrichment</p>
-                    <p className="text-lg font-bold">{networkData.crossSiteLinks.enrichmentRate}%</p>
+                    <p className="text-lg font-bold">
+                      {networkData.crossSiteLinks.enrichmentRate}%
+                    </p>
                   </div>
                 </div>
               </CardContent>
@@ -814,7 +856,9 @@ export default function LinkBuildingPage() {
                   </div>
                 ))}
                 {data.opportunities.length === 0 && (
-                  <p className="text-sm text-gray-500 py-4 text-center">No opportunities found yet</p>
+                  <p className="text-sm text-gray-500 py-4 text-center">
+                    No opportunities found yet
+                  </p>
                 )}
               </CardContent>
             </Card>

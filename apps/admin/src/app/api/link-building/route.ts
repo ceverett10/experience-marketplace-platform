@@ -178,12 +178,13 @@ async function getNetworkStats(): Promise<NextResponse> {
       .map((p) => p.contentId)
       .filter((id): id is string => id !== null);
 
-    const contents = contentIds.length > 0
-      ? await prisma.content.findMany({
-          where: { id: { in: contentIds } },
-          select: { id: true, body: true },
-        })
-      : [];
+    const contents =
+      contentIds.length > 0
+        ? await prisma.content.findMany({
+            where: { id: { in: contentIds } },
+            select: { id: true, body: true },
+          })
+        : [];
     const contentMap = new Map(contents.map((c) => [c.id, c.body]));
 
     // Count cross-site links in each sampled blog
@@ -207,7 +208,8 @@ async function getNetworkStats(): Promise<NextResponse> {
         totalCrossSiteLinks += linkCount;
 
         // Extract target domains for recent links display
-        const targetMatches = body.match(/\]\(https?:\/\/([a-z0-9-]+\.experiencess\.com)\/[^)]*\)/gi) || [];
+        const targetMatches =
+          body.match(/\]\(https?:\/\/([a-z0-9-]+\.experiencess\.com)\/[^)]*\)/gi) || [];
         const targets = targetMatches
           .map((m) => {
             const match = m.match(/https?:\/\/([a-z0-9-]+\.experiencess\.com)/i);
@@ -229,27 +231,20 @@ async function getNetworkStats(): Promise<NextResponse> {
 
     const sampleSize = samplePages.length;
     const enrichmentRate = sampleSize > 0 ? Math.round((blogsWithLinks / sampleSize) * 100) : 0;
-    const avgLinksPerEnrichedBlog = blogsWithLinks > 0
-      ? Math.round((totalCrossSiteLinks / blogsWithLinks) * 10) / 10
-      : 0;
+    const avgLinksPerEnrichedBlog =
+      blogsWithLinks > 0 ? Math.round((totalCrossSiteLinks / blogsWithLinks) * 10) / 10 : 0;
 
     // Extrapolate to full network
-    const estimatedTotalCrossSiteLinks = sampleSize > 0
-      ? Math.round((totalCrossSiteLinks / sampleSize) * totalBlogs)
-      : 0;
-    const estimatedBlogsWithLinks = sampleSize > 0
-      ? Math.round((blogsWithLinks / sampleSize) * totalBlogs)
-      : 0;
+    const estimatedTotalCrossSiteLinks =
+      sampleSize > 0 ? Math.round((totalCrossSiteLinks / sampleSize) * totalBlogs) : 0;
+    const estimatedBlogsWithLinks =
+      sampleSize > 0 ? Math.round((blogsWithLinks / sampleSize) * totalBlogs) : 0;
 
     // 4. Enrichment job history
     const recentJobs = await prisma.job.findMany({
       where: {
         type: {
-          in: [
-            'CROSS_SITE_LINK_ENRICHMENT',
-            'LINK_BACKLINK_MONITOR',
-            'LINK_OPPORTUNITY_SCAN',
-          ],
+          in: ['CROSS_SITE_LINK_ENRICHMENT', 'LINK_BACKLINK_MONITOR', 'LINK_OPPORTUNITY_SCAN'],
         },
       },
       orderBy: { createdAt: 'desc' },
@@ -367,10 +362,17 @@ export async function POST(request: Request): Promise<NextResponse> {
       }
 
       case 'trigger-enrichment': {
-        const jobId = await addJob('CROSS_SITE_LINK_ENRICHMENT' as any, {
-          percentagePerRun: 10,
-        } as any);
-        return NextResponse.json({ success: true, message: 'Cross-site link enrichment queued', jobId });
+        const jobId = await addJob(
+          'CROSS_SITE_LINK_ENRICHMENT' as any,
+          {
+            percentagePerRun: 10,
+          } as any
+        );
+        return NextResponse.json({
+          success: true,
+          message: 'Cross-site link enrichment queued',
+          jobId,
+        });
       }
 
       default:

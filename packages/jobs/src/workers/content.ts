@@ -838,7 +838,10 @@ async function handleMicrositePageContentGenerate(params: {
         );
       }
     } catch (crossSiteError) {
-      console.warn('[Content Generate - Microsite] Cross-site linking failed, continuing:', crossSiteError);
+      console.warn(
+        '[Content Generate - Microsite] Cross-site linking failed, continuing:',
+        crossSiteError
+      );
     }
 
     // Save Content record with micrositeId

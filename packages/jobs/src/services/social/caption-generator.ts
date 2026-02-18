@@ -228,8 +228,17 @@ interface MicrositeBlogPromoRequest {
 export async function generateMicrositeBlogPromoCaption(
   request: MicrositeBlogPromoRequest
 ): Promise<NonBlogCaptionResult> {
-  const { platform, brandName, tagline, seoConfig, micrositeName, blogTitle, blogSummary, bodyExcerpt, blogUrl } =
-    request;
+  const {
+    platform,
+    brandName,
+    tagline,
+    seoConfig,
+    micrositeName,
+    blogTitle,
+    blogSummary,
+    bodyExcerpt,
+    blogUrl,
+  } = request;
   const toneOfVoice = seoConfig?.['toneOfVoice'] as Record<string, unknown> | undefined;
   const niche =
     (seoConfig?.['niche'] as string) ||

@@ -4,7 +4,15 @@ import { useSearchParams } from 'next/navigation';
 import { useCallback, useMemo, useState } from 'react';
 
 /** Filter keys managed by this hook */
-const FILTER_KEYS = ['categories', 'cities', 'priceMin', 'priceMax', 'duration', 'minRating', 'search'] as const;
+const FILTER_KEYS = [
+  'categories',
+  'cities',
+  'priceMin',
+  'priceMax',
+  'duration',
+  'minRating',
+  'search',
+] as const;
 type FilterKey = (typeof FILTER_KEYS)[number];
 
 export interface FilterState {
@@ -108,7 +116,7 @@ export function useUrlFilterState() {
         if (key === 'categories' || key === 'cities') {
           next[key] = Array.isArray(value) ? value : value ? [value] : [];
         } else {
-          next[key] = value === '' ? null : (Array.isArray(value) ? value.join(',') : value);
+          next[key] = value === '' ? null : Array.isArray(value) ? value.join(',') : value;
         }
 
         syncToUrl(next);
@@ -125,9 +133,7 @@ export function useUrlFilterState() {
         const current = prev[key];
         const next = {
           ...prev,
-          [key]: current.includes(value)
-            ? current.filter((v) => v !== value)
-            : [...current, value],
+          [key]: current.includes(value) ? current.filter((v) => v !== value) : [...current, value],
         };
         syncToUrl(next);
         return next;

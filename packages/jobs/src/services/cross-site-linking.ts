@@ -93,7 +93,9 @@ export async function suggestCrossSiteLinks(params: {
         const msCities = (ms.supplier?.cities as string[]) || [];
         const msCategories = (ms.supplier?.categories as string[]) || [];
         const sharedCities = msCities.filter((c) => citySet.has(c.toLowerCase())).length;
-        const sharedCategories = msCategories.filter((c) => categorySet.has(c.toLowerCase())).length;
+        const sharedCategories = msCategories.filter((c) =>
+          categorySet.has(c.toLowerCase())
+        ).length;
         const score = sharedCities * 3 + sharedCategories * 2;
         return { ms, score };
       })
@@ -160,12 +162,13 @@ export async function suggestCrossSiteLinks(params: {
       .map((p) => p.contentId)
       .filter((id): id is string => id !== null);
 
-    const contents = contentIds.length > 0
-      ? await prisma.content.findMany({
-          where: { id: { in: contentIds } },
-          select: { id: true, body: true },
-        })
-      : [];
+    const contents =
+      contentIds.length > 0
+        ? await prisma.content.findMany({
+            where: { id: { in: contentIds } },
+            select: { id: true, body: true },
+          })
+        : [];
     const contentMap = new Map(contents.map((c) => [c.id, c.body]));
 
     const micrositeMap = new Map(relatedMicrosites.map((r) => [r.ms.id, r]));
@@ -182,7 +185,7 @@ export async function suggestCrossSiteLinks(params: {
           page.title.toLowerCase().includes(kw.toLowerCase())
         );
         const keywordScore = matchedKeywords.length / Math.max(keywords.length, 1);
-        const totalScore = (msInfo.score / 10) + keywordScore;
+        const totalScore = msInfo.score / 10 + keywordScore;
 
         return {
           page,
@@ -316,10 +319,7 @@ function findAndInsertCrossSiteLink(
 
   // Try to find matching phrases in the content body (not in existing links)
   for (const word of titleWords) {
-    const regex = new RegExp(
-      `\\b(${escapeRegex(word)}(?:s|es|ing|ed)?)\\b`,
-      'gi'
-    );
+    const regex = new RegExp(`\\b(${escapeRegex(word)}(?:s|es|ing|ed)?)\\b`, 'gi');
 
     // Skip the intro paragraph
     const introEnd = content.indexOf('\n\n');
@@ -333,8 +333,13 @@ function findAndInsertCrossSiteLink(
 
       // Skip if this match is inside an existing markdown link [text](url)
       const surroundingBefore = content.substring(Math.max(0, absoluteIndex - 200), absoluteIndex);
-      const surroundingAfter = content.substring(absoluteIndex, Math.min(content.length, absoluteIndex + matchedText.length + 200));
-      const insideLink = /\[[^\]]*$/.test(surroundingBefore) || /^\]\(/.test(content.substring(absoluteIndex + matchedText.length));
+      const surroundingAfter = content.substring(
+        absoluteIndex,
+        Math.min(content.length, absoluteIndex + matchedText.length + 200)
+      );
+      const insideLink =
+        /\[[^\]]*$/.test(surroundingBefore) ||
+        /^\]\(/.test(content.substring(absoluteIndex + matchedText.length));
       const insideLinkUrl = /\]\([^)]*$/.test(surroundingBefore);
       if (insideLink || insideLinkUrl) continue;
 
@@ -373,7 +378,11 @@ function findAndInsertCrossSiteLink(
 /**
  * Generate a contextual sentence for cross-site link insertion.
  */
-function generateCrossSiteContextSentence(link: { url: string; title: string; siteName: string }): string {
+function generateCrossSiteContextSentence(link: {
+  url: string;
+  title: string;
+  siteName: string;
+}): string {
   const templates = [
     `For a different perspective, explore [${link.title}](${link.url}) from ${link.siteName}.`,
     `You may also find [${link.title}](${link.url}) on ${link.siteName} helpful for planning your trip.`,

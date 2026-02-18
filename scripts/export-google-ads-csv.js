@@ -19,8 +19,15 @@ function genHeadlines(kw, siteName) {
 
 function genDescs(kw) {
   return [
-    ('Discover and book amazing ' + kw + ' experiences. Best prices, instant confirmation.').substring(0, 90),
-    ('Browse ' + kw + ' from top-rated local providers. Free cancellation available.').substring(0, 90),
+    (
+      'Discover and book amazing ' +
+      kw +
+      ' experiences. Best prices, instant confirmation.'
+    ).substring(0, 90),
+    ('Browse ' + kw + ' from top-rated local providers. Free cancellation available.').substring(
+      0,
+      90
+    ),
   ];
 }
 
@@ -52,49 +59,79 @@ async function main() {
 
   console.error('Found ' + campaigns.length + ' Google Search campaigns');
 
-  const cRows = ['Campaign,Campaign Status,Budget,Budget type,Bid Strategy Type,Ad Group,Ad Group Status,Max CPC,Ad Group Type'];
+  const cRows = [
+    'Campaign,Campaign Status,Budget,Budget type,Bid Strategy Type,Ad Group,Ad Group Status,Max CPC,Ad Group Type',
+  ];
   const kRows = ['Campaign,Ad Group,Keyword,Match Type,Status,Max CPC,Final URL'];
-  const aRows = ['Campaign,Ad Group,Ad type,Status,Headline 1,Headline 2,Headline 3,Headline 4,Headline 5,Headline 6,Description 1,Description 2,Final URL,Path 1,Path 2'];
+  const aRows = [
+    'Campaign,Ad Group,Ad type,Status,Headline 1,Headline 2,Headline 3,Headline 4,Headline 5,Headline 6,Description 1,Description 2,Final URL,Path 1,Path 2',
+  ];
 
   for (const c of campaigns) {
     const sn = c.microsite?.siteName || c.site?.name || 'Experiences';
     const rawAgs = c.audiences?.adGroups || [];
-    const ags = rawAgs.length > 0
-      ? rawAgs
-      : [{
-          primaryKeyword: c.keywords[0] || 'experiences',
-          keywords: c.keywords,
-          maxBid: Number(c.maxCpc) || 0.10,
-          targetUrl: c.targetUrl || '',
-        }];
+    const ags =
+      rawAgs.length > 0
+        ? rawAgs
+        : [
+            {
+              primaryKeyword: c.keywords[0] || 'experiences',
+              keywords: c.keywords,
+              maxBid: Number(c.maxCpc) || 0.1,
+              targetUrl: c.targetUrl || '',
+            },
+          ];
     const budget = Number(c.dailyBudget) || 1;
 
     for (const ag of ags) {
-      const agn = ags.length === 1
-        ? c.name + ' - Ad Group'
-        : c.name + ' - ' + ag.primaryKeyword;
+      const agn = ags.length === 1 ? c.name + ' - Ad Group' : c.name + ' - ' + ag.primaryKeyword;
       const url = buildUrl(
         ag.targetUrl || c.targetUrl || 'https://experiencess.com',
-        c.utmSource, c.utmMedium, c.utmCampaign
+        c.utmSource,
+        c.utmMedium,
+        c.utmCampaign
       );
 
       // Campaign + Ad Group row
-      cRows.push([
-        esc(c.name), 'Paused', budget.toFixed(2), 'Daily', 'Manual CPC',
-        esc(agn), 'Enabled', ag.maxBid.toFixed(2), 'Standard',
-      ].join(','));
+      cRows.push(
+        [
+          esc(c.name),
+          'Paused',
+          budget.toFixed(2),
+          'Daily',
+          'Manual CPC',
+          esc(agn),
+          'Enabled',
+          ag.maxBid.toFixed(2),
+          'Standard',
+        ].join(',')
+      );
 
       // Keywords — EXACT + PHRASE for each
       const kws = ag.keywords?.length > 0 ? ag.keywords : c.keywords;
       for (const kw of kws) {
-        kRows.push([
-          esc(c.name), esc(agn), '[' + kw + ']', 'Exact',
-          'Enabled', ag.maxBid.toFixed(2), esc(url),
-        ].join(','));
-        kRows.push([
-          esc(c.name), esc(agn), '"' + kw + '"', 'Phrase',
-          'Enabled', ag.maxBid.toFixed(2), esc(url),
-        ].join(','));
+        kRows.push(
+          [
+            esc(c.name),
+            esc(agn),
+            '[' + kw + ']',
+            'Exact',
+            'Enabled',
+            ag.maxBid.toFixed(2),
+            esc(url),
+          ].join(',')
+        );
+        kRows.push(
+          [
+            esc(c.name),
+            esc(agn),
+            '"' + kw + '"',
+            'Phrase',
+            'Enabled',
+            ag.maxBid.toFixed(2),
+            esc(url),
+          ].join(',')
+        );
       }
 
       // Responsive Search Ad
@@ -102,12 +139,20 @@ async function main() {
       const ds = genDescs(ag.primaryKeyword);
       const p2 = (ag.primaryKeyword.split(' ')[0] || '').substring(0, 15).toLowerCase();
 
-      aRows.push([
-        esc(c.name), esc(agn), 'Responsive search ad', 'Enabled',
-        ...hl.map(h => esc(h)),
-        esc(ds[0]), esc(ds[1]),
-        esc(url), 'experiences', esc(p2),
-      ].join(','));
+      aRows.push(
+        [
+          esc(c.name),
+          esc(agn),
+          'Responsive search ad',
+          'Enabled',
+          ...hl.map((h) => esc(h)),
+          esc(ds[0]),
+          esc(ds[1]),
+          esc(url),
+          'experiences',
+          esc(p2),
+        ].join(',')
+      );
     }
   }
 
@@ -126,5 +171,5 @@ async function main() {
 }
 
 main()
-  .catch(e => console.error(e))
+  .catch((e) => console.error(e))
   .finally(() => p.$disconnect());

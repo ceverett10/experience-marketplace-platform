@@ -39,12 +39,23 @@ function generateHeadlines(keyword: string, siteName: string): string[] {
 
 function generateDescriptions(keyword: string): string[] {
   return [
-    `Discover and book amazing ${keyword} experiences. Best prices, instant confirmation.`.substring(0, 90),
-    `Browse ${keyword} from top-rated local providers. Free cancellation available.`.substring(0, 90),
+    `Discover and book amazing ${keyword} experiences. Best prices, instant confirmation.`.substring(
+      0,
+      90
+    ),
+    `Browse ${keyword} from top-rated local providers. Free cancellation available.`.substring(
+      0,
+      90
+    ),
   ];
 }
 
-function buildLandingUrl(targetUrl: string, utmSource: string | null, utmMedium: string | null, utmCampaign: string | null): string {
+function buildLandingUrl(
+  targetUrl: string,
+  utmSource: string | null,
+  utmMedium: string | null,
+  utmCampaign: string | null
+): string {
   const url = new URL(targetUrl);
   if (utmSource) url.searchParams.set('utm_source', utmSource);
   if (utmMedium) url.searchParams.set('utm_medium', utmMedium);
@@ -83,29 +94,25 @@ async function main() {
 
   // --- 1. Campaigns & Ad Groups CSV ---
   const campaignRows: string[] = [];
-  campaignRows.push([
-    'Campaign',
-    'Campaign Status',
-    'Budget',
-    'Budget type',
-    'Bid Strategy Type',
-    'Ad Group',
-    'Ad Group Status',
-    'Max CPC',
-    'Ad Group Type',
-  ].join(','));
+  campaignRows.push(
+    [
+      'Campaign',
+      'Campaign Status',
+      'Budget',
+      'Budget type',
+      'Bid Strategy Type',
+      'Ad Group',
+      'Ad Group Status',
+      'Max CPC',
+      'Ad Group Type',
+    ].join(',')
+  );
 
   // --- 2. Keywords CSV ---
   const keywordRows: string[] = [];
-  keywordRows.push([
-    'Campaign',
-    'Ad Group',
-    'Keyword',
-    'Match Type',
-    'Status',
-    'Max CPC',
-    'Final URL',
-  ].join(','));
+  keywordRows.push(
+    ['Campaign', 'Ad Group', 'Keyword', 'Match Type', 'Status', 'Max CPC', 'Final URL'].join(',')
+  );
 
   // --- 3. Ads CSV (Responsive Search Ads) ---
   const adHeaders = [
@@ -134,36 +141,42 @@ async function main() {
     const adGroups = audiences?.adGroups || [];
 
     // If no ad groups defined, create one from the campaign-level data
-    const effectiveAdGroups: AdGroup[] = adGroups.length > 0
-      ? adGroups
-      : [{
-          primaryKeyword: campaign.keywords[0] || 'experiences',
-          keywords: campaign.keywords,
-          maxBid: Number(campaign.maxCpc) || 0.10,
-          targetUrl: campaign.targetUrl || '',
-        }];
+    const effectiveAdGroups: AdGroup[] =
+      adGroups.length > 0
+        ? adGroups
+        : [
+            {
+              primaryKeyword: campaign.keywords[0] || 'experiences',
+              keywords: campaign.keywords,
+              maxBid: Number(campaign.maxCpc) || 0.1,
+              targetUrl: campaign.targetUrl || '',
+            },
+          ];
 
     const dailyBudget = Number(campaign.dailyBudget) || 1;
     const campaignStatus = 'Paused'; // Safe default — enable manually after review
 
     for (let i = 0; i < effectiveAdGroups.length; i++) {
       const ag = effectiveAdGroups[i]!;
-      const adGroupName = effectiveAdGroups.length === 1
-        ? `${campaign.name} - Ad Group`
-        : `${campaign.name} - ${ag.primaryKeyword}`;
+      const adGroupName =
+        effectiveAdGroups.length === 1
+          ? `${campaign.name} - Ad Group`
+          : `${campaign.name} - ${ag.primaryKeyword}`;
 
       // Campaign row (only on first ad group)
-      campaignRows.push([
-        escapeCsv(campaign.name),
-        campaignStatus,
-        dailyBudget.toFixed(2),
-        'Daily',
-        'Manual CPC',
-        escapeCsv(adGroupName),
-        'Enabled',
-        ag.maxBid.toFixed(2),
-        'Standard',
-      ].join(','));
+      campaignRows.push(
+        [
+          escapeCsv(campaign.name),
+          campaignStatus,
+          dailyBudget.toFixed(2),
+          'Daily',
+          'Manual CPC',
+          escapeCsv(adGroupName),
+          'Enabled',
+          ag.maxBid.toFixed(2),
+          'Standard',
+        ].join(',')
+      );
 
       // Landing URL with UTMs
       const landingUrl = buildLandingUrl(
@@ -177,26 +190,30 @@ async function main() {
       const keywords = ag.keywords.length > 0 ? ag.keywords : campaign.keywords;
       for (const kw of keywords) {
         // Exact match
-        keywordRows.push([
-          escapeCsv(campaign.name),
-          escapeCsv(adGroupName),
-          escapeCsv(`[${kw}]`),
-          'Exact',
-          'Enabled',
-          ag.maxBid.toFixed(2),
-          escapeCsv(landingUrl),
-        ].join(','));
+        keywordRows.push(
+          [
+            escapeCsv(campaign.name),
+            escapeCsv(adGroupName),
+            escapeCsv(`[${kw}]`),
+            'Exact',
+            'Enabled',
+            ag.maxBid.toFixed(2),
+            escapeCsv(landingUrl),
+          ].join(',')
+        );
 
         // Phrase match
-        keywordRows.push([
-          escapeCsv(campaign.name),
-          escapeCsv(adGroupName),
-          escapeCsv(`"${kw}"`),
-          'Phrase',
-          'Enabled',
-          ag.maxBid.toFixed(2),
-          escapeCsv(landingUrl),
-        ].join(','));
+        keywordRows.push(
+          [
+            escapeCsv(campaign.name),
+            escapeCsv(adGroupName),
+            escapeCsv(`"${kw}"`),
+            'Phrase',
+            'Enabled',
+            ag.maxBid.toFixed(2),
+            escapeCsv(landingUrl),
+          ].join(',')
+        );
       }
 
       // Responsive Search Ad
@@ -239,8 +256,12 @@ async function main() {
   fs.writeFileSync(adFile, adRows.join('\n'), 'utf-8');
 
   console.log(`\nExported to ${outDir}/:`);
-  console.log(`  google-ads-campaigns.csv — ${campaigns.length} campaigns, ${campaignRows.length - 1} ad groups`);
-  console.log(`  google-ads-keywords.csv  — ${keywordRows.length - 1} keyword entries (exact + phrase)`);
+  console.log(
+    `  google-ads-campaigns.csv — ${campaigns.length} campaigns, ${campaignRows.length - 1} ad groups`
+  );
+  console.log(
+    `  google-ads-keywords.csv  — ${keywordRows.length - 1} keyword entries (exact + phrase)`
+  );
   console.log(`  google-ads-ads.csv       — ${adRows.length - 1} responsive search ads`);
   console.log(`\nImport order in Google Ads Editor:`);
   console.log(`  1. Import google-ads-campaigns.csv first (creates campaigns + ad groups)`);

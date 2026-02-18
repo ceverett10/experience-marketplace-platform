@@ -53,7 +53,9 @@ async function main() {
         },
       },
     });
-    console.log(`Updated: ${acct.site?.name} — accountId set, tokens synced, kept board: ${targetMeta['boardName']}`);
+    console.log(
+      `Updated: ${acct.site?.name} — accountId set, tokens synced, kept board: ${targetMeta['boardName']}`
+    );
   }
 
   // Clean up old orphaned accounts (if reconnect created a new record)
@@ -77,7 +79,12 @@ async function main() {
   console.log('\n--- Final state ---');
   const final = await prisma.socialAccount.findMany({
     where: { platform: 'PINTEREST', isActive: true },
-    select: { accountId: true, accountName: true, metadata: true, site: { select: { name: true } } },
+    select: {
+      accountId: true,
+      accountName: true,
+      metadata: true,
+      site: { select: { name: true } },
+    },
   });
   for (const a of final) {
     const m = (a.metadata as Record<string, unknown>) || {};

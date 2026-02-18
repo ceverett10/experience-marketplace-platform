@@ -807,13 +807,10 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
               {/* Powered by */}
               <p className="mt-3 text-center text-xs text-gray-400">
                 Powered by{' '}
-                <a
-                  href="https://experiencess.com"
-                  className="text-gray-500 hover:text-gray-700"
-                >
+                <a href="https://experiencess.com" className="text-gray-500 hover:text-gray-700">
                   Experiencess.com
-                </a>
-                {' '}&middot;{' '}
+                </a>{' '}
+                &middot;{' '}
                 <a
                   href="https://holibob.tech"
                   target="_blank"

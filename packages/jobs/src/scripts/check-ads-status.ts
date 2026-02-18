@@ -10,7 +10,9 @@ async function main() {
   });
   console.log('=== RECENT FB CAMPAIGNS (last 3h) ===');
   for (const c of recent) {
-    console.log(`  ${c.status} | ${c.platformCampaignId || 'no-platform-id'} | ${c.name} | ${c.updatedAt.toISOString()}`);
+    console.log(
+      `  ${c.status} | ${c.platformCampaignId || 'no-platform-id'} | ${c.name} | ${c.updatedAt.toISOString()}`
+    );
   }
   if (recent.length === 0) console.log('  (none updated in last 3 hours)');
 
@@ -22,7 +24,9 @@ async function main() {
   });
   console.log('\n=== RECENT AD ALERTS ===');
   for (const a of alerts) {
-    console.log(`  [${a.severity}] ${a.type}: ${a.message?.substring(0, 120)} (${a.createdAt.toISOString()})`);
+    console.log(
+      `  [${a.severity}] ${a.type}: ${a.message?.substring(0, 120)} (${a.createdAt.toISOString()})`
+    );
   }
   if (alerts.length === 0) console.log('  (no alerts)');
 
@@ -31,8 +35,12 @@ async function main() {
     where: { platform: 'FACEBOOK', platformCampaignId: { not: null } },
   });
   const draft = await prisma.adCampaign.count({ where: { platform: 'FACEBOOK', status: 'DRAFT' } });
-  const paused = await prisma.adCampaign.count({ where: { platform: 'FACEBOOK', status: 'PAUSED' } });
-  const active = await prisma.adCampaign.count({ where: { platform: 'FACEBOOK', status: 'ACTIVE' } });
+  const paused = await prisma.adCampaign.count({
+    where: { platform: 'FACEBOOK', status: 'PAUSED' },
+  });
+  const active = await prisma.adCampaign.count({
+    where: { platform: 'FACEBOOK', status: 'ACTIVE' },
+  });
   console.log(`\n=== FB CAMPAIGN STATS ===`);
   console.log(`  Deployed (has platformCampaignId): ${deployed}`);
   console.log(`  DRAFT: ${draft}`);

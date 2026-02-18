@@ -37,12 +37,9 @@ export function FilterBar({
 }: FilterBarProps) {
   const [openDropdown, setOpenDropdown] = useState<OpenDropdown>(null);
 
-  const toggleDropdown = useCallback(
-    (key: OpenDropdown) => {
-      setOpenDropdown((prev) => (prev === key ? null : key));
-    },
-    []
-  );
+  const toggleDropdown = useCallback((key: OpenDropdown) => {
+    setOpenDropdown((prev) => (prev === key ? null : key));
+  }, []);
 
   // Duration filter options from filterCounts
   const durationOptions = filterCounts.durations.map((d) => ({
@@ -68,7 +65,13 @@ export function FilterBar({
             onClick={onOpenMobileFilters}
             className="inline-flex items-center gap-2 rounded-full border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
           >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"

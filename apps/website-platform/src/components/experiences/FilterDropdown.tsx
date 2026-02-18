@@ -14,7 +14,12 @@ interface CheckboxFilterProps {
 }
 
 /** Checkbox list with counts — used for Categories and Cities */
-export function CheckboxFilter({ options, selected, onToggle, maxVisible = 8 }: CheckboxFilterProps) {
+export function CheckboxFilter({
+  options,
+  selected,
+  onToggle,
+  maxVisible = 8,
+}: CheckboxFilterProps) {
   if (options.length === 0) {
     return <p className="py-2 text-center text-sm text-gray-400">No options available</p>;
   }

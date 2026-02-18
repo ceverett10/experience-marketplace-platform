@@ -663,7 +663,13 @@ export async function scoreCampaignOpportunities(
 
   // Merge for unified type
   // Task 2.2: Added categories for theme-aware city matching
-  type MicrositeMatch = { id: string; siteName: string; fullDomain: string; productCount: number; categories?: string[] };
+  type MicrositeMatch = {
+    id: string;
+    siteName: string;
+    fullDomain: string;
+    productCount: number;
+    categories?: string[];
+  };
 
   // Build keyword→microsite lookup from OPPORTUNITY discoveryConfig
   const micrositeByTerm = new Map<string, MicrositeMatch>();

@@ -88,9 +88,7 @@ export function ExitIntentPopup() {
   if (!mounted || !isOpen) return null;
 
   // Adjust copy for homepage PPC vs experience detail page
-  const headerTitle = isHomepagePpc
-    ? 'Wait — check out these experiences!'
-    : 'Still deciding?';
+  const headerTitle = isHomepagePpc ? 'Wait — check out these experiences!' : 'Still deciding?';
   const headerSubtitle = isHomepagePpc
     ? 'Don\u2019t leave without browsing our top-rated experiences'
     : 'Don\u2019t miss out on this experience';

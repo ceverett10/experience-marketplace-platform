@@ -103,7 +103,9 @@ export function CatalogHomepage({
       {/* Compact Hero Section */}
       <section className="relative">
         {/* Background */}
-        <div className={`absolute inset-0 overflow-hidden ${isPpc ? 'h-[380px] sm:h-[430px]' : 'h-[300px] sm:h-[350px]'}`}>
+        <div
+          className={`absolute inset-0 overflow-hidden ${isPpc ? 'h-[380px] sm:h-[430px]' : 'h-[300px] sm:h-[350px]'}`}
+        >
           {heroConfig?.backgroundImage ? (
             <Image
               src={heroConfig.backgroundImage}
@@ -216,7 +218,12 @@ export function CatalogHomepage({
                 >
                   Browse {displayCount > 0 ? `${displayCount.toLocaleString()} ` : ''}Experiences
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M17 8l4 4m0 0l-4 4m4-4H3"
+                    />
                   </svg>
                 </Link>
               </div>

@@ -1013,7 +1013,10 @@ async function batchValidateOpportunities(
       );
     }
   } catch (error) {
-    console.error('[Optimizer] Batch validation error — skipping batch (no fallback to random estimates):', error);
+    console.error(
+      '[Optimizer] Batch validation error — skipping batch (no fallback to random estimates):',
+      error
+    );
     // Return empty validated array — do not generate fake metrics
   }
 
@@ -1487,4 +1490,3 @@ function shouldStopEarly(iterations: IterationResult[], threshold: number): bool
   const last2Improvements = iterations.slice(-2).map((it) => it.metrics.improvementFromPrevious);
   return last2Improvements.every((imp) => Math.abs(imp) < threshold);
 }
-

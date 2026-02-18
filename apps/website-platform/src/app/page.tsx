@@ -680,9 +680,7 @@ export default async function HomePage() {
           ? site.brand.logoUrl
           : `${micrositeSiteUrl}${site.brand.logoUrl}`
         : undefined;
-      const micrositeRatedExperiences = experiences.filter(
-        (e) => e.rating && e.rating.average > 0
-      );
+      const micrositeRatedExperiences = experiences.filter((e) => e.rating && e.rating.average > 0);
       const micrositeAggregateRating =
         micrositeRatedExperiences.length > 0
           ? {
@@ -697,9 +695,7 @@ export default async function HomePage() {
               ),
             }
           : undefined;
-      const micrositeAreaServed = (
-        site.micrositeContext.supplierCities || []
-      ).slice(0, 5);
+      const micrositeAreaServed = (site.micrositeContext.supplierCities || []).slice(0, 5);
 
       return (
         <>

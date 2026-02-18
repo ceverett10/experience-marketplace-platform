@@ -75,16 +75,18 @@ function MarketplaceFilteredPageInner({
     const activeCities = filters.cities;
     const activeCategories = filters.categories;
 
-    const topCity = activeCities.length === 1
-      ? activeCities[0]
-      : activeCities.length > 1
-        ? undefined
-        : supplierCities[0];
-    const topCategory = activeCategories.length === 1
-      ? activeCategories[0]
-      : activeCategories.length > 1
-        ? undefined
-        : supplierCategories[0];
+    const topCity =
+      activeCities.length === 1
+        ? activeCities[0]
+        : activeCities.length > 1
+          ? undefined
+          : supplierCities[0];
+    const topCategory =
+      activeCategories.length === 1
+        ? activeCategories[0]
+        : activeCategories.length > 1
+          ? undefined
+          : supplierCategories[0];
 
     let title = 'All Experiences & Tours';
     let subtitle = 'Explore our curated collection of tours and activities';
@@ -256,10 +258,7 @@ function MarketplaceFilteredPageInner({
             <>
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {experiences.map((experience) => (
-                  <PremiumExperienceCard
-                    key={experience.id}
-                    experience={experience}
-                  />
+                  <PremiumExperienceCard key={experience.id} experience={experience} />
                 ))}
               </div>
 
