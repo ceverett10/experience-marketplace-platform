@@ -1883,3 +1883,65 @@ model PrizeDraw {
 
   @@map("prize_draws")
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Pipeline Optimization Tracker
+// ═══════════════════════════════════════════════════════════════════════════
+
+model PipelineTask {
+  id          String              @id @default(cuid())
+  phase       Int                 // 1, 2, 3, 4
+  taskNumber  String              // "1.1", "2.3", etc.
+  title       String              // "Full product cache"
+  description String              // Detailed description
+  fixRefs     String[]            // ["1a", "1c"] — links to plan fix IDs
+  keyFiles    String[]            // Files being modified
+  status      PipelineTaskStatus  @default(PENDING)
+  severity    String              @default("MEDIUM") // CRITICAL, HIGH, MEDIUM
+
+  // Progress tracking
+  implementedAt DateTime?
+  testedAt      DateTime?
+  deployedAt    DateTime?
+  verifiedAt    DateTime?
+
+  // Verification
+  verificationQuery  String?     // SQL query that proves the fix works
+  verificationTarget String?     // Expected result (e.g. "> 80%", "= 0")
+  lastCheckResult    String?     // Last run result
+  lastCheckAt        DateTime?
+  lastCheckPassed    Boolean?
+
+  // Context
+  prUrl String?                  // Pull request URL
+  notes String?                  // Implementation notes / blockers
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("pipeline_tasks")
+}
+
+enum PipelineTaskStatus {
+  PENDING
+  IN_PROGRESS
+  IMPLEMENTED
+  TESTING
+  DEPLOYED
+  VERIFIED
+  BLOCKED
+  FAILED
+}
+
+model PipelineTaskEvent {
+  id        String   @id @default(cuid())
+  taskId    String
+  fromStatus String?
+  toStatus   String
+  note       String?
+  createdAt  DateTime @default(now())
+
+  @@index([taskId])
+  @@index([createdAt])
+  @@map("pipeline_task_events")
+}
