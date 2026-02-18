@@ -735,6 +735,7 @@ async function deployCampaignToPlatform(campaign: {
   utmCampaign: string | null;
   audiences?: unknown;
   siteId?: string | null;
+  micrositeId?: string | null;
   landingPagePath?: string | null;
   landingPageType?: string | null;
   landingPageProducts?: number | null;
@@ -786,7 +787,10 @@ async function findRelevantInterests(
     // Extract destination/activity from long-tail keywords
     const core = kw
       .replace(/^(things to do in|what to do in|best things to do in|top)\s+/i, '')
-      .replace(/^(restaurants in|restaurants|hotels in|hotels|wildlife in|activities in|tours in)\s+/i, '')
+      .replace(
+        /^(restaurants in|restaurants|hotels in|hotels|wildlife in|activities in|tours in)\s+/i,
+        ''
+      )
       .replace(/^(train|bus|flight|ferry|transfer)\s+/i, '')
       .replace(/\s+(opening hours|opening times|hours|tickets|prices|cost|reviews?|tourism)$/i, '')
       .trim();
@@ -855,6 +859,7 @@ async function deployToMeta(
     keywords: string[];
     geoTargets: string[];
     siteId?: string | null;
+    micrositeId?: string | null;
     landingPagePath?: string | null;
     landingPageType?: string | null;
     landingPageProducts?: number | null;
@@ -935,6 +940,7 @@ async function deployToMeta(
     const creative = await generateAdCreative({
       keywords: campaign.keywords,
       siteId: campaign.siteId,
+      micrositeId: campaign.micrositeId,
       siteName: campaign.site?.name || 'Holibob',
       landingPagePath: campaign.landingPagePath,
       landingPageType: campaign.landingPageType,
@@ -965,6 +971,9 @@ async function deployToMeta(
               callToAction: creative.callToAction,
               imageUrl: creative.imageUrl,
               source: creative.source,
+              imageSource: creative.imageSource || null,
+              imageReviewScore: creative.imageReviewScore || null,
+              imageReviewReasoning: creative.imageReviewReasoning || null,
               generatedAt: new Date().toISOString(),
             },
             deployedTargeting: {
@@ -992,9 +1001,7 @@ async function deployToMeta(
     });
 
     if (!adResult) {
-      console.error(
-        `[Ads Worker] Failed to create Meta ad for ad set: ${adSetResult.adSetId}`
-      );
+      console.error(`[Ads Worker] Failed to create Meta ad for ad set: ${adSetResult.adSetId}`);
       // Clean up — delete campaign shell since it has no working ad
       await metaClient.deleteCampaign(campaignResult.campaignId);
       console.log(`[Ads Worker] Cleaned up campaign with no ad: ${campaignResult.campaignId}`);
@@ -1191,7 +1198,7 @@ export async function deployDraftCampaigns(job?: Job): Promise<{
   // Track consecutive failures per platform to fail-fast on platform-wide issues
   // (e.g. Google token not approved, API version deprecated)
   const consecutiveFailures: Record<string, number> = {};
-  const FAIL_FAST_THRESHOLD = 3;
+  const FAIL_FAST_THRESHOLD = 10;
   const failedPlatforms = new Set<string>();
 
   for (const draft of drafts) {
@@ -1215,6 +1222,7 @@ export async function deployDraftCampaigns(job?: Job): Promise<{
       utmCampaign: draft.utmCampaign,
       audiences: draft.audiences,
       siteId: draft.siteId,
+      micrositeId: draft.micrositeId,
       landingPagePath: draft.landingPagePath,
       landingPageType: draft.landingPageType,
       landingPageProducts: draft.landingPageProducts,
@@ -1236,7 +1244,9 @@ export async function deployDraftCampaigns(job?: Job): Promise<{
       if (job) {
         await job.updateProgress({ deployed, failed, skipped, total: drafts.length });
       }
-      console.log(`[Ads Worker] Campaign "${draft.name}" deployed → ${platformCampaignId} (${deployed}/${drafts.length})`);
+      console.log(
+        `[Ads Worker] Campaign "${draft.name}" deployed → ${platformCampaignId} (${deployed}/${drafts.length})`
+      );
     } else {
       // Platform not configured or deployment failed — skip but don't fail
       const isConfigured =
