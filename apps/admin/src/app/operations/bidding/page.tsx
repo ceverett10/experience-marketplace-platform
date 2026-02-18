@@ -826,6 +826,19 @@ export default function PaidTrafficDashboard() {
             Enrich Keywords
           </button>
           <button
+            onClick={async () => {
+              setActionMessage('Syncing pixel IDs...');
+              try {
+                const res = await fetch(`${basePath}/api/sites/ad-platform-ids`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+                const result = await res.json();
+                setActionMessage(result.success ? `Pixel IDs synced: ${result.sitesUpdated} sites, ${result.micrositesUpdated} microsites updated` : result.error);
+              } catch (err) { setActionMessage(err instanceof Error ? err.message : 'Sync failed'); }
+            }}
+            className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 text-sm font-medium"
+          >
+            Sync Pixel IDs
+          </button>
+          <button
             onClick={() => triggerBiddingAction('run_engine')}
             className="px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700 text-sm font-medium"
           >
