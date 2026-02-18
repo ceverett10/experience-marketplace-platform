@@ -375,19 +375,18 @@ export async function initializeScheduledJobs(): Promise<void> {
   // PAID TRAFFIC SCHEDULES
   // =========================================================================
 
-  // Paid Keyword Scanner — PAUSED (DataForSEO costs)
+  // Paid Keyword Scanner — Weekly on Tuesdays at 3 AM
   // Discovers new low-CPC keyword opportunities from GSC, DataForSEO, Pinterest Ads, Meta, and microsite keywords
-  // await scheduleJob(
-  //   'PAID_KEYWORD_SCAN' as any,
-  //   {
-  //     maxCpc: PAID_TRAFFIC_CONFIG.maxCpc,
-  //     minVolume: PAID_TRAFFIC_CONFIG.minVolume,
-  //     modes: ['gsc', 'expansion', 'discovery', 'pinterest', 'meta'],
-  //   },
-  //   '0 3 * * *' // Daily at 3 AM (~$1.10/day via DataForSEO)
-  // );
-  // console.log('[Scheduler] ✓ Paid Keyword Scanner - Daily at 3 AM');
-  console.log('[Scheduler] ⏸ Paid Keyword Scanner - PAUSED (DataForSEO)');
+  await scheduleJob(
+    'PAID_KEYWORD_SCAN' as any,
+    {
+      maxCpc: PAID_TRAFFIC_CONFIG.maxCpc,
+      minVolume: PAID_TRAFFIC_CONFIG.minVolume,
+      modes: ['gsc', 'expansion', 'discovery', 'pinterest', 'meta'],
+    },
+    '0 3 * * 2' // Weekly on Tuesdays at 3 AM (~$1.10/run)
+  );
+  console.log('[Scheduler] ✓ Paid Keyword Scanner - Tuesdays at 3 AM');
 
   // Bidding Engine Run — PAUSED
   // Creating new campaigns is paused until existing ones are optimised and validated on Meta.
@@ -444,6 +443,15 @@ export async function initializeScheduledJobs(): Promise<void> {
     '0 10 * * *' // Daily at 10 AM
   );
   console.log('[Scheduler] ✓ Ad Budget Optimizer - Daily at 10 AM');
+
+  // Ad Creative Refresh — Weekly on Wednesdays at 6 AM
+  // Re-reviews coherence, updates stale images, remediates incoherent creative
+  await scheduleJob(
+    'AD_CREATIVE_REFRESH' as any,
+    {},
+    '0 6 * * 3' // Wednesdays at 6 AM
+  );
+  console.log('[Scheduler] ✓ Ad Creative Refresh - Wednesdays at 6 AM');
 
   // =========================================================================
   // MAINTENANCE

@@ -435,6 +435,40 @@ export class MetaAdsClient {
   }
 
   /**
+   * Task 3.3: Update a campaign's daily budget on Meta.
+   * @param campaignId Meta campaign ID
+   * @param dailyBudgetCents Daily budget in cents (e.g., 500 = £5.00)
+   */
+  async updateCampaignBudget(campaignId: string, dailyBudgetCents: number): Promise<boolean> {
+    try {
+      await this.enforceRateLimit();
+
+      const params = new URLSearchParams({
+        daily_budget: dailyBudgetCents.toString(),
+        access_token: this.accessToken,
+      });
+
+      const response = await fetch(`${META_API_BASE}/${campaignId}`, {
+        method: 'POST',
+        body: params,
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        console.error(
+          `[MetaAds] Update budget error (${response.status}): ${error.substring(0, 200)}`
+        );
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('[MetaAds] Update budget failed:', error);
+      return false;
+    }
+  }
+
+  /**
    * Delete a campaign (used to clean up empty shells after failed deployment).
    */
   async deleteCampaign(campaignId: string): Promise<boolean> {

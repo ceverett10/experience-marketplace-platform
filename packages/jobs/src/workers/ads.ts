@@ -483,6 +483,47 @@ export async function handleAdBudgetOptimizer(job: Job): Promise<JobResult> {
     const roas = spend > 0 ? revenue / spend : 0;
     const dailyBudget = Number(campaign.dailyBudget);
 
+    // --- Task 3.4: Fast-fail for zero-conversion campaigns ---
+    // If a campaign has spent £25+ over 3+ days with zero conversions, pause immediately
+    // instead of waiting the full observation period
+    const conversions = metrics.reduce((s, m) => s + Number(m.conversions ?? 0), 0);
+    if (metrics.length >= 3 && spend >= 25 && conversions === 0) {
+      console.log(
+        `[Ads Worker] Fast-fail: pausing "${campaign.name}" — £${spend.toFixed(2)} spent, ` +
+          `0 conversions over ${metrics.length} days`
+      );
+
+      await prisma.adCampaign.update({
+        where: { id: campaign.id },
+        data: {
+          status: 'PAUSED',
+          proposalData: {
+            ...(typeof (campaign as any).proposalData === 'object' ? (campaign as any).proposalData : {}),
+            pauseReason: 'ZERO_CONVERSION_FAST_FAIL',
+            pausedAt: new Date().toISOString(),
+          },
+        },
+      });
+
+      if (campaign.platformCampaignId) {
+        try {
+          if (campaign.platform === 'FACEBOOK') {
+            const metaClient = await getMetaAdsClient();
+            if (metaClient) {
+              await metaClient.setCampaignStatus(campaign.platformCampaignId, 'PAUSED');
+            }
+          } else if (campaign.platform === 'GOOGLE_SEARCH' && isGoogleAdsConfigured()) {
+            await setGoogleCampaignStatus(campaign.platformCampaignId, 'PAUSED');
+          }
+        } catch (err) {
+          console.error(`[Ads Worker] Failed to fast-fail pause on platform: ${err}`);
+        }
+      }
+
+      paused++;
+      continue;
+    }
+
     // --- Pause underperformers ---
     if (
       roas < PAID_TRAFFIC_CONFIG.roasPauseThreshold &&
@@ -519,6 +560,45 @@ export async function handleAdBudgetOptimizer(job: Job): Promise<JobResult> {
       continue; // Don't count paused campaigns in budget
     }
 
+    // --- Task 3.2: Bid adjustment based on ROAS ---
+    if (metrics.length >= 7 && spend > 10 && campaign.platformCampaignId) {
+      let bidAdjustment: 'increase' | 'decrease' | null = null;
+      if (roas >= 2.0) {
+        bidAdjustment = 'increase';
+      } else if (roas < 0.8 && roas > 0) {
+        bidAdjustment = 'decrease';
+      }
+
+      if (bidAdjustment) {
+        const currentBid = Number(campaign.maxCpc) || Number(campaign.dailyBudget) / 10;
+        const factor = bidAdjustment === 'increase' ? 1.1 : 0.9; // ±10%
+        const newBid = Math.max(0.01, currentBid * factor);
+
+        try {
+          if (campaign.platform === 'FACEBOOK') {
+            const metaClient = await getMetaAdsClient();
+            if (metaClient) {
+              const adSets = await metaClient.getAdSetsForCampaign(campaign.platformCampaignId!);
+              for (const adSet of adSets) {
+                await metaClient.updateBid(adSet.id, Math.round(newBid * 100));
+              }
+              console.log(
+                `[Ads Worker] Bid ${bidAdjustment}: "${campaign.name}" ` +
+                  `£${currentBid.toFixed(2)} → £${newBid.toFixed(2)} (ROAS=${roas.toFixed(2)})`
+              );
+            }
+          }
+          // Update local record
+          await prisma.adCampaign.update({
+            where: { id: campaign.id },
+            data: { maxCpc: newBid },
+          });
+        } catch (err) {
+          console.error(`[Ads Worker] Bid adjustment failed for "${campaign.name}": ${err}`);
+        }
+      }
+    }
+
     // --- Scale up top performers ---
     if (roas >= PAID_TRAFFIC_CONFIG.roasScaleThreshold && metrics.length >= 3) {
       const newBudget = Math.min(
@@ -533,6 +613,24 @@ export async function handleAdBudgetOptimizer(job: Job): Promise<JobResult> {
           where: { id: campaign.id },
           data: { dailyBudget: newBudget },
         });
+
+        // Task 3.3: Sync budget change to platform
+        if (campaign.platformCampaignId) {
+          try {
+            if (campaign.platform === 'FACEBOOK') {
+              const metaClient = await getMetaAdsClient();
+              if (metaClient) {
+                await metaClient.updateCampaignBudget(
+                  campaign.platformCampaignId,
+                  Math.round(newBudget * 100) // cents
+                );
+              }
+            }
+            // Google Ads budget sync handled through API if configured
+          } catch (err) {
+            console.error(`[Ads Worker] Budget sync failed for "${campaign.name}": ${err}`);
+          }
+        }
 
         console.log(
           `[Ads Worker] Scaling campaign "${campaign.name}" from £${dailyBudget.toFixed(2)} → £${newBudget.toFixed(2)} ` +
@@ -554,6 +652,66 @@ export async function handleAdBudgetOptimizer(job: Job): Promise<JobResult> {
     `[Ads Worker] Budget optimizer: paused=${paused}, scaled=${scaled}, ` +
       `dailyBudget=£${totalDailyBudget.toFixed(2)}, remaining=£${budgetRemaining.toFixed(2)}`
   );
+
+  // --- Task 3.1: Auto-activate PAUSED campaigns after 24h observation ---
+  // Campaigns are deployed PAUSED for safety. After 24 hours, activate them
+  // if their coherence score is >= 6 (text matches landing page).
+  let activated = 0;
+  const activationCutoff = new Date();
+  activationCutoff.setHours(activationCutoff.getHours() - 24);
+
+  const pausedCampaigns = await prisma.adCampaign.findMany({
+    where: {
+      status: 'PAUSED',
+      platformCampaignId: { not: null },
+      createdAt: { lte: activationCutoff }, // At least 24h old
+    },
+    select: {
+      id: true,
+      name: true,
+      platform: true,
+      platformCampaignId: true,
+      proposalData: true,
+    },
+  });
+
+  for (const camp of pausedCampaigns) {
+    // Skip campaigns paused for specific reasons (not just deployment safety)
+    const proposal = camp.proposalData as Record<string, unknown> | null;
+    if (proposal?.['pauseReason']) continue; // Explicitly paused for a reason
+
+    // Check coherence score from stored metadata
+    const coherenceScore = (proposal?.['coherenceScore'] as number) ?? null;
+    const shouldActivate = coherenceScore === null || coherenceScore >= 6;
+
+    if (shouldActivate && camp.platformCampaignId) {
+      try {
+        if (camp.platform === 'FACEBOOK') {
+          const metaClient = await getMetaAdsClient();
+          if (metaClient) {
+            await metaClient.setCampaignStatus(camp.platformCampaignId, 'ACTIVE');
+          }
+        } else if (camp.platform === 'GOOGLE_SEARCH' && isGoogleAdsConfigured()) {
+          await setGoogleCampaignStatus(camp.platformCampaignId, 'ENABLED');
+        }
+
+        await prisma.adCampaign.update({
+          where: { id: camp.id },
+          data: { status: 'ACTIVE' },
+        });
+        activated++;
+        console.log(
+          `[Ads Worker] Auto-activated "${camp.name}" (coherence: ${coherenceScore ?? 'not checked'})`
+        );
+      } catch (err) {
+        console.error(`[Ads Worker] Auto-activation failed for "${camp.name}": ${err}`);
+      }
+    }
+  }
+
+  if (activated > 0) {
+    console.log(`[Ads Worker] Auto-activated ${activated} campaigns after 24h observation`);
+  }
 
   // --- Landing Page Health Monitoring ---
   // Re-validate product availability for active campaigns with non-homepage landing pages.
@@ -702,7 +860,7 @@ export async function handleAdBudgetOptimizer(job: Job): Promise<JobResult> {
 
   return {
     success: true,
-    message: `Optimized: ${paused} paused, ${scaled} scaled, ${lpPaused} LP-paused, ${lpResumed} LP-resumed, £${budgetRemaining.toFixed(2)} budget remaining`,
+    message: `Optimized: ${paused} paused, ${scaled} scaled, ${activated} activated, ${lpPaused} LP-paused, ${lpResumed} LP-resumed, £${budgetRemaining.toFixed(2)} budget remaining`,
     data: {
       paused,
       scaled,
@@ -710,6 +868,7 @@ export async function handleAdBudgetOptimizer(job: Job): Promise<JobResult> {
       landingPageResumed: lpResumed,
       totalDailyBudget,
       budgetRemaining,
+      activated,
       activeCampaigns: campaigns.length - paused,
     },
     timestamp: new Date(),
