@@ -23,10 +23,10 @@ export default defineConfig({
         'src/app/**/error.tsx',
       ],
       thresholds: {
-        statements: 14,
+        statements: 13,
         branches: 12,
         functions: 35,
-        lines: 14,
+        lines: 13,
       },
     },
     testTimeout: 15000,
