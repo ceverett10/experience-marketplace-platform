@@ -1,7 +1,6 @@
 'use client';
 
-import { Suspense, useState, useCallback } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { Suspense, useState, useCallback, useMemo } from 'react';
 import type { ExperienceListItem } from '@/lib/holibob';
 import type { FilterCounts } from '@/hooks/useMarketplaceExperiences';
 import { useUrlFilterState } from '@/hooks/useUrlFilterState';
@@ -29,6 +28,10 @@ export interface MarketplaceFilteredPageProps {
   /** Always-included API params like holibobSupplierId */
   extraApiParams: Record<string, string>;
   apiError?: string;
+  /** Supplier cities for dynamic title fallback */
+  supplierCities?: string[];
+  /** Supplier categories for dynamic title fallback */
+  supplierCategories?: string[];
 }
 
 /**
@@ -54,6 +57,8 @@ function MarketplaceFilteredPageInner({
   initialFilterCounts,
   extraApiParams,
   apiError: serverApiError,
+  supplierCities = [],
+  supplierCategories = [],
 }: MarketplaceFilteredPageProps) {
   const {
     filters,
@@ -64,6 +69,45 @@ function MarketplaceFilteredPageInner({
     activeFilterCount,
     filterKey,
   } = useUrlFilterState();
+
+  // Dynamic title that updates when user changes city/category filters
+  const { dynamicTitle, dynamicSubtitle } = useMemo(() => {
+    const activeCities = filters.cities;
+    const activeCategories = filters.categories;
+
+    const topCity = activeCities.length === 1
+      ? activeCities[0]
+      : activeCities.length > 1
+        ? undefined
+        : supplierCities[0];
+    const topCategory = activeCategories.length === 1
+      ? activeCategories[0]
+      : activeCategories.length > 1
+        ? undefined
+        : supplierCategories[0];
+
+    let title = 'All Experiences & Tours';
+    let subtitle = 'Explore our curated collection of tours and activities';
+
+    if (activeCities.length > 1 && topCategory) {
+      title = `${topCategory} in ${activeCities.length} Cities`;
+      subtitle = `Browse ${topCategory.toLowerCase()} in ${activeCities.join(', ')}`;
+    } else if (activeCities.length > 1) {
+      title = `Experiences in ${activeCities.length} Cities`;
+      subtitle = `Browse experiences in ${activeCities.join(', ')}`;
+    } else if (topCategory && topCity) {
+      title = `${topCategory} in ${topCity}`;
+      subtitle = `Browse the best ${topCategory.toLowerCase()} and more in ${topCity}`;
+    } else if (topCity) {
+      title = `Things to Do in ${topCity}`;
+      subtitle = `Explore tours, activities, and unique experiences in ${topCity}`;
+    } else if (topCategory) {
+      title = `${topCategory} & Experiences`;
+      subtitle = `Browse our collection of ${topCategory.toLowerCase()} and more`;
+    }
+
+    return { dynamicTitle: title, dynamicSubtitle: subtitle };
+  }, [filters.cities, filters.categories, supplierCities, supplierCategories]);
 
   // Map initial experiences to the hook's expected format (add defaults for extra fields)
   const mappedInitial = initialExperiences.map((exp) => ({
@@ -112,10 +156,10 @@ function MarketplaceFilteredPageInner({
       {/* SEO Structured Data */}
       <ExperienceListSchema
         experiences={experiences}
-        listName={pageTitle}
+        listName={dynamicTitle}
         url={`https://${hostname}/experiences`}
         siteName={siteName}
-        description={pageSubtitle}
+        description={dynamicSubtitle}
       />
       <BreadcrumbSchema items={breadcrumbs} />
 
@@ -167,9 +211,9 @@ function MarketplaceFilteredPageInner({
 
             {/* Title */}
             <h1 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
-              {pageTitle}
+              {dynamicTitle}
             </h1>
-            <p className="mt-2 text-lg text-gray-600">{pageSubtitle}</p>
+            <p className="mt-2 text-lg text-gray-600">{dynamicSubtitle}</p>
 
             {/* Trust Badges */}
             <div className="mt-6">
