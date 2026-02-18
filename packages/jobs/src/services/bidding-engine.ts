@@ -640,6 +640,7 @@ export async function scoreCampaignOpportunities(
     select: {
       id: true,
       supplierId: true,
+      subdomain: true,
       siteName: true,
       fullDomain: true,
       cachedProductCount: true,
@@ -705,8 +706,30 @@ export async function scoreCampaignOpportunities(
     }
   }
 
+  // Build name-based lookup from supplier microsites for keyword↔name matching.
+  // E.g. keyword "harry potter tours london" should match microsite "Harry Potter Tours"
+  // because the subdomain "harry-potter-tours" appears in the keyword text.
+  // Store as [nameSlug, MicrositeMatch] pairs sorted longest-first to prefer specific matches.
+  const micrositeNameEntries: Array<{ slug: string; match: MicrositeMatch }> = [];
+  for (const ms of supplierMicrosites) {
+    const entry: MicrositeMatch = {
+      id: ms.id,
+      siteName: ms.siteName,
+      fullDomain: ms.fullDomain,
+      productCount: ms.cachedProductCount,
+    };
+    // Use subdomain as the slug (e.g. "harry-potter-tours")
+    if (ms.subdomain && ms.subdomain.length >= 5) {
+      // Convert slug to space-separated for keyword matching: "harry-potter-tours" → "harry potter tours"
+      const nameFromSlug = ms.subdomain.replace(/-/g, ' ').toLowerCase();
+      micrositeNameEntries.push({ slug: nameFromSlug, match: entry });
+    }
+  }
+  // Sort longest first so "harry potter tours" matches before shorter slugs
+  micrositeNameEntries.sort((a, b) => b.slug.length - a.slug.length);
+
   console.log(
-    `[BiddingEngine] Microsite lookup: ${micrositeByTerm.size} keyword terms, ${micrositesByCity.size} cities, ${micrositeBySupplierId.size} supplier IDs (${supplierMicrosites.length} supplier microsites)`
+    `[BiddingEngine] Microsite lookup: ${micrositeByTerm.size} keyword terms, ${micrositesByCity.size} cities, ${micrositeBySupplierId.size} supplier IDs, ${micrositeNameEntries.length} name slugs (${supplierMicrosites.length} supplier microsites)`
   );
 
   // --- Pre-load page caches for landing page routing ---
@@ -781,6 +804,19 @@ export async function scoreCampaignOpportunities(
         const sourceMs = micrositeBySupplierId.get(sourceSupplierId);
         if (sourceMs) {
           matchedMicrosite = sourceMs;
+          matchedMicrositeEntityType = 'SUPPLIER';
+          break;
+        }
+      }
+    }
+
+    // 2.7) Name-based match — if keyword contains a microsite's name/subdomain,
+    //       route to that microsite. E.g. "harry potter tours london" matches
+    //       the "harry-potter-tours" microsite because "harry potter tours" ⊂ keyword.
+    if (!matchedMicrosite) {
+      for (const { slug, match } of micrositeNameEntries) {
+        if (kwLower.includes(slug)) {
+          matchedMicrosite = match;
           matchedMicrositeEntityType = 'SUPPLIER';
           break;
         }
