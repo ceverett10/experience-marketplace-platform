@@ -39,7 +39,7 @@ export class KeywordResearchService {
    */
   async getKeywordData(
     keyword: string,
-    location: string = 'United States',
+    location: string = 'United Kingdom',
     language: string = 'English'
   ): Promise<KeywordMetrics> {
     try {
@@ -79,7 +79,7 @@ export class KeywordResearchService {
    */
   async getBulkKeywordData(
     keywords: string[],
-    location: string = 'United States',
+    location: string = 'United Kingdom',
     language: string = 'English'
   ): Promise<KeywordMetrics[]> {
     try {

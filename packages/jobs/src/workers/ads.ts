@@ -35,6 +35,7 @@ import {
   createResponsiveSearchAd,
   getCampaignPerformance as getGoogleCampaignPerformance,
   setCampaignStatus as setGoogleCampaignStatus,
+  migrateToSmartBidding,
 } from '../services/google-ads-client';
 import { PAID_TRAFFIC_CONFIG } from '../config/paid-traffic';
 import { generateAdCreative } from '../services/ad-creative-generator';
@@ -644,6 +645,39 @@ export async function handleAdBudgetOptimizer(job: Job): Promise<JobResult> {
     } else {
       totalDailyBudget += dailyBudget;
     }
+
+    // --- Task 4.9: Google Smart Bidding migration ---
+    // Migrate campaigns with 15+ conversions from MANUAL_CPC to TARGET_ROAS
+    if (
+      campaign.platform === 'GOOGLE_SEARCH' &&
+      campaign.platformCampaignId &&
+      isGoogleAdsConfigured() &&
+      campaign.conversions >= 15
+    ) {
+      const proposal = campaign.proposalData as Record<string, unknown> | null;
+      if (!proposal?.['smartBiddingMigrated']) {
+        try {
+          const migrated = await migrateToSmartBidding(campaign.platformCampaignId, 2.0);
+          if (migrated) {
+            await prisma.adCampaign.update({
+              where: { id: campaign.id },
+              data: {
+                proposalData: {
+                  ...(typeof proposal === 'object' && proposal ? proposal : {}),
+                  smartBiddingMigrated: true,
+                  smartBiddingMigratedAt: new Date().toISOString(),
+                },
+              },
+            });
+            console.log(
+              `[Ads Worker] Migrated "${campaign.name}" to TARGET_ROAS (${campaign.conversions} conversions)`
+            );
+          }
+        } catch (err) {
+          console.error(`[Ads Worker] Smart Bidding migration failed for "${campaign.name}": ${err}`);
+        }
+      }
+    }
   }
 
   const budgetRemaining = maxBudget - totalDailyBudget;
@@ -1067,7 +1101,7 @@ async function deployToMeta(
     landingPagePath?: string | null;
     landingPageType?: string | null;
     landingPageProducts?: number | null;
-    site?: { name: string } | null;
+    site?: { name: string; targetMarkets?: string[] } | null;
   },
   landingUrl: string
 ): Promise<string | null> {
@@ -1098,9 +1132,12 @@ async function deployToMeta(
     }
 
     // Step 2: Create ad set with geo + interest targeting
-    // Target key English-speaking source markets (people planning trips from home)
-    const SOURCE_MARKETS = ['GB', 'US', 'CA', 'AU', 'IE', 'NZ'];
-    const countries = [...SOURCE_MARKETS];
+    // Use site-specific target markets (Task 4.1), falling back to default anglophone markets
+    const DEFAULT_MARKETS = ['GB', 'US', 'CA', 'AU', 'IE', 'NZ'];
+    const countries =
+      campaign.site?.targetMarkets && campaign.site.targetMarkets.length > 0
+        ? [...campaign.site.targetMarkets]
+        : [...DEFAULT_MARKETS];
 
     // Search for relevant interests using extracted destination/activity terms.
     // Long-tail keywords like "things to do in curitiba" return nothing from Meta's
@@ -1467,7 +1504,7 @@ export async function deployDraftCampaigns(job?: Job): Promise<{
   const drafts = await prisma.adCampaign.findMany({
     where: { status: 'DRAFT' },
     include: {
-      site: { select: { name: true, primaryDomain: true } },
+      site: { select: { name: true, primaryDomain: true, targetMarkets: true } },
     },
   });
 
@@ -1938,7 +1975,7 @@ export async function handleAdCreativeRefresh(_job: Job): Promise<JobResult> {
     };
   }
 
-  const SOURCE_MARKETS = ['GB', 'US', 'CA', 'AU', 'IE', 'NZ'];
+  const DEFAULT_MARKETS = ['GB', 'US', 'CA', 'AU', 'IE', 'NZ'];
 
   // Get all deployed Facebook campaigns
   const campaigns = await prisma.adCampaign.findMany({
@@ -1962,7 +1999,7 @@ export async function handleAdCreativeRefresh(_job: Job): Promise<JobResult> {
       landingPageProducts: true,
       geoTargets: true,
       proposalData: true,
-      site: { select: { name: true } },
+      site: { select: { name: true, targetMarkets: true } },
     },
   });
 
@@ -2134,8 +2171,12 @@ export async function handleAdCreativeRefresh(_job: Job): Promise<JobResult> {
               if (newInterests.length > 0) {
                 const adSets = await metaClient.getAdSetsForCampaign(campaign.platformCampaignId!);
                 for (const adSet of adSets) {
+                  const markets =
+                    (campaign as any).site?.targetMarkets?.length > 0
+                      ? [...(campaign as any).site.targetMarkets]
+                      : [...DEFAULT_MARKETS];
                   const success = await metaClient.updateAdSetTargeting(adSet.id, {
-                    countries: [...SOURCE_MARKETS],
+                    countries: markets,
                     interests: newInterests,
                     ageMin: 18,
                     ageMax: 65,

@@ -1173,15 +1173,36 @@ export function selectCampaignCandidates(
   const selected: CampaignCandidate[] = [];
   let budgetAllocated = 0;
 
+  // Task 4.7: Reserve 15% of budget for exploration (lower-scoring campaigns)
+  const explorationPct = 0.15;
+  const primaryBudget = maxBudget * (1 - explorationPct);
+  const explorationBudget = maxBudget * explorationPct;
+
+  // Phase 1: Greedy allocation for top candidates (85% budget)
+  const remaining: CampaignCandidate[] = [];
   for (const candidate of candidates) {
-    // Skip if expected ROAS is below 1.0 (would lose money)
     if (candidate.expectedDailyRevenue < candidate.expectedDailyCost) continue;
 
     const campaignBudget = candidate.expectedDailyCost;
-    if (budgetAllocated + campaignBudget > maxBudget) continue;
+    if (budgetAllocated + campaignBudget > primaryBudget) {
+      remaining.push(candidate);
+      continue;
+    }
 
     selected.push(candidate);
     budgetAllocated += campaignBudget;
+  }
+
+  // Phase 2: Exploration — randomly sample from remaining candidates (15% budget)
+  if (remaining.length > 0 && explorationBudget > 0) {
+    // Shuffle remaining candidates for random exploration
+    const shuffled = [...remaining].sort(() => Math.random() - 0.5);
+    for (const candidate of shuffled) {
+      const campaignBudget = candidate.expectedDailyCost;
+      if (budgetAllocated + campaignBudget > maxBudget) continue;
+      selected.push(candidate);
+      budgetAllocated += campaignBudget;
+    }
   }
 
   return {

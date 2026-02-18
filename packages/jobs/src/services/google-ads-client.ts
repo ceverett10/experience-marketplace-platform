@@ -497,3 +497,42 @@ export async function updateKeywordBids(
     return false;
   }
 }
+
+/**
+ * Task 4.9: Migrate a campaign from MANUAL_CPC to TARGET_ROAS bidding.
+ * Should only be called after a campaign has 15+ conversions.
+ * @param campaignId Google Ads campaign ID
+ * @param targetRoas Target ROAS value (e.g. 2.0 = 200% return)
+ */
+export async function migrateToSmartBidding(
+  campaignId: string,
+  targetRoas: number = 2.0
+): Promise<boolean> {
+  const config = getConfig();
+  if (!config) return false;
+
+  try {
+    await apiRequest(config, 'POST', '/campaigns:mutate', {
+      operations: [
+        {
+          update: {
+            resourceName: `customers/${config.customerId}/campaigns/${campaignId}`,
+            biddingStrategyType: 'TARGET_ROAS',
+            targetRoas: {
+              targetRoas: targetRoas,
+            },
+          },
+          updateMask: 'biddingStrategyType,targetRoas.targetRoas',
+        },
+      ],
+    });
+
+    console.log(
+      `[GoogleAds] Migrated campaign ${campaignId} to TARGET_ROAS (target: ${targetRoas})`
+    );
+    return true;
+  } catch (error) {
+    console.error(`[GoogleAds] Smart Bidding migration failed for ${campaignId}:`, error);
+    return false;
+  }
+}

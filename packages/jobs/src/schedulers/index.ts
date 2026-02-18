@@ -398,15 +398,15 @@ export async function initializeScheduledJobs(): Promise<void> {
   // );
   console.log('[Scheduler] ⏸ Bidding Engine Run - PAUSED (optimising existing campaigns)');
 
-  // Ad Campaign Sync — Every 3 hours
+  // Ad Campaign Sync — Hourly (Task 4.8: faster detection of overspend/issues)
   // Syncs performance data from Meta + Google Ads into AdCampaign/AdDailyMetric
   // Also runs alert checks after sync completes
   await scheduleJob(
     'AD_CAMPAIGN_SYNC' as any,
     {},
-    '0 */3 * * *' // Every 3 hours
+    '0 * * * *' // Every hour
   );
-  console.log('[Scheduler] ✓ Ad Campaign Sync - Every 3 hours');
+  console.log('[Scheduler] ✓ Ad Campaign Sync - Hourly');
 
   // Ad Conversion Upload — Every 2 hours
   // Uploads booking conversions to Meta/Google via server-side CAPI

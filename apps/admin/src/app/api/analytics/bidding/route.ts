@@ -602,7 +602,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         maxSuppliersPerRun: body.maxSuppliers,
         skipDataForSeo: body.skipValidation || false,
         dryRun: body.dryRun || false,
-        location: body.location || 'United Kingdom',
       });
       return NextResponse.json({
         success: true,
@@ -627,6 +626,158 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         });
       }
       return NextResponse.json({ error: 'siteId required for budget adjustment' }, { status: 400 });
+    }
+
+    // Task 4.5: REVIEW keyword workflow — approve or reject REVIEW-decision keywords
+    if (action === 'approve_keyword') {
+      const { keywordId } = body as { keywordId: string };
+      if (!keywordId) {
+        return NextResponse.json({ error: 'keywordId required' }, { status: 400 });
+      }
+      const opp = await prisma.sEOOpportunity.findUnique({ where: { id: keywordId } });
+      if (!opp) {
+        return NextResponse.json({ error: 'Keyword not found' }, { status: 404 });
+      }
+      const sd = (opp.sourceData as Record<string, any>) || {};
+      await prisma.sEOOpportunity.update({
+        where: { id: keywordId },
+        data: {
+          sourceData: {
+            ...sd,
+            aiEvaluation: {
+              ...(sd['aiEvaluation'] || {}),
+              decision: 'BID',
+              humanOverride: true,
+              overriddenAt: new Date().toISOString(),
+            },
+          },
+        },
+      });
+      return NextResponse.json({
+        success: true,
+        message: `Approved keyword "${opp.keyword}" — promoted to BID`,
+      });
+    }
+
+    if (action === 'reject_keyword') {
+      const { keywordId } = body as { keywordId: string };
+      if (!keywordId) {
+        return NextResponse.json({ error: 'keywordId required' }, { status: 400 });
+      }
+      const opp = await prisma.sEOOpportunity.findUnique({ where: { id: keywordId } });
+      if (!opp) {
+        return NextResponse.json({ error: 'Keyword not found' }, { status: 404 });
+      }
+      await prisma.sEOOpportunity.update({
+        where: { id: keywordId },
+        data: { status: 'ARCHIVED' },
+      });
+      return NextResponse.json({
+        success: true,
+        message: `Rejected keyword "${opp.keyword}" — archived`,
+      });
+    }
+
+    // Task 4.5: Bulk approve/reject REVIEW keywords
+    if (action === 'bulk_approve_keywords') {
+      const { keywordIds } = body as { keywordIds: string[] };
+      if (!keywordIds?.length) {
+        return NextResponse.json({ error: 'keywordIds required' }, { status: 400 });
+      }
+      const opps = await prisma.sEOOpportunity.findMany({
+        where: { id: { in: keywordIds } },
+      });
+      let approved = 0;
+      for (const opp of opps) {
+        const sd = (opp.sourceData as Record<string, any>) || {};
+        await prisma.sEOOpportunity.update({
+          where: { id: opp.id },
+          data: {
+            sourceData: {
+              ...sd,
+              aiEvaluation: {
+                ...(sd['aiEvaluation'] || {}),
+                decision: 'BID',
+                humanOverride: true,
+                overriddenAt: new Date().toISOString(),
+              },
+            },
+          },
+        });
+        approved++;
+      }
+      return NextResponse.json({
+        success: true,
+        message: `Approved ${approved} keywords`,
+      });
+    }
+
+    if (action === 'bulk_reject_keywords') {
+      const { keywordIds } = body as { keywordIds: string[] };
+      if (!keywordIds?.length) {
+        return NextResponse.json({ error: 'keywordIds required' }, { status: 400 });
+      }
+      const result = await prisma.sEOOpportunity.updateMany({
+        where: { id: { in: keywordIds } },
+        data: { status: 'ARCHIVED' },
+      });
+      return NextResponse.json({
+        success: true,
+        message: `Rejected ${result.count} keywords`,
+      });
+    }
+
+    // Task 4.6: Keyword-level management — pause individual keyword by adding to negative list
+    if (action === 'pause_keyword') {
+      const { campaignId, keyword } = body as { campaignId: string; keyword: string };
+      if (!campaignId || !keyword) {
+        return NextResponse.json({ error: 'campaignId and keyword required' }, { status: 400 });
+      }
+      const campaign = await prisma.adCampaign.findUnique({ where: { id: campaignId } });
+      if (!campaign) {
+        return NextResponse.json({ error: 'Campaign not found' }, { status: 404 });
+      }
+      const proposal = (campaign.proposalData as Record<string, any>) || {};
+      const negativeKeywords = proposal['negativeKeywords'] || [];
+      if (!negativeKeywords.includes(keyword)) {
+        negativeKeywords.push(keyword);
+      }
+      await prisma.adCampaign.update({
+        where: { id: campaignId },
+        data: {
+          proposalData: {
+            ...proposal,
+            negativeKeywords,
+          },
+        },
+      });
+      return NextResponse.json({
+        success: true,
+        message: `Added "${keyword}" to negative keywords for campaign`,
+      });
+    }
+
+    // Task 4.6: Manual bid override per campaign
+    if (action === 'override_bid') {
+      const { campaignId, maxCpc } = body as { campaignId: string; maxCpc: number };
+      if (!campaignId || maxCpc === undefined) {
+        return NextResponse.json({ error: 'campaignId and maxCpc required' }, { status: 400 });
+      }
+      await prisma.adCampaign.update({
+        where: { id: campaignId },
+        data: {
+          maxCpc,
+          proposalData: {
+            ...((await prisma.adCampaign.findUnique({ where: { id: campaignId } }))?.proposalData as Record<string, any> || {}),
+            bidOverride: true,
+            bidOverriddenAt: new Date().toISOString(),
+          },
+        },
+      });
+      return NextResponse.json({
+        success: true,
+        message: `Bid override: campaign maxCpc set to £${maxCpc.toFixed(2)}`,
+      });
     }
 
     return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });

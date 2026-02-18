@@ -147,6 +147,10 @@ model Site {
   status      SiteStatus @default(DRAFT)
   isAutomatic Boolean    @default(true) // Autonomous operation mode
 
+  // Global expansion: per-site market + currency config
+  targetMarkets   String[] @default(["GB", "US", "CA", "AU", "IE", "NZ"]) // ISO country codes for ad targeting
+  primaryCurrency String   @default("GBP") // ISO 4217 currency code for budgets/analytics
+
   // Autonomous Process Controls
   autonomousProcessesPaused Boolean   @default(false) // Emergency stop for all autonomous operations
   pausedAt                  DateTime? // When processes were paused

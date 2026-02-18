@@ -354,6 +354,41 @@ export class DataForSEOClient {
       Italy: 2380,
       Netherlands: 2528,
       Belgium: 2056,
+      Ireland: 2372,
+      'New Zealand': 2554,
+      Portugal: 2620,
+      Brazil: 2076,
+      Japan: 2392,
+      Mexico: 2484,
+      Switzerland: 2756,
+      Austria: 2040,
+      Sweden: 2752,
+      Norway: 2578,
+      Denmark: 2208,
+      Greece: 2300,
+      Turkey: 2792,
+      Thailand: 2764,
+      India: 2356,
+      'United Arab Emirates': 2784,
+      Singapore: 2702,
+      'South Africa': 2710,
+      'Czech Republic': 2203,
+      Poland: 2616,
+      Croatia: 2191,
+      Hungary: 2348,
+      Iceland: 2352,
+      Finland: 2246,
+      Morocco: 2504,
+      Egypt: 2818,
+      Colombia: 2170,
+      Argentina: 2032,
+      Chile: 2152,
+      Peru: 2604,
+      Indonesia: 2360,
+      Vietnam: 2704,
+      'South Korea': 2410,
+      Malaysia: 2458,
+      Philippines: 2608,
     };
 
     if (commonLocations[location]) {
@@ -370,7 +405,14 @@ export class DataForSEOClient {
         l.location_name.toLowerCase() === location.toLowerCase()
     );
 
-    return found?.location_code || 2840; // Default to US
+    if (!found) {
+      console.warn(
+        `[DataForSEO] Unknown location "${location}" — falling back to US (2840). ` +
+          `Add to commonLocations map or verify spelling.`
+      );
+      return 2840;
+    }
+    return found.location_code;
   }
 
   /**
