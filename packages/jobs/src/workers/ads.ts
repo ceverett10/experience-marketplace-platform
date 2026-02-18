@@ -1407,7 +1407,9 @@ export async function handleBiddingEngineRun(job: Job): Promise<JobResult> {
     },
   });
   if (staleCleanup.count > 0) {
-    console.log(`[Ads Worker] Cleaned up ${staleCleanup.count} stale COMPLETED campaigns (never deployed, no spend)`);
+    console.log(
+      `[Ads Worker] Cleaned up ${staleCleanup.count} stale COMPLETED campaigns (never deployed, no spend)`
+    );
   }
 
   // Count final campaign states
@@ -1719,19 +1721,62 @@ export async function handleAdCreativeRefresh(_job: Job): Promise<JobResult> {
       let pageType: string | null = null;
 
       if (campaign.landingPagePath && campaign.siteId) {
-        const page = await prisma.page.findFirst({
-          where: {
-            siteId: campaign.siteId,
-            slug: campaign.landingPagePath,
-            status: 'PUBLISHED',
-          },
-          select: {
-            title: true,
-            metaDescription: true,
-            type: true,
-            content: { select: { body: true } },
-          },
-        });
+        const pageSelect = {
+          title: true,
+          metaDescription: true,
+          type: true,
+          content: { select: { body: true } },
+        } as const;
+
+        type PageResult = {
+          title: string | null;
+          metaDescription: string | null;
+          type: string;
+          content: { body: string | null } | null;
+        } | null;
+
+        let page: PageResult = null;
+        const lpp = campaign.landingPagePath;
+
+        if (lpp === '/' || lpp === '') {
+          page = await prisma.page.findFirst({
+            where: { siteId: campaign.siteId, type: 'HOMEPAGE', status: 'PUBLISHED' },
+            select: pageSelect,
+          });
+        } else if (lpp.startsWith('/experiences?categories=')) {
+          const category = decodeURIComponent(
+            lpp.replace('/experiences?categories=', '').replace(/\+/g, ' ')
+          );
+          page = await prisma.page.findFirst({
+            where: {
+              siteId: campaign.siteId,
+              type: 'CATEGORY',
+              status: 'PUBLISHED',
+              title: { contains: category, mode: 'insensitive' },
+            },
+            select: pageSelect,
+          });
+        } else if (lpp.startsWith('/experiences?cities=')) {
+          const city = decodeURIComponent(
+            lpp.replace('/experiences?cities=', '').replace(/\+/g, ' ')
+          );
+          page = await prisma.page.findFirst({
+            where: {
+              siteId: campaign.siteId,
+              type: 'LANDING',
+              status: 'PUBLISHED',
+              title: { contains: city, mode: 'insensitive' },
+            },
+            select: pageSelect,
+          });
+        } else {
+          const slug = lpp.startsWith('/') ? lpp.substring(1) : lpp;
+          page = await prisma.page.findFirst({
+            where: { siteId: campaign.siteId, slug, status: 'PUBLISHED' },
+            select: pageSelect,
+          });
+        }
+
         if (page) {
           pageTitle = page.title;
           pageDescription = page.metaDescription;

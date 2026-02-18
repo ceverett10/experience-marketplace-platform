@@ -229,15 +229,63 @@ async function fetchSiteContext(
   let pageBody: string | null = null;
   let pageType: string | null = null;
   if (landingPagePath) {
-    const page = await prisma.page.findFirst({
-      where: { siteId, slug: landingPagePath, status: 'PUBLISHED' },
-      select: {
-        title: true,
-        metaDescription: true,
-        type: true,
-        content: { select: { body: true } },
-      },
-    });
+    const pageSelect = {
+      title: true,
+      metaDescription: true,
+      type: true,
+      content: { select: { body: true } },
+    } as const;
+
+    let page: {
+      title: string | null;
+      metaDescription: string | null;
+      type: string;
+      content: { body: string | null } | null;
+    } | null = null;
+
+    if (landingPagePath === '/' || landingPagePath === '') {
+      // Homepage — slug is empty string in the DB
+      page = await prisma.page.findFirst({
+        where: { siteId, type: 'HOMEPAGE', status: 'PUBLISHED' },
+        select: pageSelect,
+      });
+    } else if (landingPagePath.startsWith('/experiences?categories=')) {
+      // Dynamic category filter page — try to find a matching CATEGORY page
+      const category = decodeURIComponent(
+        landingPagePath.replace('/experiences?categories=', '').replace(/\+/g, ' ')
+      );
+      page = await prisma.page.findFirst({
+        where: {
+          siteId,
+          type: 'CATEGORY',
+          status: 'PUBLISHED',
+          title: { contains: category, mode: 'insensitive' },
+        },
+        select: pageSelect,
+      });
+    } else if (landingPagePath.startsWith('/experiences?cities=')) {
+      // Dynamic city filter page — try to find a LANDING page for that city
+      const city = decodeURIComponent(
+        landingPagePath.replace('/experiences?cities=', '').replace(/\+/g, ' ')
+      );
+      page = await prisma.page.findFirst({
+        where: {
+          siteId,
+          type: 'LANDING',
+          status: 'PUBLISHED',
+          title: { contains: city, mode: 'insensitive' },
+        },
+        select: pageSelect,
+      });
+    } else {
+      // Standard page — try exact slug, then without leading slash
+      const slug = landingPagePath.startsWith('/') ? landingPagePath.substring(1) : landingPagePath;
+      page = await prisma.page.findFirst({
+        where: { siteId, slug, status: 'PUBLISHED' },
+        select: pageSelect,
+      });
+    }
+
     if (page) {
       pageTitle = page.title;
       pageDescription = page.metaDescription;
