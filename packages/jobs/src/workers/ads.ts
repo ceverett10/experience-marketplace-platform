@@ -1640,16 +1640,32 @@ export async function deployDraftCampaigns(job?: Job): Promise<{
  * Full bidding engine orchestration: profitability → scoring → campaign creation → deployment.
  * Modes:
  *   full — Calculate profitability, score opportunities, create/update campaigns, deploy to platforms
+ *   deploy_only — Skip bidding engine, just deploy existing DRAFT campaigns to platforms
  *   optimize_only — Only optimize existing campaigns (no new creation)
  *   report_only — Only calculate profitability and report
  */
 export async function handleBiddingEngineRun(job: Job): Promise<JobResult> {
   const { mode, maxDailyBudget } = job.data as {
-    mode?: 'full' | 'optimize_only' | 'report_only';
+    mode?: 'full' | 'deploy_only' | 'optimize_only' | 'report_only';
     maxDailyBudget?: number;
   };
 
   console.log(`[Ads Worker] Starting bidding engine run (mode=${mode || 'full'})`);
+
+  // deploy_only: skip bidding engine entirely, just deploy existing DRAFT campaigns
+  if (mode === 'deploy_only') {
+    console.log('[Ads Worker] Deploy-only mode: deploying existing DRAFT campaigns...');
+    const deployResult = await deployDraftCampaigns(job);
+    console.log(
+      `[Ads Worker] Deploy-only complete: ${deployResult.deployed} deployed, ` +
+        `${deployResult.failed} failed, ${deployResult.skipped} skipped`
+    );
+    return {
+      success: true,
+      message: `Deploy-only: ${deployResult.deployed} deployed, ${deployResult.failed} failed, ${deployResult.skipped} skipped`,
+      timestamp: new Date(),
+    };
+  }
 
   const result = await runBiddingEngine({ mode, maxDailyBudget });
 
