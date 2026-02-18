@@ -469,6 +469,8 @@ export default function PaidTrafficDashboard() {
   const [sortField, setSortField] = useState<string>('spend');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [expandedCampaigns, setExpandedCampaigns] = useState<Set<string>>(new Set());
+  const [campaignPage, setCampaignPage] = useState(1);
+  const CAMPAIGNS_PAGE_SIZE = 25;
 
   const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
 
@@ -656,17 +658,30 @@ export default function PaidTrafficDashboard() {
     }
   };
 
-  // Merge campaigns from both APIs, dedup by id, prefer ads data (has more fields)
+  // Merge campaigns from both APIs, dedup by id
+  // Ads data has richer performance metrics, bidding data has drill-down fields
+  // (proposalData, audiences, platformCampaignId) — merge both
   const allCampaigns = useMemo(() => {
     const map = new Map<string, AdsCampaign | BiddingCampaign>();
-    // Ads campaigns first (richer data)
+    // Ads campaigns first (richer performance data)
     if (adsData) {
       for (const c of adsData.campaigns) map.set(c.id, c);
     }
-    // Bidding campaigns fill in any missing
+    // Merge bidding campaigns — overlay drill-down fields onto ads campaigns,
+    // or insert if the campaign only exists in bidding data
     if (biddingData) {
       for (const c of biddingData.campaigns) {
-        if (!map.has(c.id)) map.set(c.id, c);
+        const existing = map.get(c.id);
+        if (existing) {
+          map.set(c.id, {
+            ...existing,
+            proposalData: c.proposalData,
+            audiences: c.audiences,
+            platformCampaignId: c.platformCampaignId,
+          } as BiddingCampaign);
+        } else {
+          map.set(c.id, c);
+        }
       }
     }
     return Array.from(map.values());
@@ -688,6 +703,17 @@ export default function PaidTrafficDashboard() {
       return sortDir === 'desc' ? bVal - aVal : aVal - bVal;
     });
   }, [allCampaigns, campaignFilter, platformFilter, sortField, sortDir]);
+
+  // Reset page when filters or sort change
+  useEffect(() => {
+    setCampaignPage(1);
+  }, [campaignFilter, platformFilter, sortField, sortDir]);
+
+  const campaignTotalPages = Math.ceil(filteredCampaigns.length / CAMPAIGNS_PAGE_SIZE);
+  const paginatedCampaigns = useMemo(() => {
+    const start = (campaignPage - 1) * CAMPAIGNS_PAGE_SIZE;
+    return filteredCampaigns.slice(start, start + CAMPAIGNS_PAGE_SIZE);
+  }, [filteredCampaigns, campaignPage]);
 
   const draftCount = biddingData?.campaigns.filter((c) => c.status === 'DRAFT').length || 0;
 
@@ -2065,7 +2091,7 @@ export default function PaidTrafficDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredCampaigns.map((c) => {
+                  {paginatedCampaigns.map((c) => {
                     const isExpanded = expandedCampaigns.has(c.id);
                     const cAny = c as any;
                     const bc = c as BiddingCampaign;
@@ -2565,6 +2591,29 @@ export default function PaidTrafficDashboard() {
             {filteredCampaigns.length === 0 && (
               <div className="p-8 text-center text-slate-500">
                 No campaigns match the current filters
+              </div>
+            )}
+            {campaignTotalPages > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200">
+                <div className="text-sm text-slate-500">
+                  Page {campaignPage} of {campaignTotalPages} ({filteredCampaigns.length} campaigns)
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCampaignPage((p) => Math.max(1, p - 1))}
+                    disabled={campaignPage <= 1}
+                    className="px-3 py-1 text-sm border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    onClick={() => setCampaignPage((p) => Math.min(campaignTotalPages, p + 1))}
+                    disabled={campaignPage >= campaignTotalPages}
+                    className="px-3 py-1 text-sm border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    Next
+                  </button>
+                </div>
               </div>
             )}
           </div>
