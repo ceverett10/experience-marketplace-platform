@@ -11,6 +11,7 @@
 
 import { prisma } from '@experience-marketplace/database';
 import { circuitBreakers } from '../errors/circuit-breaker';
+import { reviewImageForCampaign } from './ad-image-reviewer';
 
 export interface AdCreative {
   headline: string; // Max 40 chars for Meta
@@ -18,11 +19,16 @@ export interface AdCreative {
   callToAction: string; // BOOK_TRAVEL | LEARN_MORE | SHOP_NOW
   imageUrl: string | null;
   source: 'ai' | 'template'; // Track how it was generated
+  // Image review metadata (populated when AI reviewer selects the image)
+  imageSource?: string; // 'product' | 'supplier' | 'unsplash' | 'site'
+  imageReviewScore?: number; // 1-10
+  imageReviewReasoning?: string; // AI explanation
 }
 
 export interface AdCreativeInput {
   keywords: string[];
   siteId?: string | null;
+  micrositeId?: string | null;
   siteName: string;
   landingPagePath?: string | null;
   landingPageType?: string | null;
@@ -40,18 +46,43 @@ export async function generateAdCreative(input: AdCreativeInput): Promise<AdCrea
   // Fetch site context for the prompt
   const context = input.siteId ? await fetchSiteContext(input.siteId, input.landingPagePath) : null;
 
-  // Try AI generation
+  // Step 1: Generate text (AI with template fallback)
+  let creative: AdCreative | null = null;
   try {
-    const creative = await generateWithAI(input, context);
-    if (creative) return creative;
+    creative = await generateWithAI(input, context);
   } catch (error) {
     console.warn(
       `[AdCreative] AI generation failed, using template fallback: ${error instanceof Error ? error.message : error}`
     );
   }
+  if (!creative) {
+    creative = generateFromTemplate(primaryKw, input, context);
+  }
 
-  // Fallback: template-based generation (improved quality)
-  return generateFromTemplate(primaryKw, input, context);
+  // Step 2: AI image review — select best image from multiple sources
+  try {
+    const reviewed = await reviewImageForCampaign({
+      keywords: input.keywords,
+      micrositeId: input.micrositeId,
+      siteId: input.siteId,
+      headline: creative.headline,
+      body: creative.body,
+      brandName: context?.brandName || input.siteName,
+    });
+    if (reviewed) {
+      creative.imageUrl = reviewed.selectedUrl;
+      creative.imageSource = reviewed.selectedSource;
+      creative.imageReviewScore = reviewed.score;
+      creative.imageReviewReasoning = reviewed.reasoning;
+    }
+  } catch (err) {
+    console.warn(
+      `[AdCreative] Image review failed, using fallback: ${err instanceof Error ? err.message : err}`
+    );
+    // creative.imageUrl already has fallback from fetchSiteContext
+  }
+
+  return creative;
 }
 
 // --- Context Fetching --------------------------------------------------------
@@ -108,7 +139,7 @@ async function fetchSiteContext(
     }
   }
 
-  // Image priority: hero > OG image > logo
+  // Fallback image: hero > OG image > logo (used when AI image review is unavailable)
   const imageUrl =
     (hero?.['backgroundImage'] as string) || site.brand?.ogImageUrl || site.brand?.logoUrl || null;
 
@@ -273,8 +304,7 @@ function generateFromTemplate(
   }
 
   // Build a better body using destination name
-  const body =
-    `Tours, activities & experiences in ${destination}. Book today!`.substring(0, 125);
+  const body = `Tours, activities & experiences in ${destination}. Book today!`.substring(0, 125);
 
   return {
     headline,
@@ -294,7 +324,7 @@ function generateFromTemplate(
  * "legoland windsor resort hours" → "legoland windsor"
  * "restaurants ghent" → "ghent"
  */
-function extractDestination(keyword: string): string {
+export function extractDestination(keyword: string): string {
   // Remove common prefixes and suffixes to extract the destination/activity core
   const cleaned = keyword
     .replace(/^(things to do in|what to do in|best things to do in|top things to do in)\s+/i, '')
@@ -319,7 +349,7 @@ function extractDestination(keyword: string): string {
 /**
  * Title-case a string: "curitiba" → "Curitiba", "things to do" → "Things to Do"
  */
-function toTitleCase(str: string): string {
+export function toTitleCase(str: string): string {
   const minorWords = new Set(['in', 'of', 'the', 'and', 'to', 'a', 'an', 'at', 'by', 'for', 'on']);
   return str
     .split(/\s+/)

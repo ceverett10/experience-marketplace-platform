@@ -288,6 +288,7 @@ async function validateTaskArtifacts(
     AD_BUDGET_OPTIMIZER: { valid: true },
     AD_CONVERSION_UPLOAD: { valid: true },
     AD_PLATFORM_IDS_SYNC: { valid: true },
+    AD_CREATIVE_REFRESH: { valid: true },
     PAID_KEYWORD_SCAN: { valid: true },
     BIDDING_ENGINE_RUN: { valid: true },
     KEYWORD_ENRICHMENT: { valid: true },
@@ -555,6 +556,10 @@ export const TASK_DESCRIPTIONS: Record<JobType, { label: string; description: st
   AD_PLATFORM_IDS_SYNC: {
     label: 'Sync Platform IDs',
     description: 'Fetch Meta Pixel and Google Ads conversion IDs from APIs',
+  },
+  AD_CREATIVE_REFRESH: {
+    label: 'Refresh Ad Creatives',
+    description: 'Re-review and update ad images using AI across all deployed campaigns',
   },
   PAID_KEYWORD_SCAN: {
     label: 'Scan Paid Keywords',

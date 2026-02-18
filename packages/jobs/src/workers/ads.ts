@@ -9,6 +9,7 @@
  * - BIDDING_ENGINE_RUN: Full profitability-driven campaign orchestration
  * - KEYWORD_ENRICHMENT: Bulk keyword extraction from product data
  * - AD_CONVERSION_UPLOAD: Upload conversions to Meta/Google via server-side CAPI
+ * - AD_CREATIVE_REFRESH: Re-review and update ad images across all deployed campaigns
  */
 
 import type { Job } from 'bullmq';
@@ -37,6 +38,7 @@ import {
 } from '../services/google-ads-client';
 import { PAID_TRAFFIC_CONFIG } from '../config/paid-traffic';
 import { generateAdCreative } from '../services/ad-creative-generator';
+import { reviewImageForCampaign } from '../services/ad-image-reviewer';
 
 // --- Helpers -----------------------------------------------------------------
 
@@ -1602,6 +1604,167 @@ export async function handleAdPlatformIdsSync(_job: Job): Promise<JobResult> {
       micrositesSkipped: result.micrositesSkipped,
       errors: result.errors,
     },
+    timestamp: new Date(),
+  };
+}
+
+// --- AD_CREATIVE_REFRESH ----------------------------------------------------
+
+/**
+ * Re-review and update ad creatives for all deployed Meta campaigns.
+ * Uses AI image review to select better images, then updates the Meta ad.
+ * Only changes the image — does NOT modify headline, body, CTA, targeting, or budget.
+ */
+export async function handleAdCreativeRefresh(_job: Job): Promise<JobResult> {
+  console.log('[Ads Worker] Starting ad creative refresh across all deployed campaigns');
+
+  const metaClient = await getMetaAdsClient();
+  if (!metaClient) {
+    return {
+      success: false,
+      message: 'Meta Ads not configured',
+      timestamp: new Date(),
+    };
+  }
+
+  const pageId = process.env['META_PAGE_ID'];
+  if (!pageId) {
+    return {
+      success: false,
+      message: 'META_PAGE_ID not set',
+      timestamp: new Date(),
+    };
+  }
+
+  // Get all deployed Facebook campaigns
+  const campaigns = await prisma.adCampaign.findMany({
+    where: {
+      platformCampaignId: { not: null },
+      platform: 'FACEBOOK',
+    },
+    select: {
+      id: true,
+      name: true,
+      keywords: true,
+      platformCampaignId: true,
+      targetUrl: true,
+      utmSource: true,
+      utmMedium: true,
+      utmCampaign: true,
+      siteId: true,
+      micrositeId: true,
+      proposalData: true,
+      site: { select: { name: true } },
+    },
+  });
+
+  console.log(`[Ads Worker] Found ${campaigns.length} deployed Meta campaigns to refresh`);
+
+  let updated = 0;
+  let skipped = 0;
+  let failed = 0;
+
+  for (const campaign of campaigns) {
+    try {
+      const proposalData = campaign.proposalData as Record<string, unknown> | null;
+      const existingCreative = proposalData?.['generatedCreative'] as Record<
+        string,
+        unknown
+      > | null;
+      const existingImageUrl = existingCreative?.['imageUrl'] as string | null;
+      const headline = (existingCreative?.['headline'] as string) || campaign.name;
+      const body = (existingCreative?.['body'] as string) || '';
+      const callToAction = (existingCreative?.['callToAction'] as string) || 'BOOK_TRAVEL';
+
+      // Run AI image review
+      const reviewed = await reviewImageForCampaign({
+        keywords: campaign.keywords,
+        micrositeId: campaign.micrositeId,
+        siteId: campaign.siteId,
+        headline,
+        body,
+        brandName: campaign.site?.name || campaign.name,
+      });
+
+      if (!reviewed || reviewed.selectedUrl === existingImageUrl) {
+        skipped++;
+        continue;
+      }
+
+      // Get ads in this campaign
+      const ads = await metaClient.getAdsForCampaign(campaign.platformCampaignId!);
+      if (ads.length === 0) {
+        console.warn(`[Ads Worker] No ads found for campaign ${campaign.platformCampaignId}`);
+        skipped++;
+        continue;
+      }
+
+      // Build landing URL
+      const url = new URL(campaign.targetUrl);
+      if (campaign.utmSource) url.searchParams.set('utm_source', campaign.utmSource);
+      if (campaign.utmMedium) url.searchParams.set('utm_medium', campaign.utmMedium);
+      if (campaign.utmCampaign) url.searchParams.set('utm_campaign', campaign.utmCampaign);
+      const landingUrl = url.toString();
+
+      // Update each ad's creative with the new image
+      let adUpdated = false;
+      for (const ad of ads) {
+        const success = await metaClient.updateAdCreative(ad.id, {
+          pageId,
+          linkUrl: landingUrl,
+          headline,
+          body,
+          imageUrl: reviewed.selectedUrl,
+          callToAction,
+        });
+        if (success) adUpdated = true;
+      }
+
+      if (!adUpdated) {
+        console.warn(`[Ads Worker] Failed to update ads for campaign ${campaign.name}`);
+        failed++;
+        continue;
+      }
+
+      // Persist review metadata
+      await prisma.adCampaign.update({
+        where: { id: campaign.id },
+        data: {
+          proposalData: {
+            ...(typeof proposalData === 'object' && proposalData !== null ? proposalData : {}),
+            generatedCreative: {
+              ...(typeof existingCreative === 'object' && existingCreative !== null
+                ? existingCreative
+                : {}),
+              imageUrl: reviewed.selectedUrl,
+              imageSource: reviewed.selectedSource,
+              imageReviewScore: reviewed.score,
+              imageReviewReasoning: reviewed.reasoning,
+              imageRefreshedAt: new Date().toISOString(),
+            },
+          },
+        },
+      });
+
+      updated++;
+      console.log(
+        `[Ads Worker] Updated campaign "${campaign.name}" image: ${reviewed.selectedSource} (score: ${reviewed.score}/10)`
+      );
+    } catch (err) {
+      console.error(
+        `[Ads Worker] Failed to refresh campaign "${campaign.name}": ${err instanceof Error ? err.message : err}`
+      );
+      failed++;
+    }
+  }
+
+  const message = `Creative refresh complete: ${updated} updated, ${skipped} skipped, ${failed} failed`;
+  console.log(`[Ads Worker] ${message}`);
+
+  return {
+    success: failed === 0,
+    message,
+    data: { total: campaigns.length, updated, skipped, failed },
     timestamp: new Date(),
   };
 }

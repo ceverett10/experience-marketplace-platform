@@ -666,6 +666,103 @@ export class MetaAdsClient {
     }
   }
 
+  // =========================================================================
+  // Ad Creative Management
+  // =========================================================================
+
+  /**
+   * Get all ads within a campaign.
+   * Docs: https://developers.facebook.com/docs/marketing-api/reference/ad-campaign-group/ads
+   */
+  async getAdsForCampaign(campaignId: string): Promise<Array<{ id: string; name: string }>> {
+    try {
+      await this.enforceRateLimit();
+
+      const params = new URLSearchParams({
+        fields: 'id,name',
+        access_token: this.accessToken,
+        limit: '100',
+      });
+
+      const response = await fetch(`${META_API_BASE}/${campaignId}/ads?${params}`);
+
+      if (!response.ok) {
+        const error = await response.text();
+        console.error(
+          `[MetaAds] Get ads for campaign error (${response.status}): ${error.substring(0, 200)}`
+        );
+        return [];
+      }
+
+      const data = (await response.json()) as {
+        data?: Array<{ id: string; name: string }>;
+      };
+
+      return data.data || [];
+    } catch (error) {
+      console.error('[MetaAds] Get ads for campaign failed:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Update an existing ad's creative (e.g., replace the image).
+   * Creates a new creative object and attaches it to the existing ad.
+   */
+  async updateAdCreative(
+    adId: string,
+    config: {
+      pageId: string;
+      linkUrl: string;
+      headline: string;
+      body: string;
+      imageUrl: string;
+      callToAction?: string;
+    }
+  ): Promise<boolean> {
+    try {
+      await this.enforceRateLimit();
+
+      const creative: Record<string, unknown> = {
+        object_story_spec: {
+          page_id: config.pageId,
+          link_data: {
+            link: config.linkUrl,
+            message: config.body,
+            name: config.headline,
+            picture: config.imageUrl,
+            call_to_action: {
+              type: config.callToAction || 'LEARN_MORE',
+            },
+          },
+        },
+      };
+
+      const params = new URLSearchParams({
+        creative: JSON.stringify(creative),
+        access_token: this.accessToken,
+      });
+
+      const response = await fetch(`${META_API_BASE}/${adId}`, {
+        method: 'POST',
+        body: params,
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        console.error(
+          `[MetaAds] Update ad creative error (${response.status}): ${error.substring(0, 300)}`
+        );
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('[MetaAds] Update ad creative failed:', error);
+      return false;
+    }
+  }
+
   private async enforceRateLimit(): Promise<void> {
     const now = Date.now();
     MetaAdsClient.requestTimestamps = MetaAdsClient.requestTimestamps.filter(

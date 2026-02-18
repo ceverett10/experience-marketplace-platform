@@ -639,6 +639,7 @@ export async function scoreCampaignOpportunities(
     where: { status: 'ACTIVE', entityType: 'SUPPLIER' },
     select: {
       id: true,
+      supplierId: true,
       siteName: true,
       fullDomain: true,
       cachedProductCount: true,
@@ -690,8 +691,22 @@ export async function scoreCampaignOpportunities(
     }
   }
 
+  // Build supplierId → microsite lookup for source supplier preference
+  // When a keyword was extracted from a supplier's products, prefer that supplier's microsite
+  const micrositeBySupplierId = new Map<string, MicrositeMatch>();
+  for (const ms of supplierMicrosites) {
+    if (ms.supplierId) {
+      micrositeBySupplierId.set(ms.supplierId, {
+        id: ms.id,
+        siteName: ms.siteName,
+        fullDomain: ms.fullDomain,
+        productCount: ms.cachedProductCount,
+      });
+    }
+  }
+
   console.log(
-    `[BiddingEngine] Microsite lookup: ${micrositeByTerm.size} keyword terms, ${micrositesByCity.size} cities (${supplierMicrosites.length} supplier microsites)`
+    `[BiddingEngine] Microsite lookup: ${micrositeByTerm.size} keyword terms, ${micrositesByCity.size} cities, ${micrositeBySupplierId.size} supplier IDs (${supplierMicrosites.length} supplier microsites)`
   );
 
   // --- Pre-load page caches for landing page routing ---
@@ -752,6 +767,21 @@ export async function scoreCampaignOpportunities(
         if (kwLower.includes(term) || term.includes(kwLower)) {
           matchedMicrosite = ms;
           matchedMicrositeEntityType = 'OPPORTUNITY';
+          break;
+        }
+      }
+    }
+
+    // 2.5) Source supplier preference — if keyword was extracted from a specific
+    //       supplier's products, prefer that supplier's microsite over city-based matching
+    if (!matchedMicrosite) {
+      const sourceData = opp.sourceData as { sourceSupplierIds?: string[] } | null;
+      const sourceSupplierIds = sourceData?.sourceSupplierIds ?? [];
+      for (const sourceSupplierId of sourceSupplierIds) {
+        const sourceMs = micrositeBySupplierId.get(sourceSupplierId);
+        if (sourceMs) {
+          matchedMicrosite = sourceMs;
+          matchedMicrositeEntityType = 'SUPPLIER';
           break;
         }
       }

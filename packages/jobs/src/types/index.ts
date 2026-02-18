@@ -392,7 +392,12 @@ export interface SocialPostGeneratePayload {
   siteId: string;
   platform: 'PINTEREST' | 'FACEBOOK' | 'TWITTER';
   pageId?: string; // Optional - specific blog post to promote
-  contentType?: 'blog_promo' | 'engagement' | 'travel_tip' | 'network_amplification' | 'microsite_blog_promo'; // Content variation
+  contentType?:
+    | 'blog_promo'
+    | 'engagement'
+    | 'travel_tip'
+    | 'network_amplification'
+    | 'microsite_blog_promo'; // Content variation
 }
 
 export interface SocialPostPublishPayload {
@@ -628,6 +633,7 @@ export const JOB_TYPE_TO_QUEUE: Record<JobType, QueueName> = {
   AD_BUDGET_OPTIMIZER: QUEUE_NAMES.ADS,
   AD_CONVERSION_UPLOAD: QUEUE_NAMES.ADS,
   AD_PLATFORM_IDS_SYNC: QUEUE_NAMES.ADS,
+  AD_CREATIVE_REFRESH: QUEUE_NAMES.ADS,
   PAID_KEYWORD_SCAN: QUEUE_NAMES.ADS,
   BIDDING_ENGINE_RUN: QUEUE_NAMES.ADS,
   KEYWORD_ENRICHMENT: QUEUE_NAMES.SYNC, // Long-running: uses SYNC queue (4hr timeout)
