@@ -7,6 +7,7 @@
 
 import { prisma } from '@experience-marketplace/database';
 import { MetaAdsClient } from '../services/social/meta-ads-client';
+import { refreshTokenIfNeeded } from '../services/social/token-refresh';
 
 const DRY_RUN = process.argv.includes('--dry-run');
 
@@ -16,15 +17,36 @@ async function getMetaClient(): Promise<MetaAdsClient | null> {
 
   const accounts = await prisma.socialAccount.findMany({
     where: { platform: 'FACEBOOK', isActive: true },
-    select: { accessToken: true },
+    select: {
+      id: true,
+      platform: true,
+      accessToken: true,
+      refreshToken: true,
+      tokenExpiresAt: true,
+      accountId: true,
+    },
     orderBy: { updatedAt: 'desc' },
-    take: 1,
   });
 
-  const token = accounts[0]?.accessToken;
-  if (!token) return null;
+  // Sort: encrypted tokens first (contain ':'), then plaintext
+  const sorted = [...accounts].sort((a, b) => {
+    const aEnc = a.accessToken?.includes(':') ? 0 : 1;
+    const bEnc = b.accessToken?.includes(':') ? 0 : 1;
+    return aEnc - bEnc;
+  });
 
-  return new MetaAdsClient({ accessToken: token, adAccountId });
+  for (const account of sorted) {
+    if (!account.accessToken) continue;
+    try {
+      const { accessToken } = await refreshTokenIfNeeded(account);
+      console.log(`Using Meta token from account ${account.id}`);
+      return new MetaAdsClient({ accessToken, adAccountId });
+    } catch (error) {
+      console.warn(`Skipping account ${account.id}: ${error instanceof Error ? error.message : error}`);
+    }
+  }
+
+  return null;
 }
 
 async function main() {
