@@ -8,7 +8,7 @@ import { useSite, useBrand, useHomepageConfig } from '@/lib/site-context';
 const DEFAULT_SOCIAL_LINKS: Record<string, string> = {
   facebook: 'https://www.facebook.com/profile.php?id=61587586815675',
   twitter: 'https://x.com/ExperiencessCom',
-  pinterest: 'https://www.pinterest.com/ExperiencessCom',
+  pinterest: 'https://www.pinterest.co.uk/00nbxjcmbvodh0scl8x8t2npb25phj/',
 };
 
 // Default footer categories if none configured for the site

@@ -132,7 +132,7 @@ describe('Footer', () => {
     );
     expect(screen.getByRole('link', { name: 'Pinterest' })).toHaveAttribute(
       'href',
-      'https://www.pinterest.com/ExperiencessCom'
+      'https://www.pinterest.co.uk/00nbxjcmbvodh0scl8x8t2npb25phj/'
     );
     // Instagram is NOT in defaults
     expect(screen.queryByRole('link', { name: 'Instagram' })).not.toBeInTheDocument();
