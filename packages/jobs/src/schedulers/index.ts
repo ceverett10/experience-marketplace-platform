@@ -389,14 +389,15 @@ export async function initializeScheduledJobs(): Promise<void> {
   // console.log('[Scheduler] ✓ Paid Keyword Scanner - Daily at 3 AM');
   console.log('[Scheduler] ⏸ Paid Keyword Scanner - PAUSED (DataForSEO)');
 
-  // Bidding Engine Run — Daily at 5 AM (after keyword scanner discovers new keywords)
-  // Calculates site profitability, scores keyword opportunities, creates + auto-deploys campaigns
-  await scheduleJob(
-    'BIDDING_ENGINE_RUN' as any,
-    { mode: 'full' },
-    '0 5 * * *' // Daily at 5 AM
-  );
-  console.log('[Scheduler] ✓ Bidding Engine Run - Daily at 5 AM');
+  // Bidding Engine Run — PAUSED
+  // Creating new campaigns is paused until existing ones are optimised and validated on Meta.
+  // Re-enable by uncommenting the scheduleJob call below.
+  // await scheduleJob(
+  //   'BIDDING_ENGINE_RUN' as any,
+  //   { mode: 'full' },
+  //   '0 5 * * *' // Daily at 5 AM
+  // );
+  console.log('[Scheduler] ⏸ Bidding Engine Run - PAUSED (optimising existing campaigns)');
 
   // Ad Campaign Sync — Every 3 hours
   // Syncs performance data from Meta + Google Ads into AdCampaign/AdDailyMetric
