@@ -763,6 +763,94 @@ export class MetaAdsClient {
     }
   }
 
+  /**
+   * Get all ad sets for a campaign.
+   * Used during remediation to identify ad sets whose targeting needs updating.
+   */
+  async getAdSetsForCampaign(campaignId: string): Promise<Array<{ id: string; name: string }>> {
+    try {
+      await this.enforceRateLimit();
+
+      const params = new URLSearchParams({
+        fields: 'id,name',
+        access_token: this.accessToken,
+        limit: '100',
+      });
+
+      const response = await fetch(`${META_API_BASE}/${campaignId}/adsets?${params}`);
+
+      if (!response.ok) {
+        const error = await response.text();
+        console.error(
+          `[MetaAds] Get ad sets for campaign error (${response.status}): ${error.substring(0, 200)}`
+        );
+        return [];
+      }
+
+      const data = (await response.json()) as {
+        data?: Array<{ id: string; name: string }>;
+      };
+
+      return data.data || [];
+    } catch (error) {
+      console.error('[MetaAds] Get ad sets for campaign failed:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Update an existing ad set's interest targeting.
+   * Used during coherence remediation to re-align targeting with landing page content.
+   */
+  async updateAdSetTargeting(
+    adSetId: string,
+    targeting: {
+      countries: string[];
+      interests?: Array<{ id: string; name: string }>;
+      ageMin?: number;
+      ageMax?: number;
+    }
+  ): Promise<boolean> {
+    try {
+      await this.enforceRateLimit();
+
+      const geoLocations: Record<string, unknown> = { countries: targeting.countries };
+      const targetingSpec: Record<string, unknown> = {
+        geo_locations: geoLocations,
+      };
+      if (targeting.interests?.length) {
+        targetingSpec['flexible_spec'] = [
+          { interests: targeting.interests.map((i) => ({ id: i.id, name: i.name })) },
+        ];
+      }
+      if (targeting.ageMin) targetingSpec['age_min'] = targeting.ageMin;
+      if (targeting.ageMax) targetingSpec['age_max'] = targeting.ageMax;
+
+      const params = new URLSearchParams({
+        targeting: JSON.stringify(targetingSpec),
+        access_token: this.accessToken,
+      });
+
+      const response = await fetch(`${META_API_BASE}/${adSetId}`, {
+        method: 'POST',
+        body: params,
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        console.error(
+          `[MetaAds] Update ad set targeting error (${response.status}): ${error.substring(0, 300)}`
+        );
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('[MetaAds] Update ad set targeting failed:', error);
+      return false;
+    }
+  }
+
   private async enforceRateLimit(): Promise<void> {
     const now = Date.now();
     MetaAdsClient.requestTimestamps = MetaAdsClient.requestTimestamps.filter(

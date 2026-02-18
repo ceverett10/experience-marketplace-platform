@@ -38,7 +38,9 @@ import {
 } from '../services/google-ads-client';
 import { PAID_TRAFFIC_CONFIG } from '../config/paid-traffic';
 import { generateAdCreative } from '../services/ad-creative-generator';
+import { checkAdCoherence, extractSearchTermsFromContent } from '../services/ad-coherence-checker';
 import { reviewImageForCampaign } from '../services/ad-image-reviewer';
+import { stripMarkdownForPrompt } from '../services/ad-creative-generator';
 
 // --- Helpers -----------------------------------------------------------------
 
@@ -976,6 +978,11 @@ async function deployToMeta(
               imageSource: creative.imageSource || null,
               imageReviewScore: creative.imageReviewScore || null,
               imageReviewReasoning: creative.imageReviewReasoning || null,
+              coherenceScore: creative.coherenceScore ?? null,
+              coherencePass: creative.coherencePass ?? null,
+              coherenceIssues: creative.coherenceIssues || null,
+              coherenceSummary: creative.coherenceSummary || null,
+              remediated: creative.remediated || false,
               generatedAt: new Date().toISOString(),
             },
             deployedTargeting: {
@@ -1612,11 +1619,14 @@ export async function handleAdPlatformIdsSync(_job: Job): Promise<JobResult> {
 
 /**
  * Re-review and update ad creatives for all deployed Meta campaigns.
- * Uses AI image review to select better images, then updates the Meta ad.
- * Only changes the image — does NOT modify headline, body, CTA, targeting, or budget.
+ *
+ * Full remediation pipeline:
+ * 1. Check coherence of existing creative against landing page
+ * 2. If coherent (score >= 6): image-only review + update
+ * 3. If incoherent (score < 6): regenerate text + image + retarget ad set
  */
 export async function handleAdCreativeRefresh(_job: Job): Promise<JobResult> {
-  console.log('[Ads Worker] Starting ad creative refresh across all deployed campaigns');
+  console.log('[Ads Worker] Starting ad creative refresh with coherence check');
 
   const metaClient = await getMetaAdsClient();
   if (!metaClient) {
@@ -1636,6 +1646,8 @@ export async function handleAdCreativeRefresh(_job: Job): Promise<JobResult> {
     };
   }
 
+  const SOURCE_MARKETS = ['GB', 'US', 'CA', 'AU', 'IE', 'NZ'];
+
   // Get all deployed Facebook campaigns
   const campaigns = await prisma.adCampaign.findMany({
     where: {
@@ -1653,6 +1665,10 @@ export async function handleAdCreativeRefresh(_job: Job): Promise<JobResult> {
       utmCampaign: true,
       siteId: true,
       micrositeId: true,
+      landingPagePath: true,
+      landingPageType: true,
+      landingPageProducts: true,
+      geoTargets: true,
       proposalData: true,
       site: { select: { name: true } },
     },
@@ -1660,7 +1676,8 @@ export async function handleAdCreativeRefresh(_job: Job): Promise<JobResult> {
 
   console.log(`[Ads Worker] Found ${campaigns.length} deployed Meta campaigns to refresh`);
 
-  let updated = 0;
+  let imageOnly = 0;
+  let remediated = 0;
   let skipped = 0;
   let failed = 0;
 
@@ -1676,29 +1693,6 @@ export async function handleAdCreativeRefresh(_job: Job): Promise<JobResult> {
       const body = (existingCreative?.['body'] as string) || '';
       const callToAction = (existingCreative?.['callToAction'] as string) || 'BOOK_TRAVEL';
 
-      // Run AI image review
-      const reviewed = await reviewImageForCampaign({
-        keywords: campaign.keywords,
-        micrositeId: campaign.micrositeId,
-        siteId: campaign.siteId,
-        headline,
-        body,
-        brandName: campaign.site?.name || campaign.name,
-      });
-
-      if (!reviewed || reviewed.selectedUrl === existingImageUrl) {
-        skipped++;
-        continue;
-      }
-
-      // Get ads in this campaign
-      const ads = await metaClient.getAdsForCampaign(campaign.platformCampaignId!);
-      if (ads.length === 0) {
-        console.warn(`[Ads Worker] No ads found for campaign ${campaign.platformCampaignId}`);
-        skipped++;
-        continue;
-      }
-
       // Build landing URL
       const url = new URL(campaign.targetUrl);
       if (campaign.utmSource) url.searchParams.set('utm_source', campaign.utmSource);
@@ -1706,50 +1700,250 @@ export async function handleAdCreativeRefresh(_job: Job): Promise<JobResult> {
       if (campaign.utmCampaign) url.searchParams.set('utm_campaign', campaign.utmCampaign);
       const landingUrl = url.toString();
 
-      // Update each ad's creative with the new image
-      let adUpdated = false;
-      for (const ad of ads) {
-        const success = await metaClient.updateAdCreative(ad.id, {
-          pageId,
-          linkUrl: landingUrl,
-          headline,
-          body,
-          imageUrl: reviewed.selectedUrl,
-          callToAction,
-        });
-        if (success) adUpdated = true;
-      }
+      // Step 1: Fetch landing page content for coherence check
+      let pageTitle: string | null = null;
+      let pageDescription: string | null = null;
+      let pageBody: string | null = null;
+      let pageType: string | null = null;
 
-      if (!adUpdated) {
-        console.warn(`[Ads Worker] Failed to update ads for campaign ${campaign.name}`);
-        failed++;
-        continue;
-      }
-
-      // Persist review metadata
-      await prisma.adCampaign.update({
-        where: { id: campaign.id },
-        data: {
-          proposalData: {
-            ...(typeof proposalData === 'object' && proposalData !== null ? proposalData : {}),
-            generatedCreative: {
-              ...(typeof existingCreative === 'object' && existingCreative !== null
-                ? existingCreative
-                : {}),
-              imageUrl: reviewed.selectedUrl,
-              imageSource: reviewed.selectedSource,
-              imageReviewScore: reviewed.score,
-              imageReviewReasoning: reviewed.reasoning,
-              imageRefreshedAt: new Date().toISOString(),
-            },
+      if (campaign.landingPagePath && campaign.siteId) {
+        const page = await prisma.page.findFirst({
+          where: {
+            siteId: campaign.siteId,
+            slug: campaign.landingPagePath,
+            status: 'PUBLISHED',
           },
-        },
+          select: {
+            title: true,
+            metaDescription: true,
+            type: true,
+            content: { select: { body: true } },
+          },
+        });
+        if (page) {
+          pageTitle = page.title;
+          pageDescription = page.metaDescription;
+          pageType = page.type;
+          if (page.content?.body) {
+            pageBody = stripMarkdownForPrompt(page.content.body, 600);
+          }
+        }
+      }
+
+      // Step 2: Check coherence of existing creative
+      const landingPage =
+        pageTitle || pageBody
+          ? {
+              title: pageTitle,
+              description: pageDescription,
+              bodyExcerpt: pageBody,
+              type: pageType || campaign.landingPageType,
+              productCount: campaign.landingPageProducts,
+            }
+          : null;
+
+      const coherence = await checkAdCoherence({
+        headline,
+        body,
+        callToAction,
+        imageUrl: existingImageUrl,
+        imageSource: (existingCreative?.['imageSource'] as string) || undefined,
+        keywords: campaign.keywords,
+        landingPage,
       });
 
-      updated++;
-      console.log(
-        `[Ads Worker] Updated campaign "${campaign.name}" image: ${reviewed.selectedSource} (score: ${reviewed.score}/10)`
-      );
+      const coherenceScore = coherence?.score ?? null;
+      const coherencePass = coherence?.pass ?? true; // Default to pass if check unavailable
+
+      // Step 3: Decide action based on coherence
+      if (!coherencePass && coherence) {
+        // --- FULL REMEDIATION: text + image + targeting ---
+        console.log(
+          `[Ads Worker] Remediating "${campaign.name}" (coherence: ${coherenceScore}/10): ${coherence.issues.join('; ')}`
+        );
+
+        // Regenerate the full creative (text + image) with landing page context
+        const creative = await generateAdCreative({
+          keywords: campaign.keywords,
+          siteId: campaign.siteId,
+          micrositeId: campaign.micrositeId,
+          siteName: campaign.site?.name || 'Holibob',
+          landingPagePath: campaign.landingPagePath,
+          landingPageType: campaign.landingPageType,
+          landingPageProducts: campaign.landingPageProducts,
+          geoTargets: campaign.geoTargets,
+        });
+
+        // Update ad creative on Meta (text + image)
+        const ads = await metaClient.getAdsForCampaign(campaign.platformCampaignId!);
+        let adUpdated = false;
+        for (const ad of ads) {
+          const success = await metaClient.updateAdCreative(ad.id, {
+            pageId,
+            linkUrl: landingUrl,
+            headline: creative.headline,
+            body: creative.body,
+            imageUrl: creative.imageUrl || existingImageUrl || '',
+            callToAction: creative.callToAction,
+          });
+          if (success) adUpdated = true;
+        }
+
+        // Re-derive interest targeting from landing page content
+        let targetingUpdated = false;
+        if (pageTitle || pageBody) {
+          try {
+            const pageTerms = extractSearchTermsFromContent(pageTitle, pageBody);
+            if (pageTerms.length > 0) {
+              const newInterests = await findRelevantInterests(metaClient, pageTerms);
+              if (newInterests.length > 0) {
+                const adSets = await metaClient.getAdSetsForCampaign(campaign.platformCampaignId!);
+                for (const adSet of adSets) {
+                  const success = await metaClient.updateAdSetTargeting(adSet.id, {
+                    countries: [...SOURCE_MARKETS],
+                    interests: newInterests,
+                    ageMin: 18,
+                    ageMax: 65,
+                  });
+                  if (success) targetingUpdated = true;
+                }
+              }
+            }
+          } catch (err) {
+            console.warn(
+              `[Ads Worker] Targeting update failed for "${campaign.name}": ${err instanceof Error ? err.message : err}`
+            );
+          }
+        }
+
+        // Persist all updated metadata
+        await prisma.adCampaign.update({
+          where: { id: campaign.id },
+          data: {
+            proposalData: {
+              ...(typeof proposalData === 'object' && proposalData !== null ? proposalData : {}),
+              generatedCreative: {
+                headline: creative.headline,
+                body: creative.body,
+                callToAction: creative.callToAction,
+                imageUrl: creative.imageUrl,
+                source: creative.source,
+                imageSource: creative.imageSource || null,
+                imageReviewScore: creative.imageReviewScore || null,
+                imageReviewReasoning: creative.imageReviewReasoning || null,
+                coherenceScore: creative.coherenceScore ?? coherenceScore,
+                coherencePass: creative.coherencePass ?? false,
+                coherenceIssues: creative.coherenceIssues || coherence.issues,
+                coherenceSummary: creative.coherenceSummary || coherence.summary,
+                remediated: true,
+                targetingUpdated,
+                remediatedAt: new Date().toISOString(),
+              },
+            },
+          },
+        });
+
+        if (adUpdated) {
+          remediated++;
+          console.log(
+            `[Ads Worker] Remediated "${campaign.name}": new text + image + ${targetingUpdated ? 'targeting' : 'no targeting change'} (coherence: ${creative.coherenceScore ?? coherenceScore}/10)`
+          );
+        } else {
+          failed++;
+        }
+      } else {
+        // --- IMAGE-ONLY REFRESH (existing behavior) ---
+        const reviewed = await reviewImageForCampaign({
+          keywords: campaign.keywords,
+          micrositeId: campaign.micrositeId,
+          siteId: campaign.siteId,
+          headline,
+          body,
+          brandName: campaign.site?.name || campaign.name,
+        });
+
+        if (!reviewed || reviewed.selectedUrl === existingImageUrl) {
+          // Persist coherence score even if image didn't change
+          if (coherence) {
+            await prisma.adCampaign.update({
+              where: { id: campaign.id },
+              data: {
+                proposalData: {
+                  ...(typeof proposalData === 'object' && proposalData !== null
+                    ? proposalData
+                    : {}),
+                  generatedCreative: {
+                    ...(typeof existingCreative === 'object' && existingCreative !== null
+                      ? existingCreative
+                      : {}),
+                    coherenceScore: coherence.score,
+                    coherencePass: coherence.pass,
+                    coherenceIssues: coherence.issues,
+                    coherenceSummary: coherence.summary,
+                    coherenceCheckedAt: new Date().toISOString(),
+                  },
+                },
+              },
+            });
+          }
+          skipped++;
+          continue;
+        }
+
+        // Get ads and update image
+        const ads = await metaClient.getAdsForCampaign(campaign.platformCampaignId!);
+        if (ads.length === 0) {
+          skipped++;
+          continue;
+        }
+
+        let adUpdated = false;
+        for (const ad of ads) {
+          const success = await metaClient.updateAdCreative(ad.id, {
+            pageId,
+            linkUrl: landingUrl,
+            headline,
+            body,
+            imageUrl: reviewed.selectedUrl,
+            callToAction,
+          });
+          if (success) adUpdated = true;
+        }
+
+        if (!adUpdated) {
+          failed++;
+          continue;
+        }
+
+        // Persist image review + coherence metadata
+        await prisma.adCampaign.update({
+          where: { id: campaign.id },
+          data: {
+            proposalData: {
+              ...(typeof proposalData === 'object' && proposalData !== null ? proposalData : {}),
+              generatedCreative: {
+                ...(typeof existingCreative === 'object' && existingCreative !== null
+                  ? existingCreative
+                  : {}),
+                imageUrl: reviewed.selectedUrl,
+                imageSource: reviewed.selectedSource,
+                imageReviewScore: reviewed.score,
+                imageReviewReasoning: reviewed.reasoning,
+                coherenceScore: coherence?.score ?? null,
+                coherencePass: coherence?.pass ?? null,
+                coherenceIssues: coherence?.issues || null,
+                coherenceSummary: coherence?.summary || null,
+                imageRefreshedAt: new Date().toISOString(),
+              },
+            },
+          },
+        });
+
+        imageOnly++;
+        console.log(
+          `[Ads Worker] Updated "${campaign.name}" image: ${reviewed.selectedSource} (score: ${reviewed.score}/10, coherence: ${coherenceScore ?? 'N/A'}/10)`
+        );
+      }
     } catch (err) {
       console.error(
         `[Ads Worker] Failed to refresh campaign "${campaign.name}": ${err instanceof Error ? err.message : err}`
@@ -1758,13 +1952,13 @@ export async function handleAdCreativeRefresh(_job: Job): Promise<JobResult> {
     }
   }
 
-  const message = `Creative refresh complete: ${updated} updated, ${skipped} skipped, ${failed} failed`;
+  const message = `Creative refresh complete: ${remediated} remediated, ${imageOnly} image-only, ${skipped} skipped, ${failed} failed`;
   console.log(`[Ads Worker] ${message}`);
 
   return {
     success: failed === 0,
     message,
-    data: { total: campaigns.length, updated, skipped, failed },
+    data: { total: campaigns.length, remediated, imageOnly, skipped, failed },
     timestamp: new Date(),
   };
 }

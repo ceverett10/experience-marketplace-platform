@@ -11,6 +11,7 @@
 
 import { prisma } from '@experience-marketplace/database';
 import { circuitBreakers } from '../errors/circuit-breaker';
+import { checkAdCoherence, type CoherenceCheckInput } from './ad-coherence-checker';
 import { reviewImageForCampaign } from './ad-image-reviewer';
 
 export interface AdCreative {
@@ -23,6 +24,12 @@ export interface AdCreative {
   imageSource?: string; // 'product' | 'supplier' | 'unsplash' | 'site'
   imageReviewScore?: number; // 1-10
   imageReviewReasoning?: string; // AI explanation
+  // Coherence check metadata (populated when coherence checker validates the full package)
+  coherenceScore?: number; // 1-10
+  coherencePass?: boolean; // score >= 6
+  coherenceIssues?: string[]; // Specific misalignment problems
+  coherenceSummary?: string; // One-sentence assessment
+  remediated?: boolean; // true if text was regenerated due to low coherence
 }
 
 export interface AdCreativeInput {
@@ -60,6 +67,82 @@ export async function generateAdCreative(input: AdCreativeInput): Promise<AdCrea
   }
 
   // Step 2: AI image review — select best image from multiple sources
+  creative = await runImageReview(creative, input, context);
+
+  // Step 3: Coherence check — validate full creative against landing page
+  const landingPage = buildLandingPageContext(context, input.landingPageProducts);
+  try {
+    const coherence = await checkAdCoherence({
+      headline: creative.headline,
+      body: creative.body,
+      callToAction: creative.callToAction,
+      imageUrl: creative.imageUrl,
+      imageSource: creative.imageSource,
+      keywords: input.keywords,
+      landingPage,
+    });
+    if (coherence) {
+      creative.coherenceScore = coherence.score;
+      creative.coherencePass = coherence.pass;
+      creative.coherenceIssues = coherence.issues;
+      creative.coherenceSummary = coherence.summary;
+
+      console.log(
+        `[AdCreative] Coherence: ${coherence.score}/10 ${coherence.pass ? 'PASS' : 'FAIL'} — ${coherence.summary}`
+      );
+
+      // Step 4: Remediation — if coherence fails, regenerate with issues as constraints
+      if (!coherence.pass && coherence.issues.length > 0) {
+        console.log(`[AdCreative] Remediating: issues = ${coherence.issues.join('; ')}`);
+        try {
+          const remediated = await generateWithAI(input, context, coherence.issues);
+          if (remediated) {
+            remediated.remediated = true;
+            // Re-run image review with updated text
+            const withImage = await runImageReview(remediated, input, context);
+            // Re-check coherence (accept whatever score — don't loop further)
+            const recheck = await checkAdCoherence({
+              headline: withImage.headline,
+              body: withImage.body,
+              callToAction: withImage.callToAction,
+              imageUrl: withImage.imageUrl,
+              imageSource: withImage.imageSource,
+              keywords: input.keywords,
+              landingPage,
+            });
+            if (recheck) {
+              withImage.coherenceScore = recheck.score;
+              withImage.coherencePass = recheck.pass;
+              withImage.coherenceIssues = recheck.issues;
+              withImage.coherenceSummary = recheck.summary;
+              console.log(
+                `[AdCreative] Post-remediation coherence: ${recheck.score}/10 ${recheck.pass ? 'PASS' : 'FAIL'}`
+              );
+            }
+            creative = withImage;
+          }
+        } catch (err) {
+          console.warn(
+            `[AdCreative] Remediation failed, keeping original: ${err instanceof Error ? err.message : err}`
+          );
+        }
+      }
+    }
+  } catch (err) {
+    console.warn(
+      `[AdCreative] Coherence check failed: ${err instanceof Error ? err.message : err}`
+    );
+  }
+
+  return creative;
+}
+
+/** Run AI image review and attach results to creative. */
+async function runImageReview(
+  creative: AdCreative,
+  input: AdCreativeInput,
+  context: SiteContext | null
+): Promise<AdCreative> {
   try {
     const reviewed = await reviewImageForCampaign({
       keywords: input.keywords,
@@ -79,10 +162,23 @@ export async function generateAdCreative(input: AdCreativeInput): Promise<AdCrea
     console.warn(
       `[AdCreative] Image review failed, using fallback: ${err instanceof Error ? err.message : err}`
     );
-    // creative.imageUrl already has fallback from fetchSiteContext
   }
-
   return creative;
+}
+
+/** Build landing page context object for coherence check from SiteContext. */
+function buildLandingPageContext(
+  context: SiteContext | null,
+  productCount?: number | null
+): CoherenceCheckInput['landingPage'] {
+  if (!context?.pageTitle && !context?.pageBody) return null;
+  return {
+    title: context?.pageTitle ?? null,
+    description: context?.pageDescription ?? null,
+    bodyExcerpt: context?.pageBody ?? null,
+    type: context?.pageType ?? null,
+    productCount: productCount ?? null,
+  };
 }
 
 // --- Context Fetching --------------------------------------------------------
@@ -94,6 +190,8 @@ interface SiteContext {
   niche: string;
   pageTitle: string | null;
   pageDescription: string | null;
+  pageBody: string | null; // First ~600 chars of landing page content (markdown stripped)
+  pageType: string | null; // LANDING, CATEGORY, BLOG, etc.
   imageUrl: string | null;
 }
 
@@ -125,17 +223,28 @@ async function fetchSiteContext(
   const homepageConfig = site.homepageConfig as Record<string, unknown> | null;
   const hero = homepageConfig?.['hero'] as Record<string, unknown> | undefined;
 
-  // Fetch landing page title/description if available
+  // Fetch landing page title/description/body if available
   let pageTitle: string | null = null;
   let pageDescription: string | null = null;
+  let pageBody: string | null = null;
+  let pageType: string | null = null;
   if (landingPagePath) {
     const page = await prisma.page.findFirst({
       where: { siteId, slug: landingPagePath, status: 'PUBLISHED' },
-      select: { title: true, metaDescription: true },
+      select: {
+        title: true,
+        metaDescription: true,
+        type: true,
+        content: { select: { body: true } },
+      },
     });
     if (page) {
       pageTitle = page.title;
       pageDescription = page.metaDescription;
+      pageType = page.type;
+      if (page.content?.body) {
+        pageBody = stripMarkdownForPrompt(page.content.body, 600);
+      }
     }
   }
 
@@ -153,6 +262,8 @@ async function fetchSiteContext(
       'travel experiences',
     pageTitle,
     pageDescription,
+    pageBody,
+    pageType,
     imageUrl,
   };
 }
@@ -161,7 +272,8 @@ async function fetchSiteContext(
 
 async function generateWithAI(
   input: AdCreativeInput,
-  context: SiteContext | null
+  context: SiteContext | null,
+  coherenceIssues?: string[]
 ): Promise<AdCreative | null> {
   const anthropicApiKey = process.env['ANTHROPIC_API_KEY'];
   if (!anthropicApiKey) return null;
@@ -195,13 +307,23 @@ async function generateWithAI(
   if (context?.pageDescription) {
     contextLines.push(`Page description: ${context.pageDescription.substring(0, 150)}`);
   }
+  if (context?.pageBody) {
+    contextLines.push(`Landing page content: "${context.pageBody.substring(0, 200)}..."`);
+  }
+
+  // When remediating, add explicit constraints from the coherence check
+  const remediationBlock = coherenceIssues?.length
+    ? `\nCOHERENCE ISSUES TO FIX (from previous review):
+${coherenceIssues.map((issue) => `- ${issue}`).join('\n')}
+You MUST address each issue above. Ensure the ad copy aligns with the landing page content.\n`
+    : '';
 
   const prompt = `You are a performance marketing copywriter for a travel experiences platform.
 Brand: "${brand}". Tone: ${tone}.
 Target keyword: ${primaryKw}
 Destination/activity: ${destination}
 ${contextLines.length > 0 ? contextLines.join('\n') : ''}
-
+${remediationBlock}
 Write a Facebook ad for "${destination}" experiences that drives clicks.
 
 CRITICAL RULES:
@@ -360,4 +482,22 @@ export function toTitleCase(str: string): string {
       return word.toLowerCase();
     })
     .join(' ');
+}
+
+/**
+ * Strip markdown formatting for cleaner AI prompt text.
+ * Removes headers, links, bold, horizontal rules, etc.
+ */
+export function stripMarkdownForPrompt(body: string, maxLen: number): string {
+  return body
+    .replace(/^#{1,6}\s+/gm, '') // Remove markdown headers
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1') // [text](url) → text
+    .replace(/\*\*([^*]*)\*\*/g, '$1') // **bold** → bold
+    .replace(/\*([^*]*)\*/g, '$1') // *italic* → italic
+    .replace(/^[-*_]{3,}\s*$/gm, '') // Remove horizontal rules
+    .replace(/^[>]\s*/gm, '') // Remove blockquotes
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, '') // Remove images
+    .replace(/\n{3,}/g, '\n\n') // Collapse excessive newlines
+    .trim()
+    .substring(0, maxLen);
 }
