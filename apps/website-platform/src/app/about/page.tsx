@@ -383,8 +383,8 @@ function MicrositeAbout({ siteName }: { siteName: string }) {
           <h2 className="text-2xl font-bold text-gray-900">What is Experiencess.com?</h2>
           <p className="mt-4 leading-7 text-gray-700">
             Experiencess.com is a trusted network of specialist travel experience brands. Each brand
-            in our network focuses on a specific destination, activity type, or travel niche — making
-            it easy for you to find exactly the right experience for your next adventure.
+            in our network focuses on a specific destination, activity type, or travel niche —
+            making it easy for you to find exactly the right experience for your next adventure.
           </p>
           <p className="mt-4 leading-7 text-gray-700">
             {siteName} is part of this network, providing curated experiences backed by the full
@@ -411,8 +411,8 @@ function MicrositeAbout({ siteName }: { siteName: string }) {
               </div>
               <h3 className="mt-4 font-semibold text-gray-900">Secure Payments</h3>
               <p className="mt-2 text-sm leading-6 text-gray-600">
-                All payments are processed securely using bank-grade encryption via Stripe. Your
-                financial information is never stored on our servers.
+                All payments are processed securely via Stripe, a PCI DSS Level 1 certified payment
+                provider. Your financial information is never stored on our servers.
               </p>
             </div>
 
@@ -434,8 +434,8 @@ function MicrositeAbout({ siteName }: { siteName: string }) {
               </div>
               <h3 className="mt-4 font-semibold text-gray-900">Verified Operators</h3>
               <p className="mt-2 text-sm leading-6 text-gray-600">
-                Every experience provider in our network is vetted and verified. We partner only with
-                established, reputable operators.
+                Every experience provider in our network is vetted and verified. We partner only
+                with established, reputable operators.
               </p>
             </div>
 
@@ -457,8 +457,8 @@ function MicrositeAbout({ siteName }: { siteName: string }) {
               </div>
               <h3 className="mt-4 font-semibold text-gray-900">Customer Protection</h3>
               <p className="mt-2 text-sm leading-6 text-gray-600">
-                Your booking is protected by our money-back guarantee. If an experience is not
-                delivered as described, you will receive a full refund.
+                Your booking is protected. Cancellation terms vary by experience — please review the
+                cancellation policy before completing your booking.
               </p>
             </div>
 
@@ -478,10 +478,10 @@ function MicrositeAbout({ siteName }: { siteName: string }) {
                   />
                 </svg>
               </div>
-              <h3 className="mt-4 font-semibold text-gray-900">24/7 Support</h3>
+              <h3 className="mt-4 font-semibold text-gray-900">Customer Support</h3>
               <p className="mt-2 text-sm leading-6 text-gray-600">
-                Our dedicated customer support team is available around the clock to help with any
-                questions or issues before, during, or after your experience.
+                Our customer support team is here to help with any questions or issues before,
+                during, or after your experience. Contact us at support@holibob.tech.
               </p>
             </div>
           </div>
@@ -499,9 +499,9 @@ function MicrositeAbout({ siteName }: { siteName: string }) {
               >
                 Holibob
               </a>
-              , a leading technology company in the travel experiences industry. Holibob provides the
-              booking technology, payment processing, and customer support infrastructure that powers
-              every brand in our network.
+              , a leading technology company in the travel experiences industry. Holibob provides
+              the booking technology, payment processing, and customer support infrastructure that
+              powers every brand in our network.
             </p>
             <p className="mt-4 leading-7 text-gray-700">
               Holibob Ltd is registered in Scotland (SC631937) and connects travellers with

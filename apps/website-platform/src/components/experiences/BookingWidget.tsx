@@ -103,34 +103,13 @@ export function BookingWidget({ experience, bookingStats }: BookingWidgetProps) 
               <div>
                 <p className="text-sm font-semibold text-gray-900">Free cancellation</p>
                 <p className="text-xs text-gray-500">
-                  Cancel up to 24 hours before the activity for a full refund
+                  Cancellation terms apply — check the experience details for the full policy
                 </p>
               </div>
             </div>
           )}
 
-          {/* Reserve Now Pay Later */}
-          <div className="flex items-start gap-3">
-            <svg
-              className="mt-0.5 h-5 w-5 flex-shrink-0 text-emerald-500"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path
-                fillRule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
-                clipRule="evenodd"
-              />
-            </svg>
-            <div>
-              <p className="text-sm font-semibold text-gray-900">Reserve now & pay later</p>
-              <p className="text-xs text-gray-500">
-                Keep your travel plans flexible — book your spot and pay nothing today
-              </p>
-            </div>
-          </div>
-
-          {/* Best Price Guarantee */}
+          {/* Secure Payment */}
           <div className="flex items-start gap-3">
             <svg
               className="mt-0.5 h-5 w-5 flex-shrink-0 text-emerald-500"
@@ -146,8 +125,8 @@ export function BookingWidget({ experience, bookingStats }: BookingWidgetProps) 
               />
             </svg>
             <div>
-              <p className="text-sm font-semibold text-gray-900">Best price guarantee</p>
-              <p className="text-xs text-gray-500">Find it cheaper? We&apos;ll match the price</p>
+              <p className="text-sm font-semibold text-gray-900">Secure payment</p>
+              <p className="text-xs text-gray-500">Payments processed securely via Stripe</p>
             </div>
           </div>
         </div>

@@ -138,8 +138,9 @@ async function generateWithAI(
   const primaryKw = input.keywords[0] || 'travel';
   const brand = context?.brandName || input.siteName;
   const tagline = context?.tagline ? ` (${context.tagline})` : '';
-  const tone =
-    context?.tonePersonality.length ? context.tonePersonality.join(', ') : 'friendly, enthusiastic';
+  const tone = context?.tonePersonality.length
+    ? context.tonePersonality.join(', ')
+    : 'friendly, enthusiastic';
   const niche = context?.niche || 'travel experiences';
 
   // Extract destination from keyword (title-case it)
@@ -150,7 +151,8 @@ async function generateWithAI(
   if (input.landingPageType) {
     const parts = [`Landing page type: ${input.landingPageType}`];
     if (context?.pageTitle) parts.push(`"${context.pageTitle}"`);
-    if (input.landingPageProducts) parts.push(`(${input.landingPageProducts} experiences available)`);
+    if (input.landingPageProducts)
+      parts.push(`(${input.landingPageProducts} experiences available)`);
     contextLines.push(parts.join(' — '));
   }
   if (input.geoTargets.length > 0) {
@@ -175,13 +177,13 @@ CRITICAL RULES:
 - The ad MUST be specifically about "${destination}". Do NOT mention activities or locations that are not relevant to "${destination}".
 - Do NOT reference the brand's other activities (e.g., do NOT mention whitewater, rafting, or other sports unless the keyword is specifically about those activities in ${destination}).
 - HEADLINE: Max 40 characters. Include "${destination}" or a shortened form. Be specific and enticing.
-- BODY: Max 125 characters. Focus on what travelers can do in ${destination}. Do NOT invent specific numbers (star ratings, prices, experience counts). Mention "free cancellation" or "book today" as CTA.
+- BODY: Max 125 characters. Focus on what travelers can do in ${destination}. Do NOT invent specific numbers (star ratings, prices, experience counts). Do NOT claim "free cancellation" — use "book today" or "explore now" as CTA instead.
 - CTA: BOOK_TRAVEL, LEARN_MORE, or SHOP_NOW
 
 Good headlines: "Discover Ghent: Tours & Activities" / "Wine Tasting in Tuscany?" / "Explore Leiden Today"
 Bad headlines: "Restaurants Ghent | Harry Potter Tours" / "Book Travel Experiences" / "Epic Whitewater in Ghent"
 
-Good body: "Walking tours, food tours & more in Ghent. Free cancellation. Book today!"
+Good body: "Walking tours, food tours & more in Ghent. Book today!"
 Bad body: "Whitewater thrills and epic adventures await. Trusted by 10K+ explorers."
 
 Format EXACTLY as:
@@ -271,10 +273,8 @@ function generateFromTemplate(
   }
 
   // Build a better body using destination name
-  const body = `Tours, activities & experiences in ${destination}. Free cancellation. Book today!`.substring(
-    0,
-    125
-  );
+  const body =
+    `Tours, activities & experiences in ${destination}. Book today!`.substring(0, 125);
 
   return {
     headline,
@@ -298,7 +298,10 @@ function extractDestination(keyword: string): string {
   // Remove common prefixes and suffixes to extract the destination/activity core
   const cleaned = keyword
     .replace(/^(things to do in|what to do in|best things to do in|top things to do in)\s+/i, '')
-    .replace(/^(restaurants in|restaurants|hotels in|hotels|wildlife in|activities in|tours in)\s+/i, '')
+    .replace(
+      /^(restaurants in|restaurants|hotels in|hotels|wildlife in|activities in|tours in)\s+/i,
+      ''
+    )
     .replace(/^(train|bus|flight|ferry|transfer)\s+/i, '')
     .replace(/\s+(opening hours|opening times|hours|tickets|prices|cost|review|reviews)$/i, '')
     .replace(/\s+(tourism|resort|park|museum|gallery)$/i, '')
