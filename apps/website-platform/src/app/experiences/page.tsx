@@ -68,11 +68,12 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
     const urlCities = resolvedParams.cities?.split(',').filter(Boolean) ?? [];
     const urlCategories = resolvedParams.categories?.split(',').filter(Boolean) ?? [];
     const topCategory = urlCategories[0] ?? categories[0];
-    const topCity = urlCities.length === 1
-      ? urlCities[0]
-      : urlCities.length > 1
-        ? undefined // Multiple cities — use generic title
-        : cities[0];
+    const topCity =
+      urlCities.length === 1
+        ? urlCities[0]
+        : urlCities.length > 1
+          ? undefined // Multiple cities — use generic title
+          : cities[0];
 
     // Build specific title from site data
     if (topCategory && topCity) {
@@ -1108,7 +1109,15 @@ export default async function ExperiencesPage({ searchParams }: Props) {
   if (hasFilters && isPpcTraffic && experiences.length === 0) {
     // Preserve UTM params on redirect so attribution isn't lost
     const utmParams = new URLSearchParams();
-    for (const key of ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'fbclid', 'gclid']) {
+    for (const key of [
+      'utm_source',
+      'utm_medium',
+      'utm_campaign',
+      'utm_content',
+      'utm_term',
+      'fbclid',
+      'gclid',
+    ]) {
       if (resolvedSearchParams[key]) {
         utmParams.set(key, resolvedSearchParams[key]!);
       }
@@ -1156,16 +1165,19 @@ export default async function ExperiencesPage({ searchParams }: Props) {
       const urlCities = resolvedSearchParams.cities?.split(',').filter(Boolean) ?? [];
       const urlCategories = resolvedSearchParams.categories?.split(',').filter(Boolean) ?? [];
 
-      const topCity = urlCities.length === 1
-        ? urlCities[0]
-        : urlCities.length > 1
-          ? undefined
-          : ctx?.supplierCities?.[0] ?? site.homepageConfig?.destinations?.[0]?.name;
-      const topCategory = urlCategories.length === 1
-        ? urlCategories[0]
-        : urlCategories.length > 1
-          ? undefined
-          : ctx?.supplierCategories?.[0] ?? site.homepageConfig?.categories?.map((c) => c.name)?.[0];
+      const topCity =
+        urlCities.length === 1
+          ? urlCities[0]
+          : urlCities.length > 1
+            ? undefined
+            : (ctx?.supplierCities?.[0] ?? site.homepageConfig?.destinations?.[0]?.name);
+      const topCategory =
+        urlCategories.length === 1
+          ? urlCategories[0]
+          : urlCategories.length > 1
+            ? undefined
+            : (ctx?.supplierCategories?.[0] ??
+              site.homepageConfig?.categories?.map((c) => c.name)?.[0]);
 
       let marketplaceTitle = 'All Experiences & Tours';
       let marketplaceSubtitle = `Explore our curated collection of tours and activities`;

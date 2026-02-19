@@ -34,9 +34,7 @@ export interface ContentGapResult {
 /**
  * Analyze keyword data to find content gaps and create linkable asset suggestions.
  */
-export async function runContentGapAnalysis(
-  maxSites: number = 10
-): Promise<ContentGapResult> {
+export async function runContentGapAnalysis(maxSites: number = 10): Promise<ContentGapResult> {
   const dfClient = getClient();
 
   // Get sites with keyword data

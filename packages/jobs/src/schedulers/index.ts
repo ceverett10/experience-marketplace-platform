@@ -276,27 +276,15 @@ export async function initializeScheduledJobs(): Promise<void> {
   console.log('[Scheduler] ✓ Cross-Site Link Enrichment - Daily at 9 PM (5% per run)');
 
   // Competitor Discovery - Monthly on 1st at 4 AM
-  await scheduleJob(
-    'LINK_COMPETITOR_DISCOVERY' as any,
-    { maxSites: 20 } as any,
-    '0 4 1 * *'
-  );
+  await scheduleJob('LINK_COMPETITOR_DISCOVERY' as any, { maxSites: 20 } as any, '0 4 1 * *');
   console.log('[Scheduler] ✓ Competitor Discovery - Monthly 1st at 4 AM');
 
   // Broken Link Scan - Monthly on 15th at 4 AM
-  await scheduleJob(
-    'LINK_BROKEN_LINK_SCAN' as any,
-    { maxDomains: 20 } as any,
-    '0 4 15 * *'
-  );
+  await scheduleJob('LINK_BROKEN_LINK_SCAN' as any, { maxDomains: 20 } as any, '0 4 15 * *');
   console.log('[Scheduler] ✓ Broken Link Scan - Monthly 15th at 4 AM');
 
   // Content Gap Analysis - Monthly on 20th at 4 AM
-  await scheduleJob(
-    'LINK_CONTENT_GAP_ANALYSIS' as any,
-    { maxSites: 10 } as any,
-    '0 4 20 * *'
-  );
+  await scheduleJob('LINK_CONTENT_GAP_ANALYSIS' as any, { maxSites: 10 } as any, '0 4 20 * *');
   console.log('[Scheduler] ✓ Content Gap Analysis - Monthly 20th at 4 AM');
 
   // Daily Content Generation - Staggered throughout the day

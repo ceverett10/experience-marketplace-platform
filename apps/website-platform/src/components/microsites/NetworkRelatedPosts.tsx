@@ -16,9 +16,7 @@ export function NetworkRelatedPosts({ posts }: NetworkRelatedPostsProps) {
     <section className="border-t border-gray-200 bg-white py-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <h2 className="text-xl font-bold text-gray-900">Related Articles from Our Network</h2>
-        <p className="mt-1 text-sm text-gray-500">
-          Discover more from the Experiencess network
-        </p>
+        <p className="mt-1 text-sm text-gray-500">Discover more from the Experiencess network</p>
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {posts.map((post) => (

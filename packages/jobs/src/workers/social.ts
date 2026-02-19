@@ -16,13 +16,21 @@ import {
 } from '../services/social/caption-generator';
 import { selectImageForPost } from '../services/social/image-selector';
 import { refreshTokenIfNeeded } from '../services/social/token-refresh';
-import { createPinterestPin, findOrCreatePinterestBoard } from '../services/social/pinterest-client';
+import {
+  createPinterestPin,
+  findOrCreatePinterestBoard,
+} from '../services/social/pinterest-client';
 import { createFacebookPost, getPageAccessToken } from '../services/social/facebook-client';
 import { createTweet } from '../services/social/twitter-client';
 import { canExecuteAutonomousOperation } from '../services/pause-control';
 
 type SocialPlatform = 'PINTEREST' | 'FACEBOOK' | 'TWITTER';
-type ContentType = 'blog_promo' | 'engagement' | 'travel_tip' | 'network_amplification' | 'microsite_blog_promo';
+type ContentType =
+  | 'blog_promo'
+  | 'engagement'
+  | 'travel_tip'
+  | 'network_amplification'
+  | 'microsite_blog_promo';
 
 const MAX_POSTS_PER_DAY = 7; // Per platform account per day
 const PEAK_START_HOUR = 9; // 9 AM local
@@ -195,8 +203,10 @@ export async function handleSocialDailyPosting(
     if (!postingSite) continue;
 
     // Schedule 2 microsite blog promo posts at different times during peak hours
-    const micrositeSlots = calculatePostingSlots(MICROSITE_POSTS_PER_DAY + 2)
-      .slice(1, MICROSITE_POSTS_PER_DAY + 1); // Pick middle slots to avoid overlap with main posts
+    const micrositeSlots = calculatePostingSlots(MICROSITE_POSTS_PER_DAY + 2).slice(
+      1,
+      MICROSITE_POSTS_PER_DAY + 1
+    ); // Pick middle slots to avoid overlap with main posts
 
     for (let i = 0; i < micrositeSlots.length; i++) {
       const delayMs = calculateDelayForSlot(micrositeSlots[i]!, postingSite.timezone);
@@ -224,7 +234,10 @@ export async function handleSocialDailyPosting(
           `[Social] Scheduled ${postingSite.siteName}/${postingSite.platform} — microsite_blog_promo in ${delayMin} min`
         );
       } catch (err) {
-        console.warn(`[Social] Failed to queue microsite blog promo for ${postingSite.siteName}/${postingSite.platform}:`, err);
+        console.warn(
+          `[Social] Failed to queue microsite blog promo for ${postingSite.siteName}/${postingSite.platform}:`,
+          err
+        );
       }
     }
   }
@@ -236,7 +249,12 @@ export async function handleSocialDailyPosting(
   return {
     success: true,
     message: `Scheduled ${totalQueued} site posts + ${micrositeQueued} microsite promos (${totalDeferred} deferred)`,
-    data: { queued: totalQueued, micrositeQueued, deferred: totalDeferred, schedule: scheduledDetails },
+    data: {
+      queued: totalQueued,
+      micrositeQueued,
+      deferred: totalDeferred,
+      schedule: scheduledDetails,
+    },
     timestamp: new Date(),
   };
 }
@@ -247,7 +265,12 @@ export async function handleSocialDailyPosting(
  */
 async function getContentTypeRotation(siteIds: string[]): Promise<Map<string, ContentType>> {
   const rotation: Map<string, ContentType> = new Map();
-  const contentCycle: ContentType[] = ['blog_promo', 'engagement', 'travel_tip', 'network_amplification'];
+  const contentCycle: ContentType[] = [
+    'blog_promo',
+    'engagement',
+    'travel_tip',
+    'network_amplification',
+  ];
 
   for (const siteId of siteIds) {
     // Count recent posts by content type (last 7 days)
@@ -263,7 +286,13 @@ async function getContentTypeRotation(siteIds: string[]): Promise<Map<string, Co
     });
 
     // Count by content type
-    const counts: Record<ContentType, number> = { blog_promo: 0, engagement: 0, travel_tip: 0, network_amplification: 0, microsite_blog_promo: 0 };
+    const counts: Record<ContentType, number> = {
+      blog_promo: 0,
+      engagement: 0,
+      travel_tip: 0,
+      network_amplification: 0,
+      microsite_blog_promo: 0,
+    };
     for (const post of recentPosts) {
       const data = post.generationData as Record<string, unknown> | null;
       const ct = (data?.['contentType'] as ContentType) || 'blog_promo';
@@ -624,14 +653,17 @@ async function generateNetworkAmplificationPost(
 
   const seoConfig = site.seoConfig as Record<string, unknown> | null;
   const keywords = (seoConfig?.['keywords'] as string[]) || [];
-  const niche = (seoConfig?.['niche'] as string) || (seoConfig?.['primaryCategory'] as string) || '';
+  const niche =
+    (seoConfig?.['niche'] as string) || (seoConfig?.['primaryCategory'] as string) || '';
 
   // Find active microsites with published blogs
   // Use keyword/niche matching in blog titles for relevance
   const searchTerms = [...keywords.slice(0, 3), niche].filter(Boolean);
 
   if (searchTerms.length === 0) {
-    console.log(`[Social] Site ${siteId} has no keywords for network matching, falling back to engagement`);
+    console.log(
+      `[Social] Site ${siteId} has no keywords for network matching, falling back to engagement`
+    );
     return await generateNonBlogPost(siteId, platform, accountId, 'engagement');
   }
 

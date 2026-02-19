@@ -755,7 +755,9 @@ export async function handleAutoOptimize(job: Job<SEOAutoOptimizePayload>): Prom
 
         for (const ms of batch) {
           try {
-            const msOwner: import('../services/seo-optimizer').PageOwnerFilter = { micrositeId: ms.id };
+            const msOwner: import('../services/seo-optimizer').PageOwnerFilter = {
+              micrositeId: ms.id,
+            };
             await autoOptimizeSiteSEO('', msOwner);
             await addMissingStructuredData('', msOwner);
             await flagThinContentForExpansion('', msOwner);
@@ -763,7 +765,10 @@ export async function handleAutoOptimize(job: Job<SEOAutoOptimizePayload>): Prom
             await fixMissingImageAltText('', msOwner);
             micrositesProcessed++;
           } catch (err) {
-            console.warn(`[Auto SEO] Microsite ${ms.siteName} failed:`, err instanceof Error ? err.message : err);
+            console.warn(
+              `[Auto SEO] Microsite ${ms.siteName} failed:`,
+              err instanceof Error ? err.message : err
+            );
           }
         }
 

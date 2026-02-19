@@ -507,7 +507,9 @@ export async function bulkSyncAllProducts(): Promise<ProductSyncResult> {
     const response = await client.getAllProducts();
     const allProducts = response.nodes;
     productsDiscovered = allProducts.length;
-    console.log(`[Bulk Product Sync] Fetched ${productsDiscovered} products (recordCount: ${response.recordCount})`);
+    console.log(
+      `[Bulk Product Sync] Fetched ${productsDiscovered} products (recordCount: ${response.recordCount})`
+    );
 
     // Step 2: Build a map of holibobSupplierId → local Supplier record
     const suppliers = await prisma.supplier.findMany({

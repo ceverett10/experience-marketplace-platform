@@ -665,10 +665,7 @@ export class DataForSEOClient {
       urls: string[];
     }>
   > {
-    const domainData = new Map<
-      string,
-      { positions: number[]; urls: Set<string> }
-    >();
+    const domainData = new Map<string, { positions: number[]; urls: Set<string> }>();
 
     // Check up to 10 keywords to keep costs reasonable
     for (const keyword of keywords.slice(0, 10)) {
@@ -678,9 +675,12 @@ export class DataForSEOClient {
           // Skip our own domain
           if (ourDomain && result.domain.includes(ourDomain)) continue;
           // Skip generic aggregators
-          if (['tripadvisor.com', 'yelp.com', 'google.com', 'wikipedia.org', 'facebook.com'].some(
-            (d) => result.domain.includes(d)
-          )) continue;
+          if (
+            ['tripadvisor.com', 'yelp.com', 'google.com', 'wikipedia.org', 'facebook.com'].some(
+              (d) => result.domain.includes(d)
+            )
+          )
+            continue;
 
           if (!domainData.has(result.domain)) {
             domainData.set(result.domain, { positions: [], urls: new Set() });

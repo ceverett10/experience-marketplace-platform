@@ -57,7 +57,9 @@ export async function runBrokenLinkDiscovery(
   });
 
   if (opportunities.length === 0) {
-    console.log('[Broken Link Discovery] No competitor domains to scan. Run competitor discovery first.');
+    console.log(
+      '[Broken Link Discovery] No competitor domains to scan. Run competitor discovery first.'
+    );
     return { domainsScanned: 0, brokenLinksFound: 0, opportunitiesCreated: 0 };
   }
 

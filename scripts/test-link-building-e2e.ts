@@ -174,7 +174,8 @@ async function testBlogCrossSiteLinks() {
     if (!body) continue;
 
     // Find cross-site links (links to *.experiencess.com)
-    const linkMatches = body.match(/\[([^\]]+)\]\(https?:\/\/[a-z0-9-]+\.experiencess\.com\/[^)]*\)/gi) || [];
+    const linkMatches =
+      body.match(/\[([^\]]+)\]\(https?:\/\/[a-z0-9-]+\.experiencess\.com\/[^)]*\)/gi) || [];
 
     if (linkMatches.length > 0) {
       blogsWithLinks++;
@@ -182,7 +183,9 @@ async function testBlogCrossSiteLinks() {
 
       // Check link density (max 3 cross-site links per post)
       if (linkMatches.length > 3) {
-        warnings.push(`"${blog.title}" has ${linkMatches.length} cross-site links (max 3 recommended)`);
+        warnings.push(
+          `"${blog.title}" has ${linkMatches.length} cross-site links (max 3 recommended)`
+        );
       }
 
       // Check anchor text quality
@@ -240,7 +243,8 @@ async function testLinksPointToPublishedPages() {
   const targetUrls: Array<{ domain: string; slug: string }> = [];
 
   for (const content of contents) {
-    const matches = content.body.match(/\]\(https?:\/\/([a-z0-9-]+\.experiencess\.com)\/([^)]+)\)/gi) || [];
+    const matches =
+      content.body.match(/\]\(https?:\/\/([a-z0-9-]+\.experiencess\.com)\/([^)]+)\)/gi) || [];
     for (const match of matches) {
       const parts = match.match(/https?:\/\/([a-z0-9-]+\.experiencess\.com)\/([^)]+)\)/i);
       if (parts) {
@@ -302,11 +306,9 @@ async function testLinksPointToPublishedPages() {
   } else {
     const pct = Math.round((validTargets / sample.length) * 100);
     if (pct >= 80) {
-      pass(
-        'Link targets',
-        `${validTargets}/${sample.length} link targets are valid (${pct}%)`,
-        [`${invalidTargets} targets were invalid — may need cleanup`]
-      );
+      pass('Link targets', `${validTargets}/${sample.length} link targets are valid (${pct}%)`, [
+        `${invalidTargets} targets were invalid — may need cleanup`,
+      ]);
     } else {
       fail(
         'Link targets',
@@ -384,16 +386,11 @@ async function testNoReciprocalLinks() {
   }
 
   if (reciprocalPairs === 0) {
-    pass(
-      'No reciprocal links',
-      `Checked ${linkMap.size} domains, no reciprocal link pairs found`
-    );
+    pass('No reciprocal links', `Checked ${linkMap.size} domains, no reciprocal link pairs found`);
   } else if (reciprocalPairs <= 2) {
-    pass(
-      'No reciprocal links',
-      `${reciprocalPairs} reciprocal pair(s) found (minor)`,
-      ['A few reciprocal links are acceptable but should be monitored']
-    );
+    pass('No reciprocal links', `${reciprocalPairs} reciprocal pair(s) found (minor)`, [
+      'A few reciprocal links are acceptable but should be monitored',
+    ]);
   } else {
     fail(
       'No reciprocal links',
@@ -439,8 +436,11 @@ async function testDataForSEOJobs() {
       const daysAgo = Math.round(
         (Date.now() - latestJob.createdAt.getTime()) / (1000 * 60 * 60 * 24)
       );
-      const statusEmoji = latestJob.status === 'COMPLETED' ? '✓' : latestJob.status === 'FAILED' ? '✗' : '…';
-      log(`${jobType}: ${statusEmoji} ${latestJob.status} (${daysAgo}d ago)${latestJob.error ? ` — ERROR: ${latestJob.error.substring(0, 80)}` : ''}`);
+      const statusEmoji =
+        latestJob.status === 'COMPLETED' ? '✓' : latestJob.status === 'FAILED' ? '✗' : '…';
+      log(
+        `${jobType}: ${statusEmoji} ${latestJob.status} (${daysAgo}d ago)${latestJob.error ? ` — ERROR: ${latestJob.error.substring(0, 80)}` : ''}`
+      );
     } catch {
       log(`${jobType}: Not yet in database (migration pending)`);
     }

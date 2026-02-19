@@ -78,12 +78,14 @@ export default function SocialOverviewPage() {
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5">
-            {([
-              { value: '', label: 'All' },
-              { value: 'TWITTER', label: 'X' },
-              { value: 'PINTEREST', label: 'Pinterest' },
-              { value: 'FACEBOOK', label: 'Facebook' },
-            ] as const).map((opt) => (
+            {(
+              [
+                { value: '', label: 'All' },
+                { value: 'TWITTER', label: 'X' },
+                { value: 'PINTEREST', label: 'Pinterest' },
+                { value: 'FACEBOOK', label: 'Facebook' },
+              ] as const
+            ).map((opt) => (
               <button
                 key={opt.value}
                 onClick={() => setPlatformFilter(opt.value as PlatformFilter)}
@@ -93,7 +95,8 @@ export default function SocialOverviewPage() {
                     : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
-                {opt.value ? platformIcons[opt.value] + ' ' : ''}{opt.label}
+                {opt.value ? platformIcons[opt.value] + ' ' : ''}
+                {opt.label}
               </button>
             ))}
           </div>

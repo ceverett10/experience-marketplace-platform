@@ -2,8 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@experience-marketplace/database';
 import { createCipheriv, randomBytes } from 'crypto';
 
-const ADMIN_BASE_URL =
-  process.env['ADMIN_BASE_URL'] || 'https://admin.experiencess.com';
+const ADMIN_BASE_URL = process.env['ADMIN_BASE_URL'] || 'https://admin.experiencess.com';
 
 function getCallbackUrl(platform: string): string {
   return `${ADMIN_BASE_URL}/api/social/callback/${platform}`;
@@ -205,9 +204,7 @@ async function exchangePinterestCode(code: string, siteId: string) {
   const siteName = site?.name || 'Experiences';
 
   // Look for an existing board that matches the site name (case-insensitive)
-  let siteBoard = allBoards.find(
-    (b) => b.name.toLowerCase() === siteName.toLowerCase()
-  );
+  let siteBoard = allBoards.find((b) => b.name.toLowerCase() === siteName.toLowerCase());
 
   // If no matching board, create one
   if (!siteBoard) {
@@ -229,7 +226,9 @@ async function exchangePinterestCode(code: string, siteId: string) {
         const newBoard = (await createBoardResponse.json()) as { id: string; name: string };
         siteBoard = { id: newBoard.id, name: newBoard.name };
         allBoards.push(siteBoard);
-        console.log(`[Pinterest OAuth] Created board "${siteName}" (${siteBoard.id}) for site ${siteId}`);
+        console.log(
+          `[Pinterest OAuth] Created board "${siteName}" (${siteBoard.id}) for site ${siteId}`
+        );
       } else {
         const err = await createBoardResponse.text();
         console.warn(`[Pinterest OAuth] Could not create board "${siteName}": ${err}`);
