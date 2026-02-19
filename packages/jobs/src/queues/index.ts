@@ -11,6 +11,25 @@ import {
 } from '../types';
 
 /**
+ * Daily job budget per queue — prevents runaway fan-out from flooding Redis.
+ * Set at ~2× expected daily volume. When exceeded, new jobs are silently dropped with a warning.
+ * Budget resets automatically via Redis key expiry at midnight UTC.
+ */
+const DAILY_BUDGET: Record<QueueName, number> = {
+  [QUEUE_NAMES.CONTENT]: 2000,
+  [QUEUE_NAMES.SEO]: 1000,
+  [QUEUE_NAMES.GSC]: 500,
+  [QUEUE_NAMES.SITE]: 200,
+  [QUEUE_NAMES.DOMAIN]: 200,
+  [QUEUE_NAMES.ANALYTICS]: 500,
+  [QUEUE_NAMES.ABTEST]: 500,
+  [QUEUE_NAMES.SYNC]: 100,
+  [QUEUE_NAMES.MICROSITE]: 2000,
+  [QUEUE_NAMES.SOCIAL]: 1000,
+  [QUEUE_NAMES.ADS]: 500,
+};
+
+/**
  * Per-queue configuration for timeouts, retries, and backoff.
  * Timeouts prevent jobs from hanging indefinitely (e.g., unresponsive external APIs).
  * External-API-heavy queues get more retries with longer backoff.
@@ -184,6 +203,28 @@ class QueueRegistry {
         );
         return existing.id;
       }
+    }
+
+    // Daily budget check — prevent runaway fan-out from flooding Redis
+    const budgetKey = `budget:${queueName}:${new Date().toISOString().split('T')[0]}`;
+    try {
+      const count = await this.connection.incr(budgetKey);
+      if (count === 1) await this.connection.expire(budgetKey, 86400);
+      const limit = DAILY_BUDGET[queueName];
+      if (count > limit) {
+        // Log at 100% — budget exceeded, job is dropped
+        console.warn(
+          `[Queue] Daily budget exceeded for ${queueName}: ${count}/${limit} — dropping ${jobType}${siteId ? ` (site: ${siteId})` : ''}`
+        );
+        return `budget-exceeded:${queueName}:${jobType}`;
+      }
+      if (count === Math.floor(limit * 0.8)) {
+        // Log at 80% threshold as early warning
+        console.warn(`[Queue] Daily budget at 80% for ${queueName}: ${count}/${limit}`);
+      }
+    } catch (err) {
+      // If Redis budget check fails, allow the job through (fail-open)
+      console.error(`[Queue] Budget check failed for ${queueName}, allowing job:`, err);
     }
 
     // Create database record for job tracking
