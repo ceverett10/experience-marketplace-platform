@@ -23,6 +23,12 @@ interface DashboardData {
     delayed: number;
     paused: boolean;
     health: string;
+    activeJobs?: Array<{
+      id: string;
+      name: string;
+      progress: Record<string, number> | null;
+      elapsedMs: number | null;
+    }>;
   }>;
   queueTotals: {
     waiting: number;
@@ -130,8 +136,8 @@ export default function OperationsDashboard() {
         </div>
         <div>
           <div className="h-6 w-28 bg-slate-200 rounded animate-pulse mb-3" />
-          <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3">
-            {Array.from({ length: 7 }).map((_, i) => (
+          <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+            {Array.from({ length: 11 }).map((_, i) => (
               <Card key={i}>
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between mb-2">
@@ -316,37 +322,87 @@ export default function OperationsDashboard() {
             View all jobs
           </Link>
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3">
-          {data.queues.map((q) => (
-            <Link key={q.name} href={`/operations/jobs?queue=${q.name}`} className="block">
-              <Card className="hover:shadow-md transition-shadow">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-sm font-medium text-slate-900 capitalize">{q.name}</h3>
-                    <span
-                      className={`text-xs px-1.5 py-0.5 rounded font-medium ${queueHealthColors[q.health] || ''}`}
-                    >
-                      {q.paused ? 'paused' : q.health}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-1 text-center text-xs">
-                    <div>
-                      <div className="font-bold text-blue-600">{q.waiting}</div>
-                      <div className="text-slate-400">wait</div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+          {data.queues.map((q) => {
+            // Find active job with progress data (e.g. deploy_only reporting deployed/total)
+            const progressJob = q.activeJobs?.find(
+              (j) => j.progress && typeof j.progress === 'object' && 'total' in j.progress
+            );
+            const progress = progressJob?.progress as Record<string, number> | undefined;
+            const progressPct =
+              progress?.total && progress.total > 0
+                ? Math.round(((progress.deployed || 0) / progress.total) * 100)
+                : null;
+
+            return (
+              <Link key={q.name} href={`/operations/jobs?queue=${q.name}`} className="block">
+                <Card className="hover:shadow-md transition-shadow">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-sm font-medium text-slate-900 capitalize">{q.name}</h3>
+                      <span
+                        className={`text-xs px-1.5 py-0.5 rounded font-medium ${queueHealthColors[q.health] || ''}`}
+                      >
+                        {q.paused ? 'paused' : q.health}
+                      </span>
                     </div>
-                    <div>
-                      <div className="font-bold text-green-600">{q.active}</div>
-                      <div className="text-slate-400">run</div>
+                    <div className="grid grid-cols-3 gap-1 text-center text-xs">
+                      <div>
+                        <div className="font-bold text-blue-600">{q.waiting}</div>
+                        <div className="text-slate-400">wait</div>
+                      </div>
+                      <div>
+                        <div className="font-bold text-green-600">{q.active}</div>
+                        <div className="text-slate-400">run</div>
+                      </div>
+                      <div>
+                        <div className="font-bold text-red-600">{q.failed}</div>
+                        <div className="text-slate-400">fail</div>
+                      </div>
                     </div>
-                    <div>
-                      <div className="font-bold text-red-600">{q.failed}</div>
-                      <div className="text-slate-400">fail</div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
+                    {/* Active job progress bar */}
+                    {progressJob && progress && progressPct !== null && (
+                      <div className="mt-2 pt-2 border-t border-slate-100">
+                        <div className="flex justify-between text-[10px] text-slate-500 mb-1">
+                          <span>{progressJob.name}</span>
+                          <span>
+                            {progress.deployed || 0}/{progress.total}
+                          </span>
+                        </div>
+                        <div className="w-full bg-slate-100 rounded-full h-1.5">
+                          <div
+                            className="bg-sky-500 h-1.5 rounded-full transition-all"
+                            style={{ width: `${Math.min(progressPct, 100)}%` }}
+                          />
+                        </div>
+                        {progress.failed > 0 && (
+                          <div className="text-[10px] text-red-500 mt-0.5">
+                            {progress.failed} failed
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {/* Show active job names when no progress data */}
+                    {!progressJob && q.activeJobs && q.activeJobs.length > 0 && (
+                      <div className="mt-2 pt-2 border-t border-slate-100">
+                        {q.activeJobs.slice(0, 2).map((j) => (
+                          <div key={j.id} className="text-[10px] text-slate-500 truncate">
+                            {j.name}
+                            {j.elapsedMs ? ` (${Math.round(j.elapsedMs / 60000)}m)` : ''}
+                          </div>
+                        ))}
+                        {q.activeJobs.length > 2 && (
+                          <div className="text-[10px] text-slate-400">
+                            +{q.activeJobs.length - 2} more
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </Link>
+            );
+          })}
         </div>
       </div>
 
