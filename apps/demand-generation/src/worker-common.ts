@@ -111,15 +111,31 @@ export function makeWorkerOptions(connection: Redis, queueName: string, concurre
 }
 
 /**
+ * Clear Redis dedup key when a job reaches a terminal state (completed/failed).
+ * This allows the same (siteId, jobType) to be queued again in the next cycle.
+ */
+async function clearDedupKey(connection: Redis, job: Job) {
+  const siteId = (job.data as { siteId?: string }).siteId;
+  if (siteId && siteId !== 'all') {
+    try {
+      await connection.del(`dedup:${siteId}:${job.name}`);
+    } catch {
+      // Non-critical — key will expire via TTL anyway
+    }
+  }
+}
+
+/**
  * Attach completed/failed/error event handlers to workers.
  */
-export function setupWorkerEvents(workers: Worker[]) {
+export function setupWorkerEvents(workers: Worker[], connection?: Redis) {
   workers.forEach((worker) => {
     worker.on('completed', async (job, result) => {
       console.log(`✓ Job ${job.id} (${job.name}) completed successfully`);
       await updateJobStatus(job, 'COMPLETED', result as object);
       const siteId = (job.data as { siteId?: string }).siteId || null;
       resetStuckCount(siteId, job.name);
+      if (connection) await clearDedupKey(connection, job);
     });
 
     worker.on('failed', async (job, err) => {
@@ -127,6 +143,8 @@ export function setupWorkerEvents(workers: Worker[]) {
       if (job) {
         const willRetry = job.attemptsMade < (job.opts.attempts || 3);
         await updateJobStatus(job, willRetry ? 'RETRYING' : 'FAILED', undefined, err.message);
+        // Only clear dedup on final failure (not retries) so retries don't cause duplicates
+        if (!willRetry && connection) await clearDedupKey(connection, job);
       }
     });
 
