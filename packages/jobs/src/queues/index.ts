@@ -240,43 +240,41 @@ class QueueRegistry {
     if (options?.removeOnComplete != null) jobOpts.removeOnComplete = options.removeOnComplete;
     if (options?.removeOnFail != null) jobOpts.removeOnFail = options.removeOnFail;
 
-    // Add to BullMQ queue first, then create DB record with idempotencyKey in a single write.
-    // This avoids the previous 2-step pattern (create → update) that doubled DB writes.
-    const bullmqJob = await queue.add(jobType, payload, jobOpts);
+    // Create database record for job tracking (DB-first ensures admin dashboard visibility)
+    const dbJob = await prisma.job.create({
+      data: {
+        type: jobType,
+        queue: queueName,
+        payload: payload as object,
+        status: options?.delay ? 'SCHEDULED' : 'PENDING',
+        priority: options?.priority || 5,
+        maxAttempts: options?.attempts || 3,
+        siteId,
+        scheduledFor: options?.delay ? new Date(Date.now() + options.delay) : null,
+      },
+    });
 
-    // Create database record with BullMQ reference in a single write
-    let dbJob;
+    // Add to BullMQ queue with database job ID as reference.
+    // If BullMQ/Redis fails, clean up the orphaned DB record to prevent zombie PENDING jobs.
+    let bullmqJob;
     try {
-      dbJob = await prisma.job.create({
-        data: {
-          type: jobType,
-          queue: queueName,
-          payload: payload as object,
-          status: options?.delay ? 'SCHEDULED' : 'PENDING',
-          priority: options?.priority || 5,
-          maxAttempts: options?.attempts || 3,
-          siteId,
-          scheduledFor: options?.delay ? new Date(Date.now() + options.delay) : null,
-          idempotencyKey: `${queueName}:${bullmqJob.id}`,
-        },
-      });
-    } catch (dbError) {
-      // DB create failed — BullMQ job exists but has no DB tracking record.
-      // The worker's updateJobStatus() will auto-create a DB record when it starts processing.
+      bullmqJob = await queue.add(jobType, { ...payload, dbJobId: dbJob.id }, jobOpts);
+    } catch (redisError) {
       console.error(
-        `[Queue] DB record creation failed for ${jobType} (BullMQ: ${bullmqJob.id}):`,
-        dbError
+        `[Queue] BullMQ add failed for ${jobType} (dbJob: ${dbJob.id}), cleaning up DB record:`,
+        redisError
       );
-      return `bullmq-only:${queueName}:${bullmqJob.id}`;
+      await prisma.job.delete({ where: { id: dbJob.id } }).catch((deleteErr) => {
+        console.error(`[Queue] Failed to clean up orphaned DB job ${dbJob.id}:`, deleteErr);
+      });
+      throw redisError;
     }
 
-    // Inject dbJobId into BullMQ job data so workers can find the DB record
-    try {
-      await bullmqJob.updateData({ ...payload, dbJobId: dbJob.id });
-    } catch {
-      // Non-critical — worker will still process, just won't have dbJobId in payload.
-      // updateJobStatus() handles jobs without dbJobId by creating a new DB record.
-    }
+    // Update database record with BullMQ job ID for cross-referencing
+    await prisma.job.update({
+      where: { id: dbJob.id },
+      data: { idempotencyKey: `${queueName}:${bullmqJob.id}` },
+    });
 
     return dbJob.id;
   }
