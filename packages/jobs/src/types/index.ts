@@ -562,7 +562,7 @@ export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];
 /**
  * Map job types to queue names
  */
-export const JOB_TYPE_TO_QUEUE: Record<JobType, QueueName> = {
+export const JOB_TYPE_TO_QUEUE: Record<string, QueueName> & Record<JobType, QueueName> = {
   CONTENT_GENERATE: QUEUE_NAMES.CONTENT,
   CONTENT_OPTIMIZE: QUEUE_NAMES.CONTENT,
   CONTENT_REVIEW: QUEUE_NAMES.CONTENT,
@@ -620,12 +620,22 @@ export const JOB_TYPE_TO_QUEUE: Record<JobType, QueueName> = {
   SOCIAL_POST_PUBLISH: QUEUE_NAMES.SOCIAL,
   SOCIAL_DAILY_POSTING: QUEUE_NAMES.SOCIAL,
 
-  // Scheduled Maintenance (setInterval-based, tracked for admin visibility)
-  // These don't use BullMQ queues but need a mapping for type completeness
+  // Content fanout jobs (BullMQ repeatable cron, replacing setInterval schedulers)
+  CONTENT_BLOG_FANOUT: QUEUE_NAMES.CONTENT,
+  CONTENT_FAQ_FANOUT: QUEUE_NAMES.CONTENT,
+  CONTENT_REFRESH_FANOUT: QUEUE_NAMES.CONTENT,
+  CONTENT_DESTINATION_FANOUT: QUEUE_NAMES.CONTENT,
+  CONTENT_COMPARISON_FANOUT: QUEUE_NAMES.CONTENT,
+  CONTENT_SEASONAL_FANOUT: QUEUE_NAMES.CONTENT,
+  CONTENT_GUIDES_FANOUT: QUEUE_NAMES.CONTENT,
+
+  // Scheduled maintenance (BullMQ repeatable cron, replacing setInterval schedulers)
   META_TITLE_MAINTENANCE: QUEUE_NAMES.CONTENT,
   MICROSITE_CONTENT_REFRESH: QUEUE_NAMES.CONTENT,
   MICROSITE_SITEMAP_RESUBMIT: QUEUE_NAMES.MICROSITE,
   COLLECTION_REFRESH: QUEUE_NAMES.CONTENT,
+  PIPELINE_HEALTH_CHECK: QUEUE_NAMES.SITE,
+  REDIS_QUEUE_CLEANUP: QUEUE_NAMES.SITE,
   AUTONOMOUS_ROADMAP: QUEUE_NAMES.SITE,
 
   // Paid Traffic Acquisition
