@@ -23,7 +23,13 @@ vi.mock('@/hooks/useUrlFilterState', () => ({
 }));
 
 vi.mock('@/hooks/useMarketplaceExperiences', () => ({
-  useMarketplaceExperiences: ({ initialExperiences, initialTotalCount, initialFilteredCount, initialHasMore, initialFilterCounts }: any) => ({
+  useMarketplaceExperiences: ({
+    initialExperiences,
+    initialTotalCount,
+    initialFilteredCount,
+    initialHasMore,
+    initialFilterCounts,
+  }: any) => ({
     experiences: initialExperiences,
     filterCounts: initialFilterCounts,
     filteredCount: initialFilteredCount,
@@ -47,7 +53,9 @@ vi.mock('./FilterOverlay', () => ({
 
 vi.mock('./ResultsHeader', () => ({
   ResultsHeader: ({ filteredCount, totalCount }: any) => (
-    <div data-testid="results-header">{filteredCount} of {totalCount}</div>
+    <div data-testid="results-header">
+      {filteredCount} of {totalCount}
+    </div>
   ),
 }));
 
@@ -141,9 +149,7 @@ describe('MarketplaceFilteredPage', () => {
   });
 
   it('renders error banner when apiError provided', () => {
-    render(
-      <MarketplaceFilteredPage {...defaultProps} apiError="Something went wrong" />
-    );
+    render(<MarketplaceFilteredPage {...defaultProps} apiError="Something went wrong" />);
     expect(screen.getByText(/trouble loading experiences/)).toBeDefined();
   });
 

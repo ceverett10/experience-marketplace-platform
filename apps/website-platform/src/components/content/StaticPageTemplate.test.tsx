@@ -44,10 +44,7 @@ describe('StaticPageTemplate', () => {
 
   it('hides meta description when not provided', () => {
     render(
-      <StaticPageTemplate
-        page={makePage({ metaDescription: null })}
-        siteName="London Tours"
-      />
+      <StaticPageTemplate page={makePage({ metaDescription: null })} siteName="London Tours" />
     );
     expect(screen.queryByText('Learn more about our company')).toBeNull();
   });

@@ -9,9 +9,7 @@ vi.mock('next/image', () => ({
 
 // Mock child components
 vi.mock('@/components/experiences/ExperienceGallery', () => ({
-  ExperienceGallery: ({ images }: any) => (
-    <div data-testid="gallery">{images.length} images</div>
-  ),
+  ExperienceGallery: ({ images }: any) => <div data-testid="gallery">{images.length} images</div>,
 }));
 
 vi.mock('@/components/experiences/BookingWidget', () => ({
@@ -162,10 +160,7 @@ describe('ProductSpotlightHomepage', () => {
 
   it('hides highlights section when none provided', () => {
     render(
-      <ProductSpotlightHomepage
-        {...defaultProps}
-        experience={makeExperience({ highlights: [] })}
-      />
+      <ProductSpotlightHomepage {...defaultProps} experience={makeExperience({ highlights: [] })} />
     );
     expect(screen.queryByText('Highlights')).toBeNull();
   });
