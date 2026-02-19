@@ -3,7 +3,7 @@
  * Creates and manages the task roadmap for getting a site live
  */
 
-import { prisma, JobType, DomainStatus, SiteStatus } from '@experience-marketplace/database';
+import { prisma, type JobType, DomainStatus, SiteStatus } from '@experience-marketplace/database';
 import { addJob } from '../queues/index.js';
 import { acquireLock } from './distributed-lock.js';
 
@@ -299,6 +299,7 @@ async function validateTaskArtifacts(
     AD_CONVERSION_UPLOAD: { valid: true },
     AD_PLATFORM_IDS_SYNC: { valid: true },
     AD_CREATIVE_REFRESH: { valid: true },
+    AD_SEARCH_TERM_HARVEST: { valid: true },
     PAID_KEYWORD_SCAN: { valid: true },
     BIDDING_ENGINE_RUN: { valid: true },
     KEYWORD_ENRICHMENT: { valid: true },
@@ -574,6 +575,10 @@ export const TASK_DESCRIPTIONS: Record<JobType, { label: string; description: st
   AD_CREATIVE_REFRESH: {
     label: 'Refresh Ad Creatives',
     description: 'Re-review and update ad images using AI across all deployed campaigns',
+  },
+  AD_SEARCH_TERM_HARVEST: {
+    label: 'Search Term Harvest',
+    description: 'Analyze search queries triggering ads and auto-exclude wasteful terms',
   },
   PAID_KEYWORD_SCAN: {
     label: 'Scan Paid Keywords',

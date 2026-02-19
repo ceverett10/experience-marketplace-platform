@@ -36,6 +36,8 @@ import {
   getCampaignPerformance as getGoogleCampaignPerformance,
   setCampaignStatus as setGoogleCampaignStatus,
   migrateToSmartBidding,
+  addCampaignNegativeKeywords,
+  getSearchTermReport,
 } from '../services/google-ads-client';
 import { PAID_TRAFFIC_CONFIG } from '../config/paid-traffic';
 import {
@@ -1754,8 +1756,21 @@ async function deployToGoogle(
       }
     }
 
+    // Step 4: Apply default negative keywords to block irrelevant queries
+    let negativesAdded = 0;
+    try {
+      negativesAdded = await addCampaignNegativeKeywords(
+        campaignResult.campaignId,
+        PAID_TRAFFIC_CONFIG.defaultNegativeKeywords
+      );
+    } catch {
+      console.warn(
+        `[Ads Worker] Failed to add negative keywords to campaign ${campaignResult.campaignId}`
+      );
+    }
+
     console.log(
-      `[Ads Worker] Deployed Google campaign ${campaignResult.campaignId}: "${campaign.name}" (${adGroupsCreated} ad groups, coherence: ${primaryRsa?.coherenceScore ?? 'N/A'}/10)`
+      `[Ads Worker] Deployed Google campaign ${campaignResult.campaignId}: "${campaign.name}" (${adGroupsCreated} ad groups, ${negativesAdded} negatives, coherence: ${primaryRsa?.coherenceScore ?? 'N/A'}/10)`
     );
     return campaignResult.campaignId;
   } catch (err) {
@@ -2645,6 +2660,111 @@ export async function handleAdCreativeRefresh(_job: Job): Promise<JobResult> {
     success: failed === 0,
     message,
     data: { total: campaigns.length, remediated, imageOnly, skipped, failed },
+    timestamp: new Date(),
+  };
+}
+
+/**
+ * Search Term Harvest: analyse actual search queries triggering Google ads
+ * and auto-exclude wasteful terms (high spend, zero conversions).
+ *
+ * Runs weekly. For each active Google campaign:
+ *   1. Pull search term report (last 30 days)
+ *   2. Identify terms with clicks > threshold, conversions === 0, spend > threshold
+ *   3. Add them as campaign-level negative keywords
+ *   4. Create AdAlert records for visibility
+ */
+export async function handleAdSearchTermHarvest(_job: Job): Promise<JobResult> {
+  console.log('[Ads Worker] Starting search term harvest');
+
+  if (!isGoogleAdsConfigured()) {
+    return {
+      success: false,
+      message: 'Google Ads not configured',
+      timestamp: new Date(),
+    };
+  }
+
+  // Get all active Google campaigns with a platform campaign ID
+  const campaigns = await prisma.adCampaign.findMany({
+    where: {
+      platform: 'GOOGLE_SEARCH',
+      status: 'ACTIVE',
+      platformCampaignId: { not: null },
+    },
+    select: {
+      id: true,
+      name: true,
+      platformCampaignId: true,
+      siteId: true,
+    },
+  });
+
+  console.log(`[Ads Worker] Found ${campaigns.length} active Google campaigns to harvest`);
+
+  let totalTermsAnalyzed = 0;
+  let totalNegativesAdded = 0;
+  let campaignsProcessed = 0;
+
+  const spendThreshold = PAID_TRAFFIC_CONFIG.searchTermExcludeSpendThreshold * 1_000_000; // convert to micros
+  const clickThreshold = PAID_TRAFFIC_CONFIG.searchTermExcludeClickThreshold;
+
+  for (const campaign of campaigns) {
+    if (!campaign.platformCampaignId) continue;
+
+    try {
+      const terms = await getSearchTermReport(campaign.platformCampaignId);
+      totalTermsAnalyzed += terms.length;
+
+      // Identify wasteful terms: clicks above threshold, zero conversions, spend above threshold
+      const wastefulTerms = terms.filter(
+        (t) => t.conversions === 0 && t.clicks >= clickThreshold && t.costMicros >= spendThreshold
+      );
+
+      if (wastefulTerms.length > 0) {
+        const newNegatives = wastefulTerms.map((t) => t.searchTerm);
+        const added = await addCampaignNegativeKeywords(campaign.platformCampaignId, newNegatives);
+        totalNegativesAdded += added;
+
+        // Create alert records for visibility
+        const totalWastedSpend = wastefulTerms.reduce((sum, t) => sum + t.costMicros, 0);
+        await prisma.adAlert.create({
+          data: {
+            type: 'SEARCH_TERM_EXCLUSION',
+            severity: 'INFO',
+            campaignId: campaign.id,
+            siteId: campaign.siteId || undefined,
+            message: `Auto-excluded ${added} wasteful search terms (£${(totalWastedSpend / 1_000_000).toFixed(2)} wasted spend)`,
+            details: {
+              excludedTerms: newNegatives,
+              wastedSpendGbp: totalWastedSpend / 1_000_000,
+            },
+            acknowledged: true, // Auto-acknowledged since action was taken
+            acknowledgedAt: new Date(),
+          },
+        });
+
+        console.log(
+          `[Ads Worker] Campaign "${campaign.name}": excluded ${added} terms (£${(totalWastedSpend / 1_000_000).toFixed(2)} wasted)`
+        );
+      }
+
+      campaignsProcessed++;
+    } catch (err) {
+      console.error(
+        `[Ads Worker] Search term harvest failed for "${campaign.name}":`,
+        err instanceof Error ? err.message : err
+      );
+    }
+  }
+
+  const message = `Search term harvest complete: ${campaignsProcessed} campaigns, ${totalTermsAnalyzed} terms analyzed, ${totalNegativesAdded} negatives added`;
+  console.log(`[Ads Worker] ${message}`);
+
+  return {
+    success: true,
+    message,
+    data: { campaignsProcessed, totalTermsAnalyzed, totalNegativesAdded },
     timestamp: new Date(),
   };
 }
