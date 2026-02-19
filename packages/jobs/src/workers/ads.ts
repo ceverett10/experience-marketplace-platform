@@ -733,6 +733,13 @@ export async function handleAdBudgetOptimizer(job: Job): Promise<JobResult> {
         if (camp.platform === 'FACEBOOK') {
           const metaClient = await getMetaAdsClient();
           if (metaClient) {
+            // Activate children first (ad sets + ads may be PAUSED from legacy deployment)
+            const children = await metaClient.activateCampaignChildren(camp.platformCampaignId);
+            if (children.adSets > 0 || children.ads > 0) {
+              console.log(
+                `[Ads Worker] Activated ${children.adSets} ad sets, ${children.ads} ads for "${camp.name}"`
+              );
+            }
             await metaClient.setCampaignStatus(camp.platformCampaignId, 'ACTIVE');
           }
         } else if (camp.platform === 'GOOGLE_SEARCH' && isGoogleAdsConfigured()) {
@@ -1150,7 +1157,7 @@ async function deployToMeta(
   }
 
   try {
-    // Step 1: Create campaign (PAUSED for safety — activate manually or via optimizer)
+    // Step 1: Create campaign (PAUSED — serves as master switch for activation)
     const campaignResult = await metaClient.createCampaign({
       name: campaign.name,
       objective: 'OUTCOME_TRAFFIC',
@@ -1190,7 +1197,7 @@ async function deployToMeta(
       },
       optimizationGoal: 'LINK_CLICKS',
       billingEvent: 'IMPRESSIONS',
-      status: 'PAUSED',
+      status: 'ACTIVE', // ACTIVE so it serves when parent campaign is activated
       dsaBeneficiary: siteName,
       dsaPayor: siteName,
     });
@@ -1271,7 +1278,7 @@ async function deployToMeta(
       body: creative.body,
       imageUrl: creative.imageUrl || undefined,
       callToAction: creative.callToAction,
-      status: 'PAUSED',
+      status: 'ACTIVE', // ACTIVE so it serves when parent campaign is activated
     });
 
     if (!adResult) {
