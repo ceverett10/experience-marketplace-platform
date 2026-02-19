@@ -71,11 +71,11 @@ export function Footer() {
         <div className="xl:grid xl:grid-cols-3 xl:gap-8">
           {/* Brand section */}
           <div className="space-y-8">
-            {brand?.logoUrl ? (
+            {brand?.logoDarkUrl || brand?.logoUrl ? (
               <div className="relative h-8 w-32">
                 <Image
-                  className="object-contain object-left brightness-0 invert"
-                  src={brand.logoUrl}
+                  className={`object-contain object-left${brand.logoDarkUrl ? '' : ' brightness-0 invert'}`}
+                  src={brand.logoDarkUrl ?? brand.logoUrl!}
                   alt={site.name}
                   fill
                   sizes="128px"
