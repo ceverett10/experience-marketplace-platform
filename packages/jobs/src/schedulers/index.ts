@@ -11,6 +11,7 @@ import { runMetaTitleMaintenance } from '../services/meta-title-maintenance.js';
 import { refreshAllCollections } from '../services/collection-generator.js';
 import { resubmitMicrositeSitemapsToGSC } from '../services/microsite-sitemap-resubmit.js';
 import { PAID_TRAFFIC_CONFIG } from '../config/paid-traffic.js';
+import { runPipelineHealthCheck } from '../scripts/pipeline-health-check.js';
 
 // Track intervals for cleanup
 let dailyContentInterval: NodeJS.Timeout | null = null;
@@ -19,6 +20,7 @@ let micrositeContentRefreshInterval: NodeJS.Timeout | null = null;
 let collectionRefreshInterval: NodeJS.Timeout | null = null;
 let sitemapResubmitInterval: NodeJS.Timeout | null = null;
 let redisCleanupInterval: NodeJS.Timeout | null = null;
+let pipelineHealthCheckInterval: NodeJS.Timeout | null = null;
 
 /**
  * Wraps a setInterval job execution with DB tracking so the admin dashboard
@@ -445,6 +447,11 @@ export async function initializeScheduledJobs(): Promise<void> {
   // MAINTENANCE
   // =========================================================================
 
+  // Pipeline Health Check — Daily at 9 AM
+  // Verifies integrity of all campaign pipeline optimization phases
+  initializePipelineHealthCheckSchedule();
+  console.log('[Scheduler] ✓ Pipeline Health Check - Daily at 9 AM');
+
   // Redis Queue Cleanup - Every 6 hours
   // Removes old completed/failed jobs to prevent Redis OOM on Mini plan (25 MB)
   initializeRedisCleanupSchedule();
@@ -768,6 +775,43 @@ function initializeSitemapResubmitSchedule(): void {
  * Runs every 6 hours, removing completed jobs older than 1 hour
  * and failed jobs older than 24 hours from all BullMQ queues.
  */
+function initializePipelineHealthCheckSchedule(): void {
+  pipelineHealthCheckInterval = setInterval(
+    async () => {
+      const now = new Date();
+      const currentHour = now.getHours();
+
+      // Run daily at 9 AM
+      if (currentHour === 9) {
+        const today = now.toISOString().split('T')[0] ?? '';
+        const lastRun = schedulesRunToday.get('pipeline-health-check');
+
+        if (lastRun !== today) {
+          schedulesRunToday.set('pipeline-health-check', today);
+          console.log('[Scheduler] Running pipeline health check...');
+          try {
+            const result = await trackScheduledExecution('PIPELINE_HEALTH_CHECK', () =>
+              runPipelineHealthCheck()
+            );
+            console.log(
+              `[Scheduler] Pipeline health check complete: ${result.passed}/${result.total} checks passing`
+            );
+            if (result.failed > 0) {
+              console.warn(
+                `[Scheduler] Pipeline health check has ${result.failed} failures:`,
+                result.failures.map((f) => f.name).join(', ')
+              );
+            }
+          } catch (error) {
+            console.error('[Scheduler] Pipeline health check failed:', error);
+          }
+        }
+      }
+    },
+    60 * 60 * 1000 // Check every hour
+  );
+}
+
 function initializeRedisCleanupSchedule(): void {
   // Run cleanup immediately on startup
   queueRegistry.cleanAllQueues().catch((err) => {
@@ -838,6 +882,12 @@ export async function removeAllScheduledJobs(): Promise<void> {
   if (sitemapResubmitInterval) {
     clearInterval(sitemapResubmitInterval);
     sitemapResubmitInterval = null;
+  }
+
+  // Clear pipeline health check interval
+  if (pipelineHealthCheckInterval) {
+    clearInterval(pipelineHealthCheckInterval);
+    pipelineHealthCheckInterval = null;
   }
 
   // Clear Redis cleanup interval

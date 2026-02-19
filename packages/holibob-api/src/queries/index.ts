@@ -573,9 +573,16 @@ export const STRIPE_PAYMENT_INTENT_QUERY = gql`
 export const BOOKING_COMMIT_MUTATION = gql`
   mutation BookingCommit($bookingSelector: BookingSelector!) {
     bookingCommit(bookingSelector: $bookingSelector) {
+      id
       code
       state
       voucherUrl
+      totalPrice {
+        grossFormattedText
+        gross
+        net
+        currency
+      }
     }
   }
 `;

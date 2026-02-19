@@ -19,7 +19,10 @@ import { KeywordResearchService } from './keyword-research';
 import { PinterestAdsClient } from './social/pinterest-ads-client';
 import { MetaAdsClient } from './social/meta-ads-client';
 import { refreshTokenIfNeeded } from './social/token-refresh';
-import { extractDestinationFromKeyword } from '../utils/keyword-location';
+import {
+  extractDestinationFromKeyword,
+  getDataForSEOLocationForKeyword,
+} from '../utils/keyword-location';
 
 type ScanMode = 'gsc' | 'expansion' | 'discovery' | 'pinterest' | 'meta';
 
@@ -313,12 +316,9 @@ async function expandExistingKeywords(
 
   for (const seed of topSeeds) {
     try {
-      const related = await dataForSeo.discoverKeywords(
-        seed.keyword,
-        'United Kingdom',
-        'English',
-        30
-      );
+      // Task 4.3: Use destination-specific location instead of hardcoded UK
+      const location = await getDataForSEOLocationForKeyword(seed.keyword);
+      const related = await dataForSeo.discoverKeywords(seed.keyword, location, 'English', 30);
       apiCost += 0.003;
 
       const newKeywords = related.filter((kw) => {
@@ -481,12 +481,9 @@ async function discoverCategoryKeywords(
 
   for (const seed of uniqueSeeds) {
     try {
-      const keywords = await dataForSeo.discoverKeywords(
-        seed.query,
-        'United Kingdom',
-        'English',
-        30
-      );
+      // Task 4.3: Use destination-specific location instead of hardcoded UK
+      const location = await getDataForSEOLocationForKeyword(seed.query);
+      const keywords = await dataForSeo.discoverKeywords(seed.query, location, 'English', 30);
       apiCost += 0.003;
 
       const newKeywords = keywords.filter((kw) => {

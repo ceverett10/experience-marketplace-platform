@@ -1728,9 +1728,26 @@ export default function PaidTrafficDashboard() {
                                     </span>
                                   )}
                                   {reviewKws > 0 && (
-                                    <span className="text-xs px-2 py-0.5 bg-amber-100 text-amber-800 rounded">
-                                      {reviewKws} review
-                                    </span>
+                                    <>
+                                      <span className="text-xs px-2 py-0.5 bg-amber-100 text-amber-800 rounded">
+                                        {reviewKws} review
+                                      </span>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          const ids = site.keywords
+                                            .filter((k) => k.aiDecision === 'REVIEW')
+                                            .map((k) => k.id);
+                                          triggerBiddingAction('bulk_approve_keywords', {
+                                            keywordIds: ids,
+                                          });
+                                        }}
+                                        className="text-xs px-2 py-0.5 bg-green-100 text-green-700 hover:bg-green-200 rounded"
+                                        title="Approve all REVIEW keywords for this site"
+                                      >
+                                        Approve All
+                                      </button>
+                                    </>
                                   )}
                                   {unevaluated > 0 && (
                                     <span className="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 rounded">
@@ -1790,6 +1807,9 @@ export default function PaidTrafficDashboard() {
                                         </th>
                                         <th className="text-right px-4 py-2 font-medium text-slate-600">
                                           Max Bid
+                                        </th>
+                                        <th className="text-center px-4 py-2 font-medium text-slate-600">
+                                          Actions
                                         </th>
                                       </tr>
                                     </thead>
@@ -1903,6 +1923,49 @@ export default function PaidTrafficDashboard() {
                                               ) : (
                                                 <span className="text-slate-400">-</span>
                                               )}
+                                            </td>
+                                            <td className="px-4 py-2 text-center">
+                                              <div className="flex gap-1 justify-center">
+                                                {kw.aiDecision === 'REVIEW' && (
+                                                  <>
+                                                    <button
+                                                      onClick={() =>
+                                                        triggerBiddingAction('approve_keyword', {
+                                                          keywordId: kw.id,
+                                                        })
+                                                      }
+                                                      className="text-xs px-2 py-1 rounded bg-green-100 text-green-700 hover:bg-green-200"
+                                                      title="Approve: promote to BID"
+                                                    >
+                                                      Approve
+                                                    </button>
+                                                    <button
+                                                      onClick={() =>
+                                                        triggerBiddingAction('reject_keyword', {
+                                                          keywordId: kw.id,
+                                                        })
+                                                      }
+                                                      className="text-xs px-2 py-1 rounded bg-red-100 text-red-700 hover:bg-red-200"
+                                                      title="Reject: archive keyword"
+                                                    >
+                                                      Reject
+                                                    </button>
+                                                  </>
+                                                )}
+                                                {kw.aiDecision === 'BID' && (
+                                                  <button
+                                                    onClick={() =>
+                                                      triggerBiddingAction('reject_keyword', {
+                                                        keywordId: kw.id,
+                                                      })
+                                                    }
+                                                    className="text-xs px-2 py-1 rounded bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                                    title="Archive this keyword"
+                                                  >
+                                                    Archive
+                                                  </button>
+                                                )}
+                                              </div>
                                             </td>
                                           </tr>
                                         ))}
