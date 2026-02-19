@@ -8,7 +8,7 @@
  */
 
 import { prisma, PageType, PageStatus } from '@experience-marketplace/database';
-import { generateDailyBlogTopic, BlogTopicContext } from './blog-topics.js';
+import { generateDailyBlogTopic, type BlogTopicContext } from './blog-topics.js';
 import { addJob } from '../queues/index.js';
 import {
   generateDailyBlogPostsForMicrosites,
@@ -133,7 +133,7 @@ export async function generateDailyBlogPostForSite(
         targetKeyword: topic.targetKeyword,
         secondaryKeywords: topic.secondaryKeywords,
       },
-      staggerDelayMs ? { delay: staggerDelayMs } : undefined,
+      staggerDelayMs ? { delay: staggerDelayMs } : undefined
     );
 
     console.log(`[Daily Blog] Queued: "${topic.title}"`);
