@@ -111,7 +111,7 @@ const domainWorker = new Worker(
 // ── Setup ───────────────────────────────────────────────────────────────
 const workers = [gscWorker, siteWorker, domainWorker];
 
-setupWorkerEvents(workers);
+setupWorkerEvents(workers, connection);
 startMemoryMonitoring(connection);
 
 // Autonomous roadmap processing
