@@ -1159,12 +1159,12 @@ async function deployToMeta(
   }
 
   try {
-    // Step 1: Create campaign (PAUSED — serves as master switch for activation)
+    // Step 1: Create campaign as ACTIVE so it starts serving immediately
     const campaignResult = await metaClient.createCampaign({
       name: campaign.name,
       objective: 'OUTCOME_TRAFFIC',
       dailyBudget: campaign.dailyBudget,
-      status: 'PAUSED',
+      status: 'ACTIVE',
     });
 
     if (!campaignResult) {
@@ -1868,20 +1868,16 @@ export async function deployDraftCampaigns(
     });
 
     if (platformCampaignId) {
-      // Update DB with platform ID and set to PAUSED (ready for activation)
+      // Update DB with platform ID and set to ACTIVE (ready to serve immediately)
       await prisma.adCampaign.update({
         where: { id: draft.id },
         data: {
           platformCampaignId,
-          status: 'PAUSED', // Created as PAUSED — activate via dashboard or optimizer
+          status: 'ACTIVE',
         },
       });
       deployed++;
       consecutiveFailures[draft.platform] = 0;
-      // Report progress to keep BullMQ lock alive during long deployment runs
-      if (job) {
-        await job.updateProgress({ deployed, failed, skipped, total: drafts.length });
-      }
       console.log(
         `[Ads Worker] Campaign "${draft.name}" deployed → ${platformCampaignId} (${deployed}/${drafts.length})`
       );
@@ -1909,6 +1905,11 @@ export async function deployDraftCampaigns(
           failedPlatforms.add(draft.platform);
         }
       }
+    }
+
+    // Always report progress (on success, failure, and skip) to keep BullMQ lock alive
+    if (job) {
+      await job.updateProgress({ deployed, failed, skipped, total: drafts.length });
     }
   }
 
