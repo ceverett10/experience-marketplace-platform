@@ -13,7 +13,6 @@ import { Worker, type Job } from 'bullmq';
 import {
   createRedisConnection,
   QUEUE_NAMES,
-  getQueueTimeout,
   queueRegistry,
   initializeScheduledJobs,
   getScheduledJobs,
@@ -218,18 +217,21 @@ setInterval(async () => {
 /**
  * Per-queue worker configuration.
  * Concurrency is set per queue to prevent external API saturation.
- * lockDuration must exceed the queue timeout so jobs aren't marked stalled while still running.
+ * lockDuration is kept short (5 min) so stale jobs from crashed/restarted workers
+ * are reclaimed quickly. BullMQ auto-extends locks while the worker is alive,
+ * so short lockDuration doesn't affect long-running jobs.
  * stalledInterval is how often BullMQ checks for stalled jobs.
  */
 function makeWorkerOptions(queueName: string, concurrency: number) {
-  const timeout = getQueueTimeout(queueName as any);
   return {
     connection,
     concurrency,
-    // Lock must be longer than the job timeout so BullMQ doesn't reclaim active jobs
-    lockDuration: timeout + 60_000,
+    // Short lock: auto-extended while worker is alive; stale jobs reclaimed in ~5 min
+    lockDuration: 300_000, // 5 minutes
     // Check for stalled jobs every 30 seconds
     stalledInterval: 30_000,
+    // Max stalled count before moving to failed (allows retries on worker restart)
+    maxStalledCount: 10,
     // Cap event streams to prevent unbounded Redis memory growth (matches Queue config)
     metrics: { maxDataPoints: 200 },
   };
