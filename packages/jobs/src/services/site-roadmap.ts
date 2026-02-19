@@ -78,10 +78,19 @@ async function processAllSiteRoadmapsInner(): Promise<{
 
   console.log(`[Autonomous Roadmap] Found ${sites.length} sites to process`);
 
+  // Cap jobs per cycle to prevent queue flooding — remaining sites will be picked up next cycle
+  const MAX_JOBS_PER_CYCLE = 50;
   let totalTasksQueued = 0;
   const errors: string[] = [];
 
   for (const site of sites) {
+    if (totalTasksQueued >= MAX_JOBS_PER_CYCLE) {
+      console.log(
+        `[Autonomous Roadmap] Reached ${MAX_JOBS_PER_CYCLE} job cap — deferring remaining ${sites.length - sites.indexOf(site)} sites to next cycle`
+      );
+      break;
+    }
+
     try {
       const result = await executeNextTasks(site.id);
 
