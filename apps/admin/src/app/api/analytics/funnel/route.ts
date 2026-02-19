@@ -58,6 +58,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const endDate = new Date(to);
     endDate.setHours(23, 59, 59, 999);
 
+    // Exclude test/synthetic events from analytics
+    const excludeTestData: Prisma.BookingFunnelEventWhereInput = {
+      siteId: { notIn: ['unknown', 'test-site'] },
+      sessionId: { not: 'unknown' },
+    };
+    const excludeTestDataSql = Prisma.sql`AND "siteId" NOT IN ('unknown', 'test-site') AND "sessionId" != 'unknown'`;
+
     // Build traffic source filter for Prisma and raw SQL
     const trafficFilter: Prisma.BookingFunnelEventWhereInput =
       trafficSource === 'paid'
@@ -109,6 +116,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const where: Prisma.BookingFunnelEventWhereInput = {
       createdAt: { gte: startDate, lte: endDate },
       ...(siteId ? { siteId } : {}),
+      ...excludeTestData,
       ...trafficFilter,
       ...landingPageFilter,
     };
@@ -137,6 +145,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       WHERE "createdAt" >= ${startDate}
         AND "createdAt" <= ${endDate}
         AND "errorCode" IS NULL
+        ${excludeTestDataSql}
         ${siteId ? Prisma.sql`AND "siteId" = ${siteId}` : Prisma.empty}
         ${trafficSql}
         ${landingPageSql}
@@ -170,6 +179,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       WHERE "createdAt" >= ${startDate}
         AND "createdAt" <= ${endDate}
         AND "errorCode" IS NULL
+        ${excludeTestDataSql}
         ${siteId ? Prisma.sql`AND "siteId" = ${siteId}` : Prisma.empty}
         ${trafficSql}
         ${landingPageSql}
@@ -268,6 +278,7 @@ async function buildFunnelData(
   source: 'paid' | 'organic',
   landingPage?: string
 ) {
+  const testDataSql = Prisma.sql`AND "siteId" NOT IN ('unknown', 'test-site') AND "sessionId" != 'unknown'`;
   const trafficSql =
     source === 'paid'
       ? Prisma.sql`AND "utmMedium" = 'cpc'`
@@ -282,6 +293,7 @@ async function buildFunnelData(
     WHERE "createdAt" >= ${startDate}
       AND "createdAt" <= ${endDate}
       AND "errorCode" IS NULL
+      ${testDataSql}
       ${siteId ? Prisma.sql`AND "siteId" = ${siteId}` : Prisma.empty}
       ${trafficSql}
       ${landingPageSql}
