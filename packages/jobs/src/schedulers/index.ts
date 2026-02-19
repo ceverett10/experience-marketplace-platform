@@ -5,7 +5,7 @@ import {
 } from '../services/daily-blog-generator.js';
 import {
   generateDailyContent,
-  ContentGenerationType,
+  type ContentGenerationType,
 } from '../services/daily-content-generator.js';
 import { runMetaTitleMaintenance } from '../services/meta-title-maintenance.js';
 import { refreshAllCollections } from '../services/collection-generator.js';
@@ -813,22 +813,30 @@ function initializePipelineHealthCheckSchedule(): void {
 }
 
 function initializeRedisCleanupSchedule(): void {
-  // Run cleanup immediately on startup
+  const PEAK_CLEANUP_INTERVAL = 30 * 60 * 1000; // 30 minutes during peak (1-7 AM UTC)
+  const NORMAL_CLEANUP_INTERVAL = 2 * 60 * 60 * 1000; // 2 hours otherwise
+
+  function getCleanupInterval(): number {
+    const hour = new Date().getUTCHours();
+    return hour >= 1 && hour <= 7 ? PEAK_CLEANUP_INTERVAL : NORMAL_CLEANUP_INTERVAL;
+  }
+
+  async function runCleanupCycle() {
+    try {
+      await queueRegistry.cleanAllQueues();
+    } catch (err) {
+      console.error('[Scheduler] Redis cleanup failed:', err);
+    }
+    // Schedule next run with dynamic interval (more frequent during peak hours)
+    redisCleanupInterval = setTimeout(runCleanupCycle, getCleanupInterval());
+  }
+
+  // Run cleanup immediately on startup, then start the dynamic cycle
   queueRegistry.cleanAllQueues().catch((err) => {
     console.error('[Scheduler] Initial Redis cleanup failed:', err);
   });
 
-  // Then every 6 hours
-  redisCleanupInterval = setInterval(
-    async () => {
-      try {
-        await queueRegistry.cleanAllQueues();
-      } catch (err) {
-        console.error('[Scheduler] Redis cleanup failed:', err);
-      }
-    },
-    6 * 60 * 60 * 1000 // 6 hours
-  );
+  redisCleanupInterval = setTimeout(runCleanupCycle, getCleanupInterval());
 }
 
 /**
@@ -890,9 +898,9 @@ export async function removeAllScheduledJobs(): Promise<void> {
     pipelineHealthCheckInterval = null;
   }
 
-  // Clear Redis cleanup interval
+  // Clear Redis cleanup interval (uses setTimeout, not setInterval)
   if (redisCleanupInterval) {
-    clearInterval(redisCleanupInterval);
+    clearTimeout(redisCleanupInterval);
     redisCleanupInterval = null;
   }
 
