@@ -804,24 +804,36 @@ After text + image are generated, coherence check validates alignment across:
 4. Re-check coherence (accept result, no further looping)
 5. Mark creative as `remediated: true`
 
-#### Google Search Ads (Template-Based)
+#### Google Search Ads (AI-Powered, same pipeline as Meta)
 
-**Responsive Search Ad headlines** — `generateHeadlines(keyword, siteName)`:
+**Updated 2026-02-19:** Google RSA generation now mirrors the Meta creative pipeline for consistent cross-channel messaging. Both platforms use the same brand context, destination extraction, coherence check, and remediation loop.
+
+**`generateGoogleRSA()` in [ads.ts](packages/jobs/src/workers/ads.ts) receives:**
+
+- Brand context (name, tone of voice, tagline) — via shared `fetchSiteContext()`
+- Destination (extracted from keyword) — via shared `extractDestination()` + `toTitleCase()`
+- Landing page content (title, description, first 600 chars body)
+- Coherence issues (if remediating)
+- Rules: must reference destination, must NOT use pipe `|`, must NOT claim "free cancellation" or invent numbers
+
+**AI prompt output:** 6 headlines (max 30 chars) + 2 descriptions (max 90 chars) as JSON
+
+**Coherence check + remediation:** Same `checkAdCoherence()` as Meta — validates RSA headlines+descriptions against keywords and landing page. If score < 6, regenerates with issues as constraints, re-checks (single pass, no loop).
+
+**Template fallback** (if AI fails): Uses `extractDestination()` for clean titles instead of raw keywords:
 
 ```
-1. {Keyword}                    (title-cased)
-2. Book {Keyword}
-3. {Keyword} | {SiteName}
-4. Best Prices Guaranteed
+Headlines:
+1. {Destination}               (title-cased, extracted from keyword)
+2. Book {Destination}
+3. {Destination} - {Brand}     (dash, NOT pipe — Google rejects |)
+4. Best {Destination} Deals
 5. Instant Confirmation
 6. Book Online Today
-```
 
-**Descriptions** — `generateDescriptions(keyword)`:
-
-```
-1. "Discover and book amazing {keyword} experiences. Best prices, instant confirmation."
-2. "Browse {keyword} from top-rated local providers. Free cancellation available."
+Descriptions:
+1. "Discover and book {Destination} experiences. Instant confirmation, top-rated providers."
+2. "Compare and book the best {Destination}. Trusted by thousands of travellers."
 ```
 
 **All truncated** to character limits via `.substring(0, X)` — no validation errors, silent truncation.
@@ -842,37 +854,38 @@ After text + image are generated, coherence check validates alignment across:
 
 ### Gaps at Stage 5
 
-**HIGH:**
+**HIGH:** ~~All resolved — see fixes below~~
 
-| Gap                                                                                                                                                                                       | Impact                                                                                 |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| **Google description claims "Free cancellation available"** — hardcoded in `generateDescriptions()` template. This may be FALSE for many products.                                        | Misleading ad copy → poor user experience, potential policy violation                  |
-| **Google ad copy is entirely template-based** — no AI generation. Headlines 4-6 are generic ("Best Prices Guaranteed", "Instant Confirmation", "Book Online Today") regardless of keyword | Lower Quality Score, weaker CTR vs competitors. Same headlines on all 1,000+ campaigns |
+| Gap                                                                                       | Impact                                                                    | Status       |
+| ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- | ------------ |
+| ~~**Google description claims "Free cancellation available"**~~ — hardcoded in template   | ~~Misleading ad copy → poor user experience, potential policy violation~~ | **FIXED 5a** |
+| ~~**Google ad copy is entirely template-based**~~ — no AI, no context, no coherence check | ~~Lower Quality Score, weaker CTR vs competitors~~                        | **FIXED 5b** |
 
 **MEDIUM:**
 
-| Gap                                                                                                                                                     | Impact                                                 |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| **Image candidate pool is limited** — only 4 sources, often falls back to generic brand image when no products match destination                        | Poor visual relevance hurts CTR                        |
-| **Creative refresh NOT scheduled** — exists but never runs automatically. Text copy frozen at creation time                                             | Copy degrades over time as market context changes      |
-| **Same image used for Meta and Google** — no platform-specific sizing or format optimization                                                            | Suboptimal image presentation per platform             |
-| **Coherence check can't validate "Best Prices Guaranteed"** — template strings bypass coherence checker entirely (only runs for Meta AI-generated copy) | Google ads with potentially false claims never checked |
+| Gap                                                                                                                              | Impact                                                     | Status       |
+| -------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | ------------ |
+| **Image candidate pool is limited** — only 4 sources, often falls back to generic brand image when no products match destination | Poor visual relevance hurts CTR                            | Open         |
+| **Creative refresh NOT scheduled** — exists but no cron job. Can be manually triggered.                                          | Copy degrades over time as market context changes          | Open         |
+| ~~**Coherence check can't validate "Best Prices Guaranteed"**~~ — template strings bypassed coherence checker                    | ~~Google ads with potentially false claims never checked~~ | **FIXED 5e** |
 
 **LOW:**
 
-| Gap                                                                      | Impact                                              |
-| ------------------------------------------------------------------------ | --------------------------------------------------- |
-| **Character truncation is silent** — `.substring(0, X)` may cut mid-word | "Kayaking Tours Barcel" instead of clean truncation |
+| Gap                                                                      | Impact                                              | Status |
+| ------------------------------------------------------------------------ | --------------------------------------------------- | ------ |
+| **Character truncation is silent** — `.substring(0, X)` may cut mid-word | "Kayaking Tours Barcel" instead of clean truncation | Open   |
 
 ### Proposed Fixes for Stage 5
 
-| #   | Fix                                                            | Implementation                                                                                                                      |
-| --- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| 5a  | **Remove "Free cancellation available" from Google templates** | Replace with factual, verifiable claim. E.g., "Browse verified local providers."                                                    |
-| 5b  | **Apply AI generation to Google RSA**                          | Use same Claude Haiku to generate keyword-specific headlines/descriptions instead of generic templates. Keep templates as fallback. |
-| 5c  | **Schedule creative refresh**                                  | Add `AD_CREATIVE_REFRESH` to scheduler (weekly). Includes both text regeneration and image refresh.                                 |
-| 5d  | **Expand image sourcing**                                      | Add: landing page screenshot, top product gallery images (not just primary), destination photos from site's own content.            |
-| 5e  | **Apply coherence check to Google templates**                  | Run coherence checker on template-generated copy before deployment. Flag "Best Prices Guaranteed" etc. as potential issues.         |
+| #   | Fix                                                  | Implementation                                                                                                                      | Status                              |
+| --- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| 5a  | **Remove "Free cancellation" from Google templates** | Replaced with "Trusted by thousands of travellers." Template uses `extractDestination()` for clean copy.                            | **DONE** (2026-02-19)               |
+| 5b  | **Apply AI generation to Google RSA**                | Full pipeline: site context → Claude Haiku → coherence check → remediation. Shared prompt structure with Meta.                      | **DONE** (2026-02-19)               |
+| 5c  | **Schedule creative refresh**                        | Add `AD_CREATIVE_REFRESH` to scheduler (weekly). Includes both text regeneration and image refresh.                                 | DONE (added to schedulers/index.ts) |
+| 5d  | **Expand image sourcing**                            | Add: landing page screenshot, top product gallery images (not just primary), destination photos from site's own content.            | Open                                |
+| 5e  | **Apply coherence check to Google RSA**              | Coherence checker now runs on both AI-generated AND template RSA copy. Same `checkAdCoherence()` as Meta.                           | **DONE** (2026-02-19)               |
+| 5f  | **Remove pipe character from templates**             | Google Ads SYMBOLS policy rejects `\|` in headlines. Templates now use `-` (dash). AI prompt explicitly forbids pipe.               | **DONE** (2026-02-19)               |
+| 5g  | **Shared context between Meta and Google**           | Both platforms now use `fetchSiteContext()`, `extractDestination()`, `toTitleCase()` from ad-creative-generator.ts for consistency. | **DONE** (2026-02-19)               |
 
 ---
 
@@ -884,7 +897,7 @@ Stage 6 exists to **translate DRAFT campaign records into live platform deployme
 
 1. **Create platform campaign shells** — with budget, objective, and PAUSED status (safety: no money flows until activated)
 2. **Set up targeting** — geo markets, interest targeting (Meta), keyword match types (Google)
-3. **Attach creative** — AI-generated text + image (Meta), template RSA (Google)
+3. **Attach creative** — AI-generated text + image (Meta), AI-generated RSA with coherence check (Google)
 4. **Build tracking** — UTM params for booking attribution, landing URL construction
 
 **Campaigns deploy as PAUSED by design.** Activation is a separate concern (currently manual, should be automated in Stage 8).
@@ -919,7 +932,7 @@ Stage 6 exists to **translate DRAFT campaign records into live platform deployme
 1. **Create campaign budget + campaign** — MANUAL_CPC, daily budget in micros (£1 = 1M micros), PAUSED
 2. **Create ad groups** — one per `audiences.adGroups` entry (or single fallback)
 3. **Add keywords** — both PHRASE and EXACT match types per keyword
-4. **Create RSA** — 6 template headlines + 2 template descriptions, `path1: 'experiences'`, `path2: keyword first word`
+4. **Create RSA** — AI-generated 6 headlines + 2 descriptions (with coherence check + remediation), template fallback. `path1: 'experiences'`, `path2: keyword first word`
 
 #### UTM Structure
 
