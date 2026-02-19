@@ -112,7 +112,7 @@ async function apiRequest(
 
   if (!response.ok) {
     const error = await response.text();
-    throw new Error(`Google Ads API error (${response.status}): ${error.substring(0, 500)}`);
+    throw new Error(`Google Ads API error (${response.status}): ${error.substring(0, 2000)}`);
   }
 
   return response.json();
@@ -144,7 +144,7 @@ export async function createSearchCampaign(campaignConfig: {
       operations: [
         {
           create: {
-            name: `${campaignConfig.name} Budget`,
+            name: `${campaignConfig.name} Budget ${Date.now()}`,
             amountMicros: campaignConfig.dailyBudgetMicros.toString(),
             deliveryMethod: 'STANDARD',
           },
@@ -164,12 +164,13 @@ export async function createSearchCampaign(campaignConfig: {
             status: campaignConfig.status || 'PAUSED',
             advertisingChannelType: 'SEARCH',
             campaignBudget: budgetResourceName,
-            biddingStrategyType: 'MANUAL_CPC',
+            targetSpend: {},
             networkSettings: {
               targetGoogleSearch: true,
               targetSearchNetwork: false,
               targetContentNetwork: false,
             },
+            containsEuPoliticalAdvertising: 'DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING',
           },
         },
       ],

@@ -29,6 +29,8 @@ export interface OptimizationConfig {
   batchSize: number;
   seeds?: OpportunitySeed[];
   inventoryLandscape?: InventoryLandscape;
+  /** ISO 4217 currency code for Holibob product queries (G4 fix) */
+  currency?: string;
 }
 
 const DEFAULT_CONFIG: OptimizationConfig = {
@@ -277,7 +279,8 @@ export async function runRecursiveOptimization(
         suggestions,
         holibobClient,
         finalConfig.batchSize,
-        apiCost
+        apiCost,
+        finalConfig.currency || 'GBP'
       );
       console.log(`[Optimizer] Validated ${validated.length} opportunities`);
 
@@ -849,7 +852,8 @@ async function batchValidateOpportunities(
   suggestions: OpportunitySuggestion[],
   holibobClient: any,
   batchSize: number,
-  apiCost: ApiCostBreakdown
+  apiCost: ApiCostBreakdown,
+  currency: string = 'GBP'
 ): Promise<ValidatedOpportunity[]> {
   const keywordService = new KeywordResearchService();
   const dataForSeoBreaker = circuitBreakers.getBreaker('dataforseo-api', {
@@ -932,7 +936,7 @@ async function batchValidateOpportunities(
           {
             freeText: suggestion.destination,
             searchTerm: suggestion.category,
-            currency: 'GBP',
+            currency,
           },
           { pageSize: 10 }
         );

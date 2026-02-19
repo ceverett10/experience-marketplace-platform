@@ -788,7 +788,8 @@ function buildSegmentClusters(
 
 async function checkInventoryFeasibility(
   clusters: SegmentKeywordCluster[],
-  holibobClient: any
+  holibobClient: any,
+  currency: string = 'GBP'
 ): Promise<Map<string, SegmentFeasibility>> {
   const feasibilityMap = new Map<string, SegmentFeasibility>();
 
@@ -810,7 +811,7 @@ async function checkInventoryFeasibility(
     for (const term of searchTerms) {
       try {
         const result = await holibobClient.discoverProducts(
-          { searchTerm: term, currency: 'GBP' },
+          { searchTerm: term, currency },
           { pageSize: 10 }
         );
         totalProducts += result.products?.length || 0;
@@ -1107,11 +1108,14 @@ export async function runAudienceFirstDiscovery(
   options?: {
     location?: string;
     language?: string;
+    /** ISO 4217 currency code for Holibob product queries (G4 fix) */
+    currency?: string;
   }
 ): Promise<DiscoveryResult> {
   const startTime = Date.now();
   const location = options?.location || DEFAULT_LOCATION;
   const language = options?.language || DEFAULT_LANGUAGE;
+  const currency = options?.currency || 'GBP';
 
   let anthropicCost = 0;
   let dataForSeoCost = 0;
@@ -1171,7 +1175,7 @@ export async function runAudienceFirstDiscovery(
 
   // Phase 4: Check inventory feasibility via Holibob
   console.log('[Audience Discovery] === PHASE 4: Inventory Feasibility ===');
-  const feasibilityMap = await checkInventoryFeasibility(clusters, holibobClient);
+  const feasibilityMap = await checkInventoryFeasibility(clusters, holibobClient, currency);
 
   // Phase 5: AI strategic evaluation
   console.log('[Audience Discovery] === PHASE 5: AI Strategic Evaluation ===');
