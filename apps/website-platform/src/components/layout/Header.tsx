@@ -109,13 +109,13 @@ export function Header() {
         <div className="flex lg:flex-1">
           <Link href="/" className="-m-1.5 p-3">
             {brand?.logoUrl ? (
-              <div className="relative h-10 w-40">
+              <div className="relative h-10 w-40 sm:h-12 sm:w-48 lg:h-14 lg:w-56">
                 <Image
                   className="object-contain object-left"
                   src={brand.logoUrl}
                   alt={site.name}
                   fill
-                  sizes="160px"
+                  sizes="(min-width: 1024px) 224px, (min-width: 640px) 192px, 160px"
                   priority
                 />
               </div>
