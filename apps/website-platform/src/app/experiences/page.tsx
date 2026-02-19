@@ -463,7 +463,7 @@ async function getExperiencesFromLocalDB(
     const experiences: ExperienceListItem[] = products.map((product) => ({
       id: product.holibobProductId, // Use Holibob ID for booking links
       title: product.title,
-      slug: product.slug,
+      slug: product.holibobProductId, // Must use Holibob ID — detail page passes slug to getProduct(id)
       shortDescription: product.shortDescription ?? '',
       imageUrl: product.primaryImageUrl ?? '/placeholder-experience.jpg',
       price: {
