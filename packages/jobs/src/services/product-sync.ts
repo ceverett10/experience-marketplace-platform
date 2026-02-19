@@ -537,6 +537,9 @@ export async function bulkSyncAllProducts(): Promise<ProductSyncResult> {
       productsByProvider.set(providerId, group);
     }
 
+    // Release the flat array — products are now only referenced from productsByProvider groups
+    allProducts.length = 0;
+
     console.log(`[Bulk Product Sync] Products span ${productsByProvider.size} providers`);
 
     // Step 5: Auto-create suppliers for providers not yet in our DB
@@ -659,6 +662,9 @@ export async function bulkSyncAllProducts(): Promise<ProductSyncResult> {
           );
         }
       }
+
+      // Release this provider's products from memory after processing
+      productsByProvider.delete(providerId);
     }
 
     // Step 7: Update all suppliers with aggregated data (Task 1.2: Backfill supplier cities/categories)
