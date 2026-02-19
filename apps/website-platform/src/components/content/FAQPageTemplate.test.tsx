@@ -77,7 +77,7 @@ describe('FAQPageTemplate', () => {
   });
 
   it('renders singular "Question" for single FAQ', () => {
-    render(<FAQPageTemplate page={makePage()} faqs={[sampleFaqs[0]]} />);
+    render(<FAQPageTemplate page={makePage()} faqs={[sampleFaqs[0]!]} />);
     expect(screen.getByText('1 Question')).toBeDefined();
   });
 
@@ -97,8 +97,8 @@ describe('FAQPageTemplate', () => {
     const details = container.querySelectorAll('details');
     expect(details).toHaveLength(3);
     // First item should be open by default
-    expect(details[0].hasAttribute('open')).toBe(true);
-    expect(details[1].hasAttribute('open')).toBe(false);
+    expect(details[0]!.hasAttribute('open')).toBe(true);
+    expect(details[1]!.hasAttribute('open')).toBe(false);
   });
 
   it('renders FAQ answers via ContentRenderer', () => {
@@ -106,7 +106,7 @@ describe('FAQPageTemplate', () => {
 
     const renderers = container.querySelectorAll('[data-testid="content-renderer"]');
     expect(renderers).toHaveLength(3);
-    expect(renderers[0].getAttribute('data-format')).toBe('markdown');
+    expect(renderers[0]!.getAttribute('data-format')).toBe('markdown');
   });
 
   it('shows full content body when no FAQs provided', () => {

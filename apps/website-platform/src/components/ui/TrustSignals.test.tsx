@@ -79,13 +79,13 @@ describe('ReviewHighlights', () => {
   });
 
   it('shows initial letter when no avatar', () => {
-    render(<ReviewHighlights reviews={[reviews[0]]} />);
+    render(<ReviewHighlights reviews={[reviews[0]!]} />);
 
     expect(screen.getByText('J')).toBeDefined();
   });
 
   it('shows avatar image when provided', () => {
-    render(<ReviewHighlights reviews={[reviews[1]]} />);
+    render(<ReviewHighlights reviews={[reviews[1]!]} />);
 
     const img = screen.getByAltText('Jane Smith');
     expect(img).toBeDefined();

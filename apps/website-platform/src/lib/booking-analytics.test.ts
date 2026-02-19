@@ -134,7 +134,7 @@ describe('booking-analytics', () => {
       const result = await getTrendingProducts('site-1');
 
       expect(result).toHaveLength(1);
-      expect(result[0].productId).toBe('prod-a');
+      expect(result[0]!.productId).toBe('prod-a');
     });
 
     it('respects limit parameter', async () => {

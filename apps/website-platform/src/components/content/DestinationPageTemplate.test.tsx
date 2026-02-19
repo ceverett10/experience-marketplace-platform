@@ -47,7 +47,7 @@ function makeDestination(overrides: Record<string, any> = {}) {
       structuredData: null,
     },
     ...overrides,
-  };
+  } as any;
 }
 
 function makeExperience(id: string, overrides: Record<string, any> = {}) {

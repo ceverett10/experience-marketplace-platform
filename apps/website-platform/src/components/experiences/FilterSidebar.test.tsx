@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { FilterSidebar, MobileFilterButton, MobileFilterDrawer, type FilterOptions } from './FilterSidebar';
+import {
+  FilterSidebar,
+  MobileFilterButton,
+  MobileFilterDrawer,
+  type FilterOptions,
+} from './FilterSidebar';
 
 // Mock next/navigation
 const mockPush = vi.fn();
@@ -52,11 +57,7 @@ describe('FilterSidebar', () => {
 
   it('renders filter header', () => {
     render(
-      <FilterSidebar
-        filterOptions={defaultFilterOptions}
-        totalCount={20}
-        filteredCount={15}
-      />
+      <FilterSidebar filterOptions={defaultFilterOptions} totalCount={20} filteredCount={15} />
     );
 
     expect(screen.getByText('Filters')).toBeDefined();
@@ -65,11 +66,7 @@ describe('FilterSidebar', () => {
 
   it('renders category checkboxes', () => {
     render(
-      <FilterSidebar
-        filterOptions={defaultFilterOptions}
-        totalCount={20}
-        filteredCount={20}
-      />
+      <FilterSidebar filterOptions={defaultFilterOptions} totalCount={20} filteredCount={20} />
     );
 
     expect(screen.getByText('Tours')).toBeDefined();
@@ -78,11 +75,7 @@ describe('FilterSidebar', () => {
 
   it('renders price range buttons', () => {
     render(
-      <FilterSidebar
-        filterOptions={defaultFilterOptions}
-        totalCount={20}
-        filteredCount={20}
-      />
+      <FilterSidebar filterOptions={defaultFilterOptions} totalCount={20} filteredCount={20} />
     );
 
     expect(screen.getByText('Under £25')).toBeDefined();
@@ -93,11 +86,7 @@ describe('FilterSidebar', () => {
     setSearchParams({ categories: 'Tours' });
 
     render(
-      <FilterSidebar
-        filterOptions={defaultFilterOptions}
-        totalCount={20}
-        filteredCount={10}
-      />
+      <FilterSidebar filterOptions={defaultFilterOptions} totalCount={20} filteredCount={10} />
     );
 
     expect(screen.getByText('Clear all')).toBeDefined();
@@ -105,11 +94,7 @@ describe('FilterSidebar', () => {
 
   it('does not show Clear all button when no filters active', () => {
     render(
-      <FilterSidebar
-        filterOptions={defaultFilterOptions}
-        totalCount={20}
-        filteredCount={20}
-      />
+      <FilterSidebar filterOptions={defaultFilterOptions} totalCount={20} filteredCount={20} />
     );
 
     expect(screen.queryByText('Clear all')).toBeNull();
@@ -117,14 +102,10 @@ describe('FilterSidebar', () => {
 
   it('toggles category filter on checkbox click', () => {
     render(
-      <FilterSidebar
-        filterOptions={defaultFilterOptions}
-        totalCount={20}
-        filteredCount={20}
-      />
+      <FilterSidebar filterOptions={defaultFilterOptions} totalCount={20} filteredCount={20} />
     );
 
-    const toursCheckbox = screen.getAllByRole('checkbox')[0];
+    const toursCheckbox = screen.getAllByRole('checkbox')[0]!;
     fireEvent.click(toursCheckbox);
 
     expect(mockPush).toHaveBeenCalledWith(
@@ -137,11 +118,7 @@ describe('FilterSidebar', () => {
     setSearchParams({ categories: 'Tours' });
 
     render(
-      <FilterSidebar
-        filterOptions={defaultFilterOptions}
-        totalCount={20}
-        filteredCount={10}
-      />
+      <FilterSidebar filterOptions={defaultFilterOptions} totalCount={20} filteredCount={10} />
     );
 
     fireEvent.click(screen.getByText('Clear all'));
@@ -151,11 +128,7 @@ describe('FilterSidebar', () => {
 
   it('toggles duration filter', () => {
     render(
-      <FilterSidebar
-        filterOptions={defaultFilterOptions}
-        totalCount={20}
-        filteredCount={20}
-      />
+      <FilterSidebar filterOptions={defaultFilterOptions} totalCount={20} filteredCount={20} />
     );
 
     // Duration section is collapsed by default, expand it
@@ -191,13 +164,7 @@ describe('FilterSidebar', () => {
       cities: [],
     };
 
-    render(
-      <FilterSidebar
-        filterOptions={emptyOptions}
-        totalCount={0}
-        filteredCount={0}
-      />
-    );
+    render(<FilterSidebar filterOptions={emptyOptions} totalCount={0} filteredCount={0} />);
 
     expect(screen.queryByText('Categories')).toBeNull();
     expect(screen.queryByText('Price Range')).toBeNull();
@@ -209,13 +176,7 @@ describe('FilterSidebar', () => {
       cities: [{ name: 'London', count: 20 }],
     };
 
-    render(
-      <FilterSidebar
-        filterOptions={singleCity}
-        totalCount={20}
-        filteredCount={20}
-      />
-    );
+    render(<FilterSidebar filterOptions={singleCity} totalCount={20} filteredCount={20} />);
 
     expect(screen.queryByText('Location')).toBeNull();
   });

@@ -52,7 +52,7 @@ vi.mock('stripe', () => {
     },
   }));
   // Add errors namespace for StripeError
-  StripeMock.errors = { StripeError: class StripeError extends Error {} };
+  (StripeMock as any).errors = { StripeError: class StripeError extends Error {} };
   return { default: StripeMock };
 });
 

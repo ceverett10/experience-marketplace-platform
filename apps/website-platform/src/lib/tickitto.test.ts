@@ -51,7 +51,7 @@ describe('tickitto utilities', () => {
     it('should create and return a client', () => {
       const client = getTickittoClient();
       expect(client).toBeDefined();
-      expect(client.getEvents).toBeDefined();
+      expect(client.getEvent).toBeDefined();
     });
 
     it('should return cached client on subsequent calls', () => {

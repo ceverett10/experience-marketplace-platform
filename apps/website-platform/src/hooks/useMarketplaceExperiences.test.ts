@@ -81,7 +81,7 @@ describe('useMarketplaceExperiences', () => {
     );
 
     expect(result.current.experiences).toHaveLength(1);
-    expect(result.current.experiences[0].id).toBe('init-1');
+    expect(result.current.experiences[0]!.id).toBe('init-1');
     expect(result.current.isLoading).toBe(false);
     expect(result.current.totalCount).toBe(1);
     expect(result.current.hasMore).toBe(false);
@@ -128,7 +128,7 @@ describe('useMarketplaceExperiences', () => {
 
     expect(mockFetch).toHaveBeenCalledTimes(1);
     expect(result.current.experiences).toHaveLength(2);
-    expect(result.current.experiences[0].id).toBe('fetched-1');
+    expect(result.current.experiences[0]!.id).toBe('fetched-1');
   });
 
   it('builds query string with filters and extra params', async () => {
@@ -183,7 +183,7 @@ describe('useMarketplaceExperiences', () => {
     }, { timeout: 5000 });
 
     expect(result.current.experiences).toHaveLength(2);
-    expect(result.current.experiences[1].id).toBe('page2-1');
+    expect(result.current.experiences[1]!.id).toBe('page2-1');
   });
 
   it('does not loadMore when hasMore is false', () => {

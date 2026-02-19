@@ -101,7 +101,7 @@ describe('microsite-experiences', () => {
 
       expect(result.products).toHaveLength(1);
       expect(result.total).toBe(1);
-      expect(result.products[0].id).toBe('prod-1');
+      expect(result.products[0]!.id).toBe('prod-1');
     });
 
     it('applies default sort and pagination', async () => {
@@ -146,7 +146,7 @@ describe('microsite-experiences', () => {
 
       const result = await getSupplierProducts('sup-1');
 
-      expect(result.products[0].priceFrom).toBe(35.5);
+      expect(result.products[0]!.priceFrom).toBe(35.5);
     });
 
     it('handles null priceFrom', async () => {
@@ -155,7 +155,7 @@ describe('microsite-experiences', () => {
 
       const result = await getSupplierProducts('sup-1');
 
-      expect(result.products[0].priceFrom).toBeNull();
+      expect(result.products[0]!.priceFrom).toBeNull();
     });
   });
 
@@ -275,7 +275,7 @@ describe('microsite-experiences', () => {
       const result = await getRelatedProducts(product, 'sup-1');
 
       expect(result).toHaveLength(1);
-      expect(result[0].id).toBe('prod-2');
+      expect(result[0]!.id).toBe('prod-2');
       expect(mockProductFindMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
@@ -329,8 +329,8 @@ describe('microsite-experiences', () => {
       } as any);
 
       expect(result).toHaveLength(2);
-      expect(result[0].id).toBe('prod-1');
-      expect(result[1].id).toBe('related-1');
+      expect(result[0]!.id).toBe('prod-1');
+      expect(result[1]!.id).toBe('related-1');
     });
 
     it('returns empty array for unknown entity type', async () => {
@@ -363,7 +363,7 @@ describe('microsite-experiences', () => {
       } as any);
 
       expect(result).toHaveLength(1);
-      expect(result[0].id).toBe('prod-1');
+      expect(result[0]!.id).toBe('prod-1');
     });
   });
 
@@ -445,7 +445,7 @@ describe('microsite-experiences', () => {
       // ms-2 has shared city London (+3) + shared category Tours (+2) + rating bonus (+1) = 6
       // ms-3 has no shared cities + shared category Tours (+2) + rating bonus (+1) = 3
       expect(result).toHaveLength(2);
-      expect(result[0].fullDomain).toBe('other-tours.example.com');
+      expect(result[0]!.fullDomain).toBe('other-tours.example.com');
     });
 
     it('excludes candidates with zero relevance score', async () => {
@@ -532,9 +532,9 @@ describe('microsite-experiences', () => {
       const result = await getNetworkRelatedBlogPosts('ms-1', ['London'], ['Tours']);
 
       expect(result).toHaveLength(1);
-      expect(result[0].title).toBe('Best London Walks');
-      expect(result[0].siteName).toBe('Other Site');
-      expect(result[0].fullDomain).toBe('other.example.com');
+      expect(result[0]!.title).toBe('Best London Walks');
+      expect(result[0]!.siteName).toBe('Other Site');
+      expect(result[0]!.fullDomain).toBe('other.example.com');
     });
 
     it('deduplicates by microsite (max 1 post per microsite)', async () => {
@@ -557,7 +557,7 @@ describe('microsite-experiences', () => {
       const result = await getNetworkRelatedBlogPosts('ms-1', ['London'], ['Tours']);
 
       expect(result).toHaveLength(1);
-      expect(result[0].title).toBe('Post 1');
+      expect(result[0]!.title).toBe('Post 1');
     });
 
     it('returns empty array when no related microsites', async () => {
