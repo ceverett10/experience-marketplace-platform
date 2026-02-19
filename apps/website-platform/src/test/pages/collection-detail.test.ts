@@ -190,6 +190,7 @@ describe('Collection detail generateMetadata', () => {
     const meta = await generateMetadata({
       params: Promise.resolve({ slug: 'family-adventures' }),
     });
-    expect(meta.openGraph?.type).toBe('website');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect((meta.openGraph as any)?.type).toBe('website');
   });
 });

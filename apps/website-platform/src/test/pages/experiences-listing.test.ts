@@ -171,8 +171,9 @@ describe('Experiences listing generateMetadata', () => {
   it('includes twitter metadata', async () => {
     const { generateMetadata } = await import('@/app/experiences/page');
     const meta = await generateMetadata({ searchParams: Promise.resolve({}) });
-    expect(meta.twitter?.card).toBe('summary_large_image');
-    expect(meta.twitter?.title).toContain('| Test Site');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect((meta.twitter as any)?.card).toBe('summary_large_image');
+    expect((meta.twitter as any)?.title).toContain('| Test Site');
   });
 
   it('trims description to ~160 characters', async () => {

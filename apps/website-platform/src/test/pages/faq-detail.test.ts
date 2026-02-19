@@ -157,7 +157,8 @@ describe('FAQ detail generateMetadata', () => {
     const meta = await generateMetadata({
       params: Promise.resolve({ slug: 'booking-questions' }),
     });
-    expect(meta.openGraph?.type).toBe('article');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect((meta.openGraph as any)?.type).toBe('article');
     expect(meta.openGraph?.title).toContain('| Test Site');
   });
 
@@ -167,8 +168,10 @@ describe('FAQ detail generateMetadata', () => {
     const meta = await generateMetadata({
       params: Promise.resolve({ slug: 'booking-questions' }),
     });
-    expect(meta.openGraph?.publishedTime).toBeDefined();
-    expect(meta.openGraph?.modifiedTime).toBeDefined();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const og = meta.openGraph as any;
+    expect(og?.publishedTime).toBeDefined();
+    expect(og?.modifiedTime).toBeDefined();
   });
 
   it('queries with "faq/" prefix in slug', async () => {

@@ -35,13 +35,13 @@ vi.mock('@/lib/holibob', () => ({
     discoverProducts: vi.fn(async () => ({ products: [], totalCount: 0 })),
   })),
   mapProductToExperience: vi.fn((product: Record<string, unknown>) => ({
-    id: product.id,
-    title: product.name,
-    shortDescription: product.shortDescription ?? '',
-    description: product.description ?? '',
+    id: product['id'],
+    title: product['name'],
+    shortDescription: product['shortDescription'] ?? '',
+    description: product['description'] ?? '',
     imageUrl: '/test-image.jpg',
     images: [],
-    provider: product.provider ?? null,
+    provider: product['provider'] ?? null,
     location: { name: '' },
   })),
   parseIsoDuration: vi.fn(() => 0),
@@ -185,8 +185,9 @@ describe('Experience detail generateMetadata', () => {
     });
     const { generateMetadata } = await import('@/app/experiences/[slug]/page');
     const meta = await generateMetadata({ params: Promise.resolve({ slug: 'prod-1' }) });
-    expect(meta.twitter?.card).toBe('summary_large_image');
-    expect(meta.twitter?.title).toContain('| Test Site');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect((meta.twitter as any)?.card).toBe('summary_large_image');
+    expect((meta.twitter as any)?.title).toContain('| Test Site');
   });
 
   it('sets canonical URL with slug', async () => {

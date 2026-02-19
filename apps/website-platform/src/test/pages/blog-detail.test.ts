@@ -161,9 +161,11 @@ describe('Blog detail generateMetadata', () => {
     const meta = await generateMetadata({
       params: Promise.resolve({ slug: 'best-walking-tours-london' }),
     });
-    expect(meta.openGraph?.type).toBe('article');
-    expect(meta.openGraph?.publishedTime).toBeDefined();
-    expect(meta.openGraph?.modifiedTime).toBeDefined();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const og = meta.openGraph as any;
+    expect(og?.type).toBe('article');
+    expect(og?.publishedTime).toBeDefined();
+    expect(og?.modifiedTime).toBeDefined();
   });
 
   it('includes openGraph title with site name suffix', async () => {
@@ -181,8 +183,9 @@ describe('Blog detail generateMetadata', () => {
     const meta = await generateMetadata({
       params: Promise.resolve({ slug: 'best-walking-tours-london' }),
     });
-    expect(meta.twitter?.card).toBe('summary_large_image');
-    expect(meta.twitter?.title).toContain('| Test Site');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect((meta.twitter as any)?.card).toBe('summary_large_image');
+    expect((meta.twitter as any)?.title).toContain('| Test Site');
   });
 
   it('queries blog with "blog/" prefix in slug', async () => {

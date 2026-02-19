@@ -66,7 +66,8 @@ describe('Prize draw terms generateMetadata', () => {
   it('openGraph type is website', async () => {
     const { generateMetadata } = await import('@/app/prize-draw-terms/page');
     const meta = await generateMetadata();
-    expect(meta.openGraph?.type).toBe('website');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect((meta.openGraph as any)?.type).toBe('website');
   });
 
   it('uses primaryDomain in canonical', async () => {

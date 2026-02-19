@@ -85,7 +85,8 @@ describe('Collections listing generateMetadata', () => {
   it('openGraph type is website', async () => {
     const { generateMetadata } = await import('@/app/collections/page');
     const meta = await generateMetadata();
-    expect(meta.openGraph?.type).toBe('website');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect((meta.openGraph as any)?.type).toBe('website');
   });
 
   it('description mentions collections and experiences', async () => {
