@@ -116,7 +116,7 @@ describe('MarketplaceFilteredPage', () => {
     render(<MarketplaceFilteredPage {...defaultProps} />);
     const cards = screen.getAllByTestId('experience-card');
     expect(cards).toHaveLength(2);
-    expect(cards[0].textContent).toBe('Tour 1');
+    expect(cards[0]!.textContent).toBe('Tour 1');
   });
 
   it('renders filter bar', () => {
