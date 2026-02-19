@@ -12,6 +12,7 @@
     "start:fast": "node dist/worker-fast.js",
     "start:heavy": "node dist/worker-heavy.js",
     "start:infra": "node dist/worker-infra.js",
+    "start:generic": "node dist/worker-generic.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
