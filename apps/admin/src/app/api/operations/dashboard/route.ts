@@ -4,7 +4,19 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getJobQueue, circuitBreakers, getScheduledJobs } from '@experience-marketplace/jobs';
 
-const QUEUE_NAMES = ['content', 'seo', 'gsc', 'site', 'domain', 'analytics', 'abtest'];
+const QUEUE_NAMES = [
+  'content',
+  'seo',
+  'gsc',
+  'site',
+  'domain',
+  'analytics',
+  'abtest',
+  'sync',
+  'microsite',
+  'social',
+  'ads',
+];
 
 /**
  * GET /api/operations/dashboard
@@ -25,6 +37,7 @@ export async function GET(): Promise<NextResponse> {
       failed: 0,
       delayed: 0,
       paused: false,
+      activeJobs: [] as { id: string; name: string; progress: unknown; elapsedMs: number | null }[],
     }));
 
     // BullMQ queue stats (Redis-dependent — gracefully degrade if Redis unavailable)
@@ -40,7 +53,38 @@ export async function GET(): Promise<NextResponse> {
             queue.getDelayedCount(),
             queue.isPaused(),
           ]);
-          return { name, waiting, active, completed, failed, delayed, paused: isPaused };
+
+          // Fetch active job details with progress (useful for long-running jobs)
+          let activeJobs: {
+            id: string;
+            name: string;
+            progress: unknown;
+            elapsedMs: number | null;
+          }[] = [];
+          if (active > 0) {
+            try {
+              const jobs = await queue.getActive();
+              activeJobs = jobs.map((j: any) => ({
+                id: j.id || '',
+                name: j.name || '',
+                progress: j.progress || null,
+                elapsedMs: j.processedOn ? Date.now() - j.processedOn : null,
+              }));
+            } catch {
+              // Ignore — progress is best-effort
+            }
+          }
+
+          return {
+            name,
+            waiting,
+            active,
+            completed,
+            failed,
+            delayed,
+            paused: isPaused,
+            activeJobs,
+          };
         } catch {
           return {
             name,
@@ -50,6 +94,7 @@ export async function GET(): Promise<NextResponse> {
             failed: 0,
             delayed: 0,
             paused: false,
+            activeJobs: [],
           };
         }
       })
