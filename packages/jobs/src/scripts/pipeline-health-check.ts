@@ -35,7 +35,13 @@ async function checkPhase1() {
 
   // 1.1: Product cache completeness
   const productCount = await prisma.product.count();
-  check(1, 'Product cache count', '> 0 products cached', `${productCount} products`, productCount > 0);
+  check(
+    1,
+    'Product cache count',
+    '> 0 products cached',
+    `${productCount} products`,
+    productCount > 0
+  );
 
   // 1.2: Supplier backfill — no suppliers with empty cities
   const emptyCitySuppliers = await prisma.supplier.count({
@@ -104,9 +110,14 @@ async function checkPhase1() {
   });
   const attributedCount = allPaidCandidates.filter((k) => {
     const sd = k.sourceData as any;
-    return sd?.sourceSupplierIds && Array.isArray(sd.sourceSupplierIds) && sd.sourceSupplierIds.length > 0;
+    return (
+      sd?.sourceSupplierIds &&
+      Array.isArray(sd.sourceSupplierIds) &&
+      sd.sourceSupplierIds.length > 0
+    );
   }).length;
-  const attributionRate = totalPaidCandidates > 0 ? (attributedCount / totalPaidCandidates) * 100 : 0;
+  const attributionRate =
+    totalPaidCandidates > 0 ? (attributedCount / totalPaidCandidates) * 100 : 0;
   check(
     1,
     'Supplier attribution rate',
@@ -142,7 +153,8 @@ async function checkPhase2() {
       targetUrl: { contains: 'q=' },
     },
   });
-  const searchCoverage = micrositeCampaigns > 0 ? (micrositesWithSearch / micrositeCampaigns) * 100 : 100;
+  const searchCoverage =
+    micrositeCampaigns > 0 ? (micrositesWithSearch / micrositeCampaigns) * 100 : 100;
   check(
     2,
     'Microsite landing pages with ?q= param',
@@ -304,11 +316,13 @@ async function checkPhase4() {
   console.log('='.repeat(60));
 
   // 4.1: targetMarkets field exists and is populated
-  const sitesWithTargetMarkets = await prisma.site.count({
-    where: {
-      targetMarkets: { isEmpty: false },
-    },
-  }).catch(() => -1);
+  const sitesWithTargetMarkets = await prisma.site
+    .count({
+      where: {
+        targetMarkets: { isEmpty: false },
+      },
+    })
+    .catch(() => -1);
   const totalSites = await prisma.site.count({ where: { status: 'ACTIVE' } });
   check(
     4,
@@ -321,11 +335,13 @@ async function checkPhase4() {
   );
 
   // 4.2: primaryCurrency field exists
-  const sitesWithCurrency = await prisma.site.count({
-    where: {
-      primaryCurrency: { not: '' },
-    },
-  }).catch(() => -1);
+  const sitesWithCurrency = await prisma.site
+    .count({
+      where: {
+        primaryCurrency: { not: '' },
+      },
+    })
+    .catch(() => -1);
   check(
     4,
     'Sites with primaryCurrency configured',
@@ -388,8 +404,10 @@ async function checkCrossCutting() {
   const withCustomMarkets = fbCampaigns.filter((c) => {
     const pd = c.proposalData as any;
     const markets = pd?.targeting?.geoTargets || pd?.geoTargets || [];
-    return Array.isArray(markets) && markets.length > 0 && !markets.every((m: string) =>
-      ['GB', 'US', 'CA', 'AU', 'IE', 'NZ'].includes(m)
+    return (
+      Array.isArray(markets) &&
+      markets.length > 0 &&
+      !markets.every((m: string) => ['GB', 'US', 'CA', 'AU', 'IE', 'NZ'].includes(m))
     );
   }).length;
   check(
@@ -411,9 +429,14 @@ async function printSummary() {
     const phaseResults = results.filter((r) => r.phase === phase);
     const passed = phaseResults.filter((r) => r.passed).length;
     const total = phaseResults.length;
-    const bar = total > 0
-      ? '\x1b[32m' + '\u2588'.repeat(passed) + '\x1b[31m' + '\u2588'.repeat(total - passed) + '\x1b[0m'
-      : '';
+    const bar =
+      total > 0
+        ? '\x1b[32m' +
+          '\u2588'.repeat(passed) +
+          '\x1b[31m' +
+          '\u2588'.repeat(total - passed) +
+          '\x1b[0m'
+        : '';
     console.log(`  Phase ${phase}: ${bar} ${passed}/${total} checks passing`);
   }
 
@@ -478,7 +501,8 @@ async function main() {
 }
 
 // Detect direct execution (not import)
-const isDirectExecution = require.main === module || process.argv[1]?.includes('pipeline-health-check');
+const isDirectExecution =
+  require.main === module || process.argv[1]?.includes('pipeline-health-check');
 if (isDirectExecution) {
   main();
 }
