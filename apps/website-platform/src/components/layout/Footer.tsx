@@ -72,13 +72,13 @@ export function Footer() {
           {/* Brand section */}
           <div className="space-y-8">
             {brand?.logoDarkUrl || brand?.logoUrl ? (
-              <div className="relative h-8 w-32">
+              <div className="relative h-8 w-32 sm:h-9 sm:w-36 lg:h-10 lg:w-44">
                 <Image
                   className={`object-contain object-left${brand.logoDarkUrl ? '' : ' brightness-0 invert'}`}
                   src={brand.logoDarkUrl ?? brand.logoUrl!}
                   alt={site.name}
                   fill
-                  sizes="128px"
+                  sizes="(min-width: 1024px) 176px, (min-width: 640px) 144px, 128px"
                 />
               </div>
             ) : (
