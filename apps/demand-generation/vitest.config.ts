@@ -13,6 +13,7 @@ export default defineConfig({
         'src/**/*.test.ts',
         'src/**/*.d.ts',
         'src/index.ts', // BullMQ worker entry point - requires Redis/worker mocking
+        'src/worker-*.ts', // Worker entrypoints - require Redis/BullMQ infrastructure
       ],
       thresholds: {
         statements: 20,
