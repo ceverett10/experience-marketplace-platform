@@ -38,10 +38,16 @@ import {
   migrateToSmartBidding,
 } from '../services/google-ads-client';
 import { PAID_TRAFFIC_CONFIG } from '../config/paid-traffic';
-import { generateAdCreative } from '../services/ad-creative-generator';
+import {
+  generateAdCreative,
+  fetchSiteContext,
+  extractDestination,
+  toTitleCase,
+  stripMarkdownForPrompt,
+  type SiteContext,
+} from '../services/ad-creative-generator';
 import { checkAdCoherence, extractSearchTermsFromContent } from '../services/ad-coherence-checker';
 import { reviewImageForCampaign } from '../services/ad-image-reviewer';
-import { stripMarkdownForPrompt } from '../services/ad-creative-generator';
 
 // --- Helpers -----------------------------------------------------------------
 
@@ -1293,105 +1299,276 @@ async function deployToMeta(
  * 2. Create ad group with keywords
  * 3. Create responsive search ad
  */
+/** Google RSA creative result with optional coherence metadata. */
+interface GoogleRSACreative {
+  headlines: string[];
+  descriptions: string[];
+  source: 'ai' | 'template';
+  coherenceScore?: number;
+  coherencePass?: boolean;
+  coherenceIssues?: string[];
+  coherenceSummary?: string;
+  remediated?: boolean;
+}
+
 /**
- * Task 2.6: AI-powered Google RSA generation with template fallback.
- * Generates keyword-specific headlines and descriptions using Claude Haiku.
- * Falls back to templates if AI is unavailable.
+ * AI-powered Google RSA generation with full context pipeline.
+ *
+ * Mirrors the Meta ad creative pipeline:
+ * 1. Fetch site/brand/landing page context
+ * 2. Generate keyword-specific headlines/descriptions with Claude Haiku
+ * 3. Run coherence check against landing page
+ * 4. Auto-remediate if coherence fails
+ * 5. Fall back to templates if AI unavailable
+ *
+ * @param keyword Primary keyword for this ad group
+ * @param siteName Site display name (used in ad copy)
+ * @param siteId Optional site ID for fetching brand/landing page context
+ * @param landingPagePath Optional landing page path for coherence validation
  */
 async function generateGoogleRSA(
   keyword: string,
-  siteName: string
-): Promise<{ headlines: string[]; descriptions: string[] }> {
+  siteName: string,
+  siteId?: string | null,
+  landingPagePath?: string | null
+): Promise<GoogleRSACreative> {
   const apiKey = process.env['ANTHROPIC_API_KEY'] || process.env['CLAUDE_API_KEY'] || '';
+
+  // Fetch site context (same as Meta pipeline) for richer prompts
+  const context = siteId ? await fetchSiteContext(siteId, landingPagePath) : null;
+
   if (!apiKey) {
-    return generateGoogleRSATemplate(keyword, siteName);
+    return generateGoogleRSATemplate(keyword, siteName, context);
   }
 
+  // Step 1: AI generation with full context
+  let creative: GoogleRSACreative | null = null;
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 500,
-        messages: [
-          {
-            role: 'user',
-            content: `Generate a Google Responsive Search Ad for the keyword "${keyword}" on a travel experiences booking site called "${siteName}".
+    creative = await generateGoogleRSAWithAI(keyword, siteName, apiKey, context);
+  } catch (error) {
+    console.warn(
+      `[GoogleRSA] AI generation failed, using template: ${error instanceof Error ? error.message : error}`
+    );
+  }
+  if (!creative) {
+    creative = generateGoogleRSATemplate(keyword, siteName, context);
+  }
 
-RULES:
-- 6 headlines, each MAX 30 characters (hard limit - Google rejects longer)
-- 2 descriptions, each MAX 90 characters (hard limit)
-- Headlines must be specific to "${keyword}" — NOT generic
-- First 3 headlines MUST include the keyword or a close variant
-- DO NOT use "Free cancellation" (we cannot guarantee this for all products)
-- DO NOT invent prices, discounts, or percentages
-- Focus on booking intent: "Book Now", "Instant Confirmation", "Top-Rated"
-- Include the site name "${siteName}" in at most one headline
+  // Step 2: Coherence check (same checker as Meta)
+  if (context?.pageTitle || context?.pageBody) {
+    try {
+      // Build a combined text from RSA headlines + descriptions for coherence check
+      const headlineText = creative.headlines.slice(0, 3).join('. ');
+      const descriptionText = creative.descriptions.join(' ');
+      const coherence = await checkAdCoherence({
+        headline: headlineText,
+        body: descriptionText,
+        callToAction: 'BOOK_TRAVEL',
+        imageUrl: null,
+        imageSource: undefined,
+        keywords: [keyword],
+        landingPage: {
+          title: context.pageTitle,
+          description: context.pageDescription,
+          bodyExcerpt: context.pageBody,
+          type: context.pageType,
+          productCount: null,
+        },
+      });
 
-Return JSON only:
-{"headlines":["..."],"descriptions":["..."]}`,
-          },
-        ],
-      }),
-    });
+      if (coherence) {
+        creative.coherenceScore = coherence.score;
+        creative.coherencePass = coherence.pass;
+        creative.coherenceIssues = coherence.issues;
+        creative.coherenceSummary = coherence.summary;
 
-    if (response.ok) {
-      const data = (await response.json()) as {
-        content: Array<{ type: string; text: string }>;
-      };
-      const text = data.content[0]?.text || '';
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]) as {
-          headlines: string[];
-          descriptions: string[];
-        };
-        // Enforce length limits
-        const headlines = (parsed.headlines || [])
-          .map((h: string) => h.substring(0, 30))
-          .slice(0, 6);
-        const descriptions = (parsed.descriptions || [])
-          .map((d: string) => d.substring(0, 90))
-          .slice(0, 2);
-        if (headlines.length >= 3 && descriptions.length >= 1) {
-          return { headlines, descriptions };
+        console.log(
+          `[GoogleRSA] Coherence: ${coherence.score}/10 ${coherence.pass ? 'PASS' : 'FAIL'} — ${coherence.summary}`
+        );
+
+        // Step 3: Remediation — regenerate with issues as constraints
+        if (!coherence.pass && coherence.issues.length > 0 && apiKey) {
+          console.log(`[GoogleRSA] Remediating: issues = ${coherence.issues.join('; ')}`);
+          try {
+            const remediated = await generateGoogleRSAWithAI(
+              keyword,
+              siteName,
+              apiKey,
+              context,
+              coherence.issues
+            );
+            if (remediated) {
+              remediated.remediated = true;
+              // Re-check coherence (accept result, no further looping)
+              const recheck = await checkAdCoherence({
+                headline: remediated.headlines.slice(0, 3).join('. '),
+                body: remediated.descriptions.join(' '),
+                callToAction: 'BOOK_TRAVEL',
+                imageUrl: null,
+                imageSource: undefined,
+                keywords: [keyword],
+                landingPage: {
+                  title: context.pageTitle,
+                  description: context.pageDescription,
+                  bodyExcerpt: context.pageBody,
+                  type: context.pageType,
+                  productCount: null,
+                },
+              });
+              if (recheck) {
+                remediated.coherenceScore = recheck.score;
+                remediated.coherencePass = recheck.pass;
+                remediated.coherenceIssues = recheck.issues;
+                remediated.coherenceSummary = recheck.summary;
+                console.log(
+                  `[GoogleRSA] Post-remediation: ${recheck.score}/10 ${recheck.pass ? 'PASS' : 'FAIL'}`
+                );
+              }
+              creative = remediated;
+            }
+          } catch (err) {
+            console.warn(
+              `[GoogleRSA] Remediation failed, keeping original: ${err instanceof Error ? err.message : err}`
+            );
+          }
         }
       }
+    } catch (err) {
+      console.warn(
+        `[GoogleRSA] Coherence check failed: ${err instanceof Error ? err.message : err}`
+      );
     }
-  } catch {
-    // Fall through to template
   }
 
-  return generateGoogleRSATemplate(keyword, siteName);
+  return creative;
 }
 
-/** Template fallback for Google RSA when AI is unavailable */
+/**
+ * Generate Google RSA copy using Claude Haiku with full brand/landing page context.
+ * Prompt mirrors the Meta ad-creative-generator prompt structure for consistent messaging.
+ */
+async function generateGoogleRSAWithAI(
+  keyword: string,
+  siteName: string,
+  apiKey: string,
+  context: SiteContext | null,
+  coherenceIssues?: string[]
+): Promise<GoogleRSACreative | null> {
+  const brand = context?.brandName || siteName;
+  const tone = context?.tonePersonality.length
+    ? context.tonePersonality.join(', ')
+    : 'friendly, enthusiastic';
+  const destination = toTitleCase(extractDestination(keyword));
+
+  // Build context lines (same structure as Meta prompt)
+  const contextLines: string[] = [];
+  if (context?.pageType) {
+    const parts = [`Landing page type: ${context.pageType}`];
+    if (context.pageTitle) parts.push(`"${context.pageTitle}"`);
+    contextLines.push(parts.join(' — '));
+  }
+  if (context?.pageDescription) {
+    contextLines.push(`Page description: ${context.pageDescription.substring(0, 150)}`);
+  }
+  if (context?.pageBody) {
+    contextLines.push(`Landing page content: "${context.pageBody.substring(0, 200)}..."`);
+  }
+
+  const remediationBlock = coherenceIssues?.length
+    ? `\nCOHERENCE ISSUES TO FIX (from previous review):
+${coherenceIssues.map((issue) => `- ${issue}`).join('\n')}
+You MUST address each issue above. Ensure the ad copy aligns with the landing page content.\n`
+    : '';
+
+  const prompt = `You are a performance marketing copywriter for a travel experiences platform.
+Brand: "${brand}". Tone: ${tone}.
+Target keyword: ${keyword}
+Destination/activity: ${destination}
+${contextLines.length > 0 ? contextLines.join('\n') : ''}
+${remediationBlock}
+Write a Google Responsive Search Ad for "${destination}" experiences.
+
+CRITICAL RULES:
+- The ad MUST be specifically about "${destination}". Do NOT mention unrelated activities or locations.
+- 6 headlines, each MAX 30 characters (hard limit — Google rejects longer)
+- 2 descriptions, each MAX 90 characters (hard limit)
+- First 3 headlines MUST include "${destination}" or a recognisable short form
+- Do NOT use pipe character | in any headline or description
+- Do NOT use "Free cancellation" (cannot guarantee for all products)
+- Do NOT invent prices, discounts, star ratings, or review counts
+- Focus on booking intent: "Book Now", "Instant Confirmation", "Top-Rated"
+- Include "${brand}" in at most one headline
+
+Good headlines: "Tours in ${destination}", "Book ${destination} Today", "${destination} Experiences"
+Bad headlines: "Best Prices Guaranteed", "Amazing Travel Deals", "${destination} | ${brand}"
+
+Return JSON only:
+{"headlines":["..."],"descriptions":["..."]}`;
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 500,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(`Anthropic API error: ${JSON.stringify(errorData)}`);
+  }
+
+  const data = (await response.json()) as { content: Array<{ type: string; text: string }> };
+  const text = data.content[0]?.text || '';
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) return null;
+
+  const parsed = JSON.parse(jsonMatch[0]) as { headlines: string[]; descriptions: string[] };
+  const headlines = (parsed.headlines || []).map((h: string) => h.substring(0, 30)).slice(0, 6);
+  const descriptions = (parsed.descriptions || [])
+    .map((d: string) => d.substring(0, 90))
+    .slice(0, 2);
+
+  if (headlines.length < 3 || descriptions.length < 1) return null;
+
+  return { headlines, descriptions, source: 'ai' };
+}
+
+/** Template fallback for Google RSA when AI is unavailable. */
 function generateGoogleRSATemplate(
   keyword: string,
-  siteName: string
-): { headlines: string[]; descriptions: string[] } {
-  const kwTitle = keyword.charAt(0).toUpperCase() + keyword.slice(1);
+  siteName: string,
+  context?: SiteContext | null
+): GoogleRSACreative {
+  const destination = toTitleCase(extractDestination(keyword));
+  const brand = context?.brandName || siteName;
+
   return {
     headlines: [
-      kwTitle.substring(0, 30),
-      `Book ${kwTitle}`.substring(0, 30),
-      `${kwTitle} | ${siteName}`.substring(0, 30),
-      `Best ${kwTitle} Deals`.substring(0, 30),
+      destination.substring(0, 30),
+      `Book ${destination}`.substring(0, 30),
+      `${destination} - ${brand}`.substring(0, 30),
+      `Best ${destination} Deals`.substring(0, 30),
       'Instant Confirmation',
       'Book Online Today',
     ],
     descriptions: [
-      `Discover and book ${keyword} experiences. Instant confirmation, top-rated providers.`.substring(
+      `Discover and book ${destination} experiences. Instant confirmation, top-rated providers.`.substring(
         0,
         90
       ),
-      `Compare and book the best ${keyword}. Trusted by thousands of travellers.`.substring(0, 90),
+      `Compare and book the best ${destination}. Trusted by thousands of travellers.`.substring(
+        0,
+        90
+      ),
     ],
+    source: 'template',
   };
 }
 
@@ -1403,6 +1580,8 @@ async function deployToGoogle(
     maxCpc: number;
     keywords: string[];
     audiences?: unknown;
+    siteId?: string | null;
+    landingPagePath?: string | null;
     site?: { name: string } | null;
   },
   landingUrl: string
@@ -1464,8 +1643,13 @@ async function deployToGoogle(
           if (key.startsWith('utm_')) agUrl.searchParams.set(key, val);
         }
 
-        // Task 2.6: AI-powered RSA generation
-        const rsa = await generateGoogleRSA(agConfig.primaryKeyword, siteName);
+        // AI-powered RSA generation with full context pipeline
+        const rsa = await generateGoogleRSA(
+          agConfig.primaryKeyword,
+          siteName,
+          campaign.siteId,
+          campaign.landingPagePath
+        );
         await createResponsiveSearchAd({
           adGroupId: adGroupResult.adGroupId,
           headlines: rsa.headlines,
@@ -1492,8 +1676,13 @@ async function deployToGoogle(
 
       if (adGroupResult) {
         const keyword = campaign.keywords[0] || 'experiences';
-        // Task 2.6: AI-powered RSA generation
-        const rsa = await generateGoogleRSA(keyword, siteName);
+        // AI-powered RSA generation with full context pipeline
+        const rsa = await generateGoogleRSA(
+          keyword,
+          siteName,
+          campaign.siteId,
+          campaign.landingPagePath
+        );
         await createResponsiveSearchAd({
           adGroupId: adGroupResult.adGroupId,
           headlines: rsa.headlines,
