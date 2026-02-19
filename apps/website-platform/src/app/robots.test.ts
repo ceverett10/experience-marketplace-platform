@@ -33,43 +33,57 @@ describe('robots', () => {
 
   it('allows all crawlers on /', async () => {
     const result = await robots();
-    const rules = (Array.isArray(result.rules) ? result.rules : [result.rules]) as Array<{ userAgent?: string | string[]; allow?: string | string[]; disallow?: string | string[] }>;
-    const wildcardRule = rules.find(
-      (r) => r.userAgent === '*'
-    );
+    const rules = (Array.isArray(result.rules) ? result.rules : [result.rules]) as Array<{
+      userAgent?: string | string[];
+      allow?: string | string[];
+      disallow?: string | string[];
+    }>;
+    const wildcardRule = rules.find((r) => r.userAgent === '*');
     expect(wildcardRule).toBeDefined();
     expect((wildcardRule as any).allow).toBe('/');
   });
 
   it('disallows /api/ and /admin/ for all crawlers', async () => {
     const result = await robots();
-    const rules = (Array.isArray(result.rules) ? result.rules : [result.rules]) as Array<{ userAgent?: string | string[]; allow?: string | string[]; disallow?: string | string[] }>;
-    const wildcardRule = rules.find(
-      (r) => r.userAgent === '*'
-    ) as any;
+    const rules = (Array.isArray(result.rules) ? result.rules : [result.rules]) as Array<{
+      userAgent?: string | string[];
+      allow?: string | string[];
+      disallow?: string | string[];
+    }>;
+    const wildcardRule = rules.find((r) => r.userAgent === '*') as any;
     expect(wildcardRule.disallow).toContain('/api/');
     expect(wildcardRule.disallow).toContain('/admin/');
   });
 
   it('disallows checkout and booking for general crawler', async () => {
     const result = await robots();
-    const rules = (Array.isArray(result.rules) ? result.rules : [result.rules]) as Array<{ userAgent?: string | string[]; allow?: string | string[]; disallow?: string | string[] }>;
-    const wildcardRule = rules.find(
-      (r) => r.userAgent === '*'
-    ) as any;
+    const rules = (Array.isArray(result.rules) ? result.rules : [result.rules]) as Array<{
+      userAgent?: string | string[];
+      allow?: string | string[];
+      disallow?: string | string[];
+    }>;
+    const wildcardRule = rules.find((r) => r.userAgent === '*') as any;
     expect(wildcardRule.disallow).toContain('/checkout/');
     expect(wildcardRule.disallow).toContain('/booking/');
   });
 
   it('allows AI search bots (ChatGPT, Perplexity, Claude)', async () => {
     const result = await robots();
-    const rules = (Array.isArray(result.rules) ? result.rules : [result.rules]) as Array<{ userAgent?: string | string[]; allow?: string | string[]; disallow?: string | string[] }>;
-    const aiBots = ['ChatGPT-User', 'OAI-SearchBot', 'PerplexityBot', 'Claude-User', 'Claude-SearchBot'];
+    const rules = (Array.isArray(result.rules) ? result.rules : [result.rules]) as Array<{
+      userAgent?: string | string[];
+      allow?: string | string[];
+      disallow?: string | string[];
+    }>;
+    const aiBots = [
+      'ChatGPT-User',
+      'OAI-SearchBot',
+      'PerplexityBot',
+      'Claude-User',
+      'Claude-SearchBot',
+    ];
 
     for (const bot of aiBots) {
-      const rule = rules.find(
-        (r) => r.userAgent === bot
-      ) as any;
+      const rule = rules.find((r) => r.userAgent === bot) as any;
       expect(rule, `Missing rule for ${bot}`).toBeDefined();
       expect(rule.allow).toBe('/');
     }
@@ -77,13 +91,23 @@ describe('robots', () => {
 
   it('blocks AI training/scraping bots', async () => {
     const result = await robots();
-    const rules = (Array.isArray(result.rules) ? result.rules : [result.rules]) as Array<{ userAgent?: string | string[]; allow?: string | string[]; disallow?: string | string[] }>;
-    const blockedBots = ['GPTBot', 'ClaudeBot', 'anthropic-ai', 'Google-Extended', 'CCBot', 'Meta-ExternalAgent', 'Bytespider'];
+    const rules = (Array.isArray(result.rules) ? result.rules : [result.rules]) as Array<{
+      userAgent?: string | string[];
+      allow?: string | string[];
+      disallow?: string | string[];
+    }>;
+    const blockedBots = [
+      'GPTBot',
+      'ClaudeBot',
+      'anthropic-ai',
+      'Google-Extended',
+      'CCBot',
+      'Meta-ExternalAgent',
+      'Bytespider',
+    ];
 
     for (const bot of blockedBots) {
-      const rule = rules.find(
-        (r) => r.userAgent === bot
-      ) as any;
+      const rule = rules.find((r) => r.userAgent === bot) as any;
       expect(rule, `Missing rule for ${bot}`).toBeDefined();
       expect(rule.disallow).toContain('/');
     }
@@ -91,10 +115,12 @@ describe('robots', () => {
 
   it('has Googlebot-specific rules', async () => {
     const result = await robots();
-    const rules = (Array.isArray(result.rules) ? result.rules : [result.rules]) as Array<{ userAgent?: string | string[]; allow?: string | string[]; disallow?: string | string[] }>;
-    const googlebotRule = rules.find(
-      (r) => r.userAgent === 'Googlebot'
-    ) as any;
+    const rules = (Array.isArray(result.rules) ? result.rules : [result.rules]) as Array<{
+      userAgent?: string | string[];
+      allow?: string | string[];
+      disallow?: string | string[];
+    }>;
+    const googlebotRule = rules.find((r) => r.userAgent === 'Googlebot') as any;
     expect(googlebotRule).toBeDefined();
     expect(googlebotRule.allow).toBe('/');
     expect(googlebotRule.disallow).toContain('/api/');

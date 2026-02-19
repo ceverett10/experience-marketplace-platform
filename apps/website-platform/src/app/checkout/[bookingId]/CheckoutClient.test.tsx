@@ -134,9 +134,7 @@ const mockBooking = {
 const mockQuestionsResult = {
   booking: mockBooking,
   summary: {
-    bookingQuestions: [
-      { id: 'q1', label: 'Email', type: 'EMAIL', answerValue: null },
-    ],
+    bookingQuestions: [{ id: 'q1', label: 'Email', type: 'EMAIL', answerValue: null }],
     availabilityQuestions: [],
     canCommit: false,
   },

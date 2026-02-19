@@ -9,9 +9,7 @@ vi.mock('next/navigation', () => ({
 
 // Mock child components
 vi.mock('@/components/experiences/PremiumExperienceCard', () => ({
-  PremiumExperienceCard: ({ title }: any) => (
-    <div data-testid="experience-card">{title}</div>
-  ),
+  PremiumExperienceCard: ({ title }: any) => <div data-testid="experience-card">{title}</div>,
 }));
 
 vi.mock('@/components/experiences/FilterSidebar', () => ({
@@ -94,9 +92,7 @@ describe('MarketplaceExperiencesPage', () => {
   });
 
   it('shows API error when provided', () => {
-    render(
-      <MarketplaceExperiencesPage {...defaultProps} apiError="Something went wrong" />
-    );
+    render(<MarketplaceExperiencesPage {...defaultProps} apiError="Something went wrong" />);
     expect(screen.getByText(/trouble loading experiences/)).toBeDefined();
   });
 

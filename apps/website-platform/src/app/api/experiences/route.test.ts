@@ -212,9 +212,7 @@ describe('Experiences Route - GET', () => {
 
   it('handles duration from durationText', async () => {
     mockDiscoverProducts.mockResolvedValue({
-      products: [
-        { id: 'prod-1', name: 'Tour', durationText: 'Approximately 2 hours' },
-      ],
+      products: [{ id: 'prod-1', name: 'Tour', durationText: 'Approximately 2 hours' }],
       totalCount: 1,
     });
 

@@ -103,17 +103,13 @@ describe('Suggestions Route - GET', () => {
     const response = await GET(request);
     expect(response.status).toBe(200);
 
-    expect(mockGetSuggestions).toHaveBeenCalledWith(
-      expect.objectContaining({ adults: 3 })
-    );
+    expect(mockGetSuggestions).toHaveBeenCalledWith(expect.objectContaining({ adults: 3 }));
   });
 
   it('calls API when "startDate" is provided', async () => {
     mockGetSuggestions.mockResolvedValue({ destinations: [] });
 
-    const request = new NextRequest(
-      'http://localhost:3000/api/suggestions?startDate=2025-06-01'
-    );
+    const request = new NextRequest('http://localhost:3000/api/suggestions?startDate=2025-06-01');
 
     const response = await GET(request);
     expect(response.status).toBe(200);
@@ -150,9 +146,7 @@ describe('Suggestions Route - GET', () => {
 
     await GET(request);
 
-    expect(mockGetSuggestions).toHaveBeenCalledWith(
-      expect.objectContaining({ adults: 2 })
-    );
+    expect(mockGetSuggestions).toHaveBeenCalledWith(expect.objectContaining({ adults: 2 }));
   });
 
   it('returns 500 on error', async () => {

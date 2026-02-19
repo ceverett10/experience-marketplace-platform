@@ -218,7 +218,11 @@ describe('Microsite Experiences Route - GET', () => {
     mockGetProductsByProvider.mockResolvedValue({
       nodes: [
         makeProduct({ id: 'p1', guidePrice: 30, categoryList: { nodes: [{ name: 'Tours' }] } }),
-        makeProduct({ id: 'p2', guidePrice: 60, categoryList: { nodes: [{ name: 'Tours' }, { name: 'Food' }] } }),
+        makeProduct({
+          id: 'p2',
+          guidePrice: 60,
+          categoryList: { nodes: [{ name: 'Tours' }, { name: 'Food' }] },
+        }),
       ],
       recordCount: 2,
     });
@@ -276,18 +280,20 @@ describe('Microsite Experiences Route - GET', () => {
 
   it('handles null product fields gracefully', async () => {
     mockGetProductsByProvider.mockResolvedValue({
-      nodes: [makeProduct({
-        name: null,
-        description: null,
-        imageList: [],
-        guidePrice: null,
-        guidePriceCurrency: null,
-        guidePriceFormattedText: null,
-        maxDuration: null,
-        reviewRating: null,
-        categoryList: null,
-        place: null,
-      })],
+      nodes: [
+        makeProduct({
+          name: null,
+          description: null,
+          imageList: [],
+          guidePrice: null,
+          guidePriceCurrency: null,
+          guidePriceFormattedText: null,
+          maxDuration: null,
+          reviewRating: null,
+          categoryList: null,
+          place: null,
+        }),
+      ],
       recordCount: 1,
     });
 

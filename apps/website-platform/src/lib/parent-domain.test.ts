@@ -141,9 +141,7 @@ describe('parent-domain', () => {
 
       await getFeaturedSuppliers(5);
 
-      expect(mockFindMany).toHaveBeenCalledWith(
-        expect.objectContaining({ take: 5 })
-      );
+      expect(mockFindMany).toHaveBeenCalledWith(expect.objectContaining({ take: 5 }));
     });
 
     it('returns empty array on error', async () => {
@@ -179,9 +177,7 @@ describe('parent-domain', () => {
     });
 
     it('generates slugs with special characters stripped', async () => {
-      mockFindMany.mockResolvedValue([
-        { categories: ['Food & Drink'] },
-      ]);
+      mockFindMany.mockResolvedValue([{ categories: ['Food & Drink'] }]);
 
       const result = await getSupplierCategories();
       expect(result[0]!.slug).toBe('food-drink');
@@ -196,10 +192,7 @@ describe('parent-domain', () => {
 
   describe('getSupplierCities', () => {
     it('counts and sorts cities across suppliers', async () => {
-      mockFindMany.mockResolvedValue([
-        { cities: ['London', 'Paris'] },
-        { cities: ['London'] },
-      ]);
+      mockFindMany.mockResolvedValue([{ cities: ['London', 'Paris'] }, { cities: ['London'] }]);
 
       const result = await getSupplierCities();
 

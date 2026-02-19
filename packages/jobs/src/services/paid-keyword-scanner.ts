@@ -318,12 +318,7 @@ async function expandExistingKeywords(
     try {
       // Task 4.3: Use destination-specific location instead of hardcoded UK
       const location = await getDataForSEOLocationForKeyword(seed.keyword);
-      const related = await dataForSeo.discoverKeywords(
-        seed.keyword,
-        location,
-        'English',
-        30
-      );
+      const related = await dataForSeo.discoverKeywords(seed.keyword, location, 'English', 30);
       apiCost += 0.003;
 
       const newKeywords = related.filter((kw) => {
@@ -488,12 +483,7 @@ async function discoverCategoryKeywords(
     try {
       // Task 4.3: Use destination-specific location instead of hardcoded UK
       const location = await getDataForSEOLocationForKeyword(seed.query);
-      const keywords = await dataForSeo.discoverKeywords(
-        seed.query,
-        location,
-        'English',
-        30
-      );
+      const keywords = await dataForSeo.discoverKeywords(seed.query, location, 'English', 30);
       apiCost += 0.003;
 
       const newKeywords = keywords.filter((kw) => {

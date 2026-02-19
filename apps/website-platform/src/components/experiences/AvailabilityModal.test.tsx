@@ -353,9 +353,7 @@ describe('AvailabilityModal', () => {
     });
 
     // Click Book Now
-    const bookBtn = document.body.querySelector(
-      '[data-testid="book-now-button"]'
-    ) as HTMLElement;
+    const bookBtn = document.body.querySelector('[data-testid="book-now-button"]') as HTMLElement;
     fireEvent.click(bookBtn);
 
     await waitFor(() => {
