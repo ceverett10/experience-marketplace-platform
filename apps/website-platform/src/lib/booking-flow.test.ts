@@ -46,9 +46,7 @@ describe('booking-flow', () => {
 
       const result = await fetchAvailability('prod-1', '2025-06-01', '2025-06-30');
 
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/availability?')
-      );
+      expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/api/availability?'));
       const url = mockFetch.mock.calls[0][0] as string;
       expect(url).toContain('productId=prod-1');
       expect(url).toContain('dateFrom=2025-06-01');
@@ -88,9 +86,7 @@ describe('booking-flow', () => {
     });
 
     it('includes pricing param when requested', async () => {
-      mockFetch.mockResolvedValue(
-        mockSuccessResponse({ id: 'avail-1', date: '2025-06-15' })
-      );
+      mockFetch.mockResolvedValue(mockSuccessResponse({ id: 'avail-1', date: '2025-06-15' }));
 
       await getAvailabilityDetails('avail-1', true);
 
@@ -109,9 +105,7 @@ describe('booking-flow', () => {
       const mockData = { id: 'avail-1', optionList: { isComplete: true, nodes: [] } };
       mockFetch.mockResolvedValue(mockSuccessResponse(mockData));
 
-      const result = await setAvailabilityOptions('avail-1', [
-        { id: 'opt-1', value: 'morning' },
-      ]);
+      const result = await setAvailabilityOptions('avail-1', [{ id: 'opt-1', value: 'morning' }]);
 
       expect(mockFetch).toHaveBeenCalledWith('/api/availability/avail-1', {
         method: 'POST',
@@ -294,12 +288,14 @@ describe('booking-flow', () => {
         .mockResolvedValueOnce(
           mockSuccessResponse({ id: 'avail-1', optionList: { isComplete: true, nodes: [] } })
         )
-        .mockResolvedValueOnce(
-          mockSuccessResponse({ id: 'avail-1', isValid: false })
-        );
+        .mockResolvedValueOnce(mockSuccessResponse({ id: 'avail-1', isValid: false }));
 
       await expect(
-        configureAvailability('avail-1', [{ id: 'time', value: '09:00' }], [{ id: 'adult', units: 2 }])
+        configureAvailability(
+          'avail-1',
+          [{ id: 'time', value: '09:00' }],
+          [{ id: 'adult', units: 2 }]
+        )
       ).rejects.toThrow('Availability configuration is not valid');
     });
   });
@@ -307,9 +303,7 @@ describe('booking-flow', () => {
   describe('startBookingFlow', () => {
     it('creates booking and adds availability', async () => {
       mockFetch
-        .mockResolvedValueOnce(
-          mockSuccessResponse({ id: 'booking-1', state: 'OPEN' })
-        )
+        .mockResolvedValueOnce(mockSuccessResponse({ id: 'booking-1', state: 'OPEN' }))
         .mockResolvedValueOnce(
           mockSuccessResponse({ canCommit: false, booking: { id: 'booking-1' } })
         );

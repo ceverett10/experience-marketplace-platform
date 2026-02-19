@@ -63,9 +63,7 @@ describe('booking-analytics', () => {
     it('sets isHighDemand when >= 5 bookings this week', async () => {
       const now = new Date();
       const recentDate = new Date(now.getTime() - 60 * 60 * 1000);
-      mockFindMany.mockResolvedValue(
-        Array.from({ length: 5 }, () => ({ createdAt: recentDate }))
-      );
+      mockFindMany.mockResolvedValue(Array.from({ length: 5 }, () => ({ createdAt: recentDate })));
 
       const stats = await getProductBookingStats('site-1', 'prod-1');
 
@@ -76,9 +74,7 @@ describe('booking-analytics', () => {
     it('sets isTrending when >= 10 bookings this week', async () => {
       const now = new Date();
       const recentDate = new Date(now.getTime() - 60 * 60 * 1000);
-      mockFindMany.mockResolvedValue(
-        Array.from({ length: 10 }, () => ({ createdAt: recentDate }))
-      );
+      mockFindMany.mockResolvedValue(Array.from({ length: 10 }, () => ({ createdAt: recentDate })));
 
       const stats = await getProductBookingStats('site-1', 'prod-1');
 
@@ -102,11 +98,25 @@ describe('booking-analytics', () => {
 
   describe('shouldShowBookingCount', () => {
     it('returns true when >= 3 bookings this week', () => {
-      expect(shouldShowBookingCount({ bookingsToday: 0, bookingsThisWeek: 3, isHighDemand: false, isTrending: false })).toBe(true);
+      expect(
+        shouldShowBookingCount({
+          bookingsToday: 0,
+          bookingsThisWeek: 3,
+          isHighDemand: false,
+          isTrending: false,
+        })
+      ).toBe(true);
     });
 
     it('returns false when < 3 bookings this week', () => {
-      expect(shouldShowBookingCount({ bookingsToday: 1, bookingsThisWeek: 2, isHighDemand: false, isTrending: false })).toBe(false);
+      expect(
+        shouldShowBookingCount({
+          bookingsToday: 1,
+          bookingsThisWeek: 2,
+          isHighDemand: false,
+          isTrending: false,
+        })
+      ).toBe(false);
     });
   });
 
@@ -134,7 +144,7 @@ describe('booking-analytics', () => {
       const result = await getTrendingProducts('site-1');
 
       expect(result).toHaveLength(1);
-      expect(result[0].productId).toBe('prod-a');
+      expect(result[0]!.productId).toBe('prod-a');
     });
 
     it('respects limit parameter', async () => {
@@ -142,9 +152,7 @@ describe('booking-analytics', () => {
 
       await getTrendingProducts('site-1', 5);
 
-      expect(mockGroupBy).toHaveBeenCalledWith(
-        expect.objectContaining({ take: 5 })
-      );
+      expect(mockGroupBy).toHaveBeenCalledWith(expect.objectContaining({ take: 5 }));
     });
 
     it('returns empty array on error', async () => {

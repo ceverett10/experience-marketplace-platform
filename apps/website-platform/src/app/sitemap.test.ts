@@ -156,11 +156,11 @@ describe('sitemap', () => {
     const prodUrls = entries.filter((e) => e.url.includes('/experiences/hb-prod'));
 
     expect(prodUrls).toHaveLength(2);
-    expect(prodUrls[0].url).toBe('https://test.example.com/experiences/hb-prod-1');
+    expect(prodUrls[0]!.url).toBe('https://test.example.com/experiences/hb-prod-1');
     // Higher rating = higher priority (capped at 0.8)
-    expect(prodUrls[0].priority).toBeCloseTo(0.78, 1);
+    expect(prodUrls[0]!.priority).toBeCloseTo(0.78, 1);
     // No rating = base priority 0.6
-    expect(prodUrls[1].priority).toBe(0.6);
+    expect(prodUrls[1]!.priority).toBe(0.6);
   });
 
   it('does not fetch products for non-microsite', async () => {
@@ -175,6 +175,6 @@ describe('sitemap', () => {
     });
 
     const entries = await sitemap();
-    expect(entries[0].url).toBe('https://test.example.com');
+    expect(entries[0]!.url).toBe('https://test.example.com');
   });
 });

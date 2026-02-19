@@ -51,7 +51,7 @@ describe('tickitto utilities', () => {
     it('should create and return a client', () => {
       const client = getTickittoClient();
       expect(client).toBeDefined();
-      expect(client.getEvents).toBeDefined();
+      expect(client.getEvent).toBeDefined();
     });
 
     it('should return cached client on subsequent calls', () => {
@@ -190,10 +190,7 @@ describe('tickitto utilities', () => {
     it('should combine ticket instructions and entry notes', () => {
       const result = mapTickittoEventToExperience(baseEvent as any);
 
-      expect(result.additionalInfo).toEqual([
-        'Collect at box office',
-        'No latecomers admitted',
-      ]);
+      expect(result.additionalInfo).toEqual(['Collect at box office', 'No latecomers admitted']);
     });
 
     it('should set provider to Tickitto', () => {

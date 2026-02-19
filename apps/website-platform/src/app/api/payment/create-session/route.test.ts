@@ -51,7 +51,7 @@ vi.mock('stripe', () => {
       },
     },
   }));
-  StripeMock.errors = { StripeError };
+  (StripeMock as any).errors = { StripeError };
   return { default: StripeMock };
 });
 

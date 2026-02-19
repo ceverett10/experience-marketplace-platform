@@ -96,7 +96,11 @@ describe('RSS Feed Route - GET', () => {
         slug: 'test-post',
         metaDescription: null,
         createdAt: new Date('2025-06-01'),
-        content: { body: '## Heading\n\n**Bold text** and *italic text* with [a link](https://example.com). ' + 'A'.repeat(300) },
+        content: {
+          body:
+            '## Heading\n\n**Bold text** and *italic text* with [a link](https://example.com). ' +
+            'A'.repeat(300),
+        },
       },
     ]);
 

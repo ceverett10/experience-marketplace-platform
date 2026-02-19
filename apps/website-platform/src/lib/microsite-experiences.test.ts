@@ -1,14 +1,20 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { mockProductFindMany, mockProductCount, mockProductFindUnique, mockSupplierFindUnique, mockMicrositeConfigFindMany, mockPageFindMany } =
-  vi.hoisted(() => ({
-    mockProductFindMany: vi.fn(),
-    mockProductCount: vi.fn(),
-    mockProductFindUnique: vi.fn(),
-    mockSupplierFindUnique: vi.fn(),
-    mockMicrositeConfigFindMany: vi.fn(),
-    mockPageFindMany: vi.fn(),
-  }));
+const {
+  mockProductFindMany,
+  mockProductCount,
+  mockProductFindUnique,
+  mockSupplierFindUnique,
+  mockMicrositeConfigFindMany,
+  mockPageFindMany,
+} = vi.hoisted(() => ({
+  mockProductFindMany: vi.fn(),
+  mockProductCount: vi.fn(),
+  mockProductFindUnique: vi.fn(),
+  mockSupplierFindUnique: vi.fn(),
+  mockMicrositeConfigFindMany: vi.fn(),
+  mockPageFindMany: vi.fn(),
+}));
 
 vi.mock('./prisma', () => ({
   prisma: {
@@ -101,7 +107,7 @@ describe('microsite-experiences', () => {
 
       expect(result.products).toHaveLength(1);
       expect(result.total).toBe(1);
-      expect(result.products[0].id).toBe('prod-1');
+      expect(result.products[0]!.id).toBe('prod-1');
     });
 
     it('applies default sort and pagination', async () => {
@@ -146,7 +152,7 @@ describe('microsite-experiences', () => {
 
       const result = await getSupplierProducts('sup-1');
 
-      expect(result.products[0].priceFrom).toBe(35.5);
+      expect(result.products[0]!.priceFrom).toBe(35.5);
     });
 
     it('handles null priceFrom', async () => {
@@ -155,7 +161,7 @@ describe('microsite-experiences', () => {
 
       const result = await getSupplierProducts('sup-1');
 
-      expect(result.products[0].priceFrom).toBeNull();
+      expect(result.products[0]!.priceFrom).toBeNull();
     });
   });
 
@@ -275,7 +281,7 @@ describe('microsite-experiences', () => {
       const result = await getRelatedProducts(product, 'sup-1');
 
       expect(result).toHaveLength(1);
-      expect(result[0].id).toBe('prod-2');
+      expect(result[0]!.id).toBe('prod-2');
       expect(mockProductFindMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
@@ -294,9 +300,7 @@ describe('microsite-experiences', () => {
 
       await getRelatedProducts(product, 'sup-1', 4);
 
-      expect(mockProductFindMany).toHaveBeenCalledWith(
-        expect.objectContaining({ take: 4 })
-      );
+      expect(mockProductFindMany).toHaveBeenCalledWith(expect.objectContaining({ take: 4 }));
     });
   });
 
@@ -329,8 +333,8 @@ describe('microsite-experiences', () => {
       } as any);
 
       expect(result).toHaveLength(2);
-      expect(result[0].id).toBe('prod-1');
-      expect(result[1].id).toBe('related-1');
+      expect(result[0]!.id).toBe('prod-1');
+      expect(result[1]!.id).toBe('related-1');
     });
 
     it('returns empty array for unknown entity type', async () => {
@@ -363,7 +367,7 @@ describe('microsite-experiences', () => {
       } as any);
 
       expect(result).toHaveLength(1);
-      expect(result[0].id).toBe('prod-1');
+      expect(result[0]!.id).toBe('prod-1');
     });
   });
 
@@ -436,8 +440,19 @@ describe('microsite-experiences', () => {
 
     it('returns scored and sorted related microsites', async () => {
       mockMicrositeConfigFindMany.mockResolvedValue([
-        makeMicrositeCandidate({ id: 'ms-2', supplier: { cities: ['London', 'Bath'], categories: ['Tours', 'Walking'], productCount: 10, rating: 4.5 } }),
-        makeMicrositeCandidate({ id: 'ms-3', supplier: { cities: ['Paris'], categories: ['Tours'], productCount: 5, rating: 4.0 } }),
+        makeMicrositeCandidate({
+          id: 'ms-2',
+          supplier: {
+            cities: ['London', 'Bath'],
+            categories: ['Tours', 'Walking'],
+            productCount: 10,
+            rating: 4.5,
+          },
+        }),
+        makeMicrositeCandidate({
+          id: 'ms-3',
+          supplier: { cities: ['Paris'], categories: ['Tours'], productCount: 5, rating: 4.0 },
+        }),
       ]);
 
       const result = await getRelatedMicrosites('ms-1', ['London'], ['Tours']);
@@ -445,13 +460,16 @@ describe('microsite-experiences', () => {
       // ms-2 has shared city London (+3) + shared category Tours (+2) + rating bonus (+1) = 6
       // ms-3 has no shared cities + shared category Tours (+2) + rating bonus (+1) = 3
       expect(result).toHaveLength(2);
-      expect(result[0].fullDomain).toBe('other-tours.example.com');
+      expect(result[0]!.fullDomain).toBe('other-tours.example.com');
     });
 
     it('excludes candidates with zero relevance score', async () => {
       // No shared cities, no shared categories, no rating → score = 0
       mockMicrositeConfigFindMany.mockResolvedValue([
-        makeMicrositeCandidate({ id: 'ms-2', supplier: { cities: ['Tokyo'], categories: ['Food'], productCount: 5, rating: null } }),
+        makeMicrositeCandidate({
+          id: 'ms-2',
+          supplier: { cities: ['Tokyo'], categories: ['Food'], productCount: 5, rating: null },
+        }),
       ]);
 
       const result = await getRelatedMicrosites('ms-1', ['London'], ['Tours']);
@@ -462,7 +480,10 @@ describe('microsite-experiences', () => {
     it('includes candidates with rating bonus even without shared location/category', async () => {
       // rating bonus = +1, no shared cities/categories → score = 1 > 0 → included
       mockMicrositeConfigFindMany.mockResolvedValue([
-        makeMicrositeCandidate({ id: 'ms-2', supplier: { cities: ['Tokyo'], categories: ['Food'], productCount: 5, rating: 4.0 } }),
+        makeMicrositeCandidate({
+          id: 'ms-2',
+          supplier: { cities: ['Tokyo'], categories: ['Food'], productCount: 5, rating: 4.0 },
+        }),
       ]);
 
       const result = await getRelatedMicrosites('ms-1', ['London'], ['Tours']);
@@ -486,9 +507,7 @@ describe('microsite-experiences', () => {
     });
 
     it('handles candidates without supplier data', async () => {
-      mockMicrositeConfigFindMany.mockResolvedValue([
-        makeMicrositeCandidate({ supplier: null }),
-      ]);
+      mockMicrositeConfigFindMany.mockResolvedValue([makeMicrositeCandidate({ supplier: null })]);
 
       const result = await getRelatedMicrosites('ms-1', ['London'], ['Tours']);
 
@@ -498,7 +517,9 @@ describe('microsite-experiences', () => {
 
     it('uses case-insensitive matching', async () => {
       mockMicrositeConfigFindMany.mockResolvedValue([
-        makeMicrositeCandidate({ supplier: { cities: ['london'], categories: ['TOURS'], productCount: 5, rating: 4.0 } }),
+        makeMicrositeCandidate({
+          supplier: { cities: ['london'], categories: ['TOURS'], productCount: 5, rating: 4.0 },
+        }),
       ]);
 
       const result = await getRelatedMicrosites('ms-1', ['London'], ['tours']);
@@ -532,9 +553,9 @@ describe('microsite-experiences', () => {
       const result = await getNetworkRelatedBlogPosts('ms-1', ['London'], ['Tours']);
 
       expect(result).toHaveLength(1);
-      expect(result[0].title).toBe('Best London Walks');
-      expect(result[0].siteName).toBe('Other Site');
-      expect(result[0].fullDomain).toBe('other.example.com');
+      expect(result[0]!.title).toBe('Best London Walks');
+      expect(result[0]!.siteName).toBe('Other Site');
+      expect(result[0]!.fullDomain).toBe('other.example.com');
     });
 
     it('deduplicates by microsite (max 1 post per microsite)', async () => {
@@ -550,14 +571,24 @@ describe('microsite-experiences', () => {
       ]);
 
       mockPageFindMany.mockResolvedValue([
-        { title: 'Post 1', slug: 'blog/post-1', micrositeId: 'ms-2', publishedAt: new Date('2025-06-01') },
-        { title: 'Post 2', slug: 'blog/post-2', micrositeId: 'ms-2', publishedAt: new Date('2025-05-01') },
+        {
+          title: 'Post 1',
+          slug: 'blog/post-1',
+          micrositeId: 'ms-2',
+          publishedAt: new Date('2025-06-01'),
+        },
+        {
+          title: 'Post 2',
+          slug: 'blog/post-2',
+          micrositeId: 'ms-2',
+          publishedAt: new Date('2025-05-01'),
+        },
       ]);
 
       const result = await getNetworkRelatedBlogPosts('ms-1', ['London'], ['Tours']);
 
       expect(result).toHaveLength(1);
-      expect(result[0].title).toBe('Post 1');
+      expect(result[0]!.title).toBe('Post 1');
     });
 
     it('returns empty array when no related microsites', async () => {

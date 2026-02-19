@@ -76,12 +76,10 @@ describe('useMarketplaceExperiences', () => {
   });
 
   it('returns initial data without fetching on first render', () => {
-    const { result } = renderHook(() =>
-      useMarketplaceExperiences(defaultOptions)
-    );
+    const { result } = renderHook(() => useMarketplaceExperiences(defaultOptions));
 
     expect(result.current.experiences).toHaveLength(1);
-    expect(result.current.experiences[0].id).toBe('init-1');
+    expect(result.current.experiences[0]!.id).toBe('init-1');
     expect(result.current.isLoading).toBe(false);
     expect(result.current.totalCount).toBe(1);
     expect(result.current.hasMore).toBe(false);
@@ -90,10 +88,9 @@ describe('useMarketplaceExperiences', () => {
   });
 
   it('does not fetch when filterKey stays the same on rerender', () => {
-    const { rerender } = renderHook(
-      (props) => useMarketplaceExperiences(props),
-      { initialProps: defaultOptions }
-    );
+    const { rerender } = renderHook((props) => useMarketplaceExperiences(props), {
+      initialProps: defaultOptions,
+    });
 
     rerender(defaultOptions);
 
@@ -101,10 +98,9 @@ describe('useMarketplaceExperiences', () => {
   });
 
   it('sets isLoading immediately when filterKey changes', () => {
-    const { result, rerender } = renderHook(
-      (props) => useMarketplaceExperiences(props),
-      { initialProps: defaultOptions }
-    );
+    const { result, rerender } = renderHook((props) => useMarketplaceExperiences(props), {
+      initialProps: defaultOptions,
+    });
 
     rerender({ ...defaultOptions, filterKey: 'categories=Tours' });
 
@@ -115,29 +111,30 @@ describe('useMarketplaceExperiences', () => {
     const fetched = [makeExperience('fetched-1'), makeExperience('fetched-2')];
     mockFetch.mockResolvedValue(makeApiResponse(fetched, { totalCount: 2 }));
 
-    const { result, rerender } = renderHook(
-      (props) => useMarketplaceExperiences(props),
-      { initialProps: defaultOptions }
-    );
+    const { result, rerender } = renderHook((props) => useMarketplaceExperiences(props), {
+      initialProps: defaultOptions,
+    });
 
     rerender({ ...defaultOptions, filterKey: 'categories=Tours' });
 
-    await waitFor(() => {
-      expect(result.current.isLoading).toBe(false);
-    }, { timeout: 5000 });
+    await waitFor(
+      () => {
+        expect(result.current.isLoading).toBe(false);
+      },
+      { timeout: 5000 }
+    );
 
     expect(mockFetch).toHaveBeenCalledTimes(1);
     expect(result.current.experiences).toHaveLength(2);
-    expect(result.current.experiences[0].id).toBe('fetched-1');
+    expect(result.current.experiences[0]!.id).toBe('fetched-1');
   });
 
   it('builds query string with filters and extra params', async () => {
     mockFetch.mockResolvedValue(makeApiResponse([]));
 
-    const { result, rerender } = renderHook(
-      (props) => useMarketplaceExperiences(props),
-      { initialProps: defaultOptions }
-    );
+    const { result, rerender } = renderHook((props) => useMarketplaceExperiences(props), {
+      initialProps: defaultOptions,
+    });
 
     rerender({
       ...defaultOptions,
@@ -145,9 +142,12 @@ describe('useMarketplaceExperiences', () => {
       filterKey: 'categories=Tours&priceMin=10',
     });
 
-    await waitFor(() => {
-      expect(result.current.isLoading).toBe(false);
-    }, { timeout: 5000 });
+    await waitFor(
+      () => {
+        expect(result.current.isLoading).toBe(false);
+      },
+      { timeout: 5000 }
+    );
 
     const url = mockFetch.mock.calls[0][0] as string;
     expect(url).toContain('holibobSupplierId=sup-1');
@@ -178,12 +178,15 @@ describe('useMarketplaceExperiences', () => {
       result.current.loadMore();
     });
 
-    await waitFor(() => {
-      expect(result.current.isLoadingMore).toBe(false);
-    }, { timeout: 5000 });
+    await waitFor(
+      () => {
+        expect(result.current.isLoadingMore).toBe(false);
+      },
+      { timeout: 5000 }
+    );
 
     expect(result.current.experiences).toHaveLength(2);
-    expect(result.current.experiences[1].id).toBe('page2-1');
+    expect(result.current.experiences[1]!.id).toBe('page2-1');
   });
 
   it('does not loadMore when hasMore is false', () => {
@@ -201,16 +204,18 @@ describe('useMarketplaceExperiences', () => {
   it('handles fetch errors gracefully', async () => {
     mockFetch.mockResolvedValue({ ok: false, status: 500 });
 
-    const { result, rerender } = renderHook(
-      (props) => useMarketplaceExperiences(props),
-      { initialProps: defaultOptions }
-    );
+    const { result, rerender } = renderHook((props) => useMarketplaceExperiences(props), {
+      initialProps: defaultOptions,
+    });
 
     rerender({ ...defaultOptions, filterKey: 'error-trigger' });
 
-    await waitFor(() => {
-      expect(result.current.isLoading).toBe(false);
-    }, { timeout: 5000 });
+    await waitFor(
+      () => {
+        expect(result.current.isLoading).toBe(false);
+      },
+      { timeout: 5000 }
+    );
 
     expect(result.current.error).toContain('API error');
   });
@@ -223,20 +228,20 @@ describe('useMarketplaceExperiences', () => {
       ratings: [],
       cities: [{ name: 'London', count: 3 }],
     };
-    mockFetch.mockResolvedValue(
-      makeApiResponse([makeExperience('e-1')], { filterCounts })
-    );
+    mockFetch.mockResolvedValue(makeApiResponse([makeExperience('e-1')], { filterCounts }));
 
-    const { result, rerender } = renderHook(
-      (props) => useMarketplaceExperiences(props),
-      { initialProps: defaultOptions }
-    );
+    const { result, rerender } = renderHook((props) => useMarketplaceExperiences(props), {
+      initialProps: defaultOptions,
+    });
 
     rerender({ ...defaultOptions, filterKey: 'new-key' });
 
-    await waitFor(() => {
-      expect(result.current.isLoading).toBe(false);
-    }, { timeout: 5000 });
+    await waitFor(
+      () => {
+        expect(result.current.isLoading).toBe(false);
+      },
+      { timeout: 5000 }
+    );
 
     expect(result.current.filterCounts.categories).toEqual([{ name: 'Tours', count: 5 }]);
   });

@@ -81,11 +81,11 @@ describe('parent-domain', () => {
       const result = await getFeaturedSuppliers();
 
       expect(result).toHaveLength(1);
-      expect(result[0].id).toBe('sup-1');
-      expect(result[0].name).toBe('Acme Tours');
-      expect(result[0].logoUrl).toBeNull(); // Generated logos disabled
-      expect(result[0].heroImageUrl).toBe('https://example.com/hero.jpg');
-      expect(result[0].micrositeUrl).toBe('https://acme.experiencess.com');
+      expect(result[0]!.id).toBe('sup-1');
+      expect(result[0]!.name).toBe('Acme Tours');
+      expect(result[0]!.logoUrl).toBeNull(); // Generated logos disabled
+      expect(result[0]!.heroImageUrl).toBe('https://example.com/hero.jpg');
+      expect(result[0]!.micrositeUrl).toBe('https://acme.experiencess.com');
     });
 
     it('uses product image as hero fallback', async () => {
@@ -109,8 +109,8 @@ describe('parent-domain', () => {
 
       const result = await getFeaturedSuppliers();
 
-      expect(result[0].heroImageUrl).toBe('https://example.com/product.jpg');
-      expect(result[0].micrositeUrl).toBeNull();
+      expect(result[0]!.heroImageUrl).toBe('https://example.com/product.jpg');
+      expect(result[0]!.micrositeUrl).toBeNull();
     });
 
     it('returns null micrositeUrl for non-ACTIVE microsites', async () => {
@@ -133,7 +133,7 @@ describe('parent-domain', () => {
       ]);
 
       const result = await getFeaturedSuppliers();
-      expect(result[0].micrositeUrl).toBeNull();
+      expect(result[0]!.micrositeUrl).toBeNull();
     });
 
     it('respects limit parameter', async () => {
@@ -141,9 +141,7 @@ describe('parent-domain', () => {
 
       await getFeaturedSuppliers(5);
 
-      expect(mockFindMany).toHaveBeenCalledWith(
-        expect.objectContaining({ take: 5 })
-      );
+      expect(mockFindMany).toHaveBeenCalledWith(expect.objectContaining({ take: 5 }));
     });
 
     it('returns empty array on error', async () => {
@@ -164,9 +162,9 @@ describe('parent-domain', () => {
 
       const result = await getSupplierCategories();
 
-      expect(result[0].name).toBe('Tours');
-      expect(result[0].supplierCount).toBe(3);
-      expect(result[0].slug).toBe('tours');
+      expect(result[0]!.name).toBe('Tours');
+      expect(result[0]!.supplierCount).toBe(3);
+      expect(result[0]!.slug).toBe('tours');
       expect(result).toHaveLength(3);
     });
 
@@ -179,12 +177,10 @@ describe('parent-domain', () => {
     });
 
     it('generates slugs with special characters stripped', async () => {
-      mockFindMany.mockResolvedValue([
-        { categories: ['Food & Drink'] },
-      ]);
+      mockFindMany.mockResolvedValue([{ categories: ['Food & Drink'] }]);
 
       const result = await getSupplierCategories();
-      expect(result[0].slug).toBe('food-drink');
+      expect(result[0]!.slug).toBe('food-drink');
     });
 
     it('returns empty array on error', async () => {
@@ -196,17 +192,14 @@ describe('parent-domain', () => {
 
   describe('getSupplierCities', () => {
     it('counts and sorts cities across suppliers', async () => {
-      mockFindMany.mockResolvedValue([
-        { cities: ['London', 'Paris'] },
-        { cities: ['London'] },
-      ]);
+      mockFindMany.mockResolvedValue([{ cities: ['London', 'Paris'] }, { cities: ['London'] }]);
 
       const result = await getSupplierCities();
 
-      expect(result[0].name).toBe('London');
-      expect(result[0].supplierCount).toBe(2);
-      expect(result[1].name).toBe('Paris');
-      expect(result[1].supplierCount).toBe(1);
+      expect(result[0]!.name).toBe('London');
+      expect(result[0]!.supplierCount).toBe(2);
+      expect(result[1]!.name).toBe('Paris');
+      expect(result[1]!.supplierCount).toBe(1);
     });
 
     it('respects limit parameter', async () => {
@@ -281,9 +274,9 @@ describe('parent-domain', () => {
       const result = await getActiveSites();
 
       expect(result).toHaveLength(1);
-      expect(result[0].name).toBe('Acme');
-      expect(result[0].brand!.logoUrl).toBeNull(); // Generated logos disabled
-      expect(result[0].brand!.primaryColor).toBe('#ff0000');
+      expect(result[0]!.name).toBe('Acme');
+      expect(result[0]!.brand!.logoUrl).toBeNull(); // Generated logos disabled
+      expect(result[0]!.brand!.primaryColor).toBe('#ff0000');
     });
 
     it('handles sites with null brand', async () => {
@@ -299,7 +292,7 @@ describe('parent-domain', () => {
       ]);
 
       const result = await getActiveSites();
-      expect(result[0].brand).toBeNull();
+      expect(result[0]!.brand).toBeNull();
     });
 
     it('returns empty array on error', async () => {
