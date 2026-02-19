@@ -61,7 +61,7 @@ const gscWorker = new Worker(
         throw new Error(`Unknown job type: ${job.name}`);
     }
   },
-  makeWorkerOptions(connection, QUEUE_NAMES.GSC, 2),
+  makeWorkerOptions(connection, QUEUE_NAMES.GSC, 2)
 );
 
 // ── Site Worker (concurrency 2) ─────────────────────────────────────────
@@ -84,7 +84,7 @@ const siteWorker = new Worker(
         throw new Error(`Unknown job type: ${job.name}`);
     }
   },
-  makeWorkerOptions(connection, QUEUE_NAMES.SITE, 2),
+  makeWorkerOptions(connection, QUEUE_NAMES.SITE, 2)
 );
 
 // ── Domain Worker (concurrency 2) ───────────────────────────────────────
@@ -105,7 +105,7 @@ const domainWorker = new Worker(
         throw new Error(`Unknown job type: ${job.name}`);
     }
   },
-  makeWorkerOptions(connection, QUEUE_NAMES.DOMAIN, 2),
+  makeWorkerOptions(connection, QUEUE_NAMES.DOMAIN, 2)
 );
 
 // ── Setup ───────────────────────────────────────────────────────────────
@@ -120,13 +120,13 @@ let roadmapProcessorInterval: NodeJS.Timeout | null = null;
 
 async function startAutonomousRoadmapProcessor() {
   console.log(
-    `\nStarting autonomous roadmap processor (every ${ROADMAP_PROCESS_INTERVAL / 60000} minutes)`,
+    `\nStarting autonomous roadmap processor (every ${ROADMAP_PROCESS_INTERVAL / 60000} minutes)`
   );
 
   try {
     const result = await processAllSiteRoadmaps();
     console.log(
-      `   Initial run: ${result.sitesProcessed} sites processed, ${result.tasksQueued} tasks queued`,
+      `   Initial run: ${result.sitesProcessed} sites processed, ${result.tasksQueued} tasks queued`
     );
   } catch (error) {
     console.error('   Initial roadmap processing failed:', error);
@@ -138,7 +138,7 @@ async function startAutonomousRoadmapProcessor() {
       if (result.tasksQueued > 0 || result.errors.length > 0) {
         console.log(
           `[Autonomous] Processed ${result.sitesProcessed} sites, queued ${result.tasksQueued} tasks` +
-            (result.errors.length > 0 ? `, ${result.errors.length} errors` : ''),
+            (result.errors.length > 0 ? `, ${result.errors.length} errors` : '')
         );
       }
     } catch (error) {
@@ -149,7 +149,7 @@ async function startAutonomousRoadmapProcessor() {
       const stuckResult = await detectStuckTasks();
       if (stuckResult.healed > 0 || stuckResult.permanentlyFailed > 0) {
         console.log(
-          `[Stuck Detector] Healed ${stuckResult.healed}, permanently failed ${stuckResult.permanentlyFailed}`,
+          `[Stuck Detector] Healed ${stuckResult.healed}, permanently failed ${stuckResult.permanentlyFailed}`
         );
       }
     } catch (error) {
@@ -167,11 +167,7 @@ setupGracefulShutdown(workers, connection, () => {
   }
 });
 
-const workerNames = [
-  'GSC (concurrency 2)',
-  'Site (concurrency 2)',
-  'Domain (concurrency 2)',
-];
+const workerNames = ['GSC (concurrency 2)', 'Site (concurrency 2)', 'Domain (concurrency 2)'];
 
 if (ENABLE_SCHEDULER) {
   workerNames.push('Scheduler (BullMQ repeatables)');

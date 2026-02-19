@@ -29,7 +29,7 @@ export async function updateJobStatus(
   job: Job,
   status: 'RUNNING' | 'COMPLETED' | 'FAILED' | 'RETRYING',
   result?: object,
-  error?: string,
+  error?: string
 ) {
   let dbJobId = (job.data as { dbJobId?: string }).dbJobId;
 
@@ -163,11 +163,7 @@ export function startMemoryMonitoring(connection: Redis) {
 /**
  * Graceful shutdown handler for a set of workers.
  */
-export function setupGracefulShutdown(
-  workers: Worker[],
-  connection: Redis,
-  cleanup?: () => void,
-) {
+export function setupGracefulShutdown(workers: Worker[], connection: Redis, cleanup?: () => void) {
   async function shutdown(signal: string) {
     console.log(`\n${signal} received, shutting down gracefully...`);
     try {

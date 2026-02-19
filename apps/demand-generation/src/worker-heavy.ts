@@ -63,7 +63,7 @@ const syncWorker = new Worker(
         throw new Error(`Unknown job type: ${job.name}`);
     }
   },
-  makeWorkerOptions(connection, QUEUE_NAMES.SYNC, 1),
+  makeWorkerOptions(connection, QUEUE_NAMES.SYNC, 1)
 );
 
 // ── Ads Worker (concurrency 1) ──────────────────────────────────────────
@@ -94,7 +94,7 @@ const adsWorker = new Worker(
         throw new Error(`Unknown job type: ${job.name}`);
     }
   },
-  makeWorkerOptions(connection, QUEUE_NAMES.ADS, 1),
+  makeWorkerOptions(connection, QUEUE_NAMES.ADS, 1)
 );
 
 // ── Setup ───────────────────────────────────────────────────────────────

@@ -116,7 +116,7 @@ const contentWorker = new Worker(
         throw new Error(`Unknown job type: ${job.name}`);
     }
   },
-  makeWorkerOptions(connection, QUEUE_NAMES.CONTENT, 5),
+  makeWorkerOptions(connection, QUEUE_NAMES.CONTENT, 5)
 );
 
 // ── SEO Worker (concurrency 3) ─────────────────────────────────────────
@@ -163,7 +163,7 @@ const seoWorker = new Worker(
         throw new Error(`Unknown job type: ${job.name}`);
     }
   },
-  makeWorkerOptions(connection, QUEUE_NAMES.SEO, 3),
+  makeWorkerOptions(connection, QUEUE_NAMES.SEO, 3)
 );
 
 // ── Analytics Worker (concurrency 3) ────────────────────────────────────
@@ -194,7 +194,7 @@ const analyticsWorker = new Worker(
         throw new Error(`Unknown job type: ${job.name}`);
     }
   },
-  makeWorkerOptions(connection, QUEUE_NAMES.ANALYTICS, 3),
+  makeWorkerOptions(connection, QUEUE_NAMES.ANALYTICS, 3)
 );
 
 // ── A/B Test Worker (concurrency 5) ─────────────────────────────────────
@@ -213,7 +213,7 @@ const abtestWorker = new Worker(
         throw new Error(`Unknown job type: ${job.name}`);
     }
   },
-  makeWorkerOptions(connection, QUEUE_NAMES.ABTEST, 5),
+  makeWorkerOptions(connection, QUEUE_NAMES.ABTEST, 5)
 );
 
 // ── Social Worker (concurrency 2) ───────────────────────────────────────
@@ -234,7 +234,7 @@ const socialWorker = new Worker(
         throw new Error(`Unknown job type: ${job.name}`);
     }
   },
-  makeWorkerOptions(connection, QUEUE_NAMES.SOCIAL, 2),
+  makeWorkerOptions(connection, QUEUE_NAMES.SOCIAL, 2)
 );
 
 // ── Microsite Worker (concurrency 2) ────────────────────────────────────
@@ -263,11 +263,18 @@ const micrositeWorker = new Worker(
         throw new Error(`Unknown job type: ${job.name}`);
     }
   },
-  makeWorkerOptions(connection, QUEUE_NAMES.MICROSITE, 2),
+  makeWorkerOptions(connection, QUEUE_NAMES.MICROSITE, 2)
 );
 
 // ── Setup ───────────────────────────────────────────────────────────────
-const workers = [contentWorker, seoWorker, analyticsWorker, abtestWorker, socialWorker, micrositeWorker];
+const workers = [
+  contentWorker,
+  seoWorker,
+  analyticsWorker,
+  abtestWorker,
+  socialWorker,
+  micrositeWorker,
+];
 
 setupWorkerEvents(workers);
 startMemoryMonitoring(connection);
