@@ -178,7 +178,7 @@ function generateRSATemplate(
     headlines: [
       kwTitle.substring(0, 30),
       `Book ${kwTitle}`.substring(0, 30),
-      `${kwTitle} | ${siteName}`.substring(0, 30),
+      `${kwTitle} - ${siteName}`.substring(0, 30),
       `Best ${kwTitle} Deals`.substring(0, 30),
       'Instant Confirmation',
       'Book Online Today',
