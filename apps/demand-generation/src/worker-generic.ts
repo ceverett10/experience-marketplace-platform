@@ -256,7 +256,7 @@ for (const queueName of requestedQueues) {
       }
       return await handler(job);
     },
-    makeWorkerOptions(connection, queueName, concurrency),
+    makeWorkerOptions(connection, queueName, concurrency)
   );
 
   workers.push(worker);
@@ -286,13 +286,16 @@ if (enableScheduler) {
   }, ROADMAP_PROCESS_INTERVAL);
 
   // Stuck task detector (every 10 minutes)
-  setInterval(async () => {
-    try {
-      await detectStuckTasks();
-    } catch (error) {
-      console.error('[StuckTasks] Detection failed:', error);
-    }
-  }, 10 * 60 * 1000);
+  setInterval(
+    async () => {
+      try {
+        await detectStuckTasks();
+      } catch (error) {
+        console.error('[StuckTasks] Detection failed:', error);
+      }
+    },
+    10 * 60 * 1000
+  );
 }
 
 // ── Setup ────────────────────────────────────────────────────────────
