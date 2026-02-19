@@ -133,6 +133,23 @@ async function apiRequest(
   return response.json();
 }
 
+/**
+ * Safely parse a searchStream response.
+ * The API returns an array of batch objects, but batches may have no `results`
+ * field when there are zero rows. This helper normalises the response into a
+ * flat array of result rows.
+ */
+function flattenStreamResults<T>(response: unknown): T[] {
+  const batches = Array.isArray(response) ? response : [response];
+  const rows: T[] = [];
+  for (const batch of batches) {
+    if (batch && Array.isArray((batch as { results?: unknown }).results)) {
+      rows.push(...(batch as { results: T[] }).results);
+    }
+  }
+  return rows;
+}
+
 // --- Public API --------------------------------------------------------------
 
 export function isGoogleAdsConfigured(): boolean {
@@ -140,19 +157,36 @@ export function isGoogleAdsConfigured(): boolean {
 }
 
 /**
- * Find existing campaign by name (for handling duplicates).
+ * Find all existing campaigns by name (for handling duplicates).
  * Only finds ENABLED or PAUSED campaigns (REMOVED ones don't cause conflicts).
  */
-async function findCampaignByName(config: GoogleAdsConfig, name: string): Promise<string | null> {
+async function findCampaignsByName(config: GoogleAdsConfig, name: string): Promise<string[]> {
   try {
     const escapedName = name.replace(/'/g, "\\'");
     const result = (await apiRequest(config, 'POST', '/googleAds:search', {
-      query: `SELECT campaign.id FROM campaign WHERE campaign.name = '${escapedName}' AND campaign.status != 'REMOVED' LIMIT 1`,
+      query: `SELECT campaign.id FROM campaign WHERE campaign.name = '${escapedName}' AND campaign.status != 'REMOVED'`,
     })) as { results?: Array<{ campaign: { id: string } }> };
 
-    return result.results?.[0]?.campaign?.id ?? null;
+    return (result.results ?? []).map((r) => r.campaign.id);
   } catch {
-    return null;
+    return [];
+  }
+}
+
+/**
+ * Remove a campaign from Google Ads (sets status to REMOVED).
+ * Uses the remove operation, not a status update.
+ */
+async function removeCampaign(config: GoogleAdsConfig, campaignId: string): Promise<boolean> {
+  try {
+    const resourceName = `customers/${config.customerId}/campaigns/${campaignId}`;
+    await apiRequest(config, 'POST', '/campaigns:mutate', {
+      operations: [{ remove: resourceName }],
+    });
+    return true;
+  } catch (error) {
+    console.error(`[GoogleAds] Remove campaign ${campaignId} failed:`, error);
+    return false;
   }
 }
 
@@ -200,7 +234,7 @@ export async function createSearchCampaign(campaignConfig: {
             status: campaignConfig.status || 'PAUSED',
             advertisingChannelType: 'SEARCH',
             campaignBudget: budgetResourceName,
-            targetSpend: {},
+            manualCpc: { enhancedCpcEnabled: false },
             networkSettings: {
               targetGoogleSearch: true,
               targetSearchNetwork: false,
@@ -234,10 +268,10 @@ export async function createSearchCampaign(campaignConfig: {
       console.warn(
         `[GoogleAds] Duplicate campaign name "${campaignConfig.name}", removing orphan and retrying`
       );
-      const existingId = await findCampaignByName(config, campaignConfig.name);
-      if (existingId) {
-        await setCampaignStatus(existingId, 'REMOVED');
-        console.info(`[GoogleAds] Removed orphaned campaign ${existingId}`);
+      const existingIds = await findCampaignsByName(config, campaignConfig.name);
+      for (const existingId of existingIds) {
+        const removed = await removeCampaign(config, existingId);
+        if (removed) console.info(`[GoogleAds] Removed orphaned campaign ${existingId}`);
       }
       try {
         const result = await attemptCreate(campaignConfig.name);
@@ -398,21 +432,18 @@ export async function getCampaignPerformance(
       ${dateFilter}
     `.trim();
 
-    const result = (await apiRequest(config, 'POST', '/googleAds:searchStream', {
-      query,
-    })) as Array<{
-      results: Array<{
-        metrics: {
-          costMicros: string;
-          clicks: string;
-          impressions: string;
-          conversions: string;
-          averageCpc: string;
-        };
-      }>;
-    }>;
+    const raw = await apiRequest(config, 'POST', '/googleAds:searchStream', { query });
+    const rows = flattenStreamResults<{
+      metrics: {
+        costMicros: string;
+        clicks: string;
+        impressions: string;
+        conversions: string;
+        averageCpc: string;
+      };
+    }>(raw);
 
-    if (!result[0]?.results?.length) return null;
+    if (rows.length === 0) return null;
 
     // Aggregate all rows
     let totalSpendMicros = 0;
@@ -420,13 +451,11 @@ export async function getCampaignPerformance(
     let totalImpressions = 0;
     let totalConversions = 0;
 
-    for (const batch of result) {
-      for (const row of batch.results) {
-        totalSpendMicros += parseInt(row.metrics.costMicros || '0');
-        totalClicks += parseInt(row.metrics.clicks || '0');
-        totalImpressions += parseInt(row.metrics.impressions || '0');
-        totalConversions += parseFloat(row.metrics.conversions || '0');
-      }
+    for (const row of rows) {
+      totalSpendMicros += parseInt(row.metrics.costMicros || '0');
+      totalClicks += parseInt(row.metrics.clicks || '0');
+      totalImpressions += parseInt(row.metrics.impressions || '0');
+      totalConversions += parseFloat(row.metrics.conversions || '0');
     }
 
     return {
@@ -447,7 +476,7 @@ export async function getCampaignPerformance(
  */
 export async function setCampaignStatus(
   campaignId: string,
-  status: 'ENABLED' | 'PAUSED' | 'REMOVED'
+  status: 'ENABLED' | 'PAUSED'
 ): Promise<boolean> {
   const config = getConfig();
   if (!config) return false;
@@ -497,39 +526,24 @@ export async function listConversionActions(): Promise<
       WHERE conversion_action.status != 'REMOVED'
     `.trim();
 
-    const result = (await apiRequest(config, 'POST', '/googleAds:searchStream', {
-      query,
-    })) as Array<{
-      results: Array<{
-        conversionAction: {
-          id: string;
-          resourceName: string;
-          name: string;
-          type: string;
-          status: string;
-        };
-      }>;
-    }>;
+    const raw = await apiRequest(config, 'POST', '/googleAds:searchStream', { query });
+    const rows = flattenStreamResults<{
+      conversionAction: {
+        id: string;
+        resourceName: string;
+        name: string;
+        type: string;
+        status: string;
+      };
+    }>(raw);
 
-    const actions: Array<{
-      id: string;
-      resourceName: string;
-      name: string;
-      type: string;
-      status: string;
-    }> = [];
-
-    for (const batch of result) {
-      for (const row of batch.results) {
-        actions.push({
-          id: row.conversionAction.id,
-          resourceName: row.conversionAction.resourceName,
-          name: row.conversionAction.name,
-          type: row.conversionAction.type,
-          status: row.conversionAction.status,
-        });
-      }
-    }
+    const actions = rows.map((row) => ({
+      id: row.conversionAction.id,
+      resourceName: row.conversionAction.resourceName,
+      name: row.conversionAction.name,
+      type: row.conversionAction.type,
+      status: row.conversionAction.status,
+    }));
 
     console.log(`[GoogleAds] Found ${actions.length} conversion actions`);
     return actions;
