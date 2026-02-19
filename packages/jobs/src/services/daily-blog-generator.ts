@@ -25,9 +25,12 @@ export interface DailyBlogGenerationResult {
 
 /**
  * Generate daily blog post for a single site
+ * @param siteId - Site to generate blog for
+ * @param staggerDelayMs - Optional BullMQ delay to stagger content generation
  */
 export async function generateDailyBlogPostForSite(
-  siteId: string
+  siteId: string,
+  staggerDelayMs?: number
 ): Promise<DailyBlogGenerationResult> {
   const site = await prisma.site.findUnique({
     where: { id: siteId },
@@ -120,14 +123,18 @@ export async function generateDailyBlogPostForSite(
       },
     });
 
-    // Queue content generation
-    await addJob('CONTENT_GENERATE', {
-      siteId: site.id,
-      pageId: blogPage.id,
-      contentType: 'blog',
-      targetKeyword: topic.targetKeyword,
-      secondaryKeywords: topic.secondaryKeywords,
-    });
+    // Queue content generation (with optional stagger delay to prevent queue flooding)
+    await addJob(
+      'CONTENT_GENERATE',
+      {
+        siteId: site.id,
+        pageId: blogPage.id,
+        contentType: 'blog',
+        targetKeyword: topic.targetKeyword,
+        secondaryKeywords: topic.secondaryKeywords,
+      },
+      staggerDelayMs ? { delay: staggerDelayMs } : undefined,
+    );
 
     console.log(`[Daily Blog] Queued: "${topic.title}"`);
 
@@ -172,12 +179,18 @@ export async function generateDailyBlogPostsForAllSites(): Promise<DailyBlogGene
 
   const results: DailyBlogGenerationResult[] = [];
 
+  // Stagger content generation jobs by 15s per site to prevent queue flooding.
+  // Topic generation + page creation happen inline; the AI-heavy CONTENT_GENERATE
+  // job is delayed in BullMQ so they don't all start at once.
+  const STAGGER_MS = 15_000;
+
   // Process sites sequentially to avoid overwhelming the AI API
-  for (const site of activeSites) {
-    const result = await generateDailyBlogPostForSite(site.id);
+  for (let i = 0; i < activeSites.length; i++) {
+    const site = activeSites[i]!;
+    const result = await generateDailyBlogPostForSite(site.id, i * STAGGER_MS);
     results.push(result);
 
-    // Small delay between sites to avoid rate limiting
+    // Small delay between sites to avoid rate limiting on topic generation
     await new Promise((resolve) => setTimeout(resolve, 2000));
   }
 

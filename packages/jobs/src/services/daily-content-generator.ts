@@ -94,28 +94,36 @@ export async function generateDailyContent(
 
   const results: ContentGenerationResult[] = [];
 
-  for (const site of activeSites) {
+  // Stagger content generation jobs by 15s per site to prevent queue flooding.
+  // Page creation happens inline; the AI-heavy CONTENT_GENERATE job is delayed
+  // in BullMQ so they don't all start processing at once.
+  const STAGGER_MS = 15_000;
+
+  for (let i = 0; i < activeSites.length; i++) {
+    const site = activeSites[i]!;
+    const staggerDelay = i * STAGGER_MS;
+
     try {
       let result: ContentGenerationResult;
 
       switch (contentType) {
         case 'faq_hub':
-          result = await generateFAQHubForSite(site.id);
+          result = await generateFAQHubForSite(site.id, staggerDelay);
           break;
         case 'destination_landing':
-          result = await generateDestinationLandingForSite(site.id);
+          result = await generateDestinationLandingForSite(site.id, staggerDelay);
           break;
         case 'comparison':
-          result = await generateComparisonPageForSite(site.id);
+          result = await generateComparisonPageForSite(site.id, staggerDelay);
           break;
         case 'content_refresh':
-          result = await refreshUnderperformingContent(site.id);
+          result = await refreshUnderperformingContent(site.id, staggerDelay);
           break;
         case 'local_guide':
-          result = await generateLocalGuideForSite(site.id);
+          result = await generateLocalGuideForSite(site.id, staggerDelay);
           break;
         case 'seasonal_event':
-          result = await generateSeasonalContentForSite(site.id);
+          result = await generateSeasonalContentForSite(site.id, staggerDelay);
           break;
         default:
           result = {
@@ -140,7 +148,7 @@ export async function generateDailyContent(
       });
     }
 
-    // Delay between sites to avoid rate limiting
+    // Small delay between sites to avoid rate limiting on page creation
     await sleep(2000);
   }
 
@@ -176,16 +184,23 @@ export async function generateDailyContent(
           seasonal_event: 'blog', // Seasonal content as blog posts for microsites
         };
 
-        for (const ms of toProcess) {
+        for (let j = 0; j < toProcess.length; j++) {
+          const ms = toProcess[j]!;
           const mappedType = (micrositeContentTypeMap[contentType] || 'blog') as
             | 'blog'
             | 'faq'
             | 'destination_landing';
-          await addJob('MICROSITE_CONTENT_GENERATE' as any, {
-            micrositeId: ms.id,
-            contentTypes: [mappedType],
-            isRefresh: true,
-          });
+          // Stagger microsite jobs after the main site jobs
+          const micrositeDelay = (activeSites.length + j) * STAGGER_MS;
+          await addJob(
+            'MICROSITE_CONTENT_GENERATE' as any,
+            {
+              micrositeId: ms.id,
+              contentTypes: [mappedType],
+              isRefresh: true,
+            },
+            { delay: micrositeDelay },
+          );
           results.push({
             siteId: ms.id,
             siteName: ms.siteName,
@@ -221,7 +236,7 @@ export async function generateDailyContent(
 /**
  * Generate FAQ hub page from GSC queries and existing content
  */
-export async function generateFAQHubForSite(siteId: string): Promise<ContentGenerationResult> {
+export async function generateFAQHubForSite(siteId: string, staggerDelayMs?: number): Promise<ContentGenerationResult> {
   const site = await getSiteWithContext(siteId);
   if (!site) {
     return errorResult(siteId, 'Unknown', 'faq_hub', 'Site not found');
@@ -299,13 +314,17 @@ export async function generateFAQHubForSite(siteId: string): Promise<ContentGene
     },
   });
 
-  await addJob('CONTENT_GENERATE', {
-    siteId,
-    pageId: faqPage.id,
-    contentType: 'faq',
-    targetKeyword: `${site.niche} FAQ`,
-    sourceData: { questions: allQuestions.slice(0, 15), contentSubtype: 'faq_hub' },
-  });
+  await addJob(
+    'CONTENT_GENERATE',
+    {
+      siteId,
+      pageId: faqPage.id,
+      contentType: 'faq',
+      targetKeyword: `${site.niche} FAQ`,
+      sourceData: { questions: allQuestions.slice(0, 15), contentSubtype: 'faq_hub' },
+    },
+    staggerDelayMs ? { delay: staggerDelayMs } : undefined,
+  );
 
   console.log(`[FAQ Hub] Created FAQ hub for ${site.name} with ${allQuestions.length} questions`);
 
@@ -325,7 +344,8 @@ export async function generateFAQHubForSite(siteId: string): Promise<ContentGene
 // ============================================================================
 
 export async function generateDestinationLandingForSite(
-  siteId: string
+  siteId: string,
+  staggerDelayMs?: number
 ): Promise<ContentGenerationResult> {
   const site = await getSiteWithContext(siteId);
   if (!site) {
@@ -412,13 +432,17 @@ export async function generateDestinationLandingForSite(
     },
   });
 
-  await addJob('CONTENT_GENERATE', {
-    siteId,
-    pageId: destinationPage.id,
-    contentType: 'destination',
-    targetKeyword: targetKeyword || `${site.niche} in ${targetLocation}`,
-    destination: targetLocation,
-  });
+  await addJob(
+    'CONTENT_GENERATE',
+    {
+      siteId,
+      pageId: destinationPage.id,
+      contentType: 'destination',
+      targetKeyword: targetKeyword || `${site.niche} in ${targetLocation}`,
+      destination: targetLocation,
+    },
+    staggerDelayMs ? { delay: staggerDelayMs } : undefined,
+  );
 
   console.log(`[Destination] Created "${targetLocation}" page for ${site.name}`);
 
@@ -438,7 +462,8 @@ export async function generateDestinationLandingForSite(
 // ============================================================================
 
 export async function generateComparisonPageForSite(
-  siteId: string
+  siteId: string,
+  staggerDelayMs?: number
 ): Promise<ContentGenerationResult> {
   const site = await getSiteWithContext(siteId);
   if (!site) {
@@ -530,17 +555,21 @@ export async function generateComparisonPageForSite(
     },
   });
 
-  await addJob('CONTENT_GENERATE', {
-    siteId,
-    pageId: comparisonPage.id,
-    contentType: 'blog',
-    targetKeyword,
-    sourceData: {
-      contentSubtype: 'comparison',
-      comparedItems: comparisonPair,
-      comparisonType,
+  await addJob(
+    'CONTENT_GENERATE',
+    {
+      siteId,
+      pageId: comparisonPage.id,
+      contentType: 'blog',
+      targetKeyword,
+      sourceData: {
+        contentSubtype: 'comparison',
+        comparedItems: comparisonPair,
+        comparisonType,
+      },
     },
-  });
+    staggerDelayMs ? { delay: staggerDelayMs } : undefined,
+  );
 
   console.log(`[Comparison] Created "${targetKeyword}" for ${site.name}`);
 
@@ -560,7 +589,8 @@ export async function generateComparisonPageForSite(
 // ============================================================================
 
 export async function refreshUnderperformingContent(
-  siteId: string
+  siteId: string,
+  staggerDelayMs?: number
 ): Promise<ContentGenerationResult> {
   const site = await prisma.site.findUnique({
     where: { id: siteId },
@@ -607,16 +637,20 @@ export async function refreshUnderperformingContent(
   // Map reason to ContentOptimizePayload reason type
   const optimizeReason = mapReasonToOptimizeType(targetPage.reason);
 
-  await addJob('CONTENT_OPTIMIZE', {
-    siteId,
-    pageId: targetPage.pageId,
-    contentId: page.content.id,
-    reason: optimizeReason,
-    performanceData: {
-      ctr: targetPage.metrics.ctr,
-      position: targetPage.metrics.position,
+  await addJob(
+    'CONTENT_OPTIMIZE',
+    {
+      siteId,
+      pageId: targetPage.pageId,
+      contentId: page.content.id,
+      reason: optimizeReason,
+      performanceData: {
+        ctr: targetPage.metrics.ctr,
+        position: targetPage.metrics.position,
+      },
     },
-  });
+    staggerDelayMs ? { delay: staggerDelayMs } : undefined,
+  );
 
   console.log(`[Content Refresh] Queued optimization for "${page.title}" (${targetPage.reason})`);
 
@@ -635,7 +669,7 @@ export async function refreshUnderperformingContent(
 // Local Beginner Guide Generation (Weekly)
 // ============================================================================
 
-export async function generateLocalGuideForSite(siteId: string): Promise<ContentGenerationResult> {
+export async function generateLocalGuideForSite(siteId: string, staggerDelayMs?: number): Promise<ContentGenerationResult> {
   const site = await getSiteWithContext(siteId);
   if (!site) {
     return errorResult(siteId, 'Unknown', 'local_guide', 'Site not found');
@@ -704,15 +738,19 @@ export async function generateLocalGuideForSite(siteId: string): Promise<Content
     },
   });
 
-  await addJob('CONTENT_GENERATE', {
-    siteId,
-    pageId: guidePage.id,
-    contentType: 'blog',
-    targetKeyword: `${targetDestination} travel guide first time`,
-    destination: targetDestination,
-    targetLength: { min: 1500, max: 2500 },
-    sourceData: { contentSubtype: 'beginner_guide' },
-  });
+  await addJob(
+    'CONTENT_GENERATE',
+    {
+      siteId,
+      pageId: guidePage.id,
+      contentType: 'blog',
+      targetKeyword: `${targetDestination} travel guide first time`,
+      destination: targetDestination,
+      targetLength: { min: 1500, max: 2500 },
+      sourceData: { contentSubtype: 'beginner_guide' },
+    },
+    staggerDelayMs ? { delay: staggerDelayMs } : undefined,
+  );
 
   console.log(`[Local Guide] Created "${guideTitle}" for ${site.name}`);
 
@@ -732,7 +770,8 @@ export async function generateLocalGuideForSite(siteId: string): Promise<Content
 // ============================================================================
 
 export async function generateSeasonalContentForSite(
-  siteId: string
+  siteId: string,
+  staggerDelayMs?: number
 ): Promise<ContentGenerationResult> {
   const site = await getSiteWithContext(siteId);
   if (!site) {
@@ -807,14 +846,18 @@ export async function generateSeasonalContentForSite(
     },
   });
 
-  await addJob('CONTENT_GENERATE', {
-    siteId,
-    pageId: seasonalPage.id,
-    contentType: 'blog',
-    targetKeyword: `${targetEvent} ${site.niche}${location ? ` ${location}` : ''}`,
-    destination: location || undefined,
-    sourceData: { contentSubtype: 'seasonal', event: targetEvent },
-  });
+  await addJob(
+    'CONTENT_GENERATE',
+    {
+      siteId,
+      pageId: seasonalPage.id,
+      contentType: 'blog',
+      targetKeyword: `${targetEvent} ${site.niche}${location ? ` ${location}` : ''}`,
+      destination: location || undefined,
+      sourceData: { contentSubtype: 'seasonal', event: targetEvent },
+    },
+    staggerDelayMs ? { delay: staggerDelayMs } : undefined,
+  );
 
   console.log(`[Seasonal] Created "${seasonalTitle}" for ${site.name}`);
 
