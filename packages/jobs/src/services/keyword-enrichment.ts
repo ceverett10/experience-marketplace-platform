@@ -797,7 +797,7 @@ export async function runBulkEnrichment(
   // =========================================================================
   // PHASE 2: Validate keywords via DataForSEO
   // =========================================================================
-  let validatedKeywords = new Map<
+  const validatedKeywords = new Map<
     string,
     {
       searchVolume: number;
