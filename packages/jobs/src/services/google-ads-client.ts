@@ -157,19 +157,36 @@ export function isGoogleAdsConfigured(): boolean {
 }
 
 /**
- * Find existing campaign by name (for handling duplicates).
+ * Find all existing campaigns by name (for handling duplicates).
  * Only finds ENABLED or PAUSED campaigns (REMOVED ones don't cause conflicts).
  */
-async function findCampaignByName(config: GoogleAdsConfig, name: string): Promise<string | null> {
+async function findCampaignsByName(config: GoogleAdsConfig, name: string): Promise<string[]> {
   try {
     const escapedName = name.replace(/'/g, "\\'");
     const result = (await apiRequest(config, 'POST', '/googleAds:search', {
-      query: `SELECT campaign.id FROM campaign WHERE campaign.name = '${escapedName}' AND campaign.status != 'REMOVED' LIMIT 1`,
+      query: `SELECT campaign.id FROM campaign WHERE campaign.name = '${escapedName}' AND campaign.status != 'REMOVED'`,
     })) as { results?: Array<{ campaign: { id: string } }> };
 
-    return result.results?.[0]?.campaign?.id ?? null;
+    return (result.results ?? []).map((r) => r.campaign.id);
   } catch {
-    return null;
+    return [];
+  }
+}
+
+/**
+ * Remove a campaign from Google Ads (sets status to REMOVED).
+ * Uses the remove operation, not a status update.
+ */
+async function removeCampaign(config: GoogleAdsConfig, campaignId: string): Promise<boolean> {
+  try {
+    const resourceName = `customers/${config.customerId}/campaigns/${campaignId}`;
+    await apiRequest(config, 'POST', '/campaigns:mutate', {
+      operations: [{ remove: resourceName }],
+    });
+    return true;
+  } catch (error) {
+    console.error(`[GoogleAds] Remove campaign ${campaignId} failed:`, error);
+    return false;
   }
 }
 
@@ -251,10 +268,10 @@ export async function createSearchCampaign(campaignConfig: {
       console.warn(
         `[GoogleAds] Duplicate campaign name "${campaignConfig.name}", removing orphan and retrying`
       );
-      const existingId = await findCampaignByName(config, campaignConfig.name);
-      if (existingId) {
-        await setCampaignStatus(existingId, 'REMOVED');
-        console.info(`[GoogleAds] Removed orphaned campaign ${existingId}`);
+      const existingIds = await findCampaignsByName(config, campaignConfig.name);
+      for (const existingId of existingIds) {
+        const removed = await removeCampaign(config, existingId);
+        if (removed) console.info(`[GoogleAds] Removed orphaned campaign ${existingId}`);
       }
       try {
         const result = await attemptCreate(campaignConfig.name);
@@ -459,7 +476,7 @@ export async function getCampaignPerformance(
  */
 export async function setCampaignStatus(
   campaignId: string,
-  status: 'ENABLED' | 'PAUSED' | 'REMOVED'
+  status: 'ENABLED' | 'PAUSED'
 ): Promise<boolean> {
   const config = getConfig();
   if (!config) return false;
