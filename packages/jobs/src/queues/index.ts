@@ -1,8 +1,14 @@
-import { Queue, QueueOptions } from 'bullmq';
+import { Queue, type QueueOptions } from 'bullmq';
 import IORedis from 'ioredis';
 import type { JobType } from '@experience-marketplace/database';
 import { prisma } from '@experience-marketplace/database';
-import { QUEUE_NAMES, QueueName, JobPayload, JobOptions, JOB_TYPE_TO_QUEUE } from '../types';
+import {
+  QUEUE_NAMES,
+  type QueueName,
+  type JobPayload,
+  type JobOptions,
+  JOB_TYPE_TO_QUEUE,
+} from '../types';
 
 /**
  * Per-queue configuration for timeouts, retries, and backoff.
@@ -78,12 +84,12 @@ class QueueRegistry {
             type: 'exponential',
             delay: config.backoffDelay,
           },
-          removeOnComplete: 100,
-          removeOnFail: 500,
+          removeOnComplete: 20,
+          removeOnFail: 100,
         },
         // Cap event streams to prevent unbounded Redis memory growth.
         // Without this, bull:*:events streams grow indefinitely and can OOM small Redis instances.
-        streams: { events: { maxLen: 200 } },
+        streams: { events: { maxLen: 50 } },
       };
 
       const queue = new Queue(queueName, queueOptions);
@@ -258,8 +264,8 @@ class QueueRegistry {
       priority: options?.priority,
       attempts: options?.attempts,
       backoff: options?.backoff,
-      removeOnComplete: { age: 3600, count: 50 }, // Keep last 50 or 1 hour
-      removeOnFail: { age: 86400, count: 200 }, // Keep last 200 or 24 hours
+      removeOnComplete: { age: 3600, count: 20 }, // Keep last 20 or 1 hour
+      removeOnFail: { age: 86400, count: 50 }, // Keep last 50 or 24 hours
     });
   }
 
