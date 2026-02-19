@@ -22,7 +22,8 @@ interface GoogleAdsConfig {
   clientId: string;
   clientSecret: string;
   refreshToken: string;
-  customerId: string;
+  customerId: string; // Client account for campaign operations
+  loginCustomerId?: string; // Manager/MCC account (for login-customer-id header)
 }
 
 // Rate limiter: Google Ads allows ~1,500 operations/day for basic access
@@ -35,13 +36,24 @@ function getConfig(): GoogleAdsConfig | null {
   const clientId = process.env['GOOGLE_ADS_CLIENT_ID'];
   const clientSecret = process.env['GOOGLE_ADS_CLIENT_SECRET'];
   const refreshToken = process.env['GOOGLE_ADS_REFRESH_TOKEN'];
-  const customerId = process.env['GOOGLE_ADS_CUSTOMER_ID']?.replace(/-/g, '');
+  const managerId = process.env['GOOGLE_ADS_CUSTOMER_ID']?.replace(/-/g, '');
+  // Use dedicated client account if set, otherwise fall back to CUSTOMER_ID
+  const clientCustomerId =
+    process.env['GOOGLE_ADS_CLIENT_CUSTOMER_ID']?.replace(/-/g, '') || managerId;
 
-  if (!developerToken || !clientId || !clientSecret || !refreshToken || !customerId) {
+  if (!developerToken || !clientId || !clientSecret || !refreshToken || !clientCustomerId) {
     return null;
   }
 
-  return { developerToken, clientId, clientSecret, refreshToken, customerId };
+  return {
+    developerToken,
+    clientId,
+    clientSecret,
+    refreshToken,
+    customerId: clientCustomerId,
+    // Set login-customer-id when using a client account under an MCC
+    loginCustomerId: managerId !== clientCustomerId ? managerId : undefined,
+  };
 }
 
 let _cachedAccessToken: { token: string; expiresAt: number } | null = null;
@@ -103,6 +115,9 @@ async function apiRequest(
     'developer-token': config.developerToken,
     'Content-Type': 'application/json',
   };
+  if (config.loginCustomerId) {
+    headers['login-customer-id'] = config.loginCustomerId;
+  }
 
   const response = await fetch(url, {
     method,
