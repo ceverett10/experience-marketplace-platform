@@ -96,14 +96,7 @@ async function checkPhase1() {
     suspiciousCount < 5
   );
 
-  // 1.5: Supplier attribution rate
-  const withAttribution = await prisma.sEOOpportunity.count({
-    where: {
-      status: 'PAID_CANDIDATE',
-      sourceData: { path: ['sourceSupplierIds'], not: undefined as any },
-    },
-  });
-  // Fallback: count via raw JSON text match
+  // 1.5: Supplier attribution rate (check via in-memory filter since JSON path queries are limited)
   const allPaidCandidates = await prisma.sEOOpportunity.findMany({
     where: { status: 'PAID_CANDIDATE' },
     select: { sourceData: true },

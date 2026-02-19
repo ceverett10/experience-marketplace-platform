@@ -23,10 +23,10 @@ export default defineConfig({
         'src/app/**/error.tsx',
       ],
       thresholds: {
-        statements: 17,
-        branches: 15,
-        functions: 35,
-        lines: 17,
+        statements: 70,
+        branches: 75,
+        functions: 65,
+        lines: 70,
       },
     },
     testTimeout: 15000,
@@ -34,6 +34,18 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      '@experience-marketplace/holibob-api': path.resolve(
+        __dirname,
+        './src/test/__mocks__/holibob-api.ts'
+      ),
+      '@experience-marketplace/database': path.resolve(
+        __dirname,
+        './src/test/__mocks__/database.ts'
+      ),
+      '@experience-marketplace/tickitto-api': path.resolve(
+        __dirname,
+        './src/test/__mocks__/tickitto-api.ts'
+      ),
     },
   },
 });
