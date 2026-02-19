@@ -617,3 +617,106 @@ export async function migrateToSmartBidding(
     return false;
   }
 }
+
+/**
+ * Add campaign-level negative keywords.
+ * Uses BROAD match type for widest exclusion coverage.
+ * Batches in chunks of 1000 (API limit per mutate call).
+ */
+export async function addCampaignNegativeKeywords(
+  campaignId: string,
+  keywords: string[]
+): Promise<number> {
+  const config = getConfig();
+  if (!config || keywords.length === 0) return 0;
+
+  const campaignResourceName = `customers/${config.customerId}/campaigns/${campaignId}`;
+  const BATCH_SIZE = 1000;
+  let totalAdded = 0;
+
+  try {
+    for (let i = 0; i < keywords.length; i += BATCH_SIZE) {
+      const batch = keywords.slice(i, i + BATCH_SIZE);
+      const operations = batch.map((kw) => ({
+        create: {
+          campaign: campaignResourceName,
+          negative: true,
+          keyword: {
+            text: kw,
+            matchType: 'BROAD',
+          },
+        },
+      }));
+
+      await apiRequest(config, 'POST', '/campaignCriteria:mutate', { operations });
+      totalAdded += batch.length;
+    }
+
+    console.log(`[GoogleAds] Added ${totalAdded} negative keywords to campaign ${campaignId}`);
+    return totalAdded;
+  } catch (error) {
+    console.error(`[GoogleAds] Add negative keywords failed for campaign ${campaignId}:`, error);
+    return totalAdded;
+  }
+}
+
+/**
+ * Get search term report for a campaign.
+ * Returns actual queries that triggered ads with performance metrics.
+ */
+export async function getSearchTermReport(
+  campaignId: string,
+  dateRange?: { startDate: string; endDate: string }
+): Promise<
+  Array<{
+    searchTerm: string;
+    clicks: number;
+    impressions: number;
+    costMicros: number;
+    conversions: number;
+  }>
+> {
+  const config = getConfig();
+  if (!config) return [];
+
+  try {
+    const dateFilter = dateRange
+      ? `AND segments.date BETWEEN '${dateRange.startDate}' AND '${dateRange.endDate}'`
+      : `AND segments.date DURING LAST_30_DAYS`;
+
+    const query = `
+      SELECT
+        search_term_view.search_term,
+        metrics.clicks,
+        metrics.impressions,
+        metrics.cost_micros,
+        metrics.conversions
+      FROM search_term_view
+      WHERE campaign.id = ${campaignId}
+      ${dateFilter}
+      ORDER BY metrics.cost_micros DESC
+      LIMIT 1000
+    `.trim();
+
+    const raw = await apiRequest(config, 'POST', '/googleAds:searchStream', { query });
+    const rows = flattenStreamResults<{
+      searchTermView: { searchTerm: string };
+      metrics: {
+        clicks: string;
+        impressions: string;
+        costMicros: string;
+        conversions: string;
+      };
+    }>(raw);
+    return rows.map((row) => ({
+      searchTerm: row.searchTermView.searchTerm,
+      clicks: parseInt(row.metrics.clicks || '0'),
+      impressions: parseInt(row.metrics.impressions || '0'),
+      costMicros: parseInt(row.metrics.costMicros || '0'),
+      conversions: parseFloat(row.metrics.conversions || '0'),
+    }));
+  } catch (error) {
+    console.error(`[GoogleAds] Search term report failed for campaign ${campaignId}:`, error);
+    return [];
+  }
+}

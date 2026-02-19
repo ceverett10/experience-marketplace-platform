@@ -64,4 +64,85 @@ export const PAID_TRAFFIC_CONFIG = {
   maxSeedsPerSupplier: 100,
   /** USD safety cap for DataForSEO spend per enrichment run */
   enrichmentCostLimit: 350,
+
+  // ---------------------------------------------------------------------------
+  // Search term harvesting
+  // ---------------------------------------------------------------------------
+  /** Min spend (GBP) on a zero-conversion search term before auto-excluding */
+  searchTermExcludeSpendThreshold: 2.0,
+  /** Min clicks on a zero-conversion search term before auto-excluding */
+  searchTermExcludeClickThreshold: 3,
+
+  // ---------------------------------------------------------------------------
+  // Default negative keywords (applied to every new Google campaign)
+  // ---------------------------------------------------------------------------
+  defaultNegativeKeywords: [
+    // Job seekers
+    'job',
+    'jobs',
+    'career',
+    'careers',
+    'salary',
+    'hiring',
+    'recruit',
+    'recruitment',
+    'internship',
+    'volunteer',
+    'volunteering',
+    'employment',
+    // Freebie hunters
+    'free',
+    'gratis',
+    'complimentary',
+    'no cost',
+    'freebie',
+    // Info seekers (non-commercial)
+    'diy',
+    'how to',
+    'tutorial',
+    'wiki',
+    'wikipedia',
+    'reddit',
+    'quora',
+    'youtube',
+    'tripadvisor',
+    'blog',
+    // Discount code seekers
+    'discount code',
+    'coupon',
+    'promo code',
+    'voucher code',
+    'groupon',
+    // Complaints & reputation
+    'review',
+    'reviews',
+    'complaint',
+    'complaints',
+    'scam',
+    'refund',
+    'cancel',
+    'cancellation policy',
+    // Non-commercial research
+    'images',
+    'photos',
+    'pictures',
+    'wallpaper',
+    'map',
+    'weather',
+    'visa',
+    'embassy',
+    'history',
+    'population',
+    'language',
+    'capital',
+    'time zone',
+    'currency',
+    'safety',
+    // Competitor / brand terms to avoid
+    'viator',
+    'getyourguide',
+    'klook',
+    'airbnb experiences',
+    'tiktok',
+  ],
 };

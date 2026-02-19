@@ -306,6 +306,9 @@ export async function initializeScheduledJobs(): Promise<void> {
   await scheduleJob('AD_CREATIVE_REFRESH' as any, {}, '0 6 * * 3');
   console.info('[Scheduler] ✓ Ad Creative Refresh - Wednesdays at 6 AM');
 
+  await scheduleJob('AD_SEARCH_TERM_HARVEST' as any, {}, '0 4 * * 4');
+  console.info('[Scheduler] ✓ Ad Search Term Harvest - Thursdays at 4 AM');
+
   // =========================================================================
   // MAINTENANCE
   // =========================================================================
@@ -378,6 +381,7 @@ export async function removeAllScheduledJobs(): Promise<void> {
   await queueRegistry.removeRepeatableJob('AD_PERFORMANCE_REPORT' as any, '0 9 * * *');
   await queueRegistry.removeRepeatableJob('AD_BUDGET_OPTIMIZER' as any, '0 10 * * *');
   await queueRegistry.removeRepeatableJob('AD_CREATIVE_REFRESH' as any, '0 6 * * 3');
+  await queueRegistry.removeRepeatableJob('AD_SEARCH_TERM_HARVEST' as any, '0 4 * * 4');
 
   // Maintenance
   await queueRegistry.removeRepeatableJob('PIPELINE_HEALTH_CHECK' as any, '0 9 * * *');
