@@ -87,9 +87,7 @@ describe('Tickitto Events Route - GET', () => {
     const request = new NextRequest('http://localhost:3000/api/tickitto-events?limit=500');
     await GET(request);
 
-    expect(mockSearchEvents).toHaveBeenCalledWith(
-      expect.objectContaining({ limit: 100 })
-    );
+    expect(mockSearchEvents).toHaveBeenCalledWith(expect.objectContaining({ limit: 100 }));
   });
 
   it('calculates hasMore correctly', async () => {
@@ -111,9 +109,7 @@ describe('Tickitto Events Route - GET', () => {
     const request = new NextRequest('http://localhost:3000/api/tickitto-events?q=opera');
     await GET(request);
 
-    expect(mockSearchEvents).toHaveBeenCalledWith(
-      expect.objectContaining({ text: 'opera' })
-    );
+    expect(mockSearchEvents).toHaveBeenCalledWith(expect.objectContaining({ text: 'opera' }));
   });
 
   it('returns 500 on error', async () => {

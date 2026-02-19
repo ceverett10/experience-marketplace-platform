@@ -168,9 +168,7 @@ describe('CatalogHomepage', () => {
   });
 
   it('renders custom testimonials', () => {
-    const testimonials = [
-      { name: 'Alice', location: 'UK', text: 'Fantastic!', rating: 5 },
-    ];
+    const testimonials = [{ name: 'Alice', location: 'UK', text: 'Fantastic!', rating: 5 }];
     render(<CatalogHomepage {...defaultProps} testimonials={testimonials} />);
     expect(screen.getByText('Alice')).toBeDefined();
     expect(screen.getByText(/Fantastic!/)).toBeDefined();
@@ -199,9 +197,7 @@ describe('CatalogHomepage', () => {
     const relatedMicrosites = [
       { id: 'ms-1', name: 'Paris Tours', slug: 'paris-tours', primaryColor: '#f00' },
     ];
-    render(
-      <CatalogHomepage {...defaultProps} relatedMicrosites={relatedMicrosites as any} />
-    );
+    render(<CatalogHomepage {...defaultProps} relatedMicrosites={relatedMicrosites as any} />);
     expect(document.querySelector('[data-testid="related-microsites"]')).toBeTruthy();
   });
 

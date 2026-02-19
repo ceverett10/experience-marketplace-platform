@@ -137,9 +137,7 @@ describe('EmailPopup', () => {
   it('marketing consent is not pre-ticked (GDPR)', () => {
     openPopup();
 
-    const checkbox = document.body.querySelector(
-      '#popup-marketing-consent'
-    ) as HTMLInputElement;
+    const checkbox = document.body.querySelector('#popup-marketing-consent') as HTMLInputElement;
     expect(checkbox).toBeTruthy();
     expect(checkbox.checked).toBe(false);
   });

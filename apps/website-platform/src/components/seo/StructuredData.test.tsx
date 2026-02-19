@@ -59,7 +59,11 @@ describe('StructuredData', () => {
 
     it('includes offer with price', () => {
       const { container } = render(
-        <TouristTripSchema experience={mockExperience} url="https://example.com/exp" siteName="Test" />
+        <TouristTripSchema
+          experience={mockExperience}
+          url="https://example.com/exp"
+          siteName="Test"
+        />
       );
       const schema = getJsonLd(container);
 
@@ -71,7 +75,11 @@ describe('StructuredData', () => {
 
     it('includes tourist destination from location', () => {
       const { container } = render(
-        <TouristTripSchema experience={mockExperience} url="https://example.com/exp" siteName="Test" />
+        <TouristTripSchema
+          experience={mockExperience}
+          url="https://example.com/exp"
+          siteName="Test"
+        />
       );
       const schema = getJsonLd(container);
 
@@ -96,7 +104,11 @@ describe('StructuredData', () => {
   describe('ProductSchema', () => {
     it('renders Product type with brand', () => {
       const { container } = render(
-        <ProductSchema experience={mockExperience} url="https://example.com/exp" siteName="Test Tours" />
+        <ProductSchema
+          experience={mockExperience}
+          url="https://example.com/exp"
+          siteName="Test Tours"
+        />
       );
       const schema = getJsonLd(container);
 
@@ -261,9 +273,7 @@ describe('StructuredData', () => {
     });
 
     it('omits optional fields when not provided', () => {
-      const { container } = render(
-        <OrganizationSchema name="Test" url="https://example.com" />
-      );
+      const { container } = render(<OrganizationSchema name="Test" url="https://example.com" />);
       const schema = getJsonLd(container);
 
       expect(schema.logo).toBeUndefined();
@@ -274,9 +284,7 @@ describe('StructuredData', () => {
 
   describe('TourOperatorSchema', () => {
     it('renders TourOperator with LocalBusiness types', () => {
-      const { container } = render(
-        <TourOperatorSchema name="Tour Co" url="https://tourco.com" />
-      );
+      const { container } = render(<TourOperatorSchema name="Tour Co" url="https://tourco.com" />);
       const schema = getJsonLd(container);
 
       expect(schema['@type']).toEqual(['TourOperator', 'LocalBusiness']);
@@ -286,7 +294,11 @@ describe('StructuredData', () => {
 
     it('includes logo as ImageObject', () => {
       const { container } = render(
-        <TourOperatorSchema name="Tour Co" url="https://tourco.com" logo="https://tourco.com/logo.png" />
+        <TourOperatorSchema
+          name="Tour Co"
+          url="https://tourco.com"
+          logo="https://tourco.com/logo.png"
+        />
       );
       const schema = getJsonLd(container);
 
@@ -317,7 +329,11 @@ describe('StructuredData', () => {
 
     it('includes areaServed as Place objects', () => {
       const { container } = render(
-        <TourOperatorSchema name="Tour Co" url="https://tourco.com" areaServed={['London', 'Paris']} />
+        <TourOperatorSchema
+          name="Tour Co"
+          url="https://tourco.com"
+          areaServed={['London', 'Paris']}
+        />
       );
       const schema = getJsonLd(container);
 
@@ -355,9 +371,7 @@ describe('StructuredData', () => {
 
   describe('WebSiteSchema', () => {
     it('renders WebSite with SearchAction', () => {
-      const { container } = render(
-        <WebSiteSchema name="Test Tours" url="https://example.com" />
-      );
+      const { container } = render(<WebSiteSchema name="Test Tours" url="https://example.com" />);
       const schema = getJsonLd(container);
 
       expect(schema['@type']).toBe('WebSite');

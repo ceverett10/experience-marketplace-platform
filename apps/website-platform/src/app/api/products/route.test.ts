@@ -50,9 +50,7 @@ describe('Products Route - GET', () => {
       ]);
       mockCount.mockResolvedValue(1);
 
-      const request = new NextRequest(
-        'http://localhost:3000/api/products?supplierId=supplier-123'
-      );
+      const request = new NextRequest('http://localhost:3000/api/products?supplierId=supplier-123');
 
       const response = await GET(request);
       const data = await response.json();
@@ -161,9 +159,7 @@ describe('Products Route - GET', () => {
       ]);
       mockCount.mockResolvedValue(1);
 
-      const request = new NextRequest(
-        'http://localhost:3000/api/products?supplierId=s-1'
-      );
+      const request = new NextRequest('http://localhost:3000/api/products?supplierId=s-1');
 
       const response = await GET(request);
       const data = await response.json();
@@ -179,9 +175,7 @@ describe('Products Route - GET', () => {
       mockFindMany.mockResolvedValue([]);
       mockCount.mockResolvedValue(0);
 
-      const request = new NextRequest(
-        'http://localhost:3000/api/products?supplierId=s-1'
-      );
+      const request = new NextRequest('http://localhost:3000/api/products?supplierId=s-1');
 
       await GET(request);
 
@@ -233,9 +227,7 @@ describe('Products Route - GET', () => {
         pageInfo: { hasNextPage: false },
       });
 
-      const request = new NextRequest(
-        'http://localhost:3000/api/products?category=cat-1'
-      );
+      const request = new NextRequest('http://localhost:3000/api/products?category=cat-1');
 
       await GET(request);
 
@@ -254,9 +246,7 @@ describe('Products Route - GET', () => {
         pageInfo: { hasNextPage: false },
       });
 
-      const request = new NextRequest(
-        'http://localhost:3000/api/products?location=place-london'
-      );
+      const request = new NextRequest('http://localhost:3000/api/products?location=place-london');
 
       await GET(request);
 
@@ -270,9 +260,7 @@ describe('Products Route - GET', () => {
 
     it('formats duration from minutes', async () => {
       mockDiscoverProducts.mockResolvedValue({
-        products: [
-          { id: 'hb-1', name: 'Tour', duration: 90 },
-        ],
+        products: [{ id: 'hb-1', name: 'Tour', duration: 90 }],
         totalCount: 1,
         pageInfo: { hasNextPage: false },
       });
@@ -305,9 +293,7 @@ describe('Products Route - GET', () => {
     it('returns 500 with empty products on error', async () => {
       mockFindMany.mockRejectedValue(new Error('DB connection lost'));
 
-      const request = new NextRequest(
-        'http://localhost:3000/api/products?supplierId=s-1'
-      );
+      const request = new NextRequest('http://localhost:3000/api/products?supplierId=s-1');
 
       const response = await GET(request);
       const data = await response.json();
