@@ -14,8 +14,18 @@ import {
   createRedisConnection,
   QUEUE_NAMES,
   getQueueTimeout,
+  queueRegistry,
   initializeScheduledJobs,
   getScheduledJobs,
+  // Content fanout services (called by BullMQ repeatable handlers)
+  generateDailyBlogPostsForAllSitesAndMicrosites,
+  generateDailyContent,
+  refreshMicrositeContent,
+  runMetaTitleMaintenance,
+  refreshAllCollections,
+  resubmitMicrositeSitemapsToGSC,
+  runPipelineHealthCheck,
+  // Worker handlers
   handleContentGenerate,
   handleContentOptimize,
   handleContentReview,
@@ -234,7 +244,7 @@ const contentWorker = new Worker(
     console.log(`[Content Worker] Processing ${job.name} job ${job.id}`);
     await updateJobStatus(job, 'RUNNING');
 
-    switch (job.name as JobType) {
+    switch (job.name as JobType | string) {
       case 'CONTENT_GENERATE':
         return await handleContentGenerate(job);
       case 'CONTENT_OPTIMIZE':
@@ -243,6 +253,28 @@ const contentWorker = new Worker(
         return await handleContentReview(job);
       case 'MICROSITE_CONTENT_GENERATE':
         return await handleMicrositeContentGenerate(job);
+      // Content fanout handlers (BullMQ repeatable cron, replacing setInterval)
+      case 'CONTENT_BLOG_FANOUT':
+        return await generateDailyBlogPostsForAllSitesAndMicrosites();
+      case 'CONTENT_FAQ_FANOUT':
+        return await generateDailyContent('faq_hub');
+      case 'CONTENT_REFRESH_FANOUT':
+        return await generateDailyContent('content_refresh');
+      case 'CONTENT_DESTINATION_FANOUT':
+        return await generateDailyContent('destination_landing');
+      case 'CONTENT_COMPARISON_FANOUT':
+        return await generateDailyContent('comparison');
+      case 'CONTENT_SEASONAL_FANOUT':
+        return await generateDailyContent('seasonal_event');
+      case 'CONTENT_GUIDES_FANOUT':
+        return await generateDailyContent('local_guide');
+      // Maintenance handlers (BullMQ repeatable cron, replacing setInterval)
+      case 'META_TITLE_MAINTENANCE':
+        return await runMetaTitleMaintenance();
+      case 'MICROSITE_CONTENT_REFRESH':
+        return await refreshMicrositeContent();
+      case 'COLLECTION_REFRESH':
+        return await refreshAllCollections();
       default:
         throw new Error(`Unknown job type: ${job.name}`);
     }
@@ -340,11 +372,16 @@ const siteWorker = new Worker(
     console.log(`[Site Worker] Processing ${job.name} job ${job.id}`);
     await updateJobStatus(job, 'RUNNING');
 
-    switch (job.name as JobType) {
+    switch (job.name as JobType | string) {
       case 'SITE_CREATE':
         return await handleSiteCreate(job);
       case 'SITE_DEPLOY':
         return await handleSiteDeploy(job);
+      // Infrastructure fanout handlers (BullMQ repeatable cron, replacing setInterval)
+      case 'PIPELINE_HEALTH_CHECK':
+        return await runPipelineHealthCheck();
+      case 'REDIS_QUEUE_CLEANUP':
+        return await queueRegistry.cleanAllQueues();
       default:
         throw new Error(`Unknown job type: ${job.name}`);
     }
@@ -442,7 +479,7 @@ const micrositeWorker = new Worker(
     console.log(`[Microsite Worker] Processing ${job.name} job ${job.id}`);
     await updateJobStatus(job, 'RUNNING');
 
-    switch (job.name as JobType) {
+    switch (job.name as JobType | string) {
       case 'MICROSITE_CREATE':
         return await handleMicrositeCreate(job);
       case 'MICROSITE_BRAND_GENERATE':
@@ -455,6 +492,9 @@ const micrositeWorker = new Worker(
         return await handleMicrositeHealthCheck(job);
       case 'MICROSITE_HOMEPAGE_ENRICH':
         return await handleMicrositeHomepageEnrich(job);
+      // Sitemap resubmit fanout (BullMQ repeatable cron, replacing setInterval)
+      case 'MICROSITE_SITEMAP_RESUBMIT':
+        return await resubmitMicrositeSitemapsToGSC();
       default:
         throw new Error(`Unknown job type: ${job.name}`);
     }
