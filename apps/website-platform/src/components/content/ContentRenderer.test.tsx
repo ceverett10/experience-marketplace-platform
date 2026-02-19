@@ -26,20 +26,13 @@ describe('ContentRenderer', () => {
 
   describe('html format', () => {
     it('renders HTML content', () => {
-      render(
-        <ContentRenderer content="<h1>Title</h1><p>Paragraph</p>" format="html" />
-      );
+      render(<ContentRenderer content="<h1>Title</h1><p>Paragraph</p>" format="html" />);
       expect(screen.getByText('Title')).toBeDefined();
       expect(screen.getByText('Paragraph')).toBeDefined();
     });
 
     it('renders nested HTML elements', () => {
-      render(
-        <ContentRenderer
-          content='<ul><li>Item 1</li><li>Item 2</li></ul>'
-          format="html"
-        />
-      );
+      render(<ContentRenderer content="<ul><li>Item 1</li><li>Item 2</li></ul>" format="html" />);
       expect(screen.getByText('Item 1')).toBeDefined();
       expect(screen.getByText('Item 2')).toBeDefined();
     });

@@ -72,11 +72,7 @@ describe('BlogPostTemplate', () => {
   });
 
   it('renders Updated date when updatedAt differs from createdAt', () => {
-    render(
-      <BlogPostTemplate
-        post={makePost({ updatedAt: new Date('2025-07-01') })}
-      />
-    );
+    render(<BlogPostTemplate post={makePost({ updatedAt: new Date('2025-07-01') })} />);
     expect(screen.getByText(/Updated:/)).toBeDefined();
   });
 
