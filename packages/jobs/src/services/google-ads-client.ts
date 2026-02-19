@@ -28,7 +28,7 @@ interface GoogleAdsConfig {
 
 // Rate limiter: Google Ads allows ~1,500 operations/day for basic access
 let _requestTimestamps: number[] = [];
-const RATE_LIMIT = 5; // per minute (conservative)
+const RATE_LIMIT = 15; // per minute (Google allows ~1,500 ops/day = ~62/hr)
 const WINDOW_MS = 60_000;
 
 function getConfig(): GoogleAdsConfig | null {

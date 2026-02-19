@@ -1710,13 +1710,28 @@ async function deployToGoogle(
  * Campaigns are created as PAUSED for safety — use the budget optimizer
  * or dashboard to activate them after review.
  */
-export async function deployDraftCampaigns(job?: Job): Promise<{
+export async function deployDraftCampaigns(
+  job?: Job,
+  options?: {
+    platform?:
+      | 'FACEBOOK'
+      | 'GOOGLE_SEARCH'
+      | 'GOOGLE_DISPLAY'
+      | 'PINTEREST'
+      | 'BING'
+      | 'OUTBRAIN'
+      | 'REDDIT';
+  }
+): Promise<{
   deployed: number;
   failed: number;
   skipped: number;
 }> {
   const drafts = await prisma.adCampaign.findMany({
-    where: { status: 'DRAFT' },
+    where: {
+      status: 'DRAFT',
+      ...(options?.platform ? { platform: options.platform } : {}),
+    },
     include: {
       site: { select: { name: true, primaryDomain: true, targetMarkets: true } },
     },
