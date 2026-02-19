@@ -20,6 +20,7 @@ import {
   type Product as HolibobProduct,
 } from '@experience-marketplace/holibob-api';
 import { DataForSEOClient } from './dataforseo-client';
+import { getCountryForCity } from '../utils/keyword-location';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -807,10 +808,9 @@ export async function runBulkEnrichment(
   >();
   let estimatedCost = 0;
 
-  // Task 1.3: DataForSEO validation uses 'United Kingdom' as the search market
-  // (where the searchers are), but the stored location field reflects the keyword's
-  // destination city. These are different concepts.
-  const dataForSeoLocation = 'United Kingdom';
+  // Task 4.3: Group keywords by destination country for DataForSEO validation.
+  // This ensures search volume/CPC data reflects the actual market where
+  // tourists search (e.g. "Barcelona tours" uses Spain, not UK).
 
   if (!skipDataForSeo && uniqueSeeds.length > 0) {
     // Dedup: skip seeds that already exist as PAID_CANDIDATE keywords (any location)
@@ -850,7 +850,37 @@ export async function runBulkEnrichment(
       console.log('[Enrichment] Phase 2: No novel seeds to validate — all already in database');
     } else {
       try {
-        validatedKeywords = await validateKeywords(novelSeeds, dataForSeoLocation);
+        // Task 4.3: Group seeds by destination country for accurate market data
+        const seedsByCountry = new Map<string, string[]>();
+        for (const seed of novelSeeds) {
+          const city = globalSeedToCity.get(seed) ?? '';
+          const country = getCountryForCity(city, 'United Kingdom');
+          const group = seedsByCountry.get(country) ?? [];
+          group.push(seed);
+          seedsByCountry.set(country, group);
+        }
+
+        console.log(
+          `[Enrichment] Phase 2: Grouped seeds into ${seedsByCountry.size} country batches: ` +
+            [...seedsByCountry.entries()].map(([c, s]) => `${c}(${s.length})`).join(', ')
+        );
+
+        // Validate each country group separately
+        for (const [country, seeds] of seedsByCountry) {
+          try {
+            const countryResults = await validateKeywords(seeds, country);
+            for (const [k, v] of countryResults) {
+              validatedKeywords.set(k, v);
+            }
+            console.log(
+              `[Enrichment] Phase 2 [${country}]: ${countryResults.size}/${seeds.length} keywords validated`
+            );
+          } catch (err) {
+            console.error(`[Enrichment] Phase 2 [${country}] failed: ${err}`);
+            errors.push(`DataForSEO validation failed for ${country}: ${err}`);
+          }
+        }
+
         console.log(
           `[Enrichment] Phase 2 complete: ${validatedKeywords.size} keywords validated ` +
             `(${novelSeeds.length - validatedKeywords.size} filtered out)`

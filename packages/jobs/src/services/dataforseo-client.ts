@@ -406,11 +406,10 @@ export class DataForSEOClient {
     );
 
     if (!found) {
-      console.warn(
-        `[DataForSEO] Unknown location "${location}" — falling back to US (2840). ` +
-          `Add to commonLocations map or verify spelling.`
+      throw new Error(
+        `[DataForSEO] Unknown location "${location}" — no location code found. ` +
+          `Add to commonLocations map in getLocationCode() or verify spelling.`
       );
-      return 2840;
     }
     return found.location_code;
   }

@@ -59,7 +59,7 @@ async function testGoogleAds() {
     'developer-token': devToken,
     'Content-Type': 'application/json',
   };
-  const baseUrl = `https://googleads.googleapis.com/v17/customers/${customerId}`;
+  const baseUrl = `https://googleads.googleapis.com/v23/customers/${customerId}`;
 
   // Step 2: List existing campaigns (read test)
   console.log('2. Listing existing campaigns...');

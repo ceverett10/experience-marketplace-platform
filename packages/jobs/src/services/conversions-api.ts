@@ -277,7 +277,7 @@ export async function uploadGoogleConversion(
     };
 
     const response = await fetch(
-      `https://googleads.googleapis.com/v19/customers/${config.customerId}:uploadClickConversions`,
+      `https://googleads.googleapis.com/v23/customers/${config.customerId}:uploadClickConversions`,
       {
         method: 'POST',
         headers: {
