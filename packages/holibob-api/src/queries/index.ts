@@ -862,9 +862,12 @@ export const PRODUCT_LIST_BY_PROVIDER_QUERY = gql`
  * NOTE: place field in productList uses different schema than productDetail
  */
 export const PRODUCT_LIST_ALL_QUERY = gql`
-  query ProductListAll {
-    productList {
+  query ProductListAll($pageSize: Int, $page: Int) {
+    productList(pageSize: $pageSize, page: $page) {
       recordCount
+      pages
+      nextPage
+      previousPage
       nodes {
         id
         name
