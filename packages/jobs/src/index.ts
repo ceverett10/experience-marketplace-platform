@@ -75,6 +75,12 @@ export {
 export type { SvgLogoParams, SvgLogoResult } from './services/svg-logo-generator';
 export { uploadToR2, deleteFromR2, isR2Configured } from './services/image-storage';
 
+// Scheduler fanout services (used by BullMQ repeatable handlers)
+export { runMetaTitleMaintenance } from './services/meta-title-maintenance';
+export { refreshAllCollections } from './services/collection-generator';
+export { resubmitMicrositeSitemapsToGSC } from './services/microsite-sitemap-resubmit';
+export { runPipelineHealthCheck } from './scripts/pipeline-health-check';
+
 // Holibob Sync Services
 export { syncSuppliersFromHolibob, getSupplierSyncStatus } from './services/supplier-sync';
 export type { SupplierSyncResult } from './services/supplier-sync';
