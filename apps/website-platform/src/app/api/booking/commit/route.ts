@@ -136,11 +136,15 @@ export async function POST(request: NextRequest) {
     const selector = bookingId ? { id: bookingId } : { code: bookingCode };
     let booking = await client.commitBooking(selector);
 
+    // Resolve the definitive Holibob booking ID (commit response should include it,
+    // but fall back to the original request parameter as a safety net)
+    const resolvedBookingId = booking.id ?? bookingId ?? existingBooking.id;
+
     // If requested, wait for confirmation
     if (waitForConfirmation && booking.state === 'PENDING') {
       try {
         const maxAttempts = Math.ceil((maxWaitSeconds ?? 60) / 2);
-        booking = await client.waitForConfirmation(booking.id, {
+        booking = await client.waitForConfirmation(resolvedBookingId, {
           maxAttempts,
           intervalMs: 2000,
         });
@@ -148,7 +152,7 @@ export async function POST(request: NextRequest) {
         // If waiting times out, still return the booking (in PENDING state)
         console.warn('Booking confirmation wait timed out:', waitError);
         // Re-fetch to get latest state
-        const latestBooking = await client.getBooking(booking.id);
+        const latestBooking = await client.getBooking(resolvedBookingId);
         if (latestBooking) {
           booking = latestBooking;
         }
@@ -192,14 +196,14 @@ export async function POST(request: NextRequest) {
         }
 
         await prisma.booking.upsert({
-          where: { holibobBookingId: booking.id },
+          where: { holibobBookingId: resolvedBookingId },
           create: {
-            holibobBookingId: booking.id,
+            holibobBookingId: resolvedBookingId,
             holibobBasketId: booking.code || null,
             holibobProductId: productId || null,
             status: booking.state === 'CONFIRMED' ? 'CONFIRMED' : 'PENDING',
             totalAmount: gross || 0,
-            currency: booking.currency || 'GBP',
+            currency: booking.totalPrice?.currency || 'GBP',
             siteId: site.id,
             utmSource,
             utmMedium,
@@ -221,7 +225,7 @@ export async function POST(request: NextRequest) {
           },
         });
         console.log(
-          `[Commit API] Saved booking ${booking.id} (${utmSource ? `utm=${utmSource}/${utmMedium}/${utmCampaign}` : 'organic'}, commission=${commissionRate?.toFixed(1) ?? 'N/A'}%)`
+          `[Commit API] Saved booking ${resolvedBookingId} (${utmSource ? `utm=${utmSource}/${utmMedium}/${utmCampaign}` : 'organic'}, commission=${commissionRate?.toFixed(1) ?? 'N/A'}%)`
         );
       } catch (dbError) {
         // Log but don't fail the request if DB save fails
@@ -232,7 +236,7 @@ export async function POST(request: NextRequest) {
     trackFunnelEvent({
       step: BookingFunnelStep.BOOKING_COMPLETED,
       siteId: site.id,
-      bookingId: booking.id,
+      bookingId: resolvedBookingId,
       productId: productId ?? undefined,
       durationMs: Date.now() - startTime,
     });
