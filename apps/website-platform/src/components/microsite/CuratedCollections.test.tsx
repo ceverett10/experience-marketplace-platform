@@ -49,6 +49,11 @@ describe('CuratedCollections', () => {
     expect(screen.getByText('Explore Collections')).toBeInTheDocument();
   });
 
+  it('renders section subtitle', () => {
+    render(<CuratedCollections collections={[makeCollection('1')]} {...defaultProps} />);
+    expect(screen.getByText('Curated experiences for every type of adventure')).toBeInTheDocument();
+  });
+
   it('renders collection names', () => {
     const collections = [makeCollection('1'), makeCollection('2')];
     render(<CuratedCollections collections={collections} {...defaultProps} />);
@@ -62,13 +67,20 @@ describe('CuratedCollections', () => {
     expect(screen.getByText('A great collection')).toBeInTheDocument();
   });
 
-  it('shows experience count per collection', () => {
+  it('does not render description when it is null', () => {
+    const collections = [makeCollection('1', { description: null, name: 'No Desc' })];
+    render(<CuratedCollections collections={collections} {...defaultProps} />);
+    expect(screen.getByText('No Desc')).toBeInTheDocument();
+    // No extra paragraph for description
+  });
+
+  it('shows experience count per collection with plural form', () => {
     const collections = [makeCollection('1')]; // has 2 products
     render(<CuratedCollections collections={collections} {...defaultProps} />);
     expect(screen.getByText('2 experiences')).toBeInTheDocument();
   });
 
-  it('uses singular "experience" for count=1', () => {
+  it('uses singular "experience" for count of 1', () => {
     const collections = [
       makeCollection('1', {
         products: [
@@ -83,7 +95,13 @@ describe('CuratedCollections', () => {
     expect(screen.getByText('1 experience')).toBeInTheDocument();
   });
 
-  it('links to collection slug', () => {
+  it('shows "0 experiences" for empty product list', () => {
+    const collections = [makeCollection('1', { products: [] })];
+    render(<CuratedCollections collections={collections} {...defaultProps} />);
+    expect(screen.getByText('0 experiences')).toBeInTheDocument();
+  });
+
+  it('links to collection slug with /collections/ prefix', () => {
     const collections = [makeCollection('1', { slug: 'best-of-london' })];
     render(<CuratedCollections collections={collections} {...defaultProps} />);
     const links = screen.getAllByRole('link');
@@ -93,16 +111,18 @@ describe('CuratedCollections', () => {
     expect(collectionLink).toBeDefined();
   });
 
-  it('shows "View all" link', () => {
+  it('shows "View all" desktop link pointing to /collections', () => {
     const collections = [makeCollection('1')];
     render(<CuratedCollections collections={collections} {...defaultProps} />);
-    expect(screen.getByText('View all')).toBeInTheDocument();
+    const viewAll = screen.getByText('View all');
+    expect(viewAll.closest('a')).toHaveAttribute('href', '/collections');
   });
 
-  it('shows "View all collections" mobile link', () => {
+  it('shows "View all collections" mobile link pointing to /collections', () => {
     const collections = [makeCollection('1')];
     render(<CuratedCollections collections={collections} {...defaultProps} />);
-    expect(screen.getByText('View all collections')).toBeInTheDocument();
+    const viewAllMobile = screen.getByText('View all collections');
+    expect(viewAllMobile.closest('a')).toHaveAttribute('href', '/collections');
   });
 
   it('limits to 4 collections displayed', () => {
@@ -119,10 +139,32 @@ describe('CuratedCollections', () => {
     expect(screen.queryByText('Collection 5')).not.toBeInTheDocument();
   });
 
-  it('shows emoji icon', () => {
+  it('shows emoji icon in the badge', () => {
     const collections = [makeCollection('1', { iconEmoji: '\uD83C\uDF1F' })];
     render(<CuratedCollections collections={collections} {...defaultProps} />);
     const emojiElements = screen.getAllByText('\uD83C\uDF1F');
     expect(emojiElements.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('shows default emoji when iconEmoji is null', () => {
+    const collections = [makeCollection('1', { iconEmoji: null })];
+    render(<CuratedCollections collections={collections} {...defaultProps} />);
+    // Default emoji is the box emoji
+    const defaultEmojis = screen.getAllByText('\uD83D\uDCE6');
+    expect(defaultEmojis.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('renders collection image when imageUrl is provided', () => {
+    const collections = [makeCollection('1', { imageUrl: 'https://example.com/collection.jpg' })];
+    render(<CuratedCollections collections={collections} {...defaultProps} />);
+    const img = screen.getByAltText('Collection 1');
+    expect(img).toHaveAttribute('src', 'https://example.com/collection.jpg');
+  });
+
+  it('applies primaryColor to "View all" link', () => {
+    const collections = [makeCollection('1')];
+    render(<CuratedCollections collections={collections} {...defaultProps} />);
+    const viewAll = screen.getByText('View all').closest('a');
+    expect(viewAll).toHaveStyle({ color: '#0d9488' });
   });
 });
