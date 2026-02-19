@@ -1,5 +1,9 @@
 /**
- * Activate all PAUSED Facebook campaigns on Meta.
+ * Activate all Facebook campaigns (and their ad sets + ads) on Meta.
+ *
+ * This script handles TWO scenarios:
+ * 1. Campaigns with status PAUSED in DB → activate campaign + children on Meta, update DB
+ * 2. Campaigns with status ACTIVE in DB → ensure children (ad sets/ads) are ACTIVE on Meta
  *
  * Usage:
  *   npx tsx packages/jobs/src/scripts/activate-paused-campaigns.ts [--dry-run]
@@ -52,7 +56,7 @@ async function getMetaClient(): Promise<MetaAdsClient | null> {
 }
 
 async function main() {
-  console.log(`\n=== Activate PAUSED Campaigns ${DRY_RUN ? '(DRY RUN)' : ''} ===\n`);
+  console.log(`\n=== Activate All Meta Campaigns ${DRY_RUN ? '(DRY RUN)' : ''} ===\n`);
 
   const metaClient = await getMetaClient();
   if (!metaClient) {
@@ -60,52 +64,81 @@ async function main() {
     process.exit(1);
   }
 
+  // Get ALL deployed FB campaigns (both ACTIVE and PAUSED in DB)
   const campaigns = await prisma.adCampaign.findMany({
     where: {
       platform: 'FACEBOOK',
-      status: 'PAUSED',
       platformCampaignId: { not: null },
+      status: { in: ['ACTIVE', 'PAUSED'] },
     },
     select: {
       id: true,
       name: true,
+      status: true,
       platformCampaignId: true,
     },
   });
 
-  console.log(`Found ${campaigns.length} PAUSED campaigns to activate.\n`);
+  console.log(`Found ${campaigns.length} deployed FB campaigns.\n`);
 
-  let activated = 0;
+  let campaignsActivated = 0;
+  let adSetsActivated = 0;
+  let adsActivated = 0;
   let failed = 0;
 
-  for (const campaign of campaigns) {
+  for (let i = 0; i < campaigns.length; i++) {
+    const campaign = campaigns[i]!;
     const metaId = campaign.platformCampaignId!;
-    console.log(`[${activated + failed + 1}/${campaigns.length}] ${campaign.name} (${metaId})`);
+    console.log(
+      `[${i + 1}/${campaigns.length}] ${campaign.name} (${metaId}) DB status=${campaign.status}`
+    );
 
     if (DRY_RUN) {
-      console.log('  → Would activate (dry run)\n');
-      activated++;
+      console.log('  → Would process (dry run)\n');
       continue;
     }
 
-    const ok = await metaClient.setCampaignStatus(metaId, 'ACTIVE');
-    if (ok) {
-      await prisma.adCampaign.update({
-        where: { id: campaign.id },
-        data: { status: 'ACTIVE' },
-      });
-      console.log('  → Activated on Meta + DB\n');
-      activated++;
-    } else {
-      console.log('  → FAILED to activate on Meta\n');
+    try {
+      // Step 1: Activate children (ad sets + ads) regardless of campaign status
+      const children = await metaClient.activateCampaignChildren(metaId);
+      adSetsActivated += children.adSets;
+      adsActivated += children.ads;
+
+      if (children.adSets > 0 || children.ads > 0) {
+        console.log(`  → Activated ${children.adSets} ad sets, ${children.ads} ads`);
+      } else {
+        console.log('  → All children already active');
+      }
+
+      // Step 2: If campaign itself is PAUSED on Meta, activate it
+      const ok = await metaClient.setCampaignStatus(metaId, 'ACTIVE');
+      if (ok) {
+        campaignsActivated++;
+        console.log('  → Campaign set to ACTIVE on Meta');
+      }
+
+      // Step 3: Ensure DB status is ACTIVE
+      if (campaign.status !== 'ACTIVE') {
+        await prisma.adCampaign.update({
+          where: { id: campaign.id },
+          data: { status: 'ACTIVE' },
+        });
+        console.log('  → DB status updated to ACTIVE');
+      }
+
+      console.log('');
+    } catch (error) {
       failed++;
+      console.error(`  → ERROR: ${error instanceof Error ? error.message : error}\n`);
     }
   }
 
-  console.log(`\n=== Results ===`);
-  console.log(`Activated: ${activated}`);
+  console.log(`\n=== SUMMARY ===`);
+  console.log(`Campaigns processed: ${campaigns.length}`);
+  console.log(`Campaigns activated on Meta: ${campaignsActivated}`);
+  console.log(`Ad sets activated: ${adSetsActivated}`);
+  console.log(`Ads activated: ${adsActivated}`);
   console.log(`Failed: ${failed}`);
-  console.log(`Total: ${campaigns.length}`);
 
   await prisma.$disconnect();
 }
