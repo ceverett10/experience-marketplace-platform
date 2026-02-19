@@ -276,7 +276,7 @@ const workers = [
   micrositeWorker,
 ];
 
-setupWorkerEvents(workers);
+setupWorkerEvents(workers, connection);
 startMemoryMonitoring(connection);
 setupGracefulShutdown(workers, connection);
 

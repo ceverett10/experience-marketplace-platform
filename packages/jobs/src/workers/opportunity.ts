@@ -35,29 +35,43 @@ import { canExecuteAutonomousOperation } from '../services/pause-control';
 
 /**
  * Fetch existing opportunity keywords from the database for pre-filtering.
- * Returns a Set of "keyword|location" keys to quickly check for duplicates.
- * This saves DataForSEO API costs by not re-validating keywords we already have.
+ * Uses batched DB queries instead of loading ALL opportunities into memory.
+ * Checks specific keyword/location pairs against the database in chunks of 100.
+ *
+ * @param seeds - The seeds to check for existing matches
+ * @returns Set of "keyword|location" keys that already exist
  */
-async function getExistingOpportunityKeys(): Promise<Set<string>> {
-  console.log('[Pre-Filter] Fetching existing opportunities from database...');
+async function getExistingOpportunityKeys(
+  seeds: Array<{ keyword: string; destination?: string }>
+): Promise<Set<string>> {
+  console.log(`[Pre-Filter] Checking ${seeds.length} seeds against existing opportunities...`);
 
-  const existingOpportunities = await prisma.sEOOpportunity.findMany({
-    select: {
-      keyword: true,
-      location: true,
-      status: true,
-    },
-  });
+  const existingKeys = new Set<string>();
+  const BATCH_SIZE = 100;
 
-  // Build a Set of "keyword|location" keys for O(1) lookup
-  const keys = new Set<string>();
-  for (const opp of existingOpportunities) {
-    const key = `${opp.keyword.toLowerCase()}|${(opp.location || '').toLowerCase()}`;
-    keys.add(key);
+  for (let i = 0; i < seeds.length; i += BATCH_SIZE) {
+    const batch = seeds.slice(i, i + BATCH_SIZE);
+
+    // Build OR conditions for batch check
+    const conditions = batch.map((seed) => ({
+      keyword: { equals: seed.keyword, mode: 'insensitive' as const },
+      ...(seed.destination
+        ? { location: { equals: seed.destination, mode: 'insensitive' as const } }
+        : { location: null }),
+    }));
+
+    const existing = await prisma.sEOOpportunity.findMany({
+      where: { OR: conditions },
+      select: { keyword: true, location: true },
+    });
+
+    for (const opp of existing) {
+      existingKeys.add(`${opp.keyword.toLowerCase()}|${(opp.location || '').toLowerCase()}`);
+    }
   }
 
-  console.log(`[Pre-Filter] Found ${keys.size} existing opportunities to exclude`);
-  return keys;
+  console.log(`[Pre-Filter] Found ${existingKeys.size} existing opportunities to exclude`);
+  return existingKeys;
 }
 
 /**
@@ -94,9 +108,9 @@ async function runIntegratedOptimization(
     ? allSeeds.filter((seed) => options.seedModes?.includes(seed.scanMode))
     : allSeeds;
 
-  // Pre-filter: exclude seeds that match existing opportunities in the database
-  // This saves DataForSEO API costs by not re-validating keywords we already have
-  const existingKeys = await getExistingOpportunityKeys();
+  // Pre-filter: exclude seeds that match existing opportunities in the database.
+  // Uses batched DB queries instead of loading all opportunities into memory.
+  const existingKeys = await getExistingOpportunityKeys(modeFilteredSeeds);
   const seeds = modeFilteredSeeds.filter((seed) => {
     const key = `${seed.keyword.toLowerCase()}|${(seed.destination || '').toLowerCase()}`;
     return !existingKeys.has(key);
