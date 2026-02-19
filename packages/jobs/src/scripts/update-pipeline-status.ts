@@ -142,13 +142,13 @@ const UPDATES: TaskUpdate[] = [
     taskNumber: '4.1',
     status: 'DEPLOYED',
     notes:
-      'Added targetMarkets: String[] to Site model (default: GB,US,CA,AU,IE,NZ). deployToMeta() and handleAdCreativeRefresh() now read site.targetMarkets instead of hardcoded SOURCE_MARKETS. Migration: 20260219100000. Committed f231cdc.',
+      'Added targetMarkets: String[] to Site model (default: GB,US,CA,AU,IE,NZ). deployToMeta() and handleAdCreativeRefresh() now read site.targetMarkets. G2 fix: removed hardcoded DEFAULT_MARKETS fallback — Prisma default guarantees field is always populated. Migration: 20260219100000.',
   },
   {
     taskNumber: '4.2',
     status: 'DEPLOYED',
     notes:
-      'Added primaryCurrency: String to Site model (default: GBP). Migration: 20260219100000. Field available for downstream use in budget calculations and analytics. Committed f231cdc.',
+      'Added primaryCurrency: String to Site model (default: GBP). G4 fix: wired currency param into OptimizationConfig and runAudienceFirstDiscovery so callers can pass site-specific currencies. Migration: 20260219100000.',
   },
   {
     taskNumber: '4.3',

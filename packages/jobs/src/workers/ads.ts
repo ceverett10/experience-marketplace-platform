@@ -1158,12 +1158,8 @@ async function deployToMeta(
     }
 
     // Step 2: Create ad set with geo + interest targeting
-    // Use site-specific target markets (Task 4.1), falling back to default anglophone markets
-    const DEFAULT_MARKETS = ['GB', 'US', 'CA', 'AU', 'IE', 'NZ'];
-    const countries =
-      campaign.site?.targetMarkets && campaign.site.targetMarkets.length > 0
-        ? [...campaign.site.targetMarkets]
-        : [...DEFAULT_MARKETS];
+    // Site.targetMarkets is always populated via Prisma default (G2 fix)
+    const countries = [...(campaign.site?.targetMarkets ?? ['GB', 'US'])];
 
     // Search for relevant interests using extracted destination/activity terms.
     // Long-tail keywords like "things to do in curitiba" return nothing from Meta's
@@ -2020,8 +2016,6 @@ export async function handleAdCreativeRefresh(_job: Job): Promise<JobResult> {
     };
   }
 
-  const DEFAULT_MARKETS = ['GB', 'US', 'CA', 'AU', 'IE', 'NZ'];
-
   // Get all deployed Facebook campaigns
   const campaigns = await prisma.adCampaign.findMany({
     where: {
@@ -2216,10 +2210,7 @@ export async function handleAdCreativeRefresh(_job: Job): Promise<JobResult> {
               if (newInterests.length > 0) {
                 const adSets = await metaClient.getAdSetsForCampaign(campaign.platformCampaignId!);
                 for (const adSet of adSets) {
-                  const markets =
-                    (campaign as any).site?.targetMarkets?.length > 0
-                      ? [...(campaign as any).site.targetMarkets]
-                      : [...DEFAULT_MARKETS];
+                  const markets = [...(campaign.site?.targetMarkets ?? ['GB', 'US'])];
                   const success = await metaClient.updateAdSetTargeting(adSet.id, {
                     countries: markets,
                     interests: newInterests,
