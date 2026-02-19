@@ -42,7 +42,9 @@ async function getMetaClient(): Promise<MetaAdsClient | null> {
       console.log(`Using Meta token from account ${account.id}`);
       return new MetaAdsClient({ accessToken, adAccountId });
     } catch (error) {
-      console.warn(`Skipping account ${account.id}: ${error instanceof Error ? error.message : error}`);
+      console.warn(
+        `Skipping account ${account.id}: ${error instanceof Error ? error.message : error}`
+      );
     }
   }
 

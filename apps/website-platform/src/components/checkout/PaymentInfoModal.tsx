@@ -167,11 +167,7 @@ export function PaymentInfoModal({
                     strokeWidth="2"
                     stroke="currentColor"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M4.5 12.75l6 6 9-13.5"
-                    />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                   </svg>
                   Secure payment via Stripe (PCI DSS compliant)
                 </li>
@@ -183,11 +179,7 @@ export function PaymentInfoModal({
                     strokeWidth="2"
                     stroke="currentColor"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M4.5 12.75l6 6 9-13.5"
-                    />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                   </svg>
                   Free cancellation based on the terms of the experience you are booking
                 </li>
@@ -199,11 +191,7 @@ export function PaymentInfoModal({
                     strokeWidth="2"
                     stroke="currentColor"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M4.5 12.75l6 6 9-13.5"
-                    />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                   </svg>
                   Full customer support from the Holibob team
                 </li>

@@ -103,7 +103,9 @@ async function main() {
 
       const boardsData = await boardsResponse.json();
       const allBoards = (boardsData.items || []) as { id: string; name: string }[];
-      console.log(`  Found ${allBoards.length} boards: ${allBoards.map((b: { name: string }) => b.name).join(', ')}`);
+      console.log(
+        `  Found ${allBoards.length} boards: ${allBoards.map((b: { name: string }) => b.name).join(', ')}`
+      );
 
       let siteBoard = allBoards.find(
         (b: { name: string }) => b.name.toLowerCase() === siteName.toLowerCase()
@@ -138,12 +140,13 @@ async function main() {
       }
 
       // Refresh metadata
-      const currentMeta = (
-        await prisma.socialAccount.findUnique({
-          where: { id: account.id },
-          select: { metadata: true },
-        })
-      )?.metadata as Record<string, unknown> || {};
+      const currentMeta =
+        ((
+          await prisma.socialAccount.findUnique({
+            where: { id: account.id },
+            select: { metadata: true },
+          })
+        )?.metadata as Record<string, unknown>) || {};
 
       await prisma.socialAccount.update({
         where: { id: account.id },
@@ -152,7 +155,10 @@ async function main() {
             ...currentMeta,
             boardId: siteBoard.id,
             boardName: siteBoard.name,
-            boards: allBoards.map((b: { id: string; name: string }) => ({ id: b.id, name: b.name })),
+            boards: allBoards.map((b: { id: string; name: string }) => ({
+              id: b.id,
+              name: b.name,
+            })),
           },
         },
       });

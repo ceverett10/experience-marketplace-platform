@@ -14,7 +14,10 @@ export async function GET(): Promise<NextResponse> {
     });
 
     // Phase summaries
-    const phases: Record<number, { total: number; verified: number; inProgress: number; blocked: number; failed: number }> = {};
+    const phases: Record<
+      number,
+      { total: number; verified: number; inProgress: number; blocked: number; failed: number }
+    > = {};
     for (const task of tasks) {
       if (!phases[task.phase]) {
         phases[task.phase] = { total: 0, verified: 0, inProgress: 0, blocked: 0, failed: 0 };
@@ -22,7 +25,12 @@ export async function GET(): Promise<NextResponse> {
       const p = phases[task.phase]!;
       p.total++;
       if (task.status === 'VERIFIED') p.verified++;
-      if (task.status === 'IN_PROGRESS' || task.status === 'IMPLEMENTED' || task.status === 'TESTING' || task.status === 'DEPLOYED') {
+      if (
+        task.status === 'IN_PROGRESS' ||
+        task.status === 'IMPLEMENTED' ||
+        task.status === 'TESTING' ||
+        task.status === 'DEPLOYED'
+      ) {
         p.inProgress++;
       }
       if (task.status === 'BLOCKED') p.blocked++;
@@ -70,7 +78,12 @@ export async function GET(): Promise<NextResponse> {
       phases,
       healthChecks,
       events: enrichedEvents,
-      overall: { total, verified, deployed, percentage: total > 0 ? Math.round((verified / total) * 100) : 0 },
+      overall: {
+        total,
+        verified,
+        deployed,
+        percentage: total > 0 ? Math.round((verified / total) * 100) : 0,
+      },
     });
   } catch (error) {
     console.error('[Pipeline Tracker API] GET error:', error);
@@ -109,7 +122,10 @@ export async function POST(request: Request): Promise<NextResponse> {
         if (status === 'TESTING') updateData['testedAt'] = now;
         if (status === 'DEPLOYED') updateData['deployedAt'] = now;
         if (status === 'VERIFIED') updateData['verifiedAt'] = now;
-        if (note) updateData['notes'] = existing.notes ? `${existing.notes}\n\n${now.toISOString()}: ${note}` : `${now.toISOString()}: ${note}`;
+        if (note)
+          updateData['notes'] = existing.notes
+            ? `${existing.notes}\n\n${now.toISOString()}: ${note}`
+            : `${now.toISOString()}: ${note}`;
 
         const [task] = await prisma.$transaction([
           prisma.pipelineTask.update({ where: { id: taskId }, data: updateData }),
@@ -141,7 +157,9 @@ export async function POST(request: Request): Promise<NextResponse> {
         const task = await prisma.pipelineTask.update({
           where: { id: taskId },
           data: {
-            notes: existing.notes ? `${existing.notes}\n\n${now.toISOString()}: ${note}` : `${now.toISOString()}: ${note}`,
+            notes: existing.notes
+              ? `${existing.notes}\n\n${now.toISOString()}: ${note}`
+              : `${now.toISOString()}: ${note}`,
           },
         });
 
@@ -173,7 +191,7 @@ export async function POST(request: Request): Promise<NextResponse> {
         for (const task of tasks) {
           if (!task.verificationQuery) continue;
           try {
-            const queryResult = await prisma.$queryRawUnsafe(task.verificationQuery) as unknown[];
+            const queryResult = (await prisma.$queryRawUnsafe(task.verificationQuery)) as unknown[];
             const resultStr = JSON.stringify(queryResult);
 
             // Simple pass/fail based on target
@@ -182,7 +200,12 @@ export async function POST(request: Request): Promise<NextResponse> {
               const target = task.verificationTarget;
               const firstRow = queryResult[0] as Record<string, unknown> | undefined;
               const firstValue = firstRow ? Object.values(firstRow)[0] : null;
-              const numValue = typeof firstValue === 'bigint' ? Number(firstValue) : typeof firstValue === 'number' ? firstValue : null;
+              const numValue =
+                typeof firstValue === 'bigint'
+                  ? Number(firstValue)
+                  : typeof firstValue === 'number'
+                    ? firstValue
+                    : null;
 
               if (target.startsWith('= ') && numValue !== null) {
                 passed = numValue === parseFloat(target.substring(2));

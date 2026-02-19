@@ -768,7 +768,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         data: {
           maxCpc,
           proposalData: {
-            ...((await prisma.adCampaign.findUnique({ where: { id: campaignId } }))?.proposalData as Record<string, any> || {}),
+            ...(((await prisma.adCampaign.findUnique({ where: { id: campaignId } }))
+              ?.proposalData as Record<string, any>) || {}),
             bidOverride: true,
             bidOverriddenAt: new Date().toISOString(),
           },

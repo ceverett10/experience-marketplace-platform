@@ -59,13 +59,21 @@ async function main() {
   let withPlatformId = 0;
 
   for (const c of campaigns) {
-    byStatus[c.status as keyof typeof byStatus] = (byStatus[c.status as keyof typeof byStatus] || 0) + 1;
-    const plat = c.platform === 'FACEBOOK' ? 'FACEBOOK' : c.platform === 'GOOGLE_SEARCH' ? 'GOOGLE_SEARCH' : 'OTHER';
+    byStatus[c.status as keyof typeof byStatus] =
+      (byStatus[c.status as keyof typeof byStatus] || 0) + 1;
+    const plat =
+      c.platform === 'FACEBOOK'
+        ? 'FACEBOOK'
+        : c.platform === 'GOOGLE_SEARCH'
+          ? 'GOOGLE_SEARCH'
+          : 'OTHER';
     byPlatform[plat]++;
     if (c.platformCampaignId) withPlatformId++;
   }
 
-  console.log(`  By status: ACTIVE=${byStatus.ACTIVE}, PAUSED=${byStatus.PAUSED}, DRAFT=${byStatus.DRAFT}`);
+  console.log(
+    `  By status: ACTIVE=${byStatus.ACTIVE}, PAUSED=${byStatus.PAUSED}, DRAFT=${byStatus.DRAFT}`
+  );
   console.log(`  By platform: Facebook=${byPlatform.FACEBOOK}, Google=${byPlatform.GOOGLE_SEARCH}`);
   console.log(`  With platform ID (deployed): ${withPlatformId}\n`);
 

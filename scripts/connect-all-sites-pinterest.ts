@@ -28,9 +28,7 @@ async function findOrCreateBoard(
   existingBoards: { id: string; name: string }[]
 ): Promise<{ id: string; name: string } | null> {
   // Check existing boards first
-  const existing = existingBoards.find(
-    (b) => b.name.toLowerCase() === boardName.toLowerCase()
-  );
+  const existing = existingBoards.find((b) => b.name.toLowerCase() === boardName.toLowerCase());
   if (existing) return existing;
 
   // Create new board
@@ -101,7 +99,9 @@ async function main() {
   if (boardsResponse.ok) {
     const data = await boardsResponse.json();
     allBoards = ((data as any).items || []) as { id: string; name: string }[];
-    console.log(`Found ${allBoards.length} existing boards: ${allBoards.map((b) => b.name).join(', ')}`);
+    console.log(
+      `Found ${allBoards.length} existing boards: ${allBoards.map((b) => b.name).join(', ')}`
+    );
   }
 
   // 3. Get all active sites
@@ -168,7 +168,9 @@ async function main() {
 
   // 6. Summary
   console.log(`\n--- Summary ---`);
-  console.log(`Sites: ${sites.length} total, ${connectedSiteIds.size} already connected, ${created} newly created`);
+  console.log(
+    `Sites: ${sites.length} total, ${connectedSiteIds.size} already connected, ${created} newly created`
+  );
   console.log(`Boards: ${allBoards.length} total on Pinterest`);
 
   const final = await prisma.socialAccount.findMany({

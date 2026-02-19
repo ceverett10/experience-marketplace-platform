@@ -12,7 +12,9 @@ import { prisma, PageType } from '@experience-marketplace/database';
 export type PageOwnerFilter = { siteId: string } | { micrositeId: string };
 
 /** Build a Prisma where clause for pages owned by a site or microsite */
-export function pageOwnerWhere(owner: PageOwnerFilter): { siteId: string } | { micrositeId: string } {
+export function pageOwnerWhere(
+  owner: PageOwnerFilter
+): { siteId: string } | { micrositeId: string } {
   return owner;
 }
 
@@ -39,7 +41,10 @@ export interface SEOOptimization {
 /**
  * Auto-fix common SEO issues for a site or microsite
  */
-export async function autoOptimizeSiteSEO(siteId: string, owner?: PageOwnerFilter): Promise<SEOOptimization[]> {
+export async function autoOptimizeSiteSEO(
+  siteId: string,
+  owner?: PageOwnerFilter
+): Promise<SEOOptimization[]> {
   const optimizations: SEOOptimization[] = [];
   const ownerFilter = owner ?? { siteId };
 
@@ -277,7 +282,10 @@ function calculateOptimalPriority(pageType: PageType, slug: string): number {
 /**
  * Add missing structured data to pages
  */
-export async function addMissingStructuredData(siteId: string, owner?: PageOwnerFilter): Promise<number> {
+export async function addMissingStructuredData(
+  siteId: string,
+  owner?: PageOwnerFilter
+): Promise<number> {
   let updatedCount = 0;
   const ownerFilter = owner ?? { siteId };
 
@@ -460,7 +468,10 @@ export function generateCTROptimizedTitle(
 /**
  * Update content freshness by updating dates in content that reference outdated years
  */
-export async function updateContentFreshness(siteId: string, owner?: PageOwnerFilter): Promise<{
+export async function updateContentFreshness(
+  siteId: string,
+  owner?: PageOwnerFilter
+): Promise<{
   updatedCount: number;
   updates: Array<{ pageId: string; title: string; reason: string }>;
 }> {
@@ -528,7 +539,10 @@ export interface KeywordOptimization {
  * Analyze keyword optimization for all pages in a site
  * Returns recommendations for pages that need keyword improvements
  */
-export async function analyzeKeywordOptimization(siteId: string, owner?: PageOwnerFilter): Promise<KeywordOptimization[]> {
+export async function analyzeKeywordOptimization(
+  siteId: string,
+  owner?: PageOwnerFilter
+): Promise<KeywordOptimization[]> {
   const optimizations: KeywordOptimization[] = [];
   const ownerFilter = owner ?? { siteId };
 
@@ -628,7 +642,10 @@ function escapeRegex(string: string): string {
  * Fix missing image alt text in page content
  * Returns count of pages with fixed images
  */
-export async function fixMissingImageAltText(siteId: string, owner?: PageOwnerFilter): Promise<{
+export async function fixMissingImageAltText(
+  siteId: string,
+  owner?: PageOwnerFilter
+): Promise<{
   pagesFixed: number;
   imagesFixed: number;
   details: Array<{ pageId: string; pageTitle: string; imagesFixed: number }>;

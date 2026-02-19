@@ -76,9 +76,7 @@ export async function findOrCreatePinterestBoard(
 
   if (listResponse.ok) {
     const data = (await listResponse.json()) as { items?: { id: string; name: string }[] };
-    const existing = data.items?.find(
-      (b) => b.name.toLowerCase() === boardName.toLowerCase()
-    );
+    const existing = data.items?.find((b) => b.name.toLowerCase() === boardName.toLowerCase());
     if (existing) return existing;
   }
 

@@ -181,11 +181,12 @@ export function Footer() {
             &copy; {new Date().getFullYear()} Holibob. All rights reserved.
             {site.micrositeContext && (
               <>
-                {' '}Part of the{' '}
+                {' '}
+                Part of the{' '}
                 <a href="https://experiencess.com" className="text-gray-300 hover:text-white">
                   Experiencess.com
-                </a>
-                {' '}network.
+                </a>{' '}
+                network.
               </>
             )}
           </p>

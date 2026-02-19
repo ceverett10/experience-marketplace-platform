@@ -224,10 +224,7 @@ export function Header() {
             {isMicrosite && (
               <p className="mt-4 border-t border-gray-100 pt-4 text-center text-[11px] text-gray-400">
                 powered by{' '}
-                <a
-                  href="https://experiencess.com"
-                  className="text-gray-500 hover:text-gray-700"
-                >
+                <a href="https://experiencess.com" className="text-gray-500 hover:text-gray-700">
                   Experiencess.com
                 </a>
               </p>

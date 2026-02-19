@@ -1584,7 +1584,6 @@ async function autoActionMicrositeOpportunities(): Promise<number> {
   return queued;
 }
 
-
 /**
  * SEO Opportunity Optimizer Worker
  * Runs 5-iteration recursive AI optimization to discover highest-value opportunities

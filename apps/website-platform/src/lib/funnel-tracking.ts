@@ -58,7 +58,10 @@ export function trackFunnelEvent(params: TrackFunnelEventParams): void {
     }
   } catch (err) {
     // cookies() can throw if called outside a request context (e.g., in tests)
-    console.warn('[funnel-tracking] Could not read cookies:', err instanceof Error ? err.message : err);
+    console.warn(
+      '[funnel-tracking] Could not read cookies:',
+      err instanceof Error ? err.message : err
+    );
   }
 
   // Fire-and-forget: only the DB write is async.

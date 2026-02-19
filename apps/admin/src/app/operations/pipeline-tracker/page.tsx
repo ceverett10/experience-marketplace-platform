@@ -98,7 +98,16 @@ const SEVERITY_COLORS: Record<string, string> = {
   MEDIUM: 'bg-slate-50 text-slate-600 border-slate-200',
 };
 
-const ALL_STATUSES = ['PENDING', 'IN_PROGRESS', 'IMPLEMENTED', 'TESTING', 'DEPLOYED', 'VERIFIED', 'BLOCKED', 'FAILED'];
+const ALL_STATUSES = [
+  'PENDING',
+  'IN_PROGRESS',
+  'IMPLEMENTED',
+  'TESTING',
+  'DEPLOYED',
+  'VERIFIED',
+  'BLOCKED',
+  'FAILED',
+];
 
 type Tab = 'overview' | 'tasks' | 'verification' | 'timeline';
 
@@ -117,7 +126,11 @@ function timeAgo(dateStr: string | null): string {
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return '—';
-  return new Date(dateStr).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  return new Date(dateStr).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
 }
 
 function formatDateTime(dateStr: string | null): string {
@@ -174,7 +187,9 @@ export default function PipelineTrackerPage() {
         body: JSON.stringify({ action, ...payload }),
       });
       const result = await res.json();
-      setActionMessage(result.success ? (result.message || `${action} completed`) : (result.error || 'Action failed'));
+      setActionMessage(
+        result.success ? result.message || `${action} completed` : result.error || 'Action failed'
+      );
       setTimeout(fetchData, 1000);
     } catch (err) {
       setActionMessage(err instanceof Error ? err.message : 'Action failed');
@@ -213,7 +228,10 @@ export default function PipelineTrackerPage() {
         <Card>
           <CardContent className="p-6 text-center">
             <p className="text-red-600 mb-4">{error}</p>
-            <button onClick={fetchData} className="px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700">
+            <button
+              onClick={fetchData}
+              className="px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700"
+            >
               Retry
             </button>
           </CardContent>
@@ -244,7 +262,9 @@ export default function PipelineTrackerPage() {
             <CardContent className="p-4 text-center">
               <div className="text-3xl font-bold text-sky-600">{data.overall.percentage}%</div>
               <div className="text-sm text-slate-500 mt-1">Overall Progress</div>
-              <div className="text-xs text-slate-400">{data.overall.verified}/{data.overall.total} verified</div>
+              <div className="text-xs text-slate-400">
+                {data.overall.verified}/{data.overall.total} verified
+              </div>
             </CardContent>
           </Card>
           <Card>
@@ -261,7 +281,9 @@ export default function PipelineTrackerPage() {
           </Card>
           <Card>
             <CardContent className="p-4 text-center">
-              <div className={`text-3xl font-bold ${healthTotal > 0 && healthPassing === healthTotal ? 'text-green-600' : 'text-amber-600'}`}>
+              <div
+                className={`text-3xl font-bold ${healthTotal > 0 && healthPassing === healthTotal ? 'text-green-600' : 'text-amber-600'}`}
+              >
                 {healthTotal > 0 ? `${healthPassing}/${healthTotal}` : '—'}
               </div>
               <div className="text-sm text-slate-500 mt-1">Health Checks</div>
@@ -275,16 +297,29 @@ export default function PipelineTrackerPage() {
             <h3 className="font-semibold mb-4">Phase Progress</h3>
             <div className="space-y-4">
               {[1, 2, 3, 4].map((phase) => {
-                const summary = data.phases[phase] || { total: 0, verified: 0, inProgress: 0, blocked: 0, failed: 0 };
-                const pct = summary.total > 0 ? Math.round((summary.verified / summary.total) * 100) : 0;
+                const summary = data.phases[phase] || {
+                  total: 0,
+                  verified: 0,
+                  inProgress: 0,
+                  blocked: 0,
+                  failed: 0,
+                };
+                const pct =
+                  summary.total > 0 ? Math.round((summary.verified / summary.total) * 100) : 0;
                 return (
                   <div key={phase}>
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-medium">Phase {phase}: {PHASE_NAMES[phase]}</span>
+                      <span className="text-sm font-medium">
+                        Phase {phase}: {PHASE_NAMES[phase]}
+                      </span>
                       <span className="text-sm text-slate-500">
                         {summary.verified}/{summary.total} tasks
-                        {summary.inProgress > 0 && <span className="text-blue-600 ml-2">({summary.inProgress} active)</span>}
-                        {summary.blocked > 0 && <span className="text-red-600 ml-2">({summary.blocked} blocked)</span>}
+                        {summary.inProgress > 0 && (
+                          <span className="text-blue-600 ml-2">({summary.inProgress} active)</span>
+                        )}
+                        {summary.blocked > 0 && (
+                          <span className="text-red-600 ml-2">({summary.blocked} blocked)</span>
+                        )}
                       </span>
                     </div>
                     <div className="w-full bg-slate-100 rounded-full h-3">
@@ -304,15 +339,22 @@ export default function PipelineTrackerPage() {
         {criticalTasks.length > 0 && (
           <Card>
             <CardContent className="p-6">
-              <h3 className="font-semibold text-red-700 mb-3">Needs Attention ({criticalTasks.length})</h3>
+              <h3 className="font-semibold text-red-700 mb-3">
+                Needs Attention ({criticalTasks.length})
+              </h3>
               <div className="space-y-2">
                 {criticalTasks.map((t) => (
-                  <div key={t.id} className="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-200">
+                  <div
+                    key={t.id}
+                    className="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-200"
+                  >
                     <div>
                       <span className="font-mono text-sm text-red-600 mr-2">{t.taskNumber}</span>
                       <span className="text-sm font-medium">{t.title}</span>
                     </div>
-                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[t.status]}`}>
+                    <span
+                      className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[t.status]}`}
+                    >
                       {t.status}
                     </span>
                   </div>
@@ -326,15 +368,22 @@ export default function PipelineTrackerPage() {
         {inProgressTasks.length > 0 && (
           <Card>
             <CardContent className="p-6">
-              <h3 className="font-semibold text-blue-700 mb-3">Currently Active ({inProgressTasks.length})</h3>
+              <h3 className="font-semibold text-blue-700 mb-3">
+                Currently Active ({inProgressTasks.length})
+              </h3>
               <div className="space-y-2">
                 {inProgressTasks.map((t) => (
-                  <div key={t.id} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <div
+                    key={t.id}
+                    className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200"
+                  >
                     <div>
                       <span className="font-mono text-sm text-blue-600 mr-2">{t.taskNumber}</span>
                       <span className="text-sm font-medium">{t.title}</span>
                     </div>
-                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[t.status]}`}>
+                    <span
+                      className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[t.status]}`}
+                    >
                       {t.status}
                     </span>
                   </div>
@@ -362,7 +411,9 @@ export default function PipelineTrackerPage() {
         >
           <option value="">All Phases</option>
           {[1, 2, 3, 4].map((p) => (
-            <option key={p} value={p}>Phase {p}: {PHASE_NAMES[p]}</option>
+            <option key={p} value={p}>
+              Phase {p}: {PHASE_NAMES[p]}
+            </option>
           ))}
         </select>
         <select
@@ -372,7 +423,9 @@ export default function PipelineTrackerPage() {
         >
           <option value="">All Statuses</option>
           {ALL_STATUSES.map((s) => (
-            <option key={s} value={s}>{s}</option>
+            <option key={s} value={s}>
+              {s}
+            </option>
           ))}
         </select>
         <span className="text-sm text-slate-500 ml-auto">{filteredTasks.length} tasks</span>
@@ -384,13 +437,27 @@ export default function PipelineTrackerPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b bg-slate-50">
-                <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase">Phase</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase">#</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase">Task</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase">Severity</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase">Status</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase">PR</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase">Verified</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase">
+                  Phase
+                </th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase">
+                  #
+                </th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase">
+                  Task
+                </th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase">
+                  Severity
+                </th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase">
+                  Status
+                </th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase">
+                  PR
+                </th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase">
+                  Verified
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -404,12 +471,16 @@ export default function PipelineTrackerPage() {
                     <td className="px-4 py-3 text-sm font-mono">{task.taskNumber}</td>
                     <td className="px-4 py-3 text-sm font-medium">{task.title}</td>
                     <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 rounded text-xs font-medium border ${SEVERITY_COLORS[task.severity]}`}>
+                      <span
+                        className={`px-2 py-0.5 rounded text-xs font-medium border ${SEVERITY_COLORS[task.severity]}`}
+                      >
                         {task.severity}
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[task.status]}`}>
+                      <span
+                        className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[task.status]}`}
+                      >
                         {task.status}
                       </span>
                     </td>
@@ -429,7 +500,9 @@ export default function PipelineTrackerPage() {
                       )}
                     </td>
                     <td className="px-4 py-3 text-sm">
-                      {task.lastCheckPassed === true && <span className="text-green-600">Pass</span>}
+                      {task.lastCheckPassed === true && (
+                        <span className="text-green-600">Pass</span>
+                      )}
                       {task.lastCheckPassed === false && <span className="text-red-600">Fail</span>}
                       {task.lastCheckPassed === null && <span className="text-slate-300">—</span>}
                     </td>
@@ -439,24 +512,36 @@ export default function PipelineTrackerPage() {
                       <td colSpan={7} className="bg-slate-50 px-6 py-4 border-b">
                         <div className="space-y-3">
                           <div>
-                            <span className="text-xs font-medium text-slate-500 uppercase">Description</span>
+                            <span className="text-xs font-medium text-slate-500 uppercase">
+                              Description
+                            </span>
                             <p className="text-sm mt-1">{task.description}</p>
                           </div>
                           <div className="grid grid-cols-3 gap-4">
                             <div>
-                              <span className="text-xs font-medium text-slate-500 uppercase">Fix Refs</span>
-                              <p className="text-sm mt-1 font-mono">{task.fixRefs.join(', ') || '—'}</p>
+                              <span className="text-xs font-medium text-slate-500 uppercase">
+                                Fix Refs
+                              </span>
+                              <p className="text-sm mt-1 font-mono">
+                                {task.fixRefs.join(', ') || '—'}
+                              </p>
                             </div>
                             <div>
-                              <span className="text-xs font-medium text-slate-500 uppercase">Key Files</span>
+                              <span className="text-xs font-medium text-slate-500 uppercase">
+                                Key Files
+                              </span>
                               <div className="text-sm mt-1 font-mono">
                                 {task.keyFiles.map((f, i) => (
-                                  <div key={i} className="text-xs text-slate-600 truncate">{f}</div>
+                                  <div key={i} className="text-xs text-slate-600 truncate">
+                                    {f}
+                                  </div>
                                 ))}
                               </div>
                             </div>
                             <div>
-                              <span className="text-xs font-medium text-slate-500 uppercase">Milestones</span>
+                              <span className="text-xs font-medium text-slate-500 uppercase">
+                                Milestones
+                              </span>
                               <div className="text-xs mt-1 space-y-1">
                                 <div>Implemented: {formatDate(task.implementedAt)}</div>
                                 <div>Tested: {formatDate(task.testedAt)}</div>
@@ -467,19 +552,37 @@ export default function PipelineTrackerPage() {
                           </div>
                           {task.verificationQuery && (
                             <div>
-                              <span className="text-xs font-medium text-slate-500 uppercase">Verification</span>
-                              <pre className="text-xs bg-white p-2 rounded border mt-1 overflow-x-auto">{task.verificationQuery}</pre>
+                              <span className="text-xs font-medium text-slate-500 uppercase">
+                                Verification
+                              </span>
+                              <pre className="text-xs bg-white p-2 rounded border mt-1 overflow-x-auto">
+                                {task.verificationQuery}
+                              </pre>
                               <div className="flex items-center gap-4 mt-1 text-xs">
-                                <span>Target: <code className="bg-slate-100 px-1 rounded">{task.verificationTarget}</code></span>
-                                <span>Last result: <code className="bg-slate-100 px-1 rounded">{task.lastCheckResult || '—'}</code></span>
+                                <span>
+                                  Target:{' '}
+                                  <code className="bg-slate-100 px-1 rounded">
+                                    {task.verificationTarget}
+                                  </code>
+                                </span>
+                                <span>
+                                  Last result:{' '}
+                                  <code className="bg-slate-100 px-1 rounded">
+                                    {task.lastCheckResult || '—'}
+                                  </code>
+                                </span>
                                 <span>Checked: {timeAgo(task.lastCheckAt)}</span>
                               </div>
                             </div>
                           )}
                           {task.notes && (
                             <div>
-                              <span className="text-xs font-medium text-slate-500 uppercase">Notes</span>
-                              <pre className="text-xs bg-white p-2 rounded border mt-1 whitespace-pre-wrap">{task.notes}</pre>
+                              <span className="text-xs font-medium text-slate-500 uppercase">
+                                Notes
+                              </span>
+                              <pre className="text-xs bg-white p-2 rounded border mt-1 whitespace-pre-wrap">
+                                {task.notes}
+                              </pre>
                             </div>
                           )}
                           {/* Status Update Buttons */}
@@ -544,9 +647,13 @@ export default function PipelineTrackerPage() {
             <Card key={phase}>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between mb-3">
-                  <h4 className="font-medium">Phase {phase}: {PHASE_NAMES[phase]}</h4>
+                  <h4 className="font-medium">
+                    Phase {phase}: {PHASE_NAMES[phase]}
+                  </h4>
                   {total > 0 && (
-                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${passing === total ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                    <span
+                      className={`px-2 py-0.5 rounded text-xs font-medium ${passing === total ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}
+                    >
                       {passing}/{total} passing
                     </span>
                   )}
@@ -556,9 +663,11 @@ export default function PipelineTrackerPage() {
                     <div
                       key={check.taskId}
                       className={`flex items-center justify-between p-2 rounded border ${
-                        check.passed === true ? 'bg-green-50 border-green-200' :
-                        check.passed === false ? 'bg-red-50 border-red-200' :
-                        'bg-slate-50 border-slate-200'
+                        check.passed === true
+                          ? 'bg-green-50 border-green-200'
+                          : check.passed === false
+                            ? 'bg-red-50 border-red-200'
+                            : 'bg-slate-50 border-slate-200'
                       }`}
                     >
                       <div className="flex items-center gap-3">
@@ -566,10 +675,16 @@ export default function PipelineTrackerPage() {
                           {check.passed === true ? '✓' : check.passed === false ? '✗' : '○'}
                         </span>
                         <div>
-                          <span className="text-sm font-medium">{check.taskNumber}: {check.title}</span>
+                          <span className="text-sm font-medium">
+                            {check.taskNumber}: {check.title}
+                          </span>
                           <div className="text-xs text-slate-500 mt-0.5">
-                            Expected: <code className="bg-white px-1 rounded">{check.expected || '—'}</code>
-                            {' '}| Actual: <code className="bg-white px-1 rounded">{check.actual ? check.actual.substring(0, 80) : '—'}</code>
+                            Expected:{' '}
+                            <code className="bg-white px-1 rounded">{check.expected || '—'}</code> |
+                            Actual:{' '}
+                            <code className="bg-white px-1 rounded">
+                              {check.actual ? check.actual.substring(0, 80) : '—'}
+                            </code>
                           </div>
                         </div>
                       </div>
@@ -615,14 +730,15 @@ export default function PipelineTrackerPage() {
                   <div className="flex-shrink-0 w-2 h-2 rounded-full bg-sky-400 mt-2" />
                   <div className="flex-1 min-w-0">
                     <div className="text-sm">
-                      <span className="font-mono text-sky-600">{event.taskNumber}</span>
-                      {' '}
+                      <span className="font-mono text-sky-600">{event.taskNumber}</span>{' '}
                       <span className="font-medium">{event.taskTitle}</span>
                     </div>
                     <div className="text-xs text-slate-500 mt-0.5">
                       {event.fromStatus && (
                         <>
-                          <span className={`px-1.5 py-0.5 rounded ${STATUS_COLORS[event.fromStatus]}`}>
+                          <span
+                            className={`px-1.5 py-0.5 rounded ${STATUS_COLORS[event.fromStatus]}`}
+                          >
                             {event.fromStatus}
                           </span>
                           <span className="mx-1">→</span>
@@ -634,7 +750,9 @@ export default function PipelineTrackerPage() {
                       {event.note && <span className="ml-2 text-slate-400">— {event.note}</span>}
                     </div>
                   </div>
-                  <span className="text-xs text-slate-400 flex-shrink-0">{formatDateTime(event.createdAt)}</span>
+                  <span className="text-xs text-slate-400 flex-shrink-0">
+                    {formatDateTime(event.createdAt)}
+                  </span>
                 </div>
               ))}
             </div>
@@ -654,7 +772,8 @@ export default function PipelineTrackerPage() {
         <div>
           <h1 className="text-2xl font-bold">Pipeline Optimization Tracker</h1>
           <p className="text-slate-500 mt-1">
-            Tracking {data.overall.total} tasks across 4 phases — {data.overall.percentage}% verified
+            Tracking {data.overall.total} tasks across 4 phases — {data.overall.percentage}%
+            verified
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -677,18 +796,25 @@ export default function PipelineTrackerPage() {
       {actionMessage && (
         <div className="mb-4 px-4 py-2 bg-sky-50 border border-sky-200 rounded-lg text-sm text-sky-800 flex items-center justify-between">
           <span>{actionMessage}</span>
-          <button onClick={() => setActionMessage(null)} className="text-sky-600 hover:text-sky-800">×</button>
+          <button
+            onClick={() => setActionMessage(null)}
+            className="text-sky-600 hover:text-sky-800"
+          >
+            ×
+          </button>
         </div>
       )}
 
       {/* Tabs */}
       <nav className="flex gap-1 mb-6 border-b">
-        {([
-          { key: 'overview', label: 'Overview' },
-          { key: 'tasks', label: 'Tasks' },
-          { key: 'verification', label: 'Verification' },
-          { key: 'timeline', label: 'Timeline' },
-        ] as const).map(({ key, label }) => (
+        {(
+          [
+            { key: 'overview', label: 'Overview' },
+            { key: 'tasks', label: 'Tasks' },
+            { key: 'verification', label: 'Verification' },
+            { key: 'timeline', label: 'Timeline' },
+          ] as const
+        ).map(({ key, label }) => (
           <button
             key={key}
             onClick={() => setActiveTab(key)}
