@@ -21,7 +21,7 @@ interface CheckResult {
   passed: boolean;
 }
 
-const results: CheckResult[] = [];
+let results: CheckResult[] = [];
 
 function check(phase: number, name: string, expected: string, actual: string, passed: boolean) {
   results.push({ name, phase, expected, actual, passed });
@@ -431,27 +431,54 @@ async function printSummary() {
   }
 }
 
-async function main() {
+/**
+ * Run all pipeline health checks and return the results.
+ * Callable from both the CLI script and the scheduler.
+ */
+export async function runPipelineHealthCheck(): Promise<{
+  passed: number;
+  failed: number;
+  total: number;
+  failures: CheckResult[];
+  all: CheckResult[];
+}> {
+  results = []; // Reset for re-entrant calls
   console.log('Pipeline Health Check');
   console.log('='.repeat(60));
   console.log(`Run at: ${new Date().toISOString()}`);
 
+  await checkPhase1();
+  await checkPhase2();
+  await checkPhase3();
+  await checkPhase4();
+  await checkCrossCutting();
+  await printSummary();
+
+  const failures = results.filter((r) => !r.passed);
+  return {
+    passed: results.length - failures.length,
+    failed: failures.length,
+    total: results.length,
+    failures,
+    all: results,
+  };
+}
+
+// CLI entry point — only runs when executed directly
+async function main() {
   try {
-    await checkPhase1();
-    await checkPhase2();
-    await checkPhase3();
-    await checkPhase4();
-    await checkCrossCutting();
-    await printSummary();
+    const { failed } = await runPipelineHealthCheck();
+    process.exit(failed > 0 ? 1 : 0);
   } catch (error) {
     console.error('\nHealth check failed with error:', error);
     process.exit(1);
   } finally {
     await prisma.$disconnect();
   }
-
-  const failures = results.filter((r) => !r.passed);
-  process.exit(failures.length > 0 ? 1 : 0);
 }
 
-main();
+// Detect direct execution (not import)
+const isDirectExecution = require.main === module || process.argv[1]?.includes('pipeline-health-check');
+if (isDirectExecution) {
+  main();
+}
