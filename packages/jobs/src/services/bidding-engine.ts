@@ -1253,6 +1253,9 @@ export async function runBiddingEngine(options?: {
     console.error('[BiddingEngine] AI evaluation failed (non-fatal):', err);
   }
 
+  // Hint GC between phases to release intermediate data from Steps 0a-0c
+  if (typeof global.gc === 'function') global.gc();
+
   // Step 1: Calculate profitability for all sites (including microsites)
   const profiles = await calculateAllSiteProfitability();
   const micrositeProfiles = await calculateMicrositeProfitability();
@@ -1277,6 +1280,9 @@ export async function runBiddingEngine(options?: {
       budgetRemaining: maxBudget,
     };
   }
+
+  // Hint GC between phases — profiles are still needed, but Step 0 data can be released
+  if (typeof global.gc === 'function') global.gc();
 
   // Step 2: Score keyword opportunities (uses all profiles including microsites)
   const allCandidates = await scoreCampaignOpportunities(allProfiles);

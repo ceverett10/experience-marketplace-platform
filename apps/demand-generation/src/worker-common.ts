@@ -156,6 +156,7 @@ export function setupWorkerEvents(workers: Worker[], connection?: Redis) {
 
 /**
  * Start memory and Redis monitoring intervals.
+ * At critical thresholds (>800MB), triggers garbage collection if --expose-gc flag is set.
  */
 export function startMemoryMonitoring(connection: Redis) {
   setInterval(() => {
@@ -164,6 +165,14 @@ export function startMemoryMonitoring(connection: Redis) {
     const rssMB = Math.round(usage.rss / 1024 / 1024);
     const level = heapMB > 800 ? 'CRITICAL' : heapMB > 600 ? 'WARN' : 'INFO';
     console.log(`[MEMORY ${level}] heap=${heapMB}MB rss=${rssMB}MB`);
+
+    // At critical levels, attempt garbage collection if available
+    if (heapMB > 800 && typeof global.gc === 'function') {
+      console.log(`[MEMORY] Triggering garbage collection at ${heapMB}MB...`);
+      global.gc();
+      const after = Math.round(process.memoryUsage().heapUsed / 1024 / 1024);
+      console.log(`[MEMORY] Post-GC heap=${after}MB (freed ${heapMB - after}MB)`);
+    }
   }, 60_000);
 
   setInterval(async () => {
