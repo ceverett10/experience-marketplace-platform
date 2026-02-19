@@ -140,7 +140,25 @@ export function isGoogleAdsConfigured(): boolean {
 }
 
 /**
+ * Find existing campaign by name (for handling duplicates).
+ * Only finds ENABLED or PAUSED campaigns (REMOVED ones don't cause conflicts).
+ */
+async function findCampaignByName(config: GoogleAdsConfig, name: string): Promise<string | null> {
+  try {
+    const escapedName = name.replace(/'/g, "\\'");
+    const result = (await apiRequest(config, 'POST', '/googleAds:search', {
+      query: `SELECT campaign.id FROM campaign WHERE campaign.name = '${escapedName}' AND campaign.status != 'REMOVED' LIMIT 1`,
+    })) as { results?: Array<{ campaign: { id: string } }> };
+
+    return result.results?.[0]?.campaign?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Create a Search campaign.
+ * Handles DUPLICATE_CAMPAIGN_NAME by removing the orphaned campaign and retrying.
  */
 export async function createSearchCampaign(campaignConfig: {
   name: string;
@@ -153,13 +171,14 @@ export async function createSearchCampaign(campaignConfig: {
     return null;
   }
 
-  try {
+  // Inner function for the actual creation
+  const attemptCreate = async (name: string) => {
     // Step 1: Create campaign budget
     const budgetResult = (await apiRequest(config, 'POST', '/campaignBudgets:mutate', {
       operations: [
         {
           create: {
-            name: `${campaignConfig.name} Budget ${Date.now()}`,
+            name: `${name} Budget ${Date.now()}`,
             amountMicros: (
               Math.ceil(campaignConfig.dailyBudgetMicros / 10_000) * 10_000
             ).toString(),
@@ -177,7 +196,7 @@ export async function createSearchCampaign(campaignConfig: {
       operations: [
         {
           create: {
-            name: campaignConfig.name,
+            name,
             status: campaignConfig.status || 'PAUSED',
             advertisingChannelType: 'SEARCH',
             campaignBudget: budgetResourceName,
@@ -198,10 +217,40 @@ export async function createSearchCampaign(campaignConfig: {
 
     const campaignId = campaignResourceName.split('/').pop()!;
     const budgetId = budgetResourceName.split('/').pop()!;
-
-    console.log(`[GoogleAds] Created search campaign ${campaignId}: "${campaignConfig.name}"`);
     return { campaignId, budgetId };
+  };
+
+  try {
+    const result = await attemptCreate(campaignConfig.name);
+    console.log(
+      `[GoogleAds] Created search campaign ${result.campaignId}: "${campaignConfig.name}"`
+    );
+    return result;
   } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+
+    // Handle DUPLICATE_CAMPAIGN_NAME: remove the orphan and retry
+    if (errorMsg.includes('DUPLICATE_CAMPAIGN_NAME')) {
+      console.warn(
+        `[GoogleAds] Duplicate campaign name "${campaignConfig.name}", removing orphan and retrying`
+      );
+      const existingId = await findCampaignByName(config, campaignConfig.name);
+      if (existingId) {
+        await setCampaignStatus(existingId, 'REMOVED');
+        console.info(`[GoogleAds] Removed orphaned campaign ${existingId}`);
+      }
+      try {
+        const result = await attemptCreate(campaignConfig.name);
+        console.log(
+          `[GoogleAds] Created search campaign ${result.campaignId}: "${campaignConfig.name}" (after removing orphan)`
+        );
+        return result;
+      } catch (retryError) {
+        console.error('[GoogleAds] Create campaign failed on retry:', retryError);
+        return null;
+      }
+    }
+
     console.error('[GoogleAds] Create campaign failed:', error);
     return null;
   }
@@ -398,7 +447,7 @@ export async function getCampaignPerformance(
  */
 export async function setCampaignStatus(
   campaignId: string,
-  status: 'ENABLED' | 'PAUSED'
+  status: 'ENABLED' | 'PAUSED' | 'REMOVED'
 ): Promise<boolean> {
   const config = getConfig();
   if (!config) return false;
