@@ -169,26 +169,59 @@ async function main() {
   await prisma.$disconnect();
 }
 
+/**
+ * Extract destination/activity from keyword (mirrors ad-creative-generator.ts).
+ * "things to do in curitiba" → "curitiba"
+ * "harry potter alnwick castle" → "harry potter alnwick"
+ */
+function extractDestination(keyword: string): string {
+  const cleaned = keyword
+    .replace(/^(things to do in|what to do in|best things to do in|top things to do in)\s+/i, '')
+    .replace(
+      /^(restaurants in|restaurants|hotels in|hotels|wildlife in|activities in|tours in)\s+/i,
+      ''
+    )
+    .replace(/\s+(opening hours|opening times|hours|tickets|prices|cost|review|reviews)$/i, '')
+    .trim();
+  const words = cleaned.split(/\s+/);
+  return words.length > 3 ? words.slice(0, 3).join(' ') : cleaned || keyword;
+}
+
+function toTitleCase(str: string): string {
+  const minor = new Set(['in', 'of', 'the', 'and', 'to', 'a', 'an', 'at', 'by', 'for', 'on']);
+  return str
+    .split(/\s+/)
+    .map((w, i) =>
+      i === 0 || !minor.has(w.toLowerCase())
+        ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
+        : w.toLowerCase()
+    )
+    .join(' ');
+}
+
 function generateRSATemplate(
   keyword: string,
   siteName: string
 ): { headlines: string[]; descriptions: string[] } {
-  const kwTitle = keyword.charAt(0).toUpperCase() + keyword.slice(1);
+  const destination = toTitleCase(extractDestination(keyword));
   return {
     headlines: [
-      kwTitle.substring(0, 30),
-      `Book ${kwTitle}`.substring(0, 30),
-      `${kwTitle} | ${siteName}`.substring(0, 30),
-      `Best ${kwTitle} Deals`.substring(0, 30),
+      destination.substring(0, 30),
+      `Book ${destination}`.substring(0, 30),
+      `${destination} - ${siteName}`.substring(0, 30),
+      `Best ${destination} Deals`.substring(0, 30),
       'Instant Confirmation',
       'Book Online Today',
     ],
     descriptions: [
-      `Discover and book ${keyword} experiences. Instant confirmation, top-rated providers.`.substring(
+      `Discover and book ${destination} experiences. Instant confirmation, top-rated providers.`.substring(
         0,
         90
       ),
-      `Compare and book the best ${keyword}. Trusted by thousands of travellers.`.substring(0, 90),
+      `Compare and book the best ${destination}. Trusted by thousands of travellers.`.substring(
+        0,
+        90
+      ),
     ],
   };
 }

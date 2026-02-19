@@ -183,7 +183,7 @@ function buildLandingPageContext(
 
 // --- Context Fetching --------------------------------------------------------
 
-interface SiteContext {
+export interface SiteContext {
   brandName: string;
   tagline: string | null;
   tonePersonality: string[];
@@ -195,7 +195,7 @@ interface SiteContext {
   imageUrl: string | null;
 }
 
-async function fetchSiteContext(
+export async function fetchSiteContext(
   siteId: string,
   landingPagePath?: string | null
 ): Promise<SiteContext | null> {
