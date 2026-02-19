@@ -100,7 +100,7 @@ const adsWorker = new Worker(
 // ── Setup ───────────────────────────────────────────────────────────────
 const workers = [syncWorker, adsWorker];
 
-setupWorkerEvents(workers);
+setupWorkerEvents(workers, connection);
 startMemoryMonitoring(connection);
 setupGracefulShutdown(workers, connection);
 

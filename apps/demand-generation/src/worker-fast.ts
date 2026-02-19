@@ -269,7 +269,7 @@ const micrositeWorker = new Worker(
 // ── Setup ───────────────────────────────────────────────────────────────
 const workers = [contentWorker, seoWorker, analyticsWorker, abtestWorker, socialWorker, micrositeWorker];
 
-setupWorkerEvents(workers);
+setupWorkerEvents(workers, connection);
 startMemoryMonitoring(connection);
 setupGracefulShutdown(workers, connection);
 
