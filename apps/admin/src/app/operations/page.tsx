@@ -328,11 +328,12 @@ export default function OperationsDashboard() {
             const progressJob = q.activeJobs?.find(
               (j) => j.progress && typeof j.progress === 'object' && 'total' in j.progress
             );
-            const progress = progressJob?.progress as Record<string, number> | undefined;
-            const progressPct =
-              progress?.total && progress.total > 0
-                ? Math.round(((progress.deployed || 0) / progress.total) * 100)
-                : null;
+            const progress = progressJob?.progress as
+              | { deployed?: number; total?: number; failed?: number; skipped?: number }
+              | undefined;
+            const total = progress?.total ?? 0;
+            const deployed = progress?.deployed ?? 0;
+            const progressPct = total > 0 ? Math.round((deployed / total) * 100) : null;
 
             return (
               <Link key={q.name} href={`/operations/jobs?queue=${q.name}`} className="block">
@@ -366,7 +367,7 @@ export default function OperationsDashboard() {
                         <div className="flex justify-between text-[10px] text-slate-500 mb-1">
                           <span>{progressJob.name}</span>
                           <span>
-                            {progress.deployed || 0}/{progress.total}
+                            {deployed}/{total}
                           </span>
                         </div>
                         <div className="w-full bg-slate-100 rounded-full h-1.5">
@@ -375,9 +376,9 @@ export default function OperationsDashboard() {
                             style={{ width: `${Math.min(progressPct, 100)}%` }}
                           />
                         </div>
-                        {progress.failed > 0 && (
+                        {(progress?.failed ?? 0) > 0 && (
                           <div className="text-[10px] text-red-500 mt-0.5">
-                            {progress.failed} failed
+                            {progress?.failed} failed
                           </div>
                         )}
                       </div>
