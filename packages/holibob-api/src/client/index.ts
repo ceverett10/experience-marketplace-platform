@@ -899,15 +899,41 @@ export class HolibobClient {
 
   /**
    * Get all products (for bulk sync operations)
-   * Returns products across all providers
-   * NOTE: productList doesn't support pagination - returns all products
+   * Paginates through the full catalog at 500 products per page.
    */
   async getAllProducts(): Promise<ProductListByProviderResponse> {
-    const response = await this.executeQuery<{
-      productList: ProductListByProviderResponse;
-    }>(PRODUCT_LIST_ALL_QUERY, {});
+    const allNodes: Product[] = [];
+    let page = 1;
+    let hasMore = true;
+    let recordCount = 0;
 
-    return response.productList;
+    while (hasMore) {
+      const response = await this.executeQuery<{
+        productList: ProductListByProviderResponse;
+      }>(PRODUCT_LIST_ALL_QUERY, { pageSize: 500, page });
+
+      const result = response.productList;
+      allNodes.push(...result.nodes);
+      recordCount = result.recordCount;
+
+      hasMore = result.nextPage != null && result.nextPage > page;
+      page++;
+
+      console.log(
+        `[HolibobClient] getAllProducts: page ${page - 1} — ${allNodes.length}/${recordCount} products fetched`
+      );
+
+      // Safety limit
+      if (page > 1000) {
+        console.warn('[HolibobClient] getAllProducts: stopped at page 1000 (safety limit)');
+        break;
+      }
+    }
+
+    return {
+      recordCount,
+      nodes: allNodes,
+    };
   }
 
   // ==========================================================================

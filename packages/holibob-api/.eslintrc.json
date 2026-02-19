@@ -1,18 +1,7 @@
 {
   "extends": "../../.eslintrc.json",
-  "parserOptions": {
-    "project": "./tsconfig.eslint.json"
-  },
+  "ignorePatterns": ["**/*.test.ts", "**/*.spec.ts"],
   "rules": {
     "@typescript-eslint/no-explicit-any": "off"
-  },
-  "overrides": [
-    {
-      "files": ["**/*.test.ts"],
-      "rules": {
-        "@typescript-eslint/no-explicit-any": "off",
-        "@typescript-eslint/no-unused-vars": "off"
-      }
-    }
-  ]
+  }
 }
