@@ -502,8 +502,8 @@ export async function bulkSyncAllProducts(): Promise<ProductSyncResult> {
   const client = getHolibobClient();
 
   try {
-    // Step 1: Fetch ALL products in a single API call
-    console.log('[Bulk Product Sync] Fetching entire product catalog...');
+    // Step 1: Fetch ALL products (paginated at 500 per page)
+    console.log('[Bulk Product Sync] Fetching entire product catalog (pageSize: 500)...');
     const response = await client.getAllProducts();
     const allProducts = response.nodes;
     productsDiscovered = allProducts.length;
