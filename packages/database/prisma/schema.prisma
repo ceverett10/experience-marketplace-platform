@@ -413,7 +413,7 @@ model Content {
   siteId        String?
   microsite     MicrositeConfig? @relation(fields: [micrositeId], references: [id], onDelete: Cascade)
   micrositeId   String?
-  opportunity   SEOOpportunity? @relation(fields: [opportunityId], references: [id])
+  opportunity   SEOOpportunity?  @relation(fields: [opportunityId], references: [id])
   opportunityId String?
 
   createdAt DateTime @default(now())
@@ -1149,14 +1149,14 @@ enum CampaignStatus {
 }
 
 model AdCampaign {
-  id       String     @id @default(cuid())
-  siteId   String
-  site     Site       @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  id          String           @id @default(cuid())
+  siteId      String
+  site        Site             @relation(fields: [siteId], references: [id], onDelete: Cascade)
   micrositeId String?
   microsite   MicrositeConfig? @relation(fields: [micrositeId], references: [id], onDelete: SetNull)
-  platform AdPlatform
-  name     String
-  status   CampaignStatus @default(DRAFT)
+  platform    AdPlatform
+  name        String
+  status      CampaignStatus   @default(DRAFT)
 
   // Budget
   dailyBudget Decimal  @db.Decimal(10, 2)
@@ -1164,11 +1164,11 @@ model AdCampaign {
   maxCpc      Decimal  @db.Decimal(10, 2) // Hard cap (e.g., $0.10)
 
   // Targeting
-  keywords   String[] // Target keywords
-  targetUrl  String   // Landing page URL
-  audiences    Json?    // Platform-specific audience config
-  proposalData Json?    // Estimated CPC, CPA, clicks, revenue at proposal time
-  geoTargets String[] // Country/region codes
+  keywords     String[] // Target keywords
+  targetUrl    String // Landing page URL
+  audiences    Json? // Platform-specific audience config
+  proposalData Json? // Estimated CPC, CPA, clicks, revenue at proposal time
+  geoTargets   String[] // Country/region codes
 
   // UTM Tracking (auto-generated)
   utmSource   String // e.g., "pinterest_ads", "facebook_ads"
@@ -1179,18 +1179,18 @@ model AdCampaign {
   platformCampaignId String? // ID from ad platform API
 
   // Aggregated performance (synced from platform)
-  totalSpend       Decimal @default(0) @db.Decimal(10, 2)
-  totalClicks      Int     @default(0)
-  totalImpressions Int     @default(0)
+  totalSpend       Decimal  @default(0) @db.Decimal(10, 2)
+  totalClicks      Int      @default(0)
+  totalImpressions Int      @default(0)
   avgCpc           Decimal? @db.Decimal(10, 4)
-  conversions      Int     @default(0)
-  revenue          Decimal @default(0) @db.Decimal(10, 2)
-  roas             Float?  // Revenue / Spend
+  conversions      Int      @default(0)
+  revenue          Decimal  @default(0) @db.Decimal(10, 2)
+  roas             Float? // Revenue / Spend
 
   // Landing page routing
-  landingPagePath     String?  // Full path including query params (e.g., "/destinations/london")
-  landingPageType     String?  // HOMEPAGE | DESTINATION | CATEGORY | COLLECTION | EXPERIENCE_DETAIL | BLOG | EXPERIENCES_FILTERED
-  landingPageProducts Int?     // Product count at validation time
+  landingPagePath     String? // Full path including query params (e.g., "/destinations/london")
+  landingPageType     String? // HOMEPAGE | DESTINATION | CATEGORY | COLLECTION | EXPERIENCE_DETAIL | BLOG | EXPERIENCES_FILTERED
+  landingPageProducts Int? // Product count at validation time
 
   // Quality Score (from Google Ads API)
   qualityScore Int?
@@ -1199,8 +1199,8 @@ model AdCampaign {
   opportunityId String?
   opportunity   SEOOpportunity? @relation(fields: [opportunityId], references: [id])
 
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
   dailyMetrics AdDailyMetric[]
 
   @@index([siteId])
@@ -1212,16 +1212,16 @@ model AdCampaign {
 }
 
 model AdDailyMetric {
-  id         String     @id @default(cuid())
-  campaignId String
-  campaign   AdCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  date       DateTime   @db.Date
-  spend      Decimal    @db.Decimal(10, 2)
-  clicks     Int
+  id          String     @id @default(cuid())
+  campaignId  String
+  campaign    AdCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  date        DateTime   @db.Date
+  spend       Decimal    @db.Decimal(10, 2)
+  clicks      Int
   impressions Int
-  cpc        Decimal    @db.Decimal(10, 4)
-  conversions Int       @default(0)
-  revenue    Decimal    @default(0) @db.Decimal(10, 2)
+  cpc         Decimal    @db.Decimal(10, 4)
+  conversions Int        @default(0)
+  revenue     Decimal    @default(0) @db.Decimal(10, 2)
 
   // Quality Score snapshot (from Google Ads API)
   qualityScore Int?
@@ -1233,39 +1233,39 @@ model AdDailyMetric {
 }
 
 model BiddingProfile {
-  id                String   @id @default(cuid())
-  siteId            String   @unique
-  site              Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  siteId String @unique
+  site   Site   @relation(fields: [siteId], references: [id], onDelete: Cascade)
 
   // Profitability metrics (recalculated daily)
-  avgOrderValue     Decimal  @db.Decimal(10, 2)
-  avgCommissionRate Float                        // Percentage (e.g., 15.0)
-  conversionRate    Float                        // Sessions → bookings (e.g., 0.02 = 2%)
-  maxProfitableCpc  Decimal  @db.Decimal(10, 4)  // Max CPC that maintains target ROAS
+  avgOrderValue     Decimal @db.Decimal(10, 2)
+  avgCommissionRate Float // Percentage (e.g., 15.0)
+  conversionRate    Float // Sessions → bookings (e.g., 0.02 = 2%)
+  maxProfitableCpc  Decimal @db.Decimal(10, 4) // Max CPC that maintains target ROAS
 
   // Aggregate ad performance
-  totalAdSpend      Decimal  @default(0) @db.Decimal(10, 2)
-  totalAdRevenue    Decimal  @default(0) @db.Decimal(10, 2)
-  portfolioRoas     Float?
+  totalAdSpend   Decimal @default(0) @db.Decimal(10, 2)
+  totalAdRevenue Decimal @default(0) @db.Decimal(10, 2)
+  portfolioRoas  Float?
 
   // Budget controls
-  dailyBudgetCap    Decimal? @db.Decimal(10, 2)
-  isAutoBidding     Boolean  @default(false)
+  dailyBudgetCap Decimal? @db.Decimal(10, 2)
+  isAutoBidding  Boolean  @default(false)
 
   // Calculation metadata
-  lastCalculatedAt  DateTime?
-  calculationData   Json?    // Detailed breakdown: sample sizes, confidence, fallbacks used
+  lastCalculatedAt DateTime?
+  calculationData  Json? // Detailed breakdown: sample sizes, confidence, fallbacks used
 
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("bidding_profiles")
 }
 
 model AdAlert {
   id             String    @id @default(cuid())
-  type           String    // BUDGET_OVERSPEND, ROAS_DROP, CAMPAIGN_ERROR, SYNC_FAILURE, HIGH_CPC, NO_IMPRESSIONS
-  severity       String    // INFO, WARNING, CRITICAL
+  type           String // BUDGET_OVERSPEND, ROAS_DROP, CAMPAIGN_ERROR, SYNC_FAILURE, HIGH_CPC, NO_IMPRESSIONS
+  severity       String // INFO, WARNING, CRITICAL
   campaignId     String?
   siteId         String?
   message        String
@@ -1459,7 +1459,7 @@ model Supplier {
   lastSyncedAt DateTime?
 
   // Keyword enrichment (bulk product analysis)
-  extractedKeywords  Json?     // Cached keyword seeds from product analysis
+  extractedKeywords  Json? // Cached keyword seeds from product analysis
   keywordsEnrichedAt DateTime? // When bulk enrichment last ran for this supplier
 
   createdAt DateTime @default(now())
@@ -1545,13 +1545,13 @@ model MicrositeConfig {
   fullDomain   String @unique // e.g., "adventure-co.experiencess.com" (computed)
 
   // Entity reference (supplier, product, or opportunity)
-  entityType  MicrositeEntityType
-  supplier    Supplier?           @relation(fields: [supplierId], references: [id])
-  supplierId  String?             @unique
-  product     Product?            @relation(fields: [productId], references: [id])
-  productId   String?             @unique
-  opportunity   SEOOpportunity? @relation(fields: [opportunityId], references: [id])
-  opportunityId String?         @unique
+  entityType    MicrositeEntityType
+  supplier      Supplier?           @relation(fields: [supplierId], references: [id])
+  supplierId    String?             @unique
+  product       Product?            @relation(fields: [productId], references: [id])
+  productId     String?             @unique
+  opportunity   SEOOpportunity?     @relation(fields: [opportunityId], references: [id])
+  opportunityId String?             @unique
 
   // Discovery config — how this microsite finds products (for OPPORTUNITY type)
   // { keyword: string, destination?: string, niche?: string, searchTerms?: string[] }
@@ -1887,66 +1887,4 @@ model PrizeDraw {
   updatedAt DateTime @updatedAt
 
   @@map("prize_draws")
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// Pipeline Optimization Tracker
-// ═══════════════════════════════════════════════════════════════════════════
-
-model PipelineTask {
-  id          String              @id @default(cuid())
-  phase       Int                 // 1, 2, 3, 4
-  taskNumber  String              // "1.1", "2.3", etc.
-  title       String              // "Full product cache"
-  description String              // Detailed description
-  fixRefs     String[]            // ["1a", "1c"] — links to plan fix IDs
-  keyFiles    String[]            // Files being modified
-  status      PipelineTaskStatus  @default(PENDING)
-  severity    String              @default("MEDIUM") // CRITICAL, HIGH, MEDIUM
-
-  // Progress tracking
-  implementedAt DateTime?
-  testedAt      DateTime?
-  deployedAt    DateTime?
-  verifiedAt    DateTime?
-
-  // Verification
-  verificationQuery  String?     // SQL query that proves the fix works
-  verificationTarget String?     // Expected result (e.g. "> 80%", "= 0")
-  lastCheckResult    String?     // Last run result
-  lastCheckAt        DateTime?
-  lastCheckPassed    Boolean?
-
-  // Context
-  prUrl String?                  // Pull request URL
-  notes String?                  // Implementation notes / blockers
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("pipeline_tasks")
-}
-
-enum PipelineTaskStatus {
-  PENDING
-  IN_PROGRESS
-  IMPLEMENTED
-  TESTING
-  DEPLOYED
-  VERIFIED
-  BLOCKED
-  FAILED
-}
-
-model PipelineTaskEvent {
-  id        String   @id @default(cuid())
-  taskId    String
-  fromStatus String?
-  toStatus   String
-  note       String?
-  createdAt  DateTime @default(now())
-
-  @@index([taskId])
-  @@index([createdAt])
-  @@map("pipeline_task_events")
 }

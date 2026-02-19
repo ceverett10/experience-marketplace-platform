@@ -12,6 +12,11 @@ import {
 } from './microsite-layout';
 import type { SupplierType } from './supplier';
 
+/** Check if a logo URL is from the v2 Satori pipeline (not old broken SVG logos) */
+function isV2Logo(url: string | null | undefined): boolean {
+  return !!url && url.includes('logos-v2/');
+}
+
 // Local type declarations matching Prisma schema
 // (to avoid dependency on @prisma/client generation)
 interface Site {
@@ -613,9 +618,9 @@ function mapMicrositeToSiteConfig(microsite: MicrositeConfigWithEntity): SiteCon
       accentColor: microsite.brand.accentColor,
       headingFont: microsite.brand.headingFont,
       bodyFont: microsite.brand.bodyFont,
-      // Generated logos disabled - using text-only branding (standard design) for all sites
-      logoUrl: null,
-      logoDarkUrl: null,
+      // Only show v2 Satori-generated logos; old SVG logos remain disabled
+      logoUrl: isV2Logo(microsite.brand.logoUrl) ? microsite.brand.logoUrl : null,
+      logoDarkUrl: isV2Logo(microsite.brand.logoDarkUrl) ? microsite.brand.logoDarkUrl : null,
       faviconUrl: microsite.brand.faviconUrl,
       ogImageUrl: microsite.brand.ogImageUrl,
       socialLinks: microsite.brand.socialLinks as Record<string, string> | null,
@@ -705,9 +710,9 @@ function mapSiteToConfig(site: Site & { brand: Brand | null }): SiteConfig {
           accentColor: site.brand.accentColor,
           headingFont: site.brand.headingFont,
           bodyFont: site.brand.bodyFont,
-          // Generated logos disabled - using text-only branding (standard design) for all sites
-          logoUrl: null,
-          logoDarkUrl: null,
+          // Only show v2 Satori-generated logos; old SVG logos remain disabled
+          logoUrl: isV2Logo(site.brand.logoUrl) ? site.brand.logoUrl : null,
+          logoDarkUrl: isV2Logo(site.brand.logoDarkUrl) ? site.brand.logoDarkUrl : null,
           faviconUrl: site.brand.faviconUrl,
           ogImageUrl: site.brand.ogImageUrl,
           socialLinks: site.brand.socialLinks as Record<string, string> | null,

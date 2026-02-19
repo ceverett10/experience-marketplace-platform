@@ -1626,6 +1626,9 @@ async function deployToGoogle(
       }
     )?.adGroups;
 
+    let adGroupsCreated = 0;
+    let primaryRsa: GoogleRSACreative | null = null;
+
     if (adGroupConfigs && adGroupConfigs.length > 0) {
       for (const agConfig of adGroupConfigs) {
         const keywords = agConfig.keywords.flatMap((kw) => [
@@ -1641,6 +1644,7 @@ async function deployToGoogle(
         });
 
         if (!adGroupResult) continue;
+        adGroupsCreated++;
 
         // Build per-ad-group landing URL with UTMs
         const agUrl = new URL(agConfig.targetUrl);
@@ -1657,6 +1661,7 @@ async function deployToGoogle(
           campaign.siteId,
           campaign.landingPagePath
         );
+        if (!primaryRsa) primaryRsa = rsa;
         await createResponsiveSearchAd({
           adGroupId: adGroupResult.adGroupId,
           headlines: rsa.headlines,
@@ -1682,6 +1687,7 @@ async function deployToGoogle(
       });
 
       if (adGroupResult) {
+        adGroupsCreated++;
         const keyword = campaign.keywords[0] || 'experiences';
         // AI-powered RSA generation with full context pipeline
         const rsa = await generateGoogleRSA(
@@ -1690,6 +1696,7 @@ async function deployToGoogle(
           campaign.siteId,
           campaign.landingPagePath
         );
+        primaryRsa = rsa;
         await createResponsiveSearchAd({
           adGroupId: adGroupResult.adGroupId,
           headlines: rsa.headlines,
@@ -1701,8 +1708,54 @@ async function deployToGoogle(
       }
     }
 
+    // Fail if no ad groups were created (empty shell — can't serve ads)
+    if (adGroupsCreated === 0) {
+      console.error(
+        `[Ads Worker] No ad groups created for Google campaign ${campaignResult.campaignId}: "${campaign.name}" — removing empty shell`
+      );
+      try {
+        await setGoogleCampaignStatus(campaignResult.campaignId, 'PAUSED');
+      } catch {
+        // Best effort cleanup
+      }
+      return null;
+    }
+
+    // Persist creative data for audit trail (mirrors Meta pipeline)
+    if (primaryRsa) {
+      try {
+        const existing = await prisma.adCampaign.findUnique({
+          where: { id: campaign.id },
+          select: { proposalData: true },
+        });
+        await prisma.adCampaign.update({
+          where: { id: campaign.id },
+          data: {
+            proposalData: {
+              ...(typeof existing?.proposalData === 'object' && existing?.proposalData !== null
+                ? existing.proposalData
+                : {}),
+              generatedCreative: {
+                headlines: primaryRsa.headlines,
+                descriptions: primaryRsa.descriptions,
+                source: primaryRsa.source,
+                coherenceScore: primaryRsa.coherenceScore ?? null,
+                coherencePass: primaryRsa.coherencePass ?? null,
+                coherenceIssues: primaryRsa.coherenceIssues || null,
+                coherenceSummary: primaryRsa.coherenceSummary || null,
+                remediated: primaryRsa.remediated || false,
+                generatedAt: new Date().toISOString(),
+              },
+            },
+          },
+        });
+      } catch {
+        // Don't block deployment if persistence fails
+      }
+    }
+
     console.log(
-      `[Ads Worker] Deployed Google campaign ${campaignResult.campaignId}: "${campaign.name}"`
+      `[Ads Worker] Deployed Google campaign ${campaignResult.campaignId}: "${campaign.name}" (${adGroupsCreated} ad groups, coherence: ${primaryRsa?.coherenceScore ?? 'N/A'}/10)`
     );
     return campaignResult.campaignId;
   } catch (err) {
@@ -1758,7 +1811,7 @@ export async function deployDraftCampaigns(
   // Track consecutive failures per platform to fail-fast on platform-wide issues
   // (e.g. Google token not approved, API version deprecated)
   const consecutiveFailures: Record<string, number> = {};
-  const FAIL_FAST_THRESHOLD = 10;
+  const FAIL_FAST_THRESHOLD = 50; // High threshold: rate limits cause transient failures
   const failedPlatforms = new Set<string>();
 
   for (const draft of drafts) {
@@ -1766,6 +1819,16 @@ export async function deployDraftCampaigns(
     if (failedPlatforms.has(draft.platform)) {
       skipped++;
       continue;
+    }
+
+    // Cooldown on consecutive failures — likely rate limit, wait for it to reset
+    const currentFailures = consecutiveFailures[draft.platform] || 0;
+    if (currentFailures >= 3) {
+      const cooldownMs = Math.min(currentFailures * 30_000, 120_000); // 30s–2min
+      console.log(
+        `[Ads Worker] ${currentFailures} consecutive failures on ${draft.platform}, cooling down ${Math.round(cooldownMs / 1000)}s...`
+      );
+      await new Promise((r) => setTimeout(r, cooldownMs));
     }
 
     const platformCampaignId = await deployCampaignToPlatform({
