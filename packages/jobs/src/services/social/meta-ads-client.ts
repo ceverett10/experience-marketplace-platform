@@ -531,6 +531,75 @@ export class MetaAdsClient {
   }
 
   /**
+   * Activate all ad sets and ads under a campaign.
+   * Use when a campaign was deployed with PAUSED children and needs to go fully live.
+   */
+  async activateCampaignChildren(campaignId: string): Promise<{ adSets: number; ads: number }> {
+    let adSetsActivated = 0;
+    let adsActivated = 0;
+
+    try {
+      // Fetch ad sets under this campaign
+      await this.enforceRateLimit();
+      const adSetsResponse = await fetch(
+        `${META_API_BASE}/${campaignId}/adsets?fields=id,status&access_token=${this.accessToken}`
+      );
+
+      if (adSetsResponse.ok) {
+        const adSetsData = (await adSetsResponse.json()) as {
+          data?: Array<{ id: string; status: string }>;
+        };
+
+        for (const adSet of adSetsData.data || []) {
+          if (adSet.status === 'PAUSED') {
+            await this.enforceRateLimit();
+            const params = new URLSearchParams({
+              status: 'ACTIVE',
+              access_token: this.accessToken,
+            });
+            const res = await fetch(`${META_API_BASE}/${adSet.id}`, {
+              method: 'POST',
+              body: params,
+            });
+            if (res.ok) adSetsActivated++;
+          }
+
+          // Fetch and activate ads under this ad set
+          await this.enforceRateLimit();
+          const adsResponse = await fetch(
+            `${META_API_BASE}/${adSet.id}/ads?fields=id,status&access_token=${this.accessToken}`
+          );
+
+          if (adsResponse.ok) {
+            const adsData = (await adsResponse.json()) as {
+              data?: Array<{ id: string; status: string }>;
+            };
+
+            for (const ad of adsData.data || []) {
+              if (ad.status === 'PAUSED') {
+                await this.enforceRateLimit();
+                const params = new URLSearchParams({
+                  status: 'ACTIVE',
+                  access_token: this.accessToken,
+                });
+                const res = await fetch(`${META_API_BASE}/${ad.id}`, {
+                  method: 'POST',
+                  body: params,
+                });
+                if (res.ok) adsActivated++;
+              }
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('[MetaAds] Activate campaign children failed:', error);
+    }
+
+    return { adSets: adSetsActivated, ads: adsActivated };
+  }
+
+  /**
    * Get campaign performance insights.
    * Returns spend, clicks, impressions, CPC, CPM, reach, actions.
    */
