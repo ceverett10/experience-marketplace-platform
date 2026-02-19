@@ -199,7 +199,7 @@ export async function generateDailyContent(
               contentTypes: [mappedType],
               isRefresh: true,
             },
-            { delay: micrositeDelay },
+            { delay: micrositeDelay }
           );
           results.push({
             siteId: ms.id,
@@ -236,7 +236,10 @@ export async function generateDailyContent(
 /**
  * Generate FAQ hub page from GSC queries and existing content
  */
-export async function generateFAQHubForSite(siteId: string, staggerDelayMs?: number): Promise<ContentGenerationResult> {
+export async function generateFAQHubForSite(
+  siteId: string,
+  staggerDelayMs?: number
+): Promise<ContentGenerationResult> {
   const site = await getSiteWithContext(siteId);
   if (!site) {
     return errorResult(siteId, 'Unknown', 'faq_hub', 'Site not found');
@@ -323,7 +326,7 @@ export async function generateFAQHubForSite(siteId: string, staggerDelayMs?: num
       targetKeyword: `${site.niche} FAQ`,
       sourceData: { questions: allQuestions.slice(0, 15), contentSubtype: 'faq_hub' },
     },
-    staggerDelayMs ? { delay: staggerDelayMs } : undefined,
+    staggerDelayMs ? { delay: staggerDelayMs } : undefined
   );
 
   console.log(`[FAQ Hub] Created FAQ hub for ${site.name} with ${allQuestions.length} questions`);
@@ -441,7 +444,7 @@ export async function generateDestinationLandingForSite(
       targetKeyword: targetKeyword || `${site.niche} in ${targetLocation}`,
       destination: targetLocation,
     },
-    staggerDelayMs ? { delay: staggerDelayMs } : undefined,
+    staggerDelayMs ? { delay: staggerDelayMs } : undefined
   );
 
   console.log(`[Destination] Created "${targetLocation}" page for ${site.name}`);
@@ -568,7 +571,7 @@ export async function generateComparisonPageForSite(
         comparisonType,
       },
     },
-    staggerDelayMs ? { delay: staggerDelayMs } : undefined,
+    staggerDelayMs ? { delay: staggerDelayMs } : undefined
   );
 
   console.log(`[Comparison] Created "${targetKeyword}" for ${site.name}`);
@@ -649,7 +652,7 @@ export async function refreshUnderperformingContent(
         position: targetPage.metrics.position,
       },
     },
-    staggerDelayMs ? { delay: staggerDelayMs } : undefined,
+    staggerDelayMs ? { delay: staggerDelayMs } : undefined
   );
 
   console.log(`[Content Refresh] Queued optimization for "${page.title}" (${targetPage.reason})`);
@@ -669,7 +672,10 @@ export async function refreshUnderperformingContent(
 // Local Beginner Guide Generation (Weekly)
 // ============================================================================
 
-export async function generateLocalGuideForSite(siteId: string, staggerDelayMs?: number): Promise<ContentGenerationResult> {
+export async function generateLocalGuideForSite(
+  siteId: string,
+  staggerDelayMs?: number
+): Promise<ContentGenerationResult> {
   const site = await getSiteWithContext(siteId);
   if (!site) {
     return errorResult(siteId, 'Unknown', 'local_guide', 'Site not found');
@@ -749,7 +755,7 @@ export async function generateLocalGuideForSite(siteId: string, staggerDelayMs?:
       targetLength: { min: 1500, max: 2500 },
       sourceData: { contentSubtype: 'beginner_guide' },
     },
-    staggerDelayMs ? { delay: staggerDelayMs } : undefined,
+    staggerDelayMs ? { delay: staggerDelayMs } : undefined
   );
 
   console.log(`[Local Guide] Created "${guideTitle}" for ${site.name}`);
@@ -856,7 +862,7 @@ export async function generateSeasonalContentForSite(
       destination: location || undefined,
       sourceData: { contentSubtype: 'seasonal', event: targetEvent },
     },
-    staggerDelayMs ? { delay: staggerDelayMs } : undefined,
+    staggerDelayMs ? { delay: staggerDelayMs } : undefined
   );
 
   console.log(`[Seasonal] Created "${seasonalTitle}" for ${site.name}`);
