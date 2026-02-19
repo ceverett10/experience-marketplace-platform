@@ -9,7 +9,7 @@
  * - A/B test management
  */
 
-import { Worker, Job } from 'bullmq';
+import { Worker, type Job } from 'bullmq';
 import {
   createRedisConnection,
   QUEUE_NAMES,
@@ -86,7 +86,7 @@ import {
   handleAdPlatformIdsSync,
   handleAdCreativeRefresh,
 } from '@experience-marketplace/jobs';
-import { prisma, JobStatus } from '@experience-marketplace/database';
+import { prisma, type JobStatus } from '@experience-marketplace/database';
 import type { JobType } from '@experience-marketplace/database';
 
 /**
@@ -181,6 +181,29 @@ console.log(`Port: ${PORT}`);
 // Initialize Redis connection
 const connection = createRedisConnection();
 
+// ── Observability: Memory & Redis monitoring ──────────────────────────
+const MEMORY_LOG_INTERVAL = 60_000; // Log every 60 seconds
+const REDIS_MEMORY_LOG_INTERVAL = 30 * 60_000; // Log Redis memory every 30 minutes
+
+setInterval(() => {
+  const usage = process.memoryUsage();
+  const heapMB = Math.round(usage.heapUsed / 1024 / 1024);
+  const rssMB = Math.round(usage.rss / 1024 / 1024);
+  const level = heapMB > 800 ? 'CRITICAL' : heapMB > 600 ? 'WARN' : 'INFO';
+  console.log(`[MEMORY ${level}] heap=${heapMB}MB rss=${rssMB}MB`);
+}, MEMORY_LOG_INTERVAL);
+
+setInterval(async () => {
+  try {
+    const info = await connection.info('memory');
+    const usedMemory = info.match(/used_memory_human:(.+)/)?.[1]?.trim() ?? 'unknown';
+    const maxMemory = info.match(/maxmemory_human:(.+)/)?.[1]?.trim() ?? 'unknown';
+    console.log(`[REDIS] memory=${usedMemory} max=${maxMemory}`);
+  } catch {
+    // Redis may be temporarily unavailable
+  }
+}, REDIS_MEMORY_LOG_INTERVAL);
+
 /**
  * Per-queue worker configuration.
  * Concurrency is set per queue to prevent external API saturation.
@@ -224,7 +247,7 @@ const contentWorker = new Worker(
         throw new Error(`Unknown job type: ${job.name}`);
     }
   },
-  makeWorkerOptions(QUEUE_NAMES.CONTENT, 1) // Low concurrency: Anthropic API rate limits
+  makeWorkerOptions(QUEUE_NAMES.CONTENT, 3) // Bumped from 1→3 to clear blog DRAFT backlog (~864 jobs/day vs 288)
 );
 
 /**
