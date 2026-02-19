@@ -160,7 +160,9 @@ export async function createSearchCampaign(campaignConfig: {
         {
           create: {
             name: `${campaignConfig.name} Budget ${Date.now()}`,
-            amountMicros: campaignConfig.dailyBudgetMicros.toString(),
+            amountMicros: (
+              Math.ceil(campaignConfig.dailyBudgetMicros / 10_000) * 10_000
+            ).toString(),
             deliveryMethod: 'STANDARD',
           },
         },
@@ -228,7 +230,7 @@ export async function createKeywordAdGroup(config_: {
             name: config_.name,
             campaign: campaignResourceName,
             status: 'ENABLED',
-            cpcBidMicros: config_.cpcBidMicros.toString(),
+            cpcBidMicros: (Math.ceil(config_.cpcBidMicros / 10_000) * 10_000).toString(),
             type: 'SEARCH_STANDARD',
           },
         },
@@ -501,7 +503,7 @@ export async function updateKeywordBids(
     const operations = keywordBids.map((kb) => ({
       update: {
         resourceName: `customers/${config.customerId}/adGroupCriteria/${kb.adGroupId}~${kb.criterionId}`,
-        cpcBidMicros: kb.cpcBidMicros.toString(),
+        cpcBidMicros: (Math.ceil(kb.cpcBidMicros / 10_000) * 10_000).toString(),
       },
       updateMask: 'cpcBidMicros',
     }));
