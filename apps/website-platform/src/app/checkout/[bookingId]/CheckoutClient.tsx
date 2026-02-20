@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import type { SiteConfig } from '@/lib/tenant';
 import { QuestionsForm, type GuestData } from './QuestionsForm';
 import { StripePaymentForm } from './StripePaymentForm';
@@ -650,11 +651,14 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
 
               {/* Experience Image */}
               {firstAvailability?.product?.imageList?.nodes?.[0]?.url && (
-                <div className="mb-4 overflow-hidden rounded-lg">
-                  <img
+                <div className="relative mb-4 h-32 overflow-hidden rounded-lg">
+                  <Image
                     src={firstAvailability.product.imageList.nodes[0].url}
                     alt={firstAvailability.product.name}
-                    className="h-32 w-full object-cover"
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 1024px) 100vw, 33vw"
+                    unoptimized
                   />
                 </div>
               )}
