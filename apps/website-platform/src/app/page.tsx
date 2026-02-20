@@ -93,8 +93,8 @@ async function getFeaturedExperiences(
               priceAmount
             );
 
-          let durationFormatted = 'Duration varies';
-          if (product.durationText) {
+          let durationFormatted = '';
+          if (product.durationText && !product.durationText.includes('NaN')) {
             durationFormatted = product.durationText;
           } else if (product.maxDuration != null) {
             const minutes = parseIsoDuration(product.maxDuration);
@@ -221,8 +221,8 @@ async function getFeaturedExperiences(
 
       // Get duration - Product Discovery API returns maxDuration as ISO 8601 (e.g., "PT210M")
       // Product Detail API returns durationText as a string
-      let durationFormatted = 'Duration varies';
-      if (product.durationText) {
+      let durationFormatted = '';
+      if (product.durationText && !product.durationText.includes('NaN')) {
         durationFormatted = product.durationText;
       } else if (product.maxDuration != null) {
         // Parse ISO 8601 duration from Product Discovery API
@@ -285,6 +285,7 @@ function formatPrice(amount: number, currency: string): string {
 }
 
 function formatDuration(value: number, unit: string): string {
+  if (!Number.isFinite(value) || value <= 0) return '';
   if (unit === 'minutes') {
     if (value >= 60) {
       const hours = Math.floor(value / 60);

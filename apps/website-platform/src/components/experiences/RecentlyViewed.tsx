@@ -98,7 +98,7 @@ export function RecentlyViewed({ currentId }: RecentlyViewedProps) {
                 {item.title}
               </h3>
               <div className="mt-1.5 flex items-center justify-between text-xs text-gray-500">
-                <span>{item.duration}</span>
+                {item.duration && <span>{item.duration}</span>}
                 <span className="font-semibold text-gray-900">{item.priceFormatted}</span>
               </div>
             </div>

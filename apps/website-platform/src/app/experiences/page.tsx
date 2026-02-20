@@ -285,8 +285,8 @@ async function getExperiences(
 
       // Get duration - Product Discovery API returns maxDuration as ISO 8601 (e.g., "PT210M")
       // Product Detail API returns durationText as a string
-      let durationFormatted = 'Duration varies';
-      if (product.durationText) {
+      let durationFormatted = '';
+      if (product.durationText && !product.durationText.includes('NaN')) {
         durationFormatted = product.durationText;
       } else if (product.maxDuration != null) {
         // Parse ISO 8601 duration from Product Discovery API
@@ -472,7 +472,7 @@ async function getExperiencesFromLocalDB(
         formatted: formatPrice(product.priceFrom ? Number(product.priceFrom) : 0, product.currency),
       },
       duration: {
-        formatted: product.duration ?? 'Duration varies',
+        formatted: product.duration && !product.duration.includes('NaN') ? product.duration : '',
       },
       rating: product.rating
         ? {
@@ -562,7 +562,7 @@ async function getExperiencesFromHolibobAPI(
         );
 
       // Parse ISO 8601 duration
-      let durationFormatted = 'Duration varies';
+      let durationFormatted = '';
       if (product.maxDuration != null) {
         const minutes = parseIsoDuration(product.maxDuration);
         if (minutes > 0) {
@@ -1067,6 +1067,7 @@ function formatPrice(amount: number, currency: string): string {
 }
 
 function formatDuration(value: number, unit: string): string {
+  if (!Number.isFinite(value) || value <= 0) return '';
   if (unit === 'minutes') {
     if (value >= 60) {
       const hours = Math.floor(value / 60);
