@@ -15,11 +15,8 @@ import {
  * via Playwright project config. Desktop tests remain in checkout-flow.spec.ts.
  */
 test.describe('Checkout Flow - Mobile', () => {
-  // Only run on mobile projects
-  test.skip(({ browserName }, testInfo) => {
-    const projectName = testInfo.project.name;
-    return !projectName.startsWith('mobile');
-  }, 'Mobile-only tests');
+  // Only run on mobile projects (Pixel 5, iPhone 13 set isMobile: true)
+  test.skip(({ isMobile }) => !isMobile, 'Mobile-only tests');
 
   test.beforeEach(async ({ page }) => {
     await page.route(/\/api\/booking\?id=/, async (route) => {

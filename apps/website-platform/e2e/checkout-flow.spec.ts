@@ -10,6 +10,9 @@ import {
 } from './fixtures/booking-mocks';
 
 test.describe('Checkout Flow', () => {
+  // Desktop-only: mobile checkout tests live in checkout-mobile.spec.ts
+  test.skip(({ isMobile }) => !!isMobile, 'Desktop-only tests');
+
   test.beforeEach(async ({ page }) => {
     // Intercept the server-side booking fetch (page.tsx calls getBooking)
     await page.route(/\/api\/booking\?id=/, async (route) => {
