@@ -218,17 +218,16 @@ describe('PremiumExperienceCard', () => {
   });
 
   describe('touch target sizes', () => {
-    it('quick action buttons use h-9 w-9 sizing', () => {
+    it('quick action buttons use h-11 w-11 sizing for 44px touch targets', () => {
       renderWithProviders(<PremiumExperienceCard experience={mockExperience} variant="featured" />);
 
       const favoriteButton = screen.getByLabelText('Add to favorites');
       const shareButton = screen.getByLabelText('Share');
 
-      // Verify current button size classes (will be updated to h-11 w-11 in Phase 3)
-      expect(favoriteButton.className).toMatch(/h-9/);
-      expect(favoriteButton.className).toMatch(/w-9/);
-      expect(shareButton.className).toMatch(/h-9/);
-      expect(shareButton.className).toMatch(/w-9/);
+      expect(favoriteButton.className).toMatch(/h-11/);
+      expect(favoriteButton.className).toMatch(/w-11/);
+      expect(shareButton.className).toMatch(/h-11/);
+      expect(shareButton.className).toMatch(/w-11/);
     });
   });
 
