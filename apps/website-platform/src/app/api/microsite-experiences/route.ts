@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { createHolibobClient } from '@experience-marketplace/holibob-api';
 import { optimizeHolibobImageWithPreset, parseIsoDuration } from '@/lib/holibob';
 import { DURATION_RANGES, parseDurationToMinutes, classifyDuration } from '@/lib/duration-utils';
@@ -6,6 +6,7 @@ import { DURATION_RANGES, parseDurationToMinutes, classifyDuration } from '@/lib
 const DEFAULT_PAGE_SIZE = 20;
 
 function formatDuration(value: number, unit: string): string {
+  if (!Number.isFinite(value) || value <= 0) return '';
   if (unit === 'minutes') {
     if (value >= 60) {
       const hours = Math.floor(value / 60);
@@ -231,7 +232,7 @@ export async function GET(request: NextRequest) {
         product.guidePriceFormattedText ?? formatPrice(priceAmount, priceCurrency);
 
       let durationMinutes = 0;
-      let durationFormatted = 'Duration varies';
+      let durationFormatted = '';
       if (product.maxDuration != null) {
         durationMinutes = parseIsoDuration(product.maxDuration);
         if (durationMinutes > 0) {
