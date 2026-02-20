@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 
 /**
  * GET /api/analytics/traffic
- * Returns traffic source breakdown aggregated across all sites
+ * Returns traffic source breakdown aggregated across all sites AND microsites
  */
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
@@ -33,24 +33,48 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       return !!seoConfig['ga4PropertyId'];
     });
 
-    const siteMap = new Map(sites.map((s) => [s.id, s]));
+    // Build name lookup for both sites and microsites
+    const nameMap = new Map(sites.map((s) => [s.id, s.name]));
 
-    // Fetch all snapshots for the period
-    const snapshots = await prisma.siteAnalyticsSnapshot.findMany({
-      where: {
-        siteId: { in: ga4Sites.map((s) => s.id) },
-        date: { gte: start, lte: end },
-        ga4Synced: true,
-      },
-      select: {
-        siteId: true,
-        trafficSources: true,
-        users: true,
-        sessions: true,
-      },
+    // Fetch microsites for name lookup
+    const microsites = await prisma.micrositeConfig.findMany({
+      where: { status: 'ACTIVE' },
+      select: { id: true, siteName: true },
     });
+    for (const ms of microsites) {
+      nameMap.set(ms.id, ms.siteName);
+    }
 
-    // Aggregate traffic sources across all sites
+    // Fetch site snapshots for the period
+    const [siteSnapshots, micrositeSnapshots] = await Promise.all([
+      prisma.siteAnalyticsSnapshot.findMany({
+        where: {
+          siteId: { in: ga4Sites.map((s) => s.id) },
+          date: { gte: start, lte: end },
+          ga4Synced: true,
+        },
+        select: {
+          siteId: true,
+          trafficSources: true,
+          users: true,
+          sessions: true,
+        },
+      }),
+      prisma.micrositeAnalyticsSnapshot.findMany({
+        where: {
+          date: { gte: start, lte: end },
+          ga4Synced: true,
+        },
+        select: {
+          micrositeId: true,
+          trafficSources: true,
+          users: true,
+          sessions: true,
+        },
+      }),
+    ]);
+
+    // Aggregate traffic sources across all sites and microsites
     const sourceMap = new Map<
       string,
       {
@@ -68,7 +92,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     let totalUsers = 0;
     let totalSessions = 0;
 
-    for (const snapshot of snapshots) {
+    // Helper to process a snapshot's traffic sources
+    const processSnapshot = (
+      entityId: string,
+      snapshot: { users: number; sessions: number; trafficSources: unknown }
+    ) => {
       totalUsers += snapshot.users;
       totalSessions += snapshot.sessions;
 
@@ -93,7 +121,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           };
           existing.users += s.users;
           existing.sessions += s.sessions;
-          existing.sites.add(snapshot.siteId);
+          existing.sites.add(entityId);
           sourceMap.set(key, existing);
 
           // By medium only
@@ -103,6 +131,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           mediumMap.set(s.medium, mediumExisting);
         }
       }
+    };
+
+    // Process site snapshots
+    for (const snapshot of siteSnapshots) {
+      processSnapshot(snapshot.siteId, snapshot);
+    }
+
+    // Process microsite snapshots
+    for (const snapshot of micrositeSnapshots) {
+      processSnapshot(snapshot.micrositeId, snapshot);
     }
 
     // Format sources
@@ -127,23 +165,45 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       }))
       .sort((a, b) => b.sessions - a.sessions);
 
-    // Top landing pages from GSC PerformanceMetric data
-    const topLandingPagesData = await prisma.performanceMetric.groupBy({
-      by: ['pageUrl', 'siteId'],
-      where: {
-        date: { gte: start, lte: end },
-        pageUrl: { not: null },
-      },
-      _sum: { clicks: true },
-      orderBy: { _sum: { clicks: 'desc' } },
-      take: 10,
-    });
+    // Top landing pages from GSC data (sites + microsites combined)
+    const [siteLandingPages, micrositeLandingPages] = await Promise.all([
+      prisma.performanceMetric.groupBy({
+        by: ['pageUrl', 'siteId'],
+        where: {
+          date: { gte: start, lte: end },
+          pageUrl: { not: null },
+        },
+        _sum: { clicks: true },
+        orderBy: { _sum: { clicks: 'desc' } },
+        take: 10,
+      }),
+      prisma.micrositePerformanceMetric.groupBy({
+        by: ['pageUrl', 'micrositeId'],
+        where: {
+          date: { gte: start, lte: end },
+          pageUrl: { not: null },
+        },
+        _sum: { clicks: true },
+        orderBy: { _sum: { clicks: 'desc' } },
+        take: 10,
+      }),
+    ]);
 
-    const topLandingPages = topLandingPagesData.map((row) => ({
-      path: row.pageUrl!,
-      site: siteMap.get(row.siteId)?.name || 'Unknown',
-      sessions: row._sum.clicks || 0,
-    }));
+    // Merge and sort landing pages from both sources
+    const allLandingPages = [
+      ...siteLandingPages.map((row) => ({
+        path: row.pageUrl!,
+        site: nameMap.get(row.siteId) || 'Unknown',
+        sessions: row._sum.clicks || 0,
+      })),
+      ...micrositeLandingPages.map((row) => ({
+        path: row.pageUrl!,
+        site: nameMap.get(row.micrositeId) || 'Unknown',
+        sessions: row._sum.clicks || 0,
+      })),
+    ]
+      .sort((a, b) => b.sessions - a.sessions)
+      .slice(0, 10);
 
     // Calculate organic traffic specifically
     const organicData = mediumMap.get('organic') || { users: 0, sessions: 0 };
@@ -151,7 +211,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       totalUsers: organicData.users,
       totalSessions: organicData.sessions,
       percentageOfTotal: totalSessions > 0 ? (organicData.sessions / totalSessions) * 100 : 0,
-      topLandingPages,
+      topLandingPages: allLandingPages,
     };
 
     return NextResponse.json({
@@ -161,7 +221,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       totals: {
         users: totalUsers,
         sessions: totalSessions,
-        sitesWithData: ga4Sites.length,
+        sitesWithData: ga4Sites.length + microsites.length,
       },
       dateRange: { startDate, endDate },
     });
