@@ -347,6 +347,38 @@ describe('POST /api/operations/schedules', () => {
     expect(mockAddJob).toHaveBeenCalledWith('LINK_BACKLINK_MONITOR', { siteId: 'all' });
   });
 
+  it('returns success:false when trigger hits dedup', async () => {
+    mockAddJob.mockResolvedValue('dedup:all:GSC_SYNC');
+
+    const request = createRequest('http://localhost/api/operations/schedules', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'trigger', jobType: 'GSC_SYNC' }),
+    });
+
+    const response = await POST(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.success).toBe(false);
+    expect(data.message).toContain('duplicate already queued');
+  });
+
+  it('returns success:false when trigger hits budget limit', async () => {
+    mockAddJob.mockResolvedValue('budget-exceeded:gsc:GSC_SYNC');
+
+    const request = createRequest('http://localhost/api/operations/schedules', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'trigger', jobType: 'GSC_SYNC' }),
+    });
+
+    const response = await POST(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.success).toBe(false);
+    expect(data.message).toContain('daily budget exceeded');
+  });
+
   it('returns 500 when addJob throws', async () => {
     mockAddJob.mockRejectedValue(new Error('Redis connection refused'));
 
@@ -360,5 +392,32 @@ describe('POST /api/operations/schedules', () => {
 
     expect(response.status).toBe(500);
     expect(data.error).toBe('Failed to trigger job');
+  });
+});
+
+describe('GET /api/operations/schedules - SCHEDULED status', () => {
+  it('includes SCHEDULED jobs in isRunning check', async () => {
+    mockGetScheduledJobs.mockReturnValue([
+      { jobType: 'SEO_ANALYZE', schedule: '0 3 * * *', description: 'Daily SEO analysis' },
+    ]);
+
+    mockPrisma.job.findMany.mockResolvedValue([
+      {
+        id: 'job-1',
+        status: 'SCHEDULED',
+        error: null,
+        attempts: 0,
+        createdAt: new Date(),
+        startedAt: null,
+        completedAt: null,
+        site: null,
+      },
+    ]);
+
+    const response = await GET();
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.schedules[0].isRunning).toBe(true);
   });
 });

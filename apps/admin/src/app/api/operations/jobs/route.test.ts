@@ -46,6 +46,7 @@ describe('GET /api/operations/jobs', () => {
     expect(data.pagination).toEqual({ page: 1, limit: 25, total: 2, totalPages: 1 });
     expect(data.stats).toEqual({
       pending: 0,
+      scheduled: 0,
       running: 0,
       completed: 1,
       failed: 1,
@@ -255,6 +256,73 @@ describe('POST /api/operations/jobs', () => {
     expect(data.success).toBe(true);
     expect(data.retried).toBe(2);
     expect(data.total).toBe(2);
+  });
+
+  it('returns success:false when retry hits dedup', async () => {
+    const failedJob = createMockJob({
+      id: 'job-1',
+      type: 'CONTENT_GENERATE',
+      status: 'FAILED',
+      payload: { siteId: 'site-1' },
+      idempotencyKey: null,
+    });
+    mockPrisma.job.findUnique.mockResolvedValue(failedJob);
+    mockAddJob.mockResolvedValue('dedup:site-1:CONTENT_GENERATE');
+
+    const response = await POST(
+      createRequest('http://localhost/api/operations/jobs', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'retry', jobId: 'job-1' }),
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+    const data = await response.json();
+
+    expect(data.success).toBe(false);
+    expect(data.message).toContain('duplicate already queued');
+    expect(mockPrisma.job.update).not.toHaveBeenCalled();
+  });
+
+  it('returns success:false when retry hits budget limit', async () => {
+    const failedJob = createMockJob({
+      id: 'job-1',
+      type: 'CONTENT_GENERATE',
+      status: 'FAILED',
+      payload: { siteId: 'site-1' },
+      idempotencyKey: null,
+    });
+    mockPrisma.job.findUnique.mockResolvedValue(failedJob);
+    mockAddJob.mockResolvedValue('budget-exceeded:content:CONTENT_GENERATE');
+
+    const response = await POST(
+      createRequest('http://localhost/api/operations/jobs', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'retry', jobId: 'job-1' }),
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+    const data = await response.json();
+
+    expect(data.success).toBe(false);
+    expect(data.message).toContain('daily budget exceeded');
+    expect(mockPrisma.job.update).not.toHaveBeenCalled();
+  });
+
+  it('includes SCHEDULED count in stats response', async () => {
+    mockPrisma.job.findMany.mockResolvedValue([]);
+    mockPrisma.job.count.mockResolvedValue(5);
+    mockPrisma.job.groupBy.mockResolvedValue([
+      { status: 'PENDING', _count: { _all: 1 } },
+      { status: 'SCHEDULED', _count: { _all: 2 } },
+      { status: 'RUNNING', _count: { _all: 1 } },
+      { status: 'COMPLETED', _count: { _all: 1 } },
+    ]);
+
+    const response = await GET(createRequest('http://localhost/api/operations/jobs'));
+    const data = await response.json();
+
+    expect(data.stats.scheduled).toBe(2);
+    expect(data.stats.pending).toBe(1);
   });
 
   it('returns 400 for unknown action', async () => {
