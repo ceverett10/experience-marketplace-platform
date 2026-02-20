@@ -33,6 +33,16 @@ interface BlockersData {
     avgTimeOnPage: number;
     pageviews: number;
   }>;
+  lowCTR?: Array<{
+    siteId: string;
+    siteName: string;
+    pagePath: string;
+    pageTitle: string;
+    ctr: number;
+    impressions: number;
+    position: number;
+    severity: 'critical' | 'warning' | 'info';
+  }>;
   summary: {
     totalBlockers: number;
     criticalCount: number;
@@ -72,7 +82,7 @@ export default function BlockersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dates, setDates] = useState(getDefaultDates);
-  const [activeTab, setActiveTab] = useState<'bounce' | 'exit' | 'engagement'>('bounce');
+  const [activeTab, setActiveTab] = useState<'bounce' | 'exit' | 'engagement' | 'ctr'>('bounce');
 
   const fetchData = useCallback(async () => {
     try {
@@ -260,6 +270,16 @@ export default function BlockersPage() {
             >
               Low Engagement ({lowEngagement.length})
             </button>
+            <button
+              onClick={() => setActiveTab('ctr')}
+              className={`text-sm font-medium pb-2 border-b-2 transition-colors ${
+                activeTab === 'ctr'
+                  ? 'text-sky-600 border-sky-600'
+                  : 'text-slate-500 border-transparent hover:text-slate-700'
+              }`}
+            >
+              Low CTR ({data.lowCTR?.length || 0})
+            </button>
           </div>
         </div>
         <div className="overflow-x-auto">
@@ -443,6 +463,80 @@ export default function BlockersPage() {
                   <tr>
                     <td colSpan={4} className="px-4 py-8 text-center text-slate-500">
                       No low engagement pages detected
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          )}
+
+          {activeTab === 'ctr' && (
+            <table className="w-full">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
+                    Page
+                  </th>
+                  <th className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
+                    Site
+                  </th>
+                  <th className="text-right text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
+                    CTR
+                  </th>
+                  <th className="text-right text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
+                    Impressions
+                  </th>
+                  <th className="text-right text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
+                    Avg Position
+                  </th>
+                  <th className="text-center text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
+                    Severity
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {(data.lowCTR || []).map((item, i) => (
+                  <tr key={i} className="hover:bg-slate-50">
+                    <td className="px-4 py-3">
+                      <span className="text-sm text-slate-900">{item.pageTitle}</span>
+                      <p className="text-xs text-slate-500 truncate max-w-xs">{item.pagePath}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <Link
+                        href={`/analytics/sites/${item.siteId}`}
+                        className="text-sm text-slate-600 hover:text-sky-600"
+                      >
+                        {item.siteName}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <span
+                        className={`text-sm font-medium ${
+                          item.ctr < 1
+                            ? 'text-red-600'
+                            : item.ctr < 2
+                              ? 'text-amber-600'
+                              : 'text-slate-700'
+                        }`}
+                      >
+                        {item.ctr.toFixed(1)}%
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right text-sm text-slate-700">
+                      {item.impressions.toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3 text-right text-sm text-slate-700">
+                      {item.position.toFixed(1)}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <SeverityBadge severity={item.severity} />
+                    </td>
+                  </tr>
+                ))}
+                {(!data.lowCTR || data.lowCTR.length === 0) && (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
+                      No low CTR pages detected
                     </td>
                   </tr>
                 )}

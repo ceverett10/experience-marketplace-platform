@@ -1,10 +1,32 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+function calcChange(current: number, previous: number): number {
+  if (previous === 0) return current > 0 ? 100 : 0;
+  return Math.round(((current - previous) / previous) * 100);
+}
+
 export async function GET(): Promise<NextResponse> {
   try {
-    // Fetch real data from database
-    const [totalSites, activeSites, totalBookings, revenueData, topSites] = await Promise.all([
+    // Define 30-day period boundaries
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now);
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const sixtyDaysAgo = new Date(now);
+    sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+
+    const [
+      totalSites,
+      activeSites,
+      currentBookings,
+      currentRevenue,
+      previousBookings,
+      previousRevenue,
+      sessionsData,
+      revenuePerSite,
+      contentPending,
+      topSites,
+    ] = await Promise.all([
       // Total sites count
       prisma.site.count(),
 
@@ -13,13 +35,53 @@ export async function GET(): Promise<NextResponse> {
         where: { status: 'ACTIVE' },
       }),
 
-      // Total bookings count
-      prisma.booking.count(),
+      // Current period bookings (last 30 days)
+      prisma.booking.count({
+        where: { createdAt: { gte: thirtyDaysAgo, lte: now } },
+      }),
 
-      // Total revenue (sum of all confirmed bookings)
+      // Current period revenue (last 30 days, CONFIRMED)
       prisma.booking.aggregate({
         _sum: { totalAmount: true },
-        where: { status: 'CONFIRMED' },
+        where: {
+          status: 'CONFIRMED',
+          createdAt: { gte: thirtyDaysAgo, lte: now },
+        },
+      }),
+
+      // Previous period bookings (30-60 days ago)
+      prisma.booking.count({
+        where: { createdAt: { gte: sixtyDaysAgo, lt: thirtyDaysAgo } },
+      }),
+
+      // Previous period revenue (30-60 days ago, CONFIRMED)
+      prisma.booking.aggregate({
+        _sum: { totalAmount: true },
+        where: {
+          status: 'CONFIRMED',
+          createdAt: { gte: sixtyDaysAgo, lt: thirtyDaysAgo },
+        },
+      }),
+
+      // Total sessions from analytics snapshots (last 30 days) for conversion rate
+      prisma.siteAnalyticsSnapshot.aggregate({
+        _sum: { sessions: true },
+        where: { date: { gte: thirtyDaysAgo, lte: now } },
+      }),
+
+      // Revenue per site (CONFIRMED bookings, last 30 days)
+      prisma.booking.groupBy({
+        by: ['siteId'],
+        where: {
+          status: 'CONFIRMED',
+          createdAt: { gte: thirtyDaysAgo, lte: now },
+        },
+        _sum: { totalAmount: true },
+      }),
+
+      // Content pending review
+      prisma.page.count({
+        where: { status: 'REVIEW' },
       }),
 
       // Top performing sites with booking counts
@@ -43,23 +105,31 @@ export async function GET(): Promise<NextResponse> {
       }),
     ]);
 
-    const totalRevenue = revenueData._sum.totalAmount || 0;
+    const totalRevenue = Number(currentRevenue._sum.totalAmount || 0);
+    const prevRevenue = Number(previousRevenue._sum.totalAmount || 0);
 
-    // Calculate conversion rate (placeholder - would need page views data)
-    const conversionRate = totalBookings > 0 ? ((totalBookings / 1000) * 100).toFixed(1) : '0.0';
+    // Real conversion rate from sessions data
+    const totalSessions = sessionsData._sum.sessions || 0;
+    const conversionRate =
+      totalSessions > 0 ? ((currentBookings / totalSessions) * 100).toFixed(1) : '0.0';
+
+    // Per-site revenue lookup
+    const revenueMap = new Map(
+      revenuePerSite.map((r) => [r.siteId, Number(r._sum.totalAmount || 0)])
+    );
 
     return NextResponse.json({
       stats: {
         totalSites,
         activeSites,
-        totalBookings,
+        totalBookings: currentBookings,
         totalRevenue,
         conversionRate: parseFloat(conversionRate),
-        contentPending: 0, // TODO: Add content pending count when content management is implemented
+        contentPending,
         changes: {
-          sites: 0, // TODO: Calculate period-over-period changes
-          bookings: 0,
-          revenue: 0,
+          sites: 0,
+          bookings: calcChange(currentBookings, previousBookings),
+          revenue: calcChange(totalRevenue, prevRevenue),
         },
       },
       topSites: topSites.map((site) => ({
@@ -67,7 +137,7 @@ export async function GET(): Promise<NextResponse> {
         name: site.name,
         domain: site.domains[0]?.domain || site.primaryDomain || 'No domain',
         bookings: site._count.bookings,
-        revenue: 0, // TODO: Calculate per-site revenue
+        revenue: revenueMap.get(site.id) || 0,
       })),
     });
   } catch (error) {

@@ -120,14 +120,14 @@ export default function AdminDashboardPage() {
         <StatCard
           title="Total Bookings"
           value={stats.totalBookings.toString()}
-          subvalue="This month"
+          subvalue="Last 30 days"
           change={stats.changes.bookings}
           icon="📅"
         />
         <StatCard
           title="Total Revenue"
           value={`£${stats.totalRevenue.toLocaleString()}`}
-          subvalue="This month"
+          subvalue="Last 30 days"
           change={stats.changes.revenue}
           icon="💰"
         />
