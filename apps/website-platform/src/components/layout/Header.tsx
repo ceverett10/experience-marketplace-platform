@@ -109,15 +109,25 @@ export function Header() {
         <div className="flex lg:flex-1">
           <Link href="/" className="-m-1.5 p-3">
             {brand?.logoUrl ? (
-              <div className="relative h-14 w-56 sm:h-16 sm:w-64 lg:h-20 lg:w-80">
-                <Image
-                  className="object-contain object-left"
-                  src={brand.logoUrl}
-                  alt={site.name}
-                  fill
-                  sizes="(min-width: 1024px) 320px, (min-width: 640px) 256px, 224px"
-                  priority
-                />
+              <div className="flex items-end gap-2">
+                <div className="relative h-16 w-64 sm:h-20 sm:w-80 lg:h-24 lg:w-96">
+                  <Image
+                    className="object-contain object-left"
+                    src={brand.logoUrl}
+                    alt={site.name}
+                    fill
+                    sizes="(min-width: 1024px) 384px, (min-width: 640px) 320px, 256px"
+                    priority
+                  />
+                </div>
+                {isMicrosite && (
+                  <span className="hidden text-[11px] text-gray-400 sm:inline">
+                    powered by{' '}
+                    <span className="text-gray-500 hover:text-gray-700 hover:underline">
+                      Experiencess.com
+                    </span>
+                  </span>
+                )}
               </div>
             ) : (
               <div className="flex items-baseline gap-2">
