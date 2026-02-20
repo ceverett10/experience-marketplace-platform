@@ -196,6 +196,30 @@ describe('GuestSelector', () => {
   });
 });
 
+describe('GuestSelector - Mobile touch targets', () => {
+  const mockOnGuestCountChange = vi.fn();
+
+  const defaultGuestCounts: GuestCount[] = [
+    { typeId: 'adult', count: 2 },
+    { typeId: 'child', count: 0 },
+    { typeId: 'infant', count: 0 },
+  ];
+
+  it('increment/decrement buttons use h-11 w-11 sizing for 44px touch targets', () => {
+    renderWithProvider(
+      <GuestSelector guestCounts={defaultGuestCounts} onGuestCountChange={mockOnGuestCountChange} />
+    );
+
+    const increaseButtons = screen.getAllByLabelText(/Increase.*count/i);
+    const decreaseButtons = screen.getAllByLabelText(/Decrease.*count/i);
+
+    for (const button of [...increaseButtons, ...decreaseButtons]) {
+      expect(button.className).toMatch(/h-11/);
+      expect(button.className).toMatch(/w-11/);
+    }
+  });
+});
+
 describe('GuestDetailsForm', () => {
   const mockOnGuestDetailsChange = vi.fn();
 
