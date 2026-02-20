@@ -1095,7 +1095,7 @@ async function findRelevantInterests(
       seen.add(key);
       return true;
     })
-    .slice(0, 6);
+    .slice(0, 3);
 
   // If no terms extracted at all, use "travel experiences" as last resort
   if (uniqueTerms.length === 0) uniqueTerms.push('travel experiences');

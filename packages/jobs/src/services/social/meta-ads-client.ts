@@ -54,15 +54,13 @@ export class MetaAdsClient {
    */
   async searchInterests(keyword: string): Promise<MetaAdInterest[]> {
     try {
-      await this.enforceRateLimit();
-
       const params = new URLSearchParams({
         type: 'adinterest',
         q: keyword,
         access_token: this.accessToken,
       });
 
-      const response = await fetch(`${META_API_BASE}/search?${params}`);
+      const response = await this.fetchWithRetry(`${META_API_BASE}/search?${params}`);
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -225,8 +223,6 @@ export class MetaAdsClient {
     specialAdCategories?: string[];
   }): Promise<{ campaignId: string } | null> {
     try {
-      await this.enforceRateLimit();
-
       const params = new URLSearchParams({
         name: config.name,
         objective: config.objective || 'OUTCOME_TRAFFIC',
@@ -236,7 +232,7 @@ export class MetaAdsClient {
         access_token: this.accessToken,
       });
 
-      const response = await fetch(`${META_API_BASE}/${this.adAccountId}/campaigns`, {
+      const response = await this.fetchWithRetry(`${META_API_BASE}/${this.adAccountId}/campaigns`, {
         method: 'POST',
         body: params,
       });
@@ -281,8 +277,6 @@ export class MetaAdsClient {
     dsaPayor?: string;
   }): Promise<{ adSetId: string } | null> {
     try {
-      await this.enforceRateLimit();
-
       // Note: location_types is deprecated by Meta — all targeting now reaches
       // "people living in or recently in" selected locations automatically.
       const geoLocations: Record<string, unknown> = { countries: config.targeting.countries };
@@ -319,7 +313,7 @@ export class MetaAdsClient {
         params.set('dsa_payor', config.dsaPayor);
       }
 
-      const response = await fetch(`${META_API_BASE}/${this.adAccountId}/adsets`, {
+      const response = await this.fetchWithRetry(`${META_API_BASE}/${this.adAccountId}/adsets`, {
         method: 'POST',
         body: params,
       });
@@ -357,8 +351,6 @@ export class MetaAdsClient {
     status?: 'ACTIVE' | 'PAUSED';
   }): Promise<{ adId: string } | null> {
     try {
-      await this.enforceRateLimit();
-
       const creative: Record<string, unknown> = {
         object_story_spec: {
           page_id: config.pageId,
@@ -382,7 +374,7 @@ export class MetaAdsClient {
         access_token: this.accessToken,
       });
 
-      const response = await fetch(`${META_API_BASE}/${this.adAccountId}/ads`, {
+      const response = await this.fetchWithRetry(`${META_API_BASE}/${this.adAccountId}/ads`, {
         method: 'POST',
         body: params,
       });
@@ -968,5 +960,46 @@ export class MetaAdsClient {
     }
 
     MetaAdsClient.requestTimestamps.push(Date.now());
+  }
+
+  /**
+   * Execute a fetch with retry on Meta API rate limit errors.
+   * Meta returns error code 17 (user-level) or 32 (app-level) for rate limits.
+   */
+  async fetchWithRetry(url: string, options?: RequestInit, maxRetries = 3): Promise<Response> {
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      await this.enforceRateLimit();
+      const response = await fetch(url, options);
+
+      if (response.ok) return response;
+
+      // Check if it's a rate limit error
+      const text = await response.text();
+      const isRateLimit =
+        text.includes('"code":17') ||
+        text.includes('"code":32') ||
+        text.includes('Too Many') ||
+        response.status === 429;
+
+      if (isRateLimit && attempt < maxRetries) {
+        const waitMs = Math.min(60_000 * (attempt + 1), 180_000); // 60s, 120s, 180s
+        console.log(
+          `[MetaAds] Account rate limit hit (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${Math.round(waitMs / 1000)}s...`
+        );
+        await new Promise((r) => setTimeout(r, waitMs));
+        continue;
+      }
+
+      // Not a rate limit error or max retries reached — create a response-like object
+      // Return a synthetic response with the error text
+      return new Response(text, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers,
+      });
+    }
+
+    // Shouldn't reach here
+    throw new Error('[MetaAds] Unexpected end of retry loop');
   }
 }
