@@ -9,7 +9,7 @@ describe('Header', () => {
     expect(screen.getByText('Experience Marketplace')).toBeInTheDocument();
   });
 
-  it('should render logo when logoUrl is provided', () => {
+  it('should render text logo even when logoUrl is provided', () => {
     const siteConfig = createMockSiteConfig({
       name: 'Test Site',
       brand: {
@@ -17,7 +17,7 @@ describe('Header', () => {
         logoDarkUrl: null,
         name: 'Test Brand',
         tagline: null,
-        primaryColor: '#6366f1',
+        primaryColor: '#e11d48',
         secondaryColor: '#8b5cf6',
         accentColor: '#f59e0b',
         headingFont: 'Inter',
@@ -30,9 +30,10 @@ describe('Header', () => {
 
     renderWithProviders(<Header />, { siteConfig });
 
-    const logo = screen.getByAltText('Test Site');
-    expect(logo).toBeInTheDocument();
-    expect(logo).toHaveAttribute('src', 'https://example.com/logo.png');
+    // Text-only logos — image logos are disabled
+    const siteName = screen.getByText('Test Site');
+    expect(siteName).toBeInTheDocument();
+    expect(siteName).toHaveStyle({ color: '#e11d48' });
   });
 
   it('should render navigation links', () => {
