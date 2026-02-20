@@ -45,7 +45,9 @@ export function ExperienceCard({
           <h3 className="truncate text-sm font-medium text-gray-900 group-hover:text-gray-700">
             {experience.title}
           </h3>
-          <p className="mt-1 text-xs text-gray-500">{experience.duration.formatted}</p>
+          {experience.duration.formatted && (
+            <p className="mt-1 text-xs text-gray-500">{experience.duration.formatted}</p>
+          )}
           <div className="mt-1">
             <PriceDisplay
               priceFormatted={experience.price.formatted}
@@ -98,7 +100,9 @@ export function ExperienceCard({
           <h3 className="text-xl font-semibold text-white line-clamp-2">{experience.title}</h3>
 
           <div className="mt-2 flex items-center justify-between">
-            <span className="text-sm text-white/80">{experience.duration.formatted}</span>
+            {experience.duration.formatted && (
+              <span className="text-sm text-white/80">{experience.duration.formatted}</span>
+            )}
             <div className="text-right">
               {pricingConfig.markupPercentage > 0 && (
                 <span className="block text-xs text-white/60 line-through">
@@ -195,7 +199,9 @@ export function ExperienceCard({
           </div>
         )}
         <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-4">
-          <span className="text-sm text-gray-500">{experience.duration.formatted}</span>
+          {experience.duration.formatted && (
+            <span className="text-sm text-gray-500">{experience.duration.formatted}</span>
+          )}
           <PriceDisplay
             priceFormatted={experience.price.formatted}
             priceAmount={experience.price.amount}

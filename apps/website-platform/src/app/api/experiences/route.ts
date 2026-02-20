@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { getSiteFromHostname } from '@/lib/tenant';
 import { getHolibobClient, parseIsoDuration, optimizeHolibobImageWithPreset } from '@/lib/holibob';
@@ -40,6 +40,7 @@ function formatPrice(amount: number, currency: string): string {
 }
 
 function formatDuration(value: number, unit: string): string {
+  if (!Number.isFinite(value) || value <= 0) return '';
   if (unit === 'minutes') {
     if (value >= 60) {
       const hours = Math.floor(value / 60);
@@ -159,8 +160,8 @@ export async function GET(request: NextRequest) {
         formatPrice(priceAmount, priceCurrency);
 
       // Get duration - Product Discovery API returns maxDuration as ISO 8601 (e.g., "PT210M")
-      let durationFormatted = 'Duration varies';
-      if (product.durationText) {
+      let durationFormatted = '';
+      if (product.durationText && !product.durationText.includes('NaN')) {
         durationFormatted = product.durationText;
       } else if (product.maxDuration != null) {
         const minutes = parseIsoDuration(product.maxDuration);

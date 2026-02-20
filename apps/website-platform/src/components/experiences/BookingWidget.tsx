@@ -151,22 +151,24 @@ export function BookingWidget({ experience, bookingStats }: BookingWidgetProps) 
 
         {/* Duration & Language Quick Info */}
         <div className="mt-6 flex items-center justify-between border-t border-gray-100 pt-4 text-sm text-gray-500">
-          <div className="flex items-center gap-1.5">
-            <svg
-              className="h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth="1.5"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            <span>{experience.duration.formatted}</span>
-          </div>
+          {experience.duration.formatted && (
+            <div className="flex items-center gap-1.5">
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth="1.5"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              <span>{experience.duration.formatted}</span>
+            </div>
+          )}
           {experience.languages && experience.languages.length > 0 && (
             <div className="flex items-center gap-1.5">
               <svg

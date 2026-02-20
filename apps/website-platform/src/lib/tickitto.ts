@@ -64,7 +64,7 @@ export function mapTickittoEventToExperience(event: TickittoEvent): Experience {
     duration: {
       value: event.duration ?? 0,
       unit: 'minutes',
-      formatted: event.duration ? formatDuration(event.duration) : 'Duration varies',
+      formatted: event.duration ? formatDuration(event.duration) : '',
     },
     rating: null, // Tickitto doesn't provide ratings
     location: {
@@ -119,7 +119,7 @@ export function mapTickittoEventToExperienceListItem(event: TickittoEvent): Expe
       formatted: priceFormatted,
     },
     duration: {
-      formatted: event.duration ? formatDuration(event.duration) : 'Duration varies',
+      formatted: event.duration ? formatDuration(event.duration) : '',
     },
     rating: null,
     location: {

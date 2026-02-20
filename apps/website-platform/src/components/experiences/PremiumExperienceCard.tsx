@@ -249,22 +249,24 @@ export function PremiumExperienceCard({
           {/* Meta & Price */}
           <div className="flex items-end justify-between">
             <div className="flex items-center gap-4 text-white/80">
-              <span className="flex items-center gap-1.5">
-                <svg
-                  className="h-5 w-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  strokeWidth="2"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                {experience.duration.formatted}
-              </span>
+              {experience.duration.formatted && (
+                <span className="flex items-center gap-1.5">
+                  <svg
+                    className="h-5 w-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth="2"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  {experience.duration.formatted}
+                </span>
+              )}
             </div>
 
             <div className="text-right">
@@ -350,7 +352,9 @@ export function PremiumExperienceCard({
           <h3 className="mb-2 text-xl font-bold text-white line-clamp-2">{experience.title}</h3>
 
           <div className="flex items-center justify-between">
-            <span className="text-sm text-white/80">{experience.duration.formatted}</span>
+            {experience.duration.formatted && (
+              <span className="text-sm text-white/80">{experience.duration.formatted}</span>
+            )}
             <PriceDisplay
               priceFormatted={experience.price.formatted}
               priceAmount={experience.price.amount}
@@ -415,7 +419,9 @@ export function PremiumExperienceCard({
           )}
 
           <div className="mt-auto flex items-center justify-between pt-2">
-            <span className="text-xs text-gray-500">{experience.duration.formatted}</span>
+            {experience.duration.formatted && (
+              <span className="text-xs text-gray-500">{experience.duration.formatted}</span>
+            )}
             <PriceDisplay
               priceFormatted={experience.price.formatted}
               priceAmount={experience.price.amount}
@@ -489,30 +495,34 @@ export function PremiumExperienceCard({
         </h3>
 
         {/* Key Details Line - Duration & Features */}
-        <div className="mt-2 flex items-center gap-1.5 text-xs text-gray-500">
-          <span className="flex items-center gap-1">
-            <svg
-              className="h-3.5 w-3.5"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth="2"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            {experience.duration.formatted}
-          </span>
-          {experience.location.name && (
-            <>
-              <span className="text-gray-300">•</span>
-              <span className="truncate">{experience.location.name}</span>
-            </>
-          )}
-        </div>
+        {(experience.duration.formatted || experience.location.name) && (
+          <div className="mt-2 flex items-center gap-1.5 text-xs text-gray-500">
+            {experience.duration.formatted && (
+              <span className="flex items-center gap-1">
+                <svg
+                  className="h-3.5 w-3.5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth="2"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                {experience.duration.formatted}
+              </span>
+            )}
+            {experience.location.name && (
+              <>
+                {experience.duration.formatted && <span className="text-gray-300">•</span>}
+                <span className="truncate">{experience.location.name}</span>
+              </>
+            )}
+          </div>
+        )}
 
         {/* Rating with Review Count - Social Proof */}
         {experience.rating && experience.rating.count > 0 && (

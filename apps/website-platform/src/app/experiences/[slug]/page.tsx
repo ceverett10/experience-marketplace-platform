@@ -146,8 +146,8 @@ async function getRelatedExperiences(
               priceAmount
             );
 
-          let durationFormatted = 'Duration varies';
-          if (product.durationText) {
+          let durationFormatted = '';
+          if (product.durationText && !product.durationText.includes('NaN')) {
             durationFormatted = product.durationText;
           } else if (product.maxDuration != null) {
             const minutes = parseIsoDuration(product.maxDuration);
@@ -212,8 +212,8 @@ async function getRelatedExperiences(
         const priceCurrency =
           product.guidePriceCurrency ?? product.priceCurrency ?? product.currency ?? 'GBP';
 
-        let durationFormatted = 'Duration varies';
-        if (product.durationText) {
+        let durationFormatted = '';
+        if (product.durationText && !product.durationText.includes('NaN')) {
           durationFormatted = product.durationText;
         } else if (product.maxDuration != null) {
           const minutes = parseIsoDuration(product.maxDuration);
@@ -664,22 +664,24 @@ export default async function ExperienceDetailPage({ params }: Props) {
                   )}
 
                   {/* Duration */}
-                  <div className="flex items-center gap-1.5 text-gray-600">
-                    <svg
-                      className="h-5 w-5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth="1.5"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                    <span>{experience.duration.formatted}</span>
-                  </div>
+                  {experience.duration.formatted && (
+                    <div className="flex items-center gap-1.5 text-gray-600">
+                      <svg
+                        className="h-5 w-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth="1.5"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                      <span>{experience.duration.formatted}</span>
+                    </div>
+                  )}
 
                   {/* Location */}
                   <div className="flex items-center gap-1.5 text-gray-600">
