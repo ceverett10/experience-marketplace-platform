@@ -62,6 +62,7 @@ import {
   handleAdConversionUpload,
   handleAdPlatformIdsSync,
   handleAdCreativeRefresh,
+  handleAdSearchTermHarvest,
   // Microsite handlers
   handleMicrositeCreate,
   handleMicrositeBrandGenerate,
@@ -180,6 +181,7 @@ const QUEUE_PROCESSORS: Record<string, Record<string, JobProcessor>> = {
     AD_CONVERSION_UPLOAD: (job) => handleAdConversionUpload(job),
     AD_PLATFORM_IDS_SYNC: (job) => handleAdPlatformIdsSync(job),
     AD_CREATIVE_REFRESH: (job) => handleAdCreativeRefresh(job),
+    AD_SEARCH_TERM_HARVEST: (job) => handleAdSearchTermHarvest(job),
   },
   [QUEUE_NAMES.MICROSITE]: {
     MICROSITE_CREATE: (job) => handleMicrositeCreate(job),
