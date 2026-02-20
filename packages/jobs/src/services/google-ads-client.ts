@@ -783,6 +783,7 @@ export async function setCampaignGeoTargets(
 
   try {
     // Step 1: Set campaign geo target type to PRESENCE_OR_INTEREST
+    // Note: negativeGeoTargetType only supports PRESENCE for Search campaigns
     await apiRequest(config, 'POST', '/campaigns:mutate', {
       operations: [
         {
@@ -790,11 +791,9 @@ export async function setCampaignGeoTargets(
             resourceName: campaignResourceName,
             geoTargetTypeSetting: {
               positiveGeoTargetType: 'PRESENCE_OR_INTEREST',
-              negativeGeoTargetType: 'PRESENCE_OR_INTEREST',
             },
           },
-          updateMask:
-            'geoTargetTypeSetting.positiveGeoTargetType,geoTargetTypeSetting.negativeGeoTargetType',
+          updateMask: 'geoTargetTypeSetting.positiveGeoTargetType',
         },
       ],
     });
