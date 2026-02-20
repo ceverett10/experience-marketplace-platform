@@ -125,7 +125,7 @@ describe('tickitto utilities', () => {
       const result = mapTickittoEventToExperience(event as any);
 
       expect(result.duration.value).toBe(0);
-      expect(result.duration.formatted).toBe('Duration varies');
+      expect(result.duration.formatted).toBe('');
     });
 
     it('should always return null rating', () => {
@@ -247,7 +247,7 @@ describe('tickitto utilities', () => {
     it('should handle null duration', () => {
       const event = { ...baseEvent, duration: null };
       const result = mapTickittoEventToExperienceListItem(event as any);
-      expect(result.duration.formatted).toBe('Duration varies');
+      expect(result.duration.formatted).toBe('');
     });
   });
 });

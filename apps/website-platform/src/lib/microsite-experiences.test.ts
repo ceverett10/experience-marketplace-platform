@@ -414,7 +414,7 @@ describe('microsite-experiences', () => {
       expect(item.shortDescription).toBe('');
       expect(item.imageUrl).toBe('/placeholder-experience.jpg');
       expect(item.price.amount).toBe(0);
-      expect(item.duration.formatted).toBe('Duration varies');
+      expect(item.duration.formatted).toBe('');
       expect(item.rating).toBeNull();
       expect(item.location.name).toBe('');
     });

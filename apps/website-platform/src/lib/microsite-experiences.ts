@@ -363,7 +363,7 @@ export function localProductToExperienceListItem(product: LocalProduct) {
       formatted: formatPrice(product.priceFrom ?? 0, product.currency),
     },
     duration: {
-      formatted: product.duration ?? 'Duration varies',
+      formatted: product.duration && !product.duration.includes('NaN') ? product.duration : '',
     },
     rating: product.rating
       ? {

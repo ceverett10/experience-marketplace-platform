@@ -105,17 +105,19 @@ export function ProductSpotlightHomepage({ site, experience }: ProductSpotlightH
                   {experience.location.name}
                 </span>
               )}
-              <span className="flex items-center gap-2">
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                {experience.duration.formatted}
-              </span>
+              {experience.duration.formatted && (
+                <span className="flex items-center gap-2">
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  {experience.duration.formatted}
+                </span>
+              )}
               {hasFreeCancellation && (
                 <span className="flex items-center gap-2 text-green-400">
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -226,7 +228,9 @@ export function ProductSpotlightHomepage({ site, experience }: ProductSpotlightH
                     </dt>
                     <dd>
                       <p className="text-sm text-gray-500">Duration</p>
-                      <p className="font-medium text-gray-900">{experience.duration.formatted}</p>
+                      <p className="font-medium text-gray-900">
+                        {experience.duration.formatted || 'Varies'}
+                      </p>
                     </dd>
                   </div>
                   {experience.languages && experience.languages.length > 0 && (

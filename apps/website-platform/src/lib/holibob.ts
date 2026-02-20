@@ -578,8 +578,8 @@ export function parseIsoDuration(duration: string | number | null | undefined): 
  * Format duration for display
  */
 export function formatDuration(value: number, unit: string): string {
-  if (value <= 0) {
-    return 'Flexible duration';
+  if (!Number.isFinite(value) || value <= 0) {
+    return '';
   }
   if (unit === 'minutes') {
     if (value >= 60) {
