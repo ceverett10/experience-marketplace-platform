@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
 /**
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       return !!seoConfig['ga4PropertyId'];
     });
 
-    const _siteMap = new Map(sites.map((s) => [s.id, s]));
+    const siteMap = new Map(sites.map((s) => [s.id, s]));
 
     // Fetch all snapshots for the period
     const snapshots = await prisma.siteAnalyticsSnapshot.findMany({
@@ -127,17 +127,32 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       }))
       .sort((a, b) => b.sessions - a.sessions);
 
+    // Top landing pages from GSC PerformanceMetric data
+    const topLandingPagesData = await prisma.performanceMetric.groupBy({
+      by: ['pageUrl', 'siteId'],
+      where: {
+        date: { gte: start, lte: end },
+        pageUrl: { not: null },
+      },
+      _sum: { clicks: true },
+      orderBy: { _sum: { clicks: 'desc' } },
+      take: 10,
+    });
+
+    const topLandingPages = topLandingPagesData.map((row) => ({
+      path: row.pageUrl!,
+      site: siteMap.get(row.siteId)?.name || 'Unknown',
+      sessions: row._sum.clicks || 0,
+    }));
+
     // Calculate organic traffic specifically
     const organicData = mediumMap.get('organic') || { users: 0, sessions: 0 };
     const organic = {
       totalUsers: organicData.users,
       totalSessions: organicData.sessions,
       percentageOfTotal: totalSessions > 0 ? (organicData.sessions / totalSessions) * 100 : 0,
-      topLandingPages: [] as Array<{ path: string; site: string; sessions: number }>,
+      topLandingPages,
     };
-
-    // Get top landing pages from organic would require page-level data
-    // For now, we'll leave it empty - could be enhanced with GA4 API calls
 
     return NextResponse.json({
       sources,

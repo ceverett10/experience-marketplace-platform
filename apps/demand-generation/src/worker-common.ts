@@ -3,11 +3,12 @@
  * Extracted from index.ts to support multi-dyno worker separation (Phase 3).
  */
 
-import { Worker, type Job } from 'bullmq';
+import { type Worker, type Job } from 'bullmq';
 import {
   createRedisConnection,
   getQueueTimeout,
   resetStuckCount,
+  getAllQueueMetrics,
 } from '@experience-marketplace/jobs';
 import { prisma, type JobStatus } from '@experience-marketplace/database';
 import type { JobType } from '@experience-marketplace/database';
@@ -18,6 +19,25 @@ import type { Redis } from 'ioredis';
  */
 export function createConnection(): Redis {
   return createRedisConnection();
+}
+
+/**
+ * Emit a structured JSON log line for job lifecycle events.
+ * Designed for machine-parsing in Heroku log aggregators (Papertrail, Datadog, etc.).
+ */
+export function logJobEvent(event: string, job: Job, extra?: Record<string, unknown>) {
+  console.log(
+    JSON.stringify({
+      event,
+      jobId: job.id,
+      jobType: job.name,
+      dbJobId: (job.data as { dbJobId?: string }).dbJobId || null,
+      siteId: (job.data as { siteId?: string }).siteId || null,
+      attempt: job.attemptsMade,
+      timestamp: new Date().toISOString(),
+      ...extra,
+    })
+  );
 }
 
 /**
@@ -131,7 +151,7 @@ async function clearDedupKey(connection: Redis, job: Job) {
 export function setupWorkerEvents(workers: Worker[], connection?: Redis) {
   workers.forEach((worker) => {
     worker.on('completed', async (job, result) => {
-      console.log(`✓ Job ${job.id} (${job.name}) completed successfully`);
+      logJobEvent('job_completed', job);
       await updateJobStatus(job, 'COMPLETED', result as object);
       const siteId = (job.data as { siteId?: string }).siteId || null;
       resetStuckCount(siteId, job.name);
@@ -139,12 +159,14 @@ export function setupWorkerEvents(workers: Worker[], connection?: Redis) {
     });
 
     worker.on('failed', async (job, err) => {
-      console.error(`✗ Job ${job?.id} (${job?.name}) failed:`, err.message);
       if (job) {
         const willRetry = job.attemptsMade < (job.opts.attempts || 3);
+        logJobEvent('job_failed', job, { error: err.message, willRetry });
         await updateJobStatus(job, willRetry ? 'RETRYING' : 'FAILED', undefined, err.message);
         // Only clear dedup on final failure (not retries) so retries don't cause duplicates
         if (!willRetry && connection) await clearDedupKey(connection, job);
+      } else {
+        console.error(`Worker error (no job context):`, err.message);
       }
     });
 
@@ -152,6 +174,33 @@ export function setupWorkerEvents(workers: Worker[], connection?: Redis) {
       console.error(`Worker error:`, err);
     });
   });
+}
+
+/**
+ * Log queue depth snapshot for all queues with non-zero activity.
+ * Called periodically from startMemoryMonitoring().
+ */
+async function logQueueDepths() {
+  try {
+    const metrics = await getAllQueueMetrics();
+    for (const m of metrics) {
+      if (m.waiting > 0 || m.active > 0 || m.delayed > 0) {
+        console.log(
+          JSON.stringify({
+            event: 'queue_depth',
+            queue: m.queueName,
+            waiting: m.waiting,
+            active: m.active,
+            delayed: m.delayed,
+            failed: m.failed,
+            timestamp: new Date().toISOString(),
+          })
+        );
+      }
+    }
+  } catch {
+    // Non-critical — queue metrics are best-effort
+  }
 }
 
 /**
@@ -167,13 +216,26 @@ export function startMemoryMonitoring(connection: Redis) {
     console.log(`[MEMORY ${level}] heap=${heapMB}MB rss=${rssMB}MB`);
 
     // At critical levels, attempt garbage collection if available
-    if (heapMB > 800 && typeof global.gc === 'function') {
-      console.log(`[MEMORY] Triggering garbage collection at ${heapMB}MB...`);
-      global.gc();
-      const after = Math.round(process.memoryUsage().heapUsed / 1024 / 1024);
-      console.log(`[MEMORY] Post-GC heap=${after}MB (freed ${heapMB - after}MB)`);
+    if (heapMB > 800) {
+      console.log(
+        JSON.stringify({
+          event: 'memory_critical',
+          heapMB,
+          rssMB,
+          timestamp: new Date().toISOString(),
+        })
+      );
+      if (typeof global.gc === 'function') {
+        console.log(`[MEMORY] Triggering garbage collection at ${heapMB}MB...`);
+        global.gc();
+        const after = Math.round(process.memoryUsage().heapUsed / 1024 / 1024);
+        console.log(`[MEMORY] Post-GC heap=${after}MB (freed ${heapMB - after}MB)`);
+      }
     }
   }, 60_000);
+
+  // Queue depth snapshot every 5 minutes
+  setInterval(logQueueDepths, 5 * 60_000);
 
   setInterval(async () => {
     try {

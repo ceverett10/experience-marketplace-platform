@@ -59,7 +59,10 @@ export async function GET(): Promise<NextResponse> {
         const lastExecution = executions[0] || null;
         const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
         const isRunning = executions.some(
-          (e) => e.status === 'RUNNING' || (e.status === 'PENDING' && e.createdAt > fiveMinutesAgo)
+          (e) =>
+            e.status === 'RUNNING' ||
+            (e.status === 'PENDING' && e.createdAt > fiveMinutesAgo) ||
+            e.status === 'SCHEDULED'
         );
         const nextRun = getNextCronRun(sj.schedule);
 
@@ -190,12 +193,26 @@ export async function POST(request: Request): Promise<NextResponse> {
       payload.forceAudit = true;
     }
 
-    const newJobId = await addJob(cleanType as any, payload);
+    const result = await addJob(cleanType as any, payload);
+
+    // Handle dedup/budget sentinel values from addJob()
+    if (result.startsWith('dedup:')) {
+      return NextResponse.json({
+        success: false,
+        message: `${jobType} not triggered — duplicate already queued`,
+      });
+    }
+    if (result.startsWith('budget-exceeded:')) {
+      return NextResponse.json({
+        success: false,
+        message: `${jobType} not triggered — daily budget exceeded for queue`,
+      });
+    }
 
     return NextResponse.json({
       success: true,
       message: `Triggered ${jobType} manually`,
-      jobId: newJobId,
+      jobId: result,
     });
   } catch (error) {
     console.error('[API] Error triggering scheduled job:', error);
