@@ -167,10 +167,11 @@ test.describe('Checkout Flow', () => {
     await page.goto(`/checkout/${MOCK_BOOKING_ID}`);
     await expect(page.getByTestId('questions-form')).toBeVisible();
 
-    // Order summary should be visible
-    await expect(page.getByText('Order Summary')).toBeVisible();
-    await expect(page.getByText('Sunset Kayak Tour').first()).toBeVisible();
-    await expect(page.getByText('£50.00').first()).toBeVisible();
+    // Order summary sidebar should be visible at desktop viewport
+    const sidebar = page.getByTestId('order-summary-sidebar');
+    await expect(sidebar.getByText('Order Summary')).toBeVisible();
+    await expect(sidebar.getByText('Sunset Kayak Tour')).toBeVisible();
+    await expect(sidebar.getByText('£50.00').first()).toBeVisible();
   });
 
   test('isResubmission changes button text after failed submit', async ({ page }) => {

@@ -590,6 +590,23 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
                   </div>
                 </div>
 
+                {/* Proceed to Payment - mobile only (desktop button is in sidebar) */}
+                {!showPayment && canCommit && (
+                  <div className="lg:hidden">
+                    <button
+                      onClick={handleProceedToPayment}
+                      className="w-full rounded-xl py-4 text-base font-semibold text-white transition-all hover:shadow-lg"
+                      style={{ backgroundColor: primaryColor }}
+                      data-testid="proceed-to-payment-mobile"
+                    >
+                      Proceed to Payment
+                    </button>
+                    <p className="mt-3 text-center text-xs text-gray-500">
+                      You&apos;ll complete your payment on the next step.
+                    </p>
+                  </div>
+                )}
+
                 {/* Payment Section */}
                 {showPayment ? (
                   <div
@@ -645,7 +662,7 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
           </div>
 
           {/* Order Summary - hidden on mobile (shown via MobileOrderSummary instead) */}
-          <div className="hidden lg:block">
+          <div className="hidden lg:block" data-testid="order-summary-sidebar">
             <div className="sticky top-8 rounded-xl bg-white p-6 shadow-lg">
               <h2 className="mb-4 text-lg font-semibold text-gray-900">Order Summary</h2>
 

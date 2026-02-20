@@ -84,8 +84,8 @@ test.describe('Checkout Flow - Mobile', () => {
     // Should proceed to review step
     await expect(page.getByTestId('checkout-review-step')).toBeVisible();
 
-    // Proceed to Payment button should be visible and tappable
-    const paymentButton = page.getByTestId('proceed-to-payment');
+    // Proceed to Payment button should be visible and tappable (mobile-specific button)
+    const paymentButton = page.getByTestId('proceed-to-payment-mobile');
     await expect(paymentButton).toBeVisible();
     await paymentButton.click();
 
@@ -148,7 +148,7 @@ test.describe('Checkout Flow - Mobile', () => {
     await page.getByTestId('submit-questions').click();
     await expect(page.getByTestId('checkout-review-step')).toBeVisible();
 
-    const paymentButton = page.getByTestId('proceed-to-payment');
+    const paymentButton = page.getByTestId('proceed-to-payment-mobile');
     const box = await paymentButton.boundingBox();
     expect(box).not.toBeNull();
     expect(box!.height).toBeGreaterThanOrEqual(44);
@@ -208,7 +208,7 @@ test.describe('Checkout Flow - Mobile', () => {
     await page.goto(`/checkout/${MOCK_BOOKING_ID}`);
 
     // Header should be visible
-    await expect(page.getByText('Complete Your Booking')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Complete Your Booking' })).toBeVisible();
 
     // Back link should be visible and tappable
     const backLink = page.getByText('Back to experiences');
