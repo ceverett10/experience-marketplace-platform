@@ -720,3 +720,104 @@ export async function getSearchTermReport(
     return [];
   }
 }
+
+/**
+ * ISO 3166-1 alpha-2 → Google Ads Geo Target Constant ID mapping.
+ * Full list: https://developers.google.com/google-ads/api/reference/data/geotargets
+ */
+const COUNTRY_CODE_TO_GEO_ID: Record<string, number> = {
+  GB: 2826,
+  US: 2840,
+  CA: 2124,
+  AU: 2036,
+  IE: 2372,
+  NZ: 2554,
+  DE: 2276,
+  FR: 2250,
+  ES: 2724,
+  IT: 2380,
+  NL: 2528,
+  PT: 2620,
+  AT: 2040,
+  CH: 2756,
+  BE: 2056,
+  SE: 2752,
+  NO: 2578,
+  DK: 2208,
+  FI: 2246,
+  SG: 2702,
+  HK: 2344,
+  JP: 2392,
+  KR: 2410,
+  IN: 2356,
+  ZA: 2710,
+  AE: 2784,
+  BR: 2076,
+  MX: 2484,
+};
+
+/**
+ * Set geo-targeting on a campaign using campaign criteria.
+ * Uses PRESENCE_OR_INTEREST — reaches people IN or INTERESTED IN
+ * the targeted locations. Ideal for travel: someone in London
+ * searching "boat tours Barcelona" will still see the ad.
+ */
+export async function setCampaignGeoTargets(
+  campaignId: string,
+  countryCodes: string[]
+): Promise<number> {
+  const config = getConfig();
+  if (!config || countryCodes.length === 0) return 0;
+
+  const campaignResourceName = `customers/${config.customerId}/campaigns/${campaignId}`;
+
+  // Resolve country codes to Google Geo Target Constant IDs
+  const geoIds = countryCodes
+    .map((code) => COUNTRY_CODE_TO_GEO_ID[code.toUpperCase()])
+    .filter((id): id is number => id !== undefined);
+
+  if (geoIds.length === 0) {
+    console.warn(`[GoogleAds] No valid geo target IDs for countries: ${countryCodes.join(', ')}`);
+    return 0;
+  }
+
+  try {
+    // Step 1: Set campaign geo target type to PRESENCE_OR_INTEREST
+    await apiRequest(config, 'POST', '/campaigns:mutate', {
+      operations: [
+        {
+          update: {
+            resourceName: campaignResourceName,
+            geoTargetTypeSetting: {
+              positiveGeoTargetType: 'PRESENCE_OR_INTEREST',
+              negativeGeoTargetType: 'PRESENCE_OR_INTEREST',
+            },
+          },
+          updateMask:
+            'geoTargetTypeSetting.positiveGeoTargetType,geoTargetTypeSetting.negativeGeoTargetType',
+        },
+      ],
+    });
+
+    // Step 2: Add location criteria for each target country
+    const operations = geoIds.map((geoId) => ({
+      create: {
+        campaign: campaignResourceName,
+        location: {
+          geoTargetConstant: `geoTargetConstants/${geoId}`,
+        },
+        negative: false,
+      },
+    }));
+
+    await apiRequest(config, 'POST', '/campaignCriteria:mutate', { operations });
+
+    console.log(
+      `[GoogleAds] Set geo targets on campaign ${campaignId}: ${countryCodes.join(', ')} (${geoIds.length} locations)`
+    );
+    return geoIds.length;
+  } catch (error) {
+    console.error(`[GoogleAds] Set geo targets failed for campaign ${campaignId}:`, error);
+    return 0;
+  }
+}
