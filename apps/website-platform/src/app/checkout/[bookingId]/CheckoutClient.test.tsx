@@ -202,7 +202,7 @@ describe('CheckoutClient', () => {
       expect(screen.getByText('Order Summary')).toBeDefined();
     });
 
-    expect(screen.getByText('Walking Tour')).toBeDefined();
+    expect(screen.getAllByText('Walking Tour').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('£70.00').length).toBeGreaterThanOrEqual(1);
   });
 

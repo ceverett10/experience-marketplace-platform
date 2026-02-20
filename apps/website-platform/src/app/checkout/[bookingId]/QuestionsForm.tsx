@@ -383,7 +383,30 @@ export function QuestionsForm({
     if (!termsAccepted) newErrors['terms'] = 'You must accept the terms and conditions';
 
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+
+    const errorKeys = Object.keys(newErrors);
+    if (errorKeys.length > 0) {
+      // Scroll to first error field
+      const firstKey = errorKeys[0]!;
+      const testIdMap: Record<string, string> = {
+        firstName: 'lead-first-name',
+        lastName: 'lead-last-name',
+        email: 'lead-email',
+        phone: 'lead-phone',
+        terms: 'terms-checkbox',
+      };
+      const testId =
+        testIdMap[firstKey] ??
+        (firstKey.startsWith('q_') ? `dynamic-question-${firstKey.slice(2)}` : undefined);
+      if (testId) {
+        const el = document.querySelector(`[data-testid="${testId}"]`);
+        if (el && typeof el.scrollIntoView === 'function') {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }
+    }
+
+    return errorKeys.length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -436,6 +459,7 @@ export function QuestionsForm({
                   : 'border-gray-300 focus:border-teal-500 focus:ring-teal-500'
               }`}
               placeholder="First name *"
+              autoComplete="given-name"
               data-testid="lead-first-name"
             />
             {errors['firstName'] && (
@@ -454,6 +478,7 @@ export function QuestionsForm({
                   : 'border-gray-300 focus:border-teal-500 focus:ring-teal-500'
               }`}
               placeholder="Last name *"
+              autoComplete="family-name"
               data-testid="lead-last-name"
             />
             {errors['lastName'] && (
@@ -472,6 +497,7 @@ export function QuestionsForm({
                   : 'border-gray-300 focus:border-teal-500 focus:ring-teal-500'
               }`}
               placeholder="Email Address *"
+              autoComplete="email"
               data-testid="lead-email"
             />
             {errors['email'] && <p className="mt-1 text-xs text-red-500">{errors['email']}</p>}
@@ -482,6 +508,7 @@ export function QuestionsForm({
               value={phoneCountryCode}
               onChange={(e) => setPhoneCountryCode(e.target.value)}
               className="w-24 rounded-lg border border-gray-300 bg-white px-3 py-3 text-sm focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500"
+              autoComplete="tel-country-code"
             >
               <option value="+44">+44</option>
               <option value="+1">+1</option>
@@ -512,6 +539,7 @@ export function QuestionsForm({
                   : 'border-gray-300 focus:border-teal-500 focus:ring-teal-500'
               }`}
               placeholder="Phone Number *"
+              autoComplete="tel-national"
               data-testid="lead-phone"
             />
           </div>

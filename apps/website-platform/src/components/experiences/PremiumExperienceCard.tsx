@@ -51,7 +51,7 @@ function QuickActionButtons() {
     <div className="flex gap-2">
       <button
         type="button"
-        className="flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-gray-600 shadow-sm backdrop-blur-sm transition-all hover:bg-white hover:text-rose-500"
+        className="flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-gray-600 shadow-sm backdrop-blur-sm transition-all hover:bg-white hover:text-rose-500"
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -74,7 +74,7 @@ function QuickActionButtons() {
       </button>
       <button
         type="button"
-        className="flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-gray-600 shadow-sm backdrop-blur-sm transition-all hover:bg-white hover:text-blue-500"
+        className="flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-gray-600 shadow-sm backdrop-blur-sm transition-all hover:bg-white hover:text-blue-500"
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -101,7 +101,7 @@ function QuickActionButtons() {
 
 // Heart/Wishlist button component - always visible for better UX
 function WishlistButton({ size = 'default' }: { size?: 'default' | 'small' }) {
-  const sizeClasses = size === 'small' ? 'h-8 w-8' : 'h-9 w-9';
+  const sizeClasses = size === 'small' ? 'h-10 w-10' : 'h-11 w-11';
   const iconSize = size === 'small' ? 'h-4 w-4' : 'h-5 w-5';
 
   return (

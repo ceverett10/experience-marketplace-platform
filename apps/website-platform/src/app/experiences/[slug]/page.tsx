@@ -1,5 +1,6 @@
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
+import Image from 'next/image';
 import type { Metadata } from 'next';
 import { getSiteFromHostname } from '@/lib/tenant';
 import { isMicrosite } from '@/lib/microsite-experiences';
@@ -998,18 +999,22 @@ export default async function ExperienceDetailPage({ params }: Props) {
                   </div>
                 </div>
                 {/* Map */}
-                <div className="mt-4 h-48 overflow-hidden rounded-lg bg-gray-100">
+                <div className="relative mt-4 h-48 overflow-hidden rounded-lg bg-gray-100">
                   {experience.location.mapImageUrl ? (
-                    <img
+                    <Image
                       src={experience.location.mapImageUrl}
                       alt={`Map showing ${experience.location.name}`}
-                      className="h-full w-full object-cover"
+                      fill
+                      className="object-cover"
+                      unoptimized
                     />
                   ) : experience.location.lat && experience.location.lng ? (
-                    <img
+                    <Image
                       src={`https://maps.googleapis.com/maps/api/staticmap?center=${experience.location.lat},${experience.location.lng}&zoom=15&size=640x400&markers=color:red|${experience.location.lat},${experience.location.lng}&maptype=roadmap&key=${process.env['NEXT_PUBLIC_GOOGLE_MAPS_API_KEY'] || ''}`}
                       alt={`Map showing ${experience.location.name}`}
-                      className="h-full w-full object-cover"
+                      fill
+                      className="object-cover"
+                      unoptimized
                     />
                   ) : (
                     <div className="flex h-full items-center justify-center text-gray-400">
