@@ -217,6 +217,20 @@ describe('PremiumExperienceCard', () => {
     });
   });
 
+  describe('touch target sizes', () => {
+    it('quick action buttons use h-11 w-11 sizing for 44px touch targets', () => {
+      renderWithProviders(<PremiumExperienceCard experience={mockExperience} variant="featured" />);
+
+      const favoriteButton = screen.getByLabelText('Add to favorites');
+      const shareButton = screen.getByLabelText('Share');
+
+      expect(favoriteButton.className).toMatch(/h-11/);
+      expect(favoriteButton.className).toMatch(/w-11/);
+      expect(shareButton.className).toMatch(/h-11/);
+      expect(shareButton.className).toMatch(/w-11/);
+    });
+  });
+
   describe('placeholder images', () => {
     it('uses placeholder when imageUrl is empty', () => {
       const experience = createMockExperience({ imageUrl: '' });

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import type { SiteConfig } from '@/lib/tenant';
 import { QuestionsForm, type GuestData } from './QuestionsForm';
 import { StripePaymentForm } from './StripePaymentForm';
@@ -28,6 +29,7 @@ import {
   calculatePromoPrice,
   DEFAULT_PRICING_CONFIG,
 } from '@/lib/pricing';
+import { MobileOrderSummary } from '@/components/checkout/MobileOrderSummary';
 
 interface CheckoutClientProps {
   bookingId: string;
@@ -141,7 +143,11 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
               ? `There ${unanswered === 1 ? 'is' : 'are'} ${unanswered} additional question${unanswered === 1 ? '' : 's'} that require${unanswered === 1 ? 's' : ''} your attention. Please complete all fields below.`
               : 'Please complete all required information to continue.'
           );
-          window.scrollTo({ top: 0, behavior: 'smooth' });
+          // Scroll to error banner
+          setTimeout(() => {
+            const errorBanner = document.querySelector('[data-testid="checkout-error"]');
+            errorBanner?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }, 50);
         }
       }
     } catch (err) {
@@ -370,7 +376,7 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
                   <div className="flex flex-1 flex-col items-center">
                     <div className="flex items-center gap-2">
                       <div
-                        className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold ${
+                        className={`flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold sm:h-8 sm:w-8 ${
                           isCompleted
                             ? 'bg-green-500 text-white'
                             : isActive
@@ -399,7 +405,7 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
                       </div>
                     </div>
                     <span
-                      className={`mt-1 text-xs font-medium ${isActive ? 'text-gray-900' : 'text-gray-500'}`}
+                      className={`mt-1 hidden text-xs font-medium sm:inline ${isActive ? 'text-gray-900' : 'text-gray-500'}`}
                     >
                       {item.label}
                     </span>
@@ -415,7 +421,17 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+        {/* Mobile Order Summary - sticky bar visible only on mobile */}
+        <MobileOrderSummary
+          experienceName={firstAvailability?.product?.name ?? 'Experience'}
+          date={firstAvailability ? formatDate(firstAvailability.date) : undefined}
+          totalPrice={booking.totalPrice?.grossFormattedText}
+          guestCount={totalGuests}
+          imageUrl={firstAvailability?.product?.imageList?.nodes?.[0]?.url}
+          primaryColor={primaryColor}
+        />
+
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
           {/* Main Content */}
           <div className="lg:col-span-2">
             {/* Error Message */}
@@ -574,6 +590,23 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
                   </div>
                 </div>
 
+                {/* Proceed to Payment - mobile only (desktop button is in sidebar) */}
+                {!showPayment && canCommit && (
+                  <div className="lg:hidden">
+                    <button
+                      onClick={handleProceedToPayment}
+                      className="w-full rounded-xl py-4 text-base font-semibold text-white transition-all hover:shadow-lg"
+                      style={{ backgroundColor: primaryColor }}
+                      data-testid="proceed-to-payment-mobile"
+                    >
+                      Proceed to Payment
+                    </button>
+                    <p className="mt-3 text-center text-xs text-gray-500">
+                      You&apos;ll complete your payment on the next step.
+                    </p>
+                  </div>
+                )}
+
                 {/* Payment Section */}
                 {showPayment ? (
                   <div
@@ -628,18 +661,21 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
             )}
           </div>
 
-          {/* Order Summary */}
-          <div>
+          {/* Order Summary - hidden on mobile (shown via MobileOrderSummary instead) */}
+          <div className="hidden lg:block" data-testid="order-summary-sidebar">
             <div className="sticky top-8 rounded-xl bg-white p-6 shadow-lg">
               <h2 className="mb-4 text-lg font-semibold text-gray-900">Order Summary</h2>
 
               {/* Experience Image */}
               {firstAvailability?.product?.imageList?.nodes?.[0]?.url && (
-                <div className="mb-4 overflow-hidden rounded-lg">
-                  <img
+                <div className="relative mb-4 h-32 overflow-hidden rounded-lg">
+                  <Image
                     src={firstAvailability.product.imageList.nodes[0].url}
                     alt={firstAvailability.product.name}
-                    className="h-32 w-full object-cover"
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 1024px) 100vw, 33vw"
+                    unoptimized
                   />
                 </div>
               )}
@@ -757,7 +793,7 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
 
               {/* Trust badges */}
               <div className="mt-6 space-y-2">
-                <div className="flex flex-wrap items-center justify-center gap-3 text-xs text-gray-500">
+                <div className="flex flex-col items-center gap-2 text-xs text-gray-500 sm:flex-row sm:flex-wrap sm:justify-center sm:gap-3">
                   <div className="flex items-center gap-1">
                     <svg
                       className="h-4 w-4 text-emerald-500"
