@@ -135,8 +135,8 @@ jobs:
       - name: Install Rollup native binary (workaround for npm bug)
         run: npm install @rollup/rollup-linux-x64-gnu
 
-      - name: Install Playwright Chromium
-        run: npx playwright install chromium --with-deps
+      - name: Install Playwright browsers
+        run: npx playwright install chromium webkit --with-deps
         working-directory: apps/website-platform
 
       - name: Generate Prisma Client
