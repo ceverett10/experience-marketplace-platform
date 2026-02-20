@@ -686,9 +686,11 @@ model Booking {
   gclid  String? // Google Ads click ID
   fbclid String? // Meta/Facebook click ID
 
-  // Relationships
-  site   Site   @relation(fields: [siteId], references: [id])
-  siteId String
+  // Relationships — a booking belongs to either a Site or a MicrositeConfig
+  site          Site?            @relation(fields: [siteId], references: [id])
+  siteId        String?
+  microsite     MicrositeConfig? @relation(fields: [micrositeId], references: [id])
+  micrositeId   String?
 
   // Timestamps
   createdAt   DateTime  @default(now())
@@ -696,6 +698,7 @@ model Booking {
   completedAt DateTime?
 
   @@index([siteId])
+  @@index([micrositeId])
   @@index([status])
   @@index([createdAt])
   @@index([siteId, holibobProductId, createdAt]) // For booking analytics queries
@@ -1609,6 +1612,7 @@ model MicrositeConfig {
   performanceMetrics MicrositePerformanceMetric[]
   subscribers        Subscriber[]
   adCampaigns        AdCampaign[]
+  bookings           Booking[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
