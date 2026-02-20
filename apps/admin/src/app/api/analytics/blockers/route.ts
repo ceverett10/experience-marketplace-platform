@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 
 /**
  * GET /api/analytics/blockers
- * Returns flow blockers (high bounce rate pages, high exit pages) across all sites
+ * Returns flow blockers (high bounce rate, low CTR) across all sites AND microsites
  *
  * Severity thresholds:
  * - Critical: bounceRate > 85% or exitRate > 75%
@@ -38,21 +38,41 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       return !!seoConfig['ga4PropertyId'];
     });
 
-    const siteMap = new Map(sites.map((s) => [s.id, s]));
+    // Build name lookup for both sites and microsites
+    const nameMap = new Map(sites.map((s) => [s.id, s.name]));
 
-    // Fetch snapshots to get average bounce rate per site
-    const snapshots = await prisma.siteAnalyticsSnapshot.groupBy({
-      by: ['siteId'],
-      where: {
-        siteId: { in: ga4Sites.map((s) => s.id) },
-        date: { gte: start, lte: end },
-        ga4Synced: true,
-      },
-      _avg: { bounceRate: true, engagementRate: true },
-      _sum: { sessions: true, pageviews: true },
+    const microsites = await prisma.micrositeConfig.findMany({
+      where: { status: 'ACTIVE' },
+      select: { id: true, siteName: true },
     });
+    for (const ms of microsites) {
+      nameMap.set(ms.id, ms.siteName);
+    }
 
-    // Identify high bounce rate sites
+    // Fetch snapshots from both sites and microsites
+    const [siteSnapshots, micrositeSnapshots] = await Promise.all([
+      prisma.siteAnalyticsSnapshot.groupBy({
+        by: ['siteId'],
+        where: {
+          siteId: { in: ga4Sites.map((s) => s.id) },
+          date: { gte: start, lte: end },
+          ga4Synced: true,
+        },
+        _avg: { bounceRate: true, engagementRate: true },
+        _sum: { sessions: true, pageviews: true },
+      }),
+      prisma.micrositeAnalyticsSnapshot.groupBy({
+        by: ['micrositeId'],
+        where: {
+          date: { gte: start, lte: end },
+          ga4Synced: true,
+        },
+        _avg: { bounceRate: true, engagementRate: true },
+        _sum: { sessions: true, pageviews: true },
+      }),
+    ]);
+
+    // Identify high bounce rate sites/microsites
     const highBounce: Array<{
       siteId: string;
       siteName: string;
@@ -83,57 +103,86 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       pageviews: number;
     }> = [];
 
-    // Fetch page-level GSC metrics for low-CTR analysis
-    const pageLevelMetrics = await prisma.performanceMetric.groupBy({
-      by: ['pageUrl', 'siteId'],
-      where: {
-        date: { gte: start, lte: end },
-        pageUrl: { not: null },
-      },
-      _sum: { clicks: true, impressions: true },
-      _avg: { ctr: true, position: true },
-      orderBy: { _sum: { impressions: 'desc' } },
-      take: 200,
-    });
+    // Helper to process bounce/engagement data from either source
+    const processSnapshot = (
+      entityId: string,
+      data: {
+        _avg: { bounceRate: number | null; engagementRate: number | null };
+        _sum: { sessions: number | null; pageviews: number | null };
+      }
+    ) => {
+      const name = nameMap.get(entityId);
+      if (!name) return;
 
-    // Site-level bounce rate analysis
-    for (const snapshot of snapshots) {
-      const site = siteMap.get(snapshot.siteId);
-      if (!site) continue;
+      const bounceRate = data._avg.bounceRate || 0;
+      const engagementRate = data._avg.engagementRate || 0;
+      const sessions = data._sum.sessions || 0;
 
-      const bounceRate = snapshot._avg.bounceRate || 0;
-      const engagementRate = snapshot._avg.engagementRate || 0;
-      const sessions = snapshot._sum.sessions || 0;
-
-      // Site-level bounce rate issues
+      // Bounce rate issues
       if (bounceRate > 55 && sessions > 10) {
         let severity: 'critical' | 'warning' | 'info' = 'info';
         if (bounceRate > 85) severity = 'critical';
         else if (bounceRate > 70) severity = 'warning';
 
         highBounce.push({
-          siteId: snapshot.siteId,
-          siteName: site.name,
-          pagePath: '/', // Site-level metric
-          pageTitle: `${site.name} (Site Average)`,
-          bounceRate: bounceRate * 100, // Convert to percentage
+          siteId: entityId,
+          siteName: name,
+          pagePath: '/',
+          pageTitle: `${name} (Site Average)`,
+          bounceRate: bounceRate * 100,
           entrances: sessions,
-          avgTimeOnPage: 0, // Would need page-level data
+          avgTimeOnPage: 0,
           severity,
         });
       }
 
-      // Low engagement sites
+      // Low engagement
       if (engagementRate < 0.45 && sessions > 10) {
         lowEngagement.push({
-          siteId: snapshot.siteId,
-          siteName: site.name,
+          siteId: entityId,
+          siteName: name,
           pagePath: '/',
-          avgTimeOnPage: 0, // Would need page-level data
-          pageviews: snapshot._sum.pageviews || 0,
+          avgTimeOnPage: 0,
+          pageviews: data._sum.pageviews || 0,
         });
       }
+    };
+
+    // Process site snapshots
+    for (const snapshot of siteSnapshots) {
+      processSnapshot(snapshot.siteId, snapshot);
     }
+
+    // Process microsite snapshots
+    for (const snapshot of micrositeSnapshots) {
+      processSnapshot(snapshot.micrositeId, snapshot);
+    }
+
+    // Fetch page-level GSC metrics for low-CTR analysis (sites + microsites)
+    const [siteMetrics, micrositeMetrics] = await Promise.all([
+      prisma.performanceMetric.groupBy({
+        by: ['pageUrl', 'siteId'],
+        where: {
+          date: { gte: start, lte: end },
+          pageUrl: { not: null },
+        },
+        _sum: { clicks: true, impressions: true },
+        _avg: { ctr: true, position: true },
+        orderBy: { _sum: { impressions: 'desc' } },
+        take: 200,
+      }),
+      prisma.micrositePerformanceMetric.groupBy({
+        by: ['pageUrl', 'micrositeId'],
+        where: {
+          date: { gte: start, lte: end },
+          pageUrl: { not: null },
+        },
+        _sum: { clicks: true, impressions: true },
+        _avg: { ctr: true, position: true },
+        orderBy: { _sum: { impressions: 'desc' } },
+        take: 200,
+      }),
+    ]);
 
     // Identify low-CTR pages (ranking but not getting clicks)
     const lowCTR: Array<{
@@ -147,9 +196,17 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       severity: 'critical' | 'warning' | 'info';
     }> = [];
 
-    for (const metric of pageLevelMetrics) {
-      const site = siteMap.get(metric.siteId);
-      if (!site) continue;
+    // Helper to process CTR metrics from either source
+    const processCTRMetric = (
+      entityId: string,
+      metric: {
+        pageUrl: string | null;
+        _sum: { clicks: number | null; impressions: number | null };
+        _avg: { ctr: number | null; position: number | null };
+      }
+    ) => {
+      const name = nameMap.get(entityId);
+      if (!name) return;
 
       const impressions = metric._sum.impressions || 0;
       const clicks = metric._sum.clicks || 0;
@@ -163,16 +220,26 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         else if (ctr < 2 && impressions >= 100) severity = 'warning';
 
         lowCTR.push({
-          siteId: metric.siteId,
-          siteName: site.name,
+          siteId: entityId,
+          siteName: name,
           pagePath: metric.pageUrl!,
-          pageTitle: `${site.name} - ${metric.pageUrl}`,
+          pageTitle: `${name} - ${metric.pageUrl}`,
           ctr,
           impressions,
           position,
           severity,
         });
       }
+    };
+
+    // Process site metrics
+    for (const metric of siteMetrics) {
+      processCTRMetric(metric.siteId, metric);
+    }
+
+    // Process microsite metrics
+    for (const metric of micrositeMetrics) {
+      processCTRMetric(metric.micrositeId, metric);
     }
 
     // Sort low CTR by severity then by impressions (biggest opportunity first)

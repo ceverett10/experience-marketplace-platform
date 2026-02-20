@@ -18,20 +18,27 @@ export async function GET(): Promise<NextResponse> {
     const [
       totalSites,
       activeSites,
+      activeMicrosites,
       currentBookings,
       currentRevenue,
       previousBookings,
       previousRevenue,
-      sessionsData,
+      siteSessionsData,
+      micrositeSessionsData,
       revenuePerSite,
       contentPending,
       topSites,
     ] = await Promise.all([
-      // Total sites count
+      // Total sites count (includes microsites)
       prisma.site.count(),
 
       // Active sites count
       prisma.site.count({
+        where: { status: 'ACTIVE' },
+      }),
+
+      // Active microsites count
+      prisma.micrositeConfig.count({
         where: { status: 'ACTIVE' },
       }),
 
@@ -63,8 +70,14 @@ export async function GET(): Promise<NextResponse> {
         },
       }),
 
-      // Total sessions from analytics snapshots (last 30 days) for conversion rate
+      // Site sessions (last 30 days) for conversion rate
       prisma.siteAnalyticsSnapshot.aggregate({
+        _sum: { sessions: true },
+        where: { date: { gte: thirtyDaysAgo, lte: now } },
+      }),
+
+      // Microsite sessions (last 30 days) for conversion rate
+      prisma.micrositeAnalyticsSnapshot.aggregate({
         _sum: { sessions: true },
         where: { date: { gte: thirtyDaysAgo, lte: now } },
       }),
@@ -108,8 +121,9 @@ export async function GET(): Promise<NextResponse> {
     const totalRevenue = Number(currentRevenue._sum.totalAmount || 0);
     const prevRevenue = Number(previousRevenue._sum.totalAmount || 0);
 
-    // Real conversion rate from sessions data
-    const totalSessions = sessionsData._sum.sessions || 0;
+    // Real conversion rate from combined site + microsite sessions
+    const totalSessions =
+      (siteSessionsData._sum.sessions || 0) + (micrositeSessionsData._sum.sessions || 0);
     const conversionRate =
       totalSessions > 0 ? ((currentBookings / totalSessions) * 100).toFixed(1) : '0.0';
 
@@ -120,8 +134,8 @@ export async function GET(): Promise<NextResponse> {
 
     return NextResponse.json({
       stats: {
-        totalSites,
-        activeSites,
+        totalSites: totalSites + activeMicrosites,
+        activeSites: activeSites + activeMicrosites,
         totalBookings: currentBookings,
         totalRevenue,
         conversionRate: parseFloat(conversionRate),
