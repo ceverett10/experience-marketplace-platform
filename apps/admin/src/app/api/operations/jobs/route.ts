@@ -5,6 +5,13 @@ import { prisma } from '@/lib/prisma';
 import { getJobQueue, addJob } from '@experience-marketplace/jobs';
 
 /**
+ * Check if a value from addJob() is a real job ID (UUID) vs a dedup/budget sentinel string.
+ */
+function isJobId(value: string): boolean {
+  return !value.startsWith('dedup:') && !value.startsWith('budget-exceeded:');
+}
+
+/**
  * GET /api/operations/jobs
  * Returns paginated job list from database with filtering and sorting
  */
@@ -82,6 +89,7 @@ export async function GET(request: Request): Promise<NextResponse> {
       statsMap[s.status] = s._count._all;
     }
     const pending = statsMap['PENDING'] || 0;
+    const scheduled = statsMap['SCHEDULED'] || 0;
     const running = statsMap['RUNNING'] || 0;
     const completed = statsMap['COMPLETED'] || 0;
     const failed = statsMap['FAILED'] || 0;
@@ -119,7 +127,7 @@ export async function GET(request: Request): Promise<NextResponse> {
         total,
         totalPages: Math.ceil(total / limit),
       },
-      stats: { pending, running, completed, failed, total },
+      stats: { pending, scheduled, running, completed, failed, total },
     });
   } catch (error) {
     console.error('[API] Error fetching jobs:', error);
@@ -214,7 +222,18 @@ export async function POST(request: Request): Promise<NextResponse> {
       }
 
       // Re-queue as new job
-      const newJobId = await addJob(job.type as any, job.payload as any);
+      const result = await addJob(job.type as any, job.payload as any);
+
+      // Handle dedup/budget sentinel values from addJob()
+      if (!isJobId(result)) {
+        return NextResponse.json({
+          success: false,
+          message: result.startsWith('dedup:')
+            ? `Job ${jobId} not retried — duplicate already queued`
+            : `Job ${jobId} not retried — daily budget exceeded for queue`,
+        });
+      }
+
       await prisma.job.update({
         where: { id: jobId },
         data: { status: 'CANCELLED' },
@@ -222,8 +241,8 @@ export async function POST(request: Request): Promise<NextResponse> {
 
       return NextResponse.json({
         success: true,
-        message: `Job ${jobId} re-queued as ${newJobId}`,
-        newJobId,
+        message: `Job ${jobId} re-queued as ${result}`,
+        newJobId: result,
       });
     }
 
@@ -240,9 +259,14 @@ export async function POST(request: Request): Promise<NextResponse> {
       });
 
       let retried = 0;
+      let skipped = 0;
       for (const job of failedJobs) {
         try {
-          await addJob(job.type as any, job.payload as any);
+          const result = await addJob(job.type as any, job.payload as any);
+          if (!isJobId(result)) {
+            skipped++;
+            continue;
+          }
           await prisma.job.update({
             where: { id: job.id },
             data: { status: 'CANCELLED' },
@@ -255,8 +279,9 @@ export async function POST(request: Request): Promise<NextResponse> {
 
       return NextResponse.json({
         success: true,
-        message: `${retried} of ${failedJobs.length} failed jobs re-queued`,
+        message: `${retried} of ${failedJobs.length} failed jobs re-queued${skipped > 0 ? ` (${skipped} skipped: dedup/budget)` : ''}`,
         retried,
+        skipped,
         total: failedJobs.length,
       });
     }

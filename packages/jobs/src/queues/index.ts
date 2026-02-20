@@ -210,7 +210,15 @@ class QueueRegistry {
       if (count > limit) {
         // Log at 100% — budget exceeded, job is dropped
         console.warn(
-          `[Queue] Daily budget exceeded for ${queueName}: ${count}/${limit} — dropping ${jobType}${siteId ? ` (site: ${siteId})` : ''}`
+          JSON.stringify({
+            event: 'job_budget_exceeded',
+            queue: queueName,
+            jobType,
+            siteId: siteId || undefined,
+            budgetCount: count,
+            budgetLimit: limit,
+            timestamp: new Date().toISOString(),
+          })
         );
         return `budget-exceeded:${queueName}:${jobType}`;
       }
