@@ -205,7 +205,7 @@ describe('GuestSelector - Mobile touch targets', () => {
     { typeId: 'infant', count: 0 },
   ];
 
-  it('increment/decrement buttons use h-8 w-8 sizing', () => {
+  it('increment/decrement buttons use h-11 w-11 sizing for 44px touch targets', () => {
     renderWithProvider(
       <GuestSelector guestCounts={defaultGuestCounts} onGuestCountChange={mockOnGuestCountChange} />
     );
@@ -213,10 +213,9 @@ describe('GuestSelector - Mobile touch targets', () => {
     const increaseButtons = screen.getAllByLabelText(/Increase.*count/i);
     const decreaseButtons = screen.getAllByLabelText(/Decrease.*count/i);
 
-    // Verify current button size classes (will be updated to h-11 w-11 in Phase 1)
     for (const button of [...increaseButtons, ...decreaseButtons]) {
-      expect(button.className).toMatch(/h-8/);
-      expect(button.className).toMatch(/w-8/);
+      expect(button.className).toMatch(/h-11/);
+      expect(button.className).toMatch(/w-11/);
     }
   });
 });

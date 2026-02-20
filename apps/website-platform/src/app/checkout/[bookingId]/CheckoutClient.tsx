@@ -141,7 +141,11 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
               ? `There ${unanswered === 1 ? 'is' : 'are'} ${unanswered} additional question${unanswered === 1 ? '' : 's'} that require${unanswered === 1 ? 's' : ''} your attention. Please complete all fields below.`
               : 'Please complete all required information to continue.'
           );
-          window.scrollTo({ top: 0, behavior: 'smooth' });
+          // Scroll to error banner
+          setTimeout(() => {
+            const errorBanner = document.querySelector('[data-testid="checkout-error"]');
+            errorBanner?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }, 50);
         }
       }
     } catch (err) {
