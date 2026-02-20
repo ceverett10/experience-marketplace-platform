@@ -54,6 +54,7 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
   const [error, setError] = useState<string | null>(null);
   const [bookingNotFound, setBookingNotFound] = useState(false);
   const paymentSectionRef = useRef<HTMLDivElement>(null);
+  const reviewSectionRef = useRef<HTMLDivElement>(null);
 
   // Fetch booking and questions on mount (client-side for E2E testability)
   useEffect(() => {
@@ -161,6 +162,15 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
       currency: booking.totalPrice?.currency ?? 'GBP',
     });
   };
+
+  // Auto-scroll to review section when guest details are completed
+  useEffect(() => {
+    if (questionsAnswered && reviewSectionRef.current) {
+      setTimeout(() => {
+        reviewSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    }
+  }, [questionsAnswered]);
 
   // Auto-scroll to payment section when it becomes visible
   useEffect(() => {
@@ -437,7 +447,7 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
 
             {/* Review Section (if questions completed) */}
             {questionsAnswered && (
-              <div className="space-y-6" data-testid="checkout-review-step">
+              <div ref={reviewSectionRef} className="space-y-6" data-testid="checkout-review-step">
                 {/* Booking Details */}
                 <div className="rounded-xl bg-white p-6 shadow-lg">
                   <h2 className="mb-4 text-lg font-semibold text-gray-900">Booking Details</h2>
