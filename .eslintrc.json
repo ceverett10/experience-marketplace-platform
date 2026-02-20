@@ -33,7 +33,17 @@
     "@typescript-eslint/no-misused-promises": "off",
     "no-console": ["warn", { "allow": ["warn", "error", "info"] }]
   },
-  "ignorePatterns": ["node_modules", "dist", ".next", "coverage", "*.js", "*.cjs", "*.mjs"],
+  "ignorePatterns": [
+    "node_modules",
+    "dist",
+    ".next",
+    "coverage",
+    "*.js",
+    "*.cjs",
+    "*.mjs",
+    "**/e2e/**",
+    "**/playwright.config.ts"
+  ],
   "overrides": [
     {
       "files": ["**/*.test.ts", "**/*.test.tsx", "**/__tests__/**/*"],
