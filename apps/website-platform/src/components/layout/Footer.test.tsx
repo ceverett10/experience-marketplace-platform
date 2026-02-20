@@ -9,7 +9,7 @@ describe('Footer', () => {
     expect(screen.getByText('Experience Marketplace')).toBeInTheDocument();
   });
 
-  it('should render logo when logoUrl is provided', () => {
+  it('should render text logo even when logoUrl is provided', () => {
     const siteConfig = createMockSiteConfig({
       name: 'Test Site',
       brand: {
@@ -30,8 +30,8 @@ describe('Footer', () => {
 
     renderWithProviders(<Footer />, { siteConfig });
 
-    const logo = screen.getByAltText('Test Site');
-    expect(logo).toBeInTheDocument();
+    // Text-only logos — image logos are disabled
+    expect(screen.getByText('Test Site')).toBeInTheDocument();
   });
 
   it('should render brand tagline when provided', () => {
