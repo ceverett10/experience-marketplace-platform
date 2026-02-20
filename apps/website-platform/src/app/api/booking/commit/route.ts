@@ -8,7 +8,7 @@
  * - Optionally wait for supplier confirmation
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { z } from 'zod';
 import { getSiteFromHostname } from '@/lib/tenant';
@@ -195,6 +195,9 @@ export async function POST(request: NextRequest) {
           commissionRate = (commissionAmount / gross) * 100;
         }
 
+        // Determine whether this booking is on a Site or a MicrositeConfig
+        const isMicrosite = !!site.micrositeContext;
+
         await prisma.booking.upsert({
           where: { holibobBookingId: resolvedBookingId },
           create: {
@@ -204,7 +207,9 @@ export async function POST(request: NextRequest) {
             status: booking.state === 'CONFIRMED' ? 'CONFIRMED' : 'PENDING',
             totalAmount: gross || 0,
             currency: booking.totalPrice?.currency || 'GBP',
-            siteId: site.id,
+            // Link to either Site or MicrositeConfig (not both)
+            siteId: isMicrosite ? null : site.id,
+            micrositeId: isMicrosite ? site.micrositeContext!.micrositeId : null,
             utmSource,
             utmMedium,
             utmCampaign,
