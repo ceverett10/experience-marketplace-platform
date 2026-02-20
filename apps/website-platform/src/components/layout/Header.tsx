@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
 import { useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useSite, useBrand } from '@/lib/site-context';
@@ -108,49 +107,26 @@ export function Header() {
         {/* Logo */}
         <div className="flex lg:flex-1">
           <Link href="/" className="-m-1.5 p-3">
-            {brand?.logoUrl ? (
-              <div className="flex items-end gap-2">
-                <div className="relative h-16 w-64 sm:h-20 sm:w-80 lg:h-24 lg:w-96">
-                  <Image
-                    className="object-contain object-left"
-                    src={brand.logoUrl}
-                    alt={site.name}
-                    fill
-                    sizes="(min-width: 1024px) 384px, (min-width: 640px) 320px, 256px"
-                    priority
-                  />
-                </div>
-                {isMicrosite && (
-                  <span className="hidden text-[11px] text-gray-400 sm:inline">
-                    powered by{' '}
-                    <span className="text-gray-500 hover:text-gray-700 hover:underline">
-                      Experiencess.com
-                    </span>
-                  </span>
-                )}
-              </div>
-            ) : (
-              <div className="flex items-baseline gap-2">
-                <span
-                  className="text-xl font-bold"
-                  style={{ color: brand?.primaryColor ?? '#6366f1' }}
-                >
-                  {site.name}
+            <div className="flex items-baseline gap-2">
+              <span
+                className="text-xl font-bold"
+                style={{ color: brand?.primaryColor ?? '#6366f1' }}
+              >
+                {site.name}
+              </span>
+              {isMicrosite && (
+                <span className="hidden text-[11px] text-gray-400 sm:inline">
+                  powered by{' '}
+                  <a
+                    href="https://experiencess.com"
+                    className="text-gray-500 hover:text-gray-700 hover:underline"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Experiencess.com
+                  </a>
                 </span>
-                {isMicrosite && (
-                  <span className="hidden text-[11px] text-gray-400 sm:inline">
-                    powered by{' '}
-                    <a
-                      href="https://experiencess.com"
-                      className="text-gray-500 hover:text-gray-700 hover:underline"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      Experiencess.com
-                    </a>
-                  </span>
-                )}
-              </div>
-            )}
+              )}
+            </div>
           </Link>
         </div>
 

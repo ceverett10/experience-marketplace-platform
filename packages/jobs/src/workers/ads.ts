@@ -154,6 +154,7 @@ export async function handleAdCampaignSync(job: Job): Promise<JobResult> {
       platformCampaignId: true,
       utmCampaign: true,
       siteId: true,
+      micrositeId: true,
     },
   });
 
@@ -219,14 +220,19 @@ export async function handleAdCampaignSync(job: Job): Promise<JobResult> {
 
       if (!insights) continue;
 
-      // Match conversions via UTM campaign attribution
+      // Match conversions via UTM campaign attribution (supports both site and microsite bookings)
+      const bookingWhere: Record<string, unknown> = {
+        utmCampaign: campaign.utmCampaign,
+        status: { in: ['CONFIRMED', 'COMPLETED'] },
+        createdAt: { gte: yesterday, lte: new Date() },
+      };
+      if (campaign.micrositeId) {
+        bookingWhere['micrositeId'] = campaign.micrositeId;
+      } else if (campaign.siteId) {
+        bookingWhere['siteId'] = campaign.siteId;
+      }
       const bookingRevenue = await prisma.booking.aggregate({
-        where: {
-          siteId: campaign.siteId,
-          utmCampaign: campaign.utmCampaign,
-          status: { in: ['CONFIRMED', 'COMPLETED'] },
-          createdAt: { gte: yesterday, lte: new Date() },
-        },
+        where: bookingWhere as any,
         _sum: { commissionAmount: true },
         _count: true,
       });
