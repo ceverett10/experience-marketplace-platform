@@ -38,6 +38,7 @@ import {
   migrateToSmartBidding,
   addCampaignNegativeKeywords,
   getSearchTermReport,
+  setCampaignGeoTargets,
 } from '../services/google-ads-client';
 import { PAID_TRAFFIC_CONFIG } from '../config/paid-traffic';
 import {
@@ -1588,10 +1589,11 @@ async function deployToGoogle(
     dailyBudget: number;
     maxCpc: number;
     keywords: string[];
+    geoTargets?: string[];
     audiences?: unknown;
     siteId?: string | null;
     landingPagePath?: string | null;
-    site?: { name: string } | null;
+    site?: { name: string; targetMarkets?: string[] } | null;
   },
   landingUrl: string
 ): Promise<string | null> {
@@ -1769,8 +1771,25 @@ async function deployToGoogle(
       );
     }
 
+    // Step 5: Set geo-targeting (source markets where buyers live)
+    // Uses PRESENCE_OR_INTEREST so someone in London searching "boat tours Barcelona"
+    // still sees the ad. Falls back to site.targetMarkets → default source markets.
+    const geoTargetCountries = campaign.geoTargets ??
+      campaign.site?.targetMarkets ?? ['GB', 'US', 'CA', 'AU', 'IE', 'NZ'];
+    let geoTargetsApplied = 0;
+    try {
+      geoTargetsApplied = await setCampaignGeoTargets(
+        campaignResult.campaignId,
+        geoTargetCountries
+      );
+    } catch {
+      console.warn(
+        `[Ads Worker] Failed to set geo targets on campaign ${campaignResult.campaignId}`
+      );
+    }
+
     console.log(
-      `[Ads Worker] Deployed Google campaign ${campaignResult.campaignId}: "${campaign.name}" (${adGroupsCreated} ad groups, ${negativesAdded} negatives, coherence: ${primaryRsa?.coherenceScore ?? 'N/A'}/10)`
+      `[Ads Worker] Deployed Google campaign ${campaignResult.campaignId}: "${campaign.name}" (${adGroupsCreated} ad groups, ${negativesAdded} negatives, ${geoTargetsApplied} geo targets, coherence: ${primaryRsa?.coherenceScore ?? 'N/A'}/10)`
     );
     return campaignResult.campaignId;
   } catch (err) {
