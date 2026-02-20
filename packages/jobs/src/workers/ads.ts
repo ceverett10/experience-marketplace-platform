@@ -1826,7 +1826,7 @@ export async function deployDraftCampaigns(
   // Track consecutive failures per platform to fail-fast on platform-wide issues
   // (e.g. Google token not approved, API version deprecated)
   const consecutiveFailures: Record<string, number> = {};
-  const FAIL_FAST_THRESHOLD = 50; // High threshold: rate limits cause transient failures
+  const FAIL_FAST_THRESHOLD = 200; // Very high: rate limits cause many transient failures
   const failedPlatforms = new Set<string>();
 
   for (const draft of drafts) {
@@ -1839,7 +1839,7 @@ export async function deployDraftCampaigns(
     // Cooldown on consecutive failures — likely rate limit, wait for it to reset
     const currentFailures = consecutiveFailures[draft.platform] || 0;
     if (currentFailures >= 3) {
-      const cooldownMs = Math.min(currentFailures * 30_000, 120_000); // 30s–2min
+      const cooldownMs = Math.min(currentFailures * 30_000, 300_000); // 30s–5min
       console.log(
         `[Ads Worker] ${currentFailures} consecutive failures on ${draft.platform}, cooling down ${Math.round(cooldownMs / 1000)}s...`
       );
