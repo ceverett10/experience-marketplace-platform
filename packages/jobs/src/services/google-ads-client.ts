@@ -31,7 +31,7 @@ let _requestTimestamps: number[] = [];
 const RATE_LIMIT = 15; // per minute (Google allows ~1,500 ops/day = ~62/hr)
 const WINDOW_MS = 60_000;
 
-function getConfig(): GoogleAdsConfig | null {
+export function getConfig(): GoogleAdsConfig | null {
   const developerToken = process.env['GOOGLE_ADS_DEVELOPER_TOKEN'];
   const clientId = process.env['GOOGLE_ADS_CLIENT_ID'];
   const clientSecret = process.env['GOOGLE_ADS_CLIENT_SECRET'];
@@ -100,7 +100,7 @@ async function enforceRateLimit(): Promise<void> {
   _requestTimestamps.push(Date.now());
 }
 
-async function apiRequest(
+export async function apiRequest(
   config: GoogleAdsConfig,
   method: string,
   path: string,
@@ -139,7 +139,7 @@ async function apiRequest(
  * field when there are zero rows. This helper normalises the response into a
  * flat array of result rows.
  */
-function flattenStreamResults<T>(response: unknown): T[] {
+export function flattenStreamResults<T>(response: unknown): T[] {
   const batches = Array.isArray(response) ? response : [response];
   const rows: T[] = [];
   for (const batch of batches) {
