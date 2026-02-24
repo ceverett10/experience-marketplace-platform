@@ -169,7 +169,9 @@ export default async function CategoryPage({ params }: Props) {
     '@context': 'https://schema.org',
     '@type': 'CollectionPage',
     name: category.title,
-    description: description || undefined,
+    description: cleanPlainText(
+      category.metaDescription || category.content?.body?.substring(0, 200) || ''
+    ),
     url: pageUrl,
     image: defaultImage,
     ...((category.content?.structuredData as Record<string, unknown>) || {}),

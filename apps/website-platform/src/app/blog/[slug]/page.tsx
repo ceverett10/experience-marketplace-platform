@@ -169,7 +169,9 @@ export default async function BlogPostPage({ params }: Props) {
     '@context': 'https://schema.org',
     '@type': 'BlogPosting',
     headline: post.title.substring(0, 110), // Google truncates at 110 chars
-    description: description || undefined,
+    description: cleanPlainText(
+      post.metaDescription || post.content?.body?.substring(0, 160) || ''
+    ),
     datePublished: post.createdAt.toISOString(),
     dateModified: post.updatedAt.toISOString(),
     // Image is REQUIRED for BlogPosting rich results

@@ -167,7 +167,9 @@ export default async function DestinationPage({ params }: Props) {
     '@context': 'https://schema.org',
     '@type': 'TouristDestination',
     name: destination.title,
-    description: description || undefined,
+    description: cleanPlainText(
+      destination.metaDescription || destination.content?.body?.substring(0, 200) || ''
+    ),
     url: pageUrl,
     image: defaultImage,
     // Include tourist attraction type for better categorization
