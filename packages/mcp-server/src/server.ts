@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { registerAppResource, RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/server';
 import type { HolibobClient } from '@experience-marketplace/holibob-api';
@@ -12,6 +13,17 @@ import { EXPERIENCE_CAROUSEL_HTML } from './widgets/experience-carousel.js';
 import { EXPERIENCE_DETAIL_HTML } from './widgets/experience-detail.js';
 import { COMBINED_EXPERIENCE_HTML } from './widgets/combined-experience.js';
 import { getWidgetResourceDomains } from './constants.js';
+
+/**
+ * Compute the dedicated sandbox origin for Claude MCP Apps.
+ * Claude expects ui.domain to be a content-addressed subdomain of claudemcpcontent.com,
+ * derived from the SSE connection URL.
+ */
+function computeSandboxDomain(publicUrl: string): string {
+  const sseUrl = `${publicUrl}/mcp/sse`;
+  const hash = createHash('sha256').update(sseUrl).digest('hex').slice(0, 32);
+  return `${hash}.claudemcpcontent.com`;
+}
 
 export interface ServerContext {
   /** The MCP API key used to authenticate this session */
@@ -51,16 +63,19 @@ export function createServer(client: HolibobClient, context?: ServerContext): Mc
   if (context?.publicUrl) {
     try {
       redirectDomains.push(new URL(context.publicUrl).hostname);
-    } catch {}
+    } catch {
+      // Ignore invalid publicUrl
+    }
   }
 
   // CSP metadata — declared on both the resource config (so the host reads it at
   // connection/listing time) and on the resource contents (for hosts that read it
   // when the resource is actually fetched).
+  const sandboxDomain = context?.publicUrl ? computeSandboxDomain(context.publicUrl) : undefined;
   const cspMeta = {
-    // Modern MCP Apps format
+    // Modern MCP Apps format (Claude reads ui.domain for sandbox origin)
     ui: {
-      domain: 'https://holibob.com',
+      ...(sandboxDomain ? { domain: sandboxDomain } : {}),
       csp: {
         connectDomains: [] as string[],
         resourceDomains,
