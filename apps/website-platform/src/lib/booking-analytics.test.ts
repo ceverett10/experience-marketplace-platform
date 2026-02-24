@@ -51,10 +51,24 @@ describe('booking-analytics', () => {
       expect(mockFindMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            siteId: 'site-1',
+            OR: [{ siteId: 'site-1' }],
             holibobProductId: 'prod-1',
             status: { in: ['CONFIRMED', 'COMPLETED'] },
             createdAt: { gte: expect.any(Date) },
+          }),
+        })
+      );
+    });
+
+    it('includes micrositeId in OR clause when provided', async () => {
+      mockFindMany.mockResolvedValue([]);
+
+      await getProductBookingStats('site-1', 'prod-1', 'micro-1');
+
+      expect(mockFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            OR: [{ siteId: 'site-1' }, { micrositeId: 'micro-1' }],
           }),
         })
       );
