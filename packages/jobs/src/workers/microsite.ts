@@ -1,9 +1,9 @@
-import { Job } from 'bullmq';
+import { type Job } from 'bullmq';
 import {
   prisma,
-  Prisma,
-  MicrositeStatus,
-  MicrositeLayoutType,
+  type Prisma,
+  type MicrositeStatus,
+  type MicrositeLayoutType,
   PageType,
   PageStatus,
 } from '@experience-marketplace/database';
@@ -19,6 +19,7 @@ import type {
 import { canExecuteAutonomousOperation } from '../services/pause-control.js';
 import {
   generateComprehensiveBrandIdentity,
+  generateLightweightBrandIdentity,
   generateSeoTitleConfig,
   generateHomepageConfig,
   type HomepageConfig,
@@ -285,17 +286,23 @@ export async function handleMicrositeCreate(job: Job<MicrositeCreatePayload>): P
 
     console.log(`[Microsite Create] Creating microsite at ${fullDomain}`);
 
-    // Generate brand identity
-    console.log('[Microsite Create] Generating brand identity...');
-    const brandIdentity = await generateComprehensiveBrandIdentity({
+    // Generate brand identity — use lightweight for supplier/product microsites
+    const useFullBrand = entityType === 'OPPORTUNITY';
+    console.log(
+      `[Microsite Create] Generating ${useFullBrand ? 'comprehensive' : 'lightweight'} brand identity...`
+    );
+    const brandContext = {
       keyword: entityName,
       location: cities[0] || undefined,
       niche: categories[0] || 'travel experiences',
-      searchVolume: 100, // Placeholder
+      searchVolume: 100,
       intent: 'TRANSACTIONAL',
       entityName,
       entityDescription: description || undefined,
-    });
+    };
+    const brandIdentity = useFullBrand
+      ? await generateComprehensiveBrandIdentity(brandContext)
+      : await generateLightweightBrandIdentity(brandContext);
 
     console.log(
       `[Microsite Create] Generated brand: "${brandIdentity.name}" - ${brandIdentity.tagline}`
