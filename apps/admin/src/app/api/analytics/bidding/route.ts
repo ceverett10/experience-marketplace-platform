@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
 /**
@@ -103,13 +103,21 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const portfolioRoas = totalSpend > 0 ? totalRevenue / totalSpend : 0;
 
     // --- Booking attribution summary ---
+    // Include bookings from microsites associated with this site's campaigns
+    const micrositeIds = [
+      ...new Set(campaigns.filter((c) => c.micrositeId).map((c) => c.micrositeId!)),
+    ];
     const bookingAttribution = await prisma.booking.groupBy({
       by: ['utmSource'],
       where: {
         utmSource: { not: null },
         status: { in: ['CONFIRMED', 'COMPLETED'] },
         createdAt: { gte: lookback },
-        ...(siteId ? { siteId } : {}),
+        ...(siteId
+          ? micrositeIds.length > 0
+            ? { OR: [{ siteId }, { micrositeId: { in: micrositeIds } }] }
+            : { siteId }
+          : {}),
       },
       _sum: { totalAmount: true, commissionAmount: true },
       _count: true,

@@ -32,17 +32,19 @@ const THRESHOLDS = {
 };
 
 /**
- * Get booking statistics for a specific product on a site
+ * Get booking statistics for a specific product on a site or microsite
  * Used for displaying social proof ("Booked X times this week")
  * and urgency indicators ("High demand", "Trending")
  *
- * @param siteId - The site ID to scope the query
+ * @param siteId - The site or microsite ID to scope the query
  * @param productId - The Holibob product ID
+ * @param micrositeId - Optional microsite ID (if booking is on a microsite)
  * @returns Booking statistics for urgency messaging
  */
 export async function getProductBookingStats(
   siteId: string,
-  productId: string
+  productId: string,
+  micrositeId?: string
 ): Promise<BookingStats> {
   const now = new Date();
   const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
@@ -51,9 +53,10 @@ export async function getProductBookingStats(
   try {
     // Query bookings for this product in the last week
     // Only count CONFIRMED and COMPLETED bookings (not PENDING/CANCELLED)
+    // Check both siteId and micrositeId to include all booking sources
     const bookings = await prisma.booking.findMany({
       where: {
-        siteId,
+        OR: [{ siteId }, ...(micrositeId ? [{ micrositeId }] : [])],
         holibobProductId: productId,
         status: {
           in: ['CONFIRMED', 'COMPLETED'],
@@ -98,25 +101,27 @@ export function shouldShowBookingCount(stats: BookingStats): boolean {
 }
 
 /**
- * Get trending products for a site
+ * Get trending products for a site or microsite
  * Returns product IDs sorted by booking velocity
  *
  * @param siteId - The site ID to scope the query
  * @param limit - Maximum number of products to return
+ * @param micrositeId - Optional microsite ID (if on a microsite)
  * @returns Array of product IDs with their booking counts
  */
 export async function getTrendingProducts(
   siteId: string,
-  limit: number = 10
+  limit: number = 10,
+  micrositeId?: string
 ): Promise<Array<{ productId: string; bookingsThisWeek: number }>> {
   const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
   try {
-    // Group bookings by product ID
+    // Group bookings by product ID (include both site and microsite bookings)
     const bookingCounts = await prisma.booking.groupBy({
       by: ['holibobProductId'],
       where: {
-        siteId,
+        OR: [{ siteId }, ...(micrositeId ? [{ micrositeId }] : [])],
         holibobProductId: { not: null },
         status: {
           in: ['CONFIRMED', 'COMPLETED'],
