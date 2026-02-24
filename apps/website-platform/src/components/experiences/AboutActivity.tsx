@@ -1,9 +1,3 @@
-function getCancellationDeadline(): string {
-  const date = new Date();
-  date.setDate(date.getDate() + 6);
-  return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-}
-
 interface AboutActivityProps {
   duration: string;
   hasFreeCancellation: boolean;
@@ -17,8 +11,6 @@ export function AboutActivity({
   languages,
   cancellationPolicy,
 }: AboutActivityProps) {
-  const cancellationDate = getCancellationDeadline();
-
   return (
     <section className="mb-8">
       <h2 className="mb-4 text-xl font-semibold text-gray-900">About this activity</h2>
@@ -42,11 +34,9 @@ export function AboutActivity({
               </svg>
             </div>
             <div>
-              <p className="font-medium text-gray-900">
-                Free cancellation before {cancellationDate}
-              </p>
+              <p className="font-medium text-gray-900">Free cancellation available</p>
               <p className="text-sm text-gray-500">
-                {cancellationPolicy || 'Cancel up to 24 hours in advance for a full refund'}
+                {cancellationPolicy || 'Check cancellation terms below for full details'}
               </p>
             </div>
           </div>

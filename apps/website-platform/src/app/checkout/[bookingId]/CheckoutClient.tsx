@@ -609,11 +609,11 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
                         )}
                         <div>
                           <p className="font-medium text-gray-900">
-                            {policyText || 'Cancellation policy'}
+                            {policyText || 'Cancellation terms apply'}
                           </p>
                           {!policyText && (
                             <p className="mt-1">
-                              Please refer to the experience page for cancellation terms.
+                              Check the experience page for full cancellation terms and conditions.
                             </p>
                           )}
                         </div>
