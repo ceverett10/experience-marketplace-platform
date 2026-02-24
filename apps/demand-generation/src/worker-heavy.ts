@@ -25,6 +25,7 @@ import {
   handleAdConversionUpload,
   handleAdPlatformIdsSync,
   handleAdCreativeRefresh,
+  handleAdSearchTermHarvest,
 } from '@experience-marketplace/jobs';
 import type { JobType } from '@experience-marketplace/database';
 import {
@@ -90,6 +91,8 @@ const adsWorker = new Worker(
         return await handleAdPlatformIdsSync(job);
       case 'AD_CREATIVE_REFRESH':
         return await handleAdCreativeRefresh(job);
+      case 'AD_SEARCH_TERM_HARVEST':
+        return await handleAdSearchTermHarvest(job);
       default:
         throw new Error(`Unknown job type: ${job.name}`);
     }

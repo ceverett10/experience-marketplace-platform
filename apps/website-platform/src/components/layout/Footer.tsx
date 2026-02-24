@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
 import { useSite, useBrand, useHomepageConfig } from '@/lib/site-context';
 
 // Default social links — shown on all sites unless brand has its own
@@ -71,19 +70,7 @@ export function Footer() {
         <div className="xl:grid xl:grid-cols-3 xl:gap-8">
           {/* Brand section */}
           <div className="space-y-8">
-            {brand?.logoDarkUrl || brand?.logoUrl ? (
-              <div className="relative h-12 w-48 sm:h-14 sm:w-56 lg:h-20 lg:w-80">
-                <Image
-                  className={`object-contain object-left${brand.logoDarkUrl ? '' : ' brightness-0 invert'}`}
-                  src={brand.logoDarkUrl ?? brand.logoUrl!}
-                  alt={site.name}
-                  fill
-                  sizes="(min-width: 1024px) 320px, (min-width: 640px) 224px, 192px"
-                />
-              </div>
-            ) : (
-              <span className="text-2xl font-bold text-white">{site.name}</span>
-            )}
+            <span className="text-2xl font-bold text-white">{site.name}</span>
             <p className="text-sm leading-6 text-gray-300">
               {brand?.tagline ??
                 site.description ??

@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 
 /**
  * GET /api/bookings
- * Returns bookings with site attribution and traffic source info.
+ * Returns bookings with site/microsite attribution and traffic source info.
  * Supports filtering by status, site, source, and date range.
  */
 export async function GET(request: NextRequest): Promise<NextResponse> {
@@ -26,7 +26,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     }
 
     if (siteId) {
-      where['siteId'] = siteId;
+      // Filter by site OR microsite
+      where['OR'] = [{ siteId }, { micrositeId: siteId }];
     }
 
     if (source) {
@@ -72,8 +73,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       };
     }
 
-    // Fetch bookings, count, and sites in parallel (no raw SQL)
-    const [bookings, total, sites] = await Promise.all([
+    // Fetch bookings, count, sites, and microsites in parallel
+    const [bookings, total, sites, microsites] = await Promise.all([
       prisma.booking.findMany({
         where,
         orderBy: { createdAt: 'desc' },
@@ -92,6 +93,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
               },
             },
           },
+          microsite: {
+            select: {
+              id: true,
+              siteName: true,
+              fullDomain: true,
+            },
+          },
         },
       }),
       prisma.booking.count({ where }),
@@ -100,6 +108,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         where: { status: 'ACTIVE' },
         select: { id: true, name: true },
         orderBy: { name: 'asc' },
+      }),
+      // All active microsites for filter dropdown
+      prisma.micrositeConfig.findMany({
+        where: { status: 'ACTIVE' },
+        select: { id: true, siteName: true },
+        orderBy: { siteName: 'asc' },
       }),
     ]);
 
@@ -123,6 +137,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       .map(([src, count]) => ({ source: src, count }))
       .sort((a, b) => b.count - a.count);
 
+    // Combine sites and microsites for filter dropdown
+    const allSites = [
+      ...sites.map((s) => ({ id: s.id, name: s.name })),
+      ...microsites.map((m) => ({ id: m.id, name: `${m.siteName} (microsite)` })),
+    ].sort((a, b) => a.name.localeCompare(b.name));
+
     // Format bookings
     const formattedBookings = bookings.map((b) => ({
       id: b.id,
@@ -132,11 +152,23 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       currency: b.currency,
       commissionAmount: b.commissionAmount ? Number(b.commissionAmount) : null,
       commissionRate: b.commissionRate,
-      site: {
-        id: b.site.id,
-        name: b.site.name,
-        domain: b.site.domains[0]?.domain || b.site.primaryDomain || 'No domain',
-      },
+      site: b.site
+        ? {
+            id: b.site.id,
+            name: b.site.name,
+            domain: b.site.domains[0]?.domain || b.site.primaryDomain || 'No domain',
+          }
+        : b.microsite
+          ? {
+              id: b.microsite.id,
+              name: b.microsite.siteName,
+              domain: b.microsite.fullDomain,
+            }
+          : {
+              id: 'unknown',
+              name: 'Unknown',
+              domain: 'N/A',
+            },
       source: getSourceLabel(b),
       sourceDetail: {
         utmSource: b.utmSource,
@@ -159,7 +191,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         totalPages: Math.ceil(total / limit),
       },
       filters: {
-        sites,
+        sites: allSites,
         statuses: ['ALL', 'PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED', 'REFUNDED'],
         sources: ['facebook', 'google', 'organic', 'direct', 'other'],
       },

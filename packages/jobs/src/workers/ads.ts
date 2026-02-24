@@ -154,6 +154,7 @@ export async function handleAdCampaignSync(job: Job): Promise<JobResult> {
       platformCampaignId: true,
       utmCampaign: true,
       siteId: true,
+      micrositeId: true,
     },
   });
 
@@ -219,14 +220,19 @@ export async function handleAdCampaignSync(job: Job): Promise<JobResult> {
 
       if (!insights) continue;
 
-      // Match conversions via UTM campaign attribution
+      // Match conversions via UTM campaign attribution (supports both site and microsite bookings)
+      const bookingWhere: Record<string, unknown> = {
+        utmCampaign: campaign.utmCampaign,
+        status: { in: ['CONFIRMED', 'COMPLETED'] },
+        createdAt: { gte: yesterday, lte: new Date() },
+      };
+      if (campaign.micrositeId) {
+        bookingWhere['micrositeId'] = campaign.micrositeId;
+      } else if (campaign.siteId) {
+        bookingWhere['siteId'] = campaign.siteId;
+      }
       const bookingRevenue = await prisma.booking.aggregate({
-        where: {
-          siteId: campaign.siteId,
-          utmCampaign: campaign.utmCampaign,
-          status: { in: ['CONFIRMED', 'COMPLETED'] },
-          createdAt: { gte: yesterday, lte: new Date() },
-        },
+        where: bookingWhere as any,
         _sum: { commissionAmount: true },
         _count: true,
       });
@@ -345,6 +351,7 @@ export async function handleAdPerformanceReport(job: Job): Promise<JobResult> {
     where: where as any,
     include: {
       site: { select: { name: true } },
+      microsite: { select: { siteName: true } },
       dailyMetrics: {
         where: { date: { gte: startDate, lte: endDate } },
         orderBy: { date: 'desc' },
@@ -400,7 +407,7 @@ export async function handleAdPerformanceReport(job: Job): Promise<JobResult> {
     totalImpressions += impressions;
     totalConversions += conversions;
 
-    const siteName = campaign.site?.name || 'Unknown';
+    const siteName = campaign.microsite?.siteName || campaign.site?.name || 'Unknown';
 
     if (roas >= PAID_TRAFFIC_CONFIG.roasScaleThreshold) {
       topPerformers.push({ id: campaign.id, name: campaign.name, site: siteName, roas, spend });
@@ -970,13 +977,21 @@ async function deployCampaignToPlatform(campaign: {
   return null;
 }
 
+/** Ensure a URL has a protocol prefix so `new URL()` doesn't throw. */
+function ensureProtocol(url: string): string {
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    return `https://${url}`;
+  }
+  return url;
+}
+
 function buildLandingUrl(campaign: {
   targetUrl: string;
   utmSource: string | null;
   utmMedium: string | null;
   utmCampaign: string | null;
 }): string {
-  const url = new URL(campaign.targetUrl);
+  const url = new URL(ensureProtocol(campaign.targetUrl));
   if (campaign.utmSource) url.searchParams.set('utm_source', campaign.utmSource);
   if (campaign.utmMedium) url.searchParams.set('utm_medium', campaign.utmMedium);
   if (campaign.utmCampaign) url.searchParams.set('utm_campaign', campaign.utmCampaign);
@@ -1632,6 +1647,7 @@ async function deployToGoogle(
 
     let adGroupsCreated = 0;
     let primaryRsa: GoogleRSACreative | null = null;
+    let adsCreated = 0;
 
     if (adGroupConfigs && adGroupConfigs.length > 0) {
       for (const agConfig of adGroupConfigs) {
@@ -1651,7 +1667,7 @@ async function deployToGoogle(
         adGroupsCreated++;
 
         // Build per-ad-group landing URL with UTMs
-        const agUrl = new URL(agConfig.targetUrl);
+        const agUrl = new URL(ensureProtocol(agConfig.targetUrl));
         const baseUrl = new URL(landingUrl);
         // Copy UTM params from the campaign-level landing URL
         for (const [key, val] of baseUrl.searchParams) {
@@ -1666,7 +1682,7 @@ async function deployToGoogle(
           campaign.landingPagePath
         );
         if (!primaryRsa) primaryRsa = rsa;
-        await createResponsiveSearchAd({
+        const rsaResult = await createResponsiveSearchAd({
           adGroupId: adGroupResult.adGroupId,
           headlines: rsa.headlines,
           descriptions: rsa.descriptions,
@@ -1674,6 +1690,13 @@ async function deployToGoogle(
           path1: 'experiences',
           path2: agConfig.primaryKeyword.split(' ')[0]?.substring(0, 15),
         });
+        if (rsaResult) {
+          adsCreated++;
+        } else {
+          console.warn(
+            `[Ads Worker] RSA creation failed for ad group ${adGroupResult.adGroupId} in campaign "${campaign.name}"`
+          );
+        }
       }
     } else {
       // Fallback: single ad group (backward compat with old campaigns)
@@ -1701,7 +1724,7 @@ async function deployToGoogle(
           campaign.landingPagePath
         );
         primaryRsa = rsa;
-        await createResponsiveSearchAd({
+        const rsaResult = await createResponsiveSearchAd({
           adGroupId: adGroupResult.adGroupId,
           headlines: rsa.headlines,
           descriptions: rsa.descriptions,
@@ -1709,13 +1732,21 @@ async function deployToGoogle(
           path1: 'experiences',
           path2: keyword.split(' ')[0]?.substring(0, 15),
         });
+        if (rsaResult) {
+          adsCreated++;
+        } else {
+          console.warn(
+            `[Ads Worker] RSA creation failed for ad group ${adGroupResult.adGroupId} in campaign "${campaign.name}"`
+          );
+        }
       }
     }
 
-    // Fail if no ad groups were created (empty shell — can't serve ads)
-    if (adGroupsCreated === 0) {
+    // Fail if no ad groups or no ads were created (empty shell — can't serve ads)
+    if (adGroupsCreated === 0 || adsCreated === 0) {
       console.error(
-        `[Ads Worker] No ad groups created for Google campaign ${campaignResult.campaignId}: "${campaign.name}" — removing empty shell`
+        `[Ads Worker] Incomplete Google campaign ${campaignResult.campaignId}: "${campaign.name}" — ` +
+          `${adGroupsCreated} ad groups, ${adsCreated} ads — pausing empty shell`
       );
       try {
         await setGoogleCampaignStatus(campaignResult.campaignId, 'PAUSED');
@@ -1828,6 +1859,7 @@ export async function deployDraftCampaigns(
     },
     include: {
       site: { select: { name: true, primaryDomain: true, targetMarkets: true } },
+      microsite: { select: { siteName: true, fullDomain: true } },
     },
   });
 
@@ -1865,6 +1897,16 @@ export async function deployDraftCampaigns(
       await new Promise((r) => setTimeout(r, cooldownMs));
     }
 
+    // For microsite campaigns, use the microsite's own name and domain
+    // instead of the (often mismatched) parent site
+    const effectiveSite = draft.microsite
+      ? {
+          name: draft.microsite.siteName,
+          primaryDomain: draft.microsite.fullDomain,
+          targetMarkets: draft.site?.targetMarkets,
+        }
+      : draft.site;
+
     const platformCampaignId = await deployCampaignToPlatform({
       id: draft.id,
       platform: draft.platform,
@@ -1872,7 +1914,7 @@ export async function deployDraftCampaigns(
       dailyBudget: Number(draft.dailyBudget),
       maxCpc: Number(draft.maxCpc),
       keywords: draft.keywords,
-      targetUrl: draft.targetUrl || `https://${draft.site?.primaryDomain || 'holibob.com'}`,
+      targetUrl: draft.targetUrl || `https://${effectiveSite?.primaryDomain || 'holibob.com'}`,
       geoTargets: draft.geoTargets,
       utmSource: draft.utmSource,
       utmMedium: draft.utmMedium,
@@ -1883,7 +1925,7 @@ export async function deployDraftCampaigns(
       landingPagePath: draft.landingPagePath,
       landingPageType: draft.landingPageType,
       landingPageProducts: draft.landingPageProducts,
-      site: draft.site,
+      site: effectiveSite,
     });
 
     if (platformCampaignId) {
@@ -2348,6 +2390,7 @@ export async function handleAdCreativeRefresh(_job: Job): Promise<JobResult> {
       geoTargets: true,
       proposalData: true,
       site: { select: { name: true, targetMarkets: true } },
+      microsite: { select: { siteName: true } },
     },
   });
 
@@ -2383,7 +2426,12 @@ export async function handleAdCreativeRefresh(_job: Job): Promise<JobResult> {
       let pageBody: string | null = null;
       let pageType: string | null = null;
 
-      if (campaign.landingPagePath && campaign.siteId) {
+      // For microsite campaigns, pages are stored with micrositeId (not siteId)
+      const refreshPageOwner = campaign.micrositeId
+        ? { micrositeId: campaign.micrositeId }
+        : { siteId: campaign.siteId };
+
+      if (campaign.landingPagePath && (campaign.siteId || campaign.micrositeId)) {
         const pageSelect = {
           title: true,
           metaDescription: true,
@@ -2403,7 +2451,7 @@ export async function handleAdCreativeRefresh(_job: Job): Promise<JobResult> {
 
         if (lpp === '/' || lpp === '') {
           page = await prisma.page.findFirst({
-            where: { siteId: campaign.siteId, type: 'HOMEPAGE', status: 'PUBLISHED' },
+            where: { ...refreshPageOwner, type: 'HOMEPAGE', status: 'PUBLISHED' },
             select: pageSelect,
           });
         } else if (lpp.startsWith('/experiences?categories=')) {
@@ -2412,7 +2460,7 @@ export async function handleAdCreativeRefresh(_job: Job): Promise<JobResult> {
           );
           page = await prisma.page.findFirst({
             where: {
-              siteId: campaign.siteId,
+              ...refreshPageOwner,
               type: 'CATEGORY',
               status: 'PUBLISHED',
               title: { contains: category, mode: 'insensitive' },
@@ -2425,7 +2473,7 @@ export async function handleAdCreativeRefresh(_job: Job): Promise<JobResult> {
           );
           page = await prisma.page.findFirst({
             where: {
-              siteId: campaign.siteId,
+              ...refreshPageOwner,
               type: 'LANDING',
               status: 'PUBLISHED',
               title: { contains: city, mode: 'insensitive' },
@@ -2435,7 +2483,7 @@ export async function handleAdCreativeRefresh(_job: Job): Promise<JobResult> {
         } else {
           const slug = lpp.startsWith('/') ? lpp.substring(1) : lpp;
           page = await prisma.page.findFirst({
-            where: { siteId: campaign.siteId, slug, status: 'PUBLISHED' },
+            where: { ...refreshPageOwner, slug, status: 'PUBLISHED' },
             select: pageSelect,
           });
         }
@@ -2487,7 +2535,7 @@ export async function handleAdCreativeRefresh(_job: Job): Promise<JobResult> {
           keywords: campaign.keywords,
           siteId: campaign.siteId,
           micrositeId: campaign.micrositeId,
-          siteName: campaign.site?.name || 'Holibob',
+          siteName: campaign.microsite?.siteName || campaign.site?.name || 'Holibob',
           landingPagePath: campaign.landingPagePath,
           landingPageType: campaign.landingPageType,
           landingPageProducts: campaign.landingPageProducts,
@@ -2580,7 +2628,7 @@ export async function handleAdCreativeRefresh(_job: Job): Promise<JobResult> {
           siteId: campaign.siteId,
           headline,
           body,
-          brandName: campaign.site?.name || campaign.name,
+          brandName: campaign.microsite?.siteName || campaign.site?.name || campaign.name,
         });
 
         if (!reviewed || reviewed.selectedUrl === existingImageUrl) {

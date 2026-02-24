@@ -390,7 +390,7 @@ export default async function ExperienceDetailPage({ params }: Props) {
   // Fetch related experiences, booking stats, and blog posts in parallel
   const [relatedExperiences, bookingStats, relatedBlogPosts] = await Promise.all([
     getRelatedExperiences(site, experience),
-    getProductBookingStats(site.id, experience.id),
+    getProductBookingStats(site.id, experience.id, site.micrositeContext?.micrositeId),
     getRelatedBlogPosts(site, experience),
   ]);
 

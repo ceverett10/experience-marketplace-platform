@@ -110,6 +110,9 @@ export interface BookingAvailability {
     name: string;
     shortDescription?: string;
     imageList?: { nodes: Array<{ url: string }> };
+    cancellationPolicy?: {
+      penaltyList?: { nodes?: Array<{ formattedText?: string }> };
+    };
   };
   totalPrice?: {
     grossFormattedText: string;
