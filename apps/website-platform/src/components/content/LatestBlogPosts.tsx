@@ -4,6 +4,7 @@
  */
 
 import Link from 'next/link';
+import { cleanPlainText } from '@/lib/seo';
 
 interface BlogPost {
   id: string;
@@ -133,7 +134,9 @@ export function LatestBlogPosts({ posts, siteName: _siteName }: LatestBlogPostsP
 
                 {/* Excerpt */}
                 <p className="text-gray-600 text-sm line-clamp-2 flex-1">
-                  {post.metaDescription || generateExcerpt(post.content?.body || '')}
+                  {post.metaDescription
+                    ? cleanPlainText(post.metaDescription)
+                    : generateExcerpt(post.content?.body || '')}
                 </p>
 
                 {/* Read More */}

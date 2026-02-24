@@ -2,6 +2,7 @@ import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getSiteFromHostname, type HomepageConfig } from '@/lib/tenant';
+import { cleanPlainText } from '@/lib/seo';
 import { getHolibobClient } from '@/lib/holibob';
 import { prisma } from '@/lib/prisma';
 import { DestinationPageTemplate } from '@/components/content/DestinationPageTemplate';
@@ -109,7 +110,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 
   const title = destination.metaTitle || destination.title;
-  const description = destination.metaDescription || destination.content?.body.substring(0, 160);
+  const rawDescription = destination.metaDescription || destination.content?.body.substring(0, 160);
+  const description = rawDescription ? cleanPlainText(rawDescription) : undefined;
 
   // Generate canonical URL - use custom if set, otherwise default to page URL
   const canonicalUrl =
@@ -165,8 +167,7 @@ export default async function DestinationPage({ params }: Props) {
     '@context': 'https://schema.org',
     '@type': 'TouristDestination',
     name: destination.title,
-    description:
-      destination.metaDescription || destination.content?.body?.substring(0, 200) || undefined,
+    description: description || undefined,
     url: pageUrl,
     image: defaultImage,
     // Include tourist attraction type for better categorization

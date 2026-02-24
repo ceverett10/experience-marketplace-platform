@@ -1,5 +1,6 @@
 'use client';
 
+import { cleanPlainText } from '@/lib/seo';
 import { ContentRenderer } from './ContentRenderer';
 
 interface PageContent {
@@ -115,7 +116,7 @@ For the most up-to-date version of our legal documents, please check this page r
           {page.title}
         </h1>
         {page.metaDescription && (
-          <p className="mt-4 text-lg text-gray-600">{page.metaDescription}</p>
+          <p className="mt-4 text-lg text-gray-600">{cleanPlainText(page.metaDescription)}</p>
         )}
 
         {/* Metadata badges */}

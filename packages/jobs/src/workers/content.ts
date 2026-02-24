@@ -1,4 +1,4 @@
-import { Job } from 'bullmq';
+import { type Job } from 'bullmq';
 import { prisma } from '@experience-marketplace/database';
 import { createPipeline } from '@experience-marketplace/content-engine';
 import type {
@@ -359,6 +359,56 @@ function generateStructuredDataForContent(params: {
 }
 
 /**
+ * Sanitize a meta description string by removing URL encoding, markdown artifacts,
+ * and other garbled content that should never appear in user-visible text.
+ */
+function sanitizeMetaDescription(text: string): string {
+  let result = text;
+
+  // Strip any remaining markdown links [text](url)
+  result = result.replace(/\[([^\]]+)\]\([^)]*\)/g, '$1');
+
+  // Decode URL-encoded characters (%20 → space, %28 → (, etc.)
+  try {
+    result = decodeURIComponent(result);
+  } catch {
+    // If decodeURIComponent fails (malformed encoding), do manual common replacements
+    result = result.replace(/%20/g, ' ');
+    result = result.replace(/%26/g, '&');
+    result = result.replace(/%27/g, "'");
+    result = result.replace(/%28/g, '(');
+    result = result.replace(/%29/g, ')');
+    result = result.replace(/%2F/gi, '/');
+    result = result.replace(/%3A/gi, ':');
+  }
+
+  // Remove stray markdown/URL artifacts: orphaned brackets, parens not part of sentences
+  result = result.replace(/\)\s+(?=[A-Z])/g, ' '); // ") Word" → " Word"
+  result = result.replace(/^\s*\)/, ''); // Leading stray closing paren
+  result = result.replace(/\[\s*\]/g, ''); // Empty brackets []
+  result = result.replace(/\(\s*\)/g, ''); // Empty parens ()
+
+  // Collapse multiple spaces into one
+  result = result.replace(/\s{2,}/g, ' ').trim();
+
+  return result;
+}
+
+/**
+ * Check whether a meta description looks garbled (contains URL encoding or markdown artifacts).
+ * Used to decide whether to regenerate rather than reuse an existing description.
+ */
+function isGarbledMetaDescription(text: string): boolean {
+  // Contains URL-encoded spaces or other common encoded characters
+  if (/%[0-9A-Fa-f]{2}/.test(text)) return true;
+  // Contains markdown link syntax
+  if (/\[[^\]]+\]\([^)]+\)/.test(text)) return true;
+  // Contains orphaned closing paren followed by what looks like a sentence fragment
+  if (/\)\s+[a-z]/.test(text)) return true;
+  return false;
+}
+
+/**
  * Generate an optimized meta description for higher CTR
  * - Uses AI-generated description if available
  * - Falls back to extracting compelling content from the body
@@ -373,8 +423,13 @@ function generateOptimizedMetaDescription(params: {
 }): string {
   const { aiMetaDescription, contentBody, targetKeyword, contentType, siteName } = params;
 
-  // Use AI-generated description if available and appropriate length
-  if (aiMetaDescription && aiMetaDescription.length >= 100 && aiMetaDescription.length <= 160) {
+  // Use AI-generated description if available, appropriate length, and not garbled
+  if (
+    aiMetaDescription &&
+    aiMetaDescription.length >= 100 &&
+    aiMetaDescription.length <= 160 &&
+    !isGarbledMetaDescription(aiMetaDescription)
+  ) {
     return aiMetaDescription;
   }
 
@@ -394,6 +449,9 @@ function generateOptimizedMetaDescription(params: {
     .replace(/\*(.*?)\*/g, '$1')
     .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
     .trim();
+
+  // Sanitize any remaining URL-encoded chars, orphaned parens, etc.
+  baseDescription = sanitizeMetaDescription(baseDescription);
 
   // If description is too long, truncate smartly at sentence boundary
   if (baseDescription.length > 155) {

@@ -4,7 +4,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getSiteFromHostname } from '@/lib/tenant';
 import { prisma } from '@/lib/prisma';
-import { generateFaqJsonLd } from '@/lib/seo';
+import { cleanPlainText, generateFaqJsonLd } from '@/lib/seo';
 import { FAQPageTemplate } from '@/components/content/FAQPageTemplate';
 
 interface Props {
@@ -97,7 +97,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 
   const title = page.metaTitle || page.title;
-  const description = page.metaDescription || page.content?.body.substring(0, 160);
+  const rawDescription = page.metaDescription || page.content?.body.substring(0, 160);
+  const description = rawDescription ? cleanPlainText(rawDescription) : undefined;
 
   // Generate canonical URL - use custom if set, otherwise default to page URL
   const canonicalUrl = page.canonicalUrl || `https://${site.primaryDomain || hostname}/faq/${slug}`;
