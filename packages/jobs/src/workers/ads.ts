@@ -977,13 +977,21 @@ async function deployCampaignToPlatform(campaign: {
   return null;
 }
 
+/** Ensure a URL has a protocol prefix so `new URL()` doesn't throw. */
+function ensureProtocol(url: string): string {
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    return `https://${url}`;
+  }
+  return url;
+}
+
 function buildLandingUrl(campaign: {
   targetUrl: string;
   utmSource: string | null;
   utmMedium: string | null;
   utmCampaign: string | null;
 }): string {
-  const url = new URL(campaign.targetUrl);
+  const url = new URL(ensureProtocol(campaign.targetUrl));
   if (campaign.utmSource) url.searchParams.set('utm_source', campaign.utmSource);
   if (campaign.utmMedium) url.searchParams.set('utm_medium', campaign.utmMedium);
   if (campaign.utmCampaign) url.searchParams.set('utm_campaign', campaign.utmCampaign);
@@ -1639,6 +1647,7 @@ async function deployToGoogle(
 
     let adGroupsCreated = 0;
     let primaryRsa: GoogleRSACreative | null = null;
+    let adsCreated = 0;
 
     if (adGroupConfigs && adGroupConfigs.length > 0) {
       for (const agConfig of adGroupConfigs) {
@@ -1658,7 +1667,7 @@ async function deployToGoogle(
         adGroupsCreated++;
 
         // Build per-ad-group landing URL with UTMs
-        const agUrl = new URL(agConfig.targetUrl);
+        const agUrl = new URL(ensureProtocol(agConfig.targetUrl));
         const baseUrl = new URL(landingUrl);
         // Copy UTM params from the campaign-level landing URL
         for (const [key, val] of baseUrl.searchParams) {
@@ -1673,7 +1682,7 @@ async function deployToGoogle(
           campaign.landingPagePath
         );
         if (!primaryRsa) primaryRsa = rsa;
-        await createResponsiveSearchAd({
+        const rsaResult = await createResponsiveSearchAd({
           adGroupId: adGroupResult.adGroupId,
           headlines: rsa.headlines,
           descriptions: rsa.descriptions,
@@ -1681,6 +1690,13 @@ async function deployToGoogle(
           path1: 'experiences',
           path2: agConfig.primaryKeyword.split(' ')[0]?.substring(0, 15),
         });
+        if (rsaResult) {
+          adsCreated++;
+        } else {
+          console.warn(
+            `[Ads Worker] RSA creation failed for ad group ${adGroupResult.adGroupId} in campaign "${campaign.name}"`
+          );
+        }
       }
     } else {
       // Fallback: single ad group (backward compat with old campaigns)
@@ -1708,7 +1724,7 @@ async function deployToGoogle(
           campaign.landingPagePath
         );
         primaryRsa = rsa;
-        await createResponsiveSearchAd({
+        const rsaResult = await createResponsiveSearchAd({
           adGroupId: adGroupResult.adGroupId,
           headlines: rsa.headlines,
           descriptions: rsa.descriptions,
@@ -1716,13 +1732,21 @@ async function deployToGoogle(
           path1: 'experiences',
           path2: keyword.split(' ')[0]?.substring(0, 15),
         });
+        if (rsaResult) {
+          adsCreated++;
+        } else {
+          console.warn(
+            `[Ads Worker] RSA creation failed for ad group ${adGroupResult.adGroupId} in campaign "${campaign.name}"`
+          );
+        }
       }
     }
 
-    // Fail if no ad groups were created (empty shell — can't serve ads)
-    if (adGroupsCreated === 0) {
+    // Fail if no ad groups or no ads were created (empty shell — can't serve ads)
+    if (adGroupsCreated === 0 || adsCreated === 0) {
       console.error(
-        `[Ads Worker] No ad groups created for Google campaign ${campaignResult.campaignId}: "${campaign.name}" — removing empty shell`
+        `[Ads Worker] Incomplete Google campaign ${campaignResult.campaignId}: "${campaign.name}" — ` +
+          `${adGroupsCreated} ad groups, ${adsCreated} ads — pausing empty shell`
       );
       try {
         await setGoogleCampaignStatus(campaignResult.campaignId, 'PAUSED');
