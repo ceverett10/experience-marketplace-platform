@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
 /**
@@ -90,14 +90,32 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const currentGa4Map = new Map(currentGa4Metrics.map((m) => [m.siteId, m]));
     const previousGa4Map = new Map(previousGa4Metrics.map((m) => [m.siteId, m]));
 
+    // Fetch actual booking data from Booking table (ground truth, not GA4 estimates)
+    // Includes both site bookings (siteId) and microsite bookings (micrositeId)
+    const [bookingsByStatus, bookingRevenue] = await Promise.all([
+      prisma.booking.count({
+        where: {
+          status: { in: ['CONFIRMED', 'COMPLETED'] },
+          createdAt: { gte: start, lte: end },
+        },
+      }),
+      prisma.booking.aggregate({
+        where: {
+          status: { in: ['CONFIRMED', 'COMPLETED'] },
+          createdAt: { gte: start, lte: end },
+        },
+        _sum: { totalAmount: true, commissionAmount: true },
+      }),
+    ]);
+
     // Calculate portfolio totals
     let totalUsers = 0;
     let totalSessions = 0;
     let totalPageviews = 0;
     let totalClicks = 0;
     let totalImpressions = 0;
-    let totalBookings = 0;
-    let totalRevenue = 0;
+    const totalBookings = bookingsByStatus;
+    const totalRevenue = Number(bookingRevenue._sum.totalAmount || 0);
     let prevUsers = 0;
     let prevSessions = 0;
     let prevClicks = 0;
@@ -149,8 +167,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       totalPageviews += sitePageviews;
       totalClicks += siteClicks;
       totalImpressions += siteImpressions;
-      totalBookings += ga4?._sum.bookings || 0;
-      totalRevenue += Number(ga4?._sum.revenue || 0);
 
       if (sitePosition > 0) {
         positionSum += sitePosition;
@@ -379,6 +395,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       avgPosition: positionCount > 0 ? positionSum / positionCount : 0,
       totalBookings,
       totalRevenue,
+      totalCommission: Number(bookingRevenue._sum.commissionAmount || 0),
     };
 
     return NextResponse.json({
