@@ -115,7 +115,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     let totalClicks = 0;
     let totalImpressions = 0;
     const totalBookings = bookingsByStatus;
-    const totalRevenue = Number(bookingRevenue._sum.totalAmount || 0);
+    const totalRevenue = Number(bookingRevenue._sum.commissionAmount || 0);
+    const totalGrossBookingValue = Number(bookingRevenue._sum.totalAmount || 0);
     let prevUsers = 0;
     let prevSessions = 0;
     let prevClicks = 0;
@@ -395,7 +396,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       avgPosition: positionCount > 0 ? positionSum / positionCount : 0,
       totalBookings,
       totalRevenue,
-      totalCommission: Number(bookingRevenue._sum.commissionAmount || 0),
+      totalGrossBookingValue,
     };
 
     return NextResponse.json({

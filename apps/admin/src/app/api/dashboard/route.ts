@@ -47,9 +47,9 @@ export async function GET(): Promise<NextResponse> {
         where: { createdAt: { gte: thirtyDaysAgo, lte: now } },
       }),
 
-      // Current period revenue (last 30 days, CONFIRMED)
+      // Current period commission revenue (last 30 days, CONFIRMED)
       prisma.booking.aggregate({
-        _sum: { totalAmount: true },
+        _sum: { commissionAmount: true },
         where: {
           status: 'CONFIRMED',
           createdAt: { gte: thirtyDaysAgo, lte: now },
@@ -61,9 +61,9 @@ export async function GET(): Promise<NextResponse> {
         where: { createdAt: { gte: sixtyDaysAgo, lt: thirtyDaysAgo } },
       }),
 
-      // Previous period revenue (30-60 days ago, CONFIRMED)
+      // Previous period commission revenue (30-60 days ago, CONFIRMED)
       prisma.booking.aggregate({
-        _sum: { totalAmount: true },
+        _sum: { commissionAmount: true },
         where: {
           status: 'CONFIRMED',
           createdAt: { gte: sixtyDaysAgo, lt: thirtyDaysAgo },
@@ -90,7 +90,7 @@ export async function GET(): Promise<NextResponse> {
           siteId: { not: null },
           createdAt: { gte: thirtyDaysAgo, lte: now },
         },
-        _sum: { totalAmount: true },
+        _sum: { commissionAmount: true },
       }),
 
       // Content pending review
@@ -128,7 +128,7 @@ export async function GET(): Promise<NextResponse> {
           micrositeId: { not: null },
           createdAt: { gte: thirtyDaysAgo, lte: now },
         },
-        _sum: { totalAmount: true },
+        _sum: { commissionAmount: true },
       }),
       prisma.micrositeConfig.findMany({
         where: { status: 'ACTIVE' },
@@ -140,8 +140,8 @@ export async function GET(): Promise<NextResponse> {
       }),
     ]);
 
-    const totalRevenue = Number(currentRevenue._sum.totalAmount || 0);
-    const prevRevenue = Number(previousRevenue._sum.totalAmount || 0);
+    const totalRevenue = Number(currentRevenue._sum.commissionAmount || 0);
+    const prevRevenue = Number(previousRevenue._sum.commissionAmount || 0);
 
     // Real conversion rate from combined site + microsite sessions
     const totalSessions =
@@ -149,13 +149,13 @@ export async function GET(): Promise<NextResponse> {
     const conversionRate =
       totalSessions > 0 ? ((currentBookings / totalSessions) * 100).toFixed(1) : '0.0';
 
-    // Per-site revenue lookup (includes both sites and microsites)
+    // Per-site revenue lookup (commission = our revenue)
     const revenueMap = new Map<string, number>();
     for (const r of revenuePerSite) {
-      if (r.siteId) revenueMap.set(r.siteId, Number(r._sum.totalAmount || 0));
+      if (r.siteId) revenueMap.set(r.siteId, Number(r._sum.commissionAmount || 0));
     }
     for (const r of revenuePerMicrosite) {
-      if (r.micrositeId) revenueMap.set(r.micrositeId, Number(r._sum.totalAmount || 0));
+      if (r.micrositeId) revenueMap.set(r.micrositeId, Number(r._sum.commissionAmount || 0));
     }
 
     // Merge sites and microsites into a single ranking by booking count
