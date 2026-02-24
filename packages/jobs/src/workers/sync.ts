@@ -4,7 +4,7 @@
  * Automatically creates microsites for eligible new suppliers
  */
 
-import { Job } from 'bullmq';
+import { type Job } from 'bullmq';
 import { prisma } from '@experience-marketplace/database';
 import type { JobResult, SupplierSyncPayload, ProductSyncPayload } from '../types/index.js';
 import { syncSuppliersFromHolibob } from '../services/supplier-sync.js';
@@ -68,7 +68,10 @@ export async function handleSupplierSync(job: Job<SupplierSyncPayload>): Promise
         where: {
           holibobSupplierId: { notIn: Array.from(existingSupplierIds) },
           productCount: { gte: MIN_PRODUCTS_FOR_MICROSITE },
-          rating: { gte: MIN_RATING_FOR_MICROSITE },
+          OR: [
+            { rating: { gte: MIN_RATING_FOR_MICROSITE } },
+            { rating: null }, // Don't exclude suppliers with no rating data
+          ],
           NOT: { holibobSupplierId: { startsWith: 'city-' } },
         },
         select: {
