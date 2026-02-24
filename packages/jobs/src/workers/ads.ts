@@ -351,6 +351,7 @@ export async function handleAdPerformanceReport(job: Job): Promise<JobResult> {
     where: where as any,
     include: {
       site: { select: { name: true } },
+      microsite: { select: { siteName: true } },
       dailyMetrics: {
         where: { date: { gte: startDate, lte: endDate } },
         orderBy: { date: 'desc' },
@@ -406,7 +407,7 @@ export async function handleAdPerformanceReport(job: Job): Promise<JobResult> {
     totalImpressions += impressions;
     totalConversions += conversions;
 
-    const siteName = campaign.site?.name || 'Unknown';
+    const siteName = campaign.microsite?.siteName || campaign.site?.name || 'Unknown';
 
     if (roas >= PAID_TRAFFIC_CONFIG.roasScaleThreshold) {
       topPerformers.push({ id: campaign.id, name: campaign.name, site: siteName, roas, spend });
@@ -1858,6 +1859,7 @@ export async function deployDraftCampaigns(
     },
     include: {
       site: { select: { name: true, primaryDomain: true, targetMarkets: true } },
+      microsite: { select: { siteName: true, fullDomain: true } },
     },
   });
 
@@ -1895,6 +1897,16 @@ export async function deployDraftCampaigns(
       await new Promise((r) => setTimeout(r, cooldownMs));
     }
 
+    // For microsite campaigns, use the microsite's own name and domain
+    // instead of the (often mismatched) parent site
+    const effectiveSite = draft.microsite
+      ? {
+          name: draft.microsite.siteName,
+          primaryDomain: draft.microsite.fullDomain,
+          targetMarkets: draft.site?.targetMarkets,
+        }
+      : draft.site;
+
     const platformCampaignId = await deployCampaignToPlatform({
       id: draft.id,
       platform: draft.platform,
@@ -1902,7 +1914,7 @@ export async function deployDraftCampaigns(
       dailyBudget: Number(draft.dailyBudget),
       maxCpc: Number(draft.maxCpc),
       keywords: draft.keywords,
-      targetUrl: draft.targetUrl || `https://${draft.site?.primaryDomain || 'holibob.com'}`,
+      targetUrl: draft.targetUrl || `https://${effectiveSite?.primaryDomain || 'holibob.com'}`,
       geoTargets: draft.geoTargets,
       utmSource: draft.utmSource,
       utmMedium: draft.utmMedium,
@@ -1913,7 +1925,7 @@ export async function deployDraftCampaigns(
       landingPagePath: draft.landingPagePath,
       landingPageType: draft.landingPageType,
       landingPageProducts: draft.landingPageProducts,
-      site: draft.site,
+      site: effectiveSite,
     });
 
     if (platformCampaignId) {
@@ -2378,6 +2390,7 @@ export async function handleAdCreativeRefresh(_job: Job): Promise<JobResult> {
       geoTargets: true,
       proposalData: true,
       site: { select: { name: true, targetMarkets: true } },
+      microsite: { select: { siteName: true } },
     },
   });
 
@@ -2413,7 +2426,12 @@ export async function handleAdCreativeRefresh(_job: Job): Promise<JobResult> {
       let pageBody: string | null = null;
       let pageType: string | null = null;
 
-      if (campaign.landingPagePath && campaign.siteId) {
+      // For microsite campaigns, pages are stored with micrositeId (not siteId)
+      const refreshPageOwner = campaign.micrositeId
+        ? { micrositeId: campaign.micrositeId }
+        : { siteId: campaign.siteId };
+
+      if (campaign.landingPagePath && (campaign.siteId || campaign.micrositeId)) {
         const pageSelect = {
           title: true,
           metaDescription: true,
@@ -2433,7 +2451,7 @@ export async function handleAdCreativeRefresh(_job: Job): Promise<JobResult> {
 
         if (lpp === '/' || lpp === '') {
           page = await prisma.page.findFirst({
-            where: { siteId: campaign.siteId, type: 'HOMEPAGE', status: 'PUBLISHED' },
+            where: { ...refreshPageOwner, type: 'HOMEPAGE', status: 'PUBLISHED' },
             select: pageSelect,
           });
         } else if (lpp.startsWith('/experiences?categories=')) {
@@ -2442,7 +2460,7 @@ export async function handleAdCreativeRefresh(_job: Job): Promise<JobResult> {
           );
           page = await prisma.page.findFirst({
             where: {
-              siteId: campaign.siteId,
+              ...refreshPageOwner,
               type: 'CATEGORY',
               status: 'PUBLISHED',
               title: { contains: category, mode: 'insensitive' },
@@ -2455,7 +2473,7 @@ export async function handleAdCreativeRefresh(_job: Job): Promise<JobResult> {
           );
           page = await prisma.page.findFirst({
             where: {
-              siteId: campaign.siteId,
+              ...refreshPageOwner,
               type: 'LANDING',
               status: 'PUBLISHED',
               title: { contains: city, mode: 'insensitive' },
@@ -2465,7 +2483,7 @@ export async function handleAdCreativeRefresh(_job: Job): Promise<JobResult> {
         } else {
           const slug = lpp.startsWith('/') ? lpp.substring(1) : lpp;
           page = await prisma.page.findFirst({
-            where: { siteId: campaign.siteId, slug, status: 'PUBLISHED' },
+            where: { ...refreshPageOwner, slug, status: 'PUBLISHED' },
             select: pageSelect,
           });
         }
@@ -2517,7 +2535,7 @@ export async function handleAdCreativeRefresh(_job: Job): Promise<JobResult> {
           keywords: campaign.keywords,
           siteId: campaign.siteId,
           micrositeId: campaign.micrositeId,
-          siteName: campaign.site?.name || 'Holibob',
+          siteName: campaign.microsite?.siteName || campaign.site?.name || 'Holibob',
           landingPagePath: campaign.landingPagePath,
           landingPageType: campaign.landingPageType,
           landingPageProducts: campaign.landingPageProducts,
@@ -2610,7 +2628,7 @@ export async function handleAdCreativeRefresh(_job: Job): Promise<JobResult> {
           siteId: campaign.siteId,
           headline,
           body,
-          brandName: campaign.site?.name || campaign.name,
+          brandName: campaign.microsite?.siteName || campaign.site?.name || campaign.name,
         });
 
         if (!reviewed || reviewed.selectedUrl === existingImageUrl) {
