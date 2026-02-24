@@ -50,8 +50,12 @@ export interface AdCreativeInput {
 export async function generateAdCreative(input: AdCreativeInput): Promise<AdCreative> {
   const primaryKw = input.keywords[0] || 'travel';
 
-  // Fetch site context for the prompt
-  const context = input.siteId ? await fetchSiteContext(input.siteId, input.landingPagePath) : null;
+  // Fetch site context for the prompt (prefer microsite context when available)
+  const context = input.micrositeId
+    ? await fetchMicrositeContext(input.micrositeId, input.landingPagePath)
+    : input.siteId
+      ? await fetchSiteContext(input.siteId, input.landingPagePath)
+      : null;
 
   // Step 1: Generate text (AI with template fallback)
   let creative: AdCreative | null = null;
@@ -303,6 +307,123 @@ export async function fetchSiteContext(
   return {
     brandName: site.brand?.name || site.name,
     tagline: site.brand?.tagline || null,
+    tonePersonality: (toneOfVoice?.['personality'] as string[]) || [],
+    niche:
+      (seoConfig?.['niche'] as string) ||
+      (seoConfig?.['primaryCategory'] as string) ||
+      'travel experiences',
+    pageTitle,
+    pageDescription,
+    pageBody,
+    pageType,
+    imageUrl,
+  };
+}
+
+/**
+ * Fetch context from a MicrositeConfig for ad creative generation.
+ * Microsites have their own brand, pages, and identity separate from the parent site.
+ */
+async function fetchMicrositeContext(
+  micrositeId: string,
+  landingPagePath?: string | null,
+): Promise<SiteContext | null> {
+  const ms = await prisma.micrositeConfig.findUnique({
+    where: { id: micrositeId },
+    select: {
+      siteName: true,
+      tagline: true,
+      seoConfig: true,
+      brand: {
+        select: {
+          name: true,
+          tagline: true,
+          ogImageUrl: true,
+          logoUrl: true,
+        },
+      },
+    },
+  });
+
+  if (!ms) return null;
+
+  const seoConfig = ms.seoConfig as Record<string, unknown> | null;
+  const toneOfVoice = seoConfig?.['toneOfVoice'] as Record<string, unknown> | undefined;
+
+  let pageTitle: string | null = null;
+  let pageDescription: string | null = null;
+  let pageBody: string | null = null;
+  let pageType: string | null = null;
+
+  if (landingPagePath) {
+    const pageSelect = {
+      title: true,
+      metaDescription: true,
+      type: true,
+      content: { select: { body: true } },
+    } as const;
+
+    let page: {
+      title: string | null;
+      metaDescription: string | null;
+      type: string;
+      content: { body: string | null } | null;
+    } | null = null;
+
+    if (landingPagePath === '/' || landingPagePath === '') {
+      page = await prisma.page.findFirst({
+        where: { micrositeId, type: 'HOMEPAGE', status: 'PUBLISHED' },
+        select: pageSelect,
+      });
+    } else if (landingPagePath.startsWith('/experiences?categories=')) {
+      const category = decodeURIComponent(
+        landingPagePath.replace('/experiences?categories=', '').replace(/\+/g, ' '),
+      );
+      page = await prisma.page.findFirst({
+        where: {
+          micrositeId,
+          type: 'CATEGORY',
+          status: 'PUBLISHED',
+          title: { contains: category, mode: 'insensitive' },
+        },
+        select: pageSelect,
+      });
+    } else if (landingPagePath.startsWith('/experiences?cities=')) {
+      const city = decodeURIComponent(
+        landingPagePath.replace('/experiences?cities=', '').replace(/\+/g, ' '),
+      );
+      page = await prisma.page.findFirst({
+        where: {
+          micrositeId,
+          type: 'LANDING',
+          status: 'PUBLISHED',
+          title: { contains: city, mode: 'insensitive' },
+        },
+        select: pageSelect,
+      });
+    } else {
+      const slug = landingPagePath.startsWith('/') ? landingPagePath.substring(1) : landingPagePath;
+      page = await prisma.page.findFirst({
+        where: { micrositeId, slug, status: 'PUBLISHED' },
+        select: pageSelect,
+      });
+    }
+
+    if (page) {
+      pageTitle = page.title;
+      pageDescription = page.metaDescription;
+      pageType = page.type;
+      if (page.content?.body) {
+        pageBody = stripMarkdownForPrompt(page.content.body, 600);
+      }
+    }
+  }
+
+  const imageUrl = ms.brand?.ogImageUrl || ms.brand?.logoUrl || null;
+
+  return {
+    brandName: ms.brand?.name || ms.siteName,
+    tagline: ms.tagline || ms.brand?.tagline || null,
     tonePersonality: (toneOfVoice?.['personality'] as string[]) || [],
     niche:
       (seoConfig?.['niche'] as string) ||

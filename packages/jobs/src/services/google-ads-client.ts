@@ -191,6 +191,15 @@ async function removeCampaign(config: GoogleAdsConfig, campaignId: string): Prom
 }
 
 /**
+ * Public wrapper to remove a campaign from Google Ads.
+ */
+export async function removeGoogleCampaign(campaignId: string): Promise<boolean> {
+  const config = getConfig();
+  if (!config) return false;
+  return removeCampaign(config, campaignId);
+}
+
+/**
  * Create a Search campaign.
  * Handles DUPLICATE_CAMPAIGN_NAME by removing the orphaned campaign and retrying.
  */
