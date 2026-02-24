@@ -31,6 +31,7 @@ vi.mock('@/lib/prisma', () => ({
 
 vi.mock('@/lib/seo', () => ({
   generateFaqJsonLd: vi.fn(() => ({})),
+  cleanPlainText: vi.fn((text: string) => text),
 }));
 
 const defaultSite = {

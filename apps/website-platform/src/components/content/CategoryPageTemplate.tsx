@@ -5,6 +5,7 @@
 
 import React from 'react';
 import Image from 'next/image';
+import { cleanPlainText } from '@/lib/seo';
 import { ContentRenderer } from './ContentRenderer';
 import type { PageStatus, ContentFormat } from '@prisma/client';
 import Link from 'next/link';
@@ -75,7 +76,7 @@ export function CategoryPageTemplate({
 
         {category.metaDescription && (
           <p className="text-xl text-gray-600 leading-relaxed max-w-3xl">
-            {category.metaDescription}
+            {cleanPlainText(category.metaDescription)}
           </p>
         )}
       </header>

@@ -2,6 +2,7 @@ import { headers } from 'next/headers';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getSiteFromHostname } from '@/lib/tenant';
+import { cleanPlainText } from '@/lib/seo';
 import { prisma } from '@/lib/prisma';
 
 interface SearchParams {
@@ -182,7 +183,9 @@ export default async function BlogPage({ searchParams }: Props) {
     blogPost: posts.map((post) => ({
       '@type': 'BlogPosting',
       headline: post.title,
-      description: post.metaDescription || generateExcerpt(post.content?.body || ''),
+      description: post.metaDescription
+        ? cleanPlainText(post.metaDescription)
+        : generateExcerpt(post.content?.body || ''),
       datePublished: post.createdAt.toISOString(),
       dateModified: post.updatedAt.toISOString(),
       url: `https://${site.primaryDomain || hostname}/${post.slug}`,
@@ -340,7 +343,9 @@ export default async function BlogPage({ searchParams }: Props) {
 
                       {/* Excerpt */}
                       <p className="text-gray-600 text-sm mb-4 line-clamp-3 flex-1">
-                        {post.metaDescription || generateExcerpt(post.content?.body || '', 120)}
+                        {post.metaDescription
+                          ? cleanPlainText(post.metaDescription)
+                          : generateExcerpt(post.content?.body || '', 120)}
                       </p>
 
                       {/* Read More Link */}

@@ -2,6 +2,7 @@ import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getSiteFromHostname, type HomepageConfig } from '@/lib/tenant';
+import { cleanPlainText } from '@/lib/seo';
 import { getHolibobClient } from '@/lib/holibob';
 import { prisma } from '@/lib/prisma';
 import { CategoryPageTemplate } from '@/components/content/CategoryPageTemplate';
@@ -111,7 +112,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 
   const title = category.metaTitle || category.title;
-  const description = category.metaDescription || category.content?.body.substring(0, 160);
+  const rawDescription = category.metaDescription || category.content?.body.substring(0, 160);
+  const description = rawDescription ? cleanPlainText(rawDescription) : undefined;
 
   // Generate canonical URL - use custom if set, otherwise default to page URL
   const canonicalUrl =
@@ -167,7 +169,9 @@ export default async function CategoryPage({ params }: Props) {
     '@context': 'https://schema.org',
     '@type': 'CollectionPage',
     name: category.title,
-    description: category.metaDescription || category.content?.body?.substring(0, 200) || undefined,
+    description: cleanPlainText(
+      category.metaDescription || category.content?.body?.substring(0, 200) || ''
+    ),
     url: pageUrl,
     image: defaultImage,
     ...((category.content?.structuredData as Record<string, unknown>) || {}),

@@ -5,6 +5,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { cleanPlainText } from '@/lib/seo';
 import { ContentRenderer } from './ContentRenderer';
 import type { PageStatus, ContentFormat } from '@prisma/client';
 
@@ -88,7 +89,7 @@ export function FAQPageTemplate({ page, siteName, faqs = [] }: FAQPageTemplatePr
 
         {page.metaDescription && (
           <p className="text-lg text-gray-600 mb-4 leading-relaxed max-w-2xl mx-auto">
-            {page.metaDescription}
+            {cleanPlainText(page.metaDescription)}
           </p>
         )}
 

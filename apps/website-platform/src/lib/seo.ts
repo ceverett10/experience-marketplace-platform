@@ -219,6 +219,30 @@ export function generateLocalBusinessJsonLd(
 }
 
 /**
+ * Clean a plain-text string (e.g., meta description) that may contain leaked
+ * markdown link syntax or URL-encoded characters from content generation.
+ *
+ * Safe to call on already-clean strings — returns them unchanged.
+ */
+export function cleanPlainText(text: string): string {
+  let result = text;
+  // Strip markdown links [text](url) → text
+  result = result.replace(/\[([^\]]+)\]\([^)]*\)/g, '$1');
+  // Decode URL-encoded characters (%20 → space, etc.)
+  try {
+    result = decodeURIComponent(result);
+  } catch {
+    result = result.replace(/%20/g, ' ');
+  }
+  // Remove orphaned closing paren before a capitalised word (broken link artifact)
+  result = result.replace(/\)\s+(?=[A-Z])/g, ' ');
+  result = result.replace(/^\s*\)/, '');
+  // Collapse multiple spaces
+  result = result.replace(/\s{2,}/g, ' ').trim();
+  return result;
+}
+
+/**
  * Generate canonical URL
  */
 export function getCanonicalUrl(

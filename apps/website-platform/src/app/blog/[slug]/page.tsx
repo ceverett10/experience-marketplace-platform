@@ -2,6 +2,7 @@ import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getSiteFromHostname, type HomepageConfig, type SiteConfig } from '@/lib/tenant';
+import { cleanPlainText } from '@/lib/seo';
 import { prisma } from '@/lib/prisma';
 import { getRelatedMicrosites, getNetworkRelatedBlogPosts } from '@/lib/microsite-experiences';
 import { BlogPostTemplate } from '@/components/content/BlogPostTemplate';
@@ -102,7 +103,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 
   const title = post.metaTitle || post.title;
-  const description = post.metaDescription || post.content?.body.substring(0, 160);
+  const rawDescription = post.metaDescription || post.content?.body.substring(0, 160);
+  const description = rawDescription ? cleanPlainText(rawDescription) : undefined;
 
   // Generate canonical URL - use custom if set, otherwise default to page URL
   // Note: blog posts are stored with 'blog/' prefix in slug
@@ -167,7 +169,9 @@ export default async function BlogPostPage({ params }: Props) {
     '@context': 'https://schema.org',
     '@type': 'BlogPosting',
     headline: post.title.substring(0, 110), // Google truncates at 110 chars
-    description: post.metaDescription || post.content?.body?.substring(0, 160) || undefined,
+    description: cleanPlainText(
+      post.metaDescription || post.content?.body?.substring(0, 160) || ''
+    ),
     datePublished: post.createdAt.toISOString(),
     dateModified: post.updatedAt.toISOString(),
     // Image is REQUIRED for BlogPosting rich results
