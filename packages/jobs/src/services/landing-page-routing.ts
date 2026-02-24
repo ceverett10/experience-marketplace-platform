@@ -215,6 +215,7 @@ const SEASONAL_SIGNALS = [
 /** Generic words to strip from keywords when building search queries */
 const STRIP_WORDS = new Set([
   'book',
+  'booking',
   'buy',
   'get',
   'find',
@@ -243,6 +244,27 @@ const STRIP_WORDS = new Set([
   'what',
   'where',
   'how',
+  // Commercial intent words — useful for ads but shouldn't appear in page headers
+  'price',
+  'prices',
+  'pricing',
+  'cost',
+  'costs',
+  'review',
+  'reviews',
+  'discount',
+  'discounts',
+  'deal',
+  'deals',
+  'offer',
+  'offers',
+  'voucher',
+  'vouchers',
+  'coupon',
+  'coupons',
+  'compare',
+  'cheapest',
+  'free',
 ]);
 
 // --- Keyword Classification --------------------------------------------------

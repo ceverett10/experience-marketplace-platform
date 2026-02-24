@@ -1241,7 +1241,12 @@ export default async function ExperiencesPage({ searchParams }: Props) {
   }
 
   if (resolvedSearchParams.q && !isMicrosite) {
-    pageTitle = `${resolvedSearchParams.q}`;
+    // Title-case the search query for display as a page heading
+    const displayQuery = resolvedSearchParams.q
+      .split(' ')
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(' ');
+    pageTitle = displayQuery;
     pageSubtitle = destination
       ? `Explore ${resolvedSearchParams.q.toLowerCase()} experiences in ${destination}`
       : `Explore ${resolvedSearchParams.q.toLowerCase()} experiences`;
