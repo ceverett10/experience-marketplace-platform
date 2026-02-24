@@ -214,6 +214,74 @@ Return ONLY valid JSON with this exact structure:
 }
 
 /**
+ * Lightweight brand generation for supplier/product microsites.
+ * Only generates the 7 fields actually used: name, tagline, 3 colors, 2 fonts.
+ * Uses ~200 tokens instead of ~3000, dramatically faster for bulk creation.
+ */
+export async function generateLightweightBrandIdentity(
+  opportunity: OpportunityContext
+): Promise<ComprehensiveBrandIdentity> {
+  try {
+    const client = createClaudeClient({
+      apiKey: process.env['ANTHROPIC_API_KEY'] || process.env['CLAUDE_API_KEY'] || '',
+    });
+
+    const entityName = opportunity.entityName || opportunity.keyword;
+    const location = opportunity.location || '';
+    const niche = opportunity.niche;
+
+    const prompt =
+      'You are a brand strategist. Create a minimal brand identity for a travel experience website.\n\n' +
+      'Business: ' +
+      entityName +
+      '\n' +
+      (location ? 'Location: ' + location + '\n' : '') +
+      'Niche: ' +
+      niche +
+      '\n\n' +
+      'RULES:\n' +
+      '1. Brand name MUST be based on "' +
+      entityName +
+      '" — clean up corporate suffixes (Ltd, LLC, GmbH, etc.) but keep the core identity\n' +
+      '2. Do NOT invent a new name\n' +
+      '3. Tagline under 60 chars, specific to this business\n' +
+      '4. Colors as hex codes that suit the travel/experience niche\n' +
+      '5. Use popular Google Fonts\n\n' +
+      'Return ONLY valid JSON:\n' +
+      '{"name":"...","tagline":"...","primaryColor":"#...","secondaryColor":"#...","accentColor":"#...","headingFont":"...","bodyFont":"..."}';
+
+    const response = await client.generate({
+      model: client.getModelId('haiku'),
+      messages: [{ role: 'user', content: prompt }],
+      maxTokens: 200,
+      temperature: 0.7,
+    });
+
+    const content = response.content[0]?.type === 'text' ? response.content[0].text : '';
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
+      const template = createTemplateBrandIdentity(opportunity);
+      return {
+        ...template,
+        name: (parsed['name'] as string) || template.name,
+        tagline: (parsed['tagline'] as string) || template.tagline,
+        primaryColor: (parsed['primaryColor'] as string) || template.primaryColor,
+        secondaryColor: (parsed['secondaryColor'] as string) || template.secondaryColor,
+        accentColor: (parsed['accentColor'] as string) || template.accentColor,
+        headingFont: (parsed['headingFont'] as string) || template.headingFont,
+        bodyFont: (parsed['bodyFont'] as string) || template.bodyFont,
+      };
+    }
+
+    throw new Error('Failed to parse lightweight brand identity JSON');
+  } catch (error) {
+    console.error('[Brand Identity] Lightweight generation failed:', error);
+    return createTemplateBrandIdentity(opportunity);
+  }
+}
+
+/**
  * Create template-based brand identity as fallback
  */
 function createTemplateBrandIdentity(opportunity: OpportunityContext): ComprehensiveBrandIdentity {
