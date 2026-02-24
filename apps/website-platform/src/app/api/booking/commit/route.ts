@@ -79,56 +79,9 @@ export async function POST(request: NextRequest) {
     // Get full booking with questions to check canCommit
     const bookingWithQuestions = await client.getBookingQuestions(bookingId ?? existingBooking.id);
 
-    // Log questions for debugging
-    console.log('[Commit API] canCommit:', bookingWithQuestions.canCommit);
-    console.log(
-      '[Commit API] Booking questions:',
-      JSON.stringify(bookingWithQuestions.questionList?.nodes ?? [], null, 2)
-    );
-    console.log(
-      '[Commit API] Availability questions:',
-      JSON.stringify(
-        bookingWithQuestions.availabilityList?.nodes.map(
-          (a: {
-            id: string;
-            questionList?: {
-              nodes: Array<{ id: string; label: string; answerValue?: string | null }>;
-            };
-            personList?: {
-              nodes: Array<{
-                id: string;
-                questionList?: {
-                  nodes: Array<{ id: string; label: string; answerValue?: string | null }>;
-                };
-              }>;
-            };
-          }) => ({
-            id: a.id,
-            questions: a.questionList?.nodes ?? [],
-            persons:
-              a.personList?.nodes.map(
-                (p: {
-                  id: string;
-                  questionList?: {
-                    nodes: Array<{ id: string; label: string; answerValue?: string | null }>;
-                  };
-                }) => ({
-                  id: p.id,
-                  questions: p.questionList?.nodes ?? [],
-                })
-              ) ?? [],
-          })
-        ) ?? [],
-        null,
-        2
-      )
-    );
-
-    // With autoFillQuestions: true, try to commit anyway
-    // Holibob should have auto-filled the questions
     if (!bookingWithQuestions.canCommit) {
-      console.log(
-        '[Commit API] canCommit is false, but trying to commit anyway with autoFillQuestions...'
+      console.warn(
+        `[Commit API] canCommit is false for ${bookingId ?? bookingCode}, attempting commit anyway`
       );
     }
 
@@ -159,83 +112,100 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Save booking to local database for analytics (urgency messaging)
-    // This enables "Booked X times this week" social proof
-    if (booking.state === 'CONFIRMED' || booking.state === 'PENDING') {
-      try {
-        // Read UTM attribution from cookie (set by middleware on paid traffic landing)
-        let utmSource: string | undefined;
-        let utmMedium: string | undefined;
-        let utmCampaign: string | undefined;
-        let landingPage: string | undefined;
-        let gclid: string | undefined;
-        let fbclid: string | undefined;
-        const utmCookie = request.cookies.get('utm_params')?.value;
-        if (utmCookie) {
-          try {
-            const utm = JSON.parse(utmCookie);
-            utmSource = utm.source || undefined;
-            utmMedium = utm.medium || undefined;
-            utmCampaign = utm.campaign || undefined;
-            landingPage = utm.landingPage || undefined;
-            gclid = utm.gclid || undefined;
-            fbclid = utm.fbclid || undefined;
-          } catch {
-            // Invalid cookie JSON — ignore
-          }
+    // Save booking to local database for analytics
+    // Always attempt regardless of booking state to avoid silent data loss
+    console.info(
+      `[Commit API] Saving booking ${resolvedBookingId}, state=${booking.state}, site=${site.id}, isMicrosite=${!!site.micrositeContext}`
+    );
+    try {
+      // Read UTM attribution from cookie (set by middleware on paid traffic landing)
+      let utmSource: string | undefined;
+      let utmMedium: string | undefined;
+      let utmCampaign: string | undefined;
+      let landingPage: string | undefined;
+      let gclid: string | undefined;
+      let fbclid: string | undefined;
+      const utmCookie = request.cookies.get('utm_params')?.value;
+      if (utmCookie) {
+        try {
+          const utm = JSON.parse(utmCookie);
+          utmSource = utm.source || undefined;
+          utmMedium = utm.medium || undefined;
+          utmCampaign = utm.campaign || undefined;
+          landingPage = utm.landingPage || undefined;
+          gclid = utm.gclid || undefined;
+          fbclid = utm.fbclid || undefined;
+        } catch {
+          // Invalid cookie JSON — ignore
         }
-
-        // Calculate commission from Holibob gross/net price split
-        const gross = booking.totalPrice?.gross;
-        const net = booking.totalPrice?.net;
-        let commissionAmount: number | undefined;
-        let commissionRate: number | undefined;
-        if (gross && net && gross > 0) {
-          commissionAmount = gross - net;
-          commissionRate = (commissionAmount / gross) * 100;
-        }
-
-        // Determine whether this booking is on a Site or a MicrositeConfig
-        const isMicrosite = !!site.micrositeContext;
-
-        await prisma.booking.upsert({
-          where: { holibobBookingId: resolvedBookingId },
-          create: {
-            holibobBookingId: resolvedBookingId,
-            holibobBasketId: booking.code || null,
-            holibobProductId: productId || null,
-            status: booking.state === 'CONFIRMED' ? 'CONFIRMED' : 'PENDING',
-            totalAmount: gross || 0,
-            currency: booking.totalPrice?.currency || 'GBP',
-            // Link to either Site or MicrositeConfig (not both)
-            siteId: isMicrosite ? null : site.id,
-            micrositeId: isMicrosite ? site.micrositeContext!.micrositeId : null,
-            utmSource,
-            utmMedium,
-            utmCampaign,
-            landingPage,
-            gclid: gclid ?? null,
-            fbclid: fbclid ?? null,
-            commissionAmount: commissionAmount ?? null,
-            commissionRate: commissionRate ?? null,
-          },
-          update: {
-            status: booking.state === 'CONFIRMED' ? 'CONFIRMED' : 'PENDING',
-            holibobProductId: productId || undefined,
-            // Update UTM/commission if not already set (first write wins)
-            ...(utmSource ? { utmSource } : {}),
-            ...(gclid ? { gclid } : {}),
-            ...(fbclid ? { fbclid } : {}),
-            ...(commissionAmount != null ? { commissionAmount, commissionRate } : {}),
-          },
-        });
-        console.log(
-          `[Commit API] Saved booking ${resolvedBookingId} (${utmSource ? `utm=${utmSource}/${utmMedium}/${utmCampaign}` : 'organic'}, commission=${commissionRate?.toFixed(1) ?? 'N/A'}%)`
-        );
-      } catch (dbError) {
-        // Log but don't fail the request if DB save fails
-        console.error('[Commit API] Failed to save booking to local DB:', dbError);
       }
+
+      // Calculate commission from Holibob gross/net price split
+      const gross = booking.totalPrice?.gross;
+      const net = booking.totalPrice?.net;
+      let commissionAmount: number | undefined;
+      let commissionRate: number | undefined;
+      if (gross && net && gross > 0) {
+        commissionAmount = gross - net;
+        commissionRate = (commissionAmount / gross) * 100;
+      }
+
+      // Determine whether this booking is on a Site or a MicrositeConfig
+      const isMicrosite = !!site.micrositeContext;
+
+      // Map Holibob state to our BookingStatus enum
+      const status =
+        booking.state === 'CONFIRMED' || booking.state === 'COMPLETED'
+          ? 'CONFIRMED'
+          : booking.state === 'CANCELLED' || booking.state === 'REJECTED'
+            ? 'CANCELLED'
+            : 'PENDING';
+
+      await prisma.booking.upsert({
+        where: { holibobBookingId: resolvedBookingId },
+        create: {
+          holibobBookingId: resolvedBookingId,
+          holibobBasketId: booking.code || null,
+          holibobProductId: productId || null,
+          status,
+          totalAmount: gross || 0,
+          currency: booking.totalPrice?.currency || 'GBP',
+          // Link to either Site or MicrositeConfig (not both)
+          siteId: isMicrosite ? null : site.id,
+          micrositeId: isMicrosite ? site.micrositeContext!.micrositeId : null,
+          utmSource,
+          utmMedium,
+          utmCampaign,
+          landingPage,
+          gclid: gclid ?? null,
+          fbclid: fbclid ?? null,
+          commissionAmount: commissionAmount ?? null,
+          commissionRate: commissionRate ?? null,
+        },
+        update: {
+          status,
+          holibobProductId: productId || undefined,
+          // Update UTM/commission if not already set (first write wins)
+          ...(utmSource ? { utmSource } : {}),
+          ...(gclid ? { gclid } : {}),
+          ...(fbclid ? { fbclid } : {}),
+          ...(commissionAmount != null ? { commissionAmount, commissionRate } : {}),
+        },
+      });
+      console.info(
+        `[Commit API] Saved booking ${resolvedBookingId} (${utmSource ? `utm=${utmSource}/${utmMedium}/${utmCampaign}` : 'organic'}, commission=${commissionRate?.toFixed(1) ?? 'N/A'}%)`
+      );
+    } catch (dbError) {
+      // Persist error to funnel events (survives log rotation)
+      console.error('[Commit API] Failed to save booking to local DB:', dbError);
+      trackFunnelEvent({
+        step: BookingFunnelStep.BOOKING_COMPLETED,
+        siteId: site.id,
+        bookingId: resolvedBookingId,
+        errorCode: 'DB_SAVE_FAILED',
+        errorMessage: dbError instanceof Error ? dbError.message : String(dbError),
+        durationMs: Date.now() - startTime,
+      });
     }
 
     trackFunnelEvent({

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
 /**
@@ -215,12 +215,22 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     };
 
     // --- Attribution (bookings by UTM campaign) ---
+    // Include bookings from microsites associated with this site's campaigns
+    const micrositeIds = [
+      ...new Set(campaigns.filter((c) => c.micrositeId).map((c) => c.micrositeId!)),
+    ];
     const attributionWhere: Record<string, unknown> = {
       utmMedium: 'cpc',
       createdAt: { gte: startDate, lte: endDate },
       status: { in: ['CONFIRMED', 'COMPLETED'] },
     };
-    if (siteId) attributionWhere['siteId'] = siteId;
+    if (siteId) {
+      if (micrositeIds.length > 0) {
+        attributionWhere['OR'] = [{ siteId }, { micrositeId: { in: micrositeIds } }];
+      } else {
+        attributionWhere['siteId'] = siteId;
+      }
+    }
 
     const attributionBookings = await (prisma as any).booking.groupBy({
       by: ['utmCampaign', 'utmSource'],
@@ -245,7 +255,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         createdAt: { gte: startDate, lte: endDate },
         status: { in: ['CONFIRMED', 'COMPLETED'] },
         landingPage: { not: null },
-        ...(siteId ? { siteId } : {}),
+        ...(siteId
+          ? micrositeIds.length > 0
+            ? { OR: [{ siteId }, { micrositeId: { in: micrositeIds } }] }
+            : { siteId }
+          : {}),
       },
       _count: true,
       _sum: { totalAmount: true, commissionAmount: true },

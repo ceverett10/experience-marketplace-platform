@@ -640,6 +640,13 @@ export const BOOKING_FULL_QUERY = gql`
               id
               url
             }
+            cancellationPolicy {
+              penaltyList {
+                nodes {
+                  formattedText
+                }
+              }
+            }
           }
           totalPrice {
             grossFormattedText
