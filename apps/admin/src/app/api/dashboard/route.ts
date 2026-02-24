@@ -87,6 +87,7 @@ export async function GET(): Promise<NextResponse> {
         by: ['siteId'],
         where: {
           status: 'CONFIRMED',
+          siteId: { not: null },
           createdAt: { gte: thirtyDaysAgo, lte: now },
         },
         _sum: { totalAmount: true },
@@ -100,7 +101,7 @@ export async function GET(): Promise<NextResponse> {
       // Top performing sites with booking counts
       prisma.site.findMany({
         where: { status: 'ACTIVE' },
-        take: 5,
+        take: 10,
         include: {
           _count: {
             select: { bookings: true },
@@ -118,6 +119,27 @@ export async function GET(): Promise<NextResponse> {
       }),
     ]);
 
+    // Also fetch microsite revenue and booking counts for merged display
+    const [revenuePerMicrosite, topMicrosites] = await Promise.all([
+      prisma.booking.groupBy({
+        by: ['micrositeId'],
+        where: {
+          status: 'CONFIRMED',
+          micrositeId: { not: null },
+          createdAt: { gte: thirtyDaysAgo, lte: now },
+        },
+        _sum: { totalAmount: true },
+      }),
+      prisma.micrositeConfig.findMany({
+        where: { status: 'ACTIVE' },
+        take: 10,
+        include: {
+          _count: { select: { bookings: true } },
+        },
+        orderBy: { bookings: { _count: 'desc' } },
+      }),
+    ]);
+
     const totalRevenue = Number(currentRevenue._sum.totalAmount || 0);
     const prevRevenue = Number(previousRevenue._sum.totalAmount || 0);
 
@@ -127,10 +149,36 @@ export async function GET(): Promise<NextResponse> {
     const conversionRate =
       totalSessions > 0 ? ((currentBookings / totalSessions) * 100).toFixed(1) : '0.0';
 
-    // Per-site revenue lookup
-    const revenueMap = new Map(
-      revenuePerSite.map((r) => [r.siteId, Number(r._sum.totalAmount || 0)])
-    );
+    // Per-site revenue lookup (includes both sites and microsites)
+    const revenueMap = new Map<string, number>();
+    for (const r of revenuePerSite) {
+      if (r.siteId) revenueMap.set(r.siteId, Number(r._sum.totalAmount || 0));
+    }
+    for (const r of revenuePerMicrosite) {
+      if (r.micrositeId) revenueMap.set(r.micrositeId, Number(r._sum.totalAmount || 0));
+    }
+
+    // Merge sites and microsites into a single ranking by booking count
+    const allTopEntries = [
+      ...topSites.map((site) => ({
+        id: site.id,
+        name: site.name,
+        domain: site.domains[0]?.domain || site.primaryDomain || 'No domain',
+        bookings: site._count.bookings,
+        revenue: revenueMap.get(site.id) || 0,
+      })),
+      ...topMicrosites
+        .filter((m) => m._count.bookings > 0)
+        .map((m) => ({
+          id: m.id,
+          name: m.siteName,
+          domain: m.fullDomain || m.subdomain,
+          bookings: m._count.bookings,
+          revenue: revenueMap.get(m.id) || 0,
+        })),
+    ]
+      .sort((a, b) => b.bookings - a.bookings)
+      .slice(0, 5);
 
     return NextResponse.json({
       stats: {
@@ -146,13 +194,7 @@ export async function GET(): Promise<NextResponse> {
           revenue: calcChange(totalRevenue, prevRevenue),
         },
       },
-      topSites: topSites.map((site) => ({
-        id: site.id,
-        name: site.name,
-        domain: site.domains[0]?.domain || site.primaryDomain || 'No domain',
-        bookings: site._count.bookings,
-        revenue: revenueMap.get(site.id) || 0,
-      })),
+      topSites: allTopEntries,
     });
   } catch (error) {
     console.error('[API] Error fetching dashboard data:', error);

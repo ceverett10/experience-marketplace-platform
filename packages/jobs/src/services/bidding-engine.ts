@@ -301,9 +301,9 @@ export async function calculateMicrositeProfitability(): Promise<SiteProfitabili
   });
 
   if (microsites.length === 0) return [];
-  console.log(`[BiddingEngine] Calculating profitability for ${microsites.length} microsites`);
+  console.info(`[BiddingEngine] Calculating profitability for ${microsites.length} microsites`);
 
-  // Get portfolio-wide averages as fallback
+  // Get portfolio-wide averages as fallback (includes both site and microsite bookings)
   const lookbackDate = new Date();
   lookbackDate.setDate(lookbackDate.getDate() - LOOKBACK_DAYS);
 
@@ -341,8 +341,32 @@ export async function calculateMicrositeProfitability(): Promise<SiteProfitabili
         ? PAID_TRAFFIC_CONFIG.defaults.cvr * 1.2 // Slight niche boost with real data
         : PAID_TRAFFIC_CONFIG.defaults.cvr; // 1.5% default
 
-    const avgOrderValue = portfolioAvg._count >= MIN_BOOKINGS_FOR_AOV ? portfolioAov : catalogAvg;
-    const avgCommissionRate = portfolioCommission;
+    // Try microsite-specific booking data first, then fall back to portfolio averages
+    const msBookingAgg = await prisma.booking.aggregate({
+      where: {
+        micrositeId: ms.id,
+        status: { in: ['CONFIRMED', 'COMPLETED'] },
+        createdAt: { gte: lookbackDate },
+      },
+      _avg: { totalAmount: true, commissionRate: true },
+      _count: true,
+    });
+
+    const hasMsBookings = msBookingAgg._count >= MIN_BOOKINGS_FOR_AOV;
+    const hasPortfolioBookings = portfolioAvg._count >= MIN_BOOKINGS_FOR_AOV;
+
+    const avgOrderValue = hasMsBookings
+      ? Number(msBookingAgg._avg.totalAmount)
+      : hasPortfolioBookings
+        ? portfolioAov
+        : catalogAvg;
+
+    const avgCommissionRate =
+      hasMsBookings && msBookingAgg._avg.commissionRate
+        ? msBookingAgg._avg.commissionRate
+        : portfolioCommission;
+
+    const bookingSampleSize = hasMsBookings ? msBookingAgg._count : portfolioAvg._count;
 
     const commissionDecimal = avgCommissionRate / 100;
     const revenuePerClick = avgOrderValue * conversionRate * commissionDecimal;
@@ -359,10 +383,10 @@ export async function calculateMicrositeProfitability(): Promise<SiteProfitabili
       maxProfitableCpc,
       revenuePerClick,
       dataQuality: {
-        bookingSampleSize: portfolioAvg._count,
+        bookingSampleSize,
         sessionSampleSize: totalSessions,
-        usedCatalogFallback: portfolioAvg._count < MIN_BOOKINGS_FOR_AOV,
-        usedDefaultCommission: true,
+        usedCatalogFallback: !hasMsBookings && !hasPortfolioBookings,
+        usedDefaultCommission: !hasMsBookings && !portfolioAvg._avg.commissionRate,
         usedDefaultCvr: totalSessions < MIN_SESSIONS_FOR_CVR,
       },
     });
