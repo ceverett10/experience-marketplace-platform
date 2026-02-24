@@ -6,6 +6,7 @@
  */
 
 import Link from 'next/link';
+import { cleanPlainText } from '@/lib/seo';
 
 interface BlogPost {
   id: string;
@@ -125,7 +126,9 @@ export function HomepageBlogSection({ posts, primaryColor, siteName }: HomepageB
 
                 {/* Excerpt */}
                 <p className="text-sm text-gray-600 mb-4 line-clamp-2 flex-1">
-                  {post.metaDescription || generateExcerpt(post.content?.body || '', 120)}
+                  {post.metaDescription
+                    ? cleanPlainText(post.metaDescription)
+                    : generateExcerpt(post.content?.body || '', 120)}
                 </p>
 
                 {/* Read More Link */}

@@ -6,6 +6,7 @@
  */
 
 import Link from 'next/link';
+import { cleanPlainText } from '@/lib/seo';
 
 interface BlogPost {
   id: string;
@@ -131,7 +132,9 @@ export function RelatedArticles({
 
               {/* Excerpt */}
               <p className="line-clamp-2 text-xs text-gray-500">
-                {post.metaDescription || generateExcerpt(post.content?.body || '', 100)}
+                {post.metaDescription
+                  ? cleanPlainText(post.metaDescription)
+                  : generateExcerpt(post.content?.body || '', 100)}
               </p>
 
               {/* Read More */}

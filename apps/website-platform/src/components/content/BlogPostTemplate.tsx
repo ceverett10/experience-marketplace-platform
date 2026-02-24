@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { ContentRenderer } from './ContentRenderer';
+import { cleanPlainText } from '@/lib/seo';
 import type { PageStatus, ContentFormat } from '@prisma/client';
 
 interface BlogPostData {
@@ -55,6 +56,9 @@ export function BlogPostTemplate({ post, siteName }: BlogPostTemplateProps) {
     day: 'numeric',
   }).format(new Date(post.createdAt));
 
+  // Clean description that may contain leaked markdown/URL-encoded artifacts
+  const description = post.metaDescription ? cleanPlainText(post.metaDescription) : null;
+
   return (
     <article className="max-w-4xl mx-auto px-4 py-8">
       {/* Header */}
@@ -63,10 +67,8 @@ export function BlogPostTemplate({ post, siteName }: BlogPostTemplateProps) {
           {post.title}
         </h1>
 
-        {post.metaDescription && (
-          <p className="text-lg sm:text-xl text-gray-600 mb-4 leading-relaxed">
-            {post.metaDescription}
-          </p>
+        {description && (
+          <p className="text-lg sm:text-xl text-gray-600 mb-4 leading-relaxed">{description}</p>
         )}
 
         <div className="flex items-center gap-4 text-sm text-gray-500">

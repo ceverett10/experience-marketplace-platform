@@ -2,6 +2,7 @@ import { headers } from 'next/headers';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getSiteFromHostname } from '@/lib/tenant';
+import { cleanPlainText } from '@/lib/seo';
 import { prisma } from '@/lib/prisma';
 
 interface SearchParams {
@@ -297,7 +298,9 @@ export default async function FAQPage({ searchParams }: Props) {
 
                       {/* Excerpt */}
                       <p className="text-gray-600 text-sm mb-4 line-clamp-3 flex-1">
-                        {faq.metaDescription || generateExcerpt(faq.content?.body || '', 120)}
+                        {faq.metaDescription
+                          ? cleanPlainText(faq.metaDescription)
+                          : generateExcerpt(faq.content?.body || '', 120)}
                       </p>
 
                       {/* Read More Link */}

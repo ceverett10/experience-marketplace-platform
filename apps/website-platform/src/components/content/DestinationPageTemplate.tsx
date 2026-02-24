@@ -5,6 +5,7 @@
 
 import React from 'react';
 import Image from 'next/image';
+import { cleanPlainText } from '@/lib/seo';
 import { ContentRenderer } from './ContentRenderer';
 import type { PageStatus, ContentFormat } from '@prisma/client';
 import Link from 'next/link';
@@ -79,7 +80,7 @@ export function DestinationPageTemplate({
 
           {destination.metaDescription && (
             <p className="text-xl md:text-2xl text-blue-100 max-w-3xl leading-relaxed">
-              {destination.metaDescription}
+              {cleanPlainText(destination.metaDescription)}
             </p>
           )}
         </div>
