@@ -565,29 +565,61 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
                 {/* Cancellation Policy */}
                 <div className="rounded-xl bg-white p-6 shadow-lg">
                   <h2 className="mb-4 text-lg font-semibold text-gray-900">Cancellation Policy</h2>
-                  <div className="flex items-start gap-3 text-sm text-gray-600">
-                    <svg
-                      className="mt-0.5 h-5 w-5 flex-shrink-0 text-green-500"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth="2"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                    <div>
-                      <p className="font-medium text-gray-900">
-                        Free cancellation based on experience terms
-                      </p>
-                      <p className="mt-1">
-                        Cancellation is subject to the terms of the experience you are booking.
-                      </p>
-                    </div>
-                  </div>
+                  {(() => {
+                    const policyNodes =
+                      firstAvailability?.product?.cancellationPolicy?.penaltyList?.nodes;
+                    const policyText = policyNodes
+                      ?.map((n) => n.formattedText)
+                      .filter(Boolean)
+                      .join(' ');
+                    const hasFreeCancellation =
+                      policyText?.toLowerCase().includes('free') ||
+                      policyText?.toLowerCase().includes('full refund');
+
+                    return (
+                      <div className="flex items-start gap-3 text-sm text-gray-600">
+                        {hasFreeCancellation ? (
+                          <svg
+                            className="mt-0.5 h-5 w-5 flex-shrink-0 text-green-500"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            strokeWidth="2"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
+                          </svg>
+                        ) : (
+                          <svg
+                            className="mt-0.5 h-5 w-5 flex-shrink-0 text-gray-400"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            strokeWidth="2"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"
+                            />
+                          </svg>
+                        )}
+                        <div>
+                          <p className="font-medium text-gray-900">
+                            {policyText || 'Cancellation terms apply'}
+                          </p>
+                          {!policyText && (
+                            <p className="mt-1">
+                              Check the experience page for full cancellation terms and conditions.
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Proceed to Payment - mobile only (desktop button is in sidebar) */}
