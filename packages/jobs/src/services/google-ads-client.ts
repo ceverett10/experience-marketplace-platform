@@ -234,10 +234,10 @@ export async function createSearchCampaign(campaignConfig: {
             status: campaignConfig.status || 'PAUSED',
             advertisingChannelType: 'SEARCH',
             campaignBudget: budgetResourceName,
-            manualCpc: { enhancedCpcEnabled: false },
+            manualCpc: { enhancedCpcEnabled: true },
             networkSettings: {
               targetGoogleSearch: true,
-              targetSearchNetwork: false,
+              targetSearchNetwork: true,
               targetContentNetwork: false,
             },
             containsEuPoliticalAdvertising: 'DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING',

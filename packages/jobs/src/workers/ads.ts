@@ -475,7 +475,10 @@ export async function handleAdBudgetOptimizer(job: Job): Promise<JobResult> {
   const lookback = new Date();
   lookback.setDate(lookback.getDate() - PAID_TRAFFIC_CONFIG.observationDays);
 
-  const where: Record<string, unknown> = { status: 'ACTIVE' };
+  const where: Record<string, unknown> = {
+    status: 'ACTIVE',
+    platform: { in: PAID_TRAFFIC_CONFIG.enabledPlatforms },
+  };
   if (payload.siteId) where['siteId'] = payload.siteId;
 
   const campaigns = await prisma.adCampaign.findMany({
@@ -665,12 +668,12 @@ export async function handleAdBudgetOptimizer(job: Job): Promise<JobResult> {
     }
 
     // --- Task 4.9: Google Smart Bidding migration ---
-    // Migrate campaigns with 15+ conversions from MANUAL_CPC to TARGET_ROAS
+    // Migrate campaigns with 10+ conversions from MANUAL_CPC to TARGET_ROAS
     if (
       campaign.platform === 'GOOGLE_SEARCH' &&
       campaign.platformCampaignId &&
       isGoogleAdsConfigured() &&
-      campaign.conversions >= 15
+      campaign.conversions >= 10
     ) {
       const proposal = campaign.proposalData as Record<string, unknown> | null;
       if (!proposal?.['smartBiddingMigrated']) {
@@ -1652,6 +1655,7 @@ async function deployToGoogle(
     if (adGroupConfigs && adGroupConfigs.length > 0) {
       for (const agConfig of adGroupConfigs) {
         const keywords = agConfig.keywords.flatMap((kw) => [
+          { text: kw, matchType: 'BROAD' as const },
           { text: kw, matchType: 'PHRASE' as const },
           { text: kw, matchType: 'EXACT' as const },
         ]);
@@ -1806,7 +1810,27 @@ async function deployToGoogle(
     // Uses PRESENCE_OR_INTEREST so someone in London searching "boat tours Barcelona"
     // still sees the ad. Falls back to site.targetMarkets → default source markets.
     const geoTargetCountries = campaign.geoTargets ??
-      campaign.site?.targetMarkets ?? ['GB', 'US', 'CA', 'AU', 'IE', 'NZ'];
+      campaign.site?.targetMarkets ?? [
+        'GB',
+        'US',
+        'CA',
+        'AU',
+        'IE',
+        'NZ',
+        'DE',
+        'FR',
+        'ES',
+        'IT',
+        'NL',
+        'CH',
+        'AT',
+        'BE',
+        'SE',
+        'NO',
+        'DK',
+        'FI',
+        'PT',
+      ];
     let geoTargetsApplied = 0;
     try {
       geoTargetsApplied = await setCampaignGeoTargets(
@@ -1855,6 +1879,7 @@ export async function deployDraftCampaigns(
   const drafts = await prisma.adCampaign.findMany({
     where: {
       status: 'DRAFT',
+      platform: { in: PAID_TRAFFIC_CONFIG.enabledPlatforms },
       ...(options?.platform ? { platform: options.platform } : {}),
     },
     include: {
@@ -2022,6 +2047,8 @@ export async function handleBiddingEngineRun(job: Job): Promise<JobResult> {
 
   if ((mode || 'full') === 'full' && result.groups.length > 0) {
     for (const group of result.groups) {
+      // Skip groups for platforms that are not enabled
+      if (!PAID_TRAFFIC_CONFIG.enabledPlatforms.includes(group.platform)) continue;
       // Skip if campaign already exists for this microsite+platform+landingPage
       // (or site+platform+landingPage if no microsite)
       const lpPath = group.adGroups[0]?.landingPagePath || null;

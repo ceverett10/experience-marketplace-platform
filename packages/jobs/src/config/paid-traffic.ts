@@ -22,6 +22,11 @@ export const PAID_TRAFFIC_CONFIG = {
   maxPerCampaignBudget: 50,
   /** Minimum daily budget per campaign (Meta requires ~£1, Google ~$1) */
   minDailyBudget: 1.0,
+  /** Ad platforms to create new campaigns for. Env: ENABLED_AD_PLATFORMS */
+  enabledPlatforms: (process.env['ENABLED_AD_PLATFORMS'] || 'GOOGLE_SEARCH')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean) as ('FACEBOOK' | 'GOOGLE_SEARCH')[],
 
   // ---------------------------------------------------------------------------
   // ROAS thresholds
@@ -59,7 +64,7 @@ export const PAID_TRAFFIC_CONFIG = {
   /** Max CPC threshold for keyword discovery */
   maxCpc: 3.0,
   /** Minimum monthly search volume for keyword discovery */
-  minVolume: 100,
+  minVolume: 50,
   /** Max keyword seeds per supplier in enrichment */
   maxSeedsPerSupplier: 100,
   /** USD safety cap for DataForSEO spend per enrichment run */
