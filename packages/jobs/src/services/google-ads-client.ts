@@ -721,6 +721,204 @@ export async function getSearchTermReport(
   }
 }
 
+// --- Campaign Asset Functions (Sitelinks, Callouts, Structured Snippets) ------
+
+interface SitelinkInput {
+  linkText: string; // Max 25 chars
+  description1: string; // Max 35 chars
+  description2: string; // Max 35 chars
+  finalUrl: string;
+}
+
+/**
+ * Create sitelink assets and link them to a campaign.
+ * Sitelinks appear as additional links below the main ad.
+ * Character limits: linkText 25, description1/2 35 each.
+ */
+export async function createAndLinkSitelinks(
+  campaignId: string,
+  sitelinks: SitelinkInput[]
+): Promise<number> {
+  const config = getConfig();
+  if (!config || sitelinks.length === 0) return 0;
+
+  try {
+    // Step 1: Create sitelink assets
+    const assetOperations = sitelinks.map((sl) => ({
+      create: {
+        sitelinkAsset: {
+          linkText: sl.linkText.substring(0, 25),
+          description1: sl.description1.substring(0, 35),
+          description2: sl.description2.substring(0, 35),
+        },
+        finalUrls: [sl.finalUrl],
+      },
+    }));
+
+    const assetResult = (await apiRequest(config, 'POST', '/assets:mutate', {
+      operations: assetOperations,
+    })) as { results: Array<{ resourceName: string }> };
+
+    const assetResourceNames = assetResult.results.map((r) => r.resourceName);
+    if (assetResourceNames.length === 0) return 0;
+
+    // Step 2: Link assets to campaign
+    const campaignResourceName = `customers/${config.customerId}/campaigns/${campaignId}`;
+    const linkOperations = assetResourceNames.map((assetRn) => ({
+      create: {
+        asset: assetRn,
+        campaign: campaignResourceName,
+        fieldType: 'SITELINK',
+      },
+    }));
+
+    await apiRequest(config, 'POST', '/campaignAssets:mutate', {
+      operations: linkOperations,
+    });
+
+    console.log(
+      `[GoogleAds] Linked ${assetResourceNames.length} sitelinks to campaign ${campaignId}`
+    );
+    return assetResourceNames.length;
+  } catch (error) {
+    console.error(`[GoogleAds] Create/link sitelinks failed for campaign ${campaignId}:`, error);
+    return 0;
+  }
+}
+
+/**
+ * Create callout assets and link them to a campaign.
+ * Callouts appear as short text snippets below the ad (e.g., "Free Cancellation").
+ * Max 25 characters per callout.
+ */
+export async function createAndLinkCallouts(
+  campaignId: string,
+  calloutTexts: string[]
+): Promise<number> {
+  const config = getConfig();
+  if (!config || calloutTexts.length === 0) return 0;
+
+  try {
+    // Step 1: Create callout assets
+    const assetOperations = calloutTexts.map((text) => ({
+      create: {
+        calloutAsset: {
+          calloutText: text.substring(0, 25),
+        },
+      },
+    }));
+
+    const assetResult = (await apiRequest(config, 'POST', '/assets:mutate', {
+      operations: assetOperations,
+    })) as { results: Array<{ resourceName: string }> };
+
+    const assetResourceNames = assetResult.results.map((r) => r.resourceName);
+    if (assetResourceNames.length === 0) return 0;
+
+    // Step 2: Link assets to campaign
+    const campaignResourceName = `customers/${config.customerId}/campaigns/${campaignId}`;
+    const linkOperations = assetResourceNames.map((assetRn) => ({
+      create: {
+        asset: assetRn,
+        campaign: campaignResourceName,
+        fieldType: 'CALLOUT',
+      },
+    }));
+
+    await apiRequest(config, 'POST', '/campaignAssets:mutate', {
+      operations: linkOperations,
+    });
+
+    console.log(
+      `[GoogleAds] Linked ${assetResourceNames.length} callouts to campaign ${campaignId}`
+    );
+    return assetResourceNames.length;
+  } catch (error) {
+    console.error(`[GoogleAds] Create/link callouts failed for campaign ${campaignId}:`, error);
+    return 0;
+  }
+}
+
+/**
+ * Valid headers for structured snippet assets per Google Ads API.
+ * @see https://developers.google.com/google-ads/api/reference/data/structured-snippet-headers
+ */
+type StructuredSnippetHeader =
+  | 'Amenities'
+  | 'Brands'
+  | 'Courses'
+  | 'Degree programs'
+  | 'Destinations'
+  | 'Featured hotels'
+  | 'Insurance coverage'
+  | 'Models'
+  | 'Neighborhoods'
+  | 'Service catalog'
+  | 'Shows'
+  | 'Styles'
+  | 'Types';
+
+/**
+ * Create a structured snippet asset and link it to a campaign.
+ * Structured snippets show additional info under a predefined header
+ * (e.g., "Destinations: London, Paris, Rome").
+ * Values: 3-10 items, max 25 chars each.
+ */
+export async function createAndLinkStructuredSnippets(
+  campaignId: string,
+  snippet: { header: StructuredSnippetHeader; values: string[] }
+): Promise<boolean> {
+  const config = getConfig();
+  if (!config || snippet.values.length < 3) return false;
+
+  try {
+    // Ensure 3-10 values, each max 25 chars
+    const values = snippet.values.slice(0, 10).map((v) => v.substring(0, 25));
+
+    // Step 1: Create structured snippet asset
+    const assetResult = (await apiRequest(config, 'POST', '/assets:mutate', {
+      operations: [
+        {
+          create: {
+            structuredSnippetAsset: {
+              header: snippet.header,
+              values,
+            },
+          },
+        },
+      ],
+    })) as { results: Array<{ resourceName: string }> };
+
+    const assetResourceName = assetResult.results[0]?.resourceName;
+    if (!assetResourceName) return false;
+
+    // Step 2: Link asset to campaign
+    const campaignResourceName = `customers/${config.customerId}/campaigns/${campaignId}`;
+    await apiRequest(config, 'POST', '/campaignAssets:mutate', {
+      operations: [
+        {
+          create: {
+            asset: assetResourceName,
+            campaign: campaignResourceName,
+            fieldType: 'STRUCTURED_SNIPPET',
+          },
+        },
+      ],
+    });
+
+    console.log(
+      `[GoogleAds] Linked structured snippet (${snippet.header}: ${values.length} values) to campaign ${campaignId}`
+    );
+    return true;
+  } catch (error) {
+    console.error(
+      `[GoogleAds] Create/link structured snippets failed for campaign ${campaignId}:`,
+      error
+    );
+    return false;
+  }
+}
+
 /**
  * ISO 3166-1 alpha-2 → Google Ads Geo Target Constant ID mapping.
  * Full list: https://developers.google.com/google-ads/api/reference/data/geotargets
