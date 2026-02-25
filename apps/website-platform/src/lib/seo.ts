@@ -219,6 +219,31 @@ export function generateLocalBusinessJsonLd(
 }
 
 /**
+ * Detect and remove a duplicate phrase segment inside a string.
+ * This handles the artifact where URL-decoded markdown link text
+ * duplicates adjacent prose, e.g.:
+ *   "Discover Harry Potter tours near London Potter tours near London where..."
+ * becomes:
+ *   "Discover Harry Potter tours near London where..."
+ */
+function removeDuplicatePhrase(text: string): string {
+  const words = text.split(/\s+/);
+  if (words.length < 8) return text;
+  // Slide a window of 4-8 words; if a phrase repeats immediately after, remove it
+  for (let size = Math.min(8, Math.floor(words.length / 2)); size >= 4; size--) {
+    for (let i = 0; i <= words.length - size * 2; i++) {
+      const phrase = words.slice(i, i + size);
+      const next = words.slice(i + size, i + size * 2);
+      if (phrase.every((w, j) => w.toLowerCase() === next[j]?.toLowerCase())) {
+        words.splice(i + size, size);
+        return words.join(' ');
+      }
+    }
+  }
+  return text;
+}
+
+/**
  * Clean a plain-text string (e.g., meta description) that may contain leaked
  * markdown link syntax or URL-encoded characters from content generation.
  *
@@ -239,6 +264,10 @@ export function cleanPlainText(text: string): string {
   result = result.replace(/^\s*\)/, '');
   // Collapse multiple spaces
   result = result.replace(/\s{2,}/g, ' ').trim();
+  // Remove duplicate phrase segments (artifact of URL-decoded markdown link text
+  // colliding with surrounding prose, e.g. "[Harry Potter tours near London](url)
+  // tours near London where..." → decoded both halves become identical)
+  result = removeDuplicatePhrase(result);
   return result;
 }
 
