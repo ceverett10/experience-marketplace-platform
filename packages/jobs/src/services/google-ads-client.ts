@@ -26,9 +26,10 @@ interface GoogleAdsConfig {
   loginCustomerId?: string; // Manager/MCC account (for login-customer-id header)
 }
 
-// Rate limiter: Google Ads allows ~1,500 operations/day for basic access
+// Rate limiter: Google Ads API allows ~1,500 req/min for basic access.
+// The daily operations limit is separate and much higher (~15,000+).
 let _requestTimestamps: number[] = [];
-const RATE_LIMIT = 15; // per minute (Google allows ~1,500 ops/day = ~62/hr)
+const RATE_LIMIT = 50; // per minute — well within Google's per-minute burst limit
 const WINDOW_MS = 60_000;
 
 export function getConfig(): GoogleAdsConfig | null {
