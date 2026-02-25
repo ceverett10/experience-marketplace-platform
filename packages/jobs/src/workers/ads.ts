@@ -39,6 +39,9 @@ import {
   addCampaignNegativeKeywords,
   getSearchTermReport,
   setCampaignGeoTargets,
+  createAndLinkSitelinks,
+  createAndLinkCallouts,
+  createAndLinkStructuredSnippets,
 } from '../services/google-ads-client';
 import { PAID_TRAFFIC_CONFIG } from '../config/paid-traffic';
 import {
@@ -1600,6 +1603,136 @@ function generateGoogleRSATemplate(
   };
 }
 
+/**
+ * Generate campaign assets (sitelinks, callouts, structured snippets) from campaign context.
+ * Content is derived from keywords, site name, and landing URL — no AI call needed.
+ */
+function generateCampaignAssets(
+  campaign: { keywords: string[]; site?: { name: string } | null },
+  siteName: string,
+  landingUrl: string
+): {
+  sitelinks: Array<{
+    linkText: string;
+    description1: string;
+    description2: string;
+    finalUrl: string;
+  }>;
+  callouts: string[];
+  structuredSnippet: { header: 'Types' | 'Destinations'; values: string[] } | null;
+} {
+  // Extract domain from landing URL for building sitelink URLs
+  let domain: string;
+  try {
+    const parsed = new URL(ensureProtocol(landingUrl));
+    domain = `${parsed.protocol}//${parsed.host}`;
+  } catch {
+    domain = landingUrl.split('/').slice(0, 3).join('/');
+  }
+
+  const destination = extractDestination(campaign.keywords[0] || 'experiences');
+  const titleDest = toTitleCase(destination);
+
+  // Sitelinks: 4-6 links to key pages
+  const sitelinks = [
+    {
+      linkText: 'All Experiences',
+      description1: `Browse all ${siteName} tours`,
+      description2: 'Instant confirmation available',
+      finalUrl: `${domain}/experiences`,
+    },
+    {
+      linkText: 'Book Now',
+      description1: `Book ${titleDest} today`,
+      description2: 'Secure your spot online',
+      finalUrl: landingUrl,
+    },
+    {
+      linkText: `${titleDest} Tours`.substring(0, 25),
+      description1: `Top-rated ${titleDest} tours`,
+      description2: 'Compare prices and reviews',
+      finalUrl: landingUrl,
+    },
+    {
+      linkText: 'About Us',
+      description1: `Learn about ${siteName}`,
+      description2: 'Trusted local providers',
+      finalUrl: `${domain}/about`,
+    },
+  ];
+
+  // Callouts: universal trust signals
+  const callouts = [
+    'Instant Confirmation',
+    'Free Cancellation',
+    'Best Price Guarantee',
+    'Trusted Local Providers',
+    '24/7 Support',
+    'Secure Booking',
+  ];
+
+  // Structured snippets: extract activity types from keywords
+  const activityTypes = new Set<string>();
+  for (const kw of campaign.keywords) {
+    const cleaned = kw.toLowerCase();
+    const types = [
+      'walking tours',
+      'food tours',
+      'boat tours',
+      'bike tours',
+      'wine tours',
+      'day trips',
+      'pub crawls',
+      'museum tours',
+      'city tours',
+      'guided tours',
+      'cooking classes',
+      'water sports',
+      'adventure tours',
+      'cultural tours',
+      'night tours',
+      'bus tours',
+      'helicopter tours',
+      'snorkeling',
+      'diving',
+      'kayaking',
+      'sailing',
+      'hiking',
+    ];
+    for (const type of types) {
+      if (cleaned.includes(type.replace(' ', ' '))) {
+        activityTypes.add(toTitleCase(type));
+      }
+    }
+  }
+
+  // If we found enough activity types, use "Types" header; otherwise use "Destinations"
+  let structuredSnippet: { header: 'Types' | 'Destinations'; values: string[] } | null = null;
+  if (activityTypes.size >= 3) {
+    structuredSnippet = {
+      header: 'Types',
+      values: [...activityTypes].slice(0, 10),
+    };
+  } else {
+    // Extract unique destination-like terms from keywords
+    const destinations = new Set<string>();
+    for (const kw of campaign.keywords) {
+      const dest = toTitleCase(extractDestination(kw));
+      if (dest.length >= 3 && dest.length <= 25) {
+        destinations.add(dest);
+      }
+    }
+    if (destinations.size >= 3) {
+      structuredSnippet = {
+        header: 'Destinations',
+        values: [...destinations].slice(0, 10),
+      };
+    }
+  }
+
+  return { sitelinks, callouts, structuredSnippet };
+}
+
 async function deployToGoogle(
   campaign: {
     id: string;
@@ -1843,8 +1976,33 @@ async function deployToGoogle(
       );
     }
 
+    // Step 6: Add campaign assets (sitelinks, callouts, structured snippets)
+    // Non-critical — failures are logged but don't block deployment
+    let sitelinksAdded = 0;
+    let calloutsAdded = 0;
+    let snippetsAdded = false;
+    try {
+      const assets = generateCampaignAssets(campaign, siteName, landingUrl);
+
+      sitelinksAdded = await createAndLinkSitelinks(campaignResult.campaignId, assets.sitelinks);
+
+      calloutsAdded = await createAndLinkCallouts(campaignResult.campaignId, assets.callouts);
+
+      if (assets.structuredSnippet) {
+        snippetsAdded = await createAndLinkStructuredSnippets(
+          campaignResult.campaignId,
+          assets.structuredSnippet
+        );
+      }
+    } catch (assetError) {
+      console.warn(
+        `[Ads Worker] Asset creation failed for campaign ${campaignResult.campaignId}:`,
+        assetError
+      );
+    }
+
     console.log(
-      `[Ads Worker] Deployed Google campaign ${campaignResult.campaignId}: "${campaign.name}" (${adGroupsCreated} ad groups, ${negativesAdded} negatives, ${geoTargetsApplied} geo targets, coherence: ${primaryRsa?.coherenceScore ?? 'N/A'}/10)`
+      `[Ads Worker] Deployed Google campaign ${campaignResult.campaignId}: "${campaign.name}" (${adGroupsCreated} ad groups, ${negativesAdded} negatives, ${geoTargetsApplied} geo targets, ${sitelinksAdded} sitelinks, ${calloutsAdded} callouts, snippets: ${snippetsAdded ? 'yes' : 'no'}, coherence: ${primaryRsa?.coherenceScore ?? 'N/A'}/10)`
     );
     return campaignResult.campaignId;
   } catch (err) {
