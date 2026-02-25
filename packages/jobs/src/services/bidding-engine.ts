@@ -985,8 +985,8 @@ export async function scoreCampaignOpportunities(
 
     const utmCampaign = `auto_${opp.keyword.replace(/\s+/g, '_').substring(0, 40)}`;
 
-    // Score for both platforms
-    for (const platform of ['FACEBOOK', 'GOOGLE_SEARCH'] as const) {
+    // Score for enabled platforms only
+    for (const platform of PAID_TRAFFIC_CONFIG.enabledPlatforms) {
       const utmSource = platform === 'FACEBOOK' ? 'facebook_ads' : 'google_ads';
       candidates.push({
         opportunityId: opp.id,
