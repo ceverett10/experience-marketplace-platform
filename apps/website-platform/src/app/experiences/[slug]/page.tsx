@@ -1108,7 +1108,7 @@ export default async function ExperienceDetailPage({ params }: Props) {
                   </summary>
                   <p className="mt-2 text-sm text-gray-600">
                     {experience.cancellationPolicy ||
-                      'You can cancel free of charge up to 24 hours before the activity starts for a full refund.'}
+                      'Free cancellation is available for this experience. See the cancellation policy section for full terms.'}
                   </p>
                 </details>
               )}
