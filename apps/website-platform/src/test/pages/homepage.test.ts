@@ -125,8 +125,10 @@ describe('Homepage generateMetadata', () => {
     });
     const { generateMetadata } = await import('@/app/page');
     const meta = await generateMetadata();
-    expect(meta.title).toContain('Walking Tours');
-    expect(meta.title).toContain('London');
+    // Microsites use absolute title to bypass layout template
+    const title = (meta.title as { absolute: string }).absolute;
+    expect(title).toContain('Walking Tours');
+    expect(title).toContain('London');
   });
 
   it('builds title with category only when no city', async () => {
@@ -139,7 +141,8 @@ describe('Homepage generateMetadata', () => {
     });
     const { generateMetadata } = await import('@/app/page');
     const meta = await generateMetadata();
-    expect(meta.title).toContain('Food Tours');
+    const title = (meta.title as { absolute: string }).absolute;
+    expect(title).toContain('Food Tours');
   });
 
   it('falls back to generic title when no category or city', async () => {

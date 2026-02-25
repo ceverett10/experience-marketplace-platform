@@ -415,6 +415,7 @@ function extractSemanticKeywords(opportunity: OpportunityContext): string[] {
 
 /**
  * Generate SEO-optimized title template and metadata for a site.
+ * When cities/categories are provided (microsites), generates destination-focused titles.
  */
 export function generateSeoTitleConfig(params: {
   brandName: string;
@@ -422,29 +423,51 @@ export function generateSeoTitleConfig(params: {
   location?: string;
   keyword: string;
   tagline: string;
+  cities?: string[];
+  categories?: string[];
 }): {
   titleTemplate: string;
   defaultTitle: string;
   defaultDescription: string;
   keywords: string[];
 } {
-  const { brandName, niche, location, keyword, tagline } = params;
+  const { brandName, niche, location, keyword, tagline, cities, categories } = params;
   const nicheCap = capitalize(niche);
+  const topCity = cities?.[0] ?? location;
+  const topCategory = categories?.[0];
 
-  // Title template: %s | Brand Name
-  const titleTemplate = `%s | ${brandName}`;
+  // Title template: destination-focused when location data available
+  let titleTemplate: string;
+  if (topCategory && topCity) {
+    const label = `${topCategory} in ${topCity}`;
+    titleTemplate = label.length <= 40 ? `%s | ${label}` : `%s | Things to Do in ${topCity}`;
+  } else if (topCity) {
+    titleTemplate = `%s | Things to Do in ${topCity}`;
+  } else {
+    titleTemplate = `%s | ${brandName}`;
+  }
 
-  // Homepage default title: keyword-rich, under 60 chars
-  let defaultTitle = `${brandName} - ${tagline}`;
-  if (defaultTitle.length > 60) {
-    defaultTitle = `${brandName} | ${nicheCap} in ${location || 'Your Destination'}`;
+  // Homepage default title: destination-focused, under 60 chars
+  let defaultTitle: string;
+  if (topCategory && topCity) {
+    defaultTitle = `Best ${topCategory} in ${topCity} - Book Online`;
+    if (defaultTitle.length > 60) {
+      defaultTitle = `Things to Do in ${topCity} - Tours & Activities`;
+    }
+  } else if (topCity) {
+    defaultTitle = `Things to Do in ${topCity} - Tours & Activities`;
+  } else {
+    defaultTitle = `${brandName} - ${tagline}`;
+    if (defaultTitle.length > 60) {
+      defaultTitle = `${brandName} | ${nicheCap} in ${location || 'Your Destination'}`;
+    }
   }
   if (defaultTitle.length > 60) {
-    defaultTitle = brandName;
+    defaultTitle = defaultTitle.substring(0, 57) + '...';
   }
 
   // Meta description: keyword-rich, under 155 chars
-  const locationStr = location || 'your destination';
+  const locationStr = topCity || 'your destination';
   let defaultDescription = `Discover the best ${niche} experiences in ${locationStr}. ${tagline}. Book online with instant confirmation and free cancellation.`;
   if (defaultDescription.length > 155) {
     defaultDescription = `Discover the best ${niche} experiences in ${locationStr}. Book online with instant confirmation and free cancellation.`;
@@ -457,13 +480,13 @@ export function generateSeoTitleConfig(params: {
   const keywords = [
     keyword,
     `${niche} experiences`,
-    location ? `${location.toLowerCase()} ${niche}` : undefined,
+    topCity ? `${topCity.toLowerCase()} ${niche}` : undefined,
     `best ${niche}`,
     `book ${niche}`,
-    location ? `things to do in ${location.toLowerCase()}` : undefined,
+    topCity ? `things to do in ${topCity.toLowerCase()}` : undefined,
     `${niche} tours`,
     `${niche} tickets`,
-    location ? `${location.toLowerCase()} experiences` : undefined,
+    topCity ? `${topCity.toLowerCase()} experiences` : undefined,
     brandName.toLowerCase(),
   ].filter((k): k is string => !!k);
 

@@ -331,6 +331,8 @@ export async function handleMicrositeCreate(job: Job<MicrositeCreatePayload>): P
       location: cities[0] || undefined,
       keyword: entityName,
       tagline: brandIdentity.tagline,
+      cities,
+      categories,
     });
 
     // Generate homepage config
