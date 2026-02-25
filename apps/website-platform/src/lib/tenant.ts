@@ -581,6 +581,29 @@ async function getMicrositeConfig(
 }
 
 /**
+ * Build a destination-focused title template for microsite sub-pages.
+ * e.g. "%s | Things to Do in Bangkok" instead of "%s | TUI DESTINATION EXPERIENCES (THAILAND)"
+ */
+function getMicrositeTitleTemplate(microsite: MicrositeConfigWithEntity): string {
+  const cities = microsite.supplier?.cities ?? [];
+  const categories = microsite.supplier?.categories ?? [];
+  const topCity = cities[0];
+  const topCategory = categories[0];
+
+  if (topCategory && topCity) {
+    const label = `${topCategory} in ${topCity}`;
+    if (label.length <= 40) return `%s | ${label}`;
+  }
+  if (topCity) {
+    return `%s | Things to Do in ${topCity}`;
+  }
+  if (topCategory) {
+    return `%s | ${topCategory}`;
+  }
+  return `%s | ${microsite.siteName}`;
+}
+
+/**
  * Map MicrositeConfig to the standard SiteConfig interface
  * This allows the rest of the app to work unchanged with microsites
  */
@@ -627,7 +650,7 @@ function mapMicrositeToSiteConfig(microsite: MicrositeConfigWithEntity): SiteCon
     },
     seoConfig: seoConfig
       ? {
-          titleTemplate: seoConfig.titleTemplate ?? '%s | ' + microsite.siteName,
+          titleTemplate: getMicrositeTitleTemplate(microsite),
           defaultTitle: seoConfig.defaultTitle,
           defaultDescription: seoConfig.defaultDescription ?? microsite.tagline ?? '',
           keywords: seoConfig.keywords ?? [],
@@ -637,7 +660,7 @@ function mapMicrositeToSiteConfig(microsite: MicrositeConfigWithEntity): SiteCon
           metaPixelId: seoConfig.metaPixelId ?? null,
         }
       : {
-          titleTemplate: '%s | ' + microsite.siteName,
+          titleTemplate: getMicrositeTitleTemplate(microsite),
           defaultDescription: microsite.tagline ?? '',
           keywords: [],
           gaMeasurementId: null,

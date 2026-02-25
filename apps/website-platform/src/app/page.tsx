@@ -414,8 +414,34 @@ const GENERIC_TITLE_PATTERNS = [
 ];
 
 function buildHomepageTitle(site: SiteConfig): string {
+  // Microsites: destination-focused titles (not brand-heavy)
+  // e.g. "Things to Do in Bangkok - Tours & Activities" instead of "TUI DESTINATION EXPERIENCES (THAILAND)"
+  if (site.micrositeContext) {
+    const ctx = site.micrositeContext;
+    const categories = ctx.supplierCategories ?? [];
+    const cities = ctx.supplierCities ?? [];
+    const topCategory = categories[0];
+    const topCity = cities[0];
+
+    if (topCategory && topCity) {
+      const title = `Best ${topCategory} in ${topCity} - Book Online`;
+      if (title.length <= 60) return title;
+      return `Things to Do in ${topCity} - Tours & Activities`.length <= 60
+        ? `Things to Do in ${topCity} - Tours & Activities`
+        : `Things to Do in ${topCity}`;
+    }
+    if (topCity) {
+      const title = `Things to Do in ${topCity} - Tours & Activities`;
+      return title.length <= 60 ? title : `Things to Do in ${topCity}`;
+    }
+    if (topCategory) {
+      return `Best ${topCategory} - Book Online`;
+    }
+    return 'Discover Tours & Activities - Book Online';
+  }
+
+  // Regular sites: use existing seoConfig.defaultTitle if well-optimized
   const existing = site.seoConfig?.defaultTitle;
-  // Use existing title if it's well-optimized: >30 chars, not the site name, and not a generic template
   if (existing && existing !== site.name && existing.length > 30) {
     const lower = existing.toLowerCase();
     const isGeneric = GENERIC_TITLE_PATTERNS.some((pattern) => lower.includes(pattern));
@@ -424,10 +450,8 @@ function buildHomepageTitle(site: SiteConfig): string {
     }
   }
 
-  const ctx = site.micrositeContext;
-  const categories =
-    ctx?.supplierCategories ?? site.homepageConfig?.categories?.map((c) => c.name) ?? [];
-  const cities = ctx?.supplierCities ?? site.homepageConfig?.destinations?.map((d) => d.name) ?? [];
+  const categories = site.homepageConfig?.categories?.map((c) => c.name) ?? [];
+  const cities = site.homepageConfig?.destinations?.map((d) => d.name) ?? [];
   const topCategory = categories[0];
   const topCity = cities[0];
 
@@ -520,8 +544,12 @@ export async function generateMetadata() {
   const title = buildHomepageTitle(site);
   const description = buildHomepageDescription(site);
 
+  // Microsites: use absolute title to bypass the layout titleTemplate
+  // This prevents double-branding (e.g. "Things to Do in Bangkok | TUI DESTINATION...")
+  const isMicrosite = !!site.micrositeContext;
+
   return {
-    title,
+    title: isMicrosite ? { absolute: title } : title,
     description,
     alternates: {
       canonical: baseUrl,
@@ -532,6 +560,9 @@ export async function generateMetadata() {
       url: baseUrl,
       type: 'website',
       ...(ogImage ? { images: [ogImage] } : {}),
+    },
+    twitter: {
+      title,
     },
   };
 }

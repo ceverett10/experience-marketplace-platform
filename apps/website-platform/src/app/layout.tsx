@@ -57,11 +57,9 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     icons: {
       icon: site.brand?.faviconUrl
-        ? { url: site.brand.faviconUrl, type: 'image/svg+xml' }
+        ? { url: '/favicon.ico', type: 'image/svg+xml' }
         : '/favicon.ico',
-      apple: site.brand?.faviconUrl
-        ? { url: site.brand.faviconUrl, type: 'image/svg+xml' }
-        : undefined,
+      apple: site.brand?.faviconUrl ? { url: '/favicon.ico', type: 'image/svg+xml' } : undefined,
     },
     robots: {
       index: true,
