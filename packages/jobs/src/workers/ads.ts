@@ -155,9 +155,13 @@ export async function handleAdCampaignSync(job: Job): Promise<JobResult> {
       id: true,
       platform: true,
       platformCampaignId: true,
+      platformAdSetId: true,
+      parentCampaignId: true,
+      campaignGroup: true,
       utmCampaign: true,
       siteId: true,
       micrositeId: true,
+      proposalData: true,
     },
   });
 
@@ -169,11 +173,183 @@ export async function handleAdCampaignSync(job: Job): Promise<JobResult> {
     };
   }
 
+  // Process children FIRST, then aggregate parents (order matters)
+  const children = campaigns.filter((c) => c.parentCampaignId != null);
+  const parents = campaigns.filter((c) => {
+    const pd = c.proposalData as Record<string, unknown> | null;
+    return c.parentCampaignId == null && pd?.['consolidatedCampaign'] === true;
+  });
+  const standalone = campaigns.filter((c) => {
+    const pd = c.proposalData as Record<string, unknown> | null;
+    return c.parentCampaignId == null && pd?.['consolidatedCampaign'] !== true;
+  });
+
   let metaClient: MetaAdsClient | null = null;
   let synced = 0;
   let errors = 0;
 
-  for (const campaign of campaigns) {
+  // --- Sync children (ad set-level insights) ---
+  for (const campaign of children) {
+    if (!campaign.platformAdSetId) continue;
+
+    try {
+      if (!metaClient) metaClient = await getMetaAdsClient();
+      if (!metaClient) continue;
+
+      const metaInsights = await metaClient.getAdSetInsights(campaign.platformAdSetId, {
+        since: dateStr,
+        until: today,
+      });
+
+      if (!metaInsights) continue;
+
+      const insights = {
+        spend: metaInsights.spend,
+        clicks: metaInsights.clicks,
+        impressions: metaInsights.impressions,
+        cpc: metaInsights.cpc,
+        conversions: 0,
+      };
+
+      // Match conversions via child's own utmCampaign
+      const bookingWhere: Record<string, unknown> = {
+        utmCampaign: campaign.utmCampaign,
+        status: { in: ['CONFIRMED', 'COMPLETED'] },
+        createdAt: { gte: yesterday, lte: new Date() },
+      };
+      if (campaign.micrositeId) {
+        bookingWhere['micrositeId'] = campaign.micrositeId;
+      } else if (campaign.siteId) {
+        bookingWhere['siteId'] = campaign.siteId;
+      }
+      const bookingRevenue = await prisma.booking.aggregate({
+        where: bookingWhere as any,
+        _sum: { commissionAmount: true },
+        _count: true,
+      });
+
+      const dailyRevenue = Number(bookingRevenue._sum.commissionAmount || 0);
+      const dailyConversions = bookingRevenue._count;
+
+      await prisma.adDailyMetric.upsert({
+        where: { campaignId_date: { campaignId: campaign.id, date: yesterday } },
+        create: {
+          campaignId: campaign.id,
+          date: yesterday,
+          spend: insights.spend,
+          clicks: insights.clicks,
+          impressions: insights.impressions,
+          cpc: insights.cpc || 0,
+          conversions: dailyConversions,
+          revenue: dailyRevenue,
+        },
+        update: {
+          spend: insights.spend,
+          clicks: insights.clicks,
+          impressions: insights.impressions,
+          cpc: insights.cpc || 0,
+          conversions: dailyConversions,
+          revenue: dailyRevenue,
+        },
+      });
+
+      // Update child aggregate totals
+      const allTimeMetrics = await prisma.adDailyMetric.aggregate({
+        where: { campaignId: campaign.id },
+        _sum: { spend: true, clicks: true, impressions: true, conversions: true, revenue: true },
+      });
+      const totalSpend = Number(allTimeMetrics._sum.spend || 0);
+      const totalClicks = Number(allTimeMetrics._sum.clicks || 0);
+      const totalRevenue = Number(allTimeMetrics._sum.revenue || 0);
+      const roas = totalSpend > 0 ? totalRevenue / totalSpend : null;
+
+      await prisma.adCampaign.update({
+        where: { id: campaign.id },
+        data: {
+          totalSpend,
+          totalClicks,
+          totalImpressions: Number(allTimeMetrics._sum.impressions || 0),
+          avgCpc: totalClicks > 0 ? totalSpend / totalClicks : null,
+          conversions: Number(allTimeMetrics._sum.conversions || 0),
+          revenue: totalRevenue,
+          roas,
+        },
+      });
+
+      synced++;
+    } catch (error) {
+      errors++;
+      console.error(`[Ads Worker] Failed to sync child ad set ${campaign.id}:`, error);
+    }
+  }
+
+  // --- Aggregate parents from children's daily metrics ---
+  for (const campaign of parents) {
+    try {
+      // Get all children of this parent
+      const childIds = children.filter((c) => c.parentCampaignId === campaign.id).map((c) => c.id);
+
+      if (childIds.length === 0) continue;
+
+      // Aggregate children's daily metrics for yesterday
+      const childMetrics = await prisma.adDailyMetric.aggregate({
+        where: { campaignId: { in: childIds }, date: yesterday },
+        _sum: { spend: true, clicks: true, impressions: true, conversions: true, revenue: true },
+      });
+
+      await prisma.adDailyMetric.upsert({
+        where: { campaignId_date: { campaignId: campaign.id, date: yesterday } },
+        create: {
+          campaignId: campaign.id,
+          date: yesterday,
+          spend: Number(childMetrics._sum.spend || 0),
+          clicks: Number(childMetrics._sum.clicks || 0),
+          impressions: Number(childMetrics._sum.impressions || 0),
+          cpc: 0,
+          conversions: Number(childMetrics._sum.conversions || 0),
+          revenue: Number(childMetrics._sum.revenue || 0),
+        },
+        update: {
+          spend: Number(childMetrics._sum.spend || 0),
+          clicks: Number(childMetrics._sum.clicks || 0),
+          impressions: Number(childMetrics._sum.impressions || 0),
+          conversions: Number(childMetrics._sum.conversions || 0),
+          revenue: Number(childMetrics._sum.revenue || 0),
+        },
+      });
+
+      // Update parent aggregate totals
+      const allTimeMetrics = await prisma.adDailyMetric.aggregate({
+        where: { campaignId: campaign.id },
+        _sum: { spend: true, clicks: true, impressions: true, conversions: true, revenue: true },
+      });
+      const totalSpend = Number(allTimeMetrics._sum.spend || 0);
+      const totalClicks = Number(allTimeMetrics._sum.clicks || 0);
+      const totalRevenue = Number(allTimeMetrics._sum.revenue || 0);
+      const roas = totalSpend > 0 ? totalRevenue / totalSpend : null;
+
+      await prisma.adCampaign.update({
+        where: { id: campaign.id },
+        data: {
+          totalSpend,
+          totalClicks,
+          totalImpressions: Number(allTimeMetrics._sum.impressions || 0),
+          avgCpc: totalClicks > 0 ? totalSpend / totalClicks : null,
+          conversions: Number(allTimeMetrics._sum.conversions || 0),
+          revenue: totalRevenue,
+          roas,
+        },
+      });
+
+      synced++;
+    } catch (error) {
+      errors++;
+      console.error(`[Ads Worker] Failed to aggregate parent campaign ${campaign.id}:`, error);
+    }
+  }
+
+  // --- Sync standalone campaigns (existing behavior) ---
+  for (const campaign of standalone) {
     if (!campaign.platformCampaignId) continue;
 
     try {
@@ -347,6 +523,7 @@ export async function handleAdPerformanceReport(job: Job): Promise<JobResult> {
 
   const where: Record<string, unknown> = {
     status: { in: ['ACTIVE', 'PAUSED'] },
+    parentCampaignId: null, // Exclude children — parents have aggregated metrics
   };
   if (payload.siteId) where['siteId'] = payload.siteId;
 
@@ -481,6 +658,7 @@ export async function handleAdBudgetOptimizer(job: Job): Promise<JobResult> {
   const where: Record<string, unknown> = {
     status: 'ACTIVE',
     platform: { in: PAID_TRAFFIC_CONFIG.enabledPlatforms },
+    parentCampaignId: null, // Only optimize parent/standalone campaigns, not children
   };
   if (payload.siteId) where['siteId'] = payload.siteId;
 
@@ -724,6 +902,7 @@ export async function handleAdBudgetOptimizer(job: Job): Promise<JobResult> {
     where: {
       status: 'PAUSED',
       platformCampaignId: { not: null },
+      parentCampaignId: null, // Only auto-activate parents + standalone (cascades to children)
       createdAt: { lte: activationCutoff }, // At least 24h old
     },
     select: {
@@ -970,6 +1149,7 @@ async function deployCampaignToPlatform(campaign: {
   landingPageType?: string | null;
   landingPageProducts?: number | null;
   site?: { name: string; primaryDomain: string | null } | null;
+  parentCampaignId?: string | null;
 }): Promise<string | null> {
   const landingUrl = buildLandingUrl(campaign);
 
@@ -1146,6 +1326,161 @@ async function findRelevantInterests(
 }
 
 /**
+ * Deploy a child ad set into an existing parent consolidated Meta campaign.
+ * Creates the ad set + ad within the parent campaign, then updates the child
+ * DB record with platformAdSetId and platformAdId.
+ */
+async function deployMetaChildAdSet(
+  metaClient: MetaAdsClient,
+  campaign: {
+    id: string;
+    name: string;
+    maxCpc: number;
+    keywords: string[];
+    geoTargets: string[];
+    siteId?: string | null;
+    micrositeId?: string | null;
+    landingPagePath?: string | null;
+    landingPageType?: string | null;
+    landingPageProducts?: number | null;
+    site?: { name: string; targetMarkets?: string[] } | null;
+    parentCampaignId?: string | null;
+  },
+  landingUrl: string,
+  pageId: string
+): Promise<string | null> {
+  try {
+    const parent = await prisma.adCampaign.findUnique({
+      where: { id: campaign.parentCampaignId! },
+      select: { platformCampaignId: true, site: { select: { name: true, targetMarkets: true } } },
+    });
+    if (!parent?.platformCampaignId) {
+      console.error(
+        `[Ads Worker] Parent campaign ${campaign.parentCampaignId} has no platform ID — cannot deploy child`
+      );
+      return null;
+    }
+
+    const countries =
+      campaign.geoTargets.length > 0
+        ? campaign.geoTargets
+        : [...(parent.site?.targetMarkets ?? ['GB', 'US'])];
+
+    // Search for relevant interests
+    const interestTargeting = await findRelevantInterests(metaClient, campaign.keywords);
+
+    const siteName = campaign.site?.name || parent.site?.name || 'Holibob';
+    const metaPixelId = process.env['META_PIXEL_ID'] || '';
+    const metaConfig = PAID_TRAFFIC_CONFIG.metaConsolidated;
+
+    // Create ad set within parent's campaign (CBO — no daily budget)
+    const adSetResult = await metaClient.createAdSet({
+      campaignId: parent.platformCampaignId,
+      name: `${campaign.name} - Ad Set`,
+      // No dailyBudget — CBO handles budget distribution across ad sets
+      bidStrategy: metaConfig.bidStrategy,
+      roasAverageFloor: metaConfig.roasFloor,
+      promotedObject: metaPixelId
+        ? { pixel_id: metaPixelId, custom_event_type: 'PURCHASE' }
+        : undefined,
+      targeting: {
+        countries,
+        interests: interestTargeting.length > 0 ? interestTargeting : undefined,
+        ageMin: 18,
+        ageMax: 65,
+      },
+      optimizationGoal: metaConfig.optimizationGoal,
+      billingEvent: 'IMPRESSIONS',
+      status: 'PAUSED',
+      dsaBeneficiary: siteName,
+      dsaPayor: siteName,
+    });
+
+    if (!adSetResult) {
+      console.error(`[Ads Worker] Failed to create child ad set for: ${campaign.name}`);
+      return null;
+    }
+
+    // Generate ad creative
+    const creative = await generateAdCreative({
+      keywords: campaign.keywords,
+      siteId: campaign.siteId,
+      micrositeId: campaign.micrositeId,
+      siteName,
+      landingPagePath: campaign.landingPagePath,
+      landingPageType: campaign.landingPageType,
+      landingPageProducts: campaign.landingPageProducts,
+      geoTargets: campaign.geoTargets,
+    });
+
+    const adResult = await metaClient.createAd({
+      adSetId: adSetResult.adSetId,
+      name: `${campaign.name} - Ad`,
+      pageId,
+      linkUrl: landingUrl,
+      headline: creative.headline,
+      body: creative.body,
+      imageUrl: creative.imageUrl || undefined,
+      callToAction: creative.callToAction,
+      status: 'ACTIVE',
+    });
+
+    if (!adResult) {
+      console.error(`[Ads Worker] Failed to create ad for child ad set: ${adSetResult.adSetId}`);
+      return null;
+    }
+
+    // Update child record with platform IDs
+    await prisma.adCampaign.update({
+      where: { id: campaign.id },
+      data: {
+        platformAdSetId: adSetResult.adSetId,
+        platformAdId: adResult.adId,
+        platformCampaignId: parent.platformCampaignId, // Reference parent's campaign ID
+        status: 'ACTIVE',
+        proposalData: {
+          ...(typeof (
+            await prisma.adCampaign.findUnique({
+              where: { id: campaign.id },
+              select: { proposalData: true },
+            })
+          )?.proposalData === 'object'
+            ? ((
+                await prisma.adCampaign.findUnique({
+                  where: { id: campaign.id },
+                  select: { proposalData: true },
+                })
+              )?.proposalData as Record<string, unknown>)
+            : {}),
+          generatedCreative: {
+            headline: creative.headline,
+            body: creative.body,
+            callToAction: creative.callToAction,
+            imageUrl: creative.imageUrl,
+            source: creative.source,
+            generatedAt: new Date().toISOString(),
+          },
+          deployedTargeting: {
+            countries,
+            interests: interestTargeting.map((i) => i.name),
+            interestCount: interestTargeting.length,
+          },
+        },
+      },
+    });
+
+    console.info(
+      `[Ads Worker] Deployed child ad set ${adSetResult.adSetId} + ad ${adResult.adId} ` +
+        `into parent campaign ${parent.platformCampaignId}: "${campaign.name}"`
+    );
+    return parent.platformCampaignId;
+  } catch (err) {
+    console.error(`[Ads Worker] Child ad set deployment failed for "${campaign.name}":`, err);
+    return null;
+  }
+}
+
+/**
  * Deploy campaign to Meta (Facebook) Ads:
  * 1. Create campaign shell
  * 2. Create ad set with interest targeting + CPC bid
@@ -1165,6 +1500,7 @@ async function deployToMeta(
     landingPageType?: string | null;
     landingPageProducts?: number | null;
     site?: { name: string; targetMarkets?: string[] } | null;
+    parentCampaignId?: string | null;
   },
   landingUrl: string
 ): Promise<string | null> {
@@ -1178,6 +1514,11 @@ async function deployToMeta(
   if (!pageId) {
     console.log('[Ads Worker] META_PAGE_ID not set, cannot create Meta ads');
     return null;
+  }
+
+  // --- Child record: deploy ad set into existing parent consolidated campaign ---
+  if (campaign.parentCampaignId) {
+    return deployMetaChildAdSet(metaClient, campaign, landingUrl, pageId);
   }
 
   try {
@@ -2109,17 +2450,20 @@ export async function deployDraftCampaigns(
       landingPageType: draft.landingPageType,
       landingPageProducts: draft.landingPageProducts,
       site: effectiveSite,
+      parentCampaignId: draft.parentCampaignId,
     });
 
     if (platformCampaignId) {
-      // Update DB with platform ID and set to ACTIVE (ready to serve immediately)
-      await prisma.adCampaign.update({
-        where: { id: draft.id },
-        data: {
-          platformCampaignId,
-          status: 'ACTIVE',
-        },
-      });
+      // Child ad sets are already updated by deployMetaChildAdSet — skip here
+      if (!draft.parentCampaignId) {
+        await prisma.adCampaign.update({
+          where: { id: draft.id },
+          data: {
+            platformCampaignId,
+            status: 'ACTIVE',
+          },
+        });
+      }
       deployed++;
       consecutiveFailures[draft.platform] = 0;
       console.log(
@@ -2207,8 +2551,76 @@ export async function handleBiddingEngineRun(job: Job): Promise<JobResult> {
     for (const group of result.groups) {
       // Skip groups for platforms that are not enabled
       if (!PAID_TRAFFIC_CONFIG.enabledPlatforms.includes(group.platform)) continue;
-      // Skip if campaign already exists for this microsite+platform+landingPage
-      // (or site+platform+landingPage if no microsite)
+
+      // --- Meta consolidated campaigns: create child ad set records ---
+      if (group.platform === 'FACEBOOK' && group.campaignGroup) {
+        // Find the existing parent consolidated campaign for this group
+        const parent = await prisma.adCampaign.findFirst({
+          where: {
+            platform: 'FACEBOOK',
+            campaignGroup: group.campaignGroup,
+            parentCampaignId: null, // Parent, not child
+            status: { in: ['ACTIVE', 'PAUSED'] },
+          },
+        });
+        if (!parent) {
+          console.warn(
+            `[Ads Worker] No parent campaign for group "${group.campaignGroup}" — skipping`
+          );
+          continue;
+        }
+
+        // Create one child record per ad group (landing page) in this campaign group
+        for (const adGroup of group.adGroups) {
+          // Check if child already exists for this landing page
+          const existingChild = await prisma.adCampaign.findFirst({
+            where: {
+              parentCampaignId: parent.id,
+              landingPagePath: adGroup.landingPagePath,
+              status: { in: ['ACTIVE', 'PAUSED', 'DRAFT'] },
+            },
+          });
+          if (existingChild) continue;
+
+          const childName = `${group.campaignGroup} - ${adGroup.primaryKeyword}`.substring(0, 100);
+          const utmCampaign = `meta_${group.campaignGroup}_${adGroup.primaryKeyword}`
+            .replace(/[^a-zA-Z0-9]+/g, '_')
+            .toLowerCase()
+            .substring(0, 60);
+
+          await prisma.adCampaign.create({
+            data: {
+              siteId: group.siteId,
+              micrositeId: group.micrositeId || null,
+              platform: 'FACEBOOK',
+              parentCampaignId: parent.id,
+              campaignGroup: group.campaignGroup,
+              name: childName,
+              status: 'DRAFT',
+              dailyBudget: 0, // CBO — budget managed at parent level
+              maxCpc: adGroup.maxBid,
+              keywords: adGroup.keywords,
+              targetUrl: adGroup.targetUrl,
+              geoTargets: ['GB', 'US', 'CA', 'AU', 'IE', 'NZ'],
+              utmSource: 'facebook_ads',
+              utmMedium: 'cpc',
+              utmCampaign,
+              landingPagePath: adGroup.landingPagePath,
+              landingPageType: adGroup.landingPageType,
+              proposalData: {
+                keywordCount: adGroup.keywords.length,
+                totalExpectedDailyCost: adGroup.totalExpectedDailyCost,
+                parentCampaignId: parent.id,
+                parentCampaignGroup: group.campaignGroup,
+              },
+            },
+          });
+          campaignsCreated++;
+        }
+        continue;
+      }
+
+      // --- Google / standalone: create one campaign per group (existing behavior) ---
       const lpPath = group.adGroups[0]?.landingPagePath || null;
       const existing = await prisma.adCampaign.findFirst({
         where: {
@@ -2552,11 +2964,16 @@ export async function handleAdCreativeRefresh(_job: Job): Promise<JobResult> {
     };
   }
 
-  // Get all deployed Facebook campaigns
+  // Get all deployed Facebook campaigns (standalone + children with actual ads)
   const campaigns = await prisma.adCampaign.findMany({
     where: {
-      platformCampaignId: { not: null },
       platform: 'FACEBOOK',
+      OR: [
+        // Standalone legacy campaigns
+        { platformCampaignId: { not: null }, parentCampaignId: null },
+        // Child records within consolidated campaigns (have platformAdId)
+        { platformAdSetId: { not: null }, parentCampaignId: { not: null } },
+      ],
     },
     select: {
       id: true,

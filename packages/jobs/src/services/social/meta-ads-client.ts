@@ -221,6 +221,7 @@ export class MetaAdsClient {
     dailyBudget: number; // In account currency (e.g., GBP pennies)
     status?: 'ACTIVE' | 'PAUSED';
     specialAdCategories?: string[];
+    isCbo?: boolean; // Campaign Budget Optimization — Meta distributes budget across ad sets
   }): Promise<{ campaignId: string } | null> {
     try {
       const params = new URLSearchParams({
@@ -229,7 +230,7 @@ export class MetaAdsClient {
         daily_budget: Math.round(config.dailyBudget * 100).toString(), // Convert to pennies/cents
         status: config.status || 'PAUSED',
         special_ad_categories: JSON.stringify(config.specialAdCategories || []),
-        is_adset_budget_sharing_enabled: 'false',
+        is_adset_budget_sharing_enabled: (config.isCbo ?? false).toString(),
         access_token: this.accessToken,
       });
 
@@ -263,7 +264,7 @@ export class MetaAdsClient {
     campaignId: string;
     name: string;
     dailyBudget?: number; // Optional — omit when using Campaign Budget Optimization (CBO)
-    bidAmount: number; // Max CPC bid in account currency
+    bidAmount?: number; // Max CPC bid in account currency — omit when using ROAS bidding
     targeting: {
       countries: string[];
       interests?: Array<{ id: string; name: string }>;
@@ -273,6 +274,10 @@ export class MetaAdsClient {
     optimizationGoal?: string;
     billingEvent?: string;
     status?: 'ACTIVE' | 'PAUSED';
+    // ROAS bidding — for OUTCOME_SALES campaigns with conversion optimization
+    bidStrategy?: 'LOWEST_COST_WITH_MIN_ROAS' | 'LOWEST_COST_WITHOUT_CAP';
+    roasAverageFloor?: number; // 200 = 2.0x ROAS
+    promotedObject?: { pixel_id: string; custom_event_type: string };
     // EU Digital Services Act (DSA) compliance — required when targeting EU countries
     dsaBeneficiary?: string;
     dsaPayor?: string;
@@ -295,13 +300,29 @@ export class MetaAdsClient {
       const params = new URLSearchParams({
         name: config.name,
         campaign_id: config.campaignId,
-        bid_amount: Math.round(config.bidAmount * 100).toString(),
         billing_event: config.billingEvent || 'IMPRESSIONS',
         optimization_goal: config.optimizationGoal || 'LINK_CLICKS',
         targeting: JSON.stringify(targetingSpec),
         status: config.status || 'PAUSED',
         access_token: this.accessToken,
       });
+
+      // Bid strategy: ROAS bidding vs manual CPC
+      if (config.bidStrategy) {
+        params.set('bid_strategy', config.bidStrategy);
+        if (config.roasAverageFloor && config.bidStrategy === 'LOWEST_COST_WITH_MIN_ROAS') {
+          params.set('roas_average_floor', config.roasAverageFloor.toString());
+        }
+        // Do NOT set bid_amount when using automated bid strategies
+      } else if (config.bidAmount != null) {
+        params.set('bid_amount', Math.round(config.bidAmount * 100).toString());
+      }
+
+      // Promoted object — required for OFFSITE_CONVERSIONS optimization
+      if (config.promotedObject) {
+        params.set('promoted_object', JSON.stringify(config.promotedObject));
+      }
+
       // Only set ad set budget if not using Campaign Budget Optimization (CBO)
       if (config.dailyBudget != null) {
         params.set('daily_budget', Math.round(config.dailyBudget * 100).toString());
@@ -520,6 +541,246 @@ export class MetaAdsClient {
     } catch (error) {
       console.error('[MetaAds] Set campaign status failed:', error);
       return false;
+    }
+  }
+
+  /**
+   * Batch update status on multiple campaigns in a single API call.
+   * Uses Meta's batch API to pause/enable up to 50 campaigns per request.
+   */
+  async batchUpdateCampaignStatus(
+    campaignIds: string[],
+    status: 'ACTIVE' | 'PAUSED'
+  ): Promise<{ succeeded: number; failed: number }> {
+    let succeeded = 0;
+    let failed = 0;
+    const BATCH_SIZE = 50;
+
+    for (let i = 0; i < campaignIds.length; i += BATCH_SIZE) {
+      const batch = campaignIds.slice(i, i + BATCH_SIZE);
+
+      try {
+        await this.enforceRateLimit();
+
+        const batchRequests = batch.map((id) => ({
+          method: 'POST',
+          relative_url: id,
+          body: `status=${status}`,
+        }));
+
+        const params = new URLSearchParams({
+          batch: JSON.stringify(batchRequests),
+          access_token: this.accessToken,
+        });
+
+        const response = await fetch(`${META_API_BASE}/`, {
+          method: 'POST',
+          body: params,
+        });
+
+        if (!response.ok) {
+          const error = await response.text();
+          console.error(
+            `[MetaAds] Batch status update error (${response.status}): ${error.substring(0, 300)}`
+          );
+          failed += batch.length;
+          continue;
+        }
+
+        const results = (await response.json()) as Array<{ code: number; body: string } | null>;
+        for (const result of results) {
+          if (result && result.code >= 200 && result.code < 300) {
+            succeeded++;
+          } else {
+            failed++;
+          }
+        }
+      } catch (error) {
+        console.error('[MetaAds] Batch status update failed:', error);
+        failed += batch.length;
+      }
+    }
+
+    console.info(
+      `[MetaAds] Batch status update: ${succeeded} succeeded, ${failed} failed (status=${status})`
+    );
+    return { succeeded, failed };
+  }
+
+  /**
+   * Pause or resume an individual ad set within a campaign.
+   * Used for managing child ad sets in consolidated CBO campaigns.
+   */
+  async setAdSetStatus(adSetId: string, status: 'ACTIVE' | 'PAUSED'): Promise<boolean> {
+    try {
+      await this.enforceRateLimit();
+
+      const params = new URLSearchParams({
+        status,
+        access_token: this.accessToken,
+      });
+
+      const response = await fetch(`${META_API_BASE}/${adSetId}`, {
+        method: 'POST',
+        body: params,
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        console.error(
+          `[MetaAds] Set ad set status error (${response.status}): ${error.substring(0, 200)}`
+        );
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('[MetaAds] Set ad set status failed:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Fetch all ads belonging to a campaign.
+   * Returns array of { id, name, status, adset_id }.
+   */
+  async getCampaignAds(
+    campaignId: string
+  ): Promise<Array<{ id: string; name: string; status: string; adset_id: string }>> {
+    try {
+      await this.enforceRateLimit();
+
+      const params = new URLSearchParams({
+        fields: 'id,name,status,adset_id',
+        limit: '100',
+        access_token: this.accessToken,
+      });
+
+      const response = await fetch(`${META_API_BASE}/${campaignId}/ads?${params}`);
+
+      if (!response.ok) {
+        const error = await response.text();
+        console.error(
+          `[MetaAds] Get campaign ads error (${response.status}): ${error.substring(0, 200)}`
+        );
+        return [];
+      }
+
+      const data = (await response.json()) as {
+        data?: Array<{ id: string; name: string; status: string; adset_id: string }>;
+      };
+      return data.data || [];
+    } catch (error) {
+      console.error('[MetaAds] Get campaign ads failed:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Move an existing ad to a different ad set.
+   * Preserves the ad's creative, social proof (likes/comments/shares),
+   * and performance history. The ad inherits the new ad set's targeting
+   * and delivery settings.
+   */
+  async moveAdToAdSet(
+    adId: string,
+    newAdSetId: string,
+    status?: 'ACTIVE' | 'PAUSED'
+  ): Promise<boolean> {
+    try {
+      await this.enforceRateLimit();
+
+      const params = new URLSearchParams({
+        adset_id: newAdSetId,
+        access_token: this.accessToken,
+      });
+      if (status) params.set('status', status);
+
+      const response = await fetch(`${META_API_BASE}/${adId}`, {
+        method: 'POST',
+        body: params,
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        console.error(`[MetaAds] Move ad error (${response.status}): ${error.substring(0, 200)}`);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('[MetaAds] Move ad failed:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Get performance insights for an individual ad set.
+   * Used for child ad sets in consolidated campaigns (parent-child model).
+   */
+  async getAdSetInsights(
+    adSetId: string,
+    dateRange?: { since: string; until: string }
+  ): Promise<{
+    spend: number;
+    clicks: number;
+    impressions: number;
+    cpc: number;
+    cpm: number;
+    reach: number;
+    actions: number;
+  } | null> {
+    try {
+      await this.enforceRateLimit();
+
+      const params = new URLSearchParams({
+        fields: 'spend,clicks,impressions,cpc,cpm,reach,actions',
+        access_token: this.accessToken,
+      });
+
+      if (dateRange) {
+        params.set('time_range', JSON.stringify(dateRange));
+      }
+
+      const response = await fetch(`${META_API_BASE}/${adSetId}/insights?${params}`);
+
+      if (!response.ok) {
+        const error = await response.text();
+        console.error(
+          `[MetaAds] Ad set insights error (${response.status}): ${error.substring(0, 200)}`
+        );
+        return null;
+      }
+
+      const data = (await response.json()) as {
+        data?: Array<{
+          spend?: string;
+          clicks?: string;
+          impressions?: string;
+          cpc?: string;
+          cpm?: string;
+          reach?: string;
+          actions?: Array<{ action_type: string; value: string }>;
+        }>;
+      };
+
+      if (!data.data || data.data.length === 0) return null;
+
+      const row = data.data[0]!;
+      const linkClicks = row.actions?.find((a) => a.action_type === 'link_click');
+
+      return {
+        spend: parseFloat(row.spend || '0'),
+        clicks: parseInt(row.clicks || '0'),
+        impressions: parseInt(row.impressions || '0'),
+        cpc: parseFloat(row.cpc || '0'),
+        cpm: parseFloat(row.cpm || '0'),
+        reach: parseInt(row.reach || '0'),
+        actions: linkClicks ? parseInt(linkClicks.value) : parseInt(row.clicks || '0'),
+      };
+    } catch (error) {
+      console.error('[MetaAds] Get ad set insights failed:', error);
+      return null;
     }
   }
 

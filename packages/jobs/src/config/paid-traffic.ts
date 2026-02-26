@@ -79,6 +79,138 @@ export const PAID_TRAFFIC_CONFIG = {
   searchTermExcludeClickThreshold: 3,
 
   // ---------------------------------------------------------------------------
+  // Meta consolidated campaigns (CBO with ROAS bidding)
+  // ---------------------------------------------------------------------------
+  metaConsolidated: {
+    objective: 'OUTCOME_SALES',
+    bidStrategy: 'LOWEST_COST_WITH_MIN_ROAS' as const,
+    roasFloor: 200, // 2.0x ROAS
+    optimizationGoal: 'OFFSITE_CONVERSIONS',
+    cboEnabled: true,
+    /** Extended learning phase for CBO campaigns */
+    learningPhaseDays: 14,
+    /** Fast-fail: pause ad set after this spend with 0 conversions */
+    fastFailSpend: 50,
+    /** Max budget per consolidated campaign */
+    maxPerCampaignBudget: 100,
+
+    /** Keyword patterns → campaign group mapping */
+    categoryPatterns: {
+      'Branded – Harry Potter Tours': ['harry potter'],
+      'Branded – London Food Tours': ['london food tour'],
+      'Adventure & Outdoor': [
+        'adventure',
+        'hiking',
+        'safari',
+        'trek',
+        'outdoor',
+        'climb',
+        'expedition',
+        'wildlife',
+      ],
+      'Food, Drink & Culinary': [
+        'food tour',
+        'culinary',
+        'wine tast',
+        'cooking class',
+        'gastro',
+        'street food',
+      ],
+      'Boats, Sailing & Water': [
+        'boat',
+        'sailing',
+        'yacht',
+        'cruise',
+        'diving',
+        'snorkel',
+        'kayak',
+        'surf',
+        'water sport',
+      ],
+      'Transfers & Transport': [
+        'transfer',
+        'airport',
+        'taxi',
+        'shuttle',
+        'limo',
+        'chauffeur',
+        'private car',
+      ],
+      'Cultural & Sightseeing': [
+        'museum',
+        'gallery',
+        'history',
+        'cultural',
+        'sightseeing',
+        'monument',
+        'heritage',
+        'walking tour',
+      ],
+    } as Record<string, string[]>,
+
+    /** Profitability score threshold for General Tours Tier 1 vs Tier 2 */
+    generalToursTier1Threshold: 50,
+
+    /** Country code → region mapping (for ad set assignment within General Tours) */
+    regionMap: {
+      // UK & Ireland
+      GB: 'UK & Ireland',
+      IE: 'UK & Ireland',
+      // Europe
+      DE: 'Europe',
+      FR: 'Europe',
+      ES: 'Europe',
+      IT: 'Europe',
+      NL: 'Europe',
+      PT: 'Europe',
+      AT: 'Europe',
+      CH: 'Europe',
+      SE: 'Europe',
+      NO: 'Europe',
+      DK: 'Europe',
+      GR: 'Europe',
+      CZ: 'Europe',
+      PL: 'Europe',
+      HU: 'Europe',
+      HR: 'Europe',
+      RO: 'Europe',
+      BG: 'Europe',
+      FI: 'Europe',
+      BE: 'Europe',
+      // Americas
+      US: 'Americas',
+      CA: 'Americas',
+      MX: 'Americas',
+      BR: 'Americas',
+      AR: 'Americas',
+      CO: 'Americas',
+      PE: 'Americas',
+      CL: 'Americas',
+      // Asia-Pacific
+      AU: 'Asia-Pacific',
+      NZ: 'Asia-Pacific',
+      JP: 'Asia-Pacific',
+      TH: 'Asia-Pacific',
+      SG: 'Asia-Pacific',
+      ID: 'Asia-Pacific',
+      MY: 'Asia-Pacific',
+      VN: 'Asia-Pacific',
+      KR: 'Asia-Pacific',
+      IN: 'Asia-Pacific',
+      PH: 'Asia-Pacific',
+      // Middle East & Africa
+      AE: 'Middle East & Africa',
+      ZA: 'Middle East & Africa',
+      MA: 'Middle East & Africa',
+      EG: 'Middle East & Africa',
+      KE: 'Middle East & Africa',
+      TZ: 'Middle East & Africa',
+      JO: 'Middle East & Africa',
+      TR: 'Middle East & Africa',
+    } as Record<string, string>,
+  },
+
+  // ---------------------------------------------------------------------------
   // Default negative keywords (applied to every new Google campaign)
   // ---------------------------------------------------------------------------
   defaultNegativeKeywords: [

@@ -30,7 +30,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const MAX_DAILY_BUDGET = parseFloat(process.env['BIDDING_MAX_DAILY_BUDGET'] || '1200');
 
     // --- Campaign filters ---
-    const campaignWhere: Record<string, unknown> = {};
+    const campaignWhere: Record<string, unknown> = {
+      parentCampaignId: null, // Exclude children — parents have aggregated metrics
+    };
     if (siteId) campaignWhere['siteId'] = siteId;
     if (platform) campaignWhere['platform'] = platform;
 
@@ -116,8 +118,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const priorMetrics = await prisma.adDailyMetric.aggregate({
       where: {
         date: { gte: priorStart, lt: priorEnd },
-        ...(siteId ? { campaign: { siteId } } : {}),
-        ...(platform ? { campaign: { platform: platform as any } } : {}),
+        campaign: {
+          parentCampaignId: null, // Exclude children
+          ...(siteId ? { siteId } : {}),
+          ...(platform ? { platform: platform as any } : {}),
+        },
       } as any,
       _sum: { spend: true, clicks: true, impressions: true, conversions: true, revenue: true },
     });
@@ -144,8 +149,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const dailyMetricsRaw = await prisma.adDailyMetric.findMany({
       where: {
         date: { gte: startDate, lte: endDate },
-        ...(siteId ? { campaign: { siteId } } : {}),
-        ...(platform ? { campaign: { platform: platform as any } } : {}),
+        campaign: {
+          parentCampaignId: null, // Exclude children
+          ...(siteId ? { siteId } : {}),
+          ...(platform ? { platform: platform as any } : {}),
+        },
       } as any,
       select: {
         date: true,
@@ -371,22 +379,48 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         const { campaignId } = body;
         if (!campaignId)
           return NextResponse.json({ error: 'campaignId required' }, { status: 400 });
+        const pauseCamp = await prisma.adCampaign.findUnique({
+          where: { id: campaignId },
+          select: {
+            platform: true,
+            platformCampaignId: true,
+            platformAdSetId: true,
+            parentCampaignId: true,
+          },
+        });
         await prisma.adCampaign.update({
           where: { id: campaignId },
           data: { status: 'PAUSED' },
         });
-        return NextResponse.json({ success: true, message: 'Campaign paused' });
+        // Note: Meta sync happens via the next AD_CAMPAIGN_SYNC run or
+        // can be triggered manually. Full API sync requires the jobs package
+        // which isn't available in the admin Next.js app.
+        return NextResponse.json({
+          success: true,
+          message: pauseCamp?.parentCampaignId
+            ? 'Ad set paused (will sync to Meta on next sync run)'
+            : 'Campaign paused',
+        });
       }
 
       case 'resume_campaign': {
         const { campaignId } = body;
         if (!campaignId)
           return NextResponse.json({ error: 'campaignId required' }, { status: 400 });
+        const resumeCamp = await prisma.adCampaign.findUnique({
+          where: { id: campaignId },
+          select: { parentCampaignId: true },
+        });
         await prisma.adCampaign.update({
           where: { id: campaignId },
           data: { status: 'ACTIVE' },
         });
-        return NextResponse.json({ success: true, message: 'Campaign resumed' });
+        return NextResponse.json({
+          success: true,
+          message: resumeCamp?.parentCampaignId
+            ? 'Ad set resumed (will sync to Meta on next sync run)'
+            : 'Campaign resumed',
+        });
       }
 
       case 'adjust_budget': {
@@ -394,6 +428,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         if (!campaignId || dailyBudget == null) {
           return NextResponse.json(
             { error: 'campaignId and dailyBudget required' },
+            { status: 400 }
+          );
+        }
+        const budgetCamp = await prisma.adCampaign.findUnique({
+          where: { id: campaignId },
+          select: { parentCampaignId: true },
+        });
+        // Only allow budget adjustments on parent/standalone campaigns (CBO handles children)
+        if (budgetCamp?.parentCampaignId) {
+          return NextResponse.json(
+            {
+              error: 'Cannot adjust budget on child ad sets — CBO manages budget at campaign level',
+            },
             { status: 400 }
           );
         }

@@ -71,6 +71,8 @@ export interface CampaignCandidate {
   landingPagePath: string;
   landingPageType: LandingPageType;
   landingPageProducts?: number;
+  // Meta consolidated campaigns — campaign category group
+  campaignGroup?: string;
 }
 
 export interface CampaignGroupAdGroup {
@@ -90,6 +92,7 @@ export interface CampaignGroup {
   siteName: string;
   micrositeDomain?: string;
   isMicrosite: boolean;
+  campaignGroup?: string; // Meta consolidated campaign category
   totalExpectedDailyCost: number;
   totalExpectedDailyRevenue: number;
   avgProfitabilityScore: number;
@@ -614,6 +617,26 @@ export async function assignKeywordsToSites(): Promise<number> {
   return assigned;
 }
 
+// --- Meta Consolidated Campaign Classification --------------------------------
+
+/**
+ * Classify a keyword into one of the 9 consolidated Meta campaign groups.
+ * Uses keyword pattern matching against the metaConsolidated.categoryPatterns config.
+ * Unmatched keywords fall into General Tours Tier 1 or Tier 2 based on profitability.
+ */
+function classifyKeywordToCampaignGroup(keyword: string, profitabilityScore: number): string {
+  const kw = keyword.toLowerCase();
+  for (const [group, patterns] of Object.entries(
+    PAID_TRAFFIC_CONFIG.metaConsolidated.categoryPatterns
+  )) {
+    if ((patterns as string[]).some((p) => kw.includes(p))) return group;
+  }
+  // Default: General Tours, tiered by profitability
+  return profitabilityScore >= PAID_TRAFFIC_CONFIG.metaConsolidated.generalToursTier1Threshold
+    ? 'General Tours – Tier 1'
+    : 'General Tours – Tier 2';
+}
+
 // --- Opportunity Scoring -----------------------------------------------------
 
 /**
@@ -988,7 +1011,7 @@ export async function scoreCampaignOpportunities(
     // Score for enabled platforms only
     for (const platform of PAID_TRAFFIC_CONFIG.enabledPlatforms) {
       const utmSource = platform === 'FACEBOOK' ? 'facebook_ads' : 'google_ads';
-      candidates.push({
+      const candidate: CampaignCandidate = {
         opportunityId: opp.id,
         keyword: opp.keyword,
         siteId,
@@ -1011,7 +1034,12 @@ export async function scoreCampaignOpportunities(
         landingPagePath: landingPage.path,
         landingPageType: landingPage.type,
         landingPageProducts: landingPage.productCount,
-      });
+      };
+      // Meta consolidated campaigns: classify keyword into campaign group
+      if (platform === 'FACEBOOK') {
+        candidate.campaignGroup = classifyKeywordToCampaignGroup(opp.keyword, profitabilityScore);
+      }
+      candidates.push(candidate);
     }
   }
 
@@ -1119,13 +1147,21 @@ export async function scoreCampaignOpportunities(
  * Cartagena, Cannes keywords into one campaign with a single arbitrary targetUrl.
  */
 export function groupCandidatesIntoCampaigns(candidates: CampaignCandidate[]): CampaignGroup[] {
-  // Build map keyed by "(micrositeId || siteId)|(platform)|(landingPagePath)"
-  // Each landing page (city/category) becomes its own campaign
+  // Build map keyed by grouping strategy:
+  //   - FACEBOOK: group by campaign category (consolidation into 9 parent campaigns)
+  //   - GOOGLE_SEARCH: group by landing page (1 campaign per landing page, unchanged)
   const groupMap = new Map<string, CampaignCandidate[]>();
   for (const c of candidates) {
-    const groupId = c.micrositeId || c.siteId;
-    const lpKey = c.landingPagePath || '/';
-    const key = `${groupId}|${c.platform}|${lpKey}`;
+    let key: string;
+    if (c.platform === 'FACEBOOK' && c.campaignGroup) {
+      // Meta consolidated: all candidates in same campaign group → same parent campaign
+      key = `${c.campaignGroup}|${c.platform}`;
+    } else {
+      // Google or legacy: per landing page
+      const groupId = c.micrositeId || c.siteId;
+      const lpKey = c.landingPagePath || '/';
+      key = `${groupId}|${c.platform}|${lpKey}`;
+    }
     const existing = groupMap.get(key);
     if (existing) {
       existing.push(c);
@@ -1139,23 +1175,40 @@ export function groupCandidatesIntoCampaigns(candidates: CampaignCandidate[]): C
   for (const [, groupCandidates] of groupMap) {
     const first = groupCandidates[0]!;
 
-    // All candidates in this group share the same landing page path,
-    // so there's effectively one ad group per campaign
     const primaryCandidate = groupCandidates.reduce((best, c) =>
       c.profitabilityScore > best.profitabilityScore ? c : best
     );
 
-    const adGroups: CampaignGroupAdGroup[] = [
-      {
-        landingPagePath: first.landingPagePath || '/',
-        landingPageType: primaryCandidate.landingPageType,
-        targetUrl: primaryCandidate.targetUrl,
-        keywords: groupCandidates.map((c) => c.keyword),
-        primaryKeyword: primaryCandidate.keyword,
-        maxBid: Math.max(...groupCandidates.map((c) => c.maxBid)),
-        totalExpectedDailyCost: groupCandidates.reduce((s, c) => s + c.expectedDailyCost, 0),
-      },
-    ];
+    // For Meta consolidated campaigns, candidates within the same campaign group
+    // may target different landing pages — each unique landing page becomes an ad group
+    // (which maps to an ad set within the consolidated campaign).
+    // For Google, all candidates share the same landing page (grouped by it above).
+    const adGroupsByLp = new Map<string, CampaignCandidate[]>();
+    for (const c of groupCandidates) {
+      const lpKey = c.landingPagePath || '/';
+      const existing = adGroupsByLp.get(lpKey);
+      if (existing) {
+        existing.push(c);
+      } else {
+        adGroupsByLp.set(lpKey, [c]);
+      }
+    }
+
+    const adGroups: CampaignGroupAdGroup[] = [];
+    for (const [lpPath, lpCandidates] of adGroupsByLp) {
+      const lpPrimary = lpCandidates.reduce((best, c) =>
+        c.profitabilityScore > best.profitabilityScore ? c : best
+      );
+      adGroups.push({
+        landingPagePath: lpPath,
+        landingPageType: lpPrimary.landingPageType,
+        targetUrl: lpPrimary.targetUrl,
+        keywords: lpCandidates.map((c) => c.keyword),
+        primaryKeyword: lpPrimary.keyword,
+        maxBid: Math.max(...lpCandidates.map((c) => c.maxBid)),
+        totalExpectedDailyCost: lpCandidates.reduce((s, c) => s + c.expectedDailyCost, 0),
+      });
+    }
 
     // Compute group-level aggregates
     const totalExpectedDailyCost = groupCandidates.reduce((s, c) => s + c.expectedDailyCost, 0);
@@ -1173,6 +1226,7 @@ export function groupCandidatesIntoCampaigns(candidates: CampaignCandidate[]): C
       siteName: first.siteName,
       micrositeDomain: first.micrositeDomain,
       isMicrosite: first.isMicrosite,
+      campaignGroup: first.campaignGroup, // Meta consolidated campaign category
       totalExpectedDailyCost,
       totalExpectedDailyRevenue,
       avgProfitabilityScore,
