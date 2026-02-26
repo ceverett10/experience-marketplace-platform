@@ -26,21 +26,24 @@ describe('booking-analytics', () => {
   });
 
   describe('getProductBookingStats', () => {
-    it('counts bookings today and this week', async () => {
+    it('counts bookings today, this week, and this month', async () => {
       const now = new Date();
       const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
       const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
+      const fifteenDaysAgo = new Date(now.getTime() - 15 * 24 * 60 * 60 * 1000);
 
       mockFindMany.mockResolvedValue([
         { createdAt: twoHoursAgo }, // today
         { createdAt: twoHoursAgo }, // today
         { createdAt: threeDaysAgo }, // this week but not today
+        { createdAt: fifteenDaysAgo }, // this month but not this week
       ]);
 
       const stats = await getProductBookingStats('site-1', 'prod-1');
 
       expect(stats.bookingsToday).toBe(2);
       expect(stats.bookingsThisWeek).toBe(3);
+      expect(stats.bookingsThisMonth).toBe(4);
     });
 
     it('queries with correct filters', async () => {
@@ -104,6 +107,7 @@ describe('booking-analytics', () => {
       expect(stats).toEqual({
         bookingsToday: 0,
         bookingsThisWeek: 0,
+        bookingsThisMonth: 0,
         isHighDemand: false,
         isTrending: false,
       });
@@ -116,17 +120,31 @@ describe('booking-analytics', () => {
         shouldShowBookingCount({
           bookingsToday: 0,
           bookingsThisWeek: 3,
+          bookingsThisMonth: 5,
           isHighDemand: false,
           isTrending: false,
         })
       ).toBe(true);
     });
 
-    it('returns false when < 3 bookings this week', () => {
+    it('returns true when < 3 bookings this week but >= 1 this month', () => {
       expect(
         shouldShowBookingCount({
-          bookingsToday: 1,
-          bookingsThisWeek: 2,
+          bookingsToday: 0,
+          bookingsThisWeek: 1,
+          bookingsThisMonth: 2,
+          isHighDemand: false,
+          isTrending: false,
+        })
+      ).toBe(true);
+    });
+
+    it('returns false when 0 bookings this week and 0 this month', () => {
+      expect(
+        shouldShowBookingCount({
+          bookingsToday: 0,
+          bookingsThisWeek: 0,
+          bookingsThisMonth: 0,
           isHighDemand: false,
           isTrending: false,
         })

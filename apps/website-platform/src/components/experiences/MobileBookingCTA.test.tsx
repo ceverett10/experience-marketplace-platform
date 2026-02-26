@@ -66,9 +66,9 @@ describe('MobileBookingCTA', () => {
       expect(infoText.textContent).toMatch(/free cancellation/i);
     });
 
-    it('renders Reserve now button', () => {
+    it('renders Book Now button', () => {
       render(<MobileBookingCTA {...defaultProps} />);
-      expect(screen.getByRole('button', { name: /reserve now/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /book now/i })).toBeInTheDocument();
     });
 
     it('renders spacer div for sticky CTA', () => {
@@ -83,6 +83,7 @@ describe('MobileBookingCTA', () => {
       const stats: BookingStats = {
         bookingsToday: 3,
         bookingsThisWeek: 8,
+        bookingsThisMonth: 20,
         isHighDemand: true,
         isTrending: false,
       };
@@ -94,6 +95,7 @@ describe('MobileBookingCTA', () => {
       const stats: BookingStats = {
         bookingsToday: 5,
         bookingsThisWeek: 15,
+        bookingsThisMonth: 40,
         isHighDemand: false,
         isTrending: true,
       };
@@ -105,6 +107,7 @@ describe('MobileBookingCTA', () => {
       const stats: BookingStats = {
         bookingsToday: 1,
         bookingsThisWeek: 2,
+        bookingsThisMonth: 5,
         isHighDemand: false,
         isTrending: false,
       };
@@ -122,13 +125,13 @@ describe('MobileBookingCTA', () => {
     it('opens modal when Reserve now button is clicked', () => {
       render(<MobileBookingCTA {...defaultProps} />);
       expect(screen.queryByTestId('availability-modal')).not.toBeInTheDocument();
-      fireEvent.click(screen.getByRole('button', { name: /reserve now/i }));
+      fireEvent.click(screen.getByRole('button', { name: /book now/i }));
       expect(screen.getByTestId('availability-modal')).toBeInTheDocument();
     });
 
     it('closes modal via Close button', () => {
       render(<MobileBookingCTA {...defaultProps} />);
-      fireEvent.click(screen.getByRole('button', { name: /reserve now/i }));
+      fireEvent.click(screen.getByRole('button', { name: /book now/i }));
       expect(screen.getByTestId('availability-modal')).toBeInTheDocument();
       fireEvent.click(screen.getByText('Close Modal'));
       expect(screen.queryByTestId('availability-modal')).not.toBeInTheDocument();
@@ -136,7 +139,7 @@ describe('MobileBookingCTA', () => {
 
     it('passes correct productId and productName to modal', () => {
       render(<MobileBookingCTA {...defaultProps} />);
-      fireEvent.click(screen.getByRole('button', { name: /reserve now/i }));
+      fireEvent.click(screen.getByRole('button', { name: /book now/i }));
       const modal = screen.getByTestId('availability-modal');
       expect(modal).toHaveAttribute('data-product-id', 'prod-1');
       expect(modal).toHaveAttribute('data-product-name', 'London Eye Tour');

@@ -174,9 +174,34 @@ describe('CatalogHomepage', () => {
     expect(screen.getByText(/Fantastic!/)).toBeDefined();
   });
 
-  it('renders PPC CTA when isPpc is true', () => {
+  it('renders compact trust strip instead of Browse CTA when isPpc is true', () => {
     render(<CatalogHomepage {...defaultProps} isPpc />);
-    expect(screen.getByText(/Browse.*Experiences/)).toBeDefined();
+    // PPC: no Browse Experiences button
+    expect(screen.queryByText(/Browse.*Experiences/)).toBeNull();
+    // PPC: compact trust strip with experience count + free cancellation
+    const trustStrip = screen.getByText(/experiences available/i);
+    expect(trustStrip).toBeDefined();
+    expect(trustStrip.textContent).toMatch(/free cancellation/i);
+  });
+
+  it('does not render hero trust badges when isPpc is true', () => {
+    render(<CatalogHomepage {...defaultProps} isPpc />);
+    // Trust badges are in the About section but not duplicated in hero for PPC
+    const verifiedBadges = screen.getAllByText('Verified Operator');
+    // Only 1 instance (About section), not 2+ (hero + about)
+    expect(verifiedBadges.length).toBe(1);
+  });
+
+  it('renders Free Cancellation badge on cards when isPpc is true', () => {
+    render(<CatalogHomepage {...defaultProps} isPpc />);
+    const badges = screen.getAllByText('Free Cancellation');
+    expect(badges.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('renders Book Now button on cards when isPpc is true', () => {
+    render(<CatalogHomepage {...defaultProps} isPpc />);
+    const bookNowButtons = screen.getAllByText('Book Now');
+    expect(bookNowButtons.length).toBeGreaterThanOrEqual(1);
   });
 
   it('renders blog section when posts provided', () => {

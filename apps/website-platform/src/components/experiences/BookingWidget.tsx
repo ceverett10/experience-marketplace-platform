@@ -29,8 +29,12 @@ export function BookingWidget({ experience, bookingStats }: BookingWidgetProps) 
     bookingStats?.isTrending ||
     (experience.rating && experience.rating.count > 10);
 
-  // Show booking count if significant (3+ bookings this week)
-  const showBookingCount = bookingStats && bookingStats.bookingsThisWeek >= 3;
+  // Show booking count: weekly if >= 3, otherwise monthly if >= 1
+  const showWeeklyCount = bookingStats && bookingStats.bookingsThisWeek >= 3;
+  const showMonthlyCount = !showWeeklyCount && bookingStats && bookingStats.bookingsThisMonth >= 1;
+  // Rating-based fallback when no booking stats
+  const showRatingProof =
+    !showWeeklyCount && !showMonthlyCount && experience.rating && experience.rating.count > 0;
 
   const primaryColor = brand?.primaryColor ?? '#0d9488'; // teal-600
   const pricingConfig = getProductPricingConfig(experience.id);
@@ -59,13 +63,28 @@ export function BookingWidget({ experience, bookingStats }: BookingWidgetProps) 
             primaryColor={primaryColor}
             showFrom={false}
           />
-          {/* Social proof: Booking count */}
-          {showBookingCount && (
+          {/* Social proof: Booking count or rating */}
+          {showWeeklyCount && (
             <p className="mt-2 flex items-center gap-1.5 text-sm text-gray-600">
               <svg className="h-4 w-4 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" />
               </svg>
               Booked {bookingStats!.bookingsThisWeek} times this week
+            </p>
+          )}
+          {showMonthlyCount && (
+            <p className="mt-2 flex items-center gap-1.5 text-sm text-gray-600">
+              <svg className="h-4 w-4 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" />
+              </svg>
+              Booked {bookingStats!.bookingsThisMonth} times this month
+            </p>
+          )}
+          {showRatingProof && (
+            <p className="mt-2 flex items-center gap-1.5 text-sm text-gray-600">
+              <span className="text-yellow-400">★</span>
+              Rated {experience.rating!.average.toFixed(1)} by{' '}
+              {experience.rating!.count.toLocaleString()} travelers
             </p>
           )}
         </div>
@@ -81,8 +100,9 @@ export function BookingWidget({ experience, bookingStats }: BookingWidgetProps) 
             } as React.CSSProperties
           }
         >
-          Check availability
+          Book Now
         </button>
+        <p className="mt-2 text-center text-xs text-emerald-600">Free cancellation available</p>
 
         {/* Trust Signals */}
         <div className="mt-6 space-y-3">

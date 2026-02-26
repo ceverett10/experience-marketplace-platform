@@ -192,7 +192,7 @@ describe('CheckoutClient', () => {
     });
 
     expect(document.querySelector('[data-testid="questions-form"]')).toBeTruthy();
-    expect(screen.getByText('Guest Details')).toBeDefined();
+    expect(screen.getByText('Your Details')).toBeDefined();
   });
 
   it('renders order summary with experience details', async () => {
@@ -210,13 +210,15 @@ describe('CheckoutClient', () => {
     render(<CheckoutClient bookingId="booking-1" site={mockSite} />);
 
     await waitFor(() => {
-      expect(screen.getByText('Guest Details')).toBeDefined();
-      expect(screen.getByText('Review')).toBeDefined();
+      expect(screen.getByText('Your Details')).toBeDefined();
       expect(screen.getByText('Payment')).toBeDefined();
     });
+
+    // Only 2 steps now (no Review step)
+    expect(screen.queryByText('Review')).toBeNull();
   });
 
-  it('advances to review step when questions are answered successfully', async () => {
+  it('advances directly to payment when questions are answered successfully', async () => {
     mockAnswerBookingQuestions.mockResolvedValue({
       booking: mockBooking,
       canCommit: true,
@@ -230,8 +232,10 @@ describe('CheckoutClient', () => {
 
     fireEvent.click(screen.getByTestId('submit-questions'));
 
+    // Review section and payment form appear together (skip review gate)
     await waitFor(() => {
       expect(document.querySelector('[data-testid="checkout-review-step"]')).toBeTruthy();
+      expect(document.querySelector('[data-testid="checkout-payment-step"]')).toBeTruthy();
     });
 
     expect(screen.getByText('Booking Details')).toBeDefined();
@@ -254,7 +258,7 @@ describe('CheckoutClient', () => {
     });
   });
 
-  it('shows Proceed to Payment button in review step', async () => {
+  it('shows StripePaymentForm directly after questions are answered', async () => {
     mockAnswerBookingQuestions.mockResolvedValue({
       booking: mockBooking,
       canCommit: true,
@@ -268,12 +272,13 @@ describe('CheckoutClient', () => {
 
     fireEvent.click(screen.getByTestId('submit-questions'));
 
+    // Payment form appears directly (no intermediate review gate)
     await waitFor(() => {
-      expect(document.querySelector('[data-testid="proceed-to-payment"]')).toBeTruthy();
+      expect(document.querySelector('[data-testid="stripe-payment-form"]')).toBeTruthy();
     });
   });
 
-  it('shows Proceed to Payment in review step and renders StripePaymentForm mock', async () => {
+  it('skips review gate and shows payment form directly', async () => {
     mockAnswerBookingQuestions.mockResolvedValue({
       booking: mockBooking,
       canCommit: true,
@@ -284,12 +289,12 @@ describe('CheckoutClient', () => {
     const submitBtn = await screen.findByTestId('submit-questions');
     fireEvent.click(submitBtn);
 
-    // Verify the proceed button appears in the review step
-    const payBtn = await screen.findByTestId('proceed-to-payment');
-    expect(payBtn.textContent).toContain('Proceed to Payment');
+    // Payment form renders directly without needing to click "Proceed to Payment"
+    const paymentForm = await screen.findByTestId('stripe-payment-form');
+    expect(paymentForm).toBeTruthy();
 
-    // Verify the StripePaymentForm mock is available
-    expect(payBtn).toBeTruthy();
+    // No "Proceed to Payment" gate in between
+    expect(document.querySelector('[data-testid="proceed-to-payment"]')).toBeFalsy();
   });
 
   it('calls answerBookingQuestions with correct bookingId on submit', async () => {
