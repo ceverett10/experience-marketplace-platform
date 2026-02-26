@@ -176,6 +176,16 @@ async function findCampaignsByName(config: GoogleAdsConfig, name: string): Promi
 
 /**
  * Remove a campaign from Google Ads (sets status to REMOVED).
+ * Public wrapper that gets config automatically.
+ */
+export async function removeGoogleCampaign(campaignId: string): Promise<boolean> {
+  const config = getConfig();
+  if (!config) return false;
+  return removeCampaign(config, campaignId);
+}
+
+/**
+ * Remove a campaign from Google Ads (sets status to REMOVED).
  * Uses the remove operation, not a status update.
  */
 async function removeCampaign(config: GoogleAdsConfig, campaignId: string): Promise<boolean> {
