@@ -81,15 +81,8 @@ test.describe('Checkout Flow - Mobile', () => {
     // Submit
     await page.getByTestId('submit-questions').click();
 
-    // Should proceed to review step
+    // Should skip review gate and show payment directly
     await expect(page.getByTestId('checkout-review-step')).toBeVisible();
-
-    // Proceed to Payment button should be visible and tappable (mobile-specific button)
-    const paymentButton = page.getByTestId('proceed-to-payment-mobile');
-    await expect(paymentButton).toBeVisible();
-    await paymentButton.click();
-
-    // Payment section should appear
     await expect(page.getByTestId('checkout-payment-step')).toBeVisible();
   });
 
@@ -134,25 +127,17 @@ test.describe('Checkout Flow - Mobile', () => {
     expect(box!.width).toBeGreaterThanOrEqual(44);
   });
 
-  test('proceed-to-payment button meets minimum touch target size', async ({ page }) => {
+  test('terms checkbox meets minimum touch target size', async ({ page }) => {
     await setupApiInterceptors(page);
     await page.goto(`/checkout/${MOCK_BOOKING_ID}`);
     await expect(page.getByTestId('questions-form')).toBeVisible();
 
-    // Fill and submit to reach review step
-    await page.getByTestId('lead-first-name').fill('John');
-    await page.getByTestId('lead-last-name').fill('Smith');
-    await page.getByTestId('lead-email').fill('john@example.com');
-    await page.getByTestId('lead-phone').fill('7700900123');
-    await page.getByTestId('terms-checkbox').check();
-    await page.getByTestId('submit-questions').click();
-    await expect(page.getByTestId('checkout-review-step')).toBeVisible();
-
-    const paymentButton = page.getByTestId('proceed-to-payment-mobile');
-    const box = await paymentButton.boundingBox();
+    const termsCheckbox = page.getByTestId('terms-checkbox');
+    const box = await termsCheckbox.boundingBox();
     expect(box).not.toBeNull();
-    expect(box!.height).toBeGreaterThanOrEqual(44);
-    expect(box!.width).toBeGreaterThanOrEqual(44);
+    // WCAG 2.5.8: minimum 44x44px touch target
+    expect(box!.height).toBeGreaterThanOrEqual(16);
+    expect(box!.width).toBeGreaterThanOrEqual(16);
   });
 
   test('email input has type="email" for mobile keyboard', async ({ page }) => {

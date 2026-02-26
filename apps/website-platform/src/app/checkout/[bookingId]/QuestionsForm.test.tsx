@@ -150,9 +150,9 @@ describe('QuestionsForm', () => {
     });
   });
 
-  it('shows "Continue to Payment" when isResubmission=false', () => {
+  it('shows "Proceed to Payment" when isResubmission=false', () => {
     render(<QuestionsForm {...defaultProps} isResubmission={false} />);
-    expect(screen.getByTestId('submit-questions')).toHaveTextContent('Continue to Payment');
+    expect(screen.getByTestId('submit-questions')).toHaveTextContent('Proceed to Payment');
   });
 
   it('shows "Submit Answers" when isResubmission=true', () => {
@@ -163,6 +163,37 @@ describe('QuestionsForm', () => {
   it('shows "Processing..." when isSubmitting=true', () => {
     render(<QuestionsForm {...defaultProps} isSubmitting={true} />);
     expect(screen.getByTestId('submit-questions')).toHaveTextContent('Processing...');
+  });
+
+  it('renders "Your Details" heading instead of "Lead Person Details"', () => {
+    render(<QuestionsForm {...defaultProps} />);
+    expect(screen.getByText('Your Details')).toBeInTheDocument();
+    expect(screen.queryByText('Lead Person Details')).not.toBeInTheDocument();
+  });
+
+  it('does not render Holibob bank statement warning box', () => {
+    render(<QuestionsForm {...defaultProps} />);
+    expect(screen.queryByText(/HOLIBOB LTD UK/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Payment statement notice/)).not.toBeInTheDocument();
+  });
+
+  it('renders simplified terms checkbox without bank statement text', () => {
+    render(<QuestionsForm {...defaultProps} />);
+    const termsLabel = screen.getByTestId('terms-checkbox').closest('label');
+    expect(termsLabel).toBeInTheDocument();
+    expect(termsLabel?.textContent).toContain('Terms and Conditions');
+    expect(termsLabel?.textContent).not.toContain('HOLIBOB');
+    expect(termsLabel?.textContent).not.toContain('bank statement');
+  });
+
+  it('does not render "Completion" section heading', () => {
+    render(<QuestionsForm {...defaultProps} />);
+    expect(screen.queryByText('Completion')).not.toBeInTheDocument();
+  });
+
+  it('renders "Payment processed by Holibob Ltd" footnote', () => {
+    render(<QuestionsForm {...defaultProps} totalPrice="£35.00" />);
+    expect(screen.getByText('Payment processed by Holibob Ltd')).toBeInTheDocument();
   });
 });
 

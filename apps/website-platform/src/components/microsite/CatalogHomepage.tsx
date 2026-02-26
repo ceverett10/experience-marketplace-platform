@@ -104,7 +104,7 @@ export function CatalogHomepage({
       <section className="relative">
         {/* Background */}
         <div
-          className={`absolute inset-0 overflow-hidden ${isPpc ? 'h-[380px] sm:h-[430px]' : 'h-[300px] sm:h-[350px]'}`}
+          className={`absolute inset-0 overflow-hidden ${isPpc ? 'h-[200px] sm:h-[240px]' : 'h-[300px] sm:h-[350px]'}`}
         >
           {heroConfig?.backgroundImage ? (
             <Image
@@ -130,7 +130,11 @@ export function CatalogHomepage({
         </div>
 
         {/* Content */}
-        <div className="relative mx-auto max-w-7xl px-4 pb-12 pt-24 sm:px-6 sm:pt-32 lg:px-8">
+        <div
+          className={`relative mx-auto max-w-7xl px-4 pb-12 sm:px-6 lg:px-8 ${
+            isPpc ? 'pt-8 sm:pt-12' : 'pt-24 sm:pt-32'
+          }`}
+        >
           <div className="text-center">
             {/* Logo or Site Name */}
             {site.brand?.logoUrl ? (
@@ -139,94 +143,93 @@ export function CatalogHomepage({
                 alt={site.name}
                 width={200}
                 height={60}
-                className="mx-auto h-16 w-auto"
+                className={isPpc ? 'mx-auto h-10 w-auto' : 'mx-auto h-16 w-auto'}
               />
             ) : (
-              <h1 className="text-3xl font-bold text-white sm:text-4xl">{site.name}</h1>
+              <h1
+                className={`font-bold text-white ${isPpc ? 'text-2xl sm:text-3xl' : 'text-3xl sm:text-4xl'}`}
+              >
+                {site.name}
+              </h1>
             )}
 
             {/* Tagline */}
             {site.brand?.tagline && (
-              <p className="mx-auto mt-4 max-w-2xl text-lg text-white/90">{site.brand.tagline}</p>
+              <p
+                className={`mx-auto max-w-2xl text-white/90 ${isPpc ? 'mt-2 text-base' : 'mt-4 text-lg'}`}
+              >
+                {site.brand.tagline}
+              </p>
             )}
 
-            {/* Stats */}
-            <div className="mt-6 flex justify-center gap-8 text-white/80">
-              <div>
-                <span className="text-2xl font-bold text-white">
-                  {displayCount.toLocaleString()}
-                </span>
-                <span className="ml-2">Experiences</span>
-              </div>
-              {experiences.some((e) => e.rating) && (
-                <div>
-                  <span className="text-2xl font-bold text-white">
-                    {(
-                      experiences.reduce((sum, e) => sum + (e.rating?.average ?? 0), 0) /
-                      experiences.filter((e) => e.rating).length
-                    ).toFixed(1)}
-                  </span>
-                  <span className="ml-2">Avg Rating</span>
+            {/* Stats + Trust Badges (organic only — PPC uses header trust bar) */}
+            {!isPpc && (
+              <>
+                <div className="mt-6 flex justify-center gap-8 text-white/80">
+                  <div>
+                    <span className="text-2xl font-bold text-white">
+                      {displayCount.toLocaleString()}
+                    </span>
+                    <span className="ml-2">Experiences</span>
+                  </div>
+                  {experiences.some((e) => e.rating) && (
+                    <div>
+                      <span className="text-2xl font-bold text-white">
+                        {(
+                          experiences.reduce((sum, e) => sum + (e.rating?.average ?? 0), 0) /
+                          experiences.filter((e) => e.rating).length
+                        ).toFixed(1)}
+                      </span>
+                      <span className="ml-2">Avg Rating</span>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
 
-            {/* Trust Badges - Compact inline indicators */}
-            <div className="mt-6 flex flex-wrap justify-center gap-4 text-xs text-white/90 sm:gap-6 sm:text-sm">
-              <div className="flex items-center gap-1.5">
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                <span>Verified Operator</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                <span>Instant Confirmation</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"
-                  />
-                </svg>
-                <span>Secure Booking</span>
-              </div>
-            </div>
+                {/* Trust Badges - Compact inline indicators */}
+                <div className="mt-6 flex flex-wrap justify-center gap-4 text-xs text-white/90 sm:gap-6 sm:text-sm">
+                  <div className="flex items-center gap-1.5">
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    <span>Verified Operator</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    <span>Instant Confirmation</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"
+                      />
+                    </svg>
+                    <span>Secure Booking</span>
+                  </div>
+                </div>
+              </>
+            )}
 
-            {/* PPC: Prominent CTA for paid traffic */}
+            {/* PPC: Compact experience count strip */}
             {isPpc && (
-              <div className="mt-8">
-                <Link
-                  href="/experiences"
-                  className="inline-flex items-center gap-2 rounded-xl px-8 py-4 text-lg font-bold text-white shadow-lg transition-transform hover:scale-105"
-                  style={{ backgroundColor: primaryColor }}
-                >
-                  Browse {displayCount > 0 ? `${displayCount.toLocaleString()} ` : ''}Experiences
-                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M17 8l4 4m0 0l-4 4m4-4H3"
-                    />
-                  </svg>
-                </Link>
-              </div>
+              <p className="mt-3 text-sm text-white/80">
+                {displayCount.toLocaleString()} experiences available &middot; Free cancellation
+                &middot; Instant confirmation
+              </p>
             )}
           </div>
         </div>
@@ -269,6 +272,7 @@ export function CatalogHomepage({
                 experience={experience}
                 primaryColor={primaryColor}
                 priority={idx < 6}
+                isPpc={isPpc}
               />
             ))}
           </div>
@@ -446,10 +450,12 @@ function CatalogExperienceCard({
   experience,
   primaryColor,
   priority,
+  isPpc,
 }: {
   experience: ExperienceListItem;
   primaryColor: string;
   priority: boolean;
+  isPpc?: boolean;
 }) {
   const pricingConfig = getProductPricingConfig(experience.id);
 
@@ -475,6 +481,12 @@ function CatalogExperienceCard({
         {pricingConfig.showDiscountBadge && (
           <div className="absolute left-3 top-3">
             <DiscountBadge pricingConfig={pricingConfig} />
+          </div>
+        )}
+        {/* PPC: Free Cancellation badge */}
+        {isPpc && (
+          <div className="absolute right-3 top-3 rounded-full bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm">
+            Free Cancellation
           </div>
         )}
       </div>
@@ -562,6 +574,16 @@ function CatalogExperienceCard({
             Best price guarantee
           </span>
         </div>
+
+        {/* PPC: Prominent Book Now button */}
+        {isPpc && (
+          <div
+            className="mt-3 rounded-lg py-2.5 text-center text-sm font-semibold text-white"
+            style={{ backgroundColor: primaryColor }}
+          >
+            Book Now
+          </div>
+        )}
       </div>
     </Link>
   );

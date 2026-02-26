@@ -11,11 +11,9 @@ import {
   startBookingFlow,
   formatDate,
   type AvailabilitySlot,
-  type AvailabilityOption,
   type PricingCategory,
   type AvailabilityDetail,
 } from '@/lib/booking-flow';
-import { SessionTimer } from '@/components/booking/SessionTimer';
 import { getProductPricingConfig, calculatePromoPrice } from '@/lib/pricing';
 
 interface AvailabilityModalProps {
@@ -73,9 +71,6 @@ export function AvailabilityModal({
   const [error, setError] = useState<string | null>(null);
   const [isBooking, setIsBooking] = useState(false);
 
-  // Session timer state - starts when user moves past date selection
-  const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
-
   // Portal mounting state (for SSR safety)
   const [mounted, setMounted] = useState(false);
 
@@ -92,7 +87,12 @@ export function AvailabilityModal({
       setError(null);
       try {
         const result = await fetchAvailability(productId, dateRange.from, dateRange.to);
-        setAvailabilitySlots(result.nodes.filter((slot) => !slot.soldOut));
+        const available = result.nodes.filter((slot) => !slot.soldOut);
+        setAvailabilitySlots(available);
+        // Pre-select the first available date
+        if (available.length > 0 && !selectedSlot) {
+          setSelectedSlot(available[0]!);
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load availability');
       } finally {
@@ -103,10 +103,37 @@ export function AvailabilityModal({
     loadAvailability();
   }, [isOpen, productId, dateRange, step]);
 
+  // Initialize guest counts — default to 2 adults for the first adult-like category
+  const initializeGuestCounts = (categories: PricingCategory[]) => {
+    const initialUnits: Record<string, number> = {};
+    let defaultApplied = false;
+    categories.forEach((cat) => {
+      const isAdultCategory = /adult/i.test(cat.label);
+      if (!defaultApplied && (isAdultCategory || categories.length === 1)) {
+        // Default to 2 guests (within min/max bounds)
+        const defaultCount = Math.max(
+          cat.minParticipants || 0,
+          Math.min(2, cat.maxParticipants || 99)
+        );
+        initialUnits[cat.id] = defaultCount;
+        defaultApplied = true;
+      } else {
+        initialUnits[cat.id] = cat.minParticipants || 0;
+      }
+    });
+    // If no adult category found, default first category to 2
+    if (!defaultApplied && categories.length > 0) {
+      const first = categories[0]!;
+      initialUnits[first.id] = Math.max(
+        first.minParticipants || 0,
+        Math.min(2, first.maxParticipants || 99)
+      );
+    }
+    return initialUnits;
+  };
+
   // Load options when a slot is selected
   const loadOptions = useCallback(async (slotId: string) => {
-    // Start the session timer when user moves past date selection
-    setSessionStartTime(new Date());
     setIsLoading(true);
     setError(null);
     try {
@@ -116,16 +143,12 @@ export function AvailabilityModal({
       // Check if options are already complete
       if (detail.optionList?.isComplete) {
         setOptionsComplete(true);
-        // Load pricing directly
+        // Load pricing directly — skip options step entirely
         const pricingDetail = await getAvailabilityDetails(slotId, true);
         setAvailabilityDetail(pricingDetail);
-        setPricingCategoriesState(pricingDetail.pricingCategoryList?.nodes ?? []);
-        // Initialize category units
-        const initialUnits: Record<string, number> = {};
-        pricingDetail.pricingCategoryList?.nodes.forEach((cat) => {
-          initialUnits[cat.id] = cat.minParticipants || 0;
-        });
-        setCategoryUnits(initialUnits);
+        const cats = pricingDetail.pricingCategoryList?.nodes ?? [];
+        setPricingCategoriesState(cats);
+        setCategoryUnits(initializeGuestCounts(cats));
         setStep('pricing');
       } else {
         setOptionsComplete(false);
@@ -159,13 +182,9 @@ export function AvailabilityModal({
         // Load pricing
         const pricingDetail = await getAvailabilityDetails(selectedSlot.id, true);
         setAvailabilityDetail(pricingDetail);
-        setPricingCategoriesState(pricingDetail.pricingCategoryList?.nodes ?? []);
-        // Initialize category units
-        const initialUnits: Record<string, number> = {};
-        pricingDetail.pricingCategoryList?.nodes.forEach((cat) => {
-          initialUnits[cat.id] = cat.minParticipants || 0;
-        });
-        setCategoryUnits(initialUnits);
+        const cats = pricingDetail.pricingCategoryList?.nodes ?? [];
+        setPricingCategoriesState(cats);
+        setCategoryUnits(initializeGuestCounts(cats));
         setStep('pricing');
       } else {
         // More options needed - update selections for new options
@@ -259,7 +278,6 @@ export function AvailabilityModal({
       setTotalPrice(null);
       setIsValid(false);
       setError(null);
-      setSessionStartTime(null);
     }
   }, [isOpen]);
 
@@ -317,39 +335,23 @@ export function AvailabilityModal({
             </button>
           </div>
 
-          {/* Progress steps */}
-          <div className="mt-4 flex gap-2">
-            {['dates', 'options', 'pricing'].map((s, i) => (
-              <div
-                key={s}
-                className={`h-1 flex-1 rounded-full transition-colors ${
-                  i <= ['dates', 'options', 'pricing'].indexOf(step) ? 'bg-teal-500' : 'bg-gray-200'
-                }`}
-                style={
-                  i <= ['dates', 'options', 'pricing'].indexOf(step)
-                    ? { backgroundColor: primaryColor }
-                    : {}
-                }
-              />
-            ))}
-          </div>
-
-          {/* Session timer - shows after date selection */}
-          {sessionStartTime && step !== 'dates' && (
-            <div className="mt-3">
-              <SessionTimer
-                startTime={sessionStartTime}
-                durationMinutes={15}
-                variant="banner"
-                onExpire={() => {
-                  setError('Your session has expired. Please select a date again.');
-                  setStep('dates');
-                  setSessionStartTime(null);
-                  setSelectedSlot(null);
-                }}
-              />
-            </div>
-          )}
+          {/* Progress steps — skip options bar when options auto-complete */}
+          {(() => {
+            const steps = optionsComplete ? ['dates', 'pricing'] : ['dates', 'options', 'pricing'];
+            return (
+              <div className="mt-4 flex gap-2" data-testid="progress-steps">
+                {steps.map((s, i) => (
+                  <div
+                    key={s}
+                    className={`h-1 flex-1 rounded-full transition-colors ${
+                      i <= steps.indexOf(step) ? 'bg-teal-500' : 'bg-gray-200'
+                    }`}
+                    style={i <= steps.indexOf(step) ? { backgroundColor: primaryColor } : {}}
+                  />
+                ))}
+              </div>
+            );
+          })()}
         </div>
 
         {/* Content */}
@@ -675,6 +677,8 @@ export function AvailabilityModal({
                       </svg>
                       Creating...
                     </span>
+                  ) : totalPrice ? (
+                    `Book for ${totalPrice.formatted}`
                   ) : (
                     'Book Now'
                   )}

@@ -13,6 +13,8 @@ export interface BookingStats {
   bookingsToday: number;
   /** Number of bookings in the last 7 days */
   bookingsThisWeek: number;
+  /** Number of bookings in the last 30 days */
+  bookingsThisMonth: number;
   /** True if more than 5 bookings this week (high demand) */
   isHighDemand: boolean;
   /** True if more than 10 bookings this week (trending) */
@@ -49,9 +51,10 @@ export async function getProductBookingStats(
   const now = new Date();
   const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
   const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
   try {
-    // Query bookings for this product in the last week
+    // Query bookings for this product in the last 30 days
     // Only count CONFIRMED and COMPLETED bookings (not PENDING/CANCELLED)
     // Check both siteId and micrositeId to include all booking sources
     const bookings = await prisma.booking.findMany({
@@ -62,7 +65,7 @@ export async function getProductBookingStats(
           in: ['CONFIRMED', 'COMPLETED'],
         },
         createdAt: {
-          gte: oneWeekAgo,
+          gte: oneMonthAgo,
         },
       },
       select: {
@@ -72,11 +75,13 @@ export async function getProductBookingStats(
 
     // Count bookings by time period
     const bookingsToday = bookings.filter((b) => b.createdAt >= oneDayAgo).length;
-    const bookingsThisWeek = bookings.length;
+    const bookingsThisWeek = bookings.filter((b) => b.createdAt >= oneWeekAgo).length;
+    const bookingsThisMonth = bookings.length;
 
     return {
       bookingsToday,
       bookingsThisWeek,
+      bookingsThisMonth,
       isHighDemand: bookingsThisWeek >= THRESHOLDS.HIGH_DEMAND,
       isTrending: bookingsThisWeek >= THRESHOLDS.TRENDING,
     };
@@ -86,6 +91,7 @@ export async function getProductBookingStats(
     return {
       bookingsToday: 0,
       bookingsThisWeek: 0,
+      bookingsThisMonth: 0,
       isHighDemand: false,
       isTrending: false,
     };
@@ -94,10 +100,10 @@ export async function getProductBookingStats(
 
 /**
  * Check if booking stats should be displayed
- * Only show "Booked X times" if there are enough bookings to be meaningful
+ * Shows weekly count if >= 3/week, otherwise monthly count if >= 1/month
  */
 export function shouldShowBookingCount(stats: BookingStats): boolean {
-  return stats.bookingsThisWeek >= THRESHOLDS.MIN_DISPLAY_COUNT;
+  return stats.bookingsThisWeek >= THRESHOLDS.MIN_DISPLAY_COUNT || stats.bookingsThisMonth >= 1;
 }
 
 /**

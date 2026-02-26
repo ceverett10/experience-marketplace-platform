@@ -114,6 +114,14 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
 
       if (result.canCommit) {
         setQuestionsAnswered(true);
+        // Skip review step — go directly to payment
+        setShowPayment(true);
+        setError(null);
+        trackAddPaymentInfo({
+          id: bookingId,
+          value: result.booking.totalPrice?.gross,
+          currency: result.booking.totalPrice?.currency ?? 'GBP',
+        });
       } else {
         // Re-fetch questions to discover newly revealed conditional questions
         const refreshed = await getBookingQuestions(bookingId);
@@ -124,6 +132,14 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
 
         if (refreshed.summary.canCommit) {
           setQuestionsAnswered(true);
+          // Skip review step — go directly to payment
+          setShowPayment(true);
+          setError(null);
+          trackAddPaymentInfo({
+            id: bookingId,
+            value: refreshed.booking.totalPrice?.gross,
+            currency: refreshed.booking.totalPrice?.currency ?? 'GBP',
+          });
         } else {
           // Count remaining unanswered required questions
           let unanswered = 0;
@@ -354,21 +370,18 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
           </Link>
           <h1 className="mt-4 text-3xl font-bold text-gray-900">Complete Your Booking</h1>
           <p className="mt-2 text-gray-600">
-            {questionsAnswered
-              ? showPayment
-                ? 'Complete your payment to confirm'
-                : 'Review and confirm your booking'
+            {showPayment
+              ? 'Complete your payment to confirm'
               : 'Fill in your details to complete your booking'}
           </p>
 
           {/* Progress Steps */}
           <div className="mt-6 flex items-center gap-0">
             {[
-              { label: 'Guest Details', step: 1 },
-              { label: 'Review', step: 2 },
-              { label: 'Payment', step: 3 },
+              { label: 'Your Details', step: 1 },
+              { label: 'Payment', step: 2 },
             ].map((item, idx) => {
-              const currentStep = showPayment ? 3 : questionsAnswered ? 2 : 1;
+              const currentStep = showPayment ? 2 : 1;
               const isActive = item.step === currentStep;
               const isCompleted = item.step < currentStep;
               return (
@@ -410,7 +423,7 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
                       {item.label}
                     </span>
                   </div>
-                  {idx < 2 && (
+                  {idx < 1 && (
                     <div
                       className={`mb-5 h-0.5 flex-1 ${item.step < currentStep ? 'bg-green-500' : 'bg-gray-200'}`}
                     />
@@ -873,30 +886,9 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
                 </div>
               </div>
 
-              {/* Bank statement notice */}
-              <div className="mt-4 rounded-lg bg-gray-50 p-3 text-center">
-                <p className="text-xs text-gray-500">
-                  Charges will appear as{' '}
-                  <span className="font-semibold">&quot;HOLIBOB LTD UK&quot;</span> on your bank
-                  statement
-                </p>
-              </div>
-
-              {/* Powered by */}
-              <p className="mt-3 text-center text-xs text-gray-400">
-                Powered by{' '}
-                <a href="https://experiencess.com" className="text-gray-500 hover:text-gray-700">
-                  Experiencess.com
-                </a>{' '}
-                &middot;{' '}
-                <a
-                  href="https://holibob.tech"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  Holibob
-                </a>
+              {/* Payment processor footnote */}
+              <p className="mt-4 text-center text-xs text-gray-400">
+                Payment processed by Holibob Ltd
               </p>
             </div>
           </div>

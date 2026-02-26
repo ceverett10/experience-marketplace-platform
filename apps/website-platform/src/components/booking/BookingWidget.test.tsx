@@ -77,22 +77,27 @@ describe('BookingWidget', () => {
     });
   });
 
-  describe('check availability button', () => {
-    it('renders Check availability button', () => {
+  describe('book now button', () => {
+    it('renders Book Now button', () => {
       render(<BookingWidget experience={createExperience()} />);
-      expect(screen.getByRole('button', { name: /check availability/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /book now/i })).toBeInTheDocument();
     });
 
-    it('opens AvailabilityModal when Check availability is clicked', () => {
+    it('renders "Free cancellation available" text below button', () => {
+      render(<BookingWidget experience={createExperience()} />);
+      expect(screen.getByText('Free cancellation available')).toBeInTheDocument();
+    });
+
+    it('opens AvailabilityModal when Book Now is clicked', () => {
       render(<BookingWidget experience={createExperience()} />);
       expect(screen.queryByTestId('availability-modal')).not.toBeInTheDocument();
-      fireEvent.click(screen.getByRole('button', { name: /check availability/i }));
+      fireEvent.click(screen.getByRole('button', { name: /book now/i }));
       expect(screen.getByTestId('availability-modal')).toBeInTheDocument();
     });
 
     it('closes AvailabilityModal when Close is clicked inside modal', () => {
       render(<BookingWidget experience={createExperience()} />);
-      fireEvent.click(screen.getByRole('button', { name: /check availability/i }));
+      fireEvent.click(screen.getByRole('button', { name: /book now/i }));
       expect(screen.getByTestId('availability-modal')).toBeInTheDocument();
       fireEvent.click(screen.getByText('Close'));
       expect(screen.queryByTestId('availability-modal')).not.toBeInTheDocument();
@@ -100,7 +105,7 @@ describe('BookingWidget', () => {
 
     it('passes correct productId to AvailabilityModal', () => {
       render(<BookingWidget experience={createExperience({ id: 'my-product' })} />);
-      fireEvent.click(screen.getByRole('button', { name: /check availability/i }));
+      fireEvent.click(screen.getByRole('button', { name: /book now/i }));
       expect(screen.getByTestId('availability-modal')).toHaveAttribute(
         'data-product-id',
         'my-product'
@@ -113,6 +118,7 @@ describe('BookingWidget', () => {
       const stats: BookingStats = {
         bookingsToday: 3,
         bookingsThisWeek: 8,
+        bookingsThisMonth: 8,
         isHighDemand: true,
         isTrending: false,
       };
@@ -124,6 +130,7 @@ describe('BookingWidget', () => {
       const stats: BookingStats = {
         bookingsToday: 5,
         bookingsThisWeek: 15,
+        bookingsThisMonth: 15,
         isHighDemand: false,
         isTrending: true,
       };
@@ -152,10 +159,11 @@ describe('BookingWidget', () => {
   });
 
   describe('booking count social proof', () => {
-    it('shows booking count when bookingsThisWeek >= 3', () => {
+    it('shows weekly booking count when bookingsThisWeek >= 3', () => {
       const stats: BookingStats = {
         bookingsToday: 2,
         bookingsThisWeek: 5,
+        bookingsThisMonth: 10,
         isHighDemand: false,
         isTrending: false,
       };
@@ -163,15 +171,49 @@ describe('BookingWidget', () => {
       expect(screen.getByText(/booked 5 times this week/i)).toBeInTheDocument();
     });
 
-    it('does not show booking count when bookingsThisWeek < 3', () => {
+    it('shows monthly booking count when bookingsThisWeek < 3 but bookingsThisMonth >= 1', () => {
       const stats: BookingStats = {
-        bookingsToday: 1,
-        bookingsThisWeek: 2,
+        bookingsToday: 0,
+        bookingsThisWeek: 1,
+        bookingsThisMonth: 4,
         isHighDemand: false,
         isTrending: false,
       };
       render(<BookingWidget experience={createExperience()} bookingStats={stats} />);
       expect(screen.queryByText(/booked.*times this week/i)).not.toBeInTheDocument();
+      expect(screen.getByText(/booked 4 times this month/i)).toBeInTheDocument();
+    });
+
+    it('shows rating-based social proof when no bookings but rating exists', () => {
+      const stats: BookingStats = {
+        bookingsToday: 0,
+        bookingsThisWeek: 0,
+        bookingsThisMonth: 0,
+        isHighDemand: false,
+        isTrending: false,
+      };
+      render(
+        <BookingWidget
+          experience={createExperience({ rating: { average: 4.7, count: 250 } })}
+          bookingStats={stats}
+        />
+      );
+      expect(screen.getByText(/rated 4.7 by 250 travelers/i)).toBeInTheDocument();
+    });
+
+    it('does not show social proof when no bookings and no rating', () => {
+      const stats: BookingStats = {
+        bookingsToday: 0,
+        bookingsThisWeek: 0,
+        bookingsThisMonth: 0,
+        isHighDemand: false,
+        isTrending: false,
+      };
+      render(
+        <BookingWidget experience={createExperience({ rating: null })} bookingStats={stats} />
+      );
+      expect(screen.queryByText(/booked.*times/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/rated/i)).not.toBeInTheDocument();
     });
 
     it('does not show booking count when no bookingStats provided', () => {

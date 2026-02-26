@@ -91,6 +91,21 @@ describe('Hero', () => {
     expect(screen.queryByRole('img')).not.toBeInTheDocument();
   });
 
+  it('should not render Browse Experiences button when isPpc is true', () => {
+    renderWithProviders(<Hero isPpc />);
+    expect(screen.queryByText(/browse experiences/i)).not.toBeInTheDocument();
+  });
+
+  it('should not render search widget when isPpc is true', () => {
+    renderWithProviders(<Hero isPpc />);
+    expect(screen.queryByTestId('search-bar')).not.toBeInTheDocument();
+  });
+
+  it('should render search widget when isPpc is false', () => {
+    renderWithProviders(<Hero />);
+    expect(screen.getByTestId('search-bar')).toBeInTheDocument();
+  });
+
   it('should render site description as fallback subtitle', () => {
     const siteConfig = createMockSiteConfig({
       description: 'Site description fallback',

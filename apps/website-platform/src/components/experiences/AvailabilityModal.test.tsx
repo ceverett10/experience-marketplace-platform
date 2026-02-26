@@ -33,11 +33,6 @@ vi.mock('@/lib/pricing', () => ({
   })),
 }));
 
-// Mock SessionTimer
-vi.mock('@/components/booking/SessionTimer', () => ({
-  SessionTimer: ({ variant }: any) => <div data-testid="session-timer">{variant}</div>,
-}));
-
 const defaultProps = {
   isOpen: true,
   onClose: vi.fn(),
@@ -362,7 +357,7 @@ describe('AvailabilityModal', () => {
     });
   });
 
-  it('shows session timer after moving past dates step', async () => {
+  it('does not show session timer after moving past dates step', async () => {
     mockGetAvailabilityDetails.mockResolvedValue({
       id: 'slot-1',
       optionList: { isComplete: true, nodes: [] },
@@ -383,8 +378,9 @@ describe('AvailabilityModal', () => {
     );
     fireEvent.click(continueBtn!);
 
+    // Session timer is removed to reduce friction
     await waitFor(() => {
-      expect(document.body.querySelector('[data-testid="session-timer"]')).toBeTruthy();
+      expect(document.body.querySelector('[data-testid="session-timer"]')).toBeNull();
     });
   });
 
@@ -414,6 +410,165 @@ describe('AvailabilityModal', () => {
         (btn) => btn.textContent === 'Back'
       );
       expect(backBtn).toBeTruthy();
+    });
+  });
+
+  it('pre-selects first available date', async () => {
+    render(<AvailabilityModal {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(document.body.textContent).toContain('2 dates available');
+    });
+
+    // First slot should be auto-selected (has highlighted styling)
+    const firstSlot = document.body.querySelector('[data-testid="date-slot-slot-1"]');
+    expect(firstSlot).toBeTruthy();
+    // Continue button should be enabled since a slot is pre-selected
+    const continueBtn = Array.from(document.body.querySelectorAll('button')).find(
+      (btn) => btn.textContent === 'Continue'
+    );
+    expect(continueBtn).toBeTruthy();
+    expect(continueBtn?.hasAttribute('disabled')).toBe(false);
+  });
+
+  it('defaults guest count to 2 for Adult category', async () => {
+    mockGetAvailabilityDetails.mockResolvedValue({
+      id: 'slot-1',
+      optionList: { isComplete: true, nodes: [] },
+      pricingCategoryList: {
+        nodes: [
+          {
+            id: 'adult',
+            label: 'Adult',
+            minParticipants: 0,
+            maxParticipants: 10,
+            unitPrice: { gross: 3500, currency: 'GBP', grossFormattedText: '£35.00' },
+          },
+          {
+            id: 'child',
+            label: 'Child',
+            minParticipants: 0,
+            maxParticipants: 5,
+            unitPrice: { gross: 2000, currency: 'GBP', grossFormattedText: '£20.00' },
+          },
+        ],
+      },
+    });
+
+    render(<AvailabilityModal {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(document.body.textContent).toContain('2 dates available');
+    });
+
+    const slotBtn = document.body.querySelector('[data-testid="date-slot-slot-1"]') as HTMLElement;
+    fireEvent.click(slotBtn);
+
+    const continueBtn = Array.from(document.body.querySelectorAll('button')).find(
+      (btn) => btn.textContent === 'Continue'
+    );
+    fireEvent.click(continueBtn!);
+
+    await waitFor(() => {
+      expect(document.body.textContent).toContain('Select guests');
+    });
+
+    // Adult category should default to 2
+    const adultCategory = document.body.querySelector('[data-testid="guest-category-adult"]');
+    expect(adultCategory?.textContent).toContain('2');
+
+    // Child category should stay at 0
+    const childCategory = document.body.querySelector('[data-testid="guest-category-child"]');
+    expect(childCategory?.textContent).toContain('0');
+  });
+
+  it('shows only 2 progress bars when options auto-complete', async () => {
+    mockGetAvailabilityDetails.mockResolvedValue({
+      id: 'slot-1',
+      optionList: { isComplete: true, nodes: [] },
+      pricingCategoryList: { nodes: [] },
+    });
+
+    render(<AvailabilityModal {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(document.body.textContent).toContain('2 dates available');
+    });
+
+    const slotBtn = document.body.querySelector('[data-testid="date-slot-slot-1"]') as HTMLElement;
+    fireEvent.click(slotBtn);
+
+    const continueBtn = Array.from(document.body.querySelectorAll('button')).find(
+      (btn) => btn.textContent === 'Continue'
+    );
+    fireEvent.click(continueBtn!);
+
+    await waitFor(() => {
+      const progressSteps = document.body.querySelector('[data-testid="progress-steps"]');
+      // Only 2 progress bars (dates + pricing), not 3
+      expect(progressSteps?.children.length).toBe(2);
+    });
+  });
+
+  it('shows price on Book button when totalPrice is set', async () => {
+    mockGetAvailabilityDetails.mockResolvedValue({
+      id: 'slot-1',
+      optionList: { isComplete: true, nodes: [] },
+      pricingCategoryList: {
+        nodes: [
+          {
+            id: 'adult',
+            label: 'Adult',
+            minParticipants: 0,
+            maxParticipants: 10,
+            unitPrice: { gross: 3500, currency: 'GBP', grossFormattedText: '£35.00' },
+          },
+        ],
+      },
+    });
+    mockSetPricingCategories.mockResolvedValue({
+      isValid: true,
+      totalPrice: { gross: 7000, currency: 'GBP', grossFormattedText: '£70.00' },
+      pricingCategoryList: {
+        nodes: [
+          {
+            id: 'adult',
+            label: 'Adult',
+            minParticipants: 0,
+            maxParticipants: 10,
+            unitPrice: { gross: 3500, currency: 'GBP', grossFormattedText: '£35.00' },
+          },
+        ],
+      },
+    });
+
+    render(<AvailabilityModal {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(document.body.textContent).toContain('2 dates available');
+    });
+
+    const slotBtn = document.body.querySelector('[data-testid="date-slot-slot-1"]') as HTMLElement;
+    fireEvent.click(slotBtn);
+
+    const continueBtn = Array.from(document.body.querySelectorAll('button')).find(
+      (btn) => btn.textContent === 'Continue'
+    );
+    fireEvent.click(continueBtn!);
+
+    await waitFor(() => {
+      expect(document.body.textContent).toContain('Select guests');
+    });
+
+    // Wait for pricing update (defaults to 2 adults, triggers update)
+    await waitFor(() => {
+      expect(mockSetPricingCategories).toHaveBeenCalled();
+    });
+
+    // Button should show price
+    await waitFor(() => {
+      const bookBtn = document.body.querySelector('[data-testid="book-now-button"]');
+      expect(bookBtn?.textContent).toBe('Book for £70.00');
     });
   });
 

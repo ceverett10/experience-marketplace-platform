@@ -71,7 +71,7 @@ export function MobileBookingCTA({
             className="min-h-[48px] rounded-xl px-6 py-3 text-sm font-semibold text-white shadow-sm transition-opacity active:opacity-80"
             style={{ backgroundColor: primaryColor }}
           >
-            Reserve now - Free cancellation
+            Book Now
           </button>
         </div>
       </div>
