@@ -24,7 +24,7 @@ test.describe('Checkout Flow', () => {
     });
   });
 
-  test('standard checkout - fill lead person and proceed to review', async ({ page }) => {
+  test('standard checkout - fill lead person and proceed to payment', async ({ page }) => {
     await setupApiInterceptors(page);
 
     await page.goto(`/checkout/${MOCK_BOOKING_ID}`);
@@ -44,7 +44,7 @@ test.describe('Checkout Flow', () => {
     // Submit
     await page.getByTestId('submit-questions').click();
 
-    // Should proceed to review step
+    // Should skip review gate and show review + payment directly
     await expect(page.getByTestId('checkout-review-step')).toBeVisible();
     await expect(
       page.getByTestId('checkout-review-step').getByText('Booking Details')
@@ -53,8 +53,8 @@ test.describe('Checkout Flow', () => {
       page.getByTestId('checkout-review-step').getByText('Sunset Kayak Tour')
     ).toBeVisible();
 
-    // Proceed to Payment button should be visible
-    await expect(page.getByTestId('proceed-to-payment')).toBeVisible();
+    // Payment section should appear directly (no proceed-to-payment gate)
+    await expect(page.getByTestId('checkout-payment-step')).toBeVisible();
   });
 
   test('form validation - shows errors for empty fields', async ({ page }) => {
@@ -134,7 +134,7 @@ test.describe('Checkout Flow', () => {
     await expect(page.getByTestId('checkout-review-step')).toBeVisible();
   });
 
-  test('proceed to payment shows payment section', async ({ page }) => {
+  test('payment section appears directly after form submit', async ({ page }) => {
     await setupApiInterceptors(page);
 
     await page.goto(`/checkout/${MOCK_BOOKING_ID}`);
@@ -148,13 +148,7 @@ test.describe('Checkout Flow', () => {
     await page.getByTestId('terms-checkbox').check();
     await page.getByTestId('submit-questions').click();
 
-    // Wait for review step
-    await expect(page.getByTestId('checkout-review-step')).toBeVisible();
-
-    // Click proceed to payment
-    await page.getByTestId('proceed-to-payment').click();
-
-    // Payment section should appear
+    // Payment section should appear directly (no proceed-to-payment gate)
     await expect(page.getByTestId('checkout-payment-step')).toBeVisible();
     await expect(
       page.getByTestId('checkout-payment-step').getByRole('heading', { name: 'Payment' })
@@ -183,8 +177,8 @@ test.describe('Checkout Flow', () => {
     await page.goto(`/checkout/${MOCK_BOOKING_ID}`);
     await expect(page.getByTestId('questions-form')).toBeVisible();
 
-    // Initially says "Continue to Payment"
-    await expect(page.getByTestId('submit-questions')).toContainText('Continue to Payment');
+    // Initially says "Proceed to Payment"
+    await expect(page.getByTestId('submit-questions')).toContainText('Proceed to Payment');
 
     // Fill and submit
     await page.getByTestId('lead-first-name').fill('John');
