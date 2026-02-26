@@ -1199,6 +1199,14 @@ model AdCampaign {
   // Quality Score (from Google Ads API)
   qualityScore Int?
 
+  // Consolidated campaign support (parent-child model)
+  parentCampaignId String?
+  parentCampaign   AdCampaign?  @relation("CampaignChildren", fields: [parentCampaignId], references: [id])
+  childAdSets      AdCampaign[] @relation("CampaignChildren")
+  platformAdSetId  String? // Meta ad set ID (for child records within consolidated campaigns)
+  platformAdId     String? // Meta ad ID (for child records within consolidated campaigns)
+  campaignGroup    String? // Campaign category: "Adventure & Outdoor", "General Tours", etc.
+
   // Linked opportunity
   opportunityId String?
   opportunity   SEOOpportunity? @relation(fields: [opportunityId], references: [id])
@@ -1212,6 +1220,8 @@ model AdCampaign {
   @@index([platform, status])
   @@index([opportunityId])
   @@index([landingPageType])
+  @@index([parentCampaignId])
+  @@index([campaignGroup])
   @@map("ad_campaigns")
 }
 
