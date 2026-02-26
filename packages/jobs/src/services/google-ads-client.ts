@@ -151,6 +151,16 @@ export function flattenStreamResults<T>(response: unknown): T[] {
   return rows;
 }
 
+// --- Helpers -----------------------------------------------------------------
+
+/** Ensure a URL has a protocol prefix so Google Ads API doesn't reject it. */
+function ensureProtocol(url: string): string {
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    return `https://${url}`;
+  }
+  return url;
+}
+
 // --- Public API --------------------------------------------------------------
 
 export function isGoogleAdsConfigured(): boolean {
@@ -377,6 +387,9 @@ export async function createResponsiveSearchAd(config_: {
   const config = getConfig();
   if (!config) return null;
 
+  // Ensure finalUrl has protocol — some DB records have bare domains
+  const finalUrl = ensureProtocol(config_.finalUrl);
+
   try {
     const adGroupResourceName = `customers/${config.customerId}/adGroups/${config_.adGroupId}`;
 
@@ -393,7 +406,7 @@ export async function createResponsiveSearchAd(config_: {
                 path1: config_.path1,
                 path2: config_.path2,
               },
-              finalUrls: [config_.finalUrl],
+              finalUrls: [finalUrl],
             },
           },
         },
