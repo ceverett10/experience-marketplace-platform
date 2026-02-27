@@ -32,6 +32,7 @@ interface Site {
   isAutomatic: boolean;
   seoConfig: unknown;
   homepageConfig: unknown;
+  primaryCurrency: string;
   gscVerificationCode: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -188,6 +189,7 @@ export interface SiteConfig {
   description: string | null;
   primaryDomain: string | null;
   holibobPartnerId: string;
+  primaryCurrency: string;
   gscVerificationCode: string | null;
 
   // Brand theming
@@ -245,6 +247,7 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
   description: 'Discover unique experiences in your destination',
   primaryDomain: null,
   holibobPartnerId: process.env['HOLIBOB_PARTNER_ID'] ?? 'demo',
+  primaryCurrency: 'GBP',
   gscVerificationCode: null,
   brand: {
     name: 'Experience Marketplace',
@@ -632,6 +635,7 @@ function mapMicrositeToSiteConfig(microsite: MicrositeConfigWithEntity): SiteCon
     description: microsite.tagline,
     primaryDomain: microsite.fullDomain,
     holibobPartnerId,
+    primaryCurrency: 'GBP', // Microsites default to GBP; will be configurable per-microsite later
     gscVerificationCode: null, // Microsites use domain-level GSC verification
     brand: {
       name: microsite.brand.name,
@@ -723,6 +727,7 @@ function mapSiteToConfig(site: Site & { brand: Brand | null }): SiteConfig {
     description: site.description,
     primaryDomain: site.primaryDomain,
     holibobPartnerId: site.holibobPartnerId,
+    primaryCurrency: site.primaryCurrency ?? 'GBP',
     gscVerificationCode: site.gscVerificationCode,
     brand: site.brand
       ? {

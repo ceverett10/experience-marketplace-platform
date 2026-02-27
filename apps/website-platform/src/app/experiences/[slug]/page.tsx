@@ -115,7 +115,7 @@ async function getRelatedExperiences(
       const result = await tickittoClient.searchEvents({
         city: experience.location.name ? [experience.location.name] : undefined,
         limit: 5,
-        currency: 'GBP',
+        currency: site.primaryCurrency ?? 'GBP',
       });
       return result.events
         .filter((e) => e.event_id !== experience.id)
@@ -185,7 +185,7 @@ async function getRelatedExperiences(
       freeText?: string;
       searchTerm?: string;
     } = {
-      currency: 'GBP',
+      currency: site.primaryCurrency ?? 'GBP',
     };
 
     // Use location name as freeText for related experiences, fall back to site destination

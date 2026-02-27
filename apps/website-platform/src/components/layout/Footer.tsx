@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useSite, useBrand, useHomepageConfig } from '@/lib/site-context';
 
 // Default social links — shown on all sites unless brand has its own
@@ -22,6 +23,14 @@ export function Footer() {
   const site = useSite();
   const brand = useBrand();
   const homepageConfig = useHomepageConfig();
+  const searchParams = useSearchParams();
+
+  // Detect paid traffic — hide competitor cross-links to prevent traffic leakage
+  const isPaid = !!(
+    searchParams.get('gclid') ||
+    searchParams.get('fbclid') ||
+    searchParams.get('utm_medium') === 'cpc'
+  );
 
   // Parent domain has its own footer layout
   if (site.isParentDomain) {
@@ -129,8 +138,8 @@ export function Footer() {
                   ))}
                 </ul>
               </div>
-              {/* Cross-site links to related microsites */}
-              {site.relatedMicrosites && site.relatedMicrosites.length > 0 && (
+              {/* Cross-site links to related microsites (hidden on PPC) */}
+              {!isPaid && site.relatedMicrosites && site.relatedMicrosites.length > 0 && (
                 <div className="mt-10 md:mt-0">
                   <h3 className="text-sm font-semibold leading-6 text-white">More Experiences</h3>
                   <ul role="list" className="mt-6 space-y-4">
@@ -166,7 +175,7 @@ export function Footer() {
         <div className="mt-8 border-t border-white/10 pt-8">
           <p className="text-xs leading-5 text-gray-400">
             &copy; {new Date().getFullYear()} Holibob. All rights reserved.
-            {site.micrositeContext && (
+            {site.micrositeContext && !isPaid && (
               <>
                 {' '}
                 Part of the{' '}
