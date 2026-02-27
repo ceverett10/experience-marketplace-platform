@@ -160,7 +160,7 @@ const GENERAL_TOURS_TIER1_THRESHOLD = 50;
 
 // Rate limiter — Meta API allows ~200/hour for writes, higher for reads
 const RATE_LIMIT_WRITE_MS = 20_000; // 20 seconds between write API calls (3/min)
-const RATE_LIMIT_READ_MS = 1_500; // 1.5 seconds between read API calls (~40/min)
+const RATE_LIMIT_READ_MS = 4_000; // 4 seconds between read API calls (~15/min)
 let lastApiCall = 0;
 
 async function rateLimitedCall(fn, isRead = false) {
@@ -280,13 +280,26 @@ class MigrationMetaClient {
 
         if (data.error) {
           const err = data.error;
+          // Rate limit error (code 17) — backoff and retry
+          if (err.code === 17 && attempt < retries) {
+            const waitSec = 60 * attempt;
+            console.warn(
+              `    Rate limited on ${endpoint} — waiting ${waitSec}s (attempt ${attempt}/${retries})`
+            );
+            await new Promise((r) => setTimeout(r, waitSec * 1000));
+            continue;
+          }
           throw new Error(
             `Meta API error [${err.code}/${err.error_subcode || 'n/a'}]: ${err.message}`
           );
         }
         return data;
       } catch (err) {
-        if (attempt < retries && (err.name === 'TimeoutError' || err.name === 'AbortError')) {
+        const isRetryable =
+          err.name === 'TimeoutError' ||
+          err.name === 'AbortError' ||
+          err.message?.includes('fetch');
+        if (attempt < retries && isRetryable) {
           console.warn(`    Retry ${attempt}/${retries} for ${endpoint}: ${err.message}`);
           await new Promise((r) => setTimeout(r, 5000 * attempt));
           continue;
