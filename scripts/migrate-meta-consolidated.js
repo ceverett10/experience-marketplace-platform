@@ -923,6 +923,7 @@ async function main() {
       console.info(`    Meta campaign ID: ${platformCampaignId}`);
 
       // Create parent record in DB
+      const parentUtmCampaign = generateUtmCampaign(plan.campaignGroup, 'parent');
       const parentRecord = await prisma.adCampaign.create({
         data: {
           siteId: primarySite.id,
@@ -935,6 +936,9 @@ async function main() {
           maxCpc: 0,
           keywords: [],
           targetUrl: `https://${primarySite.customDomain || primarySite.subdomain || 'holibob.com'}`,
+          utmSource: 'facebook_ads',
+          utmMedium: 'cpc',
+          utmCampaign: parentUtmCampaign,
           proposalData: {
             consolidatedCampaign: true,
             bidStrategy: plan.bidStrategy,
@@ -1101,6 +1105,8 @@ async function main() {
             landingPagePath: bestSource.landingPagePath,
             landingPageType: bestSource.landingPageType,
             geoTargets: adSet.countries,
+            utmSource: 'facebook_ads',
+            utmMedium: 'cpc',
             utmCampaign,
             proposalData: {
               generatedCreative: bestSource.proposalData?.generatedCreative || null,
