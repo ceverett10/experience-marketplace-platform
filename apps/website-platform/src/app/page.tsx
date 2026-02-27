@@ -31,6 +31,7 @@ import {
 import { ParentDomainHomepage } from '@/components/parent-domain/ParentDomainHomepage';
 import { TourOperatorSchema, WebSiteSchema } from '@/components/seo/StructuredData';
 import type { SiteConfig } from '@/lib/tenant';
+import { getCategoryDisplayName } from '@experience-marketplace/shared';
 
 // Revalidate every 5 minutes for fresh content
 export const revalidate = 300;
@@ -420,7 +421,7 @@ function buildHomepageTitle(site: SiteConfig): string {
     const ctx = site.micrositeContext;
     const categories = ctx.supplierCategories ?? [];
     const cities = ctx.supplierCities ?? [];
-    const topCategory = categories[0];
+    const topCategory = categories[0] ? getCategoryDisplayName(categories[0]) : undefined;
     const topCity = cities[0];
 
     if (topCategory && topCity) {

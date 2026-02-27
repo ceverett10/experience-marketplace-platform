@@ -53,6 +53,7 @@ import {
   handleProductSyncIncremental,
   handleBulkProductSync,
   handleKeywordEnrichment,
+  handleSupplierEnrich,
   // Ads handlers
   handlePaidKeywordScan,
   handleAdCampaignSync,
@@ -171,6 +172,7 @@ const QUEUE_PROCESSORS: Record<string, Record<string, JobProcessor>> = {
     PRODUCT_SYNC_INCREMENTAL: (job) => handleProductSyncIncremental(job),
     BULK_PRODUCT_SYNC: (job) => handleBulkProductSync(job),
     KEYWORD_ENRICHMENT: (job) => handleKeywordEnrichment(job),
+    SUPPLIER_ENRICH: (job) => handleSupplierEnrich(job),
   },
   [QUEUE_NAMES.ADS]: {
     PAID_KEYWORD_SCAN: (job) => handlePaidKeywordScan(job),

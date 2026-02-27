@@ -11,6 +11,7 @@ import {
   getLayoutConfig,
 } from './microsite-layout';
 import type { SupplierType } from './supplier';
+import { getCategoryDisplayName } from '@experience-marketplace/shared';
 
 /** Check if a logo URL is from the v2 Satori pipeline (not old broken SVG logos) */
 function isV2Logo(url: string | null | undefined): boolean {
@@ -591,7 +592,7 @@ function getMicrositeTitleTemplate(microsite: MicrositeConfigWithEntity): string
   const cities = microsite.supplier?.cities ?? [];
   const categories = microsite.supplier?.categories ?? [];
   const topCity = cities[0];
-  const topCategory = categories[0];
+  const topCategory = categories[0] ? getCategoryDisplayName(categories[0]) : undefined;
 
   if (topCategory && topCity) {
     const label = `${topCategory} in ${topCity}`;
