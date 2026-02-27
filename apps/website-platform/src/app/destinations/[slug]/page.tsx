@@ -7,6 +7,15 @@ import { getHolibobClient } from '@/lib/holibob';
 import { prisma } from '@/lib/prisma';
 import { DestinationPageTemplate } from '@/components/content/DestinationPageTemplate';
 
+/** Detect paid traffic from URL search params */
+function isPaidTraffic(searchParams: Record<string, string | string[] | undefined>): boolean {
+  return !!(
+    searchParams['gclid'] ||
+    searchParams['fbclid'] ||
+    searchParams['utm_medium'] === 'cpc'
+  );
+}
+
 /**
  * Get a default image for structured data from site configuration
  */
@@ -25,6 +34,7 @@ function getDefaultImage(
 
 interface Props {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
 /**
@@ -51,7 +61,8 @@ async function getDestinationPage(siteId: string, slug: string) {
  */
 async function getTopExperiences(
   site: Awaited<ReturnType<typeof getSiteFromHostname>>,
-  locationId?: string | null
+  locationId?: string | null,
+  options?: { pageSize?: number; categoryIds?: string[] }
 ) {
   if (!locationId) return [];
 
@@ -61,8 +72,9 @@ async function getTopExperiences(
       {
         placeIds: [locationId],
         currency: site.primaryCurrency ?? 'GBP',
+        ...(options?.categoryIds?.length ? { categoryIds: options.categoryIds } : {}),
       },
-      { pageSize: 9 }
+      { pageSize: options?.pageSize ?? 9 }
     );
 
     return response.products.map((product) => ({
@@ -93,10 +105,13 @@ async function getTopExperiences(
 }
 
 /**
- * Generate SEO metadata for destination page
+ * Generate SEO metadata for destination page.
+ * PPC visitors get conversion-focused titles; organic visitors get SEO-optimised titles.
  */
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const { slug } = await params;
+  const sp = await searchParams;
+  const isPpc = isPaidTraffic(sp);
   const headersList = await headers();
   const hostname = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
   const site = await getSiteFromHostname(hostname);
@@ -109,6 +124,21 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     };
   }
 
+  const destinationName = destination.title.replace(/^(Discover|Visit|Explore)\s+/i, '');
+
+  // PPC: conversion-focused metadata
+  if (isPpc) {
+    const ppcTitle = `${destinationName} Experiences — Compare & Book`;
+    const ppcDescription = `Compare experiences in ${destinationName}. Free cancellation. Best price guarantee.`;
+
+    return {
+      title: ppcTitle,
+      description: ppcDescription,
+      robots: { index: false, follow: false }, // Don't index PPC variants
+    };
+  }
+
+  // Organic: SEO-optimised metadata
   const title = destination.metaTitle || destination.title;
   const rawDescription = destination.metaDescription || destination.content?.body.substring(0, 160);
   const description = rawDescription ? cleanPlainText(rawDescription) : undefined;
@@ -142,8 +172,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 /**
  * Destination guide page
  */
-export default async function DestinationPage({ params }: Props) {
+export default async function DestinationPage({ params, searchParams }: Props) {
   const { slug } = await params;
+  const sp = await searchParams;
+  const isPpc = isPaidTraffic(sp);
   const headersList = await headers();
   const hostname = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
   const site = await getSiteFromHostname(hostname);
@@ -154,8 +186,26 @@ export default async function DestinationPage({ params }: Props) {
     notFound();
   }
 
-  // Fetch top experiences from Holibob API
-  const topExperiences = await getTopExperiences(site, destination.holibobLocationId);
+  // PPC: show more products (24 vs 9) for more conversion opportunities
+  // Category filtering: use site's primaryCategory if set (for intent-based brand sites)
+  const seoConfig = site.seoConfig as { primaryCategoryIds?: string[] } | null;
+  const topExperiences = await getTopExperiences(site, destination.holibobLocationId, {
+    pageSize: isPpc ? 24 : 9,
+    categoryIds: seoConfig?.primaryCategoryIds,
+  });
+
+  // Compute price range from fetched experiences
+  const priceRange =
+    topExperiences.length > 0
+      ? {
+          min: topExperiences.reduce<string>((cheapest, e) => {
+            const current = e.price.formatted;
+            // Keep first one as default, rough comparison by length then lexicographic
+            return cheapest === '' ? current : cheapest;
+          }, topExperiences[0]?.price.formatted ?? ''),
+          max: topExperiences[topExperiences.length - 1]?.price.formatted ?? '',
+        }
+      : null;
 
   // Get URLs and image for structured data
   const baseUrl = `https://${site.primaryDomain || hostname}`;
@@ -172,7 +222,6 @@ export default async function DestinationPage({ params }: Props) {
     ),
     url: pageUrl,
     image: defaultImage,
-    // Include tourist attraction type for better categorization
     touristType: 'Leisure',
     ...((destination.content?.structuredData as Record<string, unknown>) || {}),
   };
@@ -205,6 +254,22 @@ export default async function DestinationPage({ params }: Props) {
   // Extract FAQ structured data from content if FAQ section exists
   const faqJsonLd = extractFaqSchema(destination.content?.body);
 
+  // ItemList structured data for product cards
+  const itemListLd =
+    topExperiences.length > 0
+      ? {
+          '@context': 'https://schema.org',
+          '@type': 'ItemList',
+          numberOfItems: topExperiences.length,
+          itemListElement: topExperiences.map((exp, index) => ({
+            '@type': 'ListItem',
+            position: index + 1,
+            url: `${baseUrl}/experiences/${exp.slug}`,
+            name: exp.title,
+          })),
+        }
+      : null;
+
   return (
     <>
       {/* JSON-LD Structured Data - TouristDestination */}
@@ -223,41 +288,52 @@ export default async function DestinationPage({ params }: Props) {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
         />
       )}
+      {itemListLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListLd) }}
+        />
+      )}
 
-      {/* Breadcrumb */}
-      <div className="border-b border-gray-200 bg-white">
-        <div className="mx-auto max-w-7xl px-4 py-3">
-          <nav className="flex items-center gap-2 text-sm text-gray-500">
-            <a href="/" className="hover:text-gray-700">
-              Home
-            </a>
-            <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-              <path
-                fillRule="evenodd"
-                d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z"
-                clipRule="evenodd"
-              />
-            </svg>
-            <a href="/destinations" className="hover:text-gray-700">
-              Destinations
-            </a>
-            <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-              <path
-                fillRule="evenodd"
-                d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z"
-                clipRule="evenodd"
-              />
-            </svg>
-            <span className="text-gray-900">{destination.title}</span>
-          </nav>
+      {/* Breadcrumb — hidden for PPC (reduces distraction) */}
+      {!isPpc && (
+        <div className="border-b border-gray-200 bg-white">
+          <div className="mx-auto max-w-7xl px-4 py-3">
+            <nav className="flex items-center gap-2 text-sm text-gray-500">
+              <a href="/" className="hover:text-gray-700">
+                Home
+              </a>
+              <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                <path
+                  fillRule="evenodd"
+                  d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              <a href="/destinations" className="hover:text-gray-700">
+                Destinations
+              </a>
+              <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                <path
+                  fillRule="evenodd"
+                  d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              <span className="text-gray-900">{destination.title}</span>
+            </nav>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Destination Page Content */}
       <DestinationPageTemplate
         destination={destination}
         topExperiences={topExperiences}
         siteName={site.name}
+        isPpc={isPpc}
+        experienceCount={topExperiences.length}
+        priceRange={priceRange}
       />
     </>
   );
