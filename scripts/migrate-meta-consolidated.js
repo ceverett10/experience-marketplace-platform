@@ -341,8 +341,7 @@ class MigrationMetaClient {
   async createCampaign(config) {
     // CBO is automatic in v18.0 when daily_budget is set at campaign level
     // and NOT set at ad set level. No explicit flag needed.
-    // - budget_rebalance_flag: deprecated since v7.0
-    // - is_adset_budget_sharing_enabled: different feature (ad set budget sharing, v24.0+)
+    // Bid strategy is set at campaign level for CBO campaigns.
     const params = {
       name: config.name,
       objective: 'OUTCOME_SALES',
@@ -350,11 +349,20 @@ class MigrationMetaClient {
       special_ad_categories: '[]',
       daily_budget: Math.round(config.dailyBudget * 100).toString(), // pence/cents as string
     };
+    // Bid strategy at campaign level (required for CBO)
+    if (config.bidStrategy) {
+      params.bid_strategy = config.bidStrategy;
+      if (config.roasFloor) {
+        params.roas_average_floor = config.roasFloor.toString();
+      }
+    }
     console.info(`    Campaign params: ${JSON.stringify(params)}`);
     return rateLimitedCall(() => this.apiCall('POST', `act_${this.adAccountId}/campaigns`, params));
   }
 
   async createAdSet(config) {
+    // In CBO campaigns, bid strategy is set at campaign level, not ad set level.
+    // Ad sets inherit the campaign's bid strategy and budget allocation.
     const params = {
       campaign_id: config.campaignId,
       name: config.name,
@@ -365,17 +373,11 @@ class MigrationMetaClient {
       targeting: this.buildTargeting(config.targeting),
     };
 
-    if (config.bidStrategy) {
-      params.bid_strategy = config.bidStrategy;
-      if (config.roasFloor) {
-        params.roas_average_floor = config.roasFloor;
-      }
-    }
-
     // DSA compliance for EU targeting
     if (config.dsaBeneficiary) params.dsa_beneficiary = config.dsaBeneficiary;
     if (config.dsaPayor) params.dsa_payor = config.dsaPayor;
 
+    console.info(`      Ad set params: ${JSON.stringify({ ...params, targeting: '...' })}`);
     return rateLimitedCall(() => this.apiCall('POST', `act_${this.adAccountId}/adsets`, params));
   }
 
@@ -913,10 +915,12 @@ async function main() {
       platformCampaignId = existingParent.platformCampaignId;
     } else {
       // Create campaign on Meta
-      console.info(`\n  Creating: ${plan.name} (£${plan.dailyBudget}/day)`);
+      console.info(`\n  Creating: ${plan.name} (£${plan.dailyBudget}/day, ${plan.bidStrategy})`);
       const result = await metaClient.createCampaign({
         name: plan.name,
         dailyBudget: plan.dailyBudget,
+        bidStrategy: plan.bidStrategy,
+        roasFloor: plan.roasFloor,
         status: activate ? 'ACTIVE' : 'PAUSED',
       });
       platformCampaignId = result.id;
