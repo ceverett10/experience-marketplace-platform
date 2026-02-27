@@ -185,7 +185,7 @@ async function getFeaturedExperiences(
       freeText?: string;
       searchTerm?: string;
     } = {
-      currency: 'GBP',
+      currency: siteConfig.primaryCurrency ?? 'GBP',
     };
 
     // "Where" - location as freeText (e.g., "London")

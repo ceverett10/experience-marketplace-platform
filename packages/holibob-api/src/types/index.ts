@@ -910,6 +910,7 @@ export interface HolibobClientConfig {
   partnerId: string;
   apiKey: string;
   apiSecret?: string; // For HMAC signature authentication
+  currency?: string; // Currency code for x-holibob-currency header (default: 'GBP')
   timeout?: number;
   retries?: number;
   sandbox?: boolean;

@@ -35,25 +35,28 @@ export const IMAGE_PRESETS = {
  */
 export function getHolibobClient(site: SiteConfig): HolibobClient {
   const partnerId = site.holibobPartnerId;
+  const currency = site.primaryCurrency ?? 'GBP';
+  const cacheKey = `${partnerId}:${currency}`;
 
-  // Check cache first
-  const cached = clientCache.get(partnerId);
+  // Check cache first (keyed by partnerId + currency)
+  const cached = clientCache.get(cacheKey);
   if (cached) {
     return cached;
   }
 
-  // Create new client
+  // Create new client with site's currency
   const client = createHolibobClient({
     apiUrl: process.env['HOLIBOB_API_URL'] ?? 'https://api.production.holibob.tech/graphql',
     apiKey: process.env['HOLIBOB_API_KEY'] ?? '',
     apiSecret: process.env['HOLIBOB_API_SECRET'], // For HMAC signature auth
     partnerId,
+    currency,
     timeout: 30000,
     retries: 3,
   });
 
   // Cache it
-  clientCache.set(partnerId, client);
+  clientCache.set(cacheKey, client);
 
   return client;
 }
