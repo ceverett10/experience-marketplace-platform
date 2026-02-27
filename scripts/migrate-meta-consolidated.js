@@ -173,22 +173,78 @@ async function rateLimitedCall(fn) {
 }
 
 // ---------------------------------------------------------------------------
+// Token decryption (mirrors packages/jobs/src/services/social/token-encryption.ts)
+// ---------------------------------------------------------------------------
+const crypto = require('crypto');
+
+function decryptToken(encrypted) {
+  const secret = process.env['SOCIAL_TOKEN_SECRET'];
+  if (!secret || secret.length !== 64) {
+    // No encryption key — return as-is (plaintext token)
+    return encrypted;
+  }
+  const parts = encrypted.split(':');
+  if (parts.length !== 3) {
+    // Not in encrypted format — return as plaintext
+    return encrypted;
+  }
+  const key = Buffer.from(secret, 'hex');
+  const iv = Buffer.from(parts[0], 'base64');
+  const authTag = Buffer.from(parts[1], 'base64');
+  const ciphertext = parts[2];
+  const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+  decipher.setAuthTag(authTag);
+  let decrypted = decipher.update(ciphertext, 'base64', 'utf8');
+  decrypted += decipher.final('utf8');
+  return decrypted;
+}
+
+// ---------------------------------------------------------------------------
 // Minimal Meta API client (standalone — doesn't import from jobs package)
 // ---------------------------------------------------------------------------
 class MigrationMetaClient {
-  constructor() {
-    this.accessToken = process.env['META_ACCESS_TOKEN'] || process.env['FACEBOOK_ACCESS_TOKEN'];
+  constructor(accessToken) {
+    this.accessToken = accessToken;
     this.adAccountId = process.env['META_AD_ACCOUNT_ID'] || process.env['FACEBOOK_AD_ACCOUNT_ID'];
     this.pageId = process.env['META_PAGE_ID'] || process.env['FACEBOOK_PAGE_ID'];
     this.pixelId = process.env['META_PIXEL_ID'] || process.env['FACEBOOK_PIXEL_ID'];
     this.apiVersion = 'v18.0';
 
     if (!this.accessToken || !this.adAccountId) {
-      throw new Error('Missing META_ACCESS_TOKEN / META_AD_ACCOUNT_ID (or FACEBOOK_* equivalents)');
+      throw new Error('Missing access token or META_AD_ACCOUNT_ID');
     }
     if (!this.pixelId) {
       throw new Error('Missing META_PIXEL_ID — needed for OUTCOME_SALES conversion tracking');
     }
+  }
+
+  /**
+   * Create a client by fetching the access token from the SocialAccount table.
+   * This mirrors how getMetaAdsClient() works in the main jobs codebase.
+   */
+  static async create() {
+    const accounts = await prisma.socialAccount.findMany({
+      where: { platform: 'FACEBOOK', isActive: true },
+      select: { id: true, accessToken: true, tokenExpiresAt: true },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    for (const account of accounts) {
+      if (!account.accessToken) continue;
+      try {
+        const token = decryptToken(account.accessToken);
+        // Quick validation — try a simple API call
+        const client = new MigrationMetaClient(token);
+        return client;
+      } catch (err) {
+        console.warn(`  Skipping social account ${account.id}: ${err.message}`);
+      }
+    }
+
+    throw new Error(
+      'No valid Facebook access token found in SocialAccount table. ' +
+        'Connect a Facebook account in the admin dashboard first.'
+    );
   }
 
   async apiCall(method, endpoint, params = {}) {
@@ -617,7 +673,7 @@ async function main() {
   );
 
   if (apply && campaignsWithPlatformId.length > 0) {
-    const metaClient = new MigrationMetaClient();
+    const metaClient = await MigrationMetaClient.create();
     let fetched = 0;
     let withAds = 0;
 
@@ -734,7 +790,7 @@ async function main() {
       .filter((c) => c.platformCampaignId && c.status === 'ACTIVE')
       .map((c) => c.platformCampaignId);
 
-    const metaClient = new MigrationMetaClient();
+    const metaClient = await MigrationMetaClient.create();
 
     if (activePlatformIds.length > 0) {
       await metaClient.batchPauseCampaigns(activePlatformIds);
@@ -768,7 +824,7 @@ async function main() {
   // -------------------------------------------------------------------------
   console.info('\nStep 5: Creating consolidated structure and moving ads...');
 
-  const metaClient = new MigrationMetaClient();
+  const metaClient = await MigrationMetaClient.create();
   const siteName = 'Holibob Experiences'; // DSA beneficiary/payor
 
   // Get the primary site ID
