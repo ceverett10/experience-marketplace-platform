@@ -91,6 +91,11 @@ export {
   getProductSyncStatus,
 } from './services/product-sync';
 export type { ProductSyncResult, ProductSyncOptions } from './services/product-sync';
+export { enrichSupplierLocations } from './services/supplier-enrichment';
+export type {
+  SupplierEnrichmentResult,
+  SupplierEnrichmentOptions,
+} from './services/supplier-enrichment';
 export {
   RateLimiter,
   createHolibobRateLimiter,

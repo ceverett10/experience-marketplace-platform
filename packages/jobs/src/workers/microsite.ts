@@ -468,6 +468,18 @@ export async function handleMicrositeCreate(job: Job<MicrositeCreatePayload>): P
 
     console.log('[Microsite Create] Queued content generation');
 
+    // Queue supplier enrichment if supplier has no city data (needed for SEO titles)
+    if (entityType === 'SUPPLIER' && cities.length === 0 && microsite.supplierId) {
+      try {
+        await addJob('SUPPLIER_ENRICH' as any, { supplierIds: [microsite.supplierId] });
+        console.info(
+          `[Microsite Create] Queued supplier enrichment for ${microsite.supplierId} (empty cities)`
+        );
+      } catch (enrichErr) {
+        console.warn('[Microsite Create] Failed to queue supplier enrichment:', enrichErr);
+      }
+    }
+
     return {
       success: true,
       message: `Microsite created successfully: ${fullDomain}`,
