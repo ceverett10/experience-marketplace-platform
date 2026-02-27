@@ -77,7 +77,12 @@ export function DestinationPageTemplate({
     );
   }
 
-  const destinationName = destination.title.replace(/^(Discover|Visit|Explore)\s+/i, '');
+  // Extract clean location name, handling "Travel Experiences in London" → "London"
+  const inMatch = destination.title.match(/\b(?:in|near|around)\s+(.+)$/i);
+  const destinationName = inMatch?.[1]?.trim()
+    ? inMatch[1].trim()
+    : destination.title.replace(/^(?:Discover|Visit|Explore|Travel Experiences?)\s+/i, '').trim() ||
+      destination.title;
   const displayCount = experienceCount ?? topExperiences.length;
 
   if (isPpc) {

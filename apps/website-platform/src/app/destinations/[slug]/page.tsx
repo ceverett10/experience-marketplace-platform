@@ -32,6 +32,20 @@ function getDefaultImage(
   return `https://${hostname}/og-image.png`;
 }
 
+/**
+ * Extract clean location name from destination page title.
+ * Handles patterns like "Travel Experiences in London" → "London",
+ * "Discover London, England" → "London, England", etc.
+ */
+function extractLocationName(title: string): string {
+  // Try "... in/near/around {location}" pattern first
+  const inMatch = title.match(/\b(?:in|near|around)\s+(.+)$/i);
+  if (inMatch?.[1]) return inMatch[1].trim();
+
+  // Strip common prefixes: "Discover X", "Visit X", "Explore X", "Travel Experiences X"
+  return title.replace(/^(?:Discover|Visit|Explore|Travel Experiences?)\s+/i, '').trim() || title;
+}
+
 interface Props {
   params: Promise<{ slug: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -77,17 +91,37 @@ async function getTopExperiences(
   const locationName =
     destinationTitle.replace(/^.*?\b(?:in|near|around)\s+/i, '') || destinationTitle;
 
+  const filter = {
+    // Prefer placeIds when available, fall back to freeText search
+    ...(options?.locationId ? { placeIds: [options.locationId] } : { freeText: locationName }),
+    currency: site.primaryCurrency ?? 'GBP',
+    ...(options?.categoryIds?.length ? { categoryIds: options.categoryIds } : {}),
+    ...(options?.searchTerm ? { searchTerm: options.searchTerm } : {}),
+  };
+
+  console.info(
+    '[Destination] getTopExperiences:',
+    JSON.stringify({
+      title: destinationTitle,
+      locationName,
+      locationId: options?.locationId ?? null,
+      searchTerm: options?.searchTerm ?? null,
+      filter,
+      pageSize: options?.pageSize ?? 9,
+    })
+  );
+
   try {
     const client = getHolibobClient(site);
-    const response = await client.discoverProducts(
-      {
-        // Prefer placeIds when available, fall back to freeText search
-        ...(options?.locationId ? { placeIds: [options.locationId] } : { freeText: locationName }),
-        currency: site.primaryCurrency ?? 'GBP',
-        ...(options?.categoryIds?.length ? { categoryIds: options.categoryIds } : {}),
-        ...(options?.searchTerm ? { searchTerm: options.searchTerm } : {}),
-      },
-      { pageSize: options?.pageSize ?? 9 }
+    const response = await client.discoverProducts(filter, {
+      pageSize: options?.pageSize ?? 9,
+    });
+
+    console.info(
+      '[Destination] discoverProducts returned',
+      response.products.length,
+      'products for',
+      locationName
     );
 
     return response.products.map((product) => ({
@@ -112,7 +146,7 @@ async function getTopExperiences(
         })) || [],
     }));
   } catch (error) {
-    console.error('Error fetching top experiences:', error);
+    console.error('[Destination] Error fetching top experiences:', error);
     return [];
   }
 }
@@ -138,7 +172,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
     };
   }
 
-  const destinationName = destination.title.replace(/^(Discover|Visit|Explore)\s+/i, '');
+  const destinationName = extractLocationName(destination.title);
 
   // PPC: conversion-focused metadata
   if (isPpc) {
