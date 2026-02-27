@@ -17,7 +17,7 @@
  *   heroku run:detached "cd packages/jobs && npx tsx src/scripts/backfill-stuck-microsites.ts" --app holibob-experiences-demand-gen --size=standard-1x
  */
 
-import 'dotenv/config';
+// Note: On Heroku, env vars are already configured - no dotenv needed
 import { prisma } from '@experience-marketplace/database';
 import { Queue } from 'bullmq';
 import IORedis from 'ioredis';
