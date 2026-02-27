@@ -443,13 +443,22 @@ export async function handleMicrositeCreate(job: Job<MicrositeCreatePayload>): P
     // Queue content generation
     // OPPORTUNITY microsites get full site-like content (blog, legal pages, FAQ)
     const { addJob } = await import('../queues/index.js');
-    await addJob('MICROSITE_CONTENT_GENERATE', {
+    const contentJobId = await addJob('MICROSITE_CONTENT_GENERATE', {
       micrositeId: microsite.id,
       contentTypes:
         entityType === 'OPPORTUNITY'
           ? ['homepage', 'about', 'experiences', 'blog', 'contact', 'privacy', 'terms', 'faq']
           : ['homepage', 'about', 'experiences'],
     });
+
+    // Detect if the content job was dropped due to budget limits
+    if (contentJobId.startsWith('budget-exceeded:')) {
+      console.error(
+        `[Microsite Create] CONTENT BUDGET EXCEEDED for microsite ${microsite.id} — ` +
+          `content generation was NOT queued. Microsite will remain in GENERATING status. ` +
+          `Run backfill-stuck-microsites.ts to recover.`
+      );
+    }
 
     // For OPPORTUNITY microsites, queue destination landing pages based on homepageConfig
     if (entityType === 'OPPORTUNITY' && homepageConfig.destinations?.length) {
