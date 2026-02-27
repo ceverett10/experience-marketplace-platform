@@ -360,6 +360,21 @@ class MigrationMetaClient {
     return rateLimitedCall(() => this.apiCall('POST', `act_${this.adAccountId}/campaigns`, params));
   }
 
+  async updateCampaign(campaignId, config) {
+    const params = {};
+    if (config.bidStrategy) {
+      params.bid_strategy = config.bidStrategy;
+      if (config.roasFloor) {
+        params.roas_average_floor = config.roasFloor.toString();
+      }
+    }
+    if (config.dailyBudget) {
+      params.daily_budget = Math.round(config.dailyBudget * 100).toString();
+    }
+    console.info(`    Updating campaign ${campaignId}: ${JSON.stringify(params)}`);
+    return rateLimitedCall(() => this.apiCall('POST', campaignId, params));
+  }
+
   async createAdSet(config) {
     // In CBO campaigns, bid strategy is set at campaign level, not ad set level.
     // Ad sets inherit the campaign's bid strategy and budget allocation.
@@ -913,6 +928,14 @@ async function main() {
       console.info(`\n  ${plan.name} — parent exists (${existingParent.id}), reusing`);
       parentId = existingParent.id;
       platformCampaignId = existingParent.platformCampaignId;
+
+      // Ensure bid strategy is set on the existing campaign (may have been created without it)
+      if (platformCampaignId && plan.bidStrategy) {
+        await metaClient.updateCampaign(platformCampaignId, {
+          bidStrategy: plan.bidStrategy,
+          roasFloor: plan.roasFloor,
+        });
+      }
     } else {
       // Create campaign on Meta
       console.info(`\n  Creating: ${plan.name} (£${plan.dailyBudget}/day, ${plan.bidStrategy})`);
