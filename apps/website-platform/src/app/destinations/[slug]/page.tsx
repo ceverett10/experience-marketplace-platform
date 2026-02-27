@@ -1,5 +1,5 @@
 import { headers } from 'next/headers';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getSiteFromHostname, type HomepageConfig } from '@/lib/tenant';
 import { cleanPlainText } from '@/lib/seo';
@@ -45,6 +45,58 @@ function extractLocationName(title: string): string {
   // Strip common prefixes: "Discover X", "Visit X", "Explore X", "Travel Experiences X"
   return title.replace(/^(?:Discover|Visit|Explore|Travel Experiences?)\s+/i, '').trim() || title;
 }
+
+/**
+ * Mapping of city slugs to their country/region for standardized slug redirects.
+ * When a user visits /destinations/london, we 301 redirect to /destinations/london-england.
+ */
+const CITY_COUNTRY_REDIRECTS: Record<string, string> = {
+  london: 'england',
+  edinburgh: 'scotland',
+  glasgow: 'scotland',
+  manchester: 'england',
+  liverpool: 'england',
+  bristol: 'england',
+  oxford: 'england',
+  cambridge: 'england',
+  york: 'england',
+  bath: 'england',
+  brighton: 'england',
+  cardiff: 'wales',
+  belfast: 'northern-ireland',
+  paris: 'france',
+  barcelona: 'spain',
+  madrid: 'spain',
+  rome: 'italy',
+  florence: 'italy',
+  venice: 'italy',
+  milan: 'italy',
+  amsterdam: 'netherlands',
+  berlin: 'germany',
+  munich: 'germany',
+  prague: 'czech-republic',
+  vienna: 'austria',
+  lisbon: 'portugal',
+  dublin: 'ireland',
+  athens: 'greece',
+  budapest: 'hungary',
+  copenhagen: 'denmark',
+  stockholm: 'sweden',
+  tokyo: 'japan',
+  bangkok: 'thailand',
+  singapore: 'singapore',
+  sydney: 'australia',
+  dubai: 'uae',
+  istanbul: 'turkey',
+  'new-york': 'usa',
+  'los-angeles': 'usa',
+  'san-francisco': 'usa',
+  chicago: 'usa',
+  miami: 'usa',
+  'las-vegas': 'usa',
+  toronto: 'canada',
+  vancouver: 'canada',
+};
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -167,6 +219,16 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   const destination = await getDestinationPage(site.id, fullSlug);
 
   if (!destination) {
+    // Check if this is an old-format slug that should redirect to city-country format
+    const country = CITY_COUNTRY_REDIRECTS[slug];
+    if (country) {
+      const standardSlug = `destinations/${slug}-${country}`;
+      const standardPage = await getDestinationPage(site.id, standardSlug);
+      if (standardPage) {
+        permanentRedirect(`/destinations/${slug}-${country}`);
+      }
+    }
+
     return {
       title: 'Destination Not Found',
     };
@@ -232,6 +294,15 @@ export default async function DestinationPage({ params, searchParams }: Props) {
   const destination = await getDestinationPage(site.id, fullSlug);
 
   if (!destination) {
+    // 301 redirect old slugs (e.g. /destinations/london → /destinations/london-england)
+    const country = CITY_COUNTRY_REDIRECTS[slug];
+    if (country) {
+      const standardSlug = `destinations/${slug}-${country}`;
+      const standardPage = await getDestinationPage(site.id, standardSlug);
+      if (standardPage) {
+        permanentRedirect(`/destinations/${slug}-${country}`);
+      }
+    }
     notFound();
   }
 

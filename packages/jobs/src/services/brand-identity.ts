@@ -670,9 +670,11 @@ I need:
    - searchTerms: 2-3 additional search terms to narrow results
 
 3. DESTINATIONS (8 items):
-   - For a location-specific brand (like "London Food Tours"), include NEIGHBORHOODS/AREAS within that city
-   - For a general brand, include major cities
-   - Each destination needs: name, slug (lowercase, hyphenated), icon (country flag or relevant emoji)
+   - For a location-specific brand (like "London Food Tours"), include NEIGHBORHOODS/AREAS within that city, using "Area, City" format (e.g., "Borough Market, London", "Covent Garden, London")
+   - For a general/multi-city brand, include major cities using "City, Country" format (e.g., "London, England", "Paris, France", "Barcelona, Spain")
+   - IMPORTANT: Always include the parent location (city or country) in the name to avoid ambiguity
+   - slug: Use the FULL name, lowercase, hyphenated (e.g., "london-england", "borough-market-london")
+   - Each destination needs: name, slug, icon (country flag or relevant emoji)
    - description: A compelling 2-3 sentence description of why this destination is great for experiences
 
 4. CATEGORIES (6-8 items):
@@ -700,7 +702,7 @@ Return ONLY valid JSON:
     "searchTerms": ["term1", "term2"]
   },
   "destinations": [
-    {"name": "Area Name", "slug": "area-name", "icon": "emoji", "description": "Why this destination is great"}
+    {"name": "London, England", "slug": "london-england", "icon": "🇬🇧", "description": "Why this destination is great"}
   ],
   "categories": [
     {"name": "Category Name", "slug": "category-slug", "icon": "emoji", "description": "Why this category is special"}
@@ -1026,54 +1028,54 @@ async function createTemplateHomepageConfig(
           },
         ]
       : [
-          // Default destinations for general sites
+          // Default destinations for general sites — always use "City, Country" format
           {
-            name: 'London',
-            slug: 'london',
+            name: 'London, England',
+            slug: 'london-england',
             icon: '🇬🇧',
             description:
               'Experience world-class culture, history, and entertainment in the UK capital.',
           },
           {
-            name: 'Paris',
-            slug: 'paris',
+            name: 'Paris, France',
+            slug: 'paris-france',
             icon: '🇫🇷',
             description: 'Discover romance, art, and culinary excellence in the City of Light.',
           },
           {
-            name: 'Barcelona',
-            slug: 'barcelona',
+            name: 'Barcelona, Spain',
+            slug: 'barcelona-spain',
             icon: '🇪🇸',
             description: 'Enjoy stunning architecture, beaches, and vibrant Catalan culture.',
           },
           {
-            name: 'Rome',
-            slug: 'rome',
+            name: 'Rome, Italy',
+            slug: 'rome-italy',
             icon: '🇮🇹',
             description: 'Walk through ancient history and savor authentic Italian experiences.',
           },
           {
-            name: 'Amsterdam',
-            slug: 'amsterdam',
+            name: 'Amsterdam, Netherlands',
+            slug: 'amsterdam-netherlands',
             icon: '🇳🇱',
             description: 'Explore charming canals, world-class museums, and Dutch hospitality.',
           },
           {
-            name: 'Edinburgh',
-            slug: 'edinburgh',
+            name: 'Edinburgh, Scotland',
+            slug: 'edinburgh-scotland',
             icon: '🏴󠁧󠁢󠁳󠁣󠁴󠁿',
             description: 'Discover medieval charm and Scottish heritage in this historic capital.',
           },
           {
-            name: 'Lisbon',
-            slug: 'lisbon',
+            name: 'Lisbon, Portugal',
+            slug: 'lisbon-portugal',
             icon: '🇵🇹',
             description:
               'Experience colorful neighborhoods, delicious cuisine, and coastal beauty.',
           },
           {
-            name: 'Berlin',
-            slug: 'berlin',
+            name: 'Berlin, Germany',
+            slug: 'berlin-germany',
             icon: '🇩🇪',
             description: 'Explore modern culture, fascinating history, and creative energy.',
           },
