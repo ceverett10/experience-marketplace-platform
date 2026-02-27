@@ -42,6 +42,7 @@ const defaultSite = {
   primaryDomain: 'test.example.com',
   micrositeContext: null,
   brand: { primaryColor: '#0d9488', logoUrl: '/logo.png', ogImageUrl: '/og.png' },
+  primaryCurrency: 'GBP',
   seoConfig: {},
   homepageConfig: { hero: { backgroundImage: '/hero.jpg' } },
 };
@@ -58,6 +59,8 @@ const mockDestination = {
   holibobLocationId: 'hb-loc-1',
 };
 
+const emptySearchParams = Promise.resolve({});
+
 beforeEach(() => {
   vi.clearAllMocks();
   mockGetSiteFromHostname.mockResolvedValue(defaultSite);
@@ -67,14 +70,20 @@ beforeEach(() => {
 describe('Destination detail generateMetadata', () => {
   it('returns "Destination Not Found" when page does not exist', async () => {
     const { generateMetadata } = await import('@/app/destinations/[slug]/page');
-    const meta = await generateMetadata({ params: Promise.resolve({ slug: 'nonexistent' }) });
+    const meta = await generateMetadata({
+      params: Promise.resolve({ slug: 'nonexistent' }),
+      searchParams: emptySearchParams,
+    });
     expect(meta.title).toBe('Destination Not Found');
   });
 
   it('uses destination title as page title', async () => {
     mockPageFindUnique.mockResolvedValue(mockDestination);
     const { generateMetadata } = await import('@/app/destinations/[slug]/page');
-    const meta = await generateMetadata({ params: Promise.resolve({ slug: 'london' }) });
+    const meta = await generateMetadata({
+      params: Promise.resolve({ slug: 'london' }),
+      searchParams: emptySearchParams,
+    });
     expect(meta.title).toBe('Things to Do in London');
   });
 
@@ -84,7 +93,10 @@ describe('Destination detail generateMetadata', () => {
       metaTitle: 'Custom London SEO Title',
     });
     const { generateMetadata } = await import('@/app/destinations/[slug]/page');
-    const meta = await generateMetadata({ params: Promise.resolve({ slug: 'london' }) });
+    const meta = await generateMetadata({
+      params: Promise.resolve({ slug: 'london' }),
+      searchParams: emptySearchParams,
+    });
     expect(meta.title).toBe('Custom London SEO Title');
   });
 
@@ -94,21 +106,30 @@ describe('Destination detail generateMetadata', () => {
       metaDescription: 'Custom London description',
     });
     const { generateMetadata } = await import('@/app/destinations/[slug]/page');
-    const meta = await generateMetadata({ params: Promise.resolve({ slug: 'london' }) });
+    const meta = await generateMetadata({
+      params: Promise.resolve({ slug: 'london' }),
+      searchParams: emptySearchParams,
+    });
     expect(meta.description).toBe('Custom London description');
   });
 
   it('falls back to content body for description', async () => {
     mockPageFindUnique.mockResolvedValue(mockDestination);
     const { generateMetadata } = await import('@/app/destinations/[slug]/page');
-    const meta = await generateMetadata({ params: Promise.resolve({ slug: 'london' }) });
+    const meta = await generateMetadata({
+      params: Promise.resolve({ slug: 'london' }),
+      searchParams: emptySearchParams,
+    });
     expect(meta.description).toContain('London');
   });
 
   it('sets default canonical URL', async () => {
     mockPageFindUnique.mockResolvedValue(mockDestination);
     const { generateMetadata } = await import('@/app/destinations/[slug]/page');
-    const meta = await generateMetadata({ params: Promise.resolve({ slug: 'london' }) });
+    const meta = await generateMetadata({
+      params: Promise.resolve({ slug: 'london' }),
+      searchParams: emptySearchParams,
+    });
     expect(meta.alternates?.canonical).toBe('https://test.example.com/destinations/london');
   });
 
@@ -118,35 +139,50 @@ describe('Destination detail generateMetadata', () => {
       canonicalUrl: 'https://custom.com/london-guide',
     });
     const { generateMetadata } = await import('@/app/destinations/[slug]/page');
-    const meta = await generateMetadata({ params: Promise.resolve({ slug: 'london' }) });
+    const meta = await generateMetadata({
+      params: Promise.resolve({ slug: 'london' }),
+      searchParams: emptySearchParams,
+    });
     expect(meta.alternates?.canonical).toBe('https://custom.com/london-guide');
   });
 
   it('sets robots index=true when noIndex is false', async () => {
     mockPageFindUnique.mockResolvedValue(mockDestination);
     const { generateMetadata } = await import('@/app/destinations/[slug]/page');
-    const meta = await generateMetadata({ params: Promise.resolve({ slug: 'london' }) });
+    const meta = await generateMetadata({
+      params: Promise.resolve({ slug: 'london' }),
+      searchParams: emptySearchParams,
+    });
     expect(meta.robots).toEqual({ index: true, follow: true });
   });
 
   it('sets robots index=false when noIndex is true', async () => {
     mockPageFindUnique.mockResolvedValue({ ...mockDestination, noIndex: true });
     const { generateMetadata } = await import('@/app/destinations/[slug]/page');
-    const meta = await generateMetadata({ params: Promise.resolve({ slug: 'london' }) });
+    const meta = await generateMetadata({
+      params: Promise.resolve({ slug: 'london' }),
+      searchParams: emptySearchParams,
+    });
     expect(meta.robots).toEqual({ index: false, follow: false });
   });
 
   it('includes openGraph with site name suffix', async () => {
     mockPageFindUnique.mockResolvedValue(mockDestination);
     const { generateMetadata } = await import('@/app/destinations/[slug]/page');
-    const meta = await generateMetadata({ params: Promise.resolve({ slug: 'london' }) });
+    const meta = await generateMetadata({
+      params: Promise.resolve({ slug: 'london' }),
+      searchParams: emptySearchParams,
+    });
     expect(meta.openGraph?.title).toContain('| Test Site');
   });
 
   it('includes ogImage in openGraph when available', async () => {
     mockPageFindUnique.mockResolvedValue(mockDestination);
     const { generateMetadata } = await import('@/app/destinations/[slug]/page');
-    const meta = await generateMetadata({ params: Promise.resolve({ slug: 'london' }) });
+    const meta = await generateMetadata({
+      params: Promise.resolve({ slug: 'london' }),
+      searchParams: emptySearchParams,
+    });
     if (meta.openGraph && 'images' in meta.openGraph) {
       expect(meta.openGraph.images).toBeDefined();
     }
