@@ -115,29 +115,58 @@ export async function GET(request: Request) {
     ]);
 
     // Transform data
-    const data = microsites.map((m) => ({
-      id: m.id,
-      siteName: m.siteName,
-      fullDomain: m.fullDomain,
-      entityType: m.entityType,
-      status: m.status,
-      layoutType: m.layoutType,
-      cachedProductCount: m.cachedProductCount,
-      pageViews: m.pageViews,
-      createdAt: m.createdAt.toISOString(),
-      sourceName: m.supplier?.name ?? m.opportunity?.keyword ?? m.product?.title ?? m.siteName,
-      keyMetric:
-        m.entityType === 'SUPPLIER'
-          ? { label: 'Products', value: m.supplier?.productCount ?? m.cachedProductCount }
-          : m.entityType === 'OPPORTUNITY'
-            ? { label: 'Score', value: m.opportunity?.priorityScore ?? 0 }
-            : { label: 'Price', value: m.product?.priceFrom ? `£${m.product.priceFrom}` : '-' },
-      location:
-        m.supplier?.cities?.slice(0, 2).join(', ') ??
-        m.opportunity?.location ??
-        m.product?.city ??
-        null,
-    }));
+    const data = microsites.map((m) => {
+      // Compute the destination-focused site title (mirrors buildHomepageTitle in page.tsx)
+      const cities = m.supplier?.cities ?? [];
+      const categories = m.supplier?.categories ?? [];
+      const topCity =
+        cities[0] ?? m.opportunity?.location?.split(',')[0]?.trim() ?? m.product?.city ?? null;
+      const topCategory = categories[0] ?? m.opportunity?.niche ?? null;
+
+      let siteTitle: string;
+      if (topCategory && topCity) {
+        siteTitle = `Best ${topCategory} in ${topCity} - Book Online`;
+        if (siteTitle.length > 60)
+          siteTitle =
+            `Things to Do in ${topCity} - Tours & Activities`.length <= 60
+              ? `Things to Do in ${topCity} - Tours & Activities`
+              : `Things to Do in ${topCity}`;
+      } else if (topCity) {
+        siteTitle =
+          `Things to Do in ${topCity} - Tours & Activities`.length <= 60
+            ? `Things to Do in ${topCity} - Tours & Activities`
+            : `Things to Do in ${topCity}`;
+      } else if (topCategory) {
+        siteTitle = `Best ${topCategory} - Book Online`;
+      } else {
+        siteTitle = 'Discover Tours & Activities - Book Online';
+      }
+
+      return {
+        id: m.id,
+        siteName: m.siteName,
+        siteTitle,
+        fullDomain: m.fullDomain,
+        entityType: m.entityType,
+        status: m.status,
+        layoutType: m.layoutType,
+        cachedProductCount: m.cachedProductCount,
+        pageViews: m.pageViews,
+        createdAt: m.createdAt.toISOString(),
+        sourceName: m.supplier?.name ?? m.opportunity?.keyword ?? m.product?.title ?? m.siteName,
+        keyMetric:
+          m.entityType === 'SUPPLIER'
+            ? { label: 'Products', value: m.supplier?.productCount ?? m.cachedProductCount }
+            : m.entityType === 'OPPORTUNITY'
+              ? { label: 'Score', value: m.opportunity?.priorityScore ?? 0 }
+              : { label: 'Price', value: m.product?.priceFrom ? `£${m.product.priceFrom}` : '-' },
+        location:
+          m.supplier?.cities?.slice(0, 2).join(', ') ??
+          m.opportunity?.location ??
+          m.product?.city ??
+          null,
+      };
+    });
 
     // Summary stats: total and active counts by entity type
     const [entityCounts, activeCounts] = await Promise.all([
