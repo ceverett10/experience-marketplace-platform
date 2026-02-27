@@ -1,5 +1,5 @@
 import { headers } from 'next/headers';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getSiteFromHostname, type HomepageConfig } from '@/lib/tenant';
 import { cleanPlainText } from '@/lib/seo';
@@ -31,6 +31,72 @@ function getDefaultImage(
   if (site.brand?.logoUrl) return site.brand.logoUrl;
   return `https://${hostname}/og-image.png`;
 }
+
+/**
+ * Extract clean location name from destination page title.
+ * Handles patterns like "Travel Experiences in London" → "London",
+ * "Discover London, England" → "London, England", etc.
+ */
+function extractLocationName(title: string): string {
+  // Try "... in/near/around {location}" pattern first
+  const inMatch = title.match(/\b(?:in|near|around)\s+(.+)$/i);
+  if (inMatch?.[1]) return inMatch[1].trim();
+
+  // Strip common prefixes: "Discover X", "Visit X", "Explore X", "Travel Experiences X"
+  return title.replace(/^(?:Discover|Visit|Explore|Travel Experiences?)\s+/i, '').trim() || title;
+}
+
+/**
+ * Mapping of city slugs to their country/region for standardized slug redirects.
+ * When a user visits /destinations/london, we 301 redirect to /destinations/london-england.
+ */
+const CITY_COUNTRY_REDIRECTS: Record<string, string> = {
+  london: 'england',
+  edinburgh: 'scotland',
+  glasgow: 'scotland',
+  manchester: 'england',
+  liverpool: 'england',
+  bristol: 'england',
+  oxford: 'england',
+  cambridge: 'england',
+  york: 'england',
+  bath: 'england',
+  brighton: 'england',
+  cardiff: 'wales',
+  belfast: 'northern-ireland',
+  paris: 'france',
+  barcelona: 'spain',
+  madrid: 'spain',
+  rome: 'italy',
+  florence: 'italy',
+  venice: 'italy',
+  milan: 'italy',
+  amsterdam: 'netherlands',
+  berlin: 'germany',
+  munich: 'germany',
+  prague: 'czech-republic',
+  vienna: 'austria',
+  lisbon: 'portugal',
+  dublin: 'ireland',
+  athens: 'greece',
+  budapest: 'hungary',
+  copenhagen: 'denmark',
+  stockholm: 'sweden',
+  tokyo: 'japan',
+  bangkok: 'thailand',
+  singapore: 'singapore',
+  sydney: 'australia',
+  dubai: 'uae',
+  istanbul: 'turkey',
+  'new-york': 'usa',
+  'los-angeles': 'usa',
+  'san-francisco': 'usa',
+  chicago: 'usa',
+  miami: 'usa',
+  'las-vegas': 'usa',
+  toronto: 'canada',
+  vancouver: 'canada',
+};
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -77,17 +143,37 @@ async function getTopExperiences(
   const locationName =
     destinationTitle.replace(/^.*?\b(?:in|near|around)\s+/i, '') || destinationTitle;
 
+  const filter = {
+    // Prefer placeIds when available, fall back to freeText search
+    ...(options?.locationId ? { placeIds: [options.locationId] } : { freeText: locationName }),
+    currency: site.primaryCurrency ?? 'GBP',
+    ...(options?.categoryIds?.length ? { categoryIds: options.categoryIds } : {}),
+    ...(options?.searchTerm ? { searchTerm: options.searchTerm } : {}),
+  };
+
+  console.info(
+    '[Destination] getTopExperiences:',
+    JSON.stringify({
+      title: destinationTitle,
+      locationName,
+      locationId: options?.locationId ?? null,
+      searchTerm: options?.searchTerm ?? null,
+      filter,
+      pageSize: options?.pageSize ?? 9,
+    })
+  );
+
   try {
     const client = getHolibobClient(site);
-    const response = await client.discoverProducts(
-      {
-        // Prefer placeIds when available, fall back to freeText search
-        ...(options?.locationId ? { placeIds: [options.locationId] } : { freeText: locationName }),
-        currency: site.primaryCurrency ?? 'GBP',
-        ...(options?.categoryIds?.length ? { categoryIds: options.categoryIds } : {}),
-        ...(options?.searchTerm ? { searchTerm: options.searchTerm } : {}),
-      },
-      { pageSize: options?.pageSize ?? 9 }
+    const response = await client.discoverProducts(filter, {
+      pageSize: options?.pageSize ?? 9,
+    });
+
+    console.info(
+      '[Destination] discoverProducts returned',
+      response.products.length,
+      'products for',
+      locationName
     );
 
     return response.products.map((product) => ({
@@ -112,7 +198,7 @@ async function getTopExperiences(
         })) || [],
     }));
   } catch (error) {
-    console.error('Error fetching top experiences:', error);
+    console.error('[Destination] Error fetching top experiences:', error);
     return [];
   }
 }
@@ -133,12 +219,22 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   const destination = await getDestinationPage(site.id, fullSlug);
 
   if (!destination) {
+    // Check if this is an old-format slug that should redirect to city-country format
+    const country = CITY_COUNTRY_REDIRECTS[slug];
+    if (country) {
+      const standardSlug = `destinations/${slug}-${country}`;
+      const standardPage = await getDestinationPage(site.id, standardSlug);
+      if (standardPage) {
+        permanentRedirect(`/destinations/${slug}-${country}`);
+      }
+    }
+
     return {
       title: 'Destination Not Found',
     };
   }
 
-  const destinationName = destination.title.replace(/^(Discover|Visit|Explore)\s+/i, '');
+  const destinationName = extractLocationName(destination.title);
 
   // PPC: conversion-focused metadata
   if (isPpc) {
@@ -198,6 +294,15 @@ export default async function DestinationPage({ params, searchParams }: Props) {
   const destination = await getDestinationPage(site.id, fullSlug);
 
   if (!destination) {
+    // 301 redirect old slugs (e.g. /destinations/london → /destinations/london-england)
+    const country = CITY_COUNTRY_REDIRECTS[slug];
+    if (country) {
+      const standardSlug = `destinations/${slug}-${country}`;
+      const standardPage = await getDestinationPage(site.id, standardSlug);
+      if (standardPage) {
+        permanentRedirect(`/destinations/${slug}-${country}`);
+      }
+    }
     notFound();
   }
 
