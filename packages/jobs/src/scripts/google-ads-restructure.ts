@@ -934,7 +934,7 @@ async function createRestructuredCampaigns(dryRun: boolean, limit: number): Prom
               status: 'PAUSED',
               advertisingChannelType: 'SEARCH',
               campaignBudget: budgetResourceName,
-              maximizeClicks: {
+              targetSpend: {
                 cpcBidCeilingMicros: (def.maxCpcCapGBP * 1_000_000).toString(),
               },
               networkSettings: {
