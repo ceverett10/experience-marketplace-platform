@@ -339,12 +339,15 @@ class MigrationMetaClient {
   }
 
   async createCampaign(config) {
+    // CBO is automatic in v18.0 when daily_budget is set at campaign level
+    // and NOT set at ad set level. No explicit flag needed.
+    // - budget_rebalance_flag: deprecated since v7.0
+    // - is_adset_budget_sharing_enabled: different feature (ad set budget sharing, v24.0+)
     const params = {
       name: config.name,
       objective: 'OUTCOME_SALES',
       status: config.status || 'PAUSED',
       special_ad_categories: '[]',
-      budget_rebalance_flag: 'true', // CBO / Advantage Campaign Budget
       daily_budget: Math.round(config.dailyBudget * 100).toString(), // pence/cents as string
     };
     console.info(`    Campaign params: ${JSON.stringify(params)}`);
