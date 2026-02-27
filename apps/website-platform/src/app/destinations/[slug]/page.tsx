@@ -60,7 +60,7 @@ async function getTopExperiences(
     const response = await client.discoverProducts(
       {
         placeIds: [locationId],
-        currency: 'GBP',
+        currency: site.primaryCurrency ?? 'GBP',
       },
       { pageSize: 9 }
     );

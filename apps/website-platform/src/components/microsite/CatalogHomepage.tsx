@@ -88,6 +88,16 @@ export function CatalogHomepage({
   // Use actual total count if provided, otherwise fall back to displayed experiences length
   const displayCount = totalExperienceCount ?? experiences.length;
 
+  // PPC: Compute destination and min price for search-intent H1
+  const ppcDestination = site.micrositeContext?.supplierCities?.[0];
+  const cheapestExperience =
+    isPpc && experiences.length > 0
+      ? experiences.reduce(
+          (min, e) => (e.price.amount < min.price.amount ? e : min),
+          experiences[0]
+        )
+      : null;
+
   // Default testimonials if none provided
   const displayTestimonials = testimonials ?? [
     {
@@ -249,12 +259,16 @@ export function CatalogHomepage({
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mb-8 text-center">
             <h2 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
-              Our Experiences
+              {isPpc
+                ? `${displayCount.toLocaleString()} ${ppcDestination ? `${ppcDestination} ` : ''}Experiences${cheapestExperience ? ` — From ${cheapestExperience.price.formatted}` : ''}`
+                : 'Our Experiences'}
             </h2>
             <p className="mx-auto mt-2 max-w-2xl text-base text-gray-600">
-              {displayCount > experiences.length
-                ? `Showing ${experiences.length} of ${displayCount.toLocaleString()} experiences`
-                : `Browse our complete collection of ${displayCount.toLocaleString()} unique experiences`}
+              {isPpc
+                ? 'Compare & book with free cancellation and best price guarantee'
+                : displayCount > experiences.length
+                  ? `Showing ${experiences.length} of ${displayCount.toLocaleString()} experiences`
+                  : `Browse our complete collection of ${displayCount.toLocaleString()} unique experiences`}
             </p>
           </div>
 
@@ -435,8 +449,8 @@ export function CatalogHomepage({
         </section>
       )}
 
-      {/* Related Microsites - Cross-linking for SEO */}
-      {relatedMicrosites && relatedMicrosites.length > 0 && (
+      {/* Related Microsites - Cross-linking for SEO (hidden on PPC to prevent traffic leakage) */}
+      {!isPpc && relatedMicrosites && relatedMicrosites.length > 0 && (
         <RelatedMicrosites microsites={relatedMicrosites} />
       )}
     </>

@@ -81,7 +81,7 @@ export class HolibobClient {
       'X-API-Key': this.config.apiKey,
       'X-Partner-Id': this.config.partnerId,
       'Content-Type': 'application/json',
-      'x-holibob-currency': 'GBP',
+      'x-holibob-currency': config.currency ?? 'GBP',
     };
 
     // If API secret is provided, use HMAC signature authentication

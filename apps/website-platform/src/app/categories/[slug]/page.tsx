@@ -66,7 +66,7 @@ async function getRelatedExperiences(
       {
         categoryIds: [categoryId],
         freeText,
-        currency: 'GBP',
+        currency: site.primaryCurrency ?? 'GBP',
       },
       { pageSize: 6 }
     );
