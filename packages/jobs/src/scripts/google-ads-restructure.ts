@@ -942,6 +942,7 @@ async function createRestructuredCampaigns(dryRun: boolean, limit: number): Prom
                 targetSearchNetwork: false,
                 targetContentNetwork: false,
               },
+              containsEuPoliticalAdvertising: 'DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING',
             },
           },
         ],
