@@ -158,15 +158,17 @@ const MAX_ADS_PER_ADSET = 6;
 // Profitability threshold for General Tours Tier 1 vs Tier 2
 const GENERAL_TOURS_TIER1_THRESHOLD = 50;
 
-// Rate limiter — Meta API allows ~200/hour, we use 3/min to be safe
-const RATE_LIMIT_MS = 20_000; // 20 seconds between API calls
+// Rate limiter — Meta API allows ~200/hour for writes, higher for reads
+const RATE_LIMIT_WRITE_MS = 20_000; // 20 seconds between write API calls (3/min)
+const RATE_LIMIT_READ_MS = 1_500; // 1.5 seconds between read API calls (~40/min)
 let lastApiCall = 0;
 
-async function rateLimitedCall(fn) {
+async function rateLimitedCall(fn, isRead = false) {
+  const limit = isRead ? RATE_LIMIT_READ_MS : RATE_LIMIT_WRITE_MS;
   const now = Date.now();
   const elapsed = now - lastApiCall;
-  if (elapsed < RATE_LIMIT_MS) {
-    await new Promise((resolve) => setTimeout(resolve, RATE_LIMIT_MS - elapsed));
+  if (elapsed < limit) {
+    await new Promise((resolve) => setTimeout(resolve, limit - elapsed));
   }
   lastApiCall = Date.now();
   return fn();
@@ -247,7 +249,7 @@ class MigrationMetaClient {
     );
   }
 
-  async apiCall(method, endpoint, params = {}) {
+  async apiCall(method, endpoint, params = {}, retries = 3) {
     const url = new URL(`https://graph.facebook.com/${this.apiVersion}/${endpoint}`);
     const body = new URLSearchParams();
     body.append('access_token', this.accessToken);
@@ -257,11 +259,12 @@ class MigrationMetaClient {
 
     const fetchOptions =
       method === 'GET'
-        ? { method: 'GET' }
+        ? { method: 'GET', signal: AbortSignal.timeout(30_000) }
         : {
             method: 'POST',
             body,
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            signal: AbortSignal.timeout(60_000),
           };
 
     if (method === 'GET') {
@@ -270,14 +273,27 @@ class MigrationMetaClient {
       }
     }
 
-    const response = await fetch(url.toString(), fetchOptions);
-    const data = await response.json();
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        const response = await fetch(url.toString(), fetchOptions);
+        const data = await response.json();
 
-    if (data.error) {
-      const err = data.error;
-      throw new Error(`Meta API error [${err.code}/${err.error_subcode || 'n/a'}]: ${err.message}`);
+        if (data.error) {
+          const err = data.error;
+          throw new Error(
+            `Meta API error [${err.code}/${err.error_subcode || 'n/a'}]: ${err.message}`
+          );
+        }
+        return data;
+      } catch (err) {
+        if (attempt < retries && (err.name === 'TimeoutError' || err.name === 'AbortError')) {
+          console.warn(`    Retry ${attempt}/${retries} for ${endpoint}: ${err.message}`);
+          await new Promise((r) => setTimeout(r, 5000 * attempt));
+          continue;
+        }
+        throw err;
+      }
     }
-    return data;
   }
 
   /**
@@ -285,11 +301,13 @@ class MigrationMetaClient {
    * Returns array of { id, name, status, adset_id }.
    */
   async getCampaignAds(campaignId) {
-    const data = await rateLimitedCall(() =>
-      this.apiCall('GET', `${campaignId}/ads`, {
-        fields: 'id,name,status,adset_id',
-        limit: 100,
-      })
+    const data = await rateLimitedCall(
+      () =>
+        this.apiCall('GET', `${campaignId}/ads`, {
+          fields: 'id,name,status,adset_id',
+          limit: 100,
+        }),
+      true // read operation — faster rate limit
     );
     return data.data || [];
   }
@@ -676,6 +694,8 @@ async function main() {
     const metaClient = await MigrationMetaClient.create();
     let fetched = 0;
     let withAds = 0;
+    let errors = 0;
+    const startTime = Date.now();
 
     for (const campaign of campaignsWithPlatformId) {
       try {
@@ -683,10 +703,14 @@ async function main() {
         campaignAdMap.set(campaign.id, ads);
         if (ads.length > 0) withAds++;
         fetched++;
-        if (fetched % 50 === 0) {
-          console.info(`    Fetched ${fetched}/${campaignsWithPlatformId.length}...`);
+        if (fetched % 100 === 0) {
+          const elapsed = ((Date.now() - startTime) / 1000).toFixed(0);
+          console.info(
+            `    Fetched ${fetched}/${campaignsWithPlatformId.length} (${withAds} with ads, ${errors} errors, ${elapsed}s elapsed)...`
+          );
         }
       } catch (err) {
+        errors++;
         console.warn(
           `    Failed to fetch ads for campaign ${campaign.platformCampaignId}: ${err.message}`
         );
@@ -694,7 +718,10 @@ async function main() {
       }
     }
 
-    console.info(`  Fetched ads for ${fetched} campaigns (${withAds} have existing ads)`);
+    const totalElapsed = ((Date.now() - startTime) / 1000).toFixed(0);
+    console.info(
+      `  Fetched ads for ${fetched} campaigns (${withAds} have existing ads, ${errors} errors) in ${totalElapsed}s`
+    );
   } else if (!apply) {
     // Dry run — estimate based on having platform IDs
     const withPlatformId = campaignsWithPlatformId.length;
@@ -771,7 +798,7 @@ async function main() {
     totalAdSets * 2 + // Interest search + create ad set
     totalAdsToMove + // Move ads (1 call each)
     totalAdsToCreate; // Create ads (1 call each)
-  const estimatedMinutes = Math.ceil((estimatedCalls * RATE_LIMIT_MS) / 60_000);
+  const estimatedMinutes = Math.ceil((estimatedCalls * RATE_LIMIT_WRITE_MS) / 60_000);
   console.info(`  Estimated API calls: ${estimatedCalls}`);
   console.info(`  Estimated time: ~${estimatedMinutes} minutes`);
 
