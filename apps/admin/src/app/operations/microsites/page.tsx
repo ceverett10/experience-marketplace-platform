@@ -7,6 +7,7 @@ import { Card, CardContent } from '@experience-marketplace/ui-components';
 interface Microsite {
   id: string;
   siteName: string;
+  siteTitle: string;
   fullDomain: string;
   entityType: 'SUPPLIER' | 'PRODUCT' | 'OPPORTUNITY';
   status: string;
@@ -320,6 +321,9 @@ export default function MicrositesPage() {
                 >
                   Source <SortIcon field="siteName" />
                 </th>
+                <th className="text-left px-4 py-3 text-sm font-medium text-slate-600">
+                  Site Title
+                </th>
                 <th className="text-left px-4 py-3 text-sm font-medium text-slate-600">Domain</th>
                 <th className="text-center px-4 py-3 text-sm font-medium text-slate-600">Layout</th>
                 <th className="text-right px-4 py-3 text-sm font-medium text-slate-600">
@@ -345,6 +349,9 @@ export default function MicrositesPage() {
                       <div className="h-5 w-48 bg-slate-100 rounded animate-pulse" />
                     </td>
                     <td className="px-4 py-3">
+                      <div className="h-5 w-48 bg-slate-100 rounded animate-pulse" />
+                    </td>
+                    <td className="px-4 py-3">
                       <div className="h-5 w-40 bg-slate-100 rounded animate-pulse" />
                     </td>
                     <td className="px-4 py-3 text-center">
@@ -363,7 +370,7 @@ export default function MicrositesPage() {
                 ))
               ) : data?.microsites.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
+                  <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
                     No microsites found
                   </td>
                 </tr>
@@ -382,6 +389,14 @@ export default function MicrositesPage() {
                       {ms.location && (
                         <div className="text-xs text-slate-500 mt-0.5">{ms.location}</div>
                       )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div
+                        className="text-sm text-slate-700 truncate max-w-[280px]"
+                        title={ms.siteTitle}
+                      >
+                        {ms.siteTitle}
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <a
