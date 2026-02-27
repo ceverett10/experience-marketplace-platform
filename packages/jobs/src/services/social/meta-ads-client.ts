@@ -221,16 +221,18 @@ export class MetaAdsClient {
     dailyBudget: number; // In account currency (e.g., GBP pennies)
     status?: 'ACTIVE' | 'PAUSED';
     specialAdCategories?: string[];
-    isCbo?: boolean; // Campaign Budget Optimization — Meta distributes budget across ad sets
   }): Promise<{ campaignId: string } | null> {
     try {
+      // CBO is automatic in v18.0 when daily_budget is set at campaign level
+      // and NOT at ad set level. No explicit flag needed:
+      // - budget_rebalance_flag: deprecated since v7.0
+      // - is_adset_budget_sharing_enabled: different feature (ad set budget sharing, v24.0+)
       const params = new URLSearchParams({
         name: config.name,
         objective: config.objective || 'OUTCOME_TRAFFIC',
         daily_budget: Math.round(config.dailyBudget * 100).toString(), // Convert to pennies/cents
         status: config.status || 'PAUSED',
         special_ad_categories: JSON.stringify(config.specialAdCategories || []),
-        budget_rebalance_flag: (config.isCbo ?? false).toString(), // CBO / Advantage Campaign Budget
         access_token: this.accessToken,
       });
 
