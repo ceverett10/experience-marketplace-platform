@@ -57,22 +57,35 @@ async function getDestinationPage(siteId: string, slug: string) {
 }
 
 /**
- * Fetch top experiences from Holibob API for location
+ * Fetch top experiences from Holibob Product Discovery API.
+ * Uses holibobLocationId (placeIds) when available, otherwise falls back to
+ * freeText search using the destination name — matching the /experiences page pattern.
  */
 async function getTopExperiences(
   site: Awaited<ReturnType<typeof getSiteFromHostname>>,
-  locationId?: string | null,
-  options?: { pageSize?: number; categoryIds?: string[] }
+  destinationTitle: string,
+  options?: {
+    locationId?: string | null;
+    pageSize?: number;
+    categoryIds?: string[];
+    searchTerm?: string;
+  }
 ) {
-  if (!locationId) return [];
+  // Extract a usable location name from the destination title
+  // e.g. "food tours in London, England" → "London, England"
+  // e.g. "Food Tours in Borough Market" → "Borough Market"
+  const locationName =
+    destinationTitle.replace(/^.*?\b(?:in|near|around)\s+/i, '') || destinationTitle;
 
   try {
     const client = getHolibobClient(site);
     const response = await client.discoverProducts(
       {
-        placeIds: [locationId],
+        // Prefer placeIds when available, fall back to freeText search
+        ...(options?.locationId ? { placeIds: [options.locationId] } : { freeText: locationName }),
         currency: site.primaryCurrency ?? 'GBP',
         ...(options?.categoryIds?.length ? { categoryIds: options.categoryIds } : {}),
+        ...(options?.searchTerm ? { searchTerm: options.searchTerm } : {}),
       },
       { pageSize: options?.pageSize ?? 9 }
     );
@@ -190,10 +203,14 @@ export default async function DestinationPage({ params, searchParams }: Props) {
 
   // PPC: show more products (24 vs 9) for more conversion opportunities
   // Category filtering: use site's primaryCategory if set (for intent-based brand sites)
+  // Search term: use site's configured search terms for themed sites (e.g. food-tour-guide.com)
   const seoConfig = site.seoConfig as { primaryCategoryIds?: string[] } | null;
-  const topExperiences = await getTopExperiences(site, destination.holibobLocationId, {
+  const searchTerm = site.homepageConfig?.popularExperiences?.searchTerms?.[0];
+  const topExperiences = await getTopExperiences(site, destination.title, {
+    locationId: destination.holibobLocationId,
     pageSize: isPpc ? 24 : 9,
     categoryIds: seoConfig?.primaryCategoryIds,
+    searchTerm,
   });
 
   // Compute price range from fetched experiences
