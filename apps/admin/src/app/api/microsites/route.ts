@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getCategoryDisplayName } from '@experience-marketplace/shared';
 
 export const dynamic = 'force-dynamic';
 
@@ -121,7 +122,8 @@ export async function GET(request: Request) {
       const categories = m.supplier?.categories ?? [];
       const topCity =
         cities[0] ?? m.opportunity?.location?.split(',')[0]?.trim() ?? m.product?.city ?? null;
-      const topCategory = categories[0] ?? m.opportunity?.niche ?? null;
+      const rawCategory = categories[0] ?? m.opportunity?.niche ?? null;
+      const topCategory = rawCategory ? getCategoryDisplayName(rawCategory) : null;
 
       let siteTitle: string;
       if (topCategory && topCity) {

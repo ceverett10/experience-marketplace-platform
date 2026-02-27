@@ -63,6 +63,7 @@ import {
   handleProductSync,
   handleProductSyncIncremental,
   handleBulkProductSync,
+  handleSupplierEnrich,
   // Microsite handlers
   handleMicrositeCreate,
   handleMicrositeBrandGenerate,
@@ -528,6 +529,8 @@ const syncWorker = new Worker(
         return await handleBulkProductSync(job);
       case 'KEYWORD_ENRICHMENT':
         return await handleKeywordEnrichment(job);
+      case 'SUPPLIER_ENRICH':
+        return await handleSupplierEnrich(job);
       default:
         throw new Error(`Unknown job type: ${job.name}`);
     }

@@ -13,6 +13,8 @@ import {
   syncProductsForSupplier,
   bulkSyncAllProducts,
 } from '../services/product-sync.js';
+import { enrichSupplierLocations } from '../services/supplier-enrichment.js';
+import type { SupplierEnrichmentOptions } from '../services/supplier-enrichment.js';
 import { canExecuteAutonomousOperation } from '../services/pause-control.js';
 import { addJob } from '../queues/index.js';
 
@@ -262,4 +264,42 @@ export async function handleProductSyncIncremental(
   } as Job<ProductSyncPayload>;
 
   return handleProductSync(modifiedJob);
+}
+
+/**
+ * Supplier Enrichment Worker
+ * Fetches city/category data from Holibob products for suppliers with empty cities.
+ * Used to improve microsite SEO titles (e.g. "Things to Do in Bangkok").
+ */
+export async function handleSupplierEnrich(
+  job: Job<SupplierEnrichmentOptions>
+): Promise<JobResult> {
+  try {
+    console.info('[Supplier Enrich Worker] Starting supplier enrichment...');
+    const result = await enrichSupplierLocations(job.data);
+
+    return {
+      success: result.errors.length === 0,
+      message: `Supplier enrichment complete: ${result.processed} processed, ${result.enriched} enriched, ${result.skipped} skipped, ${result.noProductsFound} no products, ${result.errors.length} errors`,
+      data: {
+        processed: result.processed,
+        enriched: result.enriched,
+        skipped: result.skipped,
+        noProductsFound: result.noProductsFound,
+        alreadyHadCities: result.alreadyHadCities,
+        errorCount: result.errors.length,
+        uniqueCategories: result.categoryStats.uniqueCategories,
+        duration: result.duration,
+      },
+      timestamp: new Date(),
+    };
+  } catch (error) {
+    console.error('[Supplier Enrich Worker] Fatal error:', error);
+
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error during supplier enrichment',
+      timestamp: new Date(),
+    };
+  }
 }

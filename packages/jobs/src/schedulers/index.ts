@@ -256,6 +256,9 @@ export async function initializeScheduledJobs(): Promise<void> {
   await scheduleJob('MICROSITE_HEALTH_CHECK' as any, {}, '30 8 * * 0');
   console.info('[Scheduler] ✓ Microsite Health Check - Sundays at 8:30 AM');
 
+  await scheduleJob('SUPPLIER_ENRICH' as any, {} as any, '0 1 * * 1');
+  console.info('[Scheduler] ✓ Supplier Enrichment - Mondays at 1 AM');
+
   await scheduleJob('MICROSITE_SITEMAP_RESUBMIT' as any, {} as any, '0 9 * * 0');
   console.info('[Scheduler] ✓ Microsite Sitemap Resubmit - Sundays at 9 AM');
 
@@ -369,6 +372,7 @@ export async function removeAllScheduledJobs(): Promise<void> {
   await queueRegistry.removeRepeatableJob('MICROSITE_HEALTH_CHECK' as any, '30 8 * * 0');
   await queueRegistry.removeRepeatableJob('MICROSITE_SITEMAP_RESUBMIT' as any, '0 9 * * 0');
   await queueRegistry.removeRepeatableJob('COLLECTION_REFRESH' as any, '30 5 * * *');
+  await queueRegistry.removeRepeatableJob('SUPPLIER_ENRICH' as any, '0 1 * * 1');
 
   // Social
   await queueRegistry.removeRepeatableJob('SOCIAL_DAILY_POSTING' as any, '0 5 * * *');
@@ -593,6 +597,11 @@ export function getScheduledJobs(): Array<{
       jobType: 'AD_BUDGET_OPTIMIZER',
       schedule: '0 10 * * *',
       description: 'Auto-pause underperformers, scale winners',
+    },
+    {
+      jobType: 'SUPPLIER_ENRICH',
+      schedule: '0 1 * * 1',
+      description: 'Enrich supplier city/category data from Holibob products (Mondays)',
     },
     {
       jobType: 'PIPELINE_HEALTH_CHECK',
