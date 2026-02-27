@@ -522,7 +522,7 @@ async function main() {
       micrositeId: true,
       targetUrl: true,
       totalSpend: true,
-      totalRevenue: true,
+      revenue: true,
       microsite: {
         select: {
           supplierId: true,
@@ -613,7 +613,7 @@ async function main() {
       countryCodes: countryCodes.join(', '),
       status: campaign.status,
       spend: campaign.totalSpend ? Number(campaign.totalSpend).toFixed(2) : '0.00',
-      revenue: campaign.totalRevenue ? Number(campaign.totalRevenue).toFixed(2) : '0.00',
+      revenue: campaign.revenue ? Number(campaign.revenue).toFixed(2) : '0.00',
     });
 
     // Update DB

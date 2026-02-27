@@ -372,7 +372,7 @@ class MigrationMetaClient {
  */
 function computeProfitabilityScore(campaign) {
   const spend = Number(campaign.totalSpend || 0);
-  const revenue = Number(campaign.totalRevenue || 0);
+  const revenue = Number(campaign.revenue || 0);
 
   if (spend === 0) return 25; // No data — default to low tier
 
@@ -478,9 +478,9 @@ async function main() {
       landingPageType: true,
       geoTargets: true,
       totalSpend: true,
-      totalRevenue: true,
+      revenue: true,
       totalClicks: true,
-      totalConversions: true,
+      conversions: true,
       micrositeId: true,
       siteId: true,
       proposalData: true,
@@ -665,8 +665,8 @@ async function main() {
     for (const adSet of plan.adSets) {
       // Sort by performance
       const sorted = [...adSet.campaigns].sort((a, b) => {
-        const roasA = Number(a.totalRevenue || 0) / Math.max(Number(a.totalSpend || 0), 0.01);
-        const roasB = Number(b.totalRevenue || 0) / Math.max(Number(b.totalSpend || 0), 0.01);
+        const roasA = Number(a.revenue || 0) / Math.max(Number(a.totalSpend || 0), 0.01);
+        const roasB = Number(b.revenue || 0) / Math.max(Number(b.totalSpend || 0), 0.01);
         return roasB - roasA;
       });
       const topCampaigns = sorted.slice(0, MAX_ADS_PER_ADSET);
@@ -901,8 +901,8 @@ async function main() {
 
       // Select top-performing campaigns (by ROAS)
       const sortedCampaigns = [...adSet.campaigns].sort((a, b) => {
-        const roasA = Number(a.totalRevenue || 0) / Math.max(Number(a.totalSpend || 0), 0.01);
-        const roasB = Number(b.totalRevenue || 0) / Math.max(Number(b.totalSpend || 0), 0.01);
+        const roasA = Number(a.revenue || 0) / Math.max(Number(a.totalSpend || 0), 0.01);
+        const roasB = Number(b.revenue || 0) / Math.max(Number(b.totalSpend || 0), 0.01);
         return roasB - roasA;
       });
       const topCampaigns = sortedCampaigns.slice(0, MAX_ADS_PER_ADSET);
