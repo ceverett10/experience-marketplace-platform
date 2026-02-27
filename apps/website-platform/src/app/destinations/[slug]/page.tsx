@@ -110,13 +110,14 @@ async function getTopExperiences(
  */
 export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const { slug } = await params;
+  const fullSlug = `destinations/${slug}`;
   const sp = await searchParams;
   const isPpc = isPaidTraffic(sp);
   const headersList = await headers();
   const hostname = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
   const site = await getSiteFromHostname(hostname);
 
-  const destination = await getDestinationPage(site.id, slug);
+  const destination = await getDestinationPage(site.id, fullSlug);
 
   if (!destination) {
     return {
@@ -174,13 +175,14 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
  */
 export default async function DestinationPage({ params, searchParams }: Props) {
   const { slug } = await params;
+  const fullSlug = `destinations/${slug}`;
   const sp = await searchParams;
   const isPpc = isPaidTraffic(sp);
   const headersList = await headers();
   const hostname = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
   const site = await getSiteFromHostname(hostname);
 
-  const destination = await getDestinationPage(site.id, slug);
+  const destination = await getDestinationPage(site.id, fullSlug);
 
   if (!destination) {
     notFound();
