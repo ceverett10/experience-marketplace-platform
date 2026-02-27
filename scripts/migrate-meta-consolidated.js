@@ -289,8 +289,9 @@ class MigrationMetaClient {
             await new Promise((r) => setTimeout(r, waitSec * 1000));
             continue;
           }
+          const detail = err.error_user_msg || err.error_user_title || '';
           throw new Error(
-            `Meta API error [${err.code}/${err.error_subcode || 'n/a'}]: ${err.message}`
+            `Meta API error [${err.code}/${err.error_subcode || 'n/a'}]: ${err.message}${detail ? ' — ' + detail : ''}`
           );
         }
         return data;
@@ -338,16 +339,16 @@ class MigrationMetaClient {
   }
 
   async createCampaign(config) {
-    return rateLimitedCall(() =>
-      this.apiCall('POST', `act_${this.adAccountId}/campaigns`, {
-        name: config.name,
-        objective: 'OUTCOME_SALES',
-        status: config.status || 'PAUSED',
-        special_ad_categories: '[]',
-        is_adset_budget_sharing_enabled: 'true', // CBO enabled
-        daily_budget: Math.round(config.dailyBudget * 100), // cents
-      })
-    );
+    const params = {
+      name: config.name,
+      objective: 'OUTCOME_SALES',
+      status: config.status || 'PAUSED',
+      special_ad_categories: '[]',
+      budget_rebalance_flag: 'true', // CBO / Advantage Campaign Budget
+      daily_budget: Math.round(config.dailyBudget * 100).toString(), // pence/cents as string
+    };
+    console.info(`    Campaign params: ${JSON.stringify(params)}`);
+    return rateLimitedCall(() => this.apiCall('POST', `act_${this.adAccountId}/campaigns`, params));
   }
 
   async createAdSet(config) {
