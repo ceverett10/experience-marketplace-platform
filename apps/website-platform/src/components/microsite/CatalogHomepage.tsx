@@ -92,9 +92,9 @@ export function CatalogHomepage({
   const ppcDestination = site.micrositeContext?.supplierCities?.[0];
   const cheapestExperience =
     isPpc && experiences.length > 0
-      ? experiences.reduce(
-          (min, e) => (e.price.amount < min.price.amount ? e : min),
-          experiences[0]
+      ? experiences.reduce<ExperienceListItem | undefined>(
+          (min, e) => (!min || e.price.amount < min.price.amount ? e : min),
+          undefined
         )
       : null;
 
