@@ -925,18 +925,41 @@ async function main() {
     let platformCampaignId;
 
     if (existingParent) {
-      console.info(`\n  ${plan.name} — parent exists (${existingParent.id}), reusing`);
-      parentId = existingParent.id;
-      platformCampaignId = existingParent.platformCampaignId;
-
-      // Ensure bid strategy is set on the existing campaign (may have been created without it)
-      if (platformCampaignId && plan.bidStrategy) {
-        await metaClient.updateCampaign(platformCampaignId, {
-          bidStrategy: plan.bidStrategy,
-          roasFloor: plan.roasFloor,
+      // Check if the existing campaign has the correct bid strategy
+      const existingBidStrategy = existingParent.proposalData?.bidStrategy;
+      if (existingBidStrategy === plan.bidStrategy) {
+        console.info(`\n  ${plan.name} — parent exists with correct bid strategy, reusing`);
+        parentId = existingParent.id;
+        platformCampaignId = existingParent.platformCampaignId;
+      } else {
+        // Bid strategy mismatch — can't update CBO campaigns. Delete and recreate.
+        console.info(
+          `\n  ${plan.name} — parent exists but bid strategy mismatch (${existingBidStrategy} vs ${plan.bidStrategy}), recreating`
+        );
+        // Pause orphaned Meta campaign
+        if (existingParent.platformCampaignId) {
+          try {
+            await metaClient.updateCampaign(existingParent.platformCampaignId, {});
+            // Just pausing — set status
+            await rateLimitedCall(() =>
+              metaClient.apiCall('POST', existingParent.platformCampaignId, { status: 'PAUSED' })
+            );
+            console.info(`    Paused orphaned Meta campaign ${existingParent.platformCampaignId}`);
+          } catch (err) {
+            console.warn(`    Could not pause orphaned campaign: ${err.message}`);
+          }
+        }
+        // Mark old DB record as completed
+        await prisma.adCampaign.update({
+          where: { id: existingParent.id },
+          data: { status: 'COMPLETED' },
         });
+        console.info(`    Marked old DB record ${existingParent.id} as COMPLETED`);
+        // Fall through to create new campaign below
       }
-    } else {
+    }
+
+    if (!parentId) {
       // Create campaign on Meta
       console.info(`\n  Creating: ${plan.name} (£${plan.dailyBudget}/day, ${plan.bidStrategy})`);
       const result = await metaClient.createCampaign({
