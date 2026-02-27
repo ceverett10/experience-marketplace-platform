@@ -157,8 +157,8 @@ export async function enrichSupplierLocations(
   const whereClause = options?.supplierIds?.length
     ? { id: { in: options.supplierIds } }
     : {
-        // Must have a microsite
-        micrositeConfigs: { some: {} },
+        // Must have a microsite (one-to-one relation)
+        microsite: { isNot: null },
         // Must have empty cities (the main gap we're filling)
         OR: [{ cities: { isEmpty: true } }, { cities: { equals: [] } }],
       };
