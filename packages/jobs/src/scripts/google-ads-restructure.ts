@@ -904,6 +904,23 @@ async function createRestructuredCampaigns(dryRun: boolean, limit: number): Prom
       continue;
     }
 
+    // Skip if already created (idempotent re-run)
+    const existingCampaign = await prisma.adCampaign.findFirst({
+      where: {
+        platform: 'GOOGLE_SEARCH',
+        name: def.name,
+        platformCampaignId: { not: null },
+        status: { not: 'COMPLETED' },
+      },
+    });
+    if (existingCampaign) {
+      console.log(
+        `\nSkipping "${def.name}" — already exists (Google ID: ${existingCampaign.platformCampaignId})`
+      );
+      created++;
+      continue;
+    }
+
     console.log(
       `\n--- Creating campaign: "${def.name}" (${keywords.length} keywords, £${def.dailyBudgetGBP}/day) ---`
     );
