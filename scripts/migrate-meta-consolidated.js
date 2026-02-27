@@ -534,11 +534,13 @@ async function main() {
   const args = process.argv.slice(2);
   const apply = args.includes('--apply');
   const skipPause = args.includes('--skip-pause');
+  const skipFetch = args.includes('--skip-fetch');
   const activate = args.includes('--activate');
 
   console.info('=== Phase 3: Meta Ads Consolidated Migration ===');
   console.info(`Mode: ${apply ? 'APPLY' : 'DRY RUN'}`);
   console.info(`Skip pause: ${skipPause}`);
+  console.info(`Skip fetch: ${skipFetch}`);
   console.info(`Activate new campaigns: ${activate}`);
   console.info('');
   console.info('Strategy: MOVE existing ads into new ad sets (preserves social proof)');
@@ -704,7 +706,9 @@ async function main() {
     `  Campaigns with platform IDs: ${campaignsWithPlatformId.length} / ${legacy.length}`
   );
 
-  if (apply && campaignsWithPlatformId.length > 0) {
+  if (skipFetch) {
+    console.info('  [SKIP FETCH] Skipping ad fetching — will create new ads instead of moving');
+  } else if (apply && campaignsWithPlatformId.length > 0) {
     const metaClient = await MigrationMetaClient.create();
     let fetched = 0;
     let withAds = 0;
@@ -772,13 +776,17 @@ async function main() {
       let movable = 0;
       let needsCreate = 0;
       for (const c of topCampaigns) {
-        const existingAds = campaignAdMap.get(c.id);
-        if (existingAds && existingAds.length > 0) {
-          movable++;
-        } else if (c.platformCampaignId) {
-          movable++; // Assume we can fetch the ad during apply
+        if (skipFetch) {
+          needsCreate++; // All ads will be created fresh when skipping fetch
         } else {
-          needsCreate++;
+          const existingAds = campaignAdMap.get(c.id);
+          if (existingAds && existingAds.length > 0) {
+            movable++;
+          } else if (c.platformCampaignId) {
+            movable++; // Assume we can fetch the ad during apply
+          } else {
+            needsCreate++;
+          }
         }
       }
 
