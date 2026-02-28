@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import Script from 'next/script';
 import { cookies, headers } from 'next/headers';
 import { Inter, Playfair_Display } from 'next/font/google';
 import { getSiteFromHostname, generateBrandCSSVariables } from '@/lib/tenant';
@@ -128,6 +129,22 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         {brandCSS && <style dangerouslySetInnerHTML={{ __html: brandCSS }} />}
+        {/* Google tag (gtag.js) - server-rendered for tag verification crawlers */}
+        {(site.seoConfig?.gaMeasurementId || site.seoConfig?.googleAdsId) && (
+          <>
+            <Script
+              src={`https://www.googletagmanager.com/gtag/js?id=${site.seoConfig?.gaMeasurementId || site.seoConfig?.googleAdsId}`}
+              strategy="beforeInteractive"
+            />
+            <Script
+              id="gtag-init"
+              strategy="beforeInteractive"
+              dangerouslySetInnerHTML={{
+                __html: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());${site.seoConfig?.gaMeasurementId ? `gtag('config','${site.seoConfig.gaMeasurementId}',{send_page_view:true});` : ''}${site.seoConfig?.googleAdsId ? `gtag('config','${site.seoConfig.googleAdsId}');` : ''}`,
+              }}
+            />
+          </>
+        )}
       </head>
       <body className="min-h-screen bg-white font-sans antialiased">
         <SiteProvider site={site}>
