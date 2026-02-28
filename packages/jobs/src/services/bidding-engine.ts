@@ -289,6 +289,8 @@ export async function calculateAllSiteProfitability(): Promise<SiteProfitability
  * so they can be mixed into the same pipeline as main sites.
  */
 export async function calculateMicrositeProfitability(): Promise<SiteProfitability[]> {
+  // Query microsites WITHOUT nested analyticsSnapshots to avoid hitting
+  // the 32767 bind-variable limit on large deployments.
   const microsites = await prisma.micrositeConfig.findMany({
     where: { status: 'ACTIVE' },
     select: {
@@ -297,17 +299,33 @@ export async function calculateMicrositeProfitability(): Promise<SiteProfitabili
       fullDomain: true,
       homepageConfig: true,
       discoveryConfig: true,
-      analyticsSnapshots: {
-        where: {
-          date: { gte: new Date(Date.now() - LOOKBACK_DAYS * 24 * 60 * 60 * 1000) },
-        },
-        orderBy: { date: 'desc' },
-      },
     },
   });
 
   if (microsites.length === 0) return [];
   console.info(`[BiddingEngine] Calculating profitability for ${microsites.length} microsites`);
+
+  // Batch-fetch analytics session totals per microsite (avoids 32767 bind limit)
+  const analyticsLookback = new Date(Date.now() - LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
+  const DB_BATCH = 10_000;
+  const sessionsByMicrosite = new Map<string, number>();
+
+  for (let i = 0; i < microsites.length; i += DB_BATCH) {
+    const batchIds = microsites.slice(i, i + DB_BATCH).map((m) => m.id);
+    const grouped = await prisma.micrositeAnalyticsSnapshot.groupBy({
+      by: ['micrositeId'],
+      where: {
+        micrositeId: { in: batchIds },
+        date: { gte: analyticsLookback },
+      },
+      _sum: { sessions: true },
+    });
+    for (const row of grouped) {
+      if (row.micrositeId && row._sum.sessions != null) {
+        sessionsByMicrosite.set(row.micrositeId, row._sum.sessions);
+      }
+    }
+  }
 
   // Get portfolio-wide averages as fallback (includes both site and microsite bookings)
   const lookbackDate = new Date();
@@ -337,42 +355,61 @@ export async function calculateMicrositeProfitability(): Promise<SiteProfitabili
     ? Number(productAvg._avg.priceFrom)
     : PAID_TRAFFIC_CONFIG.defaults.aov;
 
-  const profiles: SiteProfitability[] = [];
+  // Batch-fetch per-microsite booking aggregates (avoids 32k+ individual queries)
+  const bookingsByMicrosite = new Map<
+    string,
+    { count: number; avgAmount: number | null; avgCommission: number | null }
+  >();
 
-  for (const ms of microsites) {
-    // Calculate conversion rate from microsite analytics.
-    const totalSessions = ms.analyticsSnapshots.reduce((s, a) => s + a.sessions, 0);
-    const conversionRate =
-      totalSessions >= MIN_SESSIONS_FOR_CVR
-        ? PAID_TRAFFIC_CONFIG.defaults.cvr * 1.2 // Slight niche boost with real data
-        : PAID_TRAFFIC_CONFIG.defaults.cvr; // 1.5% default
-
-    // Try microsite-specific booking data first, then fall back to portfolio averages
-    const msBookingAgg = await prisma.booking.aggregate({
+  for (let i = 0; i < microsites.length; i += DB_BATCH) {
+    const batchIds = microsites.slice(i, i + DB_BATCH).map((m) => m.id);
+    const bookingGrouped = await prisma.booking.groupBy({
+      by: ['micrositeId'],
       where: {
-        micrositeId: ms.id,
+        micrositeId: { in: batchIds },
         status: { in: ['CONFIRMED', 'COMPLETED'] },
         createdAt: { gte: lookbackDate },
       },
       _avg: { totalAmount: true, commissionRate: true },
       _count: true,
     });
+    for (const row of bookingGrouped) {
+      if (row.micrositeId) {
+        bookingsByMicrosite.set(row.micrositeId, {
+          count: row._count,
+          avgAmount: row._avg.totalAmount ? Number(row._avg.totalAmount) : null,
+          avgCommission: row._avg.commissionRate,
+        });
+      }
+    }
+  }
 
-    const hasMsBookings = msBookingAgg._count >= MIN_BOOKINGS_FOR_AOV;
+  const profiles: SiteProfitability[] = [];
+
+  for (const ms of microsites) {
+    // Calculate conversion rate from microsite analytics.
+    const totalSessions = sessionsByMicrosite.get(ms.id) ?? 0;
+    const conversionRate =
+      totalSessions >= MIN_SESSIONS_FOR_CVR
+        ? PAID_TRAFFIC_CONFIG.defaults.cvr * 1.2 // Slight niche boost with real data
+        : PAID_TRAFFIC_CONFIG.defaults.cvr; // 1.5% default
+
+    // Use pre-fetched microsite booking data, falling back to portfolio averages
+    const msBooking = bookingsByMicrosite.get(ms.id);
+    const hasMsBookings = (msBooking?.count ?? 0) >= MIN_BOOKINGS_FOR_AOV;
     const hasPortfolioBookings = portfolioAvg._count >= MIN_BOOKINGS_FOR_AOV;
 
-    const avgOrderValue = hasMsBookings
-      ? Number(msBookingAgg._avg.totalAmount)
-      : hasPortfolioBookings
-        ? portfolioAov
-        : catalogAvg;
+    const avgOrderValue =
+      hasMsBookings && msBooking?.avgAmount
+        ? msBooking.avgAmount
+        : hasPortfolioBookings
+          ? portfolioAov
+          : catalogAvg;
 
     const avgCommissionRate =
-      hasMsBookings && msBookingAgg._avg.commissionRate
-        ? msBookingAgg._avg.commissionRate
-        : portfolioCommission;
+      hasMsBookings && msBooking?.avgCommission ? msBooking.avgCommission : portfolioCommission;
 
-    const bookingSampleSize = hasMsBookings ? msBookingAgg._count : portfolioAvg._count;
+    const bookingSampleSize = hasMsBookings ? msBooking!.count : portfolioAvg._count;
 
     const commissionDecimal = avgCommissionRate / 100;
     const revenuePerClick = avgOrderValue * conversionRate * commissionDecimal;

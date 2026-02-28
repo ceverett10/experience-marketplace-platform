@@ -1,6 +1,5 @@
 'use client';
 
-import Script from 'next/script';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect } from 'react';
 
@@ -10,16 +9,14 @@ interface GoogleAnalyticsProps {
 }
 
 /**
- * Google Analytics 4 + Google Ads tag component with SPA route change tracking.
- * Tracks page views on both initial load and client-side navigation.
- * Loads gtag.js when either measurementId or googleAdsId is provided.
+ * Google Analytics 4 + Google Ads SPA route change tracking.
+ * The gtag.js script is loaded server-side in layout.tsx <head> for
+ * tag verification compatibility. This component only handles
+ * client-side navigation page view tracking.
  */
-export function GoogleAnalytics({ measurementId, googleAdsId }: GoogleAnalyticsProps) {
+export function GoogleAnalytics({ measurementId }: GoogleAnalyticsProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-
-  // The primary tag ID used to load gtag.js — prefer GA4 measurement ID, fall back to Google Ads ID
-  const primaryTagId = measurementId || googleAdsId;
 
   // Track page views on route changes (SPA navigation)
   useEffect(() => {
@@ -43,25 +40,6 @@ export function GoogleAnalytics({ measurementId, googleAdsId }: GoogleAnalyticsP
     }
   }, [pathname, searchParams, measurementId]);
 
-  if (!primaryTagId) {
-    return null;
-  }
-
-  return (
-    <>
-      <Script
-        src={`https://www.googletagmanager.com/gtag/js?id=${primaryTagId}`}
-        strategy="afterInteractive"
-      />
-      <Script id="google-analytics" strategy="afterInteractive">
-        {`
-          window.dataLayer = window.dataLayer || [];
-          function gtag(){dataLayer.push(arguments);}
-          gtag('js', new Date());
-          ${measurementId ? `gtag('config', '${measurementId}', { page_path: window.location.pathname, send_page_view: true });` : ''}
-          ${googleAdsId ? `gtag('config', '${googleAdsId}');` : ''}
-        `}
-      </Script>
-    </>
-  );
+  // No rendering needed — gtag.js is loaded in layout.tsx <head>
+  return null;
 }
