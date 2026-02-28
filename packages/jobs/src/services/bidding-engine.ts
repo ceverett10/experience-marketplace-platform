@@ -1195,9 +1195,6 @@ export async function scoreCampaignOpportunities(
 
       if (brandedEntries) {
         for (const { domain: brandedDomain, siteId: brandedSiteId } of brandedEntries) {
-          // Skip if branded site is the same as the keyword's assigned site
-          if (brandedSiteId === siteId && !matchedMicrosite) continue;
-
           const brandedPages = pagesBySite.get(brandedSiteId) ?? [];
           // Find destination page matching this keyword's city
           const destPage = brandedPages.find((p) => {
