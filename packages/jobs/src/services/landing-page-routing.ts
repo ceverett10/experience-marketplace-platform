@@ -370,10 +370,13 @@ export async function loadPageCaches(
   pagesByMicrosite: Map<string, PageCacheEntry[]>;
   collectionsByMicrosite: Map<string, CollectionCacheEntry[]>;
 }> {
-  const [sitePages, micrositePages, collections] = await Promise.all([
-    // Pages belonging to main sites
+  // Batch size to stay under PostgreSQL's 32767 bind-variable limit
+  const DB_BATCH = 10_000;
+
+  // Pages belonging to main sites (usually < 100 sites, no batching needed)
+  const sitePages =
     siteIds.length > 0
-      ? prisma.page.findMany({
+      ? await prisma.page.findMany({
           where: { siteId: { in: siteIds }, status: 'PUBLISHED' },
           select: {
             siteId: true,
@@ -384,36 +387,49 @@ export async function loadPageCaches(
             holibobCategoryId: true,
           },
         })
-      : Promise.resolve([]),
-    // Pages belonging to microsites
-    micrositeIds.length > 0
-      ? prisma.page.findMany({
-          where: { micrositeId: { in: micrositeIds }, status: 'PUBLISHED' },
-          select: {
-            micrositeId: true,
-            slug: true,
-            type: true,
-            title: true,
-            holibobLocationId: true,
-            holibobCategoryId: true,
-          },
-        })
-      : Promise.resolve([]),
-    // Collections (belong to microsites)
-    micrositeIds.length > 0
-      ? prisma.curatedCollection.findMany({
-          where: { micrositeId: { in: micrositeIds }, isActive: true },
-          select: {
-            micrositeId: true,
-            slug: true,
-            name: true,
-            collectionType: true,
-            seasonalMonths: true,
-            products: { select: { id: true } },
-          },
-        })
-      : Promise.resolve([]),
-  ]);
+      : [];
+
+  // Pages & collections belonging to microsites — batched for 30k+ microsites
+  type MsPage = (typeof sitePages)[number] & { micrositeId: string | null };
+  const micrositePages: MsPage[] = [];
+  const collections: {
+    micrositeId: string;
+    slug: string;
+    name: string;
+    collectionType: string;
+    seasonalMonths: number[];
+    products: { id: string }[];
+  }[] = [];
+
+  for (let i = 0; i < micrositeIds.length; i += DB_BATCH) {
+    const batchIds = micrositeIds.slice(i, i + DB_BATCH);
+    const [batchPages, batchCollections] = await Promise.all([
+      prisma.page.findMany({
+        where: { micrositeId: { in: batchIds }, status: 'PUBLISHED' },
+        select: {
+          micrositeId: true,
+          slug: true,
+          type: true,
+          title: true,
+          holibobLocationId: true,
+          holibobCategoryId: true,
+        },
+      }),
+      prisma.curatedCollection.findMany({
+        where: { micrositeId: { in: batchIds }, isActive: true },
+        select: {
+          micrositeId: true,
+          slug: true,
+          name: true,
+          collectionType: true,
+          seasonalMonths: true,
+          products: { select: { id: true } },
+        },
+      }),
+    ]);
+    micrositePages.push(...(batchPages as MsPage[]));
+    collections.push(...batchCollections);
+  }
 
   const pagesBySite = new Map<string, PageCacheEntry[]>();
   for (const page of sitePages) {
