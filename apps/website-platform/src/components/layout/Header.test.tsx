@@ -9,7 +9,7 @@ describe('Header', () => {
     expect(screen.getByText('Experience Marketplace')).toBeInTheDocument();
   });
 
-  it('should render text logo even when logoUrl is provided', () => {
+  it('should render logo image when logoUrl is provided', () => {
     const siteConfig = createMockSiteConfig({
       name: 'Test Site',
       brand: {
@@ -30,10 +30,9 @@ describe('Header', () => {
 
     renderWithProviders(<Header />, { siteConfig });
 
-    // Text-only logos — image logos are disabled
-    const siteName = screen.getByText('Test Site');
-    expect(siteName).toBeInTheDocument();
-    expect(siteName).toHaveStyle({ color: '#e11d48' });
+    const logoImg = screen.getByRole('img', { name: 'Test Site' });
+    expect(logoImg).toBeInTheDocument();
+    expect(logoImg).toHaveAttribute('src', 'https://example.com/logo.png');
   });
 
   it('should render navigation links', () => {
