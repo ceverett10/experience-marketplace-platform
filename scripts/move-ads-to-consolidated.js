@@ -484,7 +484,7 @@ async function main() {
     where: {
       platform: 'FACEBOOK',
       parentCampaignId: null,
-      status: 'COMPLETED',
+      status: { in: ['ACTIVE', 'PAUSED', 'COMPLETED'] },
       platformCampaignId: { not: null },
       NOT: {
         proposalData: { path: ['consolidatedCampaign'], equals: true },
