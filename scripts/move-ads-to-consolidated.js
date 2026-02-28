@@ -480,15 +480,14 @@ async function main() {
   }
 
   // Load legacy campaigns
-  const legacyCampaigns = await prisma.adCampaign.findMany({
+  // NOTE: Prisma's NOT + JSON path filter is buggy (returns 0 results),
+  // so we filter out consolidated campaigns in-memory instead.
+  const allLegacyCandidates = await prisma.adCampaign.findMany({
     where: {
       platform: 'FACEBOOK',
       parentCampaignId: null,
       status: { in: ['ACTIVE', 'PAUSED', 'COMPLETED'] },
       platformCampaignId: { not: null },
-      NOT: {
-        proposalData: { path: ['consolidatedCampaign'], equals: true },
-      },
     },
     select: {
       id: true,
@@ -502,6 +501,9 @@ async function main() {
       micrositeId: true,
     },
   });
+  const legacyCampaigns = allLegacyCandidates.filter(
+    (c) => c.proposalData?.consolidatedCampaign !== true
+  );
 
   console.info(`\n  Legacy campaigns with platformCampaignId: ${legacyCampaigns.length}`);
 
