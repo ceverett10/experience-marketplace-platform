@@ -904,7 +904,10 @@ async function createRestructuredCampaigns(dryRun: boolean, limit: number): Prom
       continue;
     }
 
-    // Skip if already created (idempotent re-run)
+    let campaignId: string | undefined;
+    let isResuming = false;
+
+    // Check if campaign already exists (idempotent re-run / resume)
     const existingCampaign = await prisma.adCampaign.findFirst({
       where: {
         platform: 'GOOGLE_SEARCH',
@@ -914,97 +917,147 @@ async function createRestructuredCampaigns(dryRun: boolean, limit: number): Prom
       },
     });
     if (existingCampaign) {
+      // Check if ad groups are complete by comparing expected vs actual count
+      const expectedAdGroupCount = buildAdGroups(def.campaignGroup, keywords).length;
+      let actualAdGroupCount = 0;
+      try {
+        const countQuery = `SELECT ad_group.id FROM ad_group WHERE campaign.id = ${existingCampaign.platformCampaignId} AND ad_group.status != 'REMOVED'`;
+        const countRows = flattenStreamResults<{ adGroup: { id: string } }>(
+          await apiRequest(config, 'POST', '/googleAds:searchStream', { query: countQuery })
+        );
+        actualAdGroupCount = countRows.length;
+      } catch {
+        // If we can't check, assume complete
+        actualAdGroupCount = expectedAdGroupCount;
+      }
+
+      if (actualAdGroupCount >= expectedAdGroupCount) {
+        console.log(
+          `\nSkipping "${def.name}" — fully created (Google ID: ${existingCampaign.platformCampaignId}, ${actualAdGroupCount} ad groups)`
+        );
+        created++;
+        continue;
+      }
+
+      // Campaign exists but ad groups are incomplete — resume ad group creation
       console.log(
-        `\nSkipping "${def.name}" — already exists (Google ID: ${existingCampaign.platformCampaignId})`
+        `\n--- Resuming "${def.name}" (Google ID: ${existingCampaign.platformCampaignId}) — ${actualAdGroupCount}/${expectedAdGroupCount} ad groups ---`
       );
-      created++;
-      continue;
+      campaignId = existingCampaign.platformCampaignId!;
+      isResuming = true;
     }
 
-    console.log(
-      `\n--- Creating campaign: "${def.name}" (${keywords.length} keywords, £${def.dailyBudgetGBP}/day) ---`
-    );
+    if (!isResuming) {
+      console.log(
+        `\n--- Creating campaign: "${def.name}" (${keywords.length} keywords, £${def.dailyBudgetGBP}/day) ---`
+      );
+    }
 
     try {
-      // Create budget
-      const budgetResult = (await apiRequest(config, 'POST', '/campaignBudgets:mutate', {
-        operations: [
-          {
-            create: {
-              name: `${def.name} Budget ${Date.now()}`,
-              amountMicros: (def.dailyBudgetGBP * 1_000_000).toString(),
-              deliveryMethod: 'STANDARD',
-            },
-          },
-        ],
-      })) as { results: Array<{ resourceName: string }> };
-
-      const budgetResourceName = budgetResult.results[0]?.resourceName;
-      if (!budgetResourceName) throw new Error('Failed to create budget');
-
-      // Create campaign with MAXIMIZE_CLICKS
-      const campaignResult = (await apiRequest(config, 'POST', '/campaigns:mutate', {
-        operations: [
-          {
-            create: {
-              name: def.name,
-              status: 'PAUSED',
-              advertisingChannelType: 'SEARCH',
-              campaignBudget: budgetResourceName,
-              targetSpend: {
-                cpcBidCeilingMicros: (def.maxCpcCapGBP * 1_000_000).toString(),
+      if (!isResuming) {
+        // Create budget
+        const budgetResult = (await apiRequest(config, 'POST', '/campaignBudgets:mutate', {
+          operations: [
+            {
+              create: {
+                name: `${def.name} Budget ${Date.now()}`,
+                amountMicros: (def.dailyBudgetGBP * 1_000_000).toString(),
+                deliveryMethod: 'STANDARD',
               },
-              networkSettings: {
-                targetGoogleSearch: true,
-                targetSearchNetwork: false,
-                targetContentNetwork: false,
-              },
-              containsEuPoliticalAdvertising: 'DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING',
             },
-          },
-        ],
-      })) as { results: Array<{ resourceName: string }> };
+          ],
+        })) as { results: Array<{ resourceName: string }> };
 
-      const campaignResourceName = campaignResult.results[0]?.resourceName;
-      if (!campaignResourceName) throw new Error('Failed to create campaign');
+        const budgetResourceName = budgetResult.results[0]?.resourceName;
+        if (!budgetResourceName) throw new Error('Failed to create budget');
 
-      const campaignId = campaignResourceName.split('/').pop()!;
-      console.log(`  Campaign created: ${campaignId}`);
-
-      // Set geo targeting (use PRESENCE, not PRESENCE_OR_INTEREST)
-      // Note: setCampaignGeoTargets uses PRESENCE_OR_INTEREST, so we set it directly
-      const geoTargeted = await setCampaignGeoTargetsWithPresence(
-        config,
-        campaignId,
-        def.geoTargets
-      );
-      console.log(`  Geo targets set: ${geoTargeted} locations`);
-
-      // Link shared negative keyword lists
-      for (const sharedSet of sharedSetIds) {
-        if (sharedSet.excludeFromGroups?.includes(def.campaignGroup)) continue;
-        try {
-          await apiRequest(config, 'POST', '/campaignSharedSets:mutate', {
-            operations: [
-              {
-                create: {
-                  campaign: campaignResourceName,
-                  sharedSet: `customers/${config.customerId}/sharedSets/${sharedSet.id}`,
+        // Create campaign with MAXIMIZE_CLICKS
+        const campaignResult = (await apiRequest(config, 'POST', '/campaigns:mutate', {
+          operations: [
+            {
+              create: {
+                name: def.name,
+                status: 'PAUSED',
+                advertisingChannelType: 'SEARCH',
+                campaignBudget: budgetResourceName,
+                targetSpend: {
+                  cpcBidCeilingMicros: (def.maxCpcCapGBP * 1_000_000).toString(),
                 },
+                networkSettings: {
+                  targetGoogleSearch: true,
+                  targetSearchNetwork: false,
+                  targetContentNetwork: false,
+                },
+                containsEuPoliticalAdvertising: 'DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING',
               },
-            ],
-          });
-        } catch (error) {
-          console.error(
-            `  Warning: Failed to link negative list "${sharedSet.name}" to campaign:`,
-            error instanceof Error ? error.message : error
-          );
+            },
+          ],
+        })) as { results: Array<{ resourceName: string }> };
+
+        const campaignResourceName = campaignResult.results[0]?.resourceName;
+        if (!campaignResourceName) throw new Error('Failed to create campaign');
+
+        campaignId = campaignResourceName.split('/').pop()!;
+        console.log(`  Campaign created: ${campaignId}`);
+
+        // Set geo targeting (use PRESENCE, not PRESENCE_OR_INTEREST)
+        const geoTargeted = await setCampaignGeoTargetsWithPresence(
+          config,
+          campaignId,
+          def.geoTargets
+        );
+        console.log(`  Geo targets set: ${geoTargeted} locations`);
+
+        // Link shared negative keyword lists
+        const campaignResName = `customers/${config.customerId}/campaigns/${campaignId}`;
+        for (const sharedSet of sharedSetIds) {
+          if (sharedSet.excludeFromGroups?.includes(def.campaignGroup)) continue;
+          try {
+            await apiRequest(config, 'POST', '/campaignSharedSets:mutate', {
+              operations: [
+                {
+                  create: {
+                    campaign: campaignResName,
+                    sharedSet: `customers/${config.customerId}/sharedSets/${sharedSet.id}`,
+                  },
+                },
+              ],
+            });
+          } catch (error) {
+            console.error(
+              `  Warning: Failed to link negative list "${sharedSet.name}" to campaign:`,
+              error instanceof Error ? error.message : error
+            );
+          }
         }
       }
+
+      if (!campaignId) throw new Error('campaignId not set after campaign creation');
 
       // Build ad groups
       const adGroups = buildAdGroups(def.campaignGroup, keywords);
       console.log(`  Creating ${adGroups.length} ad groups...`);
+
+      // Query existing ad groups for this campaign to support resume
+      const existingAdGroupNames = new Set<string>();
+      try {
+        const gaqlQuery = `SELECT ad_group.name FROM ad_group WHERE campaign.id = ${campaignId} AND ad_group.status != 'REMOVED'`;
+        const adGroupRows = flattenStreamResults<{ adGroup: { name: string } }>(
+          await apiRequest(config, 'POST', '/googleAds:searchStream', { query: gaqlQuery })
+        );
+        for (const row of adGroupRows) {
+          existingAdGroupNames.add(row.adGroup.name);
+        }
+        if (existingAdGroupNames.size > 0) {
+          console.log(
+            `  Found ${existingAdGroupNames.size} existing ad groups — will skip duplicates`
+          );
+        }
+      } catch (error) {
+        console.error(
+          '  Warning: Could not query existing ad groups, proceeding without resume check'
+        );
+      }
 
       const adGroupConfigs: Array<{
         landingPagePath: string;
@@ -1012,7 +1065,21 @@ async function createRestructuredCampaigns(dryRun: boolean, limit: number): Prom
         primaryKeyword: string;
       }> = [];
 
+      let skippedAdGroups = 0;
+      let createdAdGroups = 0;
+
       for (const ag of adGroups) {
+        // Skip if ad group already exists (idempotent resume)
+        if (existingAdGroupNames.has(ag.name)) {
+          adGroupConfigs.push({
+            landingPagePath: `/${def.campaignGroup.toLowerCase().replace(/\s+/g, '-')}`,
+            keywords: ag.keywords,
+            primaryKeyword: ag.primaryKeyword,
+          });
+          skippedAdGroups++;
+          continue;
+        }
+
         try {
           // Create ad group with keywords (PHRASE + EXACT match per keyword)
           const keywordsWithMatchTypes: Array<{ text: string; matchType: 'EXACT' | 'PHRASE' }> = [];
@@ -1061,6 +1128,7 @@ async function createRestructuredCampaigns(dryRun: boolean, limit: number): Prom
             primaryKeyword: ag.primaryKeyword,
           });
 
+          createdAdGroups++;
           console.log(`    Ad group "${ag.name}": ${ag.keywords.length} keywords, RSA created`);
         } catch (error) {
           console.error(
@@ -1068,6 +1136,12 @@ async function createRestructuredCampaigns(dryRun: boolean, limit: number): Prom
             error instanceof Error ? error.message : error
           );
         }
+      }
+
+      if (skippedAdGroups > 0) {
+        console.log(
+          `  Resumed: ${skippedAdGroups} existing ad groups skipped, ${createdAdGroups} new ad groups created`
+        );
       }
 
       // Add campaign-level negative keywords
@@ -1084,35 +1158,50 @@ async function createRestructuredCampaigns(dryRun: boolean, limit: number): Prom
         );
       }
 
-      // Record in DB
-      await prisma.adCampaign.create({
-        data: {
-          siteId: primarySite.id,
+      // Record in DB (upsert for idempotent resume)
+      const dbData = {
+        siteId: primarySite.id,
+        platform: 'GOOGLE_SEARCH' as const,
+        name: def.name,
+        status: 'PAUSED' as const,
+        dailyBudget: def.dailyBudgetGBP,
+        maxCpc: def.maxCpcCapGBP,
+        keywords,
+        targetUrl: `https://${primarySite.primaryDomain || 'experiencess.com'}`,
+        geoTargets: def.geoTargets,
+        utmSource: 'google_ads',
+        utmMedium: 'cpc',
+        utmCampaign: `restructured_${def.name.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`,
+        platformCampaignId: campaignId,
+        campaignGroup: def.campaignGroup,
+        audiences: { adGroups: adGroupConfigs },
+        proposalData: {
+          restructureVersion: '2026-02',
+          bidStrategy: 'MAXIMIZE_CLICKS',
+          maxCpcCap: def.maxCpcCapGBP,
+          phase: 1,
+          keywordCount: keywords.length,
+          adGroupCount: adGroups.length,
+          createdAt: new Date().toISOString(),
+        },
+      };
+
+      const existingDbRecord = await prisma.adCampaign.findFirst({
+        where: {
           platform: 'GOOGLE_SEARCH',
-          name: def.name,
-          status: 'PAUSED',
-          dailyBudget: def.dailyBudgetGBP,
-          maxCpc: def.maxCpcCapGBP,
-          keywords,
-          targetUrl: `https://${primarySite.primaryDomain || 'experiencess.com'}`,
-          geoTargets: def.geoTargets,
-          utmSource: 'google_ads',
-          utmMedium: 'cpc',
-          utmCampaign: `restructured_${def.name.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`,
           platformCampaignId: campaignId,
-          campaignGroup: def.campaignGroup,
-          audiences: { adGroups: adGroupConfigs },
-          proposalData: {
-            restructureVersion: '2026-02',
-            bidStrategy: 'MAXIMIZE_CLICKS',
-            maxCpcCap: def.maxCpcCapGBP,
-            phase: 1,
-            keywordCount: keywords.length,
-            adGroupCount: adGroups.length,
-            createdAt: new Date().toISOString(),
-          },
+          status: { not: 'COMPLETED' },
         },
       });
+
+      if (existingDbRecord) {
+        await prisma.adCampaign.update({
+          where: { id: existingDbRecord.id },
+          data: { audiences: dbData.audiences, proposalData: dbData.proposalData },
+        });
+      } else {
+        await prisma.adCampaign.create({ data: dbData });
+      }
 
       created++;
       console.log(`  ✓ Campaign "${def.name}" created and recorded (Google ID: ${campaignId})`);
