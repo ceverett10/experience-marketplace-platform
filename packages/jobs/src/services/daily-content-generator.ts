@@ -5,6 +5,7 @@
  */
 
 import { prisma, PageType, PageStatus, SiteStatus } from '@experience-marketplace/database';
+import { createHolibobClient } from '@experience-marketplace/holibob-api';
 import { addJob } from '../queues/index.js';
 import { getPagesNeedingOptimization } from './seo-health.js';
 
@@ -410,6 +411,20 @@ export async function generateDestinationLandingForSite(
       generated: false,
       queued: false,
       reason: 'All destinations covered',
+    };
+  }
+
+  // Validate that products exist for this destination before creating the page
+  const hasProducts = await validateDestinationProducts(targetLocation);
+  if (!hasProducts) {
+    console.info(`[Destination] Skipping "${targetLocation}" for ${site.name} — no products found`);
+    return {
+      siteId,
+      siteName: site.name,
+      contentType: 'destination_landing',
+      generated: false,
+      queued: false,
+      reason: `No products found for ${targetLocation}`,
     };
   }
 
@@ -942,6 +957,38 @@ function generateFallbackQuestions(niche: string, location?: string): string[] {
     return base.map((q) => q.replace('?', ` in ${location}?`));
   }
   return base;
+}
+
+/**
+ * Check if the Holibob Discovery API returns products for a destination.
+ * Used to prevent creating destination pages for locations with no inventory.
+ */
+async function validateDestinationProducts(location: string): Promise<boolean> {
+  const apiUrl = process.env['HOLIBOB_API_URL'];
+  const partnerId = process.env['HOLIBOB_PARTNER_ID'];
+  const apiKey = process.env['HOLIBOB_API_KEY'];
+  const apiSecret = process.env['HOLIBOB_API_SECRET'];
+
+  if (!apiUrl || !partnerId || !apiKey) {
+    // Can't validate — allow page creation (fail-open)
+    console.info('[Destination] Missing Holibob credentials, skipping product validation');
+    return true;
+  }
+
+  try {
+    const client = createHolibobClient({ apiUrl, partnerId, apiKey, apiSecret });
+    // Extract just the city name (strip country suffix like "London, England" → "London")
+    const cityName = location.includes(',') ? location.split(',')[0]!.trim() : location;
+    const response = await client.discoverProducts(
+      { freeText: cityName, currency: 'GBP' },
+      { pageSize: 1 }
+    );
+    return response.products.length > 0;
+  } catch (error) {
+    // Validation error — allow page creation (fail-open)
+    console.error('[Destination] Product validation error:', error);
+    return true;
+  }
 }
 
 function slugify(text: string): string {

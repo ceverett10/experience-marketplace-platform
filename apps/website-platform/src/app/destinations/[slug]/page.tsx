@@ -98,6 +98,42 @@ const CITY_COUNTRY_REDIRECTS: Record<string, string> = {
   vancouver: 'canada',
 };
 
+/**
+ * Known country/region suffixes used in standardized destination slugs.
+ * Built from CITY_COUNTRY_REDIRECTS values to strip country from "london-england" → "London".
+ */
+const KNOWN_COUNTRY_SUFFIXES = [...new Set(Object.values(CITY_COUNTRY_REDIRECTS))].sort(
+  (a, b) => b.length - a.length
+); // Longest first for greedy match
+
+/**
+ * Extract a clean city name from a standardized destination slug.
+ * Used for the Holibob Discovery API freeText parameter — passing just the city
+ * (not "city, country") gets better results from the API.
+ *
+ * Examples:
+ *   "london-england"        → "London"
+ *   "new-york-usa"          → "New York"
+ *   "prague-czech-republic" → "Prague"
+ *   "borough-market"        → "Borough Market" (no known country suffix)
+ */
+function extractCityFromSlug(slug: string): string {
+  for (const country of KNOWN_COUNTRY_SUFFIXES) {
+    if (slug.endsWith(`-${country}`)) {
+      const citySlug = slug.slice(0, -(country.length + 1));
+      return citySlug
+        .split('-')
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(' ');
+    }
+  }
+  // No known suffix — title-case the full slug
+  return slug
+    .split('-')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
+
 interface Props {
   params: Promise<{ slug: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -124,57 +160,56 @@ async function getDestinationPage(siteId: string, slug: string) {
 
 /**
  * Fetch top experiences from Holibob Product Discovery API.
- * Uses holibobLocationId (placeIds) when available, otherwise falls back to
- * freeText search using the destination name — matching the /experiences page pattern.
+ * Uses the same pattern as the /experiences page: freeText for WHERE (city name)
+ * and searchTerm for WHAT (site theme). No placeIds or categoryIds.
  */
 async function getTopExperiences(
   site: Awaited<ReturnType<typeof getSiteFromHostname>>,
-  destinationTitle: string,
+  slug: string,
   options?: {
-    locationId?: string | null;
     pageSize?: number;
-    categoryIds?: string[];
     searchTerm?: string;
   }
 ) {
-  // Extract a usable location name from the destination title
-  // e.g. "food tours in London, England" → "London, England"
-  // e.g. "Food Tours in Borough Market" → "Borough Market"
-  const locationName =
-    destinationTitle.replace(/^.*?\b(?:in|near|around)\s+/i, '') || destinationTitle;
+  // Extract clean city name from slug for the API's "where" parameter
+  // e.g. "london-england" → "London", "new-york-usa" → "New York"
+  const cityName = extractCityFromSlug(slug);
+  const pageSize = options?.pageSize ?? 9;
 
   const filter = {
-    // Prefer placeIds when available, fall back to freeText search
-    ...(options?.locationId ? { placeIds: [options.locationId] } : { freeText: locationName }),
+    freeText: cityName,
     currency: site.primaryCurrency ?? 'GBP',
-    ...(options?.categoryIds?.length ? { categoryIds: options.categoryIds } : {}),
     ...(options?.searchTerm ? { searchTerm: options.searchTerm } : {}),
   };
 
   console.info(
     '[Destination] getTopExperiences:',
-    JSON.stringify({
-      title: destinationTitle,
-      locationName,
-      locationId: options?.locationId ?? null,
-      searchTerm: options?.searchTerm ?? null,
-      filter,
-      pageSize: options?.pageSize ?? 9,
-    })
+    JSON.stringify({ slug, cityName, searchTerm: options?.searchTerm ?? null, filter, pageSize })
   );
 
   try {
     const client = getHolibobClient(site);
-    const response = await client.discoverProducts(filter, {
-      pageSize: options?.pageSize ?? 9,
-    });
+    let response = await client.discoverProducts(filter, { pageSize });
 
     console.info(
       '[Destination] discoverProducts returned',
       response.products.length,
       'products for',
-      locationName
+      cityName
     );
+
+    // Fallback: if 0 results with searchTerm, retry location-only
+    if (response.products.length === 0 && options?.searchTerm) {
+      console.info('[Destination] 0 products with searchTerm, retrying without');
+      const fallbackFilter = { freeText: cityName, currency: site.primaryCurrency ?? 'GBP' };
+      response = await client.discoverProducts(fallbackFilter, { pageSize });
+      console.info(
+        '[Destination] fallback returned',
+        response.products.length,
+        'products for',
+        cityName
+      );
+    }
 
     return response.products.map((product) => ({
       id: product.id,
@@ -307,14 +342,10 @@ export default async function DestinationPage({ params, searchParams }: Props) {
   }
 
   // PPC: show more products (24 vs 9) for more conversion opportunities
-  // Category filtering: use site's primaryCategory if set (for intent-based brand sites)
   // Search term: use site's configured search terms for themed sites (e.g. food-tour-guide.com)
-  const seoConfig = site.seoConfig as { primaryCategoryIds?: string[] } | null;
   const searchTerm = site.homepageConfig?.popularExperiences?.searchTerms?.[0];
-  const topExperiences = await getTopExperiences(site, destination.title, {
-    locationId: destination.holibobLocationId,
+  const topExperiences = await getTopExperiences(site, slug, {
     pageSize: isPpc ? 24 : 9,
-    categoryIds: seoConfig?.primaryCategoryIds,
     searchTerm,
   });
 
