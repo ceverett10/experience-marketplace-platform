@@ -184,6 +184,7 @@ class QueueRegistry {
       'SOCIAL_POST_PUBLISH',
       'SOCIAL_DAILY_POSTING',
       'CONTENT_OPTIMIZE', // Targets different pages/SEO issues under the same site
+      'CONTENT_GENERATE', // Each job targets a unique pageId within the same site
     ];
     if (siteId && !dedupExemptTypes.includes(jobType)) {
       try {
