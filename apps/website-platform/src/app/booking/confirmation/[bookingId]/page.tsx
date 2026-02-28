@@ -398,11 +398,11 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
           <p>
             Need help? Contact us at{' '}
             <a
-              href={`mailto:support@${host}`}
+              href="mailto:support@holibob.tech"
               className="font-medium hover:underline"
               style={{ color: primaryColor }}
             >
-              support@{host}
+              support@holibob.tech
             </a>
           </p>
         </div>
