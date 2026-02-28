@@ -44,9 +44,9 @@ export interface LogoGenerationResult {
   generatedAt: Date;
 }
 
-/** Logo dimensions */
-const LOGO_WIDTH = 800;
-const LOGO_HEIGHT = 200;
+/** Logo dimensions — 1600x400 for crisp retina rendering (displayed at ~384x96) */
+const LOGO_WIDTH = 1600;
+const LOGO_HEIGHT = 400;
 const FAVICON_SIZE = 192;
 const OG_WIDTH = 1200;
 const OG_HEIGHT = 630;

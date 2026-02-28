@@ -84,8 +84,8 @@ export function Footer() {
               <Image
                 src={brand.logoDarkUrl}
                 alt={site.name}
-                width={800}
-                height={200}
+                width={1600}
+                height={400}
                 className="h-14 w-auto"
               />
             ) : (

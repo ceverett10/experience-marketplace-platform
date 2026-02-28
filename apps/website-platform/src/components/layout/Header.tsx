@@ -104,16 +104,16 @@ export function Header() {
         </div>
       </div>
 
-      <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+      <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-2 sm:px-6 lg:px-8">
         {/* Logo */}
-        <div className="flex lg:flex-1">
+        <div className="flex items-center lg:flex-1">
           <Link href="/" className="-m-1.5 p-1.5">
             {brand?.logoUrl ? (
               <Image
                 src={brand.logoUrl}
                 alt={site.name}
-                width={800}
-                height={200}
+                width={1600}
+                height={400}
                 className="h-20 w-auto sm:h-24"
                 priority
               />
@@ -127,7 +127,7 @@ export function Header() {
             )}
           </Link>
           {isMicrosite && (
-            <span className="hidden items-center text-[11px] text-gray-400 sm:flex">
+            <span className="ml-3 hidden items-center text-[11px] text-gray-400 sm:flex">
               powered by{' '}
               <a
                 href="https://experiencess.com"
