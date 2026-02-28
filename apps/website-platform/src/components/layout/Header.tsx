@@ -112,9 +112,9 @@ export function Header() {
               <Image
                 src={brand.logoUrl}
                 alt={site.name}
-                width={400}
-                height={100}
-                className="h-14 w-auto"
+                width={800}
+                height={200}
+                className="h-20 w-auto sm:h-24"
                 priority
               />
             ) : (
