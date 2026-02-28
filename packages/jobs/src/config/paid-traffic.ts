@@ -151,6 +151,20 @@ export const PAID_TRAFFIC_CONFIG = {
     /** Profitability score threshold for General Tours Tier 1 vs Tier 2 */
     generalToursTier1Threshold: 50,
 
+    /** Campaign group → branded domain mapping for destination page ad sets */
+    campaignGroupDomains: {
+      'Food, Drink & Culinary': ['food-tour-guide.com'],
+      'Boats, Sailing & Water': ['water-tours.com'],
+      'Adventure & Outdoor': ['outdoorexploring.com'],
+      'Cultural & Sightseeing': ['cultural-tours.com'],
+      'General Tours – Tier 1': ['experiencess.com'],
+      'General Tours – Tier 2': ['experiencess.com'],
+      'Branded – Attraction Tickets': ['attractionbooking.com'],
+      'Branded – Harry Potter Tours': ['harry-potter-tours.com'],
+      'Branded – London Food Tours': ['london-food-tours.com'],
+      'Transfers & Transport': [],
+    } as Record<string, string[]>,
+
     /** Country code → region mapping (for ad set assignment within General Tours) */
     regionMap: {
       // UK & Ireland
