@@ -2,7 +2,12 @@
  * Shared utility functions for the Experience Marketplace Platform
  */
 
-export { getCategoryDisplayName, CATEGORY_DISPLAY_MAP } from './category-display-map.js';
+export {
+  getCategoryDisplayName,
+  getBestCategory,
+  CATEGORY_DISPLAY_MAP,
+  LOW_VALUE_CATEGORIES,
+} from './category-display-map.js';
 
 /**
  * Generates a URL-friendly slug from a string
