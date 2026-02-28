@@ -54,6 +54,7 @@ import {
 } from '../services/ad-creative-generator';
 import { checkAdCoherence, extractSearchTermsFromContent } from '../services/ad-coherence-checker';
 import { reviewImageForCampaign } from '../services/ad-image-reviewer';
+import { enrichGeoTargets } from '../utils/keyword-location';
 
 // --- Helpers -----------------------------------------------------------------
 
@@ -2601,7 +2602,7 @@ export async function handleBiddingEngineRun(job: Job): Promise<JobResult> {
               maxCpc: adGroup.maxBid,
               keywords: adGroup.keywords,
               targetUrl: adGroup.targetUrl,
-              geoTargets: ['GB', 'US', 'CA', 'AU', 'IE', 'NZ'],
+              geoTargets: enrichGeoTargets(adGroup.keywords, ['GB', 'US', 'CA', 'AU', 'IE', 'NZ']),
               utmSource: 'facebook_ads',
               utmMedium: 'cpc',
               utmCampaign,
@@ -2654,7 +2655,10 @@ export async function handleBiddingEngineRun(job: Job): Promise<JobResult> {
           maxCpc: group.maxBid,
           keywords: group.candidates.map((c) => c.keyword),
           targetUrl: group.primaryTargetUrl,
-          geoTargets: ['GB', 'US', 'CA', 'AU', 'IE', 'NZ'],
+          geoTargets: enrichGeoTargets(
+            group.candidates.map((c) => c.keyword),
+            ['GB', 'US', 'CA', 'AU', 'IE', 'NZ']
+          ),
           utmSource: group.platform === 'FACEBOOK' ? 'facebook_ads' : 'google_ads',
           utmMedium: 'cpc',
           utmCampaign: `auto_${(group.micrositeDomain || group.siteName).replace(/[.\s]+/g, '_').substring(0, 50)}`,
