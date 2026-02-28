@@ -219,6 +219,19 @@ export async function createSearchCampaign(campaignConfig: {
   name: string;
   dailyBudgetMicros: number; // Budget in micros (1 GBP = 1,000,000 micros)
   status?: 'ENABLED' | 'PAUSED';
+  /** Bidding strategy. Default: MANUAL_CPC for backward compatibility. */
+  bidStrategy?:
+    | 'MANUAL_CPC'
+    | 'MAXIMIZE_CLICKS'
+    | 'MAXIMIZE_CONVERSIONS'
+    | 'TARGET_CPA'
+    | 'TARGET_ROAS';
+  /** CPC bid ceiling in micros — used with MAXIMIZE_CLICKS (targetSpend). */
+  cpcBidCeilingMicros?: number;
+  /** Target CPA in micros — used with TARGET_CPA. */
+  targetCpaMicros?: number;
+  /** Target ROAS — used with TARGET_ROAS (e.g. 2.0 = 200% ROAS). */
+  targetRoas?: number;
 }): Promise<{ campaignId: string; budgetId: string } | null> {
   const config = getConfig();
   if (!config) {
@@ -246,25 +259,49 @@ export async function createSearchCampaign(campaignConfig: {
     const budgetResourceName = budgetResult.results[0]?.resourceName;
     if (!budgetResourceName) throw new Error('Failed to create budget');
 
-    // Step 2: Create campaign
+    // Step 2: Create campaign with selected bidding strategy
+    const bidStrategy = campaignConfig.bidStrategy || 'MANUAL_CPC';
+    const campaignCreate: Record<string, unknown> = {
+      name,
+      status: campaignConfig.status || 'PAUSED',
+      advertisingChannelType: 'SEARCH',
+      campaignBudget: budgetResourceName,
+      networkSettings: {
+        targetGoogleSearch: true,
+        targetSearchNetwork: true,
+        targetContentNetwork: false,
+      },
+      containsEuPoliticalAdvertising: 'DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING',
+    };
+
+    // Set bidding strategy field
+    switch (bidStrategy) {
+      case 'MAXIMIZE_CLICKS':
+        campaignCreate['targetSpend'] = campaignConfig.cpcBidCeilingMicros
+          ? { cpcBidCeilingMicros: campaignConfig.cpcBidCeilingMicros.toString() }
+          : {};
+        break;
+      case 'MAXIMIZE_CONVERSIONS':
+        campaignCreate['maximizeConversions'] = {};
+        break;
+      case 'TARGET_CPA':
+        campaignCreate['targetCpa'] = campaignConfig.targetCpaMicros
+          ? { targetCpaMicros: campaignConfig.targetCpaMicros.toString() }
+          : {};
+        break;
+      case 'TARGET_ROAS':
+        campaignCreate['targetRoas'] = campaignConfig.targetRoas
+          ? { targetRoas: campaignConfig.targetRoas }
+          : {};
+        break;
+      case 'MANUAL_CPC':
+      default:
+        campaignCreate['manualCpc'] = { enhancedCpcEnabled: false };
+        break;
+    }
+
     const campaignResult = (await apiRequest(config, 'POST', '/campaigns:mutate', {
-      operations: [
-        {
-          create: {
-            name,
-            status: campaignConfig.status || 'PAUSED',
-            advertisingChannelType: 'SEARCH',
-            campaignBudget: budgetResourceName,
-            manualCpc: { enhancedCpcEnabled: false },
-            networkSettings: {
-              targetGoogleSearch: true,
-              targetSearchNetwork: true,
-              targetContentNetwork: false,
-            },
-            containsEuPoliticalAdvertising: 'DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING',
-          },
-        },
-      ],
+      operations: [{ create: campaignCreate }],
     })) as { results: Array<{ resourceName: string }> };
 
     const campaignResourceName = campaignResult.results[0]?.resourceName;
