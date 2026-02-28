@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useSite, useBrand, useHomepageConfig } from '@/lib/site-context';
@@ -79,7 +80,17 @@ export function Footer() {
         <div className="xl:grid xl:grid-cols-3 xl:gap-8">
           {/* Brand section */}
           <div className="space-y-8">
-            <span className="text-2xl font-bold text-white">{site.name}</span>
+            {brand?.logoDarkUrl ? (
+              <Image
+                src={brand.logoDarkUrl}
+                alt={site.name}
+                width={200}
+                height={50}
+                className="h-10 w-auto"
+              />
+            ) : (
+              <span className="text-2xl font-bold text-white">{site.name}</span>
+            )}
             <p className="text-sm leading-6 text-gray-300">
               {brand?.tagline ??
                 site.description ??

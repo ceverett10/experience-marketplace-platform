@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { useState } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -106,28 +107,36 @@ export function Header() {
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
         {/* Logo */}
         <div className="flex lg:flex-1">
-          <Link href="/" className="-m-1.5 p-3">
-            <div className="flex items-baseline gap-2">
+          <Link href="/" className="-m-1.5 p-1.5">
+            {brand?.logoUrl ? (
+              <Image
+                src={brand.logoUrl}
+                alt={site.name}
+                width={200}
+                height={50}
+                className="h-10 w-auto"
+                priority
+              />
+            ) : (
               <span
                 className="text-xl font-bold"
                 style={{ color: brand?.primaryColor ?? '#6366f1' }}
               >
                 {site.name}
               </span>
-              {isMicrosite && (
-                <span className="hidden text-[11px] text-gray-400 sm:inline">
-                  powered by{' '}
-                  <a
-                    href="https://experiencess.com"
-                    className="text-gray-500 hover:text-gray-700 hover:underline"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    Experiencess.com
-                  </a>
-                </span>
-              )}
-            </div>
+            )}
           </Link>
+          {isMicrosite && (
+            <span className="hidden items-center text-[11px] text-gray-400 sm:flex">
+              powered by{' '}
+              <a
+                href="https://experiencess.com"
+                className="ml-1 text-gray-500 hover:text-gray-700 hover:underline"
+              >
+                Experiencess.com
+              </a>
+            </span>
+          )}
         </div>
 
         {/* Mobile menu button */}
