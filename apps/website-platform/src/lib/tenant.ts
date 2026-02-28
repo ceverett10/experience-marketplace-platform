@@ -422,7 +422,9 @@ export async function getSiteFromHostname(hostname: string): Promise<SiteConfig>
       primaryDomain: cleanHostname,
       isParentDomain: true,
       seoConfig: {
-        ...DEFAULT_SITE_CONFIG.seoConfig,
+        titleTemplate: DEFAULT_SITE_CONFIG.seoConfig!.titleTemplate,
+        defaultDescription: DEFAULT_SITE_CONFIG.seoConfig!.defaultDescription,
+        keywords: DEFAULT_SITE_CONFIG.seoConfig!.keywords,
         googleAdsId: process.env['GOOGLE_ADS_ID'] || null,
         googleAdsConversionAction: process.env['GOOGLE_ADS_CONVERSION_ACTION'] || null,
       },
