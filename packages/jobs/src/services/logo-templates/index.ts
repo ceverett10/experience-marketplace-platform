@@ -14,6 +14,7 @@ import { stackedTagline } from './stacked-tagline.js';
 import { uppercaseTrack } from './uppercase-track.js';
 import { minimalDot } from './minimal-dot.js';
 import { badgeOutline } from './badge-outline.js';
+import { combinationMark } from './combination-mark.js';
 
 export type { LogoTemplate, LogoTemplateParams, TemplateCustomization } from './types.js';
 
@@ -22,6 +23,7 @@ const ALL_TEMPLATES: LogoTemplate[] = [
   splitColor,
   underlineAccent,
   monogramLeft,
+  combinationMark,
   stackedTagline,
   uppercaseTrack,
   minimalDot,
