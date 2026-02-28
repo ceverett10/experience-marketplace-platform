@@ -243,69 +243,36 @@ class MetaClient {
    */
   async fetchAllAccountAds() {
     const allAds = [];
-    let url = `act_${this.adAccountId}/ads`;
-    const fields = 'id,name,status,campaign_id,adset_id,creative{id,object_story_spec}';
+    const fields = 'id,name,status,campaign_id,adset_id,creative{id}';
     let page = 1;
 
-    while (url) {
-      console.info(`    Fetching ads page ${page}...`);
-      const data = await rateLimitedCall(
-        () => this.apiCall('GET', url, page === 1 ? { fields, limit: 500 } : {}),
-        true
-      );
-      const ads = data.data || [];
-      allAds.push(...ads);
-      console.info(`    Got ${ads.length} ads (total: ${allAds.length})`);
+    // First page via apiCall
+    console.info(`    Fetching ads page ${page}...`);
+    const firstData = await rateLimitedCall(
+      () => this.apiCall('GET', `act_${this.adAccountId}/ads`, { fields, limit: 100 }),
+      true
+    );
+    const firstAds = firstData.data || [];
+    allAds.push(...firstAds);
+    console.info(`    Got ${firstAds.length} ads (total: ${allAds.length})`);
 
-      // Handle pagination
-      const nextUrl = data.paging?.next;
-      if (nextUrl) {
-        // Extract the path after the API version for the next call
-        const parsed = new URL(nextUrl);
-        url = parsed.pathname.replace(`/${this.apiVersion}/`, '') + parsed.search;
-        // For paginated calls, pass the full URL directly
-        page++;
-        // Use raw fetch for pagination URLs (they include access_token)
-        const nextData = await rateLimitedCall(async () => {
-          const response = await fetch(nextUrl, { signal: AbortSignal.timeout(30_000) });
-          return response.json();
-        }, true);
-        if (nextData.error) {
-          console.warn(`    Pagination error: ${nextData.error.message}`);
-          break;
-        }
-        const nextAds = nextData.data || [];
-        allAds.push(...nextAds);
-        console.info(`    Got ${nextAds.length} more ads (total: ${allAds.length})`);
-        // Check for further pages
-        url = nextData.paging?.next ? 'HAS_MORE' : null;
-        if (url === 'HAS_MORE') {
-          // Continue with the next pagination URL
-          const furtherUrl = nextData.paging.next;
-          url = null; // Will be handled in next iteration logic below
-          // Recursively handle remaining pages
-          let currentUrl = furtherUrl;
-          while (currentUrl) {
-            page++;
-            console.info(`    Fetching ads page ${page}...`);
-            const pageData = await rateLimitedCall(async () => {
-              const response = await fetch(currentUrl, { signal: AbortSignal.timeout(30_000) });
-              return response.json();
-            }, true);
-            if (pageData.error) {
-              console.warn(`    Pagination error: ${pageData.error.message}`);
-              break;
-            }
-            const pageAds = pageData.data || [];
-            allAds.push(...pageAds);
-            console.info(`    Got ${pageAds.length} more ads (total: ${allAds.length})`);
-            currentUrl = pageData.paging?.next || null;
-          }
-        }
-        url = null; // Done with pagination
-      } else {
-        url = null;
+    // Follow pagination URLs
+    let nextUrl = firstData.paging?.next || null;
+    while (nextUrl) {
+      page++;
+      console.info(`    Fetching ads page ${page}...`);
+      const pageData = await rateLimitedCall(async () => {
+        const response = await fetch(nextUrl, { signal: AbortSignal.timeout(30_000) });
+        return response.json();
+      }, true);
+      if (pageData.error) {
+        console.warn(`    Pagination error: ${pageData.error.message}`);
+        break;
       }
+      const pageAds = pageData.data || [];
+      allAds.push(...pageAds);
+      console.info(`    Got ${pageAds.length} more ads (total: ${allAds.length})`);
+      nextUrl = pageData.paging?.next || null;
     }
 
     return allAds;
