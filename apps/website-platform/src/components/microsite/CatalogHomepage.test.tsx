@@ -143,10 +143,9 @@ describe('CatalogHomepage', () => {
     expect(screen.queryByText(/View All/)).toBeNull();
   });
 
-  it('renders logo when provided', () => {
+  it('renders site name heading in hero', () => {
     render(<CatalogHomepage {...defaultProps} />);
-    const logos = document.querySelectorAll('img[alt="London Tours"]');
-    expect(logos.length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByRole('heading', { name: 'London Tours' })).toBeDefined();
   });
 
   it('renders tagline when provided', () => {
