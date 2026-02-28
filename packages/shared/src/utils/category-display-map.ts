@@ -203,3 +203,40 @@ export const CATEGORY_DISPLAY_MAP: Record<string, string> = {
 export function getCategoryDisplayName(raw: string): string {
   return CATEGORY_DISPLAY_MAP[raw.toLowerCase()] ?? raw;
 }
+
+/**
+ * Categories that are too generic or describe logistics rather than activities.
+ * These should be deprioritized in title generation — prefer specific activity types.
+ */
+export const LOW_VALUE_CATEGORIES = new Set([
+  'general',
+  'private',
+  'other',
+  'misc',
+  'full day',
+  'half day',
+  'car, bus or mini-van',
+  'transfer',
+  'transportation',
+  'shuttle',
+  'airport transfer',
+  'port transfer',
+  'passes',
+  'city',
+  'natural',
+  'iconic',
+  'themed',
+  'classes',
+  'virtual',
+]);
+
+/**
+ * Pick the most specific/relevant category from a list, skipping generic ones.
+ * Returns the display name (not the raw category).
+ * Falls back to the first category if all are low-value.
+ */
+export function getBestCategory(categories: string[]): string | undefined {
+  if (categories.length === 0) return undefined;
+  const best = categories.find((c) => !LOW_VALUE_CATEGORIES.has(c.toLowerCase()));
+  return getCategoryDisplayName(best ?? categories[0]!);
+}

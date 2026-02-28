@@ -11,7 +11,7 @@ import {
   getLayoutConfig,
 } from './microsite-layout';
 import type { SupplierType } from './supplier';
-import { getCategoryDisplayName } from '@experience-marketplace/shared';
+import { getBestCategory } from '@experience-marketplace/shared';
 
 /** Check if a logo URL is from the v2 Satori pipeline (not old broken SVG logos) */
 function isV2Logo(url: string | null | undefined): boolean {
@@ -516,6 +516,12 @@ interface MicrositeConfigWithEntity extends MicrositeConfig {
     cities: string[];
     categories: string[];
     name: string;
+    extractedKeywords?: {
+      seeds?: string[];
+      cities?: string[];
+      categories?: string[];
+      productsAnalyzed?: number;
+    } | null;
   } | null;
   product?: { holibobProductId: string } | null;
 }
@@ -554,13 +560,14 @@ async function getMicrositeConfig(
       },
       include: {
         brand: true,
-        // Include supplier/product to get their Holibob IDs, cities, and categories for API filtering
+        // Include supplier/product to get their Holibob IDs, cities, categories, and enriched keywords
         supplier: {
           select: {
             holibobSupplierId: true,
             cities: true,
             categories: true,
             name: true,
+            extractedKeywords: true,
           },
         },
         product: {
@@ -592,24 +599,46 @@ async function getMicrositeConfig(
 }
 
 /**
+ * Get enriched cities and best category for a microsite supplier.
+ * Falls back to extractedKeywords.cities when supplier.cities is empty.
+ * Picks the most specific category, skipping generic/low-value ones.
+ */
+function getEnrichedSupplierData(microsite: MicrositeConfigWithEntity): {
+  cities: string[];
+  bestCategory: string | undefined;
+} {
+  const supplier = microsite.supplier;
+  if (!supplier) return { cities: [], bestCategory: undefined };
+
+  // Cities: prefer supplier.cities, fall back to extractedKeywords.cities
+  const cities =
+    supplier.cities.length > 0
+      ? supplier.cities
+      : ((supplier.extractedKeywords as { cities?: string[] } | null)?.cities ?? []);
+
+  // Category: pick the most relevant, skipping generic ones
+  const bestCategory = getBestCategory(supplier.categories);
+
+  return { cities, bestCategory };
+}
+
+/**
  * Build a destination-focused title template for microsite sub-pages.
  * e.g. "%s | Things to Do in Bangkok" instead of "%s | TUI DESTINATION EXPERIENCES (THAILAND)"
  */
 function getMicrositeTitleTemplate(microsite: MicrositeConfigWithEntity): string {
-  const cities = microsite.supplier?.cities ?? [];
-  const categories = microsite.supplier?.categories ?? [];
+  const { cities, bestCategory } = getEnrichedSupplierData(microsite);
   const topCity = cities[0];
-  const topCategory = categories[0] ? getCategoryDisplayName(categories[0]) : undefined;
 
-  if (topCategory && topCity) {
-    const label = `${topCategory} in ${topCity}`;
+  if (bestCategory && topCity) {
+    const label = `${bestCategory} in ${topCity}`;
     if (label.length <= 40) return `%s | ${label}`;
   }
   if (topCity) {
     return `%s | Things to Do in ${topCity}`;
   }
-  if (topCategory) {
-    return `%s | ${topCategory}`;
+  if (bestCategory) {
+    return `%s | ${bestCategory}`;
   }
   return `%s | ${microsite.siteName}`;
 }
@@ -689,7 +718,7 @@ function mapMicrositeToSiteConfig(microsite: MicrositeConfigWithEntity): SiteCon
       productId: microsite.productId,
       holibobSupplierId: microsite.supplier?.holibobSupplierId ?? null,
       holibobProductId: microsite.product?.holibobProductId ?? null,
-      supplierCities: microsite.supplier?.cities ?? [],
+      supplierCities: getEnrichedSupplierData(microsite).cities,
       supplierCategories: microsite.supplier?.categories ?? [],
       supplierName: microsite.supplier?.name ?? null,
       // Supplier type - determines which API to use
