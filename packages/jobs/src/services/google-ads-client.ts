@@ -948,12 +948,14 @@ export async function createAndLinkStructuredSnippets(
  * Full list: https://developers.google.com/google-ads/api/reference/data/geotargets
  */
 const COUNTRY_CODE_TO_GEO_ID: Record<string, number> = {
+  // Home markets
   GB: 2826,
   US: 2840,
   CA: 2124,
   AU: 2036,
   IE: 2372,
   NZ: 2554,
+  // Western Europe
   DE: 2276,
   FR: 2250,
   ES: 2724,
@@ -963,19 +965,42 @@ const COUNTRY_CODE_TO_GEO_ID: Record<string, number> = {
   AT: 2040,
   CH: 2756,
   BE: 2056,
+  // Scandinavia
   SE: 2752,
   NO: 2578,
   DK: 2208,
   FI: 2246,
+  IS: 2352,
+  // Eastern/Southern Europe
+  GR: 2300,
+  TR: 2792,
+  HR: 2191,
+  CZ: 2203,
+  HU: 2348,
+  PL: 2616,
+  // Asia-Pacific
   SG: 2702,
   HK: 2344,
   JP: 2392,
   KR: 2410,
   IN: 2356,
-  ZA: 2710,
+  TH: 2764,
+  ID: 2360,
+  VN: 2704,
+  MY: 2458,
+  PH: 2608,
+  // Middle East & Africa
   AE: 2784,
+  ZA: 2710,
+  MA: 2504,
+  EG: 2818,
+  // Americas
   BR: 2076,
   MX: 2484,
+  CO: 2170,
+  AR: 2032,
+  PE: 2604,
+  CL: 2152,
 };
 
 /**

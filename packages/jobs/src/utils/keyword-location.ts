@@ -369,3 +369,97 @@ export function resetCityCache(): void {
   _cityCache = null;
   _cityCacheTime = 0;
 }
+
+// ---------------------------------------------------------------------------
+// Country Name → ISO Code mapping (reverse of CITY_TO_COUNTRY country names)
+// Used for geo-target enrichment: keyword destinations → ISO codes for ad targeting
+// ---------------------------------------------------------------------------
+
+const COUNTRY_NAME_TO_ISO: Record<string, string> = {
+  'United Kingdom': 'GB',
+  Spain: 'ES',
+  France: 'FR',
+  Italy: 'IT',
+  Germany: 'DE',
+  Netherlands: 'NL',
+  Portugal: 'PT',
+  Greece: 'GR',
+  Turkey: 'TR',
+  Croatia: 'HR',
+  'Czech Republic': 'CZ',
+  Hungary: 'HU',
+  Austria: 'AT',
+  Switzerland: 'CH',
+  Ireland: 'IE',
+  Belgium: 'BE',
+  Denmark: 'DK',
+  Sweden: 'SE',
+  Norway: 'NO',
+  Finland: 'FI',
+  Iceland: 'IS',
+  Poland: 'PL',
+  'United States': 'US',
+  Canada: 'CA',
+  Australia: 'AU',
+  'New Zealand': 'NZ',
+  Japan: 'JP',
+  Thailand: 'TH',
+  'United Arab Emirates': 'AE',
+  Singapore: 'SG',
+  India: 'IN',
+  'South Korea': 'KR',
+  Indonesia: 'ID',
+  Vietnam: 'VN',
+  Malaysia: 'MY',
+  Philippines: 'PH',
+  Mexico: 'MX',
+  Brazil: 'BR',
+  Colombia: 'CO',
+  Argentina: 'AR',
+  Peru: 'PE',
+  Chile: 'CL',
+  Morocco: 'MA',
+  Egypt: 'EG',
+  'South Africa': 'ZA',
+};
+
+/**
+ * Derive destination country ISO codes from a list of keywords.
+ *
+ * Extracts city names from keywords using the CITY_TO_COUNTRY map
+ * (synchronous, no DB call needed), then converts to ISO codes.
+ *
+ * @param keywords - Array of keyword strings (e.g. "boat tour barcelona")
+ * @returns Deduplicated array of ISO country codes (e.g. ["ES", "IT", "FR"])
+ */
+export function deriveDestinationCountriesFromKeywords(keywords: string[]): string[] {
+  const countryCodes = new Set<string>();
+
+  for (const keyword of keywords) {
+    const kwLower = keyword.toLowerCase();
+    for (const [city, countryName] of Object.entries(CITY_TO_COUNTRY)) {
+      if (kwLower.includes(city)) {
+        const iso = COUNTRY_NAME_TO_ISO[countryName];
+        if (iso) countryCodes.add(iso);
+        break; // One match per keyword is sufficient
+      }
+    }
+  }
+
+  return Array.from(countryCodes);
+}
+
+/**
+ * Merge destination countries with home markets to create enriched geo targets.
+ *
+ * @param keywords - Campaign keywords to extract destinations from
+ * @param homeMarkets - Base markets (e.g. ["GB", "US", "CA", "AU", "IE", "NZ"])
+ * @returns Deduplicated, sorted array of all ISO country codes
+ */
+export function enrichGeoTargets(keywords: string[], homeMarkets: string[]): string[] {
+  const destinationCountries = deriveDestinationCountriesFromKeywords(keywords);
+  const merged = new Set([...homeMarkets, ...destinationCountries]);
+  return Array.from(merged).sort();
+}
+
+export { COUNTRY_NAME_TO_ISO };
