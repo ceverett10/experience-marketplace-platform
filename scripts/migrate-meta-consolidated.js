@@ -33,62 +33,66 @@ const prisma = new PrismaClient();
 // ---------------------------------------------------------------------------
 // Configuration — 9 consolidated campaigns
 // ---------------------------------------------------------------------------
+// NOTE: Using LOWEST_COST_WITHOUT_CAP for all campaigns because the ad account
+// is not yet eligible for LOWEST_COST_WITH_MIN_ROAS (requires business verification).
+// Still optimizes for OFFSITE_CONVERSIONS (purchases). Upgrade to ROAS bidding
+// once the business is verified on Meta.
 const CONSOLIDATED_CAMPAIGNS = [
   {
     name: 'Branded – Harry Potter Tours',
     campaignGroup: 'Branded – Harry Potter Tours',
     dailyBudget: 25,
-    bidStrategy: 'LOWEST_COST_WITH_MIN_ROAS',
-    roasFloor: 200,
+    bidStrategy: 'LOWEST_COST_WITHOUT_CAP',
+    roasFloor: null,
   },
   {
     name: 'Branded – London Food Tours',
     campaignGroup: 'Branded – London Food Tours',
     dailyBudget: 25,
-    bidStrategy: 'LOWEST_COST_WITH_MIN_ROAS',
-    roasFloor: 200,
+    bidStrategy: 'LOWEST_COST_WITHOUT_CAP',
+    roasFloor: null,
   },
   {
     name: 'Adventure & Outdoor',
     campaignGroup: 'Adventure & Outdoor',
     dailyBudget: 30,
-    bidStrategy: 'LOWEST_COST_WITH_MIN_ROAS',
-    roasFloor: 200,
+    bidStrategy: 'LOWEST_COST_WITHOUT_CAP',
+    roasFloor: null,
   },
   {
     name: 'Food, Drink & Culinary',
     campaignGroup: 'Food, Drink & Culinary',
     dailyBudget: 20,
-    bidStrategy: 'LOWEST_COST_WITH_MIN_ROAS',
-    roasFloor: 200,
+    bidStrategy: 'LOWEST_COST_WITHOUT_CAP',
+    roasFloor: null,
   },
   {
     name: 'Boats, Sailing & Water',
     campaignGroup: 'Boats, Sailing & Water',
     dailyBudget: 15,
-    bidStrategy: 'LOWEST_COST_WITH_MIN_ROAS',
-    roasFloor: 200,
+    bidStrategy: 'LOWEST_COST_WITHOUT_CAP',
+    roasFloor: null,
   },
   {
     name: 'Transfers & Transport',
     campaignGroup: 'Transfers & Transport',
     dailyBudget: 20,
-    bidStrategy: 'LOWEST_COST_WITH_MIN_ROAS',
-    roasFloor: 200,
+    bidStrategy: 'LOWEST_COST_WITHOUT_CAP',
+    roasFloor: null,
   },
   {
     name: 'Cultural & Sightseeing',
     campaignGroup: 'Cultural & Sightseeing',
     dailyBudget: 20,
-    bidStrategy: 'LOWEST_COST_WITH_MIN_ROAS',
-    roasFloor: 200,
+    bidStrategy: 'LOWEST_COST_WITHOUT_CAP',
+    roasFloor: null,
   },
   {
     name: 'General Tours – Tier 1',
     campaignGroup: 'General Tours – Tier 1',
     dailyBudget: 50,
-    bidStrategy: 'LOWEST_COST_WITH_MIN_ROAS',
-    roasFloor: 200,
+    bidStrategy: 'LOWEST_COST_WITHOUT_CAP',
+    roasFloor: null,
   },
   {
     name: 'General Tours – Tier 2',
@@ -350,7 +354,8 @@ class MigrationMetaClient {
       daily_budget: Math.round(config.dailyBudget * 100).toString(), // pence/cents as string
     };
     // Bid strategy at campaign level (required for CBO)
-    if (config.bidStrategy) {
+    // Skip LOWEST_COST_WITHOUT_CAP since it's the default — avoids issues with unverified accounts
+    if (config.bidStrategy && config.bidStrategy !== 'LOWEST_COST_WITHOUT_CAP') {
       params.bid_strategy = config.bidStrategy;
       if (config.roasFloor) {
         params.roas_average_floor = config.roasFloor.toString();
