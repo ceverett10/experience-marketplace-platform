@@ -353,9 +353,10 @@ class MigrationMetaClient {
       special_ad_categories: '[]',
       daily_budget: Math.round(config.dailyBudget * 100).toString(), // pence/cents as string
     };
-    // Bid strategy at campaign level (required for CBO)
-    // Skip LOWEST_COST_WITHOUT_CAP since it's the default — avoids issues with unverified accounts
-    if (config.bidStrategy && config.bidStrategy !== 'LOWEST_COST_WITHOUT_CAP') {
+    // Bid strategy at campaign level (required for CBO with OUTCOME_SALES)
+    // Must always be set explicitly — without it, OUTCOME_SALES defaults to a strategy
+    // that requires bid_amount on ad sets
+    if (config.bidStrategy) {
       params.bid_strategy = config.bidStrategy;
       if (config.roasFloor) {
         params.roas_average_floor = config.roasFloor.toString();
