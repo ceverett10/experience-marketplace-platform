@@ -83,6 +83,9 @@ export interface CampaignGroupAdGroup {
   primaryKeyword: string;
   maxBid: number;
   totalExpectedDailyCost: number;
+  /** Per-adGroup site ID — may differ from parent group for destination page ad sets */
+  siteId?: string;
+  micrositeId?: string;
 }
 
 export interface CampaignGroup {
@@ -396,6 +399,59 @@ export async function calculateMicrositeProfitability(): Promise<SiteProfitabili
   }
 
   return profiles;
+}
+
+// --- Destination Page Profitability -------------------------------------------
+
+/**
+ * Calculate profitability profile for destination page ad sets.
+ * Uses portfolio-wide averages with a CVR boost — destination pages aggregate
+ * ALL suppliers for a location, giving visitors more choice and a higher
+ * expected conversion rate than single-supplier microsites.
+ */
+export async function calculateDestinationPageProfitability(): Promise<SiteProfitability> {
+  const lookbackDate = new Date();
+  lookbackDate.setDate(lookbackDate.getDate() - LOOKBACK_DAYS);
+
+  const portfolioAvg = await prisma.booking.aggregate({
+    where: {
+      status: { in: ['CONFIRMED', 'COMPLETED'] },
+      createdAt: { gte: lookbackDate },
+    },
+    _avg: { totalAmount: true, commissionRate: true },
+    _count: true,
+  });
+
+  const portfolioAov = portfolioAvg._avg.totalAmount
+    ? Number(portfolioAvg._avg.totalAmount)
+    : PAID_TRAFFIC_CONFIG.defaults.aov;
+
+  const portfolioCommission =
+    portfolioAvg._avg.commissionRate || PAID_TRAFFIC_CONFIG.defaults.commissionRate;
+
+  // 1.3x CVR boost: destination pages show ALL suppliers for a location
+  const conversionRate = PAID_TRAFFIC_CONFIG.defaults.cvr * 1.3;
+
+  const commissionDecimal = portfolioCommission / 100;
+  const revenuePerClick = portfolioAov * conversionRate * commissionDecimal;
+  const maxProfitableCpc = revenuePerClick / PAID_TRAFFIC_CONFIG.targetRoas;
+
+  return {
+    siteId: 'destination-pages',
+    siteName: 'Destination Pages (portfolio)',
+    avgOrderValue: portfolioAov,
+    avgCommissionRate: portfolioCommission,
+    conversionRate,
+    maxProfitableCpc,
+    revenuePerClick,
+    dataQuality: {
+      bookingSampleSize: portfolioAvg._count,
+      sessionSampleSize: 0,
+      usedCatalogFallback: portfolioAvg._count < MIN_BOOKINGS_FOR_AOV,
+      usedDefaultCommission: !portfolioAvg._avg.commissionRate,
+      usedDefaultCvr: true,
+    },
+  };
 }
 
 // --- Low-Intent Keyword Cleanup -----------------------------------------------
@@ -800,17 +856,65 @@ export async function scoreCampaignOpportunities(
     `[BiddingEngine] Microsite lookup: ${micrositeByTerm.size} keyword terms, ${micrositesByCity.size} cities, ${micrositeBySupplierId.size} supplier IDs, ${micrositeNameEntries.length} name slugs (${supplierMicrosites.length} supplier microsites)`
   );
 
+  // --- Pre-load branded domain → site mapping for destination page candidates ---
+  const campaignGroupDomains = PAID_TRAFFIC_CONFIG.metaConsolidated.campaignGroupDomains ?? {};
+  const allBrandedDomains = [...new Set(Object.values(campaignGroupDomains).flat())].filter(
+    Boolean
+  );
+
+  const domainRecords =
+    allBrandedDomains.length > 0
+      ? await prisma.domain.findMany({
+          where: { domain: { in: allBrandedDomains }, status: 'ACTIVE' },
+          select: { domain: true, siteId: true },
+        })
+      : [];
+
+  const domainToSiteId = new Map<string, string>();
+  for (const dr of domainRecords) {
+    if (dr.siteId) domainToSiteId.set(dr.domain, dr.siteId);
+  }
+
+  // Build campaignGroup → branded site entries
+  const campaignGroupSiteIds = new Map<string, Array<{ domain: string; siteId: string }>>();
+  for (const [group, domains] of Object.entries(campaignGroupDomains)) {
+    const entries: Array<{ domain: string; siteId: string }> = [];
+    for (const domain of domains) {
+      const sid = domainToSiteId.get(domain);
+      if (sid) entries.push({ domain, siteId: sid });
+    }
+    if (entries.length > 0) campaignGroupSiteIds.set(group, entries);
+  }
+
+  // Load branded site names
+  const brandedSiteIds = [
+    ...new Set(domainRecords.map((d) => d.siteId).filter(Boolean) as string[]),
+  ];
+  const brandedSites =
+    brandedSiteIds.length > 0
+      ? await prisma.site.findMany({
+          where: { id: { in: brandedSiteIds } },
+          select: { id: true, name: true },
+        })
+      : [];
+  const brandedSiteNameById = new Map(brandedSites.map((s) => [s.id, s.name]));
+
+  console.info(
+    `[BiddingEngine] Destination page lookup: ${domainRecords.length}/${allBrandedDomains.length} branded domains resolved, ${campaignGroupSiteIds.size} campaign groups with sites`
+  );
+
   // --- Pre-load page caches for landing page routing ---
   const allSiteIds = [...new Set(opportunities.map((o) => o.siteId).filter(Boolean) as string[])];
+  const combinedSiteIds = [...new Set([...allSiteIds, ...brandedSiteIds])];
   const allMicrositeIds = [
     ...new Set([...opportunityMicrosites.map((m) => m.id), ...supplierMicrosites.map((m) => m.id)]),
   ];
   const { pagesBySite, pagesByMicrosite, collectionsByMicrosite } = await loadPageCaches(
-    allSiteIds,
+    combinedSiteIds,
     allMicrositeIds
   );
   console.log(
-    `[BiddingEngine] Page cache: ${allSiteIds.length} sites, ${allMicrositeIds.length} microsites, pages for ${pagesBySite.size} sites + ${pagesByMicrosite.size} microsites, collections for ${collectionsByMicrosite.size} microsites`
+    `[BiddingEngine] Page cache: ${combinedSiteIds.length} sites (${brandedSiteIds.length} branded), ${allMicrositeIds.length} microsites, pages for ${pagesBySite.size} sites + ${pagesByMicrosite.size} microsites, collections for ${collectionsByMicrosite.size} microsites`
   );
 
   // Build microsite ID → config lookup for landing page context
@@ -824,6 +928,7 @@ export async function scoreCampaignOpportunities(
   }
 
   const candidates: CampaignCandidate[] = [];
+  let destCandidatesCreated = 0;
 
   for (const opp of opportunities) {
     // Find matching site profile
@@ -1041,7 +1146,96 @@ export async function scoreCampaignOpportunities(
       }
       candidates.push(candidate);
     }
+
+    // --- Sprint 2: Create ADDITIONAL destination page candidates ---
+    // For each keyword, check if branded domains for this campaign group
+    // have a destination page matching the keyword's city. These candidates
+    // sit ALONGSIDE microsite candidates in the same consolidated campaign.
+    const destProfile = profiles.find((p) => p.siteId === 'destination-pages');
+    if (destProfile) {
+      const kwCampaignGroup = classifyKeywordToCampaignGroup(opp.keyword, profitabilityScore);
+      const brandedEntries = campaignGroupSiteIds.get(kwCampaignGroup);
+
+      if (brandedEntries) {
+        for (const { domain: brandedDomain, siteId: brandedSiteId } of brandedEntries) {
+          // Skip if branded site is the same as the keyword's assigned site
+          if (brandedSiteId === siteId && !matchedMicrosite) continue;
+
+          const brandedPages = pagesBySite.get(brandedSiteId) ?? [];
+          // Find destination page matching this keyword's city
+          const destPage = brandedPages.find((p) => {
+            if (p.type !== 'LANDING' || !p.slug.startsWith('destinations/')) return false;
+            // Extract city name from slug: "destinations/london-england" → "london"
+            const slugBody = p.slug.replace('destinations/', '');
+            const dashParts = slugBody.split('-');
+            // Try matching just the first word (city name) against the keyword
+            // Also try multi-word cities: "new-york", "las-vegas", "san-francisco"
+            for (let len = Math.min(dashParts.length - 1, 3); len >= 1; len--) {
+              const citySlug = dashParts.slice(0, len).join('-');
+              const citySpaced = dashParts.slice(0, len).join(' ');
+              if (kwLower.includes(citySpaced) || kwLower.includes(citySlug)) {
+                return true;
+              }
+            }
+            return false;
+          });
+
+          if (!destPage) continue;
+
+          // Apply destination profitability gate
+          const destMaxBid = Math.min(destProfile.maxProfitableCpc, estimatedCpc * 1.2);
+          if (destMaxBid < 0.01) continue;
+
+          // Score using destination profile
+          const destRevenue = expectedClicksPerDay * destProfile.revenuePerClick;
+          const destRoas =
+            destRevenue > 0 && expectedDailyCost > 0 ? destRevenue / expectedDailyCost : 0;
+          const destRoasBonus = Math.min(60, destRoas * 20);
+          const destLpBonus = getLandingPageBonus('DESTINATION'); // 12
+          const destScore = Math.round(
+            Math.min(100, destRoasBonus + volumeBonus + intentBonus + destLpBonus)
+          );
+
+          const destUtmCampaign = `dest_${opp.keyword.replace(/\s+/g, '_').substring(0, 40)}`;
+          const destSiteName = brandedSiteNameById.get(brandedSiteId) || '';
+
+          for (const platform of PAID_TRAFFIC_CONFIG.enabledPlatforms) {
+            const utmSource = platform === 'FACEBOOK' ? 'facebook_ads' : 'google_ads';
+            const destCandidate: CampaignCandidate = {
+              opportunityId: opp.id,
+              keyword: opp.keyword,
+              siteId: brandedSiteId,
+              siteName: destSiteName,
+              platform,
+              estimatedCpc,
+              maxBid: destMaxBid,
+              searchVolume,
+              expectedClicksPerDay,
+              expectedDailyCost,
+              expectedDailyRevenue: destRevenue,
+              profitabilityScore: destScore,
+              intent: opp.intent,
+              location: opp.location,
+              targetUrl: `https://${brandedDomain}/${destPage.slug}`,
+              utmParams: { source: utmSource, medium: 'cpc', campaign: destUtmCampaign },
+              isMicrosite: false,
+              landingPagePath: `/${destPage.slug}`,
+              landingPageType: 'DESTINATION',
+            };
+
+            if (platform === 'FACEBOOK') {
+              destCandidate.campaignGroup = kwCampaignGroup;
+            }
+
+            candidates.push(destCandidate);
+            destCandidatesCreated++;
+          }
+        }
+      }
+    }
   }
+
+  console.info(`[BiddingEngine] Destination page candidates: ${destCandidatesCreated} created`);
 
   // Filter out candidates whose landing page is unlikely to show relevant products.
   // These create ads that land on empty "no results" pages — wasted ad spend.
@@ -1207,6 +1401,8 @@ export function groupCandidatesIntoCampaigns(candidates: CampaignCandidate[]): C
         primaryKeyword: lpPrimary.keyword,
         maxBid: Math.max(...lpCandidates.map((c) => c.maxBid)),
         totalExpectedDailyCost: lpCandidates.reduce((s, c) => s + c.expectedDailyCost, 0),
+        siteId: lpPrimary.siteId,
+        micrositeId: lpPrimary.micrositeId,
       });
     }
 
@@ -1337,9 +1533,10 @@ export async function runBiddingEngine(options?: {
   // Step 1: Calculate profitability for all sites (including microsites)
   const profiles = await calculateAllSiteProfitability();
   const micrositeProfiles = await calculateMicrositeProfitability();
-  const allProfiles = [...profiles, ...micrositeProfiles];
+  const destinationProfile = await calculateDestinationPageProfitability();
+  const allProfiles = [...profiles, ...micrositeProfiles, destinationProfile];
   console.log(
-    `[BiddingEngine] Calculated profitability for ${profiles.length} sites + ${micrositeProfiles.length} microsites`
+    `[BiddingEngine] Calculated profitability for ${profiles.length} sites + ${micrositeProfiles.length} microsites + destination pages (maxCpc: £${destinationProfile.maxProfitableCpc.toFixed(2)})`
   );
 
   for (const p of allProfiles) {

@@ -16,21 +16,9 @@
 import { prisma } from '@experience-marketplace/database';
 import { PAID_TRAFFIC_CONFIG } from '../config/paid-traffic';
 
-// ---------------------------------------------------------------------------
-// Campaign group → purchased domain mapping (Phase 2 of main-site-ppc-strategy)
-// ---------------------------------------------------------------------------
-const CAMPAIGN_GROUP_DOMAINS: Record<string, string[]> = {
-  'Food, Drink & Culinary': ['food-tour-guide.com'],
-  'Boats, Sailing & Water': ['water-tours.com'],
-  'Adventure & Outdoor': ['outdoorexploring.com'],
-  'Cultural & Sightseeing': ['cultural-tours.com'],
-  'General Tours – Tier 1': ['experiencess.com'],
-  'General Tours – Tier 2': ['experiencess.com'],
-  'Branded – Attraction Tickets': ['attractionbooking.com'],
-  'Branded – Harry Potter Tours': ['harry-potter-tours.com'],
-  'Branded – London Food Tours': ['london-food-tours.com'],
-  'Transfers & Transport': [], // No domain purchased yet
-};
+// Campaign group → branded domain mapping (centralized in paid-traffic.ts)
+const CAMPAIGN_GROUP_DOMAINS =
+  PAID_TRAFFIC_CONFIG.metaConsolidated.campaignGroupDomains ?? ({} as Record<string, string[]>);
 
 const { defaults } = PAID_TRAFFIC_CONFIG;
 
