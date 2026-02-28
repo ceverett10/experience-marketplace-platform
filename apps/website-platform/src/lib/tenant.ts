@@ -421,6 +421,13 @@ export async function getSiteFromHostname(hostname: string): Promise<SiteConfig>
       description: 'A network of experience brands powered by Holibob',
       primaryDomain: cleanHostname,
       isParentDomain: true,
+      seoConfig: {
+        titleTemplate: DEFAULT_SITE_CONFIG.seoConfig!.titleTemplate,
+        defaultDescription: DEFAULT_SITE_CONFIG.seoConfig!.defaultDescription,
+        keywords: DEFAULT_SITE_CONFIG.seoConfig!.keywords,
+        googleAdsId: process.env['GOOGLE_ADS_ID'] || null,
+        googleAdsConversionAction: process.env['GOOGLE_ADS_CONVERSION_ACTION'] || null,
+      },
     };
   }
   // === END PARENT DOMAIN CHECK ===

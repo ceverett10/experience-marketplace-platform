@@ -112,6 +112,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Calculate commission from Holibob gross/net price split
+    const gross = booking.totalPrice?.gross;
+    const net = booking.totalPrice?.net;
+    let commissionAmount: number | undefined;
+    let commissionRate: number | undefined;
+    if (gross && net && gross > 0) {
+      commissionAmount = gross - net;
+      commissionRate = (commissionAmount / gross) * 100;
+    }
+
     // Save booking to local database for analytics
     // Always attempt regardless of booking state to avoid silent data loss
     console.info(
@@ -138,16 +148,6 @@ export async function POST(request: NextRequest) {
         } catch {
           // Invalid cookie JSON — ignore
         }
-      }
-
-      // Calculate commission from Holibob gross/net price split
-      const gross = booking.totalPrice?.gross;
-      const net = booking.totalPrice?.net;
-      let commissionAmount: number | undefined;
-      let commissionRate: number | undefined;
-      if (gross && net && gross > 0) {
-        commissionAmount = gross - net;
-        commissionRate = (commissionAmount / gross) * 100;
       }
 
       // Determine whether this booking is on a Site or a MicrositeConfig
@@ -221,6 +221,8 @@ export async function POST(request: NextRequest) {
         booking,
         voucherUrl: booking.voucherUrl,
         isConfirmed: booking.state === 'CONFIRMED',
+        commissionAmount: commissionAmount ?? null,
+        commissionCurrency: booking.totalPrice?.currency || 'GBP',
       },
     });
   } catch (error) {
