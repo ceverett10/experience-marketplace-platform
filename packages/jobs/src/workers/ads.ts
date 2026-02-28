@@ -2591,8 +2591,8 @@ export async function handleBiddingEngineRun(job: Job): Promise<JobResult> {
 
           await prisma.adCampaign.create({
             data: {
-              siteId: group.siteId,
-              micrositeId: group.micrositeId || null,
+              siteId: adGroup.siteId || group.siteId,
+              micrositeId: adGroup.micrositeId || group.micrositeId || null,
               platform: 'FACEBOOK',
               parentCampaignId: parent.id,
               campaignGroup: group.campaignGroup,
