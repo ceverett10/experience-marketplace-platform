@@ -146,22 +146,12 @@ export function CatalogHomepage({
           }`}
         >
           <div className="text-center">
-            {/* Logo or Site Name */}
-            {site.brand?.logoUrl ? (
-              <Image
-                src={site.brand.logoDarkUrl ?? site.brand.logoUrl}
-                alt={site.name}
-                width={200}
-                height={60}
-                className={isPpc ? 'mx-auto h-10 w-auto' : 'mx-auto h-16 w-auto'}
-              />
-            ) : (
-              <h1
-                className={`font-bold text-white ${isPpc ? 'text-2xl sm:text-3xl' : 'text-3xl sm:text-4xl'}`}
-              >
-                {site.name}
-              </h1>
-            )}
+            {/* Site Name */}
+            <h1
+              className={`font-bold text-white ${isPpc ? 'text-2xl sm:text-3xl' : 'text-3xl sm:text-4xl'}`}
+            >
+              {site.name}
+            </h1>
 
             {/* Tagline */}
             {site.brand?.tagline && (
