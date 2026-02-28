@@ -79,12 +79,12 @@ export const PAID_TRAFFIC_CONFIG = {
   searchTermExcludeClickThreshold: 3,
 
   // ---------------------------------------------------------------------------
-  // Meta consolidated campaigns (CBO with ROAS bidding)
+  // Meta consolidated campaigns (CBO with lowest-cost bidding)
   // ---------------------------------------------------------------------------
   metaConsolidated: {
     objective: 'OUTCOME_SALES',
-    bidStrategy: 'LOWEST_COST_WITH_MIN_ROAS' as const,
-    roasFloor: 200, // 2.0x ROAS
+    bidStrategy: 'LOWEST_COST_WITHOUT_CAP' as const,
+    roasFloor: undefined, // Phase 1: no ROAS constraint, maximize learning
     optimizationGoal: 'OFFSITE_CONVERSIONS',
     cboEnabled: true,
     /** Extended learning phase for CBO campaigns */

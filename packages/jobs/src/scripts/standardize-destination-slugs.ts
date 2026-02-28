@@ -92,6 +92,9 @@ const CITY_COUNTRY_MAP: Record<string, string> = {
   istanbul: 'turkey',
 };
 
+// Abbreviations that should NOT be title-cased (e.g., "usa" → "USA" not "Usa")
+const SPECIAL_CASING: Record<string, string> = { usa: 'USA', uae: 'UAE', uk: 'UK' };
+
 // Slugs to skip — special destinations that don't follow city-country pattern
 const SKIP_SLUGS = new Set(['warner-bros-studio', 'studio-tour']);
 
@@ -199,7 +202,9 @@ async function main() {
         // Update the title if it uses the old location name
         // e.g., "Travel Experiences in London" → "Travel Experiences in London, England"
         const cityName = citySlug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-        const countryName = country.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+        const countryName =
+          SPECIAL_CASING[country] ??
+          country.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
         const newTitle = page.title.replace(
           new RegExp(`\\b${cityName}\\b(?!,)`, 'i'),
           `${cityName}, ${countryName}`
