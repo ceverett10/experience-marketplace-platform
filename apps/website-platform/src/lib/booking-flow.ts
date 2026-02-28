@@ -369,6 +369,8 @@ export async function commitBooking(
   booking: Booking;
   voucherUrl?: string;
   isConfirmed: boolean;
+  commissionAmount?: number | null;
+  commissionCurrency?: string;
 }> {
   const response = await fetch('/api/booking/commit', {
     method: 'POST',

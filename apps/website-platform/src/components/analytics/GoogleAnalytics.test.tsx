@@ -41,14 +41,24 @@ describe('GoogleAnalytics', () => {
     document.cookie = 'ai_referral_source=; expires=Thu, 01 Jan 1970 00:00:00 GMT';
   });
 
-  it('returns null when measurementId is null', () => {
+  it('returns null when neither measurementId nor googleAdsId is provided', () => {
     const { container } = render(<GoogleAnalytics measurementId={null} />);
     expect(container.innerHTML).toBe('');
   });
 
-  it('returns null when measurementId is undefined', () => {
+  it('returns null when both are undefined', () => {
     const { container } = render(<GoogleAnalytics measurementId={undefined} />);
     expect(container.innerHTML).toBe('');
+  });
+
+  it('renders when only googleAdsId is provided (no GA4 measurement ID)', () => {
+    render(<GoogleAnalytics measurementId={null} googleAdsId="AW-TESTADS123" />);
+    const scriptTag = document.querySelector('script[src*="gtag/js"]');
+    expect(scriptTag).toBeTruthy();
+    expect(scriptTag?.getAttribute('src')).toContain('AW-TESTADS123');
+    const inlineScript = document.querySelector('[data-testid="google-analytics"]');
+    expect(inlineScript?.textContent).toContain('AW-TESTADS123');
+    expect(inlineScript?.textContent).not.toContain("gtag('config', 'null'");
   });
 
   it('renders script tag with gtag.js src when measurementId is provided', () => {

@@ -10,13 +10,16 @@ interface GoogleAnalyticsProps {
 }
 
 /**
- * Google Analytics 4 component with SPA route change tracking.
+ * Google Analytics 4 + Google Ads tag component with SPA route change tracking.
  * Tracks page views on both initial load and client-side navigation.
- * Optionally configures Google Ads conversion tracking when googleAdsId is provided.
+ * Loads gtag.js when either measurementId or googleAdsId is provided.
  */
 export function GoogleAnalytics({ measurementId, googleAdsId }: GoogleAnalyticsProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+
+  // The primary tag ID used to load gtag.js — prefer GA4 measurement ID, fall back to Google Ads ID
+  const primaryTagId = measurementId || googleAdsId;
 
   // Track page views on route changes (SPA navigation)
   useEffect(() => {
@@ -40,14 +43,14 @@ export function GoogleAnalytics({ measurementId, googleAdsId }: GoogleAnalyticsP
     }
   }, [pathname, searchParams, measurementId]);
 
-  if (!measurementId) {
+  if (!primaryTagId) {
     return null;
   }
 
   return (
     <>
       <Script
-        src={`https://www.googletagmanager.com/gtag/js?id=${measurementId}`}
+        src={`https://www.googletagmanager.com/gtag/js?id=${primaryTagId}`}
         strategy="afterInteractive"
       />
       <Script id="google-analytics" strategy="afterInteractive">
@@ -55,10 +58,7 @@ export function GoogleAnalytics({ measurementId, googleAdsId }: GoogleAnalyticsP
           window.dataLayer = window.dataLayer || [];
           function gtag(){dataLayer.push(arguments);}
           gtag('js', new Date());
-          gtag('config', '${measurementId}', {
-            page_path: window.location.pathname,
-            send_page_view: true
-          });
+          ${measurementId ? `gtag('config', '${measurementId}', { page_path: window.location.pathname, send_page_view: true });` : ''}
           ${googleAdsId ? `gtag('config', '${googleAdsId}');` : ''}
         `}
       </Script>

@@ -218,22 +218,29 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
       currency: booking.totalPrice?.currency ?? 'GBP',
     };
 
-    // GA4 purchase event
+    // GA4 purchase event (gross value for general analytics)
     trackPurchase({ ...purchaseData, itemName: firstAvail?.product?.name });
 
     // Meta Pixel purchase (client-side dedup with server CAPI via event_id = bookingId)
     trackMetaPurchase(purchaseData);
 
-    // Google Ads conversion (if conversion action configured in seoConfig)
-    const conversionAction = site.seoConfig?.googleAdsConversionAction;
-    if (conversionAction) {
-      trackGoogleAdsConversion(conversionAction, purchaseData);
-    }
-
     try {
       // Pass productId for booking analytics (urgency messaging)
       const productId = firstAvail?.product?.id;
       const result = await commitBooking(bookingId, true, productId);
+
+      // Google Ads conversion — fire AFTER commit so we can send commission (actual revenue)
+      // for accurate ROAS calculation. Falls back to gross if commission unavailable.
+      const conversionAction = site.seoConfig?.googleAdsConversionAction;
+      if (conversionAction) {
+        const conversionValue =
+          result.commissionAmount != null ? result.commissionAmount : purchaseData.value;
+        trackGoogleAdsConversion(conversionAction, {
+          id: bookingId,
+          value: conversionValue,
+          currency: result.commissionCurrency ?? purchaseData.currency,
+        });
+      }
 
       if (result.isConfirmed) {
         router.push(`/booking/confirmation/${bookingId}`);
@@ -242,6 +249,12 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
         router.push(`/booking/confirmation/${bookingId}?pending=true`);
       }
     } catch (err) {
+      // Still fire Google Ads conversion with gross value if commit fails
+      // (payment already succeeded, better to have inaccurate value than no conversion)
+      const conversionAction = site.seoConfig?.googleAdsConversionAction;
+      if (conversionAction) {
+        trackGoogleAdsConversion(conversionAction, purchaseData);
+      }
       setError(err instanceof Error ? err.message : 'Failed to complete booking');
       setIsCommitting(false);
     }
