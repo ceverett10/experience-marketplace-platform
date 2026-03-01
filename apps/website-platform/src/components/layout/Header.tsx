@@ -127,7 +127,7 @@ export function Header() {
             )}
           </Link>
           {isMicrosite && (
-            <span className="ml-3 hidden items-center text-[11px] text-gray-400 sm:flex">
+            <span className="ml-3 hidden flex-shrink-0 items-center whitespace-nowrap text-[11px] text-gray-400 sm:flex">
               powered by{' '}
               <a
                 href="https://experiencess.com"

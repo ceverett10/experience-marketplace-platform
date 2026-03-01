@@ -86,7 +86,7 @@ export function Footer() {
                 alt={site.name}
                 width={1600}
                 height={400}
-                className="h-14 w-auto"
+                className="h-40 w-auto"
               />
             ) : (
               <span className="text-2xl font-bold text-white">{site.name}</span>
