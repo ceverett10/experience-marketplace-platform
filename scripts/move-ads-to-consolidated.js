@@ -6,8 +6,8 @@
  * remaining ~911 legacy ads into those consolidated campaigns.
  *
  * Key constraint: Legacy campaigns use OUTCOME_TRAFFIC, new use OUTCOME_SALES.
- * Ads likely CANNOT be moved between different objectives — script tests first,
- * then falls back to recreating ads using creative data fetched from Meta.
+ * Meta API silently accepts cross-objective ad moves (returns 200) but does NOT
+ * actually move the ad. Strategy: RECREATE ads using existing creative IDs.
  *
  * Usage:
  *   node scripts/move-ads-to-consolidated.js                # dry-run (default)
@@ -582,54 +582,39 @@ async function main() {
   console.info(`  Matched ads: ${matchedCount}`);
   console.info(`  Legacy campaigns with no Meta ads found: ${unmatchedCount}`);
 
-  // Also identify which ads are already in consolidated campaigns (the 48 fresh ones)
+  // Identify which ads/creatives are already in consolidated campaigns
   const consolidatedCampaignIds = new Set(parents.map((p) => p.platformCampaignId));
   const existingConsolidatedAds = allMetaAds.filter((ad) =>
     consolidatedCampaignIds.has(ad.campaign_id)
   );
   console.info(`  Existing ads in consolidated campaigns: ${existingConsolidatedAds.length}`);
 
+  // Build set of creative IDs already in consolidated campaigns (for dedup on re-run)
+  const existingCreativeIds = new Set(
+    existingConsolidatedAds.map((ad) => ad.creative?.id).filter(Boolean)
+  );
+  console.info(`  Unique creatives already in consolidated: ${existingCreativeIds.size}`);
+
+  // Filter out legacy ads whose creative is already in a consolidated campaign
+  const beforeDedup = legacyAdsToMigrate.length;
+  const deduped = legacyAdsToMigrate.filter(
+    (item) => !existingCreativeIds.has(item.metaAd.creative?.id)
+  );
+  const skippedDedup = beforeDedup - deduped.length;
+  if (skippedDedup > 0) {
+    console.info(`  Skipping ${skippedDedup} ads (creative already in consolidated)`);
+  }
+  legacyAdsToMigrate.length = 0;
+  legacyAdsToMigrate.push(...deduped);
+
   // -------------------------------------------------------------------------
   // Phase 3: Test cross-objective move (--test-move only)
   // -------------------------------------------------------------------------
   if (testMove) {
-    console.info('\nPhase 3: Testing cross-objective ad move...');
-
-    if (legacyAdsToMigrate.length === 0) {
-      console.info('  No legacy ads found to test with.');
-      return;
-    }
-
-    const testAd = legacyAdsToMigrate[0];
-    const target = groupMap[testAd.targetGroup];
-    if (!target?.platformAdSetId) {
-      console.info(`  No target ad set for group ${testAd.targetGroup}`);
-      return;
-    }
-
-    console.info(`  Test ad: ${testAd.metaAd.id} (${testAd.metaAd.name})`);
-    console.info(`  From campaign: ${testAd.metaAd.campaign_id}`);
-    console.info(`  Original ad set: ${testAd.metaAd.adset_id}`);
-    console.info(`  Target ad set: ${target.platformAdSetId}`);
-
-    try {
-      await metaClient.testMoveAd(testAd.metaAd.id, target.platformAdSetId);
-      console.info('  SUCCESS — Cross-objective move works!');
-      console.info('  Moving ad back to original ad set...');
-      try {
-        await metaClient.moveAdBack(testAd.metaAd.id, testAd.metaAd.adset_id);
-        console.info('  Moved back successfully.');
-      } catch (err) {
-        console.warn(`  Could not move back: ${err.message}`);
-        console.warn('  Ad remains in consolidated ad set (PAUSED).');
-      }
-      console.info('\n  RESULT: Use --apply to move all ads (fast path).');
-    } catch (err) {
-      console.info(`  FAILED — ${err.message}`);
-      console.info('  Cross-objective move not supported.');
-      console.info('  Will recreate ads using creative IDs (expected path).');
-      console.info('\n  RESULT: Use --apply to recreate all ads in consolidated campaigns.');
-    }
+    console.info('\nPhase 3: Cross-objective move test (DEPRECATED)');
+    console.info('  WARNING: Meta API silently accepts ad moves across objectives but does');
+    console.info('  NOT actually move the ad. The API returns success but the ad stays put.');
+    console.info('  Use --apply to RECREATE ads using creative IDs instead.');
     return;
   }
 
@@ -638,32 +623,12 @@ async function main() {
   // -------------------------------------------------------------------------
   console.info('\nPhase 4: Executing migration...');
 
-  // First, test if move works with 1 ad
-  let canMove = false;
-  if (legacyAdsToMigrate.length > 0) {
-    const testAd = legacyAdsToMigrate[0];
-    const target = groupMap[testAd.targetGroup];
-    if (target?.platformAdSetId) {
-      console.info('  Testing cross-objective move with 1 ad...');
-      try {
-        await metaClient.testMoveAd(testAd.metaAd.id, target.platformAdSetId);
-        canMove = true;
-        console.info('  Move works! Will move all ads.');
-        // Move it back — we'll process it properly below
-        try {
-          await metaClient.moveAdBack(testAd.metaAd.id, testAd.metaAd.adset_id);
-        } catch (_err) {
-          // If can't move back, mark as already processed
-          console.info('  (Test ad stays in consolidated — will skip in main loop)');
-        }
-      } catch (err) {
-        console.info(`  Move failed: ${err.message}`);
-        console.info('  Will recreate ads using creative IDs.');
-      }
-    }
-  }
-
-  const strategy = canMove ? 'MOVE' : 'RECREATE';
+  // NOTE: Cross-objective moves appear to succeed (API returns 200) but
+  // silently do nothing — the ad stays in its original ad set. This was
+  // confirmed after running --apply and verifying 0 ads actually moved.
+  // Force RECREATE strategy: create new ads using existing creative IDs.
+  const canMove = false;
+  const strategy = 'RECREATE';
   console.info(`\n  Strategy: ${strategy}`);
 
   // Separate General Tours from other groups
