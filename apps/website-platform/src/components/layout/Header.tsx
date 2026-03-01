@@ -106,37 +106,39 @@ export function Header() {
 
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-2 sm:px-6 lg:px-8">
         {/* Logo */}
-        <div className="flex items-center lg:flex-1">
-          <Link href="/" className="-m-1.5 p-1.5">
-            {brand?.logoUrl ? (
-              <Image
-                src={brand.logoUrl}
-                alt={site.name}
-                width={1600}
-                height={400}
-                className="h-20 w-auto sm:h-24"
-                priority
-              />
-            ) : (
-              <span
-                className="text-xl font-bold"
-                style={{ color: brand?.primaryColor ?? '#6366f1' }}
-              >
-                {site.name}
+        <div className="lg:flex-1">
+          <div className="flex items-center">
+            <Link href="/" className="-m-1.5 p-1.5">
+              {brand?.logoUrl ? (
+                <Image
+                  src={brand.logoUrl}
+                  alt={site.name}
+                  width={1600}
+                  height={400}
+                  className="h-20 w-auto sm:h-24"
+                  priority
+                />
+              ) : (
+                <span
+                  className="text-xl font-bold"
+                  style={{ color: brand?.primaryColor ?? '#6366f1' }}
+                >
+                  {site.name}
+                </span>
+              )}
+            </Link>
+            {isMicrosite && (
+              <span className="ml-3 hidden flex-shrink-0 items-center whitespace-nowrap text-[11px] text-gray-400 sm:flex">
+                powered by{' '}
+                <a
+                  href="https://experiencess.com"
+                  className="ml-1 text-gray-500 hover:text-gray-700 hover:underline"
+                >
+                  Experiencess.com
+                </a>
               </span>
             )}
-          </Link>
-          {isMicrosite && (
-            <span className="ml-3 hidden flex-shrink-0 items-center whitespace-nowrap text-[11px] text-gray-400 sm:flex">
-              powered by{' '}
-              <a
-                href="https://experiencess.com"
-                className="ml-1 text-gray-500 hover:text-gray-700 hover:underline"
-              >
-                Experiencess.com
-              </a>
-            </span>
-          )}
+          </div>
         </div>
 
         {/* Mobile menu button */}
