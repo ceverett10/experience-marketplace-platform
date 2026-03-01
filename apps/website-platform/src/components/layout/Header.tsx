@@ -106,7 +106,7 @@ export function Header() {
 
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-2 sm:px-6 lg:px-8">
         {/* Logo */}
-        <div className="lg:flex-1">
+        <div>
           <div className="flex items-center">
             <Link href="/" className="-m-1.5 p-1.5">
               {brand?.logoUrl ? (
@@ -170,7 +170,7 @@ export function Header() {
         </div>
 
         {/* Desktop navigation */}
-        <div className="hidden lg:flex lg:gap-x-8">
+        <div className="hidden lg:flex lg:flex-1 lg:justify-center lg:gap-x-8">
           {navigation.map((item) => (
             <Link
               key={item.name}
@@ -183,7 +183,7 @@ export function Header() {
         </div>
 
         {/* Desktop CTA */}
-        <div className="hidden lg:flex lg:flex-1 lg:justify-end">
+        <div className="hidden lg:flex">
           <Link
             href={isParentDomainSite ? '/#our-brands' : '/experiences'}
             className="rounded-md px-4 py-2 text-sm font-semibold text-white shadow-sm"
