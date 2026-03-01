@@ -106,9 +106,9 @@ describe('addJob()', () => {
     // Redis SET NX returns null = key already exists
     mockRedis.set.mockResolvedValue(null);
 
-    const result = await queueRegistry.addJob('CONTENT_GENERATE', { siteId: 'site-1' });
+    const result = await queueRegistry.addJob('SEO_ANALYZE', { siteId: 'site-1' });
 
-    expect(result).toBe('dedup:site-1:CONTENT_GENERATE');
+    expect(result).toBe('dedup:site-1:SEO_ANALYZE');
     expect(mockPrisma.job.create).not.toHaveBeenCalled();
     expect(mockQueue.add).not.toHaveBeenCalled();
   });

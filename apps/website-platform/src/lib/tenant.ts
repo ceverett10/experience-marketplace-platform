@@ -638,6 +638,11 @@ function getMicrositeTitleTemplate(microsite: MicrositeConfigWithEntity): string
     return `%s | Things to Do in ${topCity}`;
   }
   if (bestCategory) {
+    const name = microsite.supplier?.name;
+    if (name) {
+      const template = `%s | ${bestCategory} - ${name}`;
+      if (template.length <= 55) return template;
+    }
     return `%s | ${bestCategory}`;
   }
   return `%s | ${microsite.siteName}`;

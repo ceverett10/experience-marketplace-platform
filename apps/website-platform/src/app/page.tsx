@@ -436,7 +436,15 @@ function buildHomepageTitle(site: SiteConfig): string {
       return title.length <= 60 ? title : `Things to Do in ${topCity}`;
     }
     if (topCategory) {
+      const name = ctx.supplierName;
+      if (name) {
+        const withName = `Best ${topCategory} - ${name}`;
+        if (withName.length <= 60) return withName;
+      }
       return `Best ${topCategory} - Book Online`;
+    }
+    if (ctx.supplierName) {
+      return `${ctx.supplierName} - Tours & Activities`;
     }
     return 'Discover Tours & Activities - Book Online';
   }
