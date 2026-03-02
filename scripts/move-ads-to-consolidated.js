@@ -351,7 +351,8 @@ class MetaClient {
    * since the old creatives reference a pixel the account can no longer access.
    */
   async createAdWithNewCreative(config) {
-    const creative = { object_story_spec: config.objectStorySpec };
+    const spec = MetaClient.sanitizeStorySpec(config.objectStorySpec);
+    const creative = { object_story_spec: spec };
     if (config.urlTags) creative.url_tags = config.urlTags;
     const params = {
       adset_id: config.adSetId,
@@ -360,6 +361,35 @@ class MetaClient {
       creative,
     };
     return rateLimitedCall(() => this.apiCall('POST', `act_${this.adAccountId}/ads`, params));
+  }
+
+  /**
+   * Sanitize object_story_spec for re-creation.
+   * Meta returns both `picture` (URL) and `image_hash` in link_data,
+   * but only one may be specified when creating. Prefer image_hash.
+   * Also strip read-only fields that can't be submitted.
+   */
+  static sanitizeStorySpec(spec) {
+    const clean = JSON.parse(JSON.stringify(spec)); // deep clone
+    const linkData = clean.link_data;
+    if (linkData) {
+      // Remove picture when image_hash exists (can only use one)
+      if (linkData.image_hash && linkData.picture) {
+        delete linkData.picture;
+      }
+      // Remove read-only fields that Meta returns but rejects on create
+      delete linkData.image_crops;
+      delete linkData.multi_share_optimized;
+      delete linkData.multi_share_end_card;
+    }
+    // Strip video_data picture/image_hash conflict too
+    const videoData = clean.video_data;
+    if (videoData) {
+      if (videoData.image_hash && videoData.image_url) {
+        delete videoData.image_url;
+      }
+    }
+    return clean;
   }
 
   /** Batch create ads (up to 50 per batch). */
