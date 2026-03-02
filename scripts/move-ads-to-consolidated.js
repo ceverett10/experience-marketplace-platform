@@ -5,9 +5,15 @@
  * each containing 6 fresh ads (48 total). This script moves/recreates the
  * remaining ~911 legacy ads into those consolidated campaigns.
  *
- * Key constraint: Legacy campaigns use OUTCOME_TRAFFIC, new use OUTCOME_SALES.
- * Meta API silently accepts cross-objective ad moves (returns 200) but does NOT
- * actually move the ad. Strategy: RECREATE ads using existing creative IDs.
+ * Key constraints:
+ * 1. Legacy campaigns use OUTCOME_TRAFFIC, new use OUTCOME_SALES.
+ *    Meta API silently accepts cross-objective ad moves (returns 200) but does NOT
+ *    actually move the ad.
+ * 2. Legacy creatives reference a pixel the account no longer has access to.
+ *    Reusing creative IDs fails with error 1815045.
+ *
+ * Strategy: Create NEW ads with fresh creatives built from object_story_spec
+ * (the page post content — link, image, text, CTA). This avoids both issues.
  *
  * Usage:
  *   node scripts/move-ads-to-consolidated.js                # dry-run (default)
@@ -243,7 +249,7 @@ class MetaClient {
    */
   async fetchAllAccountAds() {
     const allAds = [];
-    const fields = 'id,name,status,campaign_id,adset_id,creative{id}';
+    const fields = 'id,name,status,campaign_id,adset_id,creative{id,object_story_spec,url_tags}';
     let page = 1;
 
     // First page via apiCall
@@ -325,6 +331,23 @@ class MetaClient {
       name: config.name,
       status: 'PAUSED',
       creative: { creative_id: config.creativeId },
+    };
+    return rateLimitedCall(() => this.apiCall('POST', `act_${this.adAccountId}/ads`, params));
+  }
+
+  /**
+   * Create an ad with a NEW creative from object_story_spec.
+   * This avoids pixel permission errors from reusing legacy creative IDs,
+   * since the old creatives reference a pixel the account can no longer access.
+   */
+  async createAdWithNewCreative(config) {
+    const creative = { object_story_spec: config.objectStorySpec };
+    if (config.urlTags) creative.url_tags = config.urlTags;
+    const params = {
+      adset_id: config.adSetId,
+      name: config.name,
+      status: 'PAUSED',
+      creative,
     };
     return rateLimitedCall(() => this.apiCall('POST', `act_${this.adAccountId}/ads`, params));
   }
@@ -589,20 +612,19 @@ async function main() {
   );
   console.info(`  Existing ads in consolidated campaigns: ${existingConsolidatedAds.length}`);
 
-  // Build set of creative IDs already in consolidated campaigns (for dedup on re-run)
-  const existingCreativeIds = new Set(
-    existingConsolidatedAds.map((ad) => ad.creative?.id).filter(Boolean)
-  );
-  console.info(`  Unique creatives already in consolidated: ${existingCreativeIds.size}`);
+  // Build set of ad names already in consolidated campaigns (for dedup on re-run)
+  const existingAdNames = new Set(existingConsolidatedAds.map((ad) => ad.name).filter(Boolean));
+  console.info(`  Unique ad names already in consolidated: ${existingAdNames.size}`);
 
-  // Filter out legacy ads whose creative is already in a consolidated campaign
+  // Filter out legacy ads whose name already exists in a consolidated campaign
   const beforeDedup = legacyAdsToMigrate.length;
-  const deduped = legacyAdsToMigrate.filter(
-    (item) => !existingCreativeIds.has(item.metaAd.creative?.id)
-  );
+  const deduped = legacyAdsToMigrate.filter((item) => {
+    const name = item.metaAd.name || `Migrated - ${item.legacyCampaign.name?.slice(0, 40)}`;
+    return !existingAdNames.has(name);
+  });
   const skippedDedup = beforeDedup - deduped.length;
   if (skippedDedup > 0) {
-    console.info(`  Skipping ${skippedDedup} ads (creative already in consolidated)`);
+    console.info(`  Skipping ${skippedDedup} ads (name already in consolidated)`);
   }
   legacyAdsToMigrate.length = 0;
   legacyAdsToMigrate.push(...deduped);
@@ -668,21 +690,20 @@ async function main() {
           await metaClient.testMoveAd(item.metaAd.id, target.platformAdSetId);
           console.info(`      MOVED ${item.metaAd.id} (${item.metaAd.name?.slice(0, 40)})`);
         } else {
-          // Recreate using creative ID
-          const creativeId = item.metaAd.creative?.id;
-          if (!creativeId) {
-            console.warn(`      No creative for ad ${item.metaAd.id} — skipping`);
+          // Recreate using object_story_spec (new creative avoids pixel permission errors)
+          const storySpec = item.metaAd.creative?.object_story_spec;
+          if (!storySpec) {
+            console.warn(`      No object_story_spec for ad ${item.metaAd.id} — skipping`);
             adsFailed++;
             continue;
           }
-          const result = await metaClient.createAdFromCreative({
+          const result = await metaClient.createAdWithNewCreative({
             adSetId: target.platformAdSetId,
             name: item.metaAd.name || `Migrated - ${item.legacyCampaign.name?.slice(0, 40)}`,
-            creativeId,
+            objectStorySpec: storySpec,
+            urlTags: item.metaAd.creative?.url_tags,
           });
-          console.info(
-            `      CREATED ${result.id} from creative ${creativeId} (${item.metaAd.name?.slice(0, 40)})`
-          );
+          console.info(`      CREATED ${result.id} (${item.metaAd.name?.slice(0, 40)})`);
         }
         adsProcessed++;
       } catch (err) {
@@ -804,16 +825,17 @@ async function main() {
             await metaClient.testMoveAd(item.metaAd.id, targetAdSetId);
             console.info(`      MOVED ${item.metaAd.id} → ${region}`);
           } else {
-            const creativeId = item.metaAd.creative?.id;
-            if (!creativeId) {
-              console.warn(`      No creative for ad ${item.metaAd.id} — skipping`);
+            const storySpec = item.metaAd.creative?.object_story_spec;
+            if (!storySpec) {
+              console.warn(`      No object_story_spec for ad ${item.metaAd.id} — skipping`);
               adsFailed++;
               continue;
             }
-            const result = await metaClient.createAdFromCreative({
+            const result = await metaClient.createAdWithNewCreative({
               adSetId: targetAdSetId,
               name: item.metaAd.name || `Migrated - ${item.legacyCampaign.name?.slice(0, 40)}`,
-              creativeId,
+              objectStorySpec: storySpec,
+              urlTags: item.metaAd.creative?.url_tags,
             });
             console.info(
               `      CREATED ${result.id} → ${region} (${item.metaAd.name?.slice(0, 40)})`
