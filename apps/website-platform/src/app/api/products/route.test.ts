@@ -188,7 +188,21 @@ describe('Products Route - GET', () => {
   });
 
   describe('Holibob API path (without supplierId)', () => {
-    it('fetches from Holibob when no supplierId', async () => {
+    it('returns empty when no location provided', async () => {
+      const request = new NextRequest('http://localhost:3000/api/products');
+
+      const response = await GET(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.success).toBe(true);
+      expect(data.source).toBe('holibob');
+      expect(data.products).toEqual([]);
+      expect(data.totalCount).toBe(0);
+      expect(mockDiscoverProducts).not.toHaveBeenCalled();
+    });
+
+    it('fetches from Holibob when location is provided', async () => {
       mockDiscoverProducts.mockResolvedValue({
         products: [
           {
@@ -208,7 +222,7 @@ describe('Products Route - GET', () => {
         pageInfo: { hasNextPage: false },
       });
 
-      const request = new NextRequest('http://localhost:3000/api/products');
+      const request = new NextRequest('http://localhost:3000/api/products?location=place-london');
 
       const response = await GET(request);
       const data = await response.json();
@@ -220,20 +234,23 @@ describe('Products Route - GET', () => {
       expect(data.products[0].title).toBe('Big Ben Tour');
     });
 
-    it('applies category filter as categoryIds', async () => {
+    it('applies category filter with location', async () => {
       mockDiscoverProducts.mockResolvedValue({
         products: [],
         totalCount: 0,
         pageInfo: { hasNextPage: false },
       });
 
-      const request = new NextRequest('http://localhost:3000/api/products?category=cat-1');
+      const request = new NextRequest(
+        'http://localhost:3000/api/products?category=cat-1&location=place-london'
+      );
 
       await GET(request);
 
       expect(mockDiscoverProducts).toHaveBeenCalledWith(
         expect.objectContaining({
           categoryIds: ['cat-1'],
+          placeIds: ['place-london'],
         }),
         expect.any(Object)
       );
@@ -265,7 +282,7 @@ describe('Products Route - GET', () => {
         pageInfo: { hasNextPage: false },
       });
 
-      const request = new NextRequest('http://localhost:3000/api/products');
+      const request = new NextRequest('http://localhost:3000/api/products?location=place-london');
 
       const response = await GET(request);
       const data = await response.json();
@@ -280,7 +297,7 @@ describe('Products Route - GET', () => {
         pageInfo: { hasNextPage: false },
       });
 
-      const request = new NextRequest('http://localhost:3000/api/products');
+      const request = new NextRequest('http://localhost:3000/api/products?location=place-london');
 
       const response = await GET(request);
       const data = await response.json();

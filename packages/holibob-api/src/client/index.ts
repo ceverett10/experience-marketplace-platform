@@ -1064,9 +1064,14 @@ export class HolibobClient {
       whereInput['freeText'] = filter.placeIds[0];
     }
     // Note: geoPoint is NOT supported by ProductDiscoveryWhere — use freeText for location
-    // Only set 'where' if we have location data — no hardcoded fallback
+    // Product Discovery API requires where — warn if missing
     if (Object.keys(whereInput).length > 0) {
       input['where'] = whereInput;
+    } else {
+      console.warn(
+        '[HolibobClient] discoverProducts called without where (no freeText or placeIds).',
+        'Product Discovery API requires a location. Caller should provide freeText or placeIds.'
+      );
     }
 
     // When - dates must be full ISO 8601 DateTime format

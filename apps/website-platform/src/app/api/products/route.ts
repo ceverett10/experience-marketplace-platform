@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { createHolibobClient } from '@experience-marketplace/holibob-api';
 import { prisma } from '../../../lib/prisma';
 
@@ -145,6 +145,17 @@ async function fetchFromHolibob(options: {
 }) {
   const { first, category, placeId } = options;
 
+  // Product Discovery API REQUIRES where.freeText — reject calls without a location
+  if (!placeId) {
+    return NextResponse.json({
+      success: true,
+      products: [],
+      totalCount: 0,
+      hasMore: false,
+      source: 'holibob',
+    });
+  }
+
   // Create Holibob client with environment credentials
   const client = createHolibobClient({
     apiUrl: process.env['HOLIBOB_API_URL'] ?? 'https://api.production.holibob.tech/graphql',
@@ -160,18 +171,15 @@ async function fetchFromHolibob(options: {
     currency: string;
     adults?: number;
     categoryIds?: string[];
-    placeIds?: string[];
+    placeIds: string[];
   } = {
     currency: 'GBP',
     adults: 2,
+    placeIds: [placeId],
   };
 
   if (category) {
     filter.categoryIds = [category];
-  }
-
-  if (placeId) {
-    filter.placeIds = [placeId];
   }
 
   // Fetch products from Holibob
