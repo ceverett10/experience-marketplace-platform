@@ -249,7 +249,8 @@ class MetaClient {
    */
   async fetchAllAccountAds() {
     const allAds = [];
-    const fields = 'id,name,status,campaign_id,adset_id,creative{id,object_story_spec,url_tags}';
+    // Light fields only — object_story_spec is too large for batch fetch
+    const fields = 'id,name,status,campaign_id,adset_id,creative{id}';
     let page = 1;
 
     // First page via apiCall
@@ -282,6 +283,15 @@ class MetaClient {
     }
 
     return allAds;
+  }
+
+  /**
+   * Fetch creative details (object_story_spec) for a single ad's creative.
+   * Called on-demand per ad during migration, not in bulk.
+   */
+  async fetchCreativeDetails(creativeId) {
+    const fields = 'id,object_story_spec,url_tags';
+    return rateLimitedCall(() => this.apiCall('GET', creativeId, { fields }), true);
   }
 
   /** Test moving an ad to a different ad set (cross-objective). */
@@ -691,17 +701,23 @@ async function main() {
           console.info(`      MOVED ${item.metaAd.id} (${item.metaAd.name?.slice(0, 40)})`);
         } else {
           // Recreate using object_story_spec (new creative avoids pixel permission errors)
-          const storySpec = item.metaAd.creative?.object_story_spec;
-          if (!storySpec) {
-            console.warn(`      No object_story_spec for ad ${item.metaAd.id} — skipping`);
+          const creativeId = item.metaAd.creative?.id;
+          if (!creativeId) {
+            console.warn(`      No creative ID for ad ${item.metaAd.id} — skipping`);
+            adsFailed++;
+            continue;
+          }
+          const creative = await metaClient.fetchCreativeDetails(creativeId);
+          if (!creative.object_story_spec) {
+            console.warn(`      No object_story_spec for creative ${creativeId} — skipping`);
             adsFailed++;
             continue;
           }
           const result = await metaClient.createAdWithNewCreative({
             adSetId: target.platformAdSetId,
             name: item.metaAd.name || `Migrated - ${item.legacyCampaign.name?.slice(0, 40)}`,
-            objectStorySpec: storySpec,
-            urlTags: item.metaAd.creative?.url_tags,
+            objectStorySpec: creative.object_story_spec,
+            urlTags: creative.url_tags,
           });
           console.info(`      CREATED ${result.id} (${item.metaAd.name?.slice(0, 40)})`);
         }
@@ -711,7 +727,7 @@ async function main() {
         adsFailed++;
       }
 
-      if (adsProcessed % 50 === 0) {
+      if ((adsProcessed + adsFailed) % 50 === 0) {
         console.info(`    Progress: ${adsProcessed} processed, ${adsFailed} failed`);
       }
     }
@@ -825,17 +841,23 @@ async function main() {
             await metaClient.testMoveAd(item.metaAd.id, targetAdSetId);
             console.info(`      MOVED ${item.metaAd.id} → ${region}`);
           } else {
-            const storySpec = item.metaAd.creative?.object_story_spec;
-            if (!storySpec) {
-              console.warn(`      No object_story_spec for ad ${item.metaAd.id} — skipping`);
+            const creativeId = item.metaAd.creative?.id;
+            if (!creativeId) {
+              console.warn(`      No creative ID for ad ${item.metaAd.id} — skipping`);
+              adsFailed++;
+              continue;
+            }
+            const creative = await metaClient.fetchCreativeDetails(creativeId);
+            if (!creative.object_story_spec) {
+              console.warn(`      No object_story_spec for creative ${creativeId} — skipping`);
               adsFailed++;
               continue;
             }
             const result = await metaClient.createAdWithNewCreative({
               adSetId: targetAdSetId,
               name: item.metaAd.name || `Migrated - ${item.legacyCampaign.name?.slice(0, 40)}`,
-              objectStorySpec: storySpec,
-              urlTags: item.metaAd.creative?.url_tags,
+              objectStorySpec: creative.object_story_spec,
+              urlTags: creative.url_tags,
             });
             console.info(
               `      CREATED ${result.id} → ${region} (${item.metaAd.name?.slice(0, 40)})`
@@ -847,7 +869,7 @@ async function main() {
           adsFailed++;
         }
 
-        if (adsProcessed % 50 === 0) {
+        if ((adsProcessed + adsFailed) % 50 === 0) {
           console.info(`    Progress: ${adsProcessed} processed, ${adsFailed} failed`);
         }
       }
