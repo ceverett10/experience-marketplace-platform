@@ -188,13 +188,9 @@ async function getRelatedExperiences(
       currency: site.primaryCurrency ?? 'GBP',
     };
 
-    // Use location name as freeText for related experiences, fall back to site destination
-    // Note: geoPoint is NOT supported by ProductDiscoveryWhere — use freeText only
-    if (experience.location.name) {
-      filter.freeText = experience.location.name;
-    } else if (siteDestination) {
-      filter.freeText = siteDestination;
-    }
+    // Product Discovery API REQUIRES where.freeText — always provide a location.
+    // Fall back through experience location → site destination → site name.
+    filter.freeText = experience.location.name || siteDestination || site.name;
 
     if (siteSearchTerm) {
       filter.searchTerm = siteSearchTerm;
