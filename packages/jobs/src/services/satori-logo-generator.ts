@@ -94,19 +94,29 @@ export async function generateLogos(params: LogoGenerationParams): Promise<LogoG
   console.info(`[Logo v2] Selected template: ${selection.templateId} for "${params.brandName}"`);
 
   // 3. Render all 4 variants in parallel
+  // Logo variants use trim=true to remove transparent canvas padding,
+  // so the PNG is only as wide as the visible content (icon + text).
   const [logoPng, logoDarkPng, faviconPng, ogPng] = await Promise.all([
-    renderToPng({
-      width: LOGO_WIDTH,
-      height: LOGO_HEIGHT,
-      fonts,
-      element: template.renderLight(templateParams, selection.customization),
-    }),
-    renderToPng({
-      width: LOGO_WIDTH,
-      height: LOGO_HEIGHT,
-      fonts,
-      element: template.renderDark(templateParams, selection.customization),
-    }),
+    renderToPng(
+      {
+        width: LOGO_WIDTH,
+        height: LOGO_HEIGHT,
+        fonts,
+        element: template.renderLight(templateParams, selection.customization),
+      },
+      2,
+      true
+    ),
+    renderToPng(
+      {
+        width: LOGO_WIDTH,
+        height: LOGO_HEIGHT,
+        fonts,
+        element: template.renderDark(templateParams, selection.customization),
+      },
+      2,
+      true
+    ),
     renderToPng({
       width: FAVICON_SIZE,
       height: FAVICON_SIZE,

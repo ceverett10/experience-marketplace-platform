@@ -64,15 +64,26 @@ export async function renderToSvg(options: RenderOptions): Promise<string> {
  * Satori generates the SVG at logical dimensions, then sharp rasterizes
  * at higher density to produce a pixel-dense PNG.
  */
-export async function renderToPng(options: RenderOptions, scale: number = 2): Promise<Buffer> {
+export async function renderToPng(
+  options: RenderOptions,
+  scale: number = 2,
+  /** Trim transparent borders from the output PNG (useful for logos). */
+  trim: boolean = false
+): Promise<Buffer> {
   const svg = await renderToSvg(options);
   const svgBuffer = Buffer.from(svg);
 
   const outputWidth = options.width * scale;
   const outputHeight = options.height * scale;
 
-  return sharp(svgBuffer, { density: 72 * scale })
+  const png = await sharp(svgBuffer, { density: 72 * scale })
     .resize(outputWidth, outputHeight)
     .png()
     .toBuffer();
+
+  if (!trim) return png;
+
+  // Trim transparent borders — removes unused canvas space so logos
+  // only take the width their visible content needs.
+  return sharp(png).trim().toBuffer();
 }
