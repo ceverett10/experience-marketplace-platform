@@ -20,11 +20,18 @@ const ICON_SIZE = 80;
 /**
  * Split a brand name into two lines.
  * Strategy: first word on line 1, rest on line 2.
- * Single-word names stay on one line.
+ * For single-word camelCase names (e.g. "EnzoKuhle"), split on the case boundary.
  */
 function splitIntoLines(brandName: string): [string, string] {
   const words = brandName.trim().split(/\s+/);
-  if (words.length <= 1) return [brandName.trim(), ''];
+  if (words.length <= 1) {
+    // Try splitting camelCase: "EnzoKuhle" → ["Enzo", "Kuhle"]
+    const camelParts = brandName.trim().split(/(?<=[a-z])(?=[A-Z])/);
+    if (camelParts.length >= 2) {
+      return [camelParts[0]!, camelParts.slice(1).join('')];
+    }
+    return [brandName.trim(), ''];
+  }
   // For 2-word names: word1 | word2
   // For 3+ words: word1 | word2 word3...
   return [words[0]!, words.slice(1).join(' ')];
