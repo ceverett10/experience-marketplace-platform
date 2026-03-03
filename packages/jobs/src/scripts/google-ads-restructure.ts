@@ -548,7 +548,7 @@ function generateHeadlines(
   // Pin 3 — Trust signals
   headlines.push('Instant Confirmation');
   if (stats.avgRating != null && stats.avgRating >= 4.0) {
-    headlines.push(truncate(`${stats.avgRating}★ Average Rating`, 30));
+    headlines.push(truncate(`${stats.avgRating}/5 Average Rating`, 30));
   } else {
     headlines.push('Top-Rated Providers');
   }
