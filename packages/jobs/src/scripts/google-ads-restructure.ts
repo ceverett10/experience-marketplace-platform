@@ -567,13 +567,26 @@ function generateHeadlines(
   headlines.push('Best Prices Guaranteed');
 
   // Ensure exactly 15 unique headlines, all ≤30 chars
-  const unique = Array.from(new Set(headlines)).filter((h) => h.length <= 30);
-  while (unique.length < 15) {
-    unique.push(truncate(`${dest} Activities`, 30));
-    unique.push('Book With Confidence');
-    unique.push('Expert Local Guides');
-    unique.push('Skip the Queue');
-    unique.push('Easy Online Booking');
+  const seen = new Set(headlines.filter((h) => h.length <= 30));
+  const unique = Array.from(seen);
+  const fillers = [
+    truncate(`${dest} Activities`, 30),
+    'Book With Confidence',
+    'Expert Local Guides',
+    'Skip the Queue',
+    'Easy Online Booking',
+    'Mobile-Friendly Booking',
+    'Local Expert Knowledge',
+    'Flexible Cancellation',
+    'Handpicked Experiences',
+    'Award-Winning Service',
+  ];
+  for (const filler of fillers) {
+    if (unique.length >= 15) break;
+    if (!seen.has(filler)) {
+      seen.add(filler);
+      unique.push(filler);
+    }
   }
   return unique.slice(0, 15);
 }
