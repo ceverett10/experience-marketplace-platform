@@ -63,8 +63,52 @@ function capitalize(str: string): string {
     .join(' ');
 }
 
+/** Known slug → proper name corrections for edge cases */
+const SLUG_CORRECTIONS: Record<string, string> = {
+  'canc-n': 'Cancun',
+  'champs-lys-es': 'Champs-Elysees',
+  'hell-s-kitchen': "Hell's Kitchen",
+  'miami-usa': 'Miami, USA',
+  'napa-valley-usa': 'Napa Valley, USA',
+  'bangkok-thailand': 'Bangkok, Thailand',
+  'barcelona-spain': 'Barcelona, Spain',
+  'bordeaux-france': 'Bordeaux, France',
+  'tuscany-italy': 'Tuscany, Italy',
+  'mendoza-argentina': 'Mendoza, Argentina',
+  'douro-valley-portugal': 'Douro Valley, Portugal',
+  'barossa-valley-australia': 'Barossa Valley, Australia',
+  'rioja-spain': 'Rioja, Spain',
+  'kyoto-japan': 'Kyoto, Japan',
+  'bali-indonesia': 'Bali, Indonesia',
+  'durham-england': 'Durham, England',
+  'edinburgh-scotland': 'Edinburgh, Scotland',
+  'highlands-scotland': 'Highlands, Scotland',
+  'lacock-england': 'Lacock, England',
+  'oxford-england': 'Oxford, England',
+  'york-england': 'York, England',
+  'london-england': 'London, England',
+  'paris-france': 'Paris, France',
+  'marrakech-morocco': 'Marrakech, Morocco',
+  'istanbul-turkey': 'Istanbul, Turkey',
+  'lisbon-portugal': 'Lisbon, Portugal',
+  'marlborough-new-zealand': 'Marlborough, New Zealand',
+  'hwange-national-park-zimbabwe': 'Hwange National Park, Zimbabwe',
+  'amboseli-national-park-kenya': 'Amboseli National Park, Kenya',
+  'chobe-national-park-botswana': 'Chobe National Park, Botswana',
+  'serengeti-tanzania': 'Serengeti, Tanzania',
+  'okavango-delta-botswana': 'Okavango Delta, Botswana',
+  'kruger-national-park-south-africa': 'Kruger National Park, South Africa',
+  'masai-mara-kenya': 'Masai Mara, Kenya',
+  'ngorongoro-crater-tanzania': 'Ngorongoro Crater, Tanzania',
+  'warner-bros-studio': 'Warner Bros Studio',
+};
+
 function extractLocation(slug: string): string {
-  const city = slug.replace('destinations/', '').replace(/-/g, ' ');
+  const slugPart = slug.replace('destinations/', '');
+  if (SLUG_CORRECTIONS[slugPart]) {
+    return SLUG_CORRECTIONS[slugPart];
+  }
+  const city = slugPart.replace(/-/g, ' ');
   return capitalize(city);
 }
 
