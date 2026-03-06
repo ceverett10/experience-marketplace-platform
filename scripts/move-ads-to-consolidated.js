@@ -786,71 +786,106 @@ async function main() {
         console.info(`      ${region}: ${data.items.length} ads`);
       }
 
-      // For each region, create a new ad set (or use existing for first region)
-      const regionAdSets = {}; // region → platformAdSetId
+      // Meta enforces a 150-ad limit per ad set for Advantage+ / OUTCOME_SALES.
+      // Track ads per ad set and create overflow ad sets when needed.
+      const META_AD_SET_LIMIT = 150;
+
+      // For each region, find existing ad sets or prepare to create new ones
+      const regionAdSetState = {}; // region → { adSets: [{id, count}], countries, needsDsa }
 
       for (const [region, data] of Object.entries(byRegion)) {
-        const adSetName = `General Tours – Tier 2 – ${region} - Ad Set`;
         const countries = [...data.countries];
         const needsDsa = requiresDsa(countries);
 
-        // Check if child already exists for this region
-        const existingChild = await prisma.adCampaign.findFirst({
+        // Find ALL existing children for this region (may have Part 2, Part 3, etc.)
+        const existingChildren = await prisma.adCampaign.findMany({
           where: {
             parentCampaignId: gtTarget.parent.id,
             name: { startsWith: `General Tours – Tier 2 – ${region}` },
           },
+          select: { name: true, platformAdSetId: true },
+          orderBy: { name: 'asc' },
         });
 
-        if (existingChild?.platformAdSetId) {
-          console.info(`      ${region}: Using existing ad set ${existingChild.platformAdSetId}`);
-          regionAdSets[region] = existingChild.platformAdSetId;
-        } else {
-          // Create new ad set on Meta
-          const result = await metaClient.createAdSet({
-            campaignId: gtTarget.platformCampaignId,
-            name: adSetName,
-            countries,
-            ageMin: 18,
-            ageMax: 65,
-            dsaBeneficiary: needsDsa ? siteName : undefined,
-            dsaPayor: needsDsa ? siteName : undefined,
-          });
-          regionAdSets[region] = result.id;
-          adSetsCreated++;
-          console.info(`      ${region}: Created ad set ${result.id}`);
-
-          // Create child DB record
-          const bestSource = data.items[0].legacyCampaign;
-          await prisma.adCampaign.create({
-            data: {
-              siteId: bestSource.siteId || gtTarget.parent.siteId,
-              micrositeId: bestSource.micrositeId || null,
-              platform: 'FACEBOOK',
-              parentCampaignId: gtTarget.parent.id,
-              platformCampaignId: gtTarget.platformCampaignId,
-              platformAdSetId: result.id,
-              platformAdId: null,
-              campaignGroup: 'General Tours – Tier 2',
-              name: `General Tours – Tier 2 – ${region}`,
-              status: 'PAUSED',
-              dailyBudget: 0,
-              maxCpc: 0,
-              keywords: [],
-              targetUrl: bestSource.targetUrl || 'https://holibob.com',
-              geoTargets: countries,
-              utmSource: 'facebook_ads',
-              utmMedium: 'cpc',
-              utmCampaign: `meta_general_tours_tier_2_${region.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`,
-              proposalData: {
-                regionalAdSet: true,
-                region,
-                migratedAdCount: data.items.length,
-              },
-            },
-          });
-          console.info(`      ${region}: Created DB child record`);
+        const adSets = [];
+        for (const child of existingChildren) {
+          if (!child.platformAdSetId) continue;
+          // Count existing ads in this ad set
+          const countUrl = `https://graph.facebook.com/v18.0/${child.platformAdSetId}/ads?fields=id&limit=0&summary=true&access_token=${metaClient.accessToken}`;
+          const countResp = await fetch(countUrl);
+          const countData = await countResp.json();
+          const currentCount = countData.summary?.total_count || 0;
+          adSets.push({ id: child.platformAdSetId, count: currentCount, name: child.name });
+          console.info(
+            `      ${region}: Existing ad set ${child.platformAdSetId} has ${currentCount} ads`
+          );
         }
+
+        regionAdSetState[region] = { adSets, countries, needsDsa };
+      }
+
+      // Helper: get or create an ad set with capacity for the given region
+      async function getAdSetWithCapacity(region) {
+        const state = regionAdSetState[region];
+        if (!state) return null;
+
+        // Find an existing ad set with room
+        for (const adSet of state.adSets) {
+          if (adSet.count < META_AD_SET_LIMIT) return adSet;
+        }
+
+        // All full — create a new one
+        const partNum = state.adSets.length + 1;
+        const suffix = partNum === 1 ? '' : ` Part ${partNum}`;
+        const adSetName = `General Tours – Tier 2 – ${region}${suffix} - Ad Set`;
+        console.info(`      ${region}: Creating new ad set (part ${partNum})...`);
+
+        const result = await metaClient.createAdSet({
+          campaignId: gtTarget.platformCampaignId,
+          name: adSetName,
+          countries: state.countries,
+          ageMin: 18,
+          ageMax: 65,
+          dsaBeneficiary: state.needsDsa ? siteName : undefined,
+          dsaPayor: state.needsDsa ? siteName : undefined,
+        });
+        adSetsCreated++;
+        console.info(`      ${region}: Created ad set ${result.id} (part ${partNum})`);
+
+        // Create DB record
+        const bestSource = generalToursAds[0].legacyCampaign;
+        const dbName = `General Tours – Tier 2 – ${region}${suffix}`;
+        await prisma.adCampaign.create({
+          data: {
+            siteId: bestSource.siteId || gtTarget.parent.siteId,
+            micrositeId: bestSource.micrositeId || null,
+            platform: 'FACEBOOK',
+            parentCampaignId: gtTarget.parent.id,
+            platformCampaignId: gtTarget.platformCampaignId,
+            platformAdSetId: result.id,
+            platformAdId: null,
+            campaignGroup: 'General Tours – Tier 2',
+            name: dbName,
+            status: 'PAUSED',
+            dailyBudget: 0,
+            maxCpc: 0,
+            keywords: [],
+            targetUrl: bestSource.targetUrl || 'https://holibob.com',
+            geoTargets: state.countries,
+            utmSource: 'facebook_ads',
+            utmMedium: 'cpc',
+            utmCampaign: `meta_general_tours_tier_2_${region.toLowerCase().replace(/[^a-z0-9]+/g, '_')}_p${partNum}`,
+            proposalData: {
+              regionalAdSet: true,
+              region,
+              part: partNum,
+            },
+          },
+        });
+
+        const newAdSet = { id: result.id, count: 0, name: dbName };
+        state.adSets.push(newAdSet);
+        return newAdSet;
       }
 
       // Now migrate ads into their regional ad sets
@@ -858,9 +893,9 @@ async function main() {
       for (const item of generalToursAds) {
         const countries = extractGeoTargets(item.legacyCampaign);
         const region = getRegion(countries);
-        const targetAdSetId = regionAdSets[region];
+        const adSet = await getAdSetWithCapacity(region);
 
-        if (!targetAdSetId) {
+        if (!adSet) {
           console.warn(`      No ad set for region ${region} — skipping ${item.metaAd.id}`);
           adsFailed++;
           continue;
@@ -868,7 +903,7 @@ async function main() {
 
         try {
           if (canMove) {
-            await metaClient.testMoveAd(item.metaAd.id, targetAdSetId);
+            await metaClient.testMoveAd(item.metaAd.id, adSet.id);
             console.info(`      MOVED ${item.metaAd.id} → ${region}`);
           } else {
             const creativeId = item.metaAd.creative?.id;
@@ -884,13 +919,14 @@ async function main() {
               continue;
             }
             const result = await metaClient.createAdWithNewCreative({
-              adSetId: targetAdSetId,
+              adSetId: adSet.id,
               name: item.metaAd.name || `Migrated - ${item.legacyCampaign.name?.slice(0, 40)}`,
               objectStorySpec: creative.object_story_spec,
               urlTags: creative.url_tags,
             });
+            adSet.count++;
             console.info(
-              `      CREATED ${result.id} → ${region} (${item.metaAd.name?.slice(0, 40)})`
+              `      CREATED ${result.id} → ${region} [${adSet.count}/${META_AD_SET_LIMIT}] (${item.metaAd.name?.slice(0, 40)})`
             );
           }
           adsProcessed++;
