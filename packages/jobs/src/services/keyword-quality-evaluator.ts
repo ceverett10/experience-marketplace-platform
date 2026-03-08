@@ -18,8 +18,8 @@ import { prisma } from '@experience-marketplace/database';
 const BATCH_SIZE = 50; // Keywords per AI call
 const MAX_BATCHES = 40; // Cap at 2000 keywords per run
 const EVAL_COOLDOWN_HOURS = 72; // Re-evaluate after 3 days
-const BID_THRESHOLD = 60; // Score >= 60 → BID
-const SKIP_THRESHOLD = 30; // Score < 30 → SKIP (archive)
+const BID_THRESHOLD = 65; // Score >= 65 → BID
+const SKIP_THRESHOLD = 40; // Score < 40 → SKIP (archive)
 const AI_MODEL = 'claude-haiku-4-5-20251001';
 const AI_MAX_TOKENS = 4000;
 
@@ -137,15 +137,21 @@ Evaluate each keyword below for paid advertising worthiness. For each keyword, c
 
 ## Scoring Rules
 - Score 80-100: Clear buying intent for bookable experiences matching the site
-- Score 60-79: Good potential, relevant to experiences, moderate intent
-- Score 40-59: Uncertain — might convert but risky to bid on
+- Score 65-79: Good potential, relevant to experiences, moderate intent
+- Score 40-64: Uncertain — might convert but risky to bid on
 - Score 20-39: Poor fit — informational intent, wrong niche, or too competitive
 - Score 0-19: Not suitable — irrelevant, no commercial intent, or impossible CPC
 
+## Automatic Penalties
+- Single-word keywords (e.g. "berlin", "cambodia"): -30 points (too broad for paid search)
+- Keywords about hotels, flights, restaurants: -25 points (wrong product type)
+- Navigational queries (opening hours, directions, address): -25 points
+- Keywords with >£5 spent and 0 conversions historically: -20 points
+
 ## Decision Thresholds
-- BID: score >= 60 (worth spending ad budget)
-- REVIEW: score 30-59 (needs human review or more data)
-- SKIP: score < 30 (archive, don't bid)
+- BID: score >= 65 (worth spending ad budget)
+- REVIEW: score 40-64 (needs human review or more data)
+- SKIP: score < 40 (archive, don't bid)
 
 ## Keywords to Evaluate
 ${keywordLines}

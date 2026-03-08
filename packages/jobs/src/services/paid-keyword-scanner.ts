@@ -23,24 +23,9 @@ import {
   extractDestinationFromKeyword,
   getDataForSEOLocationForKeyword,
 } from '../utils/keyword-location';
+import { isLowIntentKeyword, hasCommercialIntent } from '../utils/keyword-intent';
 
 type ScanMode = 'gsc' | 'expansion' | 'discovery' | 'pinterest' | 'meta';
-
-/**
- * Words that indicate zero purchase intent for paid experiences.
- * Keywords containing these terms are excluded from PAID_CANDIDATE consideration.
- */
-const LOW_INTENT_TERMS = ['free', 'gratis', 'no cost', 'complimentary', 'freebie', 'for nothing'];
-
-/** Returns true if the keyword should be rejected due to low intent terms. */
-function isLowIntentKeyword(keyword: string): boolean {
-  const kw = keyword.toLowerCase();
-  return LOW_INTENT_TERMS.some((term) => {
-    // Match as whole word to avoid false positives like "freestyle"
-    const regex = new RegExp(`\\b${term}\\b`, 'i');
-    return regex.test(kw);
-  });
-}
 
 interface ScanConfig {
   siteId?: string;
@@ -907,8 +892,9 @@ async function upsertOpportunity(data: {
   location?: string;
   siteId?: string;
 }): Promise<void> {
-  // Final safety net: reject low-intent keywords
+  // Final safety net: reject low-intent and non-commercial keywords
   if (isLowIntentKeyword(data.keyword)) return;
+  if (!hasCommercialIntent(data.keyword)) return;
 
   // Task 1.3: Extract destination city from keyword for consistent location
   const location = data.location || (await extractDestinationFromKeyword(data.keyword));
