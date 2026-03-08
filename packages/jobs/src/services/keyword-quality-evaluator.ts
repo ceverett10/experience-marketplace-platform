@@ -415,3 +415,135 @@ export async function evaluateKeywordQuality(): Promise<EvaluationResult> {
 
   return { totalEvaluated, bidCount, skipCount, reviewCount, archivedCount, costEstimate };
 }
+
+// --- Keyword Quality Decay ---------------------------------------------------
+
+/** Minimum spend (micros) before applying decay penalty */
+const DECAY_SPEND_THRESHOLD_MICROS = 10_000_000; // £10
+/** Score reduction per decay cycle for zero-conversion keywords */
+const DECAY_FACTOR = 0.8; // 20% reduction
+/** Archive keywords below this score */
+const DECAY_ARCHIVE_THRESHOLD = 20;
+
+/**
+ * Decay scores of underperforming keywords based on actual ad spend data.
+ *
+ * Keywords with >£10 spend and 0 conversions have their AI score reduced by 20%.
+ * Keywords that fall below score 20 are archived.
+ *
+ * Designed to run weekly alongside the bidding engine pipeline.
+ */
+export async function decayUnperformingKeywords(): Promise<{
+  decayed: number;
+  archived: number;
+}> {
+  // Find PAID_CANDIDATE keywords with AI evaluation scores
+  const candidates = await prisma.sEOOpportunity.findMany({
+    where: {
+      status: 'PAID_CANDIDATE' as any,
+    },
+    select: {
+      id: true,
+      keyword: true,
+      sourceData: true,
+    },
+  });
+
+  // Load ad performance data: keywords with spend but no conversions
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+  const adMetrics = await prisma.adDailyMetric.groupBy({
+    by: ['campaignId'],
+    where: {
+      date: { gte: thirtyDaysAgo },
+    },
+    _sum: {
+      spend: true,
+      conversions: true,
+    },
+  });
+
+  // Build a set of campaign IDs with high spend + zero conversions
+  const underperformingCampaigns = new Set<string>();
+  for (const metric of adMetrics) {
+    const spendMicros = (Number(metric._sum.spend) || 0) * 1_000_000;
+    const conversions = Number(metric._sum.conversions) || 0;
+    if (spendMicros >= DECAY_SPEND_THRESHOLD_MICROS && conversions === 0) {
+      underperformingCampaigns.add(metric.campaignId);
+    }
+  }
+
+  // Get keywords linked to underperforming campaigns
+  const campaignKeywords = await prisma.adCampaign.findMany({
+    where: {
+      id: { in: [...underperformingCampaigns] },
+      status: 'ACTIVE',
+    },
+    select: {
+      keywords: true,
+    },
+  });
+
+  const underperformingKeywords = new Set(
+    campaignKeywords.flatMap((c) => c.keywords.map((k) => k.toLowerCase()))
+  );
+
+  let decayed = 0;
+  let archived = 0;
+
+  for (const candidate of candidates) {
+    if (!underperformingKeywords.has(candidate.keyword.toLowerCase())) continue;
+
+    const sd = candidate.sourceData as {
+      aiEvaluation?: { score?: number; evaluatedAt?: string };
+    } | null;
+    const currentScore = sd?.aiEvaluation?.score;
+    if (currentScore == null) continue;
+
+    const newScore = Math.round(currentScore * DECAY_FACTOR);
+
+    if (newScore < DECAY_ARCHIVE_THRESHOLD) {
+      await prisma.sEOOpportunity.update({
+        where: { id: candidate.id },
+        data: {
+          status: 'ARCHIVED' as any,
+          sourceData: {
+            ...(candidate.sourceData as Record<string, unknown>),
+            aiEvaluation: {
+              ...sd!.aiEvaluation,
+              score: newScore,
+              decayedAt: new Date().toISOString(),
+              decayReason: 'zero_conversions_high_spend',
+            },
+          },
+        },
+      });
+      archived++;
+    } else {
+      await prisma.sEOOpportunity.update({
+        where: { id: candidate.id },
+        data: {
+          sourceData: {
+            ...(candidate.sourceData as Record<string, unknown>),
+            aiEvaluation: {
+              ...sd!.aiEvaluation,
+              score: newScore,
+              decayedAt: new Date().toISOString(),
+              decayReason: 'zero_conversions_high_spend',
+            },
+          },
+        },
+      });
+      decayed++;
+    }
+  }
+
+  if (decayed > 0 || archived > 0) {
+    console.log(
+      `[KeywordEval] Decay: ${decayed} keywords reduced, ${archived} archived (below score ${DECAY_ARCHIVE_THRESHOLD})`
+    );
+  }
+
+  return { decayed, archived };
+}

@@ -1141,3 +1141,40 @@ export async function pauseAdGroupKeywords(
     return totalPaused;
   }
 }
+
+/**
+ * Add exact-match keywords to an ad group.
+ * Used by search term harvesting to promote converting search terms.
+ */
+export async function addKeywordsToAdGroup(adGroupId: string, keywords: string[]): Promise<number> {
+  const config = getConfig();
+  if (!config || keywords.length === 0) return 0;
+
+  const BATCH_SIZE = 200;
+  let totalAdded = 0;
+
+  try {
+    for (let i = 0; i < keywords.length; i += BATCH_SIZE) {
+      const batch = keywords.slice(i, i + BATCH_SIZE);
+      const operations = batch.map((kw) => ({
+        create: {
+          adGroup: `customers/${config.customerId}/adGroups/${adGroupId}`,
+          keyword: {
+            text: kw,
+            matchType: 'EXACT',
+          },
+          status: 'ENABLED',
+        },
+      }));
+
+      await apiRequest(config, 'POST', '/adGroupCriteria:mutate', { operations });
+      totalAdded += batch.length;
+    }
+
+    console.log(`[GoogleAds] Added ${totalAdded} exact-match keywords to ad group ${adGroupId}`);
+    return totalAdded;
+  } catch (error) {
+    console.error('[GoogleAds] Add keywords failed:', error);
+    return totalAdded;
+  }
+}
