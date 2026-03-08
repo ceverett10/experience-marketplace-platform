@@ -14,41 +14,170 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
     const searchParams = request.nextUrl.searchParams;
     const siteId = searchParams.get('siteId') || undefined;
-    const days = parseInt(searchParams.get('days') || '30');
+    const days = Math.min(parseInt(searchParams.get('days') || '30') || 30, 365);
 
     const lookback = new Date();
     lookback.setDate(lookback.getDate() - days);
 
-    // --- Site Profitability Profiles ---
-    const profileWhere: Record<string, unknown> = {};
-    if (siteId) profileWhere['siteId'] = siteId;
-
-    const profiles = await prisma.biddingProfile.findMany({
-      where: profileWhere as any,
-      include: { site: { select: { name: true, primaryDomain: true } } },
-      orderBy: { maxProfitableCpc: 'desc' },
-    });
-
-    // --- Campaign Performance ---
     const campaignWhere: Record<string, unknown> = {
       status: { in: ['ACTIVE', 'PAUSED', 'DRAFT'] },
+      parentCampaignId: null, // Exclude child ad sets — parents have aggregated metrics
     };
     if (siteId) campaignWhere['siteId'] = siteId;
 
-    const campaigns = await prisma.adCampaign.findMany({
-      where: campaignWhere as any,
-      include: {
-        site: { select: { name: true } },
-        microsite: { select: { siteName: true, fullDomain: true } },
-        dailyMetrics: {
-          where: { date: { gte: lookback } },
-          orderBy: { date: 'desc' },
-        },
-      },
-      orderBy: { updatedAt: 'desc' },
-    });
+    const profileWhere: Record<string, unknown> = {};
+    if (siteId) profileWhere['siteId'] = siteId;
 
-    // Aggregate portfolio metrics
+    const kwWhere: Record<string, unknown> = { status: 'PAID_CANDIDATE' as any };
+    if (siteId) kwWhere['siteId'] = siteId;
+
+    // ── Parallelize ALL independent queries ──────────────────────────────
+    const [
+      profiles,
+      campaigns,
+      keywords,
+      microsites,
+      totalPaidCandidates,
+      unassignedCount,
+      kwPoolStats,
+      suppliersTotal,
+      suppliersEnriched,
+      lastEnrichment,
+    ] = await Promise.all([
+      // 1. Site profitability profiles
+      prisma.biddingProfile.findMany({
+        where: profileWhere as any,
+        include: { site: { select: { name: true, primaryDomain: true } } },
+        orderBy: { maxProfitableCpc: 'desc' },
+      }),
+
+      // 2. Campaigns (WITHOUT dailyMetrics — we aggregate separately)
+      prisma.adCampaign.findMany({
+        where: campaignWhere as any,
+        include: {
+          site: { select: { name: true } },
+          microsite: { select: { siteName: true, fullDomain: true } },
+        },
+        orderBy: { updatedAt: 'desc' },
+      }),
+
+      // 3. Keyword opportunities (top 500)
+      prisma.sEOOpportunity.findMany({
+        where: kwWhere as any,
+        select: {
+          id: true,
+          keyword: true,
+          searchVolume: true,
+          cpc: true,
+          difficulty: true,
+          intent: true,
+          priorityScore: true,
+          location: true,
+          niche: true,
+          siteId: true,
+          sourceData: true,
+          site: { select: { name: true } },
+        },
+        orderBy: { priorityScore: 'desc' },
+        take: 500,
+      }),
+
+      // 4. Active microsites with latest analytics
+      prisma.micrositeConfig.findMany({
+        where: { status: 'ACTIVE' },
+        select: {
+          id: true,
+          siteName: true,
+          fullDomain: true,
+          entityType: true,
+          discoveryConfig: true,
+          cachedProductCount: true,
+          analyticsSnapshots: {
+            where: { date: { gte: lookback } },
+            orderBy: { date: 'desc' },
+            take: 1,
+          },
+        },
+        orderBy: { siteName: 'asc' },
+      }),
+
+      // 5. Keyword counts
+      prisma.sEOOpportunity.count({ where: { status: 'PAID_CANDIDATE' as any } }),
+      prisma.sEOOpportunity.count({ where: { status: 'PAID_CANDIDATE' as any, siteId: null } }),
+
+      // 6. Keyword pool stats — single groupBy + aggregate replaces 10 separate queries
+      prisma.$queryRawUnsafe<
+        Array<{
+          intent: string | null;
+          cnt: bigint;
+          avg_cpc: number | null;
+          avg_vol: number | null;
+          high_vol: bigint;
+          med_vol: bigint;
+          low_vol: bigint;
+          cpc_u25: bigint;
+          cpc_25_50: bigint;
+          cpc_50_100: bigint;
+          cpc_o100: bigint;
+        }>
+      >(
+        `SELECT
+          intent,
+          COUNT(*)::bigint AS cnt,
+          AVG(cpc) AS avg_cpc,
+          AVG("searchVolume") AS avg_vol,
+          COUNT(*) FILTER (WHERE "searchVolume" >= 1000)::bigint AS high_vol,
+          COUNT(*) FILTER (WHERE "searchVolume" >= 100 AND "searchVolume" < 1000)::bigint AS med_vol,
+          COUNT(*) FILTER (WHERE "searchVolume" >= 10 AND "searchVolume" < 100)::bigint AS low_vol,
+          COUNT(*) FILTER (WHERE cpc < 0.25)::bigint AS cpc_u25,
+          COUNT(*) FILTER (WHERE cpc >= 0.25 AND cpc < 0.5)::bigint AS cpc_25_50,
+          COUNT(*) FILTER (WHERE cpc >= 0.5 AND cpc < 1.0)::bigint AS cpc_50_100,
+          COUNT(*) FILTER (WHERE cpc >= 1.0)::bigint AS cpc_o100
+        FROM "SEOOpportunity"
+        WHERE status = 'PAID_CANDIDATE'
+        GROUP BY intent`
+      ),
+
+      // 7. Supplier enrichment stats
+      prisma.supplier.count({ where: { microsite: { status: 'ACTIVE' } } }),
+      prisma.supplier.count({ where: { keywordsEnrichedAt: { not: null } } }),
+      prisma.supplier.aggregate({ _max: { keywordsEnrichedAt: true } }),
+    ]);
+
+    // ── Aggregate campaign metrics at DB level (single query) ────────────
+    const campaignIds = campaigns.map((c) => c.id);
+    const metricsAgg =
+      campaignIds.length > 0
+        ? await prisma.$queryRawUnsafe<
+            Array<{
+              campaign_id: string;
+              total_spend: number;
+              total_revenue: number;
+              total_clicks: bigint;
+              total_impressions: bigint;
+              total_conversions: bigint;
+              days_with_data: bigint;
+            }>
+          >(
+            `SELECT
+              "campaignId" AS campaign_id,
+              COALESCE(SUM(spend), 0) AS total_spend,
+              COALESCE(SUM(revenue), 0) AS total_revenue,
+              COALESCE(SUM(clicks), 0)::bigint AS total_clicks,
+              COALESCE(SUM(impressions), 0)::bigint AS total_impressions,
+              COALESCE(SUM(conversions), 0)::bigint AS total_conversions,
+              COUNT(*)::bigint AS days_with_data
+            FROM "ad_daily_metrics"
+            WHERE "campaignId" = ANY($1) AND date >= $2
+            GROUP BY "campaignId"`,
+            campaignIds,
+            lookback
+          )
+        : [];
+
+    const metricsMap = new Map(metricsAgg.map((m) => [m.campaign_id, m]));
+
+    // ── Build campaign summaries ─────────────────────────────────────────
     let totalSpend = 0;
     let totalRevenue = 0;
     let totalClicks = 0;
@@ -56,11 +185,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     let totalConversions = 0;
 
     const campaignSummaries = campaigns.map((c) => {
-      const spend = c.dailyMetrics.reduce((s, m) => s + Number(m.spend), 0);
-      const revenue = c.dailyMetrics.reduce((s, m) => s + Number(m.revenue), 0);
-      const clicks = c.dailyMetrics.reduce((s, m) => s + m.clicks, 0);
-      const impressions = c.dailyMetrics.reduce((s, m) => s + m.impressions, 0);
-      const conversions = c.dailyMetrics.reduce((s, m) => s + m.conversions, 0);
+      const m = metricsMap.get(c.id);
+      const spend = Number(m?.total_spend || 0);
+      const revenue = Number(m?.total_revenue || 0);
+      const clicks = Number(m?.total_clicks || 0);
+      const impressions = Number(m?.total_impressions || 0);
+      const conversions = Number(m?.total_conversions || 0);
 
       totalSpend += spend;
       totalRevenue += revenue;
@@ -72,9 +202,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         id: c.id,
         name: c.name,
         siteName: c.site?.name || 'Unknown',
-        micrositeName: (c as any).microsite?.siteName || null,
-        micrositeDomain: (c as any).microsite?.fullDomain || null,
-        isMicrosite: !!(c as any).micrositeId,
+        micrositeName: c.microsite?.siteName || null,
+        micrositeDomain: c.microsite?.fullDomain || null,
+        isMicrosite: !!c.micrositeId,
         platform: c.platform,
         status: c.status,
         dailyBudget: Number(c.dailyBudget),
@@ -88,13 +218,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         roas: spend > 0 ? revenue / spend : 0,
         ctr: impressions > 0 ? clicks / impressions : 0,
         avgCpc: clicks > 0 ? spend / clicks : 0,
-        daysWithData: c.dailyMetrics.length,
+        daysWithData: Number(m?.days_with_data || 0),
         targetUrl: c.targetUrl || null,
         proposalData: c.proposalData || null,
-        landingPagePath: (c as any).landingPagePath || null,
-        landingPageType: (c as any).landingPageType || null,
-        landingPageProducts: (c as any).landingPageProducts || null,
-        qualityScore: (c as any).qualityScore || null,
+        landingPagePath: c.landingPagePath || null,
+        landingPageType: c.landingPageType || null,
+        landingPageProducts: c.landingPageProducts || null,
+        qualityScore: c.qualityScore || null,
         platformCampaignId: c.platformCampaignId || null,
         audiences: c.audiences || null,
       };
@@ -102,8 +232,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     const portfolioRoas = totalSpend > 0 ? totalRevenue / totalSpend : 0;
 
-    // --- Booking attribution summary ---
-    // Include bookings from microsites associated with this site's campaigns
+    // ── Booking attribution ──────────────────────────────────────────────
     const micrositeIds = [
       ...new Set(campaigns.filter((c) => c.micrositeId).map((c) => c.micrositeId!)),
     ];
@@ -132,39 +261,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         commission: Number(b._sum.commissionAmount || 0),
       }));
 
-    // --- PAID_CANDIDATE keyword opportunities per site ---
-    // Count total and unassigned for summary
-    const totalPaidCandidates = await prisma.sEOOpportunity.count({
-      where: { status: 'PAID_CANDIDATE' as any },
-    });
-    const unassignedCount = await prisma.sEOOpportunity.count({
-      where: { status: 'PAID_CANDIDATE' as any, siteId: null },
-    });
-
-    const kwWhere: Record<string, unknown> = { status: 'PAID_CANDIDATE' as any };
-    if (siteId) kwWhere['siteId'] = siteId;
-
-    const keywords = await prisma.sEOOpportunity.findMany({
-      where: kwWhere as any,
-      select: {
-        id: true,
-        keyword: true,
-        searchVolume: true,
-        cpc: true,
-        difficulty: true,
-        intent: true,
-        priorityScore: true,
-        location: true,
-        niche: true,
-        siteId: true,
-        sourceData: true,
-        site: { select: { name: true } },
-      },
-      orderBy: { priorityScore: 'desc' },
-      take: 500,
-    });
-
-    // Group keywords by site for the response
+    // ── Group keywords by site ───────────────────────────────────────────
+    const profileMap = new Map(profiles.map((p) => [p.siteId, p]));
     const keywordsBySite: Record<
       string,
       {
@@ -189,7 +287,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       }
     > = {};
 
-    // Count AI evaluation stats
     let aiEvaluatedCount = 0;
     let aiBidCount = 0;
     let aiReviewCount = 0;
@@ -197,23 +294,15 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     for (const kw of keywords) {
       const sid = kw.siteId || 'unassigned';
       if (!keywordsBySite[sid]) {
-        keywordsBySite[sid] = {
-          siteName: kw.site?.name || 'Unassigned',
-          keywords: [],
-        };
+        keywordsBySite[sid] = { siteName: kw.site?.name || 'Unassigned', keywords: [] };
       }
       const cpc = Number(kw.cpc || 0);
       const estClicks = Math.round((kw.searchVolume / 30) * 0.04 * 30); // 4% CTR
-      const profile = profiles.find((p) => p.siteId === sid);
+      const profile = profileMap.get(sid);
       const maxProfitCpc = profile ? Number(profile.maxProfitableCpc) : null;
 
-      // Extract AI evaluation from sourceData
       const sd = kw.sourceData as {
-        aiEvaluation?: {
-          score?: number;
-          decision?: string;
-          reasoning?: string;
-        };
+        aiEvaluation?: { score?: number; decision?: string; reasoning?: string };
       } | null;
       const aiEval = sd?.aiEvaluation;
       const aiScore = aiEval?.score ?? null;
@@ -226,7 +315,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         else if (aiDecision === 'REVIEW') aiReviewCount++;
       }
 
-      keywordsBySite[sid].keywords.push({
+      keywordsBySite[sid]!.keywords.push({
         id: kw.id,
         keyword: kw.keyword,
         searchVolume: kw.searchVolume,
@@ -245,26 +334,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       });
     }
 
-    // --- Active Microsites ---
-    const microsites = await prisma.micrositeConfig.findMany({
-      where: { status: 'ACTIVE' },
-      select: {
-        id: true,
-        siteName: true,
-        fullDomain: true,
-        entityType: true,
-        discoveryConfig: true,
-        homepageConfig: true,
-        cachedProductCount: true,
-        analyticsSnapshots: {
-          where: { date: { gte: lookback } },
-          orderBy: { date: 'desc' },
-          take: 1,
-        },
-      },
-      orderBy: { siteName: 'asc' },
-    });
-
+    // ── Microsite summaries ──────────────────────────────────────────────
     const micrositeSummaries = microsites.map((ms) => {
       const disco = ms.discoveryConfig as {
         keyword?: string;
@@ -272,7 +342,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         niche?: string;
       } | null;
       const latestSnapshot = ms.analyticsSnapshots[0];
-
       return {
         id: ms.id,
         siteName: ms.siteName,
@@ -287,75 +356,57 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       };
     });
 
-    // --- Budget utilization ---
+    // ── Budget utilization ───────────────────────────────────────────────
     const activeCampaigns = campaigns.filter((c) => c.status === 'ACTIVE');
     const totalDailyBudget = activeCampaigns.reduce((s, c) => s + Number(c.dailyBudget), 0);
     const maxDailyBudget = parseFloat(process.env['BIDDING_MAX_DAILY_BUDGET'] || '1200');
 
-    // --- Enrichment pipeline stats ---
-    const [suppliersTotal, suppliersEnriched, lastEnrichment] = await Promise.all([
-      prisma.supplier.count({ where: { microsite: { status: 'ACTIVE' } } }),
-      prisma.supplier.count({ where: { keywordsEnrichedAt: { not: null } } }),
-      prisma.supplier.aggregate({ _max: { keywordsEnrichedAt: true } }),
-    ]);
-
-    // Keyword pool distribution (parallelized)
-    const [
-      kwAgg,
-      kwHighVol,
-      kwMedVol,
-      kwLowVol,
-      kwCpcU25,
-      kwCpc25_50,
-      kwCpc50_100,
-      kwCpcO100,
-      kwIntents,
-      kwLocations,
-    ] = await Promise.all([
-      prisma.sEOOpportunity.aggregate({
-        where: { status: 'PAID_CANDIDATE' as any },
-        _avg: { cpc: true, searchVolume: true },
-        _count: true,
-      }),
-      prisma.sEOOpportunity.count({
-        where: { status: 'PAID_CANDIDATE' as any, searchVolume: { gte: 1000 } },
-      }),
-      prisma.sEOOpportunity.count({
-        where: { status: 'PAID_CANDIDATE' as any, searchVolume: { gte: 100, lt: 1000 } },
-      }),
-      prisma.sEOOpportunity.count({
-        where: { status: 'PAID_CANDIDATE' as any, searchVolume: { gte: 10, lt: 100 } },
-      }),
-      prisma.sEOOpportunity.count({
-        where: { status: 'PAID_CANDIDATE' as any, cpc: { lt: 0.25 } },
-      }),
-      prisma.sEOOpportunity.count({
-        where: { status: 'PAID_CANDIDATE' as any, cpc: { gte: 0.25, lt: 0.5 } },
-      }),
-      prisma.sEOOpportunity.count({
-        where: { status: 'PAID_CANDIDATE' as any, cpc: { gte: 0.5, lt: 1.0 } },
-      }),
-      prisma.sEOOpportunity.count({
-        where: { status: 'PAID_CANDIDATE' as any, cpc: { gte: 1.0 } },
-      }),
-      prisma.sEOOpportunity.groupBy({
-        by: ['intent'],
-        where: { status: 'PAID_CANDIDATE' as any },
-        _count: true,
-      }),
-      prisma.sEOOpportunity.findMany({
-        where: { status: 'PAID_CANDIDATE' as any, location: { not: null } },
-        select: { location: true },
-        distinct: ['location' as any],
-      }),
-    ]);
-
+    // ── Keyword pool stats from single grouped query ─────────────────────
+    let kwTotal = 0;
+    let kwAvgCpc = 0;
+    let kwAvgVol = 0;
+    let kwHighVol = 0;
+    let kwMedVol = 0;
+    let kwLowVol = 0;
+    let kwCpcU25 = 0;
+    let kwCpc25_50 = 0;
+    let kwCpc50_100 = 0;
+    let kwCpcO100 = 0;
     const intentMap: Record<string, number> = {};
-    for (const g of kwIntents) {
-      intentMap[g.intent] = g._count;
+
+    for (const row of kwPoolStats) {
+      const cnt = Number(row.cnt);
+      kwTotal += cnt;
+      kwHighVol += Number(row.high_vol);
+      kwMedVol += Number(row.med_vol);
+      kwLowVol += Number(row.low_vol);
+      kwCpcU25 += Number(row.cpc_u25);
+      kwCpc25_50 += Number(row.cpc_25_50);
+      kwCpc50_100 += Number(row.cpc_50_100);
+      kwCpcO100 += Number(row.cpc_o100);
+      if (row.intent) intentMap[row.intent] = cnt;
+    }
+    if (kwTotal > 0) {
+      // Weighted average across intent groups
+      let totalCpcWeighted = 0;
+      let totalVolWeighted = 0;
+      for (const row of kwPoolStats) {
+        const cnt = Number(row.cnt);
+        totalCpcWeighted += (row.avg_cpc || 0) * cnt;
+        totalVolWeighted += (row.avg_vol || 0) * cnt;
+      }
+      kwAvgCpc = totalCpcWeighted / kwTotal;
+      kwAvgVol = Math.round(totalVolWeighted / kwTotal);
     }
 
-    // Projection data from DRAFT campaigns with proposalData
+    // Unique cities count
+    const kwLocations = await prisma.sEOOpportunity.findMany({
+      where: { status: 'PAID_CANDIDATE' as any, location: { not: null } },
+      select: { location: true },
+      distinct: ['location' as any],
+    });
+
+    // ── Projection from DRAFT campaigns ──────────────────────────────────
     const draftsWithProposals = campaignSummaries.filter(
       (c) => c.status === 'DRAFT' && c.proposalData
     );
@@ -413,32 +464,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       };
     }
 
-    const enrichment = {
-      suppliersTotal,
-      suppliersEnriched,
-      lastEnrichmentDate: lastEnrichment._max.keywordsEnrichedAt?.toISOString() || null,
-      keywordPool: {
-        total: totalPaidCandidates,
-        avgCpc: Number(kwAgg._avg.cpc || 0),
-        avgVolume: Math.round(Number(kwAgg._avg.searchVolume || 0)),
-        highVolume: kwHighVol,
-        medVolume: kwMedVol,
-        lowVolume: kwLowVol,
-        cpcUnder025: kwCpcU25,
-        cpc025to050: kwCpc25_50,
-        cpc050to100: kwCpc50_100,
-        cpcOver100: kwCpcO100,
-        uniqueCities: kwLocations.length,
-        intentBreakdown: {
-          commercial: intentMap['COMMERCIAL'] || 0,
-          transactional: intentMap['TRANSACTIONAL'] || 0,
-          informational: intentMap['INFORMATIONAL'] || 0,
-          navigational: intentMap['NAVIGATIONAL'] || 0,
-        },
-      },
-      projection,
-    };
-
     return NextResponse.json({
       period: { days, since: lookback.toISOString() },
       portfolio: {
@@ -480,7 +505,31 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         aiReview: aiReviewCount,
       },
       microsites: micrositeSummaries,
-      enrichment,
+      enrichment: {
+        suppliersTotal,
+        suppliersEnriched,
+        lastEnrichmentDate: lastEnrichment._max.keywordsEnrichedAt?.toISOString() || null,
+        keywordPool: {
+          total: totalPaidCandidates,
+          avgCpc: kwAvgCpc,
+          avgVolume: kwAvgVol,
+          highVolume: kwHighVol,
+          medVolume: kwMedVol,
+          lowVolume: kwLowVol,
+          cpcUnder025: kwCpcU25,
+          cpc025to050: kwCpc25_50,
+          cpc050to100: kwCpc50_100,
+          cpcOver100: kwCpcO100,
+          uniqueCities: kwLocations.length,
+          intentBreakdown: {
+            commercial: intentMap['COMMERCIAL'] || 0,
+            transactional: intentMap['TRANSACTIONAL'] || 0,
+            informational: intentMap['INFORMATIONAL'] || 0,
+            navigational: intentMap['NAVIGATIONAL'] || 0,
+          },
+        },
+        projection,
+      },
     });
   } catch (error) {
     console.error('[API] Error fetching bidding analytics:', error);
@@ -553,7 +602,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     if (action === 'activate_paused') {
-      // Activate all PAUSED campaigns that have been deployed to platforms
       const paused = await prisma.adCampaign.findMany({
         where: { status: 'PAUSED', platformCampaignId: { not: null } },
         select: { id: true, platform: true, platformCampaignId: true, name: true },
@@ -571,7 +619,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           } else if (campaign.platform === 'GOOGLE_SEARCH') {
             // Set status on platform if configured
           }
-          // Update DB status to ACTIVE
           await prisma.adCampaign.update({
             where: { id: campaign.id },
             data: { status: 'ACTIVE' },
@@ -636,7 +683,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: 'siteId required for budget adjustment' }, { status: 400 });
     }
 
-    // Task 4.5: REVIEW keyword workflow — approve or reject REVIEW-decision keywords
     if (action === 'approve_keyword') {
       const { keywordId } = body as { keywordId: string };
       if (!keywordId) {
@@ -686,7 +732,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       });
     }
 
-    // Task 4.5: Bulk approve/reject REVIEW keywords
     if (action === 'bulk_approve_keywords') {
       const { keywordIds } = body as { keywordIds: string[] };
       if (!keywordIds?.length) {
@@ -735,7 +780,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       });
     }
 
-    // Task 4.6: Keyword-level management — pause individual keyword by adding to negative list
     if (action === 'pause_keyword') {
       const { campaignId, keyword } = body as { campaignId: string; keyword: string };
       if (!campaignId || !keyword) {
@@ -765,7 +809,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       });
     }
 
-    // Task 4.6: Manual bid override per campaign
     if (action === 'override_bid') {
       const { campaignId, maxCpc } = body as { campaignId: string; maxCpc: number };
       if (!campaignId || maxCpc === undefined) {
