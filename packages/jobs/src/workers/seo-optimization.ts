@@ -732,57 +732,16 @@ export async function handleAutoOptimize(job: Job<SEOAutoOptimizePayload>): Prom
         console.log(`[Auto SEO] Scheduled optimization for site: ${site.name}`);
       }
 
-      // Process microsites in-line in batches (too many for individual Redis jobs — ~11k active)
-      const micrositeCount = await prisma.micrositeConfig.count({ where: { status: 'ACTIVE' } });
-      console.log(`[Auto SEO] Processing ${micrositeCount} active microsites in-line...`);
-
-      const BATCH_SIZE = 200;
-      let micrositesProcessed = 0;
-      let cursor: string | undefined;
-
-      // eslint-disable-next-line no-constant-condition
-      while (true) {
-        const batch = await prisma.micrositeConfig.findMany({
-          where: { status: 'ACTIVE' },
-          select: { id: true, siteName: true },
-          take: BATCH_SIZE,
-          ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
-          orderBy: { id: 'asc' },
-        });
-
-        if (batch.length === 0) break;
-        cursor = batch[batch.length - 1]!.id;
-
-        for (const ms of batch) {
-          try {
-            const msOwner: import('../services/seo-optimizer').PageOwnerFilter = {
-              micrositeId: ms.id,
-            };
-            await autoOptimizeSiteSEO('', msOwner);
-            await addMissingStructuredData('', msOwner);
-            await flagThinContentForExpansion('', msOwner);
-            await updateContentFreshness('', msOwner);
-            await fixMissingImageAltText('', msOwner);
-            micrositesProcessed++;
-          } catch (err) {
-            console.warn(
-              `[Auto SEO] Microsite ${ms.siteName} failed:`,
-              err instanceof Error ? err.message : err
-            );
-          }
-        }
-
-        console.log(`[Auto SEO] Processed ${micrositesProcessed}/${micrositeCount} microsites...`);
-      }
-
-      console.log(`[Auto SEO] Finished processing ${micrositesProcessed} microsites`);
+      // NOTE: In-line microsite processing disabled — iterating 39k+ microsites in a single
+      // job causes R15 OOM on Standard-2X (1GB). Microsites get SEO optimization via their
+      // individual scheduled jobs instead.
+      console.info('[Auto SEO] Skipping in-line microsite processing to prevent OOM');
 
       const duration = Date.now() - startTime;
       return {
         success: true,
         data: {
           sitesScheduled: sites.length,
-          micrositesProcessed,
           totalScheduled: scheduled,
           sites: sites.map((s) => s.name),
           duration,
