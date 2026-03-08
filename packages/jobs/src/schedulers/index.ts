@@ -57,14 +57,14 @@ const CONTENT_SCHEDULES: ContentSchedule[] = [
   {
     fanoutJobType: 'CONTENT_FAQ_FANOUT',
     contentType: 'faq_hub',
-    cron: '30 1 * * *',
-    description: 'FAQ Hub Pages',
+    cron: '30 1 * * 1',
+    description: 'FAQ Hub Pages (Weekly Mon)',
   },
   {
     fanoutJobType: 'CONTENT_REFRESH_FANOUT',
     contentType: 'content_refresh',
-    cron: '30 2 * * *',
-    description: 'Content Refresh',
+    cron: '30 2 * * 2,4,6',
+    description: 'Content Refresh (Tue/Thu/Sat)',
   },
   {
     fanoutJobType: 'CONTENT_BLOG_FANOUT',
@@ -76,25 +76,25 @@ const CONTENT_SCHEDULES: ContentSchedule[] = [
     fanoutJobType: 'CONTENT_GUIDES_FANOUT',
     contentType: 'local_guide',
     cron: '30 4 * * 0',
-    description: 'Local Guides (Weekly)',
+    description: 'Local Guides (Weekly Sun)',
   },
   {
     fanoutJobType: 'CONTENT_DESTINATION_FANOUT',
     contentType: 'destination_landing',
     cron: '30 5 * * *',
-    description: 'Destination Landing',
+    description: 'Destination Landing (Daily)',
   },
   {
     fanoutJobType: 'CONTENT_COMPARISON_FANOUT',
     contentType: 'comparison',
-    cron: '30 6 * * *',
-    description: 'Comparison Pages',
+    cron: '30 6 * * 1,3,5',
+    description: 'Comparison Pages (Mon/Wed/Fri)',
   },
   {
     fanoutJobType: 'CONTENT_SEASONAL_FANOUT',
     contentType: 'seasonal_event',
-    cron: '0 7 * * *',
-    description: 'Seasonal Content',
+    cron: '0 7 * * 0',
+    description: 'Seasonal Content (Weekly Sun)',
   },
 ];
 
@@ -110,7 +110,7 @@ export async function refreshMicrositeContent(): Promise<void> {
     where: { status: 'ACTIVE' },
   });
 
-  const refreshCount = Math.max(1, Math.floor(totalActive * 0.01));
+  const refreshCount = Math.max(1, Math.floor(totalActive * 0.005));
 
   const micrositesToRefresh = await prisma.micrositeConfig.findMany({
     where: { status: 'ACTIVE' },
@@ -359,9 +359,22 @@ export async function removeAllScheduledJobs(): Promise<void> {
   await queueRegistry.removeRepeatableJob('LINK_BROKEN_LINK_SCAN' as any, '0 4 15 * *');
   await queueRegistry.removeRepeatableJob('LINK_CONTENT_GAP_ANALYSIS' as any, '0 4 20 * *');
 
-  // Content fanout
+  // Content fanout — remove both old (daily) and new (reduced) cron patterns
+  // to ensure clean transition when deploying
+  const OLD_CONTENT_CRONS: Record<string, string[]> = {
+    CONTENT_FAQ_FANOUT: ['30 1 * * *'],
+    CONTENT_REFRESH_FANOUT: ['30 2 * * *'],
+    CONTENT_COMPARISON_FANOUT: ['30 6 * * *'],
+    CONTENT_SEASONAL_FANOUT: ['0 7 * * *'],
+  };
   for (const schedule of CONTENT_SCHEDULES) {
     await queueRegistry.removeRepeatableJob(schedule.fanoutJobType as any, schedule.cron);
+    const oldCrons = OLD_CONTENT_CRONS[schedule.fanoutJobType];
+    if (oldCrons) {
+      for (const oldCron of oldCrons) {
+        await queueRegistry.removeRepeatableJob(schedule.fanoutJobType as any, oldCron);
+      }
+    }
   }
   await queueRegistry.removeRepeatableJob('META_TITLE_MAINTENANCE' as any, '0 8 * * 0');
 
@@ -426,33 +439,33 @@ export function getScheduledJobs(): Array<{
     },
     {
       jobType: 'CONTENT_FAQ_FANOUT',
-      schedule: '30 1 * * *',
-      description: 'Generate FAQ hub pages from GSC queries and content',
+      schedule: '30 1 * * 1',
+      description: 'Generate FAQ hub pages from GSC queries and content (Weekly Mon)',
     },
     {
       jobType: 'CONTENT_REFRESH_FANOUT',
-      schedule: '30 2 * * *',
-      description: 'Refresh underperforming content based on SEO health',
+      schedule: '30 2 * * 2,4,6',
+      description: 'Refresh underperforming content based on SEO health (Tue/Thu/Sat)',
     },
     {
       jobType: 'CONTENT_BLOG_FANOUT',
       schedule: '0 4 * * *',
-      description: 'Generate blog posts for sites and microsites (5% daily rotation)',
+      description: 'Generate blog posts for sites and microsites (2% daily rotation)',
     },
     {
       jobType: 'CONTENT_DESTINATION_FANOUT',
       schedule: '30 5 * * *',
-      description: 'Generate destination landing pages for key locations',
+      description: 'Generate destination landing pages for key locations (Daily)',
     },
     {
       jobType: 'CONTENT_COMPARISON_FANOUT',
-      schedule: '30 6 * * *',
-      description: 'Generate comparison pages (X vs Y content)',
+      schedule: '30 6 * * 1,3,5',
+      description: 'Generate comparison pages (X vs Y content) (Mon/Wed/Fri)',
     },
     {
       jobType: 'CONTENT_SEASONAL_FANOUT',
-      schedule: '0 7 * * *',
-      description: 'Generate seasonal and event-based content',
+      schedule: '0 7 * * 0',
+      description: 'Generate seasonal and event-based content (Weekly Sun)',
     },
     {
       jobType: 'CONTENT_GUIDES_FANOUT',
@@ -537,7 +550,7 @@ export function getScheduledJobs(): Array<{
     {
       jobType: 'MICROSITE_CONTENT_REFRESH',
       schedule: '0 6 * * *',
-      description: 'Refresh 1% of microsite content daily (rotating)',
+      description: 'Refresh 0.5% of microsite content daily (rotating)',
     },
     {
       jobType: 'MICROSITE_GSC_SYNC',

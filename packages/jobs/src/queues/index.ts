@@ -470,6 +470,13 @@ class QueueRegistry {
   }
 
   /**
+   * Read a value from Redis. Used by budget helpers.
+   */
+  async getRedisValue(key: string): Promise<string | null> {
+    return this.connection.get(key);
+  }
+
+  /**
    * Close all queues and Redis connection
    */
   async close(): Promise<void> {
@@ -481,6 +488,27 @@ class QueueRegistry {
 // Export singleton instance
 export const queueRegistry = new QueueRegistry();
 
+/**
+ * Get the remaining content budget for today.
+ * Returns { used, limit, remaining }. If Redis is unavailable, returns full budget (fail-open).
+ */
+export async function getRemainingContentBudget(): Promise<{
+  used: number;
+  limit: number;
+  remaining: number;
+}> {
+  const limit = DAILY_BUDGET[QUEUE_NAMES.CONTENT];
+  try {
+    const budgetKey = `budget:${QUEUE_NAMES.CONTENT}:${new Date().toISOString().split('T')[0]}`;
+    const count = await queueRegistry.getRedisValue(budgetKey);
+    const used = count ? parseInt(count, 10) : 0;
+    return { used, limit, remaining: Math.max(0, limit - used) };
+  } catch {
+    // Fail-open: if Redis is unavailable, assume full budget
+    return { used: 0, limit, remaining: limit };
+  }
+}
+
 // Export convenience functions
 export const addJob = queueRegistry.addJob.bind(queueRegistry);
 export const scheduleJob = queueRegistry.scheduleJob.bind(queueRegistry);
@@ -488,6 +516,7 @@ export const getQueueMetrics = queueRegistry.getQueueMetrics.bind(queueRegistry)
 export const getAllQueueMetrics = queueRegistry.getAllQueueMetrics.bind(queueRegistry);
 export const removeJob = queueRegistry.removeJob.bind(queueRegistry);
 export const cleanAllQueues = queueRegistry.cleanAllQueues.bind(queueRegistry);
+// getRemainingContentBudget is exported as a standalone function above
 
 /**
  * Get a queue by name
