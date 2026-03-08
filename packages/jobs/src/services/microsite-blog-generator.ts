@@ -10,11 +10,11 @@
  */
 
 import { prisma, PageType, PageStatus } from '@experience-marketplace/database';
-import { generateDailyBlogTopic, BlogTopicContext } from './blog-topics.js';
+import { generateDailyBlogTopic, type BlogTopicContext } from './blog-topics.js';
 import { addJob } from '../queues/index.js';
 
 // Configuration
-const DAILY_PERCENTAGE = 0.05; // Process 5% of microsites per day
+const DAILY_PERCENTAGE = 0.02; // Process 2% of microsites per day (~50-day rotation)
 const BATCH_SIZE = 10; // Process 10 microsites concurrently
 const DELAY_BETWEEN_BATCHES_MS = 5000; // 5 seconds between batches
 const DELAY_BETWEEN_ITEMS_MS = 500; // 0.5 seconds between items in a batch

@@ -6,7 +6,7 @@
 
 import { prisma, PageType, PageStatus, SiteStatus } from '@experience-marketplace/database';
 import { createHolibobClient } from '@experience-marketplace/holibob-api';
-import { addJob } from '../queues/index.js';
+import { addJob, getRemainingContentBudget } from '../queues/index.js';
 import { getPagesNeedingOptimization } from './seo-health.js';
 
 // ============================================================================
@@ -86,12 +86,28 @@ export async function generateDailyContent(
 ): Promise<ContentGenerationResult[]> {
   console.log(`[Daily Content] Starting ${contentType} generation for all active sites...`);
 
-  const activeSites = await prisma.site.findMany({
+  // Check remaining budget before iterating sites — skip if budget is nearly exhausted
+  const budget = await getRemainingContentBudget();
+  if (budget.remaining < 50) {
+    console.warn(
+      `[Daily Content] Skipping ${contentType} fanout — content budget nearly exhausted ` +
+        `(${budget.used}/${budget.limit} used, ${budget.remaining} remaining)`
+    );
+    return [];
+  }
+
+  const allActiveSites = await prisma.site.findMany({
     where: { status: SiteStatus.ACTIVE },
     select: { id: true, name: true },
   });
 
-  console.log(`[Daily Content] Found ${activeSites.length} active sites`);
+  // Pre-filter sites that won't generate content to avoid unnecessary DB queries per site
+  const activeSites = await filterEligibleSites(allActiveSites, contentType);
+
+  console.log(
+    `[Daily Content] Found ${activeSites.length} eligible sites ` +
+      `(of ${allActiveSites.length} active) for ${contentType}`
+  );
 
   const results: ContentGenerationResult[] = [];
 
@@ -169,7 +185,7 @@ export async function generateDailyContent(
         orderBy: { lastContentUpdate: 'asc' },
       });
 
-      const rotationCount = Math.max(1, Math.floor(opportunityMicrosites.length * 0.05));
+      const rotationCount = Math.max(1, Math.floor(opportunityMicrosites.length * 0.02));
       const toProcess = opportunityMicrosites.slice(0, rotationCount);
 
       if (toProcess.length > 0) {
@@ -896,6 +912,70 @@ export async function generateSeasonalContentForSite(
 // ============================================================================
 // Helper Functions
 // ============================================================================
+
+/**
+ * Pre-filter active sites to only those likely to generate content for the given type.
+ * Avoids per-site DB queries in the fanout loop for sites that would just skip.
+ */
+async function filterEligibleSites(
+  sites: Array<{ id: string; name: string }>,
+  contentType: ContentGenerationType
+): Promise<Array<{ id: string; name: string }>> {
+  switch (contentType) {
+    case 'faq_hub': {
+      // Only include sites that don't already have a FAQ page
+      const sitesWithFaq = await prisma.page.findMany({
+        where: {
+          siteId: { in: sites.map((s) => s.id) },
+          slug: 'faq',
+          type: PageType.FAQ,
+        },
+        select: { siteId: true },
+      });
+      const sitesWithFaqSet = new Set(sitesWithFaq.map((p) => p.siteId));
+      return sites.filter((s) => !sitesWithFaqSet.has(s.id));
+    }
+
+    case 'seasonal_event': {
+      // Pre-compute which sites already have all seasonal slugs covered
+      const currentMonth = new Date().getMonth() + 1;
+      const upcomingMonth = (currentMonth % 12) + 1;
+      const currentEvents = SEASONAL_EVENTS[currentMonth] || [];
+      const upcomingEvents = SEASONAL_EVENTS[upcomingMonth] || [];
+      const totalEvents = currentEvents.length + upcomingEvents.length;
+
+      if (totalEvents === 0) return [];
+
+      // Count existing seasonal pages per site
+      const seasonalCounts = await prisma.page.groupBy({
+        by: ['siteId'],
+        where: {
+          siteId: { in: sites.map((s) => s.id) },
+          type: PageType.BLOG,
+          slug: { startsWith: 'blog/seasonal-' },
+        },
+        _count: { id: true },
+      });
+      // Sites with fewer seasonal pages than total available events may still need content
+      const saturatedSites = new Set(
+        seasonalCounts.filter((c) => c._count.id >= totalEvents).map((c) => c.siteId)
+      );
+      return sites.filter((s) => !saturatedSites.has(s.id));
+    }
+
+    case 'destination_landing': {
+      // Only include sites that still have uncovered destinations.
+      // Sites with no destinations configured AND no SEO opportunities can be skipped.
+      // The per-site function does the detailed check, but we can skip sites that already
+      // have many destination pages relative to their configured destinations.
+      return sites; // Keep all — destination check requires per-site context
+    }
+
+    default:
+      // For comparison, content_refresh, local_guide — keep all sites
+      return sites;
+  }
+}
 
 async function getSiteWithContext(siteId: string): Promise<SiteContext | null> {
   const site = await prisma.site.findUnique({
