@@ -134,7 +134,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           COUNT(*) FILTER (WHERE cpc >= 0.5 AND cpc < 1.0)::bigint AS cpc_50_100,
           COUNT(*) FILTER (WHERE cpc >= 1.0)::bigint AS cpc_o100
         FROM "SEOOpportunity"
-        WHERE status = 'PAID_CANDIDATE'
+        WHERE status::text = 'PAID_CANDIDATE'
         GROUP BY intent`
       ),
 
