@@ -21,6 +21,7 @@ import {
 } from '@experience-marketplace/holibob-api';
 import { DataForSEOClient } from './dataforseo-client';
 import { getCountryForCity } from '../utils/keyword-location';
+import { isLowIntentKeyword } from '../utils/keyword-intent';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -153,8 +154,7 @@ const FILLER_WORDS = new Set([
   'that',
 ]);
 
-/** Words indicating low purchase intent */
-const LOW_INTENT_TERMS = ['free', 'gratis', 'no cost', 'complimentary', 'freebie'];
+// LOW_INTENT_TERMS moved to shared utils/keyword-intent.ts
 
 /**
  * Map Holibob categories to commonly-searched booking-intent keyword stems.
@@ -1601,14 +1601,7 @@ async function validateKeywords(
   return validated;
 }
 
-/** Returns true if the keyword should be rejected due to low intent terms. */
-function isLowIntentKeyword(keyword: string): boolean {
-  const kw = keyword.toLowerCase();
-  return LOW_INTENT_TERMS.some((term) => {
-    const regex = new RegExp(`\\b${term}\\b`, 'i');
-    return regex.test(kw);
-  });
-}
+// isLowIntentKeyword() moved to shared utils/keyword-intent.ts
 
 // ---------------------------------------------------------------------------
 // Phase 3: Store Results

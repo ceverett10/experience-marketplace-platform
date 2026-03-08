@@ -37,6 +37,7 @@ import {
   setCampaignStatus as setGoogleCampaignStatus,
   migrateToSmartBidding,
   addCampaignNegativeKeywords,
+  addKeywordsToAdGroup,
   getSearchTermReport,
   setCampaignGeoTargets,
   createAndLinkSitelinks,
@@ -1387,8 +1388,11 @@ async function deployMetaChildAdSet(
       targeting: {
         countries,
         interests: interestTargeting.length > 0 ? interestTargeting : undefined,
-        ageMin: 18,
-        ageMax: 65,
+        excludedCustomAudiences: process.env['META_PAST_BOOKERS_AUDIENCE_ID']
+          ? [{ id: process.env['META_PAST_BOOKERS_AUDIENCE_ID'] }]
+          : undefined,
+        ageMin: 25,
+        ageMax: 55,
       },
       optimizationGoal: metaConfig.optimizationGoal,
       billingEvent: 'IMPRESSIONS',
@@ -3378,6 +3382,7 @@ export async function handleAdSearchTermHarvest(_job: Job): Promise<JobResult> {
 
   let totalTermsAnalyzed = 0;
   let totalNegativesAdded = 0;
+  let totalPositivesAdded = 0;
   let campaignsProcessed = 0;
 
   const spendThreshold = PAID_TRAFFIC_CONFIG.searchTermExcludeSpendThreshold * 1_000_000; // convert to micros
@@ -3423,6 +3428,32 @@ export async function handleAdSearchTermHarvest(_job: Job): Promise<JobResult> {
         );
       }
 
+      // Positive feedback: promote converting search terms as exact-match keywords
+      const convertingTerms = terms.filter((t) => t.conversions > 0 && t.clicks >= 2);
+      if (convertingTerms.length > 0) {
+        // Find ad group ID from proposalData (stored during campaign deployment)
+        const campaignRecord = await prisma.adCampaign.findFirst({
+          where: { platformCampaignId: campaign.platformCampaignId },
+          select: { proposalData: true },
+        });
+        const proposalData = campaignRecord?.proposalData as {
+          adGroupIds?: string[];
+        } | null;
+        const adGroupId = proposalData?.adGroupIds?.[0];
+
+        if (adGroupId) {
+          const newExact = convertingTerms.map((t) => t.searchTerm);
+          const added = await addKeywordsToAdGroup(adGroupId, newExact);
+          totalPositivesAdded += added;
+
+          if (added > 0) {
+            console.log(
+              `[Ads Worker] Campaign "${campaign.name}": promoted ${added} converting search terms as exact-match`
+            );
+          }
+        }
+      }
+
       campaignsProcessed++;
     } catch (err) {
       console.error(
@@ -3432,13 +3463,16 @@ export async function handleAdSearchTermHarvest(_job: Job): Promise<JobResult> {
     }
   }
 
-  const message = `Search term harvest complete: ${campaignsProcessed} campaigns, ${totalTermsAnalyzed} terms analyzed, ${totalNegativesAdded} negatives added`;
+  const message =
+    `Search term harvest complete: ${campaignsProcessed} campaigns, ` +
+    `${totalTermsAnalyzed} terms analyzed, ${totalNegativesAdded} negatives added, ` +
+    `${totalPositivesAdded} exact-match keywords promoted`;
   console.log(`[Ads Worker] ${message}`);
 
   return {
     success: true,
     message,
-    data: { campaignsProcessed, totalTermsAnalyzed, totalNegativesAdded },
+    data: { campaignsProcessed, totalTermsAnalyzed, totalNegativesAdded, totalPositivesAdded },
     timestamp: new Date(),
   };
 }

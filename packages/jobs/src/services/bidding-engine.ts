@@ -13,6 +13,7 @@
 import { prisma } from '@experience-marketplace/database';
 import { evaluateKeywordQuality } from './keyword-quality-evaluator';
 import { PAID_TRAFFIC_CONFIG } from '../config/paid-traffic';
+import { getLowIntentPrismaConditions } from '../utils/keyword-intent';
 import {
   type LandingPageType,
   type LandingPageContext,
@@ -497,32 +498,29 @@ export async function calculateDestinationPageProfitability(): Promise<SiteProfi
  * Words indicating zero purchase intent — keywords with these terms are
  * archived out of the PAID_CANDIDATE pool.
  */
-const LOW_INTENT_TERMS = ['free', 'gratis', 'no cost', 'complimentary', 'freebie', 'for nothing'];
-
 /**
- * Archive PAID_CANDIDATE keywords containing low-intent terms like "free".
- * These have no conversion potential for a paid experiences marketplace.
+ * Archive PAID_CANDIDATE keywords containing low-intent terms.
+ * Covers: "free" variants, wrong product types (hotel, flight, etc.),
+ * navigational intent, informational queries, and single-word keywords.
  */
 export async function archiveLowIntentKeywords(): Promise<number> {
-  // Build OR conditions for each term using word-boundary matching
-  const conditions = LOW_INTENT_TERMS.flatMap((term) => [
-    { keyword: { contains: ` ${term} `, mode: 'insensitive' as const } },
-    { keyword: { startsWith: `${term} `, mode: 'insensitive' as const } },
-    { keyword: { endsWith: ` ${term}`, mode: 'insensitive' as const } },
-  ]);
+  const conditions = getLowIntentPrismaConditions();
+
+  // Also archive single-word keywords (no spaces)
+  const singleWordCondition = {
+    keyword: { not: { contains: ' ' } },
+  };
 
   const result = await prisma.sEOOpportunity.updateMany({
     where: {
       status: 'PAID_CANDIDATE' as any,
-      OR: conditions as any,
+      OR: [...conditions, singleWordCondition] as any,
     },
     data: { status: 'ARCHIVED' as any },
   });
 
   if (result.count > 0) {
-    console.log(
-      `[BiddingEngine] Archived ${result.count} low-intent PAID_CANDIDATE keywords (containing "free" etc.)`
-    );
+    console.log(`[BiddingEngine] Archived ${result.count} low-intent PAID_CANDIDATE keywords`);
   }
 
   return result.count;

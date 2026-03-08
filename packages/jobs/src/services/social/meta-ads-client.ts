@@ -270,6 +270,8 @@ export class MetaAdsClient {
     targeting: {
       countries: string[];
       interests?: Array<{ id: string; name: string }>;
+      customAudiences?: Array<{ id: string }>; // Lookalike or custom audiences to include
+      excludedCustomAudiences?: Array<{ id: string }>; // Audiences to exclude
       ageMin?: number;
       ageMax?: number;
     };
@@ -295,6 +297,16 @@ export class MetaAdsClient {
         targetingSpec['flexible_spec'] = [
           { interests: config.targeting.interests.map((i) => ({ id: i.id, name: i.name })) },
         ];
+      }
+      if (config.targeting.customAudiences?.length) {
+        targetingSpec['custom_audiences'] = config.targeting.customAudiences.map((a) => ({
+          id: a.id,
+        }));
+      }
+      if (config.targeting.excludedCustomAudiences?.length) {
+        targetingSpec['excluded_custom_audiences'] = config.targeting.excludedCustomAudiences.map(
+          (a) => ({ id: a.id })
+        );
       }
       if (config.targeting.ageMin) targetingSpec['age_min'] = config.targeting.ageMin;
       if (config.targeting.ageMax) targetingSpec['age_max'] = config.targeting.ageMax;
@@ -1207,6 +1219,174 @@ export class MetaAdsClient {
     } catch (error) {
       console.error('[MetaAds] Update ad set targeting failed:', error);
       return false;
+    }
+  }
+
+  // =========================================================================
+  // Custom Audiences & Lookalikes
+  // =========================================================================
+
+  /**
+   * Create a custom audience for uploading customer data (emails).
+   * Docs: https://developers.facebook.com/docs/marketing-api/audiences/guides/custom-audiences
+   */
+  async createCustomAudience(config: {
+    name: string;
+    description?: string;
+    subtype?: 'CUSTOM' | 'LOOKALIKE';
+    customerFileSource?: 'USER_PROVIDED_ONLY' | 'PARTNER_PROVIDED_ONLY' | 'BOTH_USER_AND_PARTNER';
+  }): Promise<{ audienceId: string } | null> {
+    try {
+      await this.enforceRateLimit();
+
+      const params = new URLSearchParams({
+        name: config.name,
+        subtype: config.subtype || 'CUSTOM',
+        customer_file_source: config.customerFileSource || 'USER_PROVIDED_ONLY',
+        access_token: this.accessToken,
+      });
+      if (config.description) {
+        params.set('description', config.description);
+      }
+
+      const response = await this.fetchWithRetry(
+        `${META_API_BASE}/${this.adAccountId}/customaudiences`,
+        { method: 'POST', body: params }
+      );
+
+      if (!response.ok) {
+        const error = await response.text();
+        console.error(
+          `[MetaAds] Create custom audience error (${response.status}): ${error.substring(0, 300)}`
+        );
+        return null;
+      }
+
+      const data = (await response.json()) as { id: string };
+      console.info(`[MetaAds] Created custom audience ${data.id}: "${config.name}"`);
+      return { audienceId: data.id };
+    } catch (error) {
+      console.error('[MetaAds] Create custom audience failed:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Upload SHA-256 hashed user data to a custom audience.
+   * Docs: https://developers.facebook.com/docs/marketing-api/audiences/guides/custom-audiences#hash
+   *
+   * @param audienceId - The custom audience ID
+   * @param hashedEmails - Array of SHA-256 hashed email addresses (lowercase, trimmed before hashing)
+   */
+  async addUsersToCustomAudience(
+    audienceId: string,
+    hashedEmails: string[]
+  ): Promise<{ numReceived: number; numInvalidEntries: number }> {
+    try {
+      if (hashedEmails.length === 0) return { numReceived: 0, numInvalidEntries: 0 };
+
+      // Meta accepts batches of up to 10,000 users
+      const BATCH_SIZE = 10_000;
+      let totalReceived = 0;
+      let totalInvalid = 0;
+
+      for (let i = 0; i < hashedEmails.length; i += BATCH_SIZE) {
+        await this.enforceRateLimit();
+
+        const batch = hashedEmails.slice(i, i + BATCH_SIZE);
+        const payload = {
+          schema: 'EMAIL_SHA256',
+          data: batch,
+        };
+
+        const params = new URLSearchParams({
+          payload: JSON.stringify(payload),
+          access_token: this.accessToken,
+        });
+
+        const response = await this.fetchWithRetry(`${META_API_BASE}/${audienceId}/users`, {
+          method: 'POST',
+          body: params,
+        });
+
+        if (!response.ok) {
+          const error = await response.text();
+          console.error(
+            `[MetaAds] Add users to audience error (${response.status}): ${error.substring(0, 300)}`
+          );
+          continue;
+        }
+
+        const data = (await response.json()) as {
+          num_received?: number;
+          num_invalid_entries?: number;
+        };
+        totalReceived += data.num_received ?? batch.length;
+        totalInvalid += data.num_invalid_entries ?? 0;
+      }
+
+      console.info(
+        `[MetaAds] Uploaded ${totalReceived} users to audience ${audienceId} (${totalInvalid} invalid)`
+      );
+      return { numReceived: totalReceived, numInvalidEntries: totalInvalid };
+    } catch (error) {
+      console.error('[MetaAds] Add users to audience failed:', error);
+      return { numReceived: 0, numInvalidEntries: 0 };
+    }
+  }
+
+  /**
+   * Create a lookalike audience from a source custom audience.
+   * Docs: https://developers.facebook.com/docs/marketing-api/audiences/guides/lookalike-audiences
+   *
+   * @param sourceAudienceId - The source custom audience ID
+   * @param country - ISO country code (e.g. 'GB', 'US')
+   * @param ratio - Lookalike ratio: 0.01 = 1%, 0.02 = 2%, 0.05 = 5%
+   */
+  async createLookalikeAudience(config: {
+    name: string;
+    sourceAudienceId: string;
+    country: string;
+    ratio: number;
+  }): Promise<{ audienceId: string } | null> {
+    try {
+      await this.enforceRateLimit();
+
+      const spec = {
+        origin: [{ id: config.sourceAudienceId, type: 'custom_audience' }],
+        starting_ratio: 0,
+        ratio: config.ratio,
+        country: config.country,
+      };
+
+      const params = new URLSearchParams({
+        name: config.name,
+        subtype: 'LOOKALIKE',
+        lookalike_spec: JSON.stringify(spec),
+        access_token: this.accessToken,
+      });
+
+      const response = await this.fetchWithRetry(
+        `${META_API_BASE}/${this.adAccountId}/customaudiences`,
+        { method: 'POST', body: params }
+      );
+
+      if (!response.ok) {
+        const error = await response.text();
+        console.error(
+          `[MetaAds] Create lookalike error (${response.status}): ${error.substring(0, 300)}`
+        );
+        return null;
+      }
+
+      const data = (await response.json()) as { id: string };
+      console.info(
+        `[MetaAds] Created ${config.ratio * 100}% lookalike audience ${data.id} for ${config.country}: "${config.name}"`
+      );
+      return { audienceId: data.id };
+    } catch (error) {
+      console.error('[MetaAds] Create lookalike audience failed:', error);
+      return null;
     }
   }
 

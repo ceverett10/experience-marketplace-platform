@@ -1104,3 +1104,77 @@ export async function setCampaignGeoTargets(
     return 0;
   }
 }
+
+/**
+ * Pause ad group keywords by setting their status to PAUSED.
+ * Batches in chunks of 1000 (API limit per mutate call).
+ * Returns the count of successfully paused keywords.
+ */
+export async function pauseAdGroupKeywords(
+  keywords: Array<{ adGroupId: string; criterionId: string }>
+): Promise<number> {
+  const config = getConfig();
+  if (!config || keywords.length === 0) return 0;
+
+  const BATCH_SIZE = 1000;
+  let totalPaused = 0;
+
+  try {
+    for (let i = 0; i < keywords.length; i += BATCH_SIZE) {
+      const batch = keywords.slice(i, i + BATCH_SIZE);
+      const operations = batch.map((kw) => ({
+        update: {
+          resourceName: `customers/${config.customerId}/adGroupCriteria/${kw.adGroupId}~${kw.criterionId}`,
+          status: 'PAUSED',
+        },
+        updateMask: 'status',
+      }));
+
+      await apiRequest(config, 'POST', '/adGroupCriteria:mutate', { operations });
+      totalPaused += batch.length;
+    }
+
+    console.log(`[GoogleAds] Paused ${totalPaused} keywords`);
+    return totalPaused;
+  } catch (error) {
+    console.error('[GoogleAds] Pause keywords failed:', error);
+    return totalPaused;
+  }
+}
+
+/**
+ * Add exact-match keywords to an ad group.
+ * Used by search term harvesting to promote converting search terms.
+ */
+export async function addKeywordsToAdGroup(adGroupId: string, keywords: string[]): Promise<number> {
+  const config = getConfig();
+  if (!config || keywords.length === 0) return 0;
+
+  const BATCH_SIZE = 200;
+  let totalAdded = 0;
+
+  try {
+    for (let i = 0; i < keywords.length; i += BATCH_SIZE) {
+      const batch = keywords.slice(i, i + BATCH_SIZE);
+      const operations = batch.map((kw) => ({
+        create: {
+          adGroup: `customers/${config.customerId}/adGroups/${adGroupId}`,
+          keyword: {
+            text: kw,
+            matchType: 'EXACT',
+          },
+          status: 'ENABLED',
+        },
+      }));
+
+      await apiRequest(config, 'POST', '/adGroupCriteria:mutate', { operations });
+      totalAdded += batch.length;
+    }
+
+    console.log(`[GoogleAds] Added ${totalAdded} exact-match keywords to ad group ${adGroupId}`);
+    return totalAdded;
+  } catch (error) {
+    console.error('[GoogleAds] Add keywords failed:', error);
+    return totalAdded;
+  }
+}
