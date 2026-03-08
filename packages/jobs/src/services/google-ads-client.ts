@@ -1104,3 +1104,40 @@ export async function setCampaignGeoTargets(
     return 0;
   }
 }
+
+/**
+ * Pause ad group keywords by setting their status to PAUSED.
+ * Batches in chunks of 1000 (API limit per mutate call).
+ * Returns the count of successfully paused keywords.
+ */
+export async function pauseAdGroupKeywords(
+  keywords: Array<{ adGroupId: string; criterionId: string }>
+): Promise<number> {
+  const config = getConfig();
+  if (!config || keywords.length === 0) return 0;
+
+  const BATCH_SIZE = 1000;
+  let totalPaused = 0;
+
+  try {
+    for (let i = 0; i < keywords.length; i += BATCH_SIZE) {
+      const batch = keywords.slice(i, i + BATCH_SIZE);
+      const operations = batch.map((kw) => ({
+        update: {
+          resourceName: `customers/${config.customerId}/adGroupCriteria/${kw.adGroupId}~${kw.criterionId}`,
+          status: 'PAUSED',
+        },
+        updateMask: 'status',
+      }));
+
+      await apiRequest(config, 'POST', '/adGroupCriteria:mutate', { operations });
+      totalPaused += batch.length;
+    }
+
+    console.log(`[GoogleAds] Paused ${totalPaused} keywords`);
+    return totalPaused;
+  } catch (error) {
+    console.error('[GoogleAds] Pause keywords failed:', error);
+    return totalPaused;
+  }
+}

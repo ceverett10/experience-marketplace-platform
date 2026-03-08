@@ -74,9 +74,9 @@ export const PAID_TRAFFIC_CONFIG = {
   // Search term harvesting
   // ---------------------------------------------------------------------------
   /** Min spend (GBP) on a zero-conversion search term before auto-excluding */
-  searchTermExcludeSpendThreshold: 2.0,
+  searchTermExcludeSpendThreshold: 1.0,
   /** Min clicks on a zero-conversion search term before auto-excluding */
-  searchTermExcludeClickThreshold: 3,
+  searchTermExcludeClickThreshold: 2,
 
   // ---------------------------------------------------------------------------
   // Meta consolidated campaigns (CBO with lowest-cost bidding)
@@ -258,6 +258,15 @@ export const PAID_TRAFFIC_CONFIG = {
     'youtube',
     'tripadvisor',
     'blog',
+    // Research & planning (top of funnel)
+    'things to do',
+    'what to see',
+    'what to do',
+    'itinerary',
+    'planning',
+    'ideas',
+    'tips',
+    'guide',
     // Discount code seekers
     'discount code',
     'coupon',
@@ -289,6 +298,35 @@ export const PAID_TRAFFIC_CONFIG = {
     'time zone',
     'currency',
     'safety',
+    // Accommodation (wrong product type)
+    'hotel',
+    'hotels',
+    'hostel',
+    'airbnb',
+    'accommodation',
+    'resort',
+    // Navigation / directions
+    'directions',
+    'address',
+    'parking',
+    'opening hours',
+    'opening times',
+    // Wrong product type
+    'flight',
+    'flights',
+    'train tickets',
+    'bus tickets',
+    'ferry',
+    'car rental',
+    'car hire',
+    'insurance',
+    // Education / academic
+    'essay',
+    'assignment',
+    'university',
+    'school',
+    'meaning',
+    'definition',
     // Competitor / brand terms to avoid
     'viator',
     'getyourguide',
