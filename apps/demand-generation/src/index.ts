@@ -283,7 +283,7 @@ const contentWorker = new Worker(
         throw new Error(`Unknown job type: ${job.name}`);
     }
   },
-  makeWorkerOptions(QUEUE_NAMES.CONTENT, 3) // Bumped from 1→3 to clear blog DRAFT backlog (~864 jobs/day vs 288)
+  makeWorkerOptions(QUEUE_NAMES.CONTENT, 1) // Reduced from 3→1 to prevent R15 OOM crash with large queue backlog
 );
 
 /**
@@ -470,7 +470,7 @@ const abtestWorker = new Worker(
         throw new Error(`Unknown job type: ${job.name}`);
     }
   },
-  makeWorkerOptions(QUEUE_NAMES.ABTEST, 5) // Higher: mostly DB operations
+  makeWorkerOptions(QUEUE_NAMES.ABTEST, 2) // Reduced from 5→2 to lower memory footprint
 );
 
 /**
