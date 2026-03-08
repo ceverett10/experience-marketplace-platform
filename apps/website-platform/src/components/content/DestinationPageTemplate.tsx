@@ -102,6 +102,7 @@ export function DestinationPageTemplate({
       destination={destination}
       destinationName={destinationName}
       topExperiences={topExperiences}
+      displayCount={displayCount}
     />
   );
 }
@@ -217,10 +218,12 @@ function SeoLayout({
   destination,
   destinationName,
   topExperiences,
+  displayCount,
 }: {
   destination: DestinationPageData;
   destinationName: string;
   topExperiences: RelatedExperience[];
+  displayCount: number;
 }) {
   return (
     <div className="min-h-screen">
@@ -234,8 +237,77 @@ function SeoLayout({
               {cleanPlainText(destination.metaDescription)}
             </p>
           )}
+
+          {topExperiences.length > 0 && (
+            <div className="mt-6 flex items-center gap-4">
+              <Link
+                href="#experiences"
+                className="inline-block bg-white text-blue-600 font-semibold px-6 py-2.5 rounded-lg hover:bg-blue-50 transition-colors text-sm"
+              >
+                Browse {displayCount > 0 ? `${displayCount} ` : ''}Experiences
+              </Link>
+              {displayCount > 0 && (
+                <span className="text-blue-200 text-sm">
+                  {displayCount.toLocaleString()} available
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </header>
+
+      {/* Trust Signals Bar */}
+      <div className="border-b border-gray-200 bg-white">
+        <div className="mx-auto max-w-7xl flex items-center justify-center gap-6 px-4 py-2.5 overflow-x-auto">
+          {[
+            'Best Price Guarantee',
+            'Free Cancellation',
+            'Instant Confirmation',
+            'Secure Payments',
+          ].map((text) => (
+            <div
+              key={text}
+              className="flex flex-shrink-0 items-center gap-1.5 text-xs font-medium text-gray-600"
+            >
+              <svg className="h-3.5 w-3.5 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              {text}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Top Experiences Section — above content for conversion */}
+      {topExperiences.length > 0 && (
+        <section id="experiences" className="bg-gray-50 py-12">
+          <div className="max-w-7xl mx-auto px-4">
+            <h2 className="text-3xl font-bold text-gray-900 mb-2">
+              Top Things to Do in {destinationName}
+            </h2>
+            <p className="text-lg text-gray-600 mb-8">
+              Hand-picked experiences and activities for your visit
+            </p>
+
+            <ExperienceGrid experiences={topExperiences} />
+
+            {displayCount > topExperiences.length && (
+              <div className="mt-8 text-center">
+                <Link
+                  href="/experiences"
+                  className="inline-block text-blue-600 font-semibold hover:text-blue-800 hover:underline"
+                >
+                  View all {displayCount.toLocaleString()} experiences &rarr;
+                </Link>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-12">
@@ -301,22 +373,6 @@ function SeoLayout({
         </div>
       </div>
 
-      {/* Top Experiences Section */}
-      {topExperiences.length > 0 && (
-        <section className="bg-gray-50 py-16 mt-12">
-          <div className="max-w-7xl mx-auto px-4">
-            <h2 className="text-3xl font-bold text-gray-900 mb-2">
-              Top Things to Do in {destinationName}
-            </h2>
-            <p className="text-lg text-gray-600 mb-8">
-              Hand-picked experiences and activities for your visit
-            </p>
-
-            <ExperienceGrid experiences={topExperiences} />
-          </div>
-        </section>
-      )}
-
       {/* CTA Section */}
       <section className="bg-gradient-to-r from-indigo-600 to-blue-600 text-white py-12">
         <div className="max-w-7xl mx-auto px-4 text-center">
@@ -332,6 +388,19 @@ function SeoLayout({
           </Link>
         </div>
       </section>
+
+      {/* Bottom spacer for sticky mobile CTA */}
+      <div className="h-16 md:hidden" />
+
+      {/* Sticky mobile CTA */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-gray-200 bg-white p-3 shadow-lg md:hidden">
+        <Link
+          href="#experiences"
+          className="block w-full rounded-lg bg-blue-600 px-4 py-3 text-center text-sm font-semibold text-white"
+        >
+          Browse {displayCount > 0 ? `${displayCount} ` : ''}Experiences
+        </Link>
+      </div>
     </div>
   );
 }
