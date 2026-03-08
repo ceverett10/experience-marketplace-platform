@@ -222,11 +222,10 @@ async function main(): Promise<void> {
       ad_group_criterion.keyword.match_type,
       ad_group_criterion.status,
       metrics.clicks, metrics.impressions, metrics.cost_micros, metrics.conversions
-    FROM ad_group_criterion
+    FROM keyword_view
     WHERE campaign.status != "REMOVED"
       AND ad_group.status != "REMOVED"
       AND ad_group_criterion.status = "ENABLED"
-      AND ad_group_criterion.type = "KEYWORD"
     ORDER BY metrics.cost_micros DESC
   `;
 
