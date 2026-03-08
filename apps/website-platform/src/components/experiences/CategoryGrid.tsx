@@ -26,6 +26,8 @@ interface CategoryGridProps {
   categories: Category[];
   /** Destination to include in navigation (for "Where" search param) */
   destination?: string;
+  /** Site niche prefix to prepend to category search queries (e.g. "Harry Potter") */
+  searchPrefix?: string;
 }
 
 // Default category icons
@@ -49,6 +51,7 @@ export function CategoryGrid({
   subtitle,
   categories,
   destination,
+  searchPrefix,
 }: CategoryGridProps) {
   // Use default categories if none provided
   const displayCategories: Category[] =
@@ -82,7 +85,8 @@ export function CategoryGrid({
             if (destination) {
               searchParams.set('destination', destination);
             }
-            searchParams.set('q', category.name);
+            const searchQuery = searchPrefix ? `${searchPrefix} ${category.name}` : category.name;
+            searchParams.set('q', searchQuery);
             const href = `/experiences?${searchParams.toString()}`;
 
             return (

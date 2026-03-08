@@ -917,6 +917,7 @@ export default async function HomePage() {
             imageAttribution: cat.imageAttribution,
           }))}
           destination={popularExperiencesConfig?.destination}
+          searchPrefix={searchTermForLinks}
         />
       )}
 
