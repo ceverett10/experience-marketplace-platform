@@ -339,7 +339,7 @@ const seoWorker = new Worker(
         throw new Error(`Unknown job type: ${job.name}`);
     }
   },
-  makeWorkerOptions(QUEUE_NAMES.SEO, 3) // Moderate: external API + DB
+  makeWorkerOptions(QUEUE_NAMES.SEO, 1) // Reduced from 3→1 to prevent R15 OOM on Standard-2X
 );
 
 /**
@@ -363,7 +363,7 @@ const gscWorker = new Worker(
         throw new Error(`Unknown job type: ${job.name}`);
     }
   },
-  makeWorkerOptions(QUEUE_NAMES.GSC, 2) // Low: Google API rate limits
+  makeWorkerOptions(QUEUE_NAMES.GSC, 1) // Reduced from 2→1 to prevent R15 OOM
 );
 
 /**
@@ -390,7 +390,7 @@ const siteWorker = new Worker(
         throw new Error(`Unknown job type: ${job.name}`);
     }
   },
-  makeWorkerOptions(QUEUE_NAMES.SITE, 2) // Low: heavy multi-step with external APIs
+  makeWorkerOptions(QUEUE_NAMES.SITE, 1) // Reduced from 2→1 to prevent R15 OOM
 );
 
 /**
@@ -414,7 +414,7 @@ const domainWorker = new Worker(
         throw new Error(`Unknown job type: ${job.name}`);
     }
   },
-  makeWorkerOptions(QUEUE_NAMES.DOMAIN, 2) // Low: Cloudflare API rate limits
+  makeWorkerOptions(QUEUE_NAMES.DOMAIN, 1) // Reduced from 2→1 to prevent R15 OOM
 );
 
 /**
@@ -448,7 +448,7 @@ const analyticsWorker = new Worker(
         throw new Error(`Unknown job type: ${job.name}`);
     }
   },
-  makeWorkerOptions(QUEUE_NAMES.ANALYTICS, 3) // Moderate: mix of DB and external API
+  makeWorkerOptions(QUEUE_NAMES.ANALYTICS, 1) // Reduced from 3→1 to prevent R15 OOM
 );
 
 /**
@@ -470,7 +470,7 @@ const abtestWorker = new Worker(
         throw new Error(`Unknown job type: ${job.name}`);
     }
   },
-  makeWorkerOptions(QUEUE_NAMES.ABTEST, 2) // Reduced from 5→2 to lower memory footprint
+  makeWorkerOptions(QUEUE_NAMES.ABTEST, 1) // Reduced from 5→1 to prevent R15 OOM
 );
 
 /**
@@ -503,7 +503,7 @@ const micrositeWorker = new Worker(
         throw new Error(`Unknown job type: ${job.name}`);
     }
   },
-  makeWorkerOptions(QUEUE_NAMES.MICROSITE, 2) // Low: brand generation uses AI
+  makeWorkerOptions(QUEUE_NAMES.MICROSITE, 1) // Reduced from 2→1 to prevent R15 OOM
 );
 
 /**
@@ -559,7 +559,7 @@ const socialWorker = new Worker(
         throw new Error(`Unknown job type: ${job.name}`);
     }
   },
-  makeWorkerOptions(QUEUE_NAMES.SOCIAL, 2) // Low: external API rate limits
+  makeWorkerOptions(QUEUE_NAMES.SOCIAL, 1) // Reduced from 2→1 to prevent R15 OOM
 );
 
 /**
@@ -743,10 +743,12 @@ console.log('  ✓ Social Worker (social media posting - Pinterest, Facebook, Tw
 console.log('  ✓ Ads Worker (paid keyword scanning, campaign sync, budget optimization)');
 console.log('');
 
-// Set up scheduled jobs and autonomous processor after a short delay to ensure workers are ready
+// Set up scheduled jobs after a short delay to ensure workers are ready
+// NOTE: Autonomous roadmap processor temporarily disabled to reduce memory pressure (R15 OOM on Standard-2X)
 setTimeout(async () => {
   await setupScheduledJobs().catch(console.error);
-  await startAutonomousRoadmapProcessor().catch(console.error);
+  // await startAutonomousRoadmapProcessor().catch(console.error);
+  console.info('[MEMORY] Roadmap processor disabled to reduce memory footprint');
 }, 2000);
 
 console.log('🎯 Demand Generation Service is running and ready to process jobs\n');
