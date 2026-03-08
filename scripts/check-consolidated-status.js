@@ -8,13 +8,19 @@ const crypto = require('crypto');
 const prisma = new PrismaClient();
 
 function decryptToken(encrypted) {
-  const secret = process.env.SOCIAL_TOKEN_SECRET;
-  if (!secret) throw new Error('SOCIAL_TOKEN_SECRET not set');
-  const [ivHex, authTagHex, cipherHex] = encrypted.split(':');
-  const key = crypto.createHash('sha256').update(secret).digest();
-  const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(ivHex, 'hex'));
-  decipher.setAuthTag(Buffer.from(authTagHex, 'hex'));
-  return decipher.update(Buffer.from(cipherHex, 'hex'), null, 'utf8') + decipher.final('utf8');
+  const secret = process.env['SOCIAL_TOKEN_SECRET'];
+  if (!secret || secret.length !== 64) return encrypted;
+  const parts = encrypted.split(':');
+  if (parts.length !== 3) return encrypted;
+  const key = Buffer.from(secret, 'hex');
+  const iv = Buffer.from(parts[0], 'base64');
+  const authTag = Buffer.from(parts[1], 'base64');
+  const ciphertext = parts[2];
+  const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+  decipher.setAuthTag(authTag);
+  let decrypted = decipher.update(ciphertext, 'base64', 'utf8');
+  decrypted += decipher.final('utf8');
+  return decrypted;
 }
 
 async function api(path, token) {
