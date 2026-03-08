@@ -84,9 +84,9 @@ export function Footer() {
               <Image
                 src={brand.logoDarkUrl}
                 alt={site.name}
-                width={600}
-                height={400}
-                className="h-40 w-auto"
+                width={300}
+                height={80}
+                className="h-12 w-auto"
               />
             ) : (
               <span className="text-2xl font-bold text-white">{site.name}</span>
