@@ -16,7 +16,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const searchParams = request.nextUrl.searchParams;
     const siteId = searchParams.get('siteId') || undefined;
     const platform = searchParams.get('platform') || undefined;
-    const days = parseInt(searchParams.get('days') || '30');
+    const days = Math.min(parseInt(searchParams.get('days') || '30') || 30, 365);
 
     const endDate = new Date();
     const startDate = new Date();
@@ -36,21 +36,86 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     if (siteId) campaignWhere['siteId'] = siteId;
     if (platform) campaignWhere['platform'] = platform;
 
-    // --- Get campaigns with daily metrics ---
-    const campaigns = await prisma.adCampaign.findMany({
-      where: campaignWhere as any,
-      include: {
-        site: { select: { name: true, primaryDomain: true } },
-        microsite: { select: { siteName: true, fullDomain: true } },
-        dailyMetrics: {
-          where: { date: { gte: startDate, lte: endDate } },
-          orderBy: { date: 'asc' },
-        },
+    const metricsFilter = {
+      campaign: {
+        parentCampaignId: null,
+        ...(siteId ? { siteId } : {}),
+        ...(platform ? { platform: platform as any } : {}),
       },
-      orderBy: { updatedAt: 'desc' },
-    });
+    };
 
-    // --- Current period KPIs ---
+    // ── Parallelize ALL independent queries ──────────────────────────────
+    const [campaigns, priorMetrics, dailyMetricsRaw] = await Promise.all([
+      // 1. Campaigns (WITHOUT dailyMetrics — we aggregate via raw SQL below)
+      prisma.adCampaign.findMany({
+        where: campaignWhere as any,
+        include: {
+          site: { select: { name: true, primaryDomain: true } },
+          microsite: { select: { siteName: true, fullDomain: true } },
+        },
+        orderBy: { updatedAt: 'desc' },
+      }),
+
+      // 2. Prior period aggregate
+      prisma.adDailyMetric.aggregate({
+        where: {
+          date: { gte: priorStart, lt: priorEnd },
+          ...metricsFilter,
+        } as any,
+        _sum: { spend: true, clicks: true, impressions: true, conversions: true, revenue: true },
+      }),
+
+      // 3. Daily trend (raw metrics for date aggregation)
+      prisma.adDailyMetric.findMany({
+        where: {
+          date: { gte: startDate, lte: endDate },
+          ...metricsFilter,
+        } as any,
+        select: {
+          date: true,
+          spend: true,
+          clicks: true,
+          impressions: true,
+          conversions: true,
+          revenue: true,
+        },
+        orderBy: { date: 'asc' },
+      }),
+    ]);
+
+    // ── Aggregate campaign metrics at DB level ───────────────────────────
+    const campaignIds = campaigns.map((c) => c.id);
+    const metricsAgg =
+      campaignIds.length > 0
+        ? await prisma.$queryRawUnsafe<
+            Array<{
+              campaign_id: string;
+              total_spend: number;
+              total_revenue: number;
+              total_clicks: bigint;
+              total_impressions: bigint;
+              total_conversions: bigint;
+            }>
+          >(
+            `SELECT
+              "campaignId" AS campaign_id,
+              COALESCE(SUM(spend), 0) AS total_spend,
+              COALESCE(SUM(revenue), 0) AS total_revenue,
+              COALESCE(SUM(clicks), 0)::bigint AS total_clicks,
+              COALESCE(SUM(impressions), 0)::bigint AS total_impressions,
+              COALESCE(SUM(conversions), 0)::bigint AS total_conversions
+            FROM "ad_daily_metrics"
+            WHERE "campaignId" = ANY($1) AND date >= $2 AND date <= $3
+            GROUP BY "campaignId"`,
+            campaignIds,
+            startDate,
+            endDate
+          )
+        : [];
+
+    const metricsMap = new Map(metricsAgg.map((m) => [m.campaign_id, m]));
+
+    // ── Build campaign summaries ─────────────────────────────────────────
     let totalSpend = 0;
     let totalRevenue = 0;
     let totalClicks = 0;
@@ -58,11 +123,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     let totalConversions = 0;
 
     const campaignSummaries = campaigns.map((c) => {
-      const spend = c.dailyMetrics.reduce((s, m) => s + Number(m.spend), 0);
-      const revenue = c.dailyMetrics.reduce((s, m) => s + Number(m.revenue), 0);
-      const clicks = c.dailyMetrics.reduce((s, m) => s + m.clicks, 0);
-      const impressions = c.dailyMetrics.reduce((s, m) => s + m.impressions, 0);
-      const conversions = c.dailyMetrics.reduce((s, m) => s + m.conversions, 0);
+      const m = metricsMap.get(c.id);
+      const spend = Number(m?.total_spend || 0);
+      const revenue = Number(m?.total_revenue || 0);
+      const clicks = Number(m?.total_clicks || 0);
+      const impressions = Number(m?.total_impressions || 0);
+      const conversions = Number(m?.total_conversions || 0);
       const roas = spend > 0 ? revenue / spend : null;
       const ctr = impressions > 0 ? (clicks / impressions) * 100 : null;
       const cpc = clicks > 0 ? spend / clicks : null;
@@ -114,19 +180,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       budgetUtilization: MAX_DAILY_BUDGET > 0 ? (totalSpend / days / MAX_DAILY_BUDGET) * 100 : null,
     };
 
-    // --- Prior period KPIs for comparison ---
-    const priorMetrics = await prisma.adDailyMetric.aggregate({
-      where: {
-        date: { gte: priorStart, lt: priorEnd },
-        campaign: {
-          parentCampaignId: null, // Exclude children
-          ...(siteId ? { siteId } : {}),
-          ...(platform ? { platform: platform as any } : {}),
-        },
-      } as any,
-      _sum: { spend: true, clicks: true, impressions: true, conversions: true, revenue: true },
-    });
-
+    // --- Prior period KPIs ---
     const priorSpend = Number(priorMetrics._sum?.spend || 0);
     const priorRevenue = Number(priorMetrics._sum?.revenue || 0);
     const priorClicks = Number(priorMetrics._sum?.clicks || 0);
@@ -145,28 +199,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       ctr: priorImpressions > 0 ? (priorClicks / priorImpressions) * 100 : null,
     };
 
-    // --- Daily trend ---
-    const dailyMetricsRaw = await prisma.adDailyMetric.findMany({
-      where: {
-        date: { gte: startDate, lte: endDate },
-        campaign: {
-          parentCampaignId: null, // Exclude children
-          ...(siteId ? { siteId } : {}),
-          ...(platform ? { platform: platform as any } : {}),
-        },
-      } as any,
-      select: {
-        date: true,
-        spend: true,
-        clicks: true,
-        impressions: true,
-        conversions: true,
-        revenue: true,
-      },
-      orderBy: { date: 'asc' },
-    });
-
-    // Aggregate by date
+    // --- Daily trend (aggregate from pre-fetched raw metrics) ---
     const dailyMap = new Map<
       string,
       { spend: number; revenue: number; clicks: number; impressions: number; conversions: number }
@@ -222,32 +255,44 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       meta: aggregatePlatform(metaCampaigns),
     };
 
-    // --- Attribution (bookings by UTM campaign) ---
-    // Include bookings from microsites associated with this site's campaigns
+    // --- Attribution & landing pages (run in parallel) ---
     const micrositeIds = [
       ...new Set(campaigns.filter((c) => c.micrositeId).map((c) => c.micrositeId!)),
     ];
-    const attributionWhere: Record<string, unknown> = {
+    const bookingBaseWhere = {
       utmMedium: 'cpc',
       createdAt: { gte: startDate, lte: endDate },
       status: { in: ['CONFIRMED', 'COMPLETED'] },
+      ...(siteId
+        ? micrositeIds.length > 0
+          ? { OR: [{ siteId }, { micrositeId: { in: micrositeIds } }] }
+          : { siteId }
+        : {}),
     };
-    if (siteId) {
-      if (micrositeIds.length > 0) {
-        attributionWhere['OR'] = [{ siteId }, { micrositeId: { in: micrositeIds } }];
-      } else {
-        attributionWhere['siteId'] = siteId;
-      }
-    }
 
-    const attributionBookings = await (prisma as any).booking.groupBy({
-      by: ['utmCampaign', 'utmSource'],
-      where: attributionWhere,
-      _count: true,
-      _sum: { totalAmount: true, commissionAmount: true },
-    });
+    const [attrBookings, lpBookings, alerts, unacknowledgedCount] = await Promise.all([
+      (prisma as any).booking.groupBy({
+        by: ['utmCampaign', 'utmSource'],
+        where: bookingBaseWhere,
+        _count: true,
+        _sum: { totalAmount: true, commissionAmount: true },
+      }),
+      (prisma as any).booking.groupBy({
+        by: ['landingPage'],
+        where: { ...bookingBaseWhere, landingPage: { not: null } },
+        _count: true,
+        _sum: { totalAmount: true, commissionAmount: true },
+      }),
+      (prisma as any).adAlert.findMany({
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+      }),
+      (prisma as any).adAlert.count({
+        where: { acknowledged: false },
+      }),
+    ]);
 
-    const attribution = attributionBookings.map((a: any) => ({
+    const attribution = attrBookings.map((a: any) => ({
       campaign: a.utmCampaign || 'Unknown',
       source: a.utmSource || 'Unknown',
       bookings: a._count,
@@ -255,25 +300,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       commission: Number(a._sum?.commissionAmount || 0),
     }));
 
-    // --- Landing page performance ---
-    const landingPageBookings = await (prisma as any).booking.groupBy({
-      by: ['landingPage'],
-      where: {
-        utmMedium: 'cpc',
-        createdAt: { gte: startDate, lte: endDate },
-        status: { in: ['CONFIRMED', 'COMPLETED'] },
-        landingPage: { not: null },
-        ...(siteId
-          ? micrositeIds.length > 0
-            ? { OR: [{ siteId }, { micrositeId: { in: micrositeIds } }] }
-            : { siteId }
-          : {}),
-      },
-      _count: true,
-      _sum: { totalAmount: true, commissionAmount: true },
-    });
-
-    const landingPages = landingPageBookings
+    const landingPages = lpBookings
       .map((lp: any) => ({
         path: lp.landingPage || '/',
         conversions: lp._count,
@@ -336,16 +363,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       }))
       .sort((a, b) => b.revenue - a.revenue);
 
-    // --- Alerts ---
-    const alerts = await (prisma as any).adAlert.findMany({
-      orderBy: { createdAt: 'desc' },
-      take: 50,
-    });
-
-    const unacknowledgedCount = await (prisma as any).adAlert.count({
-      where: { acknowledged: false },
-    });
-
     return NextResponse.json({
       kpis,
       kpisPrior,
@@ -392,9 +409,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           where: { id: campaignId },
           data: { status: 'PAUSED' },
         });
-        // Note: Meta sync happens via the next AD_CAMPAIGN_SYNC run or
-        // can be triggered manually. Full API sync requires the jobs package
-        // which isn't available in the admin Next.js app.
         return NextResponse.json({
           success: true,
           message: pauseCamp?.parentCampaignId
@@ -435,7 +449,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           where: { id: campaignId },
           select: { parentCampaignId: true },
         });
-        // Only allow budget adjustments on parent/standalone campaigns (CBO handles children)
         if (budgetCamp?.parentCampaignId) {
           return NextResponse.json(
             {
@@ -470,8 +483,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
 
       case 'sync_now': {
-        // Enqueue immediate AD_CAMPAIGN_SYNC job
-        // This requires access to BullMQ queue — use a simple flag approach
         return NextResponse.json({
           success: true,
           message: 'Sync triggered. Refresh in a few minutes to see updated data.',
