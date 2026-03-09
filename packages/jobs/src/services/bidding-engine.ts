@@ -1241,10 +1241,18 @@ export async function scoreCampaignOpportunities(
         landingPageType: landingPage.type,
         landingPageProducts: landingPage.productCount,
       };
-      // Meta consolidated campaigns: classify keyword into campaign group
-      if (platform === 'FACEBOOK') {
-        candidate.campaignGroup = classifyKeywordToCampaignGroup(opp.keyword, profitabilityScore);
+      // Classify keyword into campaign group (used for both Meta and Google STAG grouping)
+      const kwGroup = classifyKeywordToCampaignGroup(opp.keyword, profitabilityScore);
+      candidate.campaignGroup = kwGroup;
+
+      // Drop General Tours keywords for Google — too vague to convert
+      if (
+        platform === 'GOOGLE_SEARCH' &&
+        (kwGroup === 'General Tours – Tier 1' || kwGroup === 'General Tours – Tier 2')
+      ) {
+        continue;
       }
+
       candidates.push(candidate);
     }
 
@@ -1321,8 +1329,15 @@ export async function scoreCampaignOpportunities(
               landingPageType: 'DESTINATION',
             };
 
-            if (platform === 'FACEBOOK') {
-              destCandidate.campaignGroup = kwCampaignGroup;
+            destCandidate.campaignGroup = kwCampaignGroup;
+
+            // Drop General Tours keywords for Google — too vague to convert
+            if (
+              platform === 'GOOGLE_SEARCH' &&
+              (kwCampaignGroup === 'General Tours – Tier 1' ||
+                kwCampaignGroup === 'General Tours – Tier 2')
+            ) {
+              continue;
             }
 
             candidates.push(destCandidate);
@@ -1440,16 +1455,16 @@ export async function scoreCampaignOpportunities(
  */
 export function groupCandidatesIntoCampaigns(candidates: CampaignCandidate[]): CampaignGroup[] {
   // Build map keyed by grouping strategy:
-  //   - FACEBOOK: group by campaign category (consolidation into 9 parent campaigns)
-  //   - GOOGLE_SEARCH: group by landing page (1 campaign per landing page, unchanged)
+  //   - Both platforms: group by campaign category (STAG structure)
+  //   - Fallback: per landing page for candidates without a campaign group
   const groupMap = new Map<string, CampaignCandidate[]>();
   for (const c of candidates) {
     let key: string;
-    if (c.platform === 'FACEBOOK' && c.campaignGroup) {
-      // Meta consolidated: all candidates in same campaign group → same parent campaign
+    if (c.campaignGroup) {
+      // STAG: group by campaign category for both Meta and Google
       key = `${c.campaignGroup}|${c.platform}`;
     } else {
-      // Google or legacy: per landing page
+      // Legacy fallback: per landing page
       const groupId = c.micrositeId || c.siteId;
       const lpKey = c.landingPagePath || '/';
       key = `${groupId}|${c.platform}|${lpKey}`;
@@ -1471,10 +1486,9 @@ export function groupCandidatesIntoCampaigns(candidates: CampaignCandidate[]): C
       c.profitabilityScore > best.profitabilityScore ? c : best
     );
 
-    // For Meta consolidated campaigns, candidates within the same campaign group
-    // may target different landing pages — each unique landing page becomes an ad group
-    // (which maps to an ad set within the consolidated campaign).
-    // For Google, all candidates share the same landing page (grouped by it above).
+    // Within each campaign group, candidates targeting different landing pages
+    // become separate ad groups (STAG structure). For Meta, ad groups map to ad sets.
+    // For Google, each ad group gets its own RSA and keywords.
     const adGroupsByLp = new Map<string, CampaignCandidate[]>();
     for (const c of groupCandidates) {
       const lpKey = c.landingPagePath || '/';
@@ -1486,22 +1500,31 @@ export function groupCandidatesIntoCampaigns(candidates: CampaignCandidate[]): C
       }
     }
 
+    const MAX_KEYWORDS_PER_AD_GROUP = 15;
     const adGroups: CampaignGroupAdGroup[] = [];
     for (const [lpPath, lpCandidates] of adGroupsByLp) {
-      const lpPrimary = lpCandidates.reduce((best, c) =>
-        c.profitabilityScore > best.profitabilityScore ? c : best
-      );
-      adGroups.push({
-        landingPagePath: lpPath,
-        landingPageType: lpPrimary.landingPageType,
-        targetUrl: lpPrimary.targetUrl,
-        keywords: lpCandidates.map((c) => c.keyword),
-        primaryKeyword: lpPrimary.keyword,
-        maxBid: Math.max(...lpCandidates.map((c) => c.maxBid)),
-        totalExpectedDailyCost: lpCandidates.reduce((s, c) => s + c.expectedDailyCost, 0),
-        siteId: lpPrimary.siteId,
-        micrositeId: lpPrimary.micrositeId,
-      });
+      // STAG: cap at 15 keywords per ad group, split into multiple if needed
+      for (let chunk = 0; chunk < lpCandidates.length; chunk += MAX_KEYWORDS_PER_AD_GROUP) {
+        const chunkCandidates = lpCandidates.slice(chunk, chunk + MAX_KEYWORDS_PER_AD_GROUP);
+        const lpPrimary = chunkCandidates.reduce((best, c) =>
+          c.profitabilityScore > best.profitabilityScore ? c : best
+        );
+        const suffix =
+          lpCandidates.length > MAX_KEYWORDS_PER_AD_GROUP
+            ? ` Group ${Math.floor(chunk / MAX_KEYWORDS_PER_AD_GROUP) + 1}`
+            : '';
+        adGroups.push({
+          landingPagePath: lpPath,
+          landingPageType: lpPrimary.landingPageType,
+          targetUrl: lpPrimary.targetUrl,
+          keywords: chunkCandidates.map((c) => c.keyword),
+          primaryKeyword: lpPrimary.keyword + suffix,
+          maxBid: Math.max(...chunkCandidates.map((c) => c.maxBid)),
+          totalExpectedDailyCost: chunkCandidates.reduce((s, c) => s + c.expectedDailyCost, 0),
+          siteId: lpPrimary.siteId,
+          micrositeId: lpPrimary.micrositeId,
+        });
+      }
     }
 
     // Compute group-level aggregates
