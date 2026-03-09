@@ -27,6 +27,17 @@ export async function GET() {
       });
     }
 
+    // PNG favicon stored in R2 or other external URL — redirect
+    if (faviconUrl?.startsWith('http')) {
+      return new Response(null, {
+        status: 302,
+        headers: {
+          Location: faviconUrl,
+          'Cache-Control': 'public, max-age=86400, s-maxage=86400',
+        },
+      });
+    }
+
     // No favicon configured — return 404
     return new Response(null, { status: 404 });
   } catch {

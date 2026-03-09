@@ -57,9 +57,15 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     icons: {
       icon: site.brand?.faviconUrl
-        ? { url: '/favicon.ico', type: 'image/svg+xml' }
+        ? site.brand.faviconUrl.startsWith('http')
+          ? { url: site.brand.faviconUrl, type: 'image/png' }
+          : { url: '/favicon.ico', type: 'image/svg+xml' }
         : '/favicon.ico',
-      apple: site.brand?.faviconUrl ? { url: '/favicon.ico', type: 'image/svg+xml' } : undefined,
+      apple: site.brand?.faviconUrl
+        ? site.brand.faviconUrl.startsWith('http')
+          ? { url: site.brand.faviconUrl, type: 'image/png' }
+          : { url: '/favicon.ico', type: 'image/svg+xml' }
+        : undefined,
     },
     robots: {
       index: true,
