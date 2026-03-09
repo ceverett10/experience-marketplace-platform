@@ -27,10 +27,16 @@ async function main() {
         var ag = g.adGroups[j];
         console.info('  AD GROUP ' + (j + 1) + ': ' + ag.primaryKeyword);
         console.info('  Landing Page Type: ' + ag.landingPageType);
-        console.info('  Landing URL: ' + ag.targetUrl);
+        console.info('  Ad-Level URL: ' + ag.targetUrl);
         console.info('  Keywords (' + ag.keywords.length + '):');
         for (var k = 0; k < ag.keywords.length; k++) {
-          console.info('    - ' + ag.keywords[k]);
+          var kw = ag.keywords[k];
+          var kwUrl = ag.keywordFinalUrls && ag.keywordFinalUrls[kw];
+          if (kwUrl) {
+            console.info('    - ' + kw + '  →  ' + kwUrl);
+          } else {
+            console.info('    - ' + kw);
+          }
         }
         console.info('');
       }
