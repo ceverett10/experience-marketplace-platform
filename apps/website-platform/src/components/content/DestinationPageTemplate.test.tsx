@@ -25,10 +25,32 @@ vi.mock('./ContentRenderer', () => ({
   ),
 }));
 
+// Mock PremiumExperienceCard — renders a simplified card for testing
+vi.mock('@/components/experiences/PremiumExperienceCard', () => ({
+  PremiumExperienceCard: ({ experience, rank }: any) => (
+    <div data-testid={`premium-card-${experience.id}`}>
+      <span>{experience.title}</span>
+      <span>{experience.price.formatted}</span>
+      {experience.rating && (
+        <>
+          <span>{experience.rating.average.toFixed(1)}</span>
+          <span>({experience.rating.count} reviews)</span>
+        </>
+      )}
+      {rank && <span>#{rank}</span>}
+    </div>
+  ),
+}));
+
 // Mock image-utils
 vi.mock('@/lib/image-utils', () => ({
   BLUR_PLACEHOLDER: 'data:image/png;base64,placeholder',
   isHolibobImage: vi.fn(() => false),
+}));
+
+// Mock site-context (needed by PremiumExperienceCard)
+vi.mock('@/lib/site-context', () => ({
+  useBrand: () => ({ primaryColor: '#0F766E' }),
 }));
 
 function makeDestination(overrides: Record<string, any> = {}) {
@@ -42,7 +64,7 @@ function makeDestination(overrides: Record<string, any> = {}) {
     holibobLocationId: 'loc-1',
     content: {
       id: 'content-1',
-      body: 'London is a vibrant city.',
+      body: '## Things to Do\n\nLondon is a vibrant city.\n\n## Best Time to Visit\n\nSpring and autumn.',
       bodyFormat: 'MARKDOWN',
       structuredData: null,
     },
@@ -57,9 +79,10 @@ function makeExperience(id: string, overrides: Record<string, any> = {}) {
     title: `Tour ${id}`,
     shortDescription: `A great tour ${id}`,
     imageUrl: `/images/${id}.jpg`,
-    price: { formatted: '£35.00' },
+    price: { amount: 35, currency: 'GBP', formatted: '£35.00' },
+    duration: { formatted: '2h' },
     rating: { average: 4.5, count: 100 },
-    categories: [{ name: 'Tours' }],
+    location: { name: 'London' },
     ...overrides,
   };
 }
@@ -83,11 +106,11 @@ describe('DestinationPageTemplate', () => {
   it('renders content via ContentRenderer', () => {
     render(<DestinationPageTemplate destination={makeDestination()} />);
     const renderer = screen.getByTestId('content-renderer');
-    expect(renderer.textContent).toBe('London is a vibrant city.');
+    expect(renderer.textContent).toContain('Things to Do');
     expect(renderer.getAttribute('data-format')).toBe('markdown');
   });
 
-  it('renders sidebar with quick navigation', () => {
+  it('renders sidebar with dynamic quick navigation from content headings', () => {
     render(<DestinationPageTemplate destination={makeDestination()} />);
     expect(screen.getByText('Quick Navigation')).toBeDefined();
     expect(screen.getByText('Things to Do')).toBeDefined();
@@ -105,7 +128,7 @@ describe('DestinationPageTemplate', () => {
     expect(screen.queryByText('Hand-picked experiences')).toBeNull();
   });
 
-  it('renders top experiences when provided', () => {
+  it('renders top experiences with PremiumExperienceCard', () => {
     const experiences = [makeExperience('1'), makeExperience('2')];
     render(
       <DestinationPageTemplate destination={makeDestination()} topExperiences={experiences} />
@@ -113,7 +136,6 @@ describe('DestinationPageTemplate', () => {
 
     expect(screen.getByText('Tour 1')).toBeDefined();
     expect(screen.getByText('Tour 2')).toBeDefined();
-    // Price appears for both experiences
     expect(screen.getAllByText('£35.00')).toHaveLength(2);
   });
 
@@ -133,20 +155,20 @@ describe('DestinationPageTemplate', () => {
     expect(screen.getByText('(100 reviews)')).toBeDefined();
   });
 
-  it('renders experience category badges', () => {
-    const experiences = [makeExperience('1')];
-    render(
-      <DestinationPageTemplate destination={makeDestination()} topExperiences={experiences} />
-    );
+  it('renders CTA link with destination params', () => {
+    render(<DestinationPageTemplate destination={makeDestination()} searchTerm="food tours" />);
 
-    expect(screen.getByText('Tours')).toBeDefined();
+    const link = screen.getByText('View All Experiences');
+    const href = link.closest('a')?.getAttribute('href');
+    expect(href).toContain('destination=London');
+    expect(href).toContain('q=food+tours');
   });
 
-  it('renders CTA link to experiences', () => {
+  it('renders View All Experiences with target=_blank', () => {
     render(<DestinationPageTemplate destination={makeDestination()} />);
 
     const link = screen.getByText('View All Experiences');
-    expect(link.closest('a')?.getAttribute('href')).toBe('/experiences');
+    expect(link.closest('a')?.getAttribute('target')).toBe('_blank');
   });
 
   it('handles experience without rating', () => {
@@ -158,5 +180,29 @@ describe('DestinationPageTemplate', () => {
     expect(screen.getByText('Tour 1')).toBeDefined();
     // Should not crash
     expect(screen.queryByText('reviews')).toBeNull();
+  });
+
+  it('does not render quick navigation when content has no headings', () => {
+    const dest = makeDestination({
+      content: {
+        id: 'content-1',
+        body: 'Just a paragraph with no headings.',
+        bodyFormat: 'MARKDOWN',
+        structuredData: null,
+      },
+    });
+    render(<DestinationPageTemplate destination={dest} />);
+    expect(screen.queryByText('Quick Navigation')).toBeNull();
+  });
+
+  it('assigns rank badges to top 3 experiences', () => {
+    const experiences = [makeExperience('1'), makeExperience('2'), makeExperience('3')];
+    render(
+      <DestinationPageTemplate destination={makeDestination()} topExperiences={experiences} />
+    );
+
+    expect(screen.getByText('#1')).toBeDefined();
+    expect(screen.getByText('#2')).toBeDefined();
+    expect(screen.getByText('#3')).toBeDefined();
   });
 });
