@@ -78,7 +78,7 @@ async function main() {
     where: {
       platform: 'FACEBOOK',
       platformCampaignId: { not: null },
-      targetUrl: { not: null },
+      NOT: { targetUrl: '' },
     },
     select: {
       id: true,
@@ -100,15 +100,14 @@ async function main() {
         select: { name: true, primaryDomain: true },
       },
       microsite: {
-        select: { name: true, customDomain: true, subdomain: true },
+        select: { subdomain: true, fullDomain: true },
       },
     },
   });
 
   // Filter to only campaigns whose targetUrl domain doesn't match current site domain
   const affected = allMeta.filter((c) => {
-    const currentDomain =
-      c.microsite?.customDomain || c.microsite?.subdomain || c.site?.primaryDomain;
+    const currentDomain = c.microsite?.fullDomain || c.site?.primaryDomain;
     if (!currentDomain || !c.targetUrl) return false;
 
     try {
@@ -135,10 +134,7 @@ async function main() {
 
   for (const campaign of affected) {
     // Determine correct domain
-    const domain =
-      campaign.microsite?.customDomain ||
-      campaign.microsite?.subdomain ||
-      campaign.site?.primaryDomain;
+    const domain = campaign.microsite?.fullDomain || campaign.site?.primaryDomain;
 
     if (!domain) {
       console.warn(`SKIP "${campaign.name}" (${campaign.id}): no site domain found`);
