@@ -602,13 +602,49 @@ export async function assignKeywordsToSites(): Promise<number> {
     }
   }
 
-  // Default site: used when no specific match found. The siteId is just a
-  // routing container — the scoring function independently matches keywords
-  // to microsites for the actual landing page and profitability calculation.
-  const defaultSiteId = sites[0]!.id;
+  // Build campaignGroup → siteId lookup from branded domain config.
+  // When no site matches a keyword, we classify it by campaign group and route
+  // to the correct branded domain's site instead of blindly defaulting to sites[0].
+  const campaignGroupDomains = PAID_TRAFFIC_CONFIG.metaConsolidated.campaignGroupDomains ?? {};
+  const allBrandedDomains = [...new Set(Object.values(campaignGroupDomains).flat())].filter(
+    Boolean
+  );
+
+  const domainToSiteIdMap = new Map<string, string>();
+  for (const site of sites) {
+    if (site.primaryDomain) {
+      domainToSiteIdMap.set(site.primaryDomain, site.id);
+    }
+  }
+  if (allBrandedDomains.length > 0) {
+    const domainRecords = await prisma.domain.findMany({
+      where: { domain: { in: allBrandedDomains }, status: 'ACTIVE' },
+      select: { domain: true, siteId: true },
+    });
+    for (const dr of domainRecords) {
+      if (dr.siteId && !domainToSiteIdMap.has(dr.domain)) {
+        domainToSiteIdMap.set(dr.domain, dr.siteId);
+      }
+    }
+  }
+
+  const campaignGroupToSiteId = new Map<string, string>();
+  for (const [group, domains] of Object.entries(campaignGroupDomains)) {
+    for (const d of domains as string[]) {
+      const sid = domainToSiteIdMap.get(d);
+      if (sid) {
+        campaignGroupToSiteId.set(group, sid);
+        break; // Use first matching domain for each group
+      }
+    }
+  }
+
+  // Fallback site: only used when campaign group also has no mapped domain
+  const fallbackSiteId = sites[0]!.id;
 
   let assigned = 0;
   let assignedByMatch = 0;
+  let assignedByCampaignGroup = 0;
   let assignedByDefault = 0;
 
   // Batch updates for performance
@@ -673,13 +709,20 @@ export async function assignKeywordsToSites(): Promise<number> {
       }
     }
 
-    // Assign: best match if found, otherwise default site.
-    // The siteId is a routing container — the scoring function's microsite
-    // matching handles the actual landing page selection based on keyword
-    // content and supplier city data.
-    const targetSiteId = bestScore >= 3 ? bestSiteId! : defaultSiteId;
-    if (bestScore >= 3) assignedByMatch++;
-    else assignedByDefault++;
+    // Assign: best match if found, otherwise classify by campaign group
+    // and route to the correct branded domain's site.
+    let targetSiteId: string;
+    if (bestScore >= 3) {
+      targetSiteId = bestSiteId!;
+      assignedByMatch++;
+    } else {
+      // Use campaign group classification to find the right branded domain
+      const kwCampaignGroup = classifyKeywordToCampaignGroup(kw.keyword, 50);
+      const groupSiteId = campaignGroupToSiteId.get(kwCampaignGroup);
+      targetSiteId = groupSiteId ?? fallbackSiteId;
+      if (groupSiteId) assignedByCampaignGroup++;
+      else assignedByDefault++;
+    }
 
     updates.push({ id: kw.id, siteId: targetSiteId });
   }
@@ -701,9 +744,10 @@ export async function assignKeywordsToSites(): Promise<number> {
     assigned += batch.length;
   }
 
-  console.log(
+  console.info(
     `[BiddingEngine] Assigned ${assigned}/${unassigned.length} keywords ` +
-      `(${assignedByMatch} by match, ${assignedByDefault} by default route)`
+      `(${assignedByMatch} by match, ${assignedByCampaignGroup} by campaign group, ` +
+      `${assignedByDefault} to fallback)`
   );
   return assigned;
 }
@@ -980,8 +1024,24 @@ export async function scoreCampaignOpportunities(
     const maxBid = Math.min(profile.maxProfitableCpc, estimatedCpc * 1.2); // Allow 20% above estimate
     if (maxBid < 0.01) continue; // Too low to be viable
 
-    const domain = opp.site?.primaryDomain;
-    if (!domain) continue;
+    const rawDomain = opp.site?.primaryDomain;
+    if (!rawDomain) continue;
+
+    // Verify domain alignment: if the keyword's campaign group expects a different
+    // branded domain, override so we don't land "safari tanzania" on london-food-tours.com
+    let domain = rawDomain;
+    let effectiveSiteId = siteId;
+    const kwCampaignGroup = classifyKeywordToCampaignGroup(opp.keyword, 50);
+    const expectedDomains = ((campaignGroupDomains[kwCampaignGroup] ?? []) as string[]).filter(
+      Boolean
+    );
+    if (expectedDomains.length > 0 && !expectedDomains.includes(rawDomain)) {
+      const correctEntry = campaignGroupSiteIds.get(kwCampaignGroup);
+      if (correctEntry && correctEntry.length > 0) {
+        domain = correctEntry[0]!.domain;
+        effectiveSiteId = correctEntry[0]!.siteId;
+      }
+    }
 
     // Check if keyword matches a microsite for better landing page relevance
     const kwLower = opp.keyword.toLowerCase();
@@ -1063,11 +1123,15 @@ export async function scoreCampaignOpportunities(
       }
     }
 
-    // Use microsite profile if available, otherwise fall back to main site profile
+    // Use microsite profile if available, then overridden site profile, then original
     let effectiveProfile = profile;
     if (matchedMicrosite) {
       const msProfile = profiles.find((p) => p.siteId === `microsite:${matchedMicrosite!.id}`);
       if (msProfile) effectiveProfile = msProfile;
+    } else if (effectiveSiteId !== siteId) {
+      // Domain was overridden — use the correct site's profile if available
+      const overrideProfile = profiles.find((p) => p.siteId === effectiveSiteId);
+      if (overrideProfile) effectiveProfile = overrideProfile;
     }
 
     // --- Build landing page context for API-aware routing ---
@@ -1105,10 +1169,10 @@ export async function scoreCampaignOpportunities(
         collections: collectionsByMicrosite.get(msId) ?? [],
       };
     } else {
-      // Main site — no microsite match
+      // Main site — no microsite match; use effectiveSiteId for correct page lookups
       lpContext = {
         siteType: 'MAIN',
-        sitePages: pagesBySite.get(siteId) ?? [],
+        sitePages: pagesBySite.get(effectiveSiteId) ?? [],
         collections: [],
       };
     }
@@ -1154,8 +1218,10 @@ export async function scoreCampaignOpportunities(
       const candidate: CampaignCandidate = {
         opportunityId: opp.id,
         keyword: opp.keyword,
-        siteId,
-        siteName: matchedMicrosite ? matchedMicrosite.siteName : opp.site?.name || '',
+        siteId: effectiveSiteId,
+        siteName: matchedMicrosite
+          ? matchedMicrosite.siteName
+          : (brandedSiteNameById.get(effectiveSiteId) ?? opp.site?.name ?? ''),
         platform,
         estimatedCpc,
         maxBid,
