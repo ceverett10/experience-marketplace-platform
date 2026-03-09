@@ -170,12 +170,12 @@ async function main() {
           ')'
       );
 
-      // Activate paused ads
-      if (apply && pausedCount > 0) {
-        const pausedAds = allAds.filter((a) => a.effective_status === 'PAUSED');
-        console.info('  Activating', pausedAds.length, 'paused ads...');
+      // Activate non-active ads (PAUSED, WITH_ISSUES, etc.)
+      const nonActiveAds = allAds.filter((a) => a.effective_status !== 'ACTIVE');
+      if (apply && nonActiveAds.length > 0) {
+        console.info('  Activating', nonActiveAds.length, 'non-active ads...');
         let count = 0;
-        for (const ad of pausedAds) {
+        for (const ad of nonActiveAds) {
           const r = await activate(ad.id, token);
           count++;
           if (r.error) {

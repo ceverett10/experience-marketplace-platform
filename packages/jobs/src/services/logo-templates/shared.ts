@@ -51,13 +51,27 @@ export function splitBrandName(brandName: string, splitWord?: number): [string, 
 /**
  * Compute a responsive font size based on brand name length.
  * Larger text for short names, scaling down for long ones.
+ * Single-word names get an extra reduction since they can't break across lines,
+ * making the logo disproportionately wide at the same font size.
  */
 export function getResponsiveFontSize(displayName: string, base: number = 54): number {
   const len = displayName.length;
-  if (len <= 10) return base;
-  if (len <= 16) return base - 4;
-  if (len <= 22) return base - 10;
-  return base - 16;
+  const words = displayName.trim().split(/\s+/);
+  const isSingleWord = words.length === 1;
+
+  let size: number;
+  if (len <= 10) size = base;
+  else if (len <= 16) size = base - 4;
+  else if (len <= 22) size = base - 10;
+  else size = base - 16;
+
+  // Single-word names render on one line with no line-break opportunity,
+  // so reduce further to keep the logo from becoming too wide
+  if (isSingleWord && len > 10) {
+    size = Math.round(size * 0.8);
+  }
+
+  return size;
 }
 
 /**
