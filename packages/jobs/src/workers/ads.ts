@@ -1316,9 +1316,26 @@ async function findRelevantInterests(
     }
   }
 
+  // Add travel/tourism category interests as fallback if we found fewer than 3 results.
+  // These broad interests ensure we always reach travel-minded users.
+  if (allInterests.size < 3) {
+    const travelFallbacks = ['tourism', 'travel', 'adventure travel', 'vacation'];
+    for (const term of travelFallbacks) {
+      if (allInterests.size >= 5) break;
+      try {
+        const interests = await metaClient.searchInterests(term);
+        for (const i of interests.slice(0, 2)) {
+          allInterests.set(i.id, { id: i.id, name: i.name });
+        }
+      } catch {
+        // Continue on search failure
+      }
+    }
+  }
+
   // Filter out clearly irrelevant interests (Meta's interest search returns false positives)
   const irrelevantPatterns =
-    /\b(department store|personal finance|online shopping|fast food|cryptocurrency|real estate|insurance|banking|banks and financial|psychedelic|gangsta rap|subculture|popular culture|american culture|japanese popular culture|video game culture|chinese culture|coffee culture|martha stewart|compact car|toyota|soccer player|german soccer|brazilian soccer|rugby union|french soccer|drama actor|government in|fast food restaurant|supermarket|discount store|convenience store)\b/i;
+    /\b(department store|personal finance|online shopping|fast food|cryptocurrency|real estate|insurance|banking|banks and financial|psychedelic|gangsta rap|subculture|popular culture|american culture|japanese popular culture|video game culture|chinese culture|coffee culture|martha stewart|compact car|toyota|soccer player|german soccer|brazilian soccer|rugby union|french soccer|drama actor|government in|fast food restaurant|supermarket|discount store|convenience store|hotel|hostel|airline|car rental|car dealership|automobile|fitness|weight loss|diet|cryptocurrency|bitcoin|stock market|politics|political|religion|religious|gambling|casino|lottery|video game|mobile game|gaming|esports|anime|manga|comic book|nightclub|bar and grill)\b/i;
   const filtered = [...allInterests.values()].filter(
     (interest) => !irrelevantPatterns.test(interest.name)
   );
@@ -1393,6 +1410,7 @@ async function deployMetaChildAdSet(
           : undefined,
         ageMin: 25,
         ageMax: 55,
+        publisherPlatforms: ['facebook', 'instagram'],
       },
       optimizationGoal: metaConfig.optimizationGoal,
       billingEvent: 'IMPRESSIONS',
@@ -1559,11 +1577,13 @@ async function deployToMeta(
       bidAmount: campaign.maxCpc,
       targeting: {
         countries,
-        // Note: location_types is deprecated by Meta — all targeting now automatically
-        // reaches "people living in or recently in" selected locations.
         interests: interestTargeting.length > 0 ? interestTargeting : undefined,
-        ageMin: 18,
-        ageMax: 65,
+        excludedCustomAudiences: process.env['META_PAST_BOOKERS_AUDIENCE_ID']
+          ? [{ id: process.env['META_PAST_BOOKERS_AUDIENCE_ID'] }]
+          : undefined,
+        ageMin: 25,
+        ageMax: 55,
+        publisherPlatforms: ['facebook', 'instagram'],
       },
       optimizationGoal: 'LINK_CLICKS',
       billingEvent: 'IMPRESSIONS',

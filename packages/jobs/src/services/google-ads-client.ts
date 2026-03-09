@@ -1107,7 +1107,7 @@ export async function setCampaignGeoTargets(
 
 /**
  * Pause ad group keywords by setting their status to PAUSED.
- * Batches in chunks of 1000 (API limit per mutate call).
+ * Batches in chunks of 200 with retry logic for CONCURRENT_MODIFICATION errors.
  * Returns the count of successfully paused keywords.
  */
 export async function pauseAdGroupKeywords(
@@ -1116,30 +1116,51 @@ export async function pauseAdGroupKeywords(
   const config = getConfig();
   if (!config || keywords.length === 0) return 0;
 
-  const BATCH_SIZE = 1000;
+  const BATCH_SIZE = 200;
+  const MAX_RETRIES = 3;
+  const RETRY_DELAY_MS = 5000;
   let totalPaused = 0;
 
-  try {
-    for (let i = 0; i < keywords.length; i += BATCH_SIZE) {
-      const batch = keywords.slice(i, i + BATCH_SIZE);
-      const operations = batch.map((kw) => ({
-        update: {
-          resourceName: `customers/${config.customerId}/adGroupCriteria/${kw.adGroupId}~${kw.criterionId}`,
-          status: 'PAUSED',
-        },
-        updateMask: 'status',
-      }));
+  for (let i = 0; i < keywords.length; i += BATCH_SIZE) {
+    const batch = keywords.slice(i, i + BATCH_SIZE);
+    const operations = batch.map((kw) => ({
+      update: {
+        resourceName: `customers/${config.customerId}/adGroupCriteria/${kw.adGroupId}~${kw.criterionId}`,
+        status: 'PAUSED',
+      },
+      updateMask: 'status',
+    }));
 
-      await apiRequest(config, 'POST', '/adGroupCriteria:mutate', { operations });
-      totalPaused += batch.length;
+    let success = false;
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      try {
+        await apiRequest(config, 'POST', '/adGroupCriteria:mutate', { operations });
+        totalPaused += batch.length;
+        success = true;
+        break;
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        if (msg.includes('CONCURRENT_MODIFICATION') && attempt < MAX_RETRIES - 1) {
+          const delay = RETRY_DELAY_MS * (attempt + 1);
+          console.warn(
+            `[GoogleAds] Concurrent modification on batch ${i / BATCH_SIZE + 1}, retrying in ${delay}ms...`
+          );
+          await new Promise((r) => setTimeout(r, delay));
+        } else {
+          console.error(`[GoogleAds] Pause batch ${i / BATCH_SIZE + 1} failed:`, error);
+          break;
+        }
+      }
     }
 
-    console.log(`[GoogleAds] Paused ${totalPaused} keywords`);
-    return totalPaused;
-  } catch (error) {
-    console.error('[GoogleAds] Pause keywords failed:', error);
-    return totalPaused;
+    if (success && i + BATCH_SIZE < keywords.length) {
+      // Small delay between batches to avoid concurrent modification
+      await new Promise((r) => setTimeout(r, 1000));
+    }
   }
+
+  console.info(`[GoogleAds] Paused ${totalPaused} keywords`);
+  return totalPaused;
 }
 
 /**
