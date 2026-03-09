@@ -241,9 +241,11 @@ async function getTopExperiences(
       const priceCurrency =
         product.guidePriceCurrency ?? product.priceCurrency ?? product.currency ?? 'GBP';
       const priceFormatted =
-        product.guidePriceFormattedText ??
-        product.priceFromFormatted ??
-        formatPrice(priceAmount, priceCurrency);
+        priceAmount > 0
+          ? (product.guidePriceFormattedText ??
+            product.priceFromFormatted ??
+            formatPrice(priceAmount, priceCurrency))
+          : 'Check price';
 
       let durationFormatted = '';
       if (product.durationText && !product.durationText.includes('NaN')) {

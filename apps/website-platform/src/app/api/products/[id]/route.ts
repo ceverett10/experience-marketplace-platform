@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { createHolibobClient } from '@experience-marketplace/holibob-api';
 
 /**
@@ -45,7 +45,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       price: {
         amount: product.priceFrom ?? 0,
         currency: product.currency ?? 'GBP',
-        formatted: formatPrice(product.priceFrom ?? 0, product.currency ?? 'GBP'),
+        formatted: product.priceFrom
+          ? formatPrice(product.priceFrom, product.currency ?? 'GBP')
+          : 'Check price',
       },
       duration: {
         value: product.duration ?? 0,

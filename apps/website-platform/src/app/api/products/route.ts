@@ -109,7 +109,9 @@ async function fetchFromLocalDB(
     price: {
       amount: product.priceFrom ? Number(product.priceFrom) : 0,
       currency: product.currency,
-      formatted: formatPrice(product.priceFrom ? Number(product.priceFrom) : 0, product.currency),
+      formatted: product.priceFrom
+        ? formatPrice(Number(product.priceFrom), product.currency)
+        : 'Check price',
     },
     duration: {
       formatted: product.duration ?? '',
@@ -199,7 +201,9 @@ async function fetchFromHolibob(options: {
     price: {
       amount: product.priceFrom ?? 0,
       currency: product.currency ?? 'GBP',
-      formatted: formatPrice(product.priceFrom ?? 0, product.currency ?? 'GBP'),
+      formatted: product.priceFrom
+        ? formatPrice(product.priceFrom, product.currency ?? 'GBP')
+        : 'Check price',
     },
     duration: {
       formatted: formatDuration(product.duration ?? 0),

@@ -270,7 +270,7 @@ export function PremiumExperienceCard({
             </div>
 
             <div className="text-right">
-              <p className="text-sm text-white/70">From</p>
+              {experience.price.amount > 0 && <p className="text-sm text-white/70">From</p>}
               <PriceDisplay
                 priceFormatted={experience.price.formatted}
                 priceAmount={experience.price.amount}
@@ -546,7 +546,7 @@ export function PremiumExperienceCard({
 
         {/* Price - Primary CTA anchor */}
         <div className="mt-3 flex items-baseline justify-between border-t border-gray-100 pt-3">
-          <span className="text-xs text-gray-500">From</span>
+          {experience.price.amount > 0 && <span className="text-xs text-gray-500">From</span>}
           <PriceDisplay
             priceFormatted={experience.price.formatted}
             priceAmount={experience.price.amount}

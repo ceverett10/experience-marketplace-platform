@@ -285,14 +285,16 @@ async function getExperiences(
           'card'
         );
 
-      // Get price - Product Detail API uses guidePrice, Product Discovery uses priceFrom
+      // Get price - Product Discovery uses holibobGuidePrice, others use guidePrice/priceFrom
       const priceAmount = product.guidePrice ?? product.priceFrom ?? 0;
       const priceCurrency =
         product.guidePriceCurrency ?? product.priceCurrency ?? product.currency ?? 'GBP';
       const priceFormatted =
-        product.guidePriceFormattedText ??
-        product.priceFromFormatted ??
-        formatPrice(priceAmount, priceCurrency);
+        priceAmount > 0
+          ? (product.guidePriceFormattedText ??
+            product.priceFromFormatted ??
+            formatPrice(priceAmount, priceCurrency))
+          : 'Check price';
 
       // Get duration - Product Discovery API returns maxDuration as ISO 8601 (e.g., "PT210M")
       // Product Detail API returns durationText as a string
@@ -483,7 +485,9 @@ async function getExperiencesFromLocalDB(
       price: {
         amount: product.priceFrom ? Number(product.priceFrom) : 0,
         currency: product.currency,
-        formatted: formatPrice(product.priceFrom ? Number(product.priceFrom) : 0, product.currency),
+        formatted: product.priceFrom
+          ? formatPrice(Number(product.priceFrom), product.currency)
+          : 'Check price',
       },
       duration: {
         formatted: product.duration && !product.duration.includes('NaN') ? product.duration : '',
@@ -571,10 +575,12 @@ async function getExperiencesFromHolibobAPI(
       const priceAmount = product.guidePrice ?? 0;
       const priceCurrency = product.guidePriceCurrency ?? 'GBP';
       const priceFormatted =
-        product.guidePriceFormattedText ??
-        new Intl.NumberFormat('en-GB', { style: 'currency', currency: priceCurrency }).format(
-          priceAmount
-        );
+        priceAmount > 0
+          ? (product.guidePriceFormattedText ??
+            new Intl.NumberFormat('en-GB', { style: 'currency', currency: priceCurrency }).format(
+              priceAmount
+            ))
+          : 'Check price';
 
       // Parse ISO 8601 duration
       let durationFormatted = '';

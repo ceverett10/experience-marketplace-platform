@@ -156,9 +156,11 @@ export async function GET(request: NextRequest) {
       const priceCurrency =
         product.guidePriceCurrency ?? product.priceCurrency ?? product.currency ?? 'GBP';
       const priceFormatted =
-        product.guidePriceFormattedText ??
-        product.priceFromFormatted ??
-        formatPrice(priceAmount, priceCurrency);
+        priceAmount > 0
+          ? (product.guidePriceFormattedText ??
+            product.priceFromFormatted ??
+            formatPrice(priceAmount, priceCurrency))
+          : 'Check price';
 
       // Get duration - Product Discovery API returns maxDuration as ISO 8601 (e.g., "PT210M")
       let durationFormatted = '';

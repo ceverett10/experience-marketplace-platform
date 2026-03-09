@@ -229,7 +229,9 @@ export async function GET(request: NextRequest) {
       const priceAmount = product.guidePrice ?? 0;
       const priceCurrency = product.guidePriceCurrency ?? 'GBP';
       const priceFormatted =
-        product.guidePriceFormattedText ?? formatPrice(priceAmount, priceCurrency);
+        priceAmount > 0
+          ? (product.guidePriceFormattedText ?? formatPrice(priceAmount, priceCurrency))
+          : 'Check price';
 
       let durationMinutes = 0;
       let durationFormatted = '';
