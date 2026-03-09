@@ -1027,21 +1027,19 @@ export async function scoreCampaignOpportunities(
     const rawDomain = opp.site?.primaryDomain;
     if (!rawDomain) continue;
 
-    // Verify domain alignment: if the keyword's campaign group expects a different
-    // branded domain, override so we don't land "safari tanzania" on london-food-tours.com
+    // Drop keywords matching negative patterns (non-commercial terms)
+    const kwLowerEarly = opp.keyword.toLowerCase();
+    const negPatterns = PAID_TRAFFIC_CONFIG.metaConsolidated.googleNegativePatterns;
+    if (negPatterns.some((pat) => kwLowerEarly.includes(pat))) continue;
+
+    // Classify keyword's campaign group and find its branded domain (if any).
+    // Branded domain enforcement happens AFTER microsite matching below.
     let domain = rawDomain;
     let effectiveSiteId = siteId;
     const kwCampaignGroup = classifyKeywordToCampaignGroup(opp.keyword, 50);
     const expectedDomains = ((campaignGroupDomains[kwCampaignGroup] ?? []) as string[]).filter(
       Boolean
     );
-    if (expectedDomains.length > 0 && !expectedDomains.includes(rawDomain)) {
-      const correctEntry = campaignGroupSiteIds.get(kwCampaignGroup);
-      if (correctEntry && correctEntry.length > 0) {
-        domain = correctEntry[0]!.domain;
-        effectiveSiteId = correctEntry[0]!.siteId;
-      }
-    }
 
     // Check if keyword matches a microsite for better landing page relevance
     const kwLower = opp.keyword.toLowerCase();
@@ -1120,6 +1118,19 @@ export async function scoreCampaignOpportunities(
           matchedMicrositeEntityType = 'SUPPLIER';
           break;
         }
+      }
+    }
+
+    // If keyword belongs to a campaign group with a branded domain, ALWAYS use that
+    // domain instead of any microsite match. Branded sites (harry-potter-tours.com,
+    // water-tours.com, etc.) are more authoritative than supplier microsites.
+    if (expectedDomains.length > 0) {
+      const correctEntry = campaignGroupSiteIds.get(kwCampaignGroup);
+      if (correctEntry && correctEntry.length > 0) {
+        domain = correctEntry[0]!.domain;
+        effectiveSiteId = correctEntry[0]!.siteId;
+        matchedMicrosite = undefined;
+        matchedMicrositeEntityType = undefined;
       }
     }
 
@@ -1437,9 +1448,46 @@ export async function scoreCampaignOpportunities(
     );
   }
 
+  // Deduplicate: keep only the best candidate per keyword+platform.
+  // With branded domain routing, primary candidates and Sprint 2 destination candidates
+  // can overlap. Prefer DESTINATION > CATEGORY > COLLECTION > BLOG > EXPERIENCES_FILTERED > HOMEPAGE.
+  const LP_TYPE_PRIORITY: Record<string, number> = {
+    DESTINATION: 6,
+    CATEGORY: 5,
+    COLLECTION: 4,
+    BLOG: 3,
+    EXPERIENCES_FILTERED: 2,
+    HOMEPAGE: 1,
+  };
+  const bestByKeywordPlatform = new Map<string, CampaignCandidate>();
+  for (const c of cityValidatedCandidates) {
+    const dedupeKey = `${c.keyword}|${c.platform}`;
+    const existing = bestByKeywordPlatform.get(dedupeKey);
+    if (!existing) {
+      bestByKeywordPlatform.set(dedupeKey, c);
+      continue;
+    }
+    // Prefer higher landing page type priority, then higher profitability score
+    const cPriority = LP_TYPE_PRIORITY[c.landingPageType ?? ''] ?? 0;
+    const existPriority = LP_TYPE_PRIORITY[existing.landingPageType ?? ''] ?? 0;
+    if (
+      cPriority > existPriority ||
+      (cPriority === existPriority && c.profitabilityScore > existing.profitabilityScore)
+    ) {
+      bestByKeywordPlatform.set(dedupeKey, c);
+    }
+  }
+  const dedupedCandidates = Array.from(bestByKeywordPlatform.values());
+  if (dedupedCandidates.length < cityValidatedCandidates.length) {
+    console.info(
+      `[Bidding Engine] Deduplication: ${cityValidatedCandidates.length} → ${dedupedCandidates.length} ` +
+        `(removed ${cityValidatedCandidates.length - dedupedCandidates.length} duplicate keyword+platform entries)`
+    );
+  }
+
   // Sort by profitability score descending
-  cityValidatedCandidates.sort((a, b) => b.profitabilityScore - a.profitabilityScore);
-  return cityValidatedCandidates;
+  dedupedCandidates.sort((a, b) => b.profitabilityScore - a.profitabilityScore);
+  return dedupedCandidates;
 }
 
 // --- Grouping ----------------------------------------------------------------

@@ -151,6 +151,42 @@ export const PAID_TRAFFIC_CONFIG = {
     /** Profitability score threshold for General Tours Tier 1 vs Tier 2 */
     generalToursTier1Threshold: 50,
 
+    /**
+     * Negative keyword patterns for Google — keywords matching these are dropped.
+     * These are terms that match category patterns but have no purchase intent.
+     */
+    googleNegativePatterns: [
+      // Animals / nature facts (not bookable experiences)
+      'goat climbing',
+      'life history',
+      'life story',
+      'biography',
+      'how to become',
+      'how to learn',
+      'diy ',
+      'recipe',
+      'ingredients',
+      // Wrong activity category matches
+      'skydiving phoenix', // not water-related
+      'skydiving in phoenix',
+      // Non-bookable informational
+      'what is',
+      'what are',
+      'where is',
+      'where are',
+      'how much does',
+      'how far is',
+      'history of',
+      'facts about',
+      'wikipedia',
+      'reddit',
+      'youtube',
+      'free ',
+      'jobs ',
+      'career',
+      'salary',
+    ] as string[],
+
     /** Campaign group → branded domain mapping for destination page ad sets */
     campaignGroupDomains: {
       'Food, Drink & Culinary': ['food-tour-guide.com'],
