@@ -2153,6 +2153,7 @@ async function deployToGoogle(
           keywords: string[];
           maxBid: number;
           targetUrl: string;
+          landingPageType?: string;
         }>;
       }
     )?.adGroups;
@@ -2163,11 +2164,12 @@ async function deployToGoogle(
 
     if (adGroupConfigs && adGroupConfigs.length > 0) {
       for (const agConfig of adGroupConfigs) {
-        const keywords = agConfig.keywords.flatMap((kw) => [
-          { text: kw, matchType: 'BROAD' as const },
-          { text: kw, matchType: 'PHRASE' as const },
-          { text: kw, matchType: 'EXACT' as const },
-        ]);
+        // STAG: phrase match only — broad requires Smart Bidding with conversion data,
+        // exact is too restrictive for accounts with <50 conversions/month
+        const keywords = agConfig.keywords.map((kw) => ({
+          text: kw,
+          matchType: 'PHRASE' as const,
+        }));
 
         const adGroupResult = await createKeywordAdGroup({
           campaignId: campaignResult.campaignId,
@@ -2196,13 +2198,29 @@ async function deployToGoogle(
           agUrl.toString()
         );
         if (!primaryRsa) primaryRsa = rsa;
+        // Derive display paths from landing page type
+        const lpType = agConfig.landingPageType || '';
+        const kwFirst = agConfig.primaryKeyword.split(' ')[0]?.substring(0, 15) || '';
+        let path1 = 'experiences';
+        let path2 = kwFirst;
+        if (lpType === 'DESTINATION') {
+          path1 = kwFirst;
+          path2 = 'tours';
+        } else if (lpType === 'CATEGORY') {
+          path1 = kwFirst;
+          path2 = 'book';
+        } else if (lpType === 'BLOG') {
+          path1 = 'guide';
+          path2 = kwFirst;
+        }
+
         const rsaResult = await createResponsiveSearchAd({
           adGroupId: adGroupResult.adGroupId,
           headlines: rsa.headlines,
           descriptions: rsa.descriptions,
           finalUrl: agUrl.toString(),
-          path1: 'experiences',
-          path2: agConfig.primaryKeyword.split(' ')[0]?.substring(0, 15),
+          path1,
+          path2,
         });
         if (rsaResult) {
           adsCreated++;
@@ -2663,23 +2681,34 @@ export async function handleBiddingEngineRun(job: Job): Promise<JobResult> {
         continue;
       }
 
-      // --- Google / standalone: create one campaign per group (existing behavior) ---
+      // --- Google / standalone: create one campaign per group (STAG structure) ---
       const lpPath = group.adGroups[0]?.landingPagePath || null;
-      const existing = await prisma.adCampaign.findFirst({
-        where: {
-          ...(group.micrositeId
-            ? { micrositeId: group.micrositeId }
-            : { siteId: group.siteId, micrositeId: null }),
-          platform: group.platform as any,
-          landingPagePath: lpPath,
-          status: { in: ['ACTIVE', 'PAUSED', 'DRAFT'] },
-        },
-      });
+
+      // For Google STAG campaigns, check by campaignGroup to avoid duplicates
+      const existingWhere = group.campaignGroup
+        ? {
+            platform: group.platform as any,
+            campaignGroup: group.campaignGroup,
+            status: { in: ['ACTIVE' as const, 'PAUSED' as const, 'DRAFT' as const] },
+          }
+        : {
+            ...(group.micrositeId
+              ? { micrositeId: group.micrositeId }
+              : { siteId: group.siteId, micrositeId: null }),
+            platform: group.platform as any,
+            landingPagePath: lpPath,
+            status: { in: ['ACTIVE' as const, 'PAUSED' as const, 'DRAFT' as const] },
+          };
+      const existing = await prisma.adCampaign.findFirst({ where: existingWhere });
       if (existing) continue;
 
-      const campaignName = group.isMicrosite
-        ? `${group.siteName} - ${group.platform === 'GOOGLE_SEARCH' ? 'Google' : 'Meta'}`
-        : `${group.siteName} - ${group.primaryKeyword} - ${group.platform === 'GOOGLE_SEARCH' ? 'Google' : 'Meta'}`;
+      // STAG: use campaign group name for Google campaigns
+      const platformLabel = group.platform === 'GOOGLE_SEARCH' ? 'Google' : 'Meta';
+      const campaignName = group.campaignGroup
+        ? `${group.campaignGroup} - ${platformLabel}`
+        : group.isMicrosite
+          ? `${group.siteName} - ${platformLabel}`
+          : `${group.siteName} - ${group.primaryKeyword} - ${platformLabel}`;
 
       const clampedBudget = Math.min(
         Math.max(group.totalExpectedDailyCost, minDailyBudget),
@@ -2691,6 +2720,7 @@ export async function handleBiddingEngineRun(job: Job): Promise<JobResult> {
           siteId: group.siteId,
           micrositeId: group.micrositeId || null,
           platform: group.platform as any,
+          campaignGroup: group.campaignGroup || null,
           name: campaignName.substring(0, 100),
           status: 'DRAFT',
           dailyBudget: clampedBudget,
