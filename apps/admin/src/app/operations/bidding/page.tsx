@@ -2581,23 +2581,37 @@ export default function PaidTrafficDashboard() {
                                             {ag.keywords.length}
                                           </td>
                                           <td className="py-1 pr-3 text-right tabular-nums">
-                                            {fmt(ag.maxBid, 'currency')}
+                                            {fmt(ag.maxBid || c.maxCpc, 'currency')}
                                           </td>
                                           <td className="py-1 pr-3 truncate max-w-[200px]">
-                                            {ag.targetUrl ? (
-                                              <a
-                                                href={ag.targetUrl}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="text-blue-600 hover:text-blue-800 hover:underline"
-                                                title={ag.targetUrl}
-                                                onClick={(e) => e.stopPropagation()}
-                                              >
-                                                {ag.landingPagePath || ag.targetUrl}
-                                              </a>
-                                            ) : (
-                                              <span className="text-slate-400">{'\u2014'}</span>
-                                            )}
+                                            {(() => {
+                                              // Resolve ad group URL: ag.targetUrl, or construct
+                                              // from campaign targetUrl + ag.landingPagePath
+                                              const agUrl =
+                                                ag.targetUrl ||
+                                                (ag.landingPagePath && c.targetUrl
+                                                  ? `${c.targetUrl.replace(/\/$/, '')}${ag.landingPagePath.startsWith('/') ? '' : '/'}${ag.landingPagePath}`
+                                                  : ag.landingPagePath?.startsWith('http')
+                                                    ? ag.landingPagePath
+                                                    : null);
+                                              if (agUrl) {
+                                                return (
+                                                  <a
+                                                    href={agUrl}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-blue-600 hover:text-blue-800 hover:underline"
+                                                    title={agUrl}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                  >
+                                                    {ag.landingPagePath || agUrl}
+                                                  </a>
+                                                );
+                                              }
+                                              return (
+                                                <span className="text-slate-400">{'\u2014'}</span>
+                                              );
+                                            })()}
                                           </td>
                                           <td className="py-1 text-right tabular-nums">
                                             {fmt(ag.totalExpectedDailyCost, 'currency')}
