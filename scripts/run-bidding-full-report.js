@@ -230,16 +230,40 @@ async function main() {
       for (var n = 0; n < Math.min(result.groups.length, 15); n++) {
         var g = result.groups[n];
         console.info(
-          '  ' +
+          '  [' +
+            (g.campaignGroup || 'ungrouped') +
+            '] ' +
             (g.micrositeDomain || g.siteName || '?').substring(0, 40) +
             ' (' +
             g.platform +
             '): ' +
             g.candidates.length +
-            ' kw, £' +
+            ' kw, ' +
+            (g.adGroups ? g.adGroups.length : 0) +
+            ' ad groups, £' +
             g.totalExpectedDailyCost.toFixed(2) +
             '/day'
         );
+        // Show ad group details
+        if (g.adGroups) {
+          for (var ag = 0; ag < Math.min(g.adGroups.length, 5); ag++) {
+            var adg = g.adGroups[ag];
+            console.info(
+              '    AG: ' +
+                adg.primaryKeyword +
+                ' | ' +
+                adg.landingPageType +
+                ' | ' +
+                adg.keywords.length +
+                ' kw' +
+                ' | ' +
+                adg.targetUrl.substring(0, 60)
+            );
+          }
+          if (g.adGroups.length > 5) {
+            console.info('    ... and ' + (g.adGroups.length - 5) + ' more ad groups');
+          }
+        }
       }
     }
   }
