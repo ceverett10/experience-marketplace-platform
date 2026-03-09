@@ -51,12 +51,33 @@ async function main() {
   if (skipCount > 0) console.info('Skipping first', skipCount, 'campaigns');
   console.info('');
 
-  // Get Meta access token
-  const account = await prisma.socialAccount.findFirst({
-    where: { platform: 'FACEBOOK' },
-    select: { accessToken: true },
+  // Get Meta access token (same pattern as move-ads-to-consolidated.js)
+  const accounts = await prisma.socialAccount.findMany({
+    where: { platform: 'FACEBOOK', isActive: true },
+    select: { id: true, accessToken: true },
+    orderBy: { updatedAt: 'desc' },
   });
-  const token = decryptToken(account.accessToken);
+  let token = null;
+  for (const account of accounts) {
+    if (!account.accessToken) continue;
+    try {
+      const t = decryptToken(account.accessToken);
+      const testUrl = 'https://graph.facebook.com/v18.0/me?fields=id&access_token=' + t;
+      const testResp = await fetch(testUrl);
+      const testData = await testResp.json();
+      if (testData.id) {
+        token = t;
+        console.info('Using token for account:', testData.id);
+        break;
+      }
+    } catch (err) {
+      console.info('Token failed for account', account.id);
+    }
+  }
+  if (!token) {
+    console.error('No valid Facebook access token found');
+    process.exit(1);
+  }
 
   // Get all parent campaigns
   const parents = await prisma.adCampaign.findMany({

@@ -23,15 +23,18 @@ function decryptToken(encrypted) {
   return decrypted;
 }
 
-async function api(path, token) {
-  const url =
-    'https://graph.facebook.com/v18.0/' +
-    path +
-    (path.includes('?') ? '&' : '?') +
-    'access_token=' +
-    token;
-  const resp = await fetch(url);
-  return resp.json();
+async function api(endpoint, token, params = {}) {
+  const url = new URL('https://graph.facebook.com/v18.0/' + endpoint);
+  for (const [k, v] of Object.entries(params)) {
+    url.searchParams.set(k, v);
+  }
+  url.searchParams.set('access_token', token);
+  const resp = await fetch(url.toString());
+  const data = await resp.json();
+  if (data.error) {
+    console.info('API error for ' + endpoint + ': ' + JSON.stringify(data.error));
+  }
+  return data;
 }
 
 function sleep(ms) {
@@ -39,8 +42,36 @@ function sleep(ms) {
 }
 
 async function main() {
-  const account = await prisma.socialAccount.findFirst({ where: { platform: 'FACEBOOK' } });
-  const token = decryptToken(account.accessToken);
+  // Use same pattern as move-ads-to-consolidated.js
+  const accounts = await prisma.socialAccount.findMany({
+    where: { platform: 'FACEBOOK', isActive: true },
+    select: { id: true, accessToken: true },
+    orderBy: { updatedAt: 'desc' },
+  });
+
+  let token = null;
+  for (const account of accounts) {
+    if (!account.accessToken) continue;
+    try {
+      token = decryptToken(account.accessToken);
+      // Test the token
+      const test = await api('me', token, { fields: 'id,name' });
+      if (test.id) {
+        console.info('Using token for:', test.name || test.id);
+        break;
+      }
+      console.info('Token test failed for account', account.id, ':', JSON.stringify(test));
+      token = null;
+    } catch (err) {
+      console.info('Token decrypt failed for account', account.id, ':', err.message);
+      token = null;
+    }
+  }
+
+  if (!token) {
+    console.error('No valid Facebook access token found');
+    process.exit(1);
+  }
 
   const parents = await prisma.adCampaign.findMany({
     where: { platform: 'FACEBOOK', parentCampaignId: null },
@@ -50,28 +81,31 @@ async function main() {
     (p) => p.proposalData && p.proposalData.consolidatedCampaign === true
   );
 
-  console.info('=== CONSOLIDATED CAMPAIGNS STATUS ===\n');
+  console.info('\n=== CONSOLIDATED CAMPAIGNS STATUS ===\n');
   let grandTotal = 0;
   let grandActive = 0;
   let grandPaused = 0;
 
   for (const camp of consolidated) {
-    const campData = await api(camp.platformCampaignId + '?fields=name,effective_status', token);
+    const campData = await api(camp.platformCampaignId, token, {
+      fields: 'name,effective_status',
+    });
     await sleep(1000);
 
     // Fetch all ads in campaign (paginate if needed)
     let allAds = [];
-    let nextUrl = camp.platformCampaignId + '/ads?fields=id,effective_status&limit=500';
-    while (nextUrl) {
-      const adsResp = await api(nextUrl, token);
-      if (adsResp.data) allAds = allAds.concat(adsResp.data);
-      nextUrl = null;
-      if (adsResp.paging && adsResp.paging.next) {
-        // Extract path after graph.facebook.com/v18.0/
-        const u = new URL(adsResp.paging.next);
-        nextUrl = u.pathname.replace('/v18.0/', '') + u.search.replace(/&?access_token=[^&]+/, '');
-      }
+    let adsData = await api(camp.platformCampaignId + '/ads', token, {
+      fields: 'id,effective_status',
+      limit: '500',
+    });
+    if (adsData.data) allAds = allAds.concat(adsData.data);
+
+    // Paginate
+    while (adsData.paging && adsData.paging.next) {
       await sleep(2000);
+      const resp = await fetch(adsData.paging.next);
+      adsData = await resp.json();
+      if (adsData.data) allAds = allAds.concat(adsData.data);
     }
 
     const active = allAds.filter((a) => a.effective_status === 'ACTIVE').length;
@@ -79,9 +113,9 @@ async function main() {
     const other = allAds.length - active - paused;
 
     console.info(
-      campData.name +
+      (campData.name || '???') +
         ' [' +
-        campData.effective_status +
+        (campData.effective_status || '???') +
         '] — ' +
         allAds.length +
         ' ads (active:' +
@@ -95,6 +129,7 @@ async function main() {
     grandTotal += allAds.length;
     grandActive += active;
     grandPaused += paused;
+    await sleep(2000);
   }
 
   console.info('\n=== TOTALS ===');
