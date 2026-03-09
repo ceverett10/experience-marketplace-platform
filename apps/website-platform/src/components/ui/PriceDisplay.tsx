@@ -28,6 +28,18 @@ export function PriceDisplay({
   primaryColor = '#6366f1',
   showFrom = true,
 }: PriceDisplayProps) {
+  // Don't show "From" prefix or promo pricing when price is unavailable
+  const hasPrice = priceAmount > 0;
+  const showFromPrefix = showFrom && hasPrice;
+
+  if (!hasPrice) {
+    return (
+      <span className="font-semibold" style={{ color: primaryColor }}>
+        {priceFormatted}
+      </span>
+    );
+  }
+
   const promo = calculatePromoPrice(priceFormatted, priceAmount, currency, pricingConfig);
 
   if (!promo.hasPromo) {
@@ -35,14 +47,14 @@ export function PriceDisplay({
     if (variant === 'compact') {
       return (
         <span className="font-semibold" style={{ color: primaryColor }}>
-          {showFrom && 'From '}
+          {showFromPrefix && 'From '}
           {priceFormatted}
         </span>
       );
     }
     return (
       <span className="font-semibold" style={{ color: primaryColor }}>
-        {showFrom && 'From '}
+        {showFromPrefix && 'From '}
         {priceFormatted}
       </span>
     );
@@ -54,7 +66,7 @@ export function PriceDisplay({
       <div className="flex flex-col items-end">
         <span className="text-xs text-gray-400 line-through">{promo.originalFormatted}</span>
         <span className="font-semibold" style={{ color: primaryColor }}>
-          {showFrom && 'From '}
+          {showFromPrefix && 'From '}
           {promo.discountedFormatted}
         </span>
       </div>
@@ -85,7 +97,7 @@ export function PriceDisplay({
       <div className="flex items-baseline gap-1.5">
         <span className="text-xs text-gray-400 line-through">{promo.originalFormatted}</span>
         <span className="text-sm font-semibold" style={{ color: primaryColor }}>
-          {showFrom && 'From '}
+          {showFromPrefix && 'From '}
           {promo.discountedFormatted}
         </span>
       </div>

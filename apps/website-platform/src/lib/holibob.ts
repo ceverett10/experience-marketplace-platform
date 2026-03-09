@@ -304,9 +304,11 @@ export function mapProductToExperience(product: {
     product.currency ??
     'GBP';
   const priceFormatted =
-    product.guidePriceFormattedText ??
-    product.priceFromFormatted ??
-    formatPrice(priceAmount, currency);
+    priceAmount > 0
+      ? (product.guidePriceFormattedText ??
+        product.priceFromFormatted ??
+        formatPrice(priceAmount, currency))
+      : 'Check price';
 
   // Handle duration as either number, ISO 8601 string, or object
   // Product Discovery API uses maxDuration which can be ISO 8601 format (e.g., "PT210M")

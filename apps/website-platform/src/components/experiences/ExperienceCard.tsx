@@ -117,7 +117,8 @@ export function ExperienceCard({
                 </span>
               )}
               <span className="text-lg font-bold text-white">
-                From {experience.price.formatted}
+                {experience.price.amount > 0 ? 'From ' : ''}
+                {experience.price.formatted}
               </span>
             </div>
           </div>

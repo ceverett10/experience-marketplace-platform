@@ -83,7 +83,7 @@ async function getRelatedExperiences(
         product.imageList?.[0]?.url ||
         '',
       price: {
-        formatted: product.priceFromFormatted || product.guidePriceFormattedText || 'From £0',
+        formatted: product.priceFromFormatted || product.guidePriceFormattedText || 'Check price',
       },
       rating:
         product.reviewRating && product.reviewCount

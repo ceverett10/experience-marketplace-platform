@@ -360,7 +360,9 @@ export function localProductToExperienceListItem(product: LocalProduct) {
     price: {
       amount: product.priceFrom ?? 0,
       currency: product.currency,
-      formatted: formatPrice(product.priceFrom ?? 0, product.currency),
+      formatted: product.priceFrom
+        ? formatPrice(product.priceFrom, product.currency)
+        : 'Check price',
     },
     duration: {
       formatted: product.duration && !product.duration.includes('NaN') ? product.duration : '',

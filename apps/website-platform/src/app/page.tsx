@@ -89,10 +89,13 @@ async function getFeaturedExperiences(
           const priceCurrency = product.guidePriceCurrency ?? product.priceCurrency ?? 'GBP';
           // Use pre-formatted text if available, otherwise format directly (no /100 division)
           const priceFormatted =
-            product.guidePriceFormattedText ??
-            new Intl.NumberFormat('en-GB', { style: 'currency', currency: priceCurrency }).format(
-              priceAmount
-            );
+            priceAmount > 0
+              ? (product.guidePriceFormattedText ??
+                new Intl.NumberFormat('en-GB', {
+                  style: 'currency',
+                  currency: priceCurrency,
+                }).format(priceAmount))
+              : 'Check price';
 
           let durationFormatted = '';
           if (product.durationText && !product.durationText.includes('NaN')) {
@@ -215,14 +218,16 @@ async function getFeaturedExperiences(
         product.imageUrl ??
         '/placeholder-experience.jpg';
 
-      // Get price - Product Detail API uses guidePrice, Product Discovery uses priceFrom
+      // Get price - Product Discovery uses holibobGuidePrice, others use guidePrice/priceFrom
       const priceAmount = product.guidePrice ?? product.priceFrom ?? 0;
       const priceCurrency =
         product.guidePriceCurrency ?? product.priceCurrency ?? product.currency ?? 'GBP';
       const priceFormatted =
-        product.guidePriceFormattedText ??
-        product.priceFromFormatted ??
-        formatPrice(priceAmount, priceCurrency);
+        priceAmount > 0
+          ? (product.guidePriceFormattedText ??
+            product.priceFromFormatted ??
+            formatPrice(priceAmount, priceCurrency))
+          : 'Check price';
 
       // Get duration - Product Discovery API returns maxDuration as ISO 8601 (e.g., "PT210M")
       // Product Detail API returns durationText as a string

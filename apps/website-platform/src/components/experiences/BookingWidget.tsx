@@ -51,9 +51,11 @@ export function BookingWidget({ experience, bookingStats }: BookingWidgetProps) 
       <div className="p-6">
         {/* Price Section */}
         <div className="mb-4">
-          <div className="flex items-baseline gap-2">
-            <span className="text-sm text-gray-500">From</span>
-          </div>
+          {experience.price.amount > 0 && (
+            <div className="flex items-baseline gap-2">
+              <span className="text-sm text-gray-500">From</span>
+            </div>
+          )}
           <PriceDisplay
             priceFormatted={experience.price.formatted}
             priceAmount={experience.price.amount}

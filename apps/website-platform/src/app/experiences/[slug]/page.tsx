@@ -142,10 +142,13 @@ async function getRelatedExperiences(
           const priceAmount = product.guidePrice ?? product.priceFrom ?? 0;
           const priceCurrency = product.guidePriceCurrency ?? product.priceCurrency ?? 'GBP';
           const priceFormatted =
-            product.guidePriceFormattedText ??
-            new Intl.NumberFormat('en-GB', { style: 'currency', currency: priceCurrency }).format(
-              priceAmount
-            );
+            priceAmount > 0
+              ? (product.guidePriceFormattedText ??
+                new Intl.NumberFormat('en-GB', {
+                  style: 'currency',
+                  currency: priceCurrency,
+                }).format(priceAmount))
+              : 'Check price';
 
           let durationFormatted = '';
           if (product.durationText && !product.durationText.includes('NaN')) {
@@ -228,11 +231,13 @@ async function getRelatedExperiences(
         }
 
         const priceFormatted =
-          product.guidePriceFormattedText ??
-          product.priceFromFormatted ??
-          new Intl.NumberFormat('en-GB', { style: 'currency', currency: priceCurrency }).format(
-            priceAmount
-          );
+          priceAmount > 0
+            ? (product.guidePriceFormattedText ??
+              product.priceFromFormatted ??
+              new Intl.NumberFormat('en-GB', { style: 'currency', currency: priceCurrency }).format(
+                priceAmount
+              ))
+            : 'Check price';
 
         return {
           id: product.id,
