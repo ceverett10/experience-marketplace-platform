@@ -68,7 +68,7 @@ export function getResponsiveFontSize(displayName: string, base: number = 54): n
   // Single-word names render on one line with no line-break opportunity,
   // so reduce further to keep the logo from becoming too wide
   if (isSingleWord && len > 10) {
-    size = Math.round(size * 0.8);
+    size = Math.round(size * 0.65);
   }
 
   return size;

@@ -115,7 +115,7 @@ export function Header() {
                   alt={site.name}
                   width={600}
                   height={400}
-                  className="h-14 w-auto sm:h-16"
+                  className="h-14 w-auto max-w-[280px] sm:h-16 sm:max-w-[360px]"
                   priority
                 />
               ) : (
