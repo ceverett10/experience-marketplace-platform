@@ -2281,6 +2281,35 @@ export default function PaidTrafficDashboard() {
                           </td>
                           <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                             {(() => {
+                              // Meta parent campaigns: show first child ad set URL
+                              // (parent targetUrl is often wrong/empty for CBO campaigns)
+                              if (isMetaCampaign && metaAdSets.length > 0) {
+                                const firstChildUrl = metaAdSets.find(
+                                  (as) => as.targetUrl
+                                )?.targetUrl;
+                                if (firstChildUrl) {
+                                  const display =
+                                    firstChildUrl.replace(/^https?:\/\//, '').substring(0, 35) +
+                                    (metaAdSets.length > 1 ? ` +${metaAdSets.length - 1}` : '');
+                                  return (
+                                    <a
+                                      href={firstChildUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-xs text-blue-600 hover:text-blue-800 hover:underline truncate max-w-[180px] block"
+                                      title={`${metaAdSets.length} ad set(s) — click to open first`}
+                                    >
+                                      {display}
+                                    </a>
+                                  );
+                                }
+                                return (
+                                  <span className="text-xs text-slate-400">
+                                    {metaAdSets.length} ad sets
+                                  </span>
+                                );
+                              }
+
                               // Resolve landing page URL: prefer targetUrl, fall back to
                               // constructing from micrositeDomain + landingPagePath
                               const resolvedUrl =

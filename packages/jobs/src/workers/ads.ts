@@ -90,10 +90,13 @@ async function getMetaAdsClient(): Promise<MetaAdsClient | null> {
     if (!account.accessToken) continue;
     try {
       const { accessToken } = await refreshTokenIfNeeded(account);
-      console.log(
+      const client = new MetaAdsClient({ accessToken, adAccountId });
+      // Verify the token actually has ad account access before using it
+      await client.verifyAccess();
+      console.info(
         `[Ads Worker] Using Meta token from account ${account.id} (accountId=${account.accountId})`
       );
-      return new MetaAdsClient({ accessToken, adAccountId });
+      return client;
     } catch (error) {
       console.warn(
         `[Ads Worker] Skipping account ${account.id} (accountId=${account.accountId}): ${error instanceof Error ? error.message : error}`
@@ -2472,7 +2475,13 @@ export async function deployDraftCampaigns(
       dailyBudget: Number(draft.dailyBudget),
       maxCpc: Number(draft.maxCpc),
       keywords: draft.keywords,
-      targetUrl: draft.targetUrl || `https://${effectiveSite?.primaryDomain || 'holibob.com'}`,
+      targetUrl: (() => {
+        if (draft.targetUrl) return draft.targetUrl;
+        if (effectiveSite?.primaryDomain) return `https://${effectiveSite.primaryDomain}`;
+        throw new Error(
+          `Cannot deploy campaign "${draft.name}" (${draft.id}): no targetUrl and no site domain. Fix the campaign data before deploying.`
+        );
+      })(),
       geoTargets: draft.geoTargets,
       utmSource: draft.utmSource,
       utmMedium: draft.utmMedium,

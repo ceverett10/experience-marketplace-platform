@@ -1450,4 +1450,25 @@ export class MetaAdsClient {
     // Shouldn't reach here
     throw new Error('[MetaAds] Unexpected end of retry loop');
   }
+
+  /**
+   * Verify the token has access to the ad account.
+   * Makes a lightweight GET /{ad_account_id}?fields=id,name call.
+   * Throws if the token lacks permissions (e.g. ads_management scope revoked).
+   */
+  async verifyAccess(): Promise<void> {
+    const params = new URLSearchParams({
+      fields: 'id,name',
+      access_token: this.accessToken,
+    });
+
+    const response = await fetch(`${META_API_BASE}/${this.adAccountId}?${params}`);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(
+        `Meta ad account access check failed (${response.status}): ${errorText.substring(0, 300)}`
+      );
+    }
+  }
 }
