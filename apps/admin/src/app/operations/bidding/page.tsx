@@ -84,6 +84,27 @@ interface ProposalEstimates {
   deployedTargeting?: DeployedTargeting;
 }
 
+interface ChildAdSet {
+  id: string;
+  name: string;
+  status: string;
+  keywords: string[];
+  targetUrl: string | null;
+  landingPagePath: string | null;
+  landingPageType: string | null;
+  maxCpc: number;
+  geoTargets: string[];
+  platformAdSetId: string | null;
+  platformAdId: string | null;
+  campaignGroup: string | null;
+  proposalData: Record<string, unknown> | null;
+  spend: number;
+  clicks: number;
+  impressions: number;
+  conversions: number;
+  revenue: number;
+}
+
 interface BiddingCampaign {
   id: string;
   name: string;
@@ -113,6 +134,7 @@ interface BiddingCampaign {
   qualityScore: number | null;
   platformCampaignId: string | null;
   audiences: { adGroups?: AdGroupConfig[] } | null;
+  childAdSets?: ChildAdSet[];
 }
 
 interface Attribution {
@@ -2187,9 +2209,13 @@ export default function PaidTrafficDashboard() {
                     const targeting = bc.proposalData?.deployedTargeting ?? null;
                     const assumptions = bc.proposalData?.assumptions ?? null;
                     const platformId = bc.platformCampaignId ?? null;
+                    const metaAdSets: ChildAdSet[] = bc.childAdSets ?? [];
+                    const isMetaCampaign =
+                      bc.platform === 'FACEBOOK' || bc.platform === 'INSTAGRAM';
                     const hasDetails =
                       kwDetails.length > 0 ||
                       adGroups.length > 0 ||
+                      metaAdSets.length > 0 ||
                       !!creative ||
                       !!targeting ||
                       !!assumptions ||
@@ -2254,51 +2280,68 @@ export default function PaidTrafficDashboard() {
                             )}
                           </td>
                           <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                            {c.landingPageType ? (
-                              <div className="flex flex-col gap-0.5">
-                                <span
-                                  className={`inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium w-fit ${
-                                    c.landingPageType === 'DESTINATION' ||
-                                    c.landingPageType === 'CATEGORY'
-                                      ? 'bg-emerald-50 text-emerald-700'
-                                      : c.landingPageType === 'EXPERIENCES_FILTERED'
-                                        ? 'bg-amber-50 text-amber-700'
-                                        : c.landingPageType === 'BLOG'
-                                          ? 'bg-purple-50 text-purple-700'
-                                          : 'bg-slate-50 text-slate-600'
-                                  }`}
-                                >
-                                  {c.landingPageType.replace(/_/g, ' ').substring(0, 12)}
-                                </span>
-                                {c.targetUrl && (
+                            {(() => {
+                              // Resolve landing page URL: prefer targetUrl, fall back to
+                              // constructing from micrositeDomain + landingPagePath
+                              const resolvedUrl =
+                                c.targetUrl ||
+                                (cAny.micrositeDomain && c.landingPagePath
+                                  ? `https://${cAny.micrositeDomain}${c.landingPagePath.startsWith('/') ? '' : '/'}${c.landingPagePath}`
+                                  : c.landingPagePath?.startsWith('http')
+                                    ? c.landingPagePath
+                                    : null);
+
+                              const urlDisplay = resolvedUrl
+                                ? resolvedUrl.replace(/^https?:\/\//, '').substring(0, 40) +
+                                  (resolvedUrl.replace(/^https?:\/\//, '').length > 40 ? '...' : '')
+                                : null;
+
+                              if (c.landingPageType) {
+                                return (
+                                  <div className="flex flex-col gap-0.5">
+                                    <span
+                                      className={`inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium w-fit ${
+                                        c.landingPageType === 'DESTINATION' ||
+                                        c.landingPageType === 'CATEGORY'
+                                          ? 'bg-emerald-50 text-emerald-700'
+                                          : c.landingPageType === 'EXPERIENCES_FILTERED'
+                                            ? 'bg-amber-50 text-amber-700'
+                                            : c.landingPageType === 'BLOG'
+                                              ? 'bg-purple-50 text-purple-700'
+                                              : 'bg-slate-50 text-slate-600'
+                                      }`}
+                                    >
+                                      {c.landingPageType.replace(/_/g, ' ').substring(0, 12)}
+                                    </span>
+                                    {resolvedUrl && (
+                                      <a
+                                        href={resolvedUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-xs text-blue-600 hover:text-blue-800 hover:underline truncate max-w-[180px]"
+                                        title={resolvedUrl}
+                                      >
+                                        {urlDisplay}
+                                      </a>
+                                    )}
+                                  </div>
+                                );
+                              }
+                              if (resolvedUrl) {
+                                return (
                                   <a
-                                    href={c.targetUrl}
+                                    href={resolvedUrl}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="text-xs text-blue-600 hover:text-blue-800 hover:underline truncate max-w-[180px]"
-                                    title={c.targetUrl}
+                                    className="text-xs text-blue-600 hover:text-blue-800 hover:underline truncate max-w-[180px] block"
+                                    title={resolvedUrl}
                                   >
-                                    {c.targetUrl.replace(/^https?:\/\//, '').substring(0, 40)}
-                                    {c.targetUrl.replace(/^https?:\/\//, '').length > 40
-                                      ? '...'
-                                      : ''}
+                                    {urlDisplay}
                                   </a>
-                                )}
-                              </div>
-                            ) : c.targetUrl ? (
-                              <a
-                                href={c.targetUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-xs text-blue-600 hover:text-blue-800 hover:underline truncate max-w-[180px] block"
-                                title={c.targetUrl}
-                              >
-                                {c.targetUrl.replace(/^https?:\/\//, '').substring(0, 40)}
-                                {c.targetUrl.replace(/^https?:\/\//, '').length > 40 ? '...' : ''}
-                              </a>
-                            ) : (
-                              '\u2014'
-                            )}
+                                );
+                              }
+                              return '\u2014';
+                            })()}
                           </td>
                           <td className="px-4 py-3">
                             {c.qualityScore != null ? (
@@ -2561,6 +2604,110 @@ export default function PaidTrafficDashboard() {
                                           </td>
                                         </tr>
                                       ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              )}
+
+                              {/* Meta Ad Sets table (for consolidated CBO campaigns) */}
+                              {isMetaCampaign && metaAdSets.length > 0 && (
+                                <div className="mb-4">
+                                  <div className="text-xs font-medium text-slate-500 mb-2">
+                                    Ad Sets ({metaAdSets.length})
+                                  </div>
+                                  <table className="w-full text-xs">
+                                    <thead>
+                                      <tr className="text-slate-400">
+                                        <th className="text-left py-1 pr-3">Ad Set Name</th>
+                                        <th className="text-left py-1 pr-3">Status</th>
+                                        <th className="text-right py-1 pr-3">Keywords</th>
+                                        <th className="text-right py-1 pr-3">Max CPC</th>
+                                        <th className="text-left py-1 pr-3">Landing Page</th>
+                                        <th className="text-left py-1 pr-3">Geo</th>
+                                        <th className="text-right py-1 pr-3">Spend</th>
+                                        <th className="text-right py-1 pr-3">Clicks</th>
+                                        <th className="text-right py-1 pr-3">Conv.</th>
+                                        <th className="text-right py-1">Revenue</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {metaAdSets.map((adSet) => {
+                                        const adSetUrl =
+                                          adSet.targetUrl ||
+                                          (cAny.micrositeDomain && adSet.landingPagePath
+                                            ? `https://${cAny.micrositeDomain}${adSet.landingPagePath.startsWith('/') ? '' : '/'}${adSet.landingPagePath}`
+                                            : adSet.landingPagePath?.startsWith('http')
+                                              ? adSet.landingPagePath
+                                              : null);
+                                        const statusColor =
+                                          adSet.status === 'ACTIVE'
+                                            ? 'bg-emerald-50 text-emerald-700'
+                                            : adSet.status === 'PAUSED'
+                                              ? 'bg-amber-50 text-amber-700'
+                                              : 'bg-slate-100 text-slate-600';
+                                        return (
+                                          <tr
+                                            key={adSet.id}
+                                            className="border-t border-slate-200 text-slate-600"
+                                          >
+                                            <td
+                                              className="py-1 pr-3 font-medium truncate max-w-[180px]"
+                                              title={adSet.name}
+                                            >
+                                              {adSet.name}
+                                            </td>
+                                            <td className="py-1 pr-3">
+                                              <span
+                                                className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${statusColor}`}
+                                              >
+                                                {adSet.status}
+                                              </span>
+                                            </td>
+                                            <td className="py-1 pr-3 text-right tabular-nums">
+                                              {adSet.keywords.length}
+                                            </td>
+                                            <td className="py-1 pr-3 text-right tabular-nums">
+                                              {fmt(adSet.maxCpc, 'currency')}
+                                            </td>
+                                            <td
+                                              className="py-1 pr-3 truncate max-w-[160px]"
+                                              onClick={(e) => e.stopPropagation()}
+                                            >
+                                              {adSetUrl ? (
+                                                <a
+                                                  href={adSetUrl}
+                                                  target="_blank"
+                                                  rel="noopener noreferrer"
+                                                  className="text-blue-600 hover:text-blue-800 hover:underline"
+                                                  title={adSetUrl}
+                                                >
+                                                  {adSet.landingPagePath || adSetUrl}
+                                                </a>
+                                              ) : (
+                                                <span className="text-slate-400">{'\u2014'}</span>
+                                              )}
+                                            </td>
+                                            <td className="py-1 pr-3">
+                                              {adSet.geoTargets.slice(0, 3).join(', ')}
+                                              {adSet.geoTargets.length > 3
+                                                ? ` +${adSet.geoTargets.length - 3}`
+                                                : ''}
+                                            </td>
+                                            <td className="py-1 pr-3 text-right tabular-nums">
+                                              {fmt(adSet.spend, 'currency')}
+                                            </td>
+                                            <td className="py-1 pr-3 text-right tabular-nums">
+                                              {adSet.clicks.toLocaleString()}
+                                            </td>
+                                            <td className="py-1 pr-3 text-right tabular-nums">
+                                              {adSet.conversions}
+                                            </td>
+                                            <td className="py-1 text-right tabular-nums">
+                                              {fmt(adSet.revenue, 'currency')}
+                                            </td>
+                                          </tr>
+                                        );
+                                      })}
                                     </tbody>
                                   </table>
                                 </div>

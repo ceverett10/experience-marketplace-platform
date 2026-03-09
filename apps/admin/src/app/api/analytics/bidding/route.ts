@@ -52,11 +52,35 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       }),
 
       // 2. Campaigns (WITHOUT dailyMetrics — we aggregate separately)
+      // Include childAdSets for consolidated Meta campaigns
       prisma.adCampaign.findMany({
         where: campaignWhere as any,
         include: {
           site: { select: { name: true } },
           microsite: { select: { siteName: true, fullDomain: true } },
+          childAdSets: {
+            select: {
+              id: true,
+              name: true,
+              status: true,
+              keywords: true,
+              targetUrl: true,
+              landingPagePath: true,
+              landingPageType: true,
+              maxCpc: true,
+              geoTargets: true,
+              platformAdSetId: true,
+              platformAdId: true,
+              campaignGroup: true,
+              proposalData: true,
+              totalSpend: true,
+              totalClicks: true,
+              totalImpressions: true,
+              conversions: true,
+              revenue: true,
+            },
+            orderBy: { name: 'asc' },
+          },
         },
         orderBy: { updatedAt: 'desc' },
       }),
@@ -222,6 +246,27 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         qualityScore: c.qualityScore || null,
         platformCampaignId: c.platformCampaignId || null,
         audiences: c.audiences || null,
+        childAdSets:
+          c.childAdSets?.map((child) => ({
+            id: child.id,
+            name: child.name,
+            status: child.status,
+            keywords: child.keywords,
+            targetUrl: child.targetUrl || null,
+            landingPagePath: child.landingPagePath || null,
+            landingPageType: child.landingPageType || null,
+            maxCpc: Number(child.maxCpc),
+            geoTargets: child.geoTargets,
+            platformAdSetId: child.platformAdSetId || null,
+            platformAdId: child.platformAdId || null,
+            campaignGroup: child.campaignGroup || null,
+            proposalData: child.proposalData || null,
+            spend: Number(child.totalSpend),
+            clicks: Number(child.totalClicks),
+            impressions: Number(child.totalImpressions),
+            conversions: Number(child.conversions),
+            revenue: Number(child.revenue),
+          })) ?? [],
       };
     });
 
