@@ -82,7 +82,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         take: 500,
       }),
 
-      // 4. Active microsites with latest analytics
+      // 4. Active microsites (no nested analyticsSnapshots — 39k+ microsites exceed PG bind limit)
       prisma.micrositeConfig.findMany({
         where: { status: 'ACTIVE' },
         select: {
@@ -92,11 +92,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           entityType: true,
           discoveryConfig: true,
           cachedProductCount: true,
-          analyticsSnapshots: {
-            where: { date: { gte: lookback } },
-            orderBy: { date: 'desc' },
-            take: 1,
-          },
         },
         orderBy: { siteName: 'asc' },
       }),
@@ -341,7 +336,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         destination?: string;
         niche?: string;
       } | null;
-      const latestSnapshot = ms.analyticsSnapshots[0];
       return {
         id: ms.id,
         siteName: ms.siteName,
@@ -351,8 +345,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         destination: disco?.destination || null,
         niche: disco?.niche || null,
         productCount: ms.cachedProductCount,
-        sessions: latestSnapshot?.sessions || 0,
-        pageviews: latestSnapshot?.pageviews || 0,
+        sessions: 0,
+        pageviews: 0,
       };
     });
 
