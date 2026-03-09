@@ -21,6 +21,7 @@ import {
   buildLandingPageUrl,
   loadPageCaches,
   getLandingPageBonus,
+  extractSearchQuery,
 } from './landing-page-routing';
 
 // --- Configuration -----------------------------------------------------------
@@ -28,6 +29,42 @@ import {
 const MIN_BOOKINGS_FOR_AOV = 3; // Minimum bookings to use real AOV (else fall back to catalog)
 const MIN_SESSIONS_FOR_CVR = 100; // Minimum sessions to use real conversion rate
 const LOOKBACK_DAYS = 90; // Days of data to consider
+
+/**
+ * Strip city/place names from an activity query to get the core activity type.
+ * "wildlife portugal" → "wildlife", "walking tour rhodes" → "walking tour",
+ * "climbing bali" → "climbing", "wine tasting in split" → "wine tasting".
+ *
+ * Uses the category patterns from paid-traffic config as known activity terms.
+ * If the keyword starts with a known activity pattern, return that pattern.
+ * Otherwise, heuristically strip trailing single words that look like place names.
+ */
+function stripCityFromActivity(activity: string, _keyword: string): string {
+  const actLower = activity.toLowerCase().trim();
+  if (!actLower) return activity;
+
+  // Check if activity starts with a known category pattern — if so, use it
+  const { categoryPatterns } = PAID_TRAFFIC_CONFIG.metaConsolidated;
+  for (const patterns of Object.values(categoryPatterns)) {
+    for (const pattern of patterns as string[]) {
+      if (actLower.startsWith(pattern) && actLower.length > pattern.length) {
+        // The activity starts with a known pattern + extra words (likely a city)
+        // e.g., "wildlife portugal" starts with "wildlife"
+        // But "wildlife nature photography" also starts with "wildlife" — keep full if >2 extra words
+        const remainder = actLower.slice(pattern.length).trim();
+        const remainderWords = remainder.split(/\s+/);
+        // If remainder is 1-2 words, it's likely a city name — strip it
+        // If remainder is 3+ words, it's likely a specific activity — keep it
+        if (remainderWords.length <= 2) {
+          return pattern;
+        }
+      }
+    }
+  }
+
+  // Fallback: if no pattern matched, keep the full activity
+  return actLower;
+}
 
 // --- Types -------------------------------------------------------------------
 
@@ -1537,9 +1574,29 @@ export function groupCandidatesIntoCampaigns(candidates: CampaignCandidate[]): C
     // Within each campaign group, candidates targeting different landing pages
     // become separate ad groups (STAG structure). For Meta, ad groups map to ad sets.
     // For Google, each ad group gets its own RSA and keywords.
+    //
+    // STAG consolidation: EXPERIENCES_FILTERED candidates are grouped by their
+    // "activity type" (core search term minus city/location) rather than exact ?q= path.
+    // This merges "wildlife portugal", "wildlife phuket", "wildlife iceland" into one
+    // "wildlife" ad group landing on /experiences?q=wildlife.
     const adGroupsByLp = new Map<string, CampaignCandidate[]>();
     for (const c of groupCandidates) {
-      const lpKey = c.landingPagePath || '/';
+      let lpKey: string;
+      if (c.landingPageType === 'EXPERIENCES_FILTERED') {
+        // Extract activity type by stripping location from keyword
+        const activity = extractSearchQuery(c.keyword, c.location);
+        // Further strip city names: remove common city/place words that vary per keyword
+        const activityCore = stripCityFromActivity(activity, c.keyword);
+        // Build a canonical path for grouping
+        const domain = c.targetUrl.split('/')[2] ?? '';
+        const qParam = encodeURIComponent(activityCore).replace(/%20/g, '+');
+        lpKey = `/experiences?q=${qParam}`;
+        // Update the candidate's landing page to the consolidated URL
+        c.landingPagePath = lpKey;
+        c.targetUrl = `https://${domain}${lpKey}`;
+      } else {
+        lpKey = c.landingPagePath || '/';
+      }
       const existing = adGroupsByLp.get(lpKey);
       if (existing) {
         existing.push(c);
