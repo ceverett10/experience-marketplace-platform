@@ -276,10 +276,14 @@ async function getExperiences(
     );
 
     const experiences = response.products.map((product) => {
-      // Get primary image from imageList — optimize to card preset (400x267) to reduce bandwidth
-      const rawImage =
-        product.imageList?.[0]?.url ?? product.imageUrl ?? '/placeholder-experience.jpg';
-      const primaryImage = optimizeHolibobImageWithPreset(rawImage, 'card');
+      // Prefer pre-sized urlMedium (~500px) from discovery API, fall back to manual optimization
+      const firstImage = product.imageList?.[0];
+      const primaryImage =
+        firstImage?.urlMedium ??
+        optimizeHolibobImageWithPreset(
+          firstImage?.url ?? product.imageUrl ?? '/placeholder-experience.jpg',
+          'card'
+        );
 
       // Get price - Product Detail API uses guidePrice, Product Discovery uses priceFrom
       const priceAmount = product.guidePrice ?? product.priceFrom ?? 0;

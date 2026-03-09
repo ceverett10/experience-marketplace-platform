@@ -375,9 +375,13 @@ async function upsertProduct(
   // Format duration
   let duration: string | null = null;
   if (product.maxDuration) {
-    // maxDuration is in minutes
-    const hours = Math.floor(product.maxDuration / 60);
-    const mins = product.maxDuration % 60;
+    // maxDuration is a number (minutes) from productList or ISO 8601 string from discovery
+    const durationMinutes =
+      typeof product.maxDuration === 'number'
+        ? product.maxDuration
+        : parseInt(String(product.maxDuration).replace(/\D/g, ''), 10) || 0;
+    const hours = Math.floor(durationMinutes / 60);
+    const mins = durationMinutes % 60;
     if (hours > 0 && mins > 0) {
       duration = `${hours}h ${mins}m`;
     } else if (hours > 0) {

@@ -49,6 +49,10 @@ export const SUGGESTIONS_QUERY = gql`
  *
  * Note: The API uses separate arguments, NOT a single input object
  * Pagination: Use seenProductIdList to get new products (Holibob doesn't support traditional pagination)
+ *
+ * ProductDiscoveryRecommendedProduct returns rich fields directly, so we fetch
+ * all needed data in a single query instead of making N+1 getProduct() calls.
+ * Available pre-sized image URLs: urlSmall (~300px), urlMedium (~500px), urlLarge (~1000px).
  */
 export const PRODUCT_LIST_QUERY = gql`
   query ProductDiscovery(
@@ -79,7 +83,26 @@ export const PRODUCT_LIST_QUERY = gql`
         nodes {
           id
           name
+          description
+          imageList {
+            id
+            url
+            urlSmall
+            urlMedium
+          }
+          holibobGuidePrice {
+            gross
+            grossFormattedText
+            currency
+          }
+          maxDuration
+          reviewCount
+          reviewRating
+          cancellationPolicy {
+            hasFreeCancellation
+          }
         }
+        hasMore
       }
     }
   }

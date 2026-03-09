@@ -207,9 +207,13 @@ async function getFeaturedExperiences(
 
     // Map to our experience format
     const experiences = response.products.map((product) => {
-      // Get primary image from imageList (Product Detail API format - direct array)
+      // Prefer pre-sized urlMedium (~500px) from discovery API
+      const firstImage = product.imageList?.[0];
       const primaryImage =
-        product.imageList?.[0]?.url ?? product.imageUrl ?? '/placeholder-experience.jpg';
+        firstImage?.urlMedium ??
+        firstImage?.url ??
+        product.imageUrl ??
+        '/placeholder-experience.jpg';
 
       // Get price - Product Detail API uses guidePrice, Product Discovery uses priceFrom
       const priceAmount = product.guidePrice ?? product.priceFrom ?? 0;
