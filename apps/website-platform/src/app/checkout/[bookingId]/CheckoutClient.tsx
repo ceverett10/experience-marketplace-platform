@@ -405,7 +405,7 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
               }`;
 
             return (
-              <div className="mt-6">
+              <div className="mt-6" data-testid="step-indicator">
                 <div className="flex items-center">
                   {/* Step 1 circle */}
                   <div
