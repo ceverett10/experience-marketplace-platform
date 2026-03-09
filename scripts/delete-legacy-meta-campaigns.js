@@ -137,7 +137,7 @@ async function main() {
         // Update DB
         await prisma.adCampaign.update({
           where: { id: camp.id },
-          data: { status: 'DELETED' },
+          data: { status: 'COMPLETED' },
         });
         if (deleted % 50 === 0) {
           console.info('[' + (i + 1) + '/' + legacy.length + '] Deleted', deleted, 'so far');
@@ -146,11 +146,11 @@ async function main() {
         // Campaign may already be deleted or not found
         const code = data.error.code;
         if (code === 100 || code === 803) {
-          // Object does not exist — mark as deleted in DB
+          // Object does not exist — mark as completed in DB
           deleted++;
           await prisma.adCampaign.update({
             where: { id: camp.id },
-            data: { status: 'DELETED' },
+            data: { status: 'COMPLETED' },
           });
         } else if (code === 17 || code === 4) {
           // Rate limit — wait and retry
