@@ -72,7 +72,7 @@ export function ContentRenderer({
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeRaw, rehypeSanitize]}
         components={{
-          // Customize heading rendering
+          // Customize heading rendering — add id attributes for anchor navigation
           h1: ({ children }) => (
             <h1 className="text-4xl font-bold mb-6 text-gray-900">{children}</h1>
           ),
