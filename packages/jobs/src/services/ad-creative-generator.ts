@@ -40,6 +40,8 @@ export interface AdCreativeInput {
   landingPagePath?: string | null;
   landingPageType?: string | null;
   landingPageProducts?: number | null;
+  /** Full landing page URL including domain for coherence validation */
+  landingPageUrl?: string | null;
   geoTargets: string[];
 }
 
@@ -83,6 +85,8 @@ export async function generateAdCreative(input: AdCreativeInput): Promise<AdCrea
       imageUrl: creative.imageUrl,
       imageSource: creative.imageSource,
       keywords: input.keywords,
+      landingPageUrl: input.landingPageUrl,
+      siteName: input.siteName,
       landingPage,
     });
     if (coherence) {
@@ -112,6 +116,8 @@ export async function generateAdCreative(input: AdCreativeInput): Promise<AdCrea
               imageUrl: withImage.imageUrl,
               imageSource: withImage.imageSource,
               keywords: input.keywords,
+              landingPageUrl: input.landingPageUrl,
+              siteName: input.siteName,
               landingPage,
             });
             if (recheck) {
