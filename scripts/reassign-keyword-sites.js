@@ -210,26 +210,33 @@ async function main() {
     return;
   }
 
-  // Batch update in chunks of 100
+  // Batch update in chunks of 20 (avoid DB connection exhaustion)
   let updated = 0;
-  for (let i = 0; i < misassigned.length; i += 100) {
-    const batch = misassigned.slice(i, i + 100);
-    await Promise.all(
+  let failed = 0;
+  for (let i = 0; i < misassigned.length; i += 20) {
+    const batch = misassigned.slice(i, i + 20);
+    const results = await Promise.all(
       batch.map((m) =>
         prisma.sEOOpportunity
           .update({ where: { id: m.id }, data: { siteId: m.correctSiteId } })
-          .catch((err) => console.info('Error updating ' + m.keyword + ': ' + err.message))
+          .then(() => true)
+          .catch((err) => {
+            console.info('Error updating ' + m.keyword + ': ' + err.message);
+            return false;
+          })
       )
     );
-    updated += batch.length;
-    if (updated % 500 === 0) {
-      console.info('Updated', updated, '/', misassigned.length);
+    updated += results.filter(Boolean).length;
+    failed += results.filter((r) => !r).length;
+    if ((updated + failed) % 500 === 0) {
+      console.info('Progress:', updated, 'updated,', failed, 'failed /', misassigned.length);
     }
   }
 
   console.info('');
   console.info('=== DONE ===');
   console.info('Reassigned:', updated, 'keywords');
+  if (failed > 0) console.info('Failed:', failed, 'keywords');
 
   await prisma.$disconnect();
 }
