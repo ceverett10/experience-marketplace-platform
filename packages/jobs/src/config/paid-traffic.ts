@@ -185,6 +185,21 @@ export const PAID_TRAFFIC_CONFIG = {
       'jobs ',
       'career',
       'salary',
+      // Brand/company names (searches for specific companies, not bookable via us)
+      'moana sailing',
+      'calypso kayaking',
+      'beachcomber cruises',
+      'vancouver water adventures',
+      'monkey adventures',
+      'devour barcelona',
+      'uber boat',
+      'ninja food tours',
+      // Informational / non-booking intent
+      'tank scuba diving',
+      'wildlife nature photography',
+      'adventure out',
+      'street food market',
+      'trekking planner',
     ] as string[],
 
     /** Campaign group → branded domain mapping for destination page ad sets */

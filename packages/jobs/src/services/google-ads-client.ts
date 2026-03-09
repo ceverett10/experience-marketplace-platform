@@ -355,7 +355,7 @@ export async function createKeywordAdGroup(config_: {
   campaignId: string;
   name: string;
   cpcBidMicros: number;
-  keywords: Array<{ text: string; matchType: 'EXACT' | 'PHRASE' | 'BROAD' }>;
+  keywords: Array<{ text: string; matchType: 'EXACT' | 'PHRASE' | 'BROAD'; finalUrl?: string }>;
 }): Promise<{ adGroupId: string } | null> {
   const config = getConfig();
   if (!config) return null;
@@ -391,6 +391,8 @@ export async function createKeywordAdGroup(config_: {
             text: kw.text,
             matchType: kw.matchType,
           },
+          // Keyword-level final URL overrides the ad-level URL for this specific keyword
+          ...(kw.finalUrl ? { finalUrls: [kw.finalUrl] } : {}),
         },
       }));
 

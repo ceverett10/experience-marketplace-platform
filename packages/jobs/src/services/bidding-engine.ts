@@ -43,19 +43,29 @@ function stripCityFromActivity(activity: string, _keyword: string): string {
   const actLower = activity.toLowerCase().trim();
   if (!actLower) return activity;
 
-  // Check if activity starts with a known category pattern — if so, use it
   const { categoryPatterns } = PAID_TRAFFIC_CONFIG.metaConsolidated;
+
+  // Pass 1: Check if activity STARTS with a known pattern (e.g., "wildlife portugal")
   for (const patterns of Object.values(categoryPatterns)) {
     for (const pattern of patterns as string[]) {
       if (actLower.startsWith(pattern) && actLower.length > pattern.length) {
-        // The activity starts with a known pattern + extra words (likely a city)
-        // e.g., "wildlife portugal" starts with "wildlife"
-        // But "wildlife nature photography" also starts with "wildlife" — keep full if >2 extra words
         const remainder = actLower.slice(pattern.length).trim();
         const remainderWords = remainder.split(/\s+/);
-        // If remainder is 1-2 words, it's likely a city name — strip it
-        // If remainder is 3+ words, it's likely a specific activity — keep it
         if (remainderWords.length <= 2) {
+          return pattern;
+        }
+      }
+    }
+  }
+
+  // Pass 2: Check if activity ENDS with a known pattern (e.g., "oban walking tour")
+  // This handles city-first keywords like "murcia walking tour", "utrecht walking tour"
+  for (const patterns of Object.values(categoryPatterns)) {
+    for (const pattern of patterns as string[]) {
+      if (actLower.endsWith(pattern) && actLower.length > pattern.length) {
+        const prefix = actLower.slice(0, actLower.length - pattern.length).trim();
+        const prefixWords = prefix.split(/\s+/);
+        if (prefixWords.length <= 2) {
           return pattern;
         }
       }
@@ -64,6 +74,21 @@ function stripCityFromActivity(activity: string, _keyword: string): string {
 
   // Fallback: if no pattern matched, keep the full activity
   return actLower;
+}
+
+/**
+ * Normalize a keyword for near-variant deduplication.
+ * Handles singular/plural, word order, and common suffixes.
+ */
+function normalizeKeywordForDedup(keyword: string): string {
+  const STOP_WORDS = new Set(['in', 'the', 'of', 'and', 'a', 'an', 'at', 'on', 'for', 'to']);
+  return keyword
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((w) => !STOP_WORDS.has(w))
+    .map((w) => (w.length > 3 && !w.endsWith('ss') && w.endsWith('s') ? w.slice(0, -1) : w))
+    .sort()
+    .join(' ');
 }
 
 // --- Types -------------------------------------------------------------------
@@ -124,6 +149,10 @@ export interface CampaignGroupAdGroup {
   /** Per-adGroup site ID — may differ from parent group for destination page ad sets */
   siteId?: string;
   micrositeId?: string;
+  /** Keyword-level final URLs — overrides ad-group targetUrl per keyword.
+   *  Used for consolidated EXPERIENCES_FILTERED groups where keywords share an ad group
+   *  but each keyword should land on its city-specific search results page. */
+  keywordFinalUrls?: Record<string, string>;
 }
 
 export interface CampaignGroup {
@@ -1514,11 +1543,39 @@ export async function scoreCampaignOpportunities(
       bestByKeywordPlatform.set(dedupeKey, c);
     }
   }
-  const dedupedCandidates = Array.from(bestByKeywordPlatform.values());
-  if (dedupedCandidates.length < cityValidatedCandidates.length) {
+  const exactDedupedCandidates = Array.from(bestByKeywordPlatform.values());
+  if (exactDedupedCandidates.length < cityValidatedCandidates.length) {
     console.info(
-      `[Bidding Engine] Deduplication: ${cityValidatedCandidates.length} → ${dedupedCandidates.length} ` +
-        `(removed ${cityValidatedCandidates.length - dedupedCandidates.length} duplicate keyword+platform entries)`
+      `[Bidding Engine] Exact dedup: ${cityValidatedCandidates.length} → ${exactDedupedCandidates.length} ` +
+        `(removed ${cityValidatedCandidates.length - exactDedupedCandidates.length} duplicate keyword+platform entries)`
+    );
+  }
+
+  // Phase 2: Near-variant deduplication — catches singular/plural, word order swaps.
+  // e.g., "halong bay cruises reviews" vs "halong bay cruise reviews",
+  //        "snorkeling whale sharks" vs "whale shark snorkeling"
+  const bestByNormalized = new Map<string, CampaignCandidate>();
+  for (const c of exactDedupedCandidates) {
+    const normKey = `${normalizeKeywordForDedup(c.keyword)}|${c.platform}`;
+    const existing = bestByNormalized.get(normKey);
+    if (!existing) {
+      bestByNormalized.set(normKey, c);
+      continue;
+    }
+    const cPriority = LP_TYPE_PRIORITY[c.landingPageType ?? ''] ?? 0;
+    const existPriority = LP_TYPE_PRIORITY[existing.landingPageType ?? ''] ?? 0;
+    if (
+      cPriority > existPriority ||
+      (cPriority === existPriority && c.profitabilityScore > existing.profitabilityScore)
+    ) {
+      bestByNormalized.set(normKey, c);
+    }
+  }
+  const dedupedCandidates = Array.from(bestByNormalized.values());
+  if (dedupedCandidates.length < exactDedupedCandidates.length) {
+    console.info(
+      `[Bidding Engine] Variant dedup: ${exactDedupedCandidates.length} → ${dedupedCandidates.length} ` +
+        `(removed ${exactDedupedCandidates.length - dedupedCandidates.length} near-variant duplicates)`
     );
   }
 
@@ -1579,6 +1636,15 @@ export function groupCandidatesIntoCampaigns(candidates: CampaignCandidate[]): C
     // "activity type" (core search term minus city/location) rather than exact ?q= path.
     // This merges "wildlife portugal", "wildlife phuket", "wildlife iceland" into one
     // "wildlife" ad group landing on /experiences?q=wildlife.
+    // Save original keyword-specific URLs before consolidation overwrites them.
+    // These become keyword-level final URLs so each keyword lands on its city-specific page.
+    const originalUrlByKeyword = new Map<string, string>();
+    for (const c of groupCandidates) {
+      if (c.landingPageType === 'EXPERIENCES_FILTERED') {
+        originalUrlByKeyword.set(c.keyword, c.targetUrl);
+      }
+    }
+
     const adGroupsByLp = new Map<string, CampaignCandidate[]>();
     for (const c of groupCandidates) {
       let lpKey: string;
@@ -1591,7 +1657,7 @@ export function groupCandidatesIntoCampaigns(candidates: CampaignCandidate[]): C
         const domain = c.targetUrl.split('/')[2] ?? '';
         const qParam = encodeURIComponent(activityCore).replace(/%20/g, '+');
         lpKey = `/experiences?q=${qParam}`;
-        // Update the candidate's landing page to the consolidated URL
+        // Update the candidate's landing page to the consolidated URL (for ad-group-level RSA)
         c.landingPagePath = lpKey;
         c.targetUrl = `https://${domain}${lpKey}`;
       } else {
@@ -1618,6 +1684,16 @@ export function groupCandidatesIntoCampaigns(candidates: CampaignCandidate[]): C
           lpCandidates.length > MAX_KEYWORDS_PER_AD_GROUP
             ? ` Group ${Math.floor(chunk / MAX_KEYWORDS_PER_AD_GROUP) + 1}`
             : '';
+        // Build keyword-level final URLs for consolidated EXPERIENCES_FILTERED groups.
+        // Each keyword retains its city-specific URL even though they share an ad group.
+        const kwFinalUrls: Record<string, string> = {};
+        for (const c of chunkCandidates) {
+          const origUrl = originalUrlByKeyword.get(c.keyword);
+          if (origUrl && origUrl !== c.targetUrl) {
+            kwFinalUrls[c.keyword] = origUrl;
+          }
+        }
+
         adGroups.push({
           landingPagePath: lpPath,
           landingPageType: lpPrimary.landingPageType,
@@ -1628,6 +1704,7 @@ export function groupCandidatesIntoCampaigns(candidates: CampaignCandidate[]): C
           totalExpectedDailyCost: chunkCandidates.reduce((s, c) => s + c.expectedDailyCost, 0),
           siteId: lpPrimary.siteId,
           micrositeId: lpPrimary.micrositeId,
+          keywordFinalUrls: Object.keys(kwFinalUrls).length > 0 ? kwFinalUrls : undefined,
         });
       }
     }
