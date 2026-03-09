@@ -1044,6 +1044,19 @@ export class HolibobClient {
         const response = await this.client.request<T>(query, variables);
         return response;
       } catch (error) {
+        // graphql-request throws on partial errors (response has both data and errors).
+        // Holibob API returns partial errors for fields like guidePriceFormattedText when
+        // guidePrice is null. If the response contains valid data, use it instead of failing.
+        const partialData = (error as { response?: { data?: T } })?.response?.data;
+        if (partialData) {
+          const graphqlErrors = (error as { response?: { errors?: unknown[] } })?.response?.errors;
+          console.warn('[HolibobClient] Partial GraphQL errors (using available data):', {
+            variables,
+            errorCount: Array.isArray(graphqlErrors) ? graphqlErrors.length : 0,
+          });
+          return partialData;
+        }
+
         lastError = error instanceof Error ? error : new Error(String(error));
 
         // Log detailed GraphQL error info
