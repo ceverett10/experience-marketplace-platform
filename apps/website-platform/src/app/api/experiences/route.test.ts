@@ -42,7 +42,9 @@ vi.mock('@/lib/holibob', () => ({
     const match = iso.match(/PT(\d+)M/);
     return match ? parseInt(match[1]!, 10) : 0;
   }),
-  optimizeHolibobImageWithPreset: vi.fn((url: string) => url + '?optimized=card'),
+  optimizeHolibobImageWithPreset: vi.fn((url: string) =>
+    url.includes('images.holibob.tech') ? url + '?optimized=card' : url
+  ),
 }));
 
 import { GET } from './route';

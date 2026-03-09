@@ -191,7 +191,11 @@ async function fetchFromHolibob(options: {
     title: product.name ?? 'Experience',
     slug: product.id, // Use product ID as slug for now
     shortDescription: product.shortDescription ?? '',
-    imageUrl: product.imageUrl ?? '/placeholder-experience.jpg',
+    imageUrl:
+      product.imageList?.[0]?.urlMedium ??
+      product.imageList?.[0]?.url ??
+      product.imageUrl ??
+      '/placeholder-experience.jpg',
     price: {
       amount: product.priceFrom ?? 0,
       currency: product.currency ?? 'GBP',

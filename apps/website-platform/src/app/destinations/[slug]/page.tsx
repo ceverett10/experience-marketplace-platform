@@ -229,8 +229,11 @@ async function getTopExperiences(
     }
 
     return response.products.map((product) => {
+      // Prefer pre-sized urlMedium (~500px) from discovery API
+      const firstImage = product.imageList?.[0];
       const primaryImage =
-        product.imageList?.[0]?.url ??
+        firstImage?.urlMedium ??
+        firstImage?.url ??
         product.primaryImageUrl ??
         product.imageUrl ??
         '/placeholder-experience.jpg';

@@ -146,8 +146,9 @@ export class HolibobClient {
    * Search and discover products using the Product Discovery API
    * This is the correct API for searching and displaying product lists
    *
-   * Note: Product Discovery only returns id and name for recommended products.
-   * We fetch full product details for each recommended product.
+   * The discovery query returns rich product data directly (images, price,
+   * duration, ratings, cancellation policy) so we no longer need N+1
+   * individual getProduct() calls.
    *
    * Pagination: Holibob doesn't support traditional pagination. Instead, pass
    * seenProductIdList with IDs of products already displayed to get new ones.
@@ -163,14 +164,36 @@ export class HolibobClient {
     const productCount = options?.pageSize ?? 20;
     const seenProductIdList = options?.seenProductIdList;
 
-    // Step 1: Get recommended product IDs from Product Discovery
+    // Single query returns all needed product data — no N+1 getProduct() calls
     const response = await this.executeQuery<{
       productDiscovery: {
         selectedDestination?: { id: string; name: string };
         recommendedTagList?: { nodes: Array<{ id: string; name: string }> };
         recommendedSearchTermList?: { nodes: Array<{ searchTerm: string }> };
         recommendedProductList: {
-          nodes: Array<{ id: string; name: string }>;
+          nodes: Array<{
+            id: string;
+            name: string;
+            description?: string;
+            imageList?: Array<{
+              id: string;
+              url: string;
+              urlSmall: string;
+              urlMedium: string;
+            }>;
+            holibobGuidePrice?: {
+              gross: number;
+              grossFormattedText: string;
+              currency: string;
+            };
+            maxDuration?: string;
+            reviewCount?: number;
+            reviewRating?: number;
+            cancellationPolicy?: {
+              hasFreeCancellation?: boolean;
+            };
+          }>;
+          hasMore: boolean;
         };
       };
     }>(PRODUCT_LIST_QUERY, {
@@ -180,45 +203,43 @@ export class HolibobClient {
     });
 
     const recommendedProducts = response.productDiscovery.recommendedProductList.nodes;
+    const hasMore = response.productDiscovery.recommendedProductList.hasMore;
 
-    console.log(
+    console.info(
       '[HolibobClient] discoverProducts found',
       recommendedProducts.length,
       'products',
       seenProductIdList?.length ? `(excluded ${seenProductIdList.length} seen)` : ''
     );
 
-    // Step 2: Fetch full details for each product in parallel
-    const productDetailsPromises = recommendedProducts.map(async (rec) => {
-      try {
-        const fullProduct = await this.getProduct(rec.id);
-        if (fullProduct) {
-          return fullProduct;
-        }
-        // If full details fetch fails, return basic info
-        console.log('[HolibobClient] getProduct returned null, using basic info for:', rec.id);
-        return { id: rec.id, name: rec.name } as Product;
-      } catch (err) {
-        // If product detail fetch fails, return basic info from discovery
-        console.error(
-          '[HolibobClient] getProduct failed for',
-          rec.id,
-          ':',
-          err instanceof Error ? err.message : String(err)
-        );
-        return { id: rec.id, name: rec.name } as Product;
-      }
-    });
-
-    const products = await Promise.all(productDetailsPromises);
-
-    // hasNextPage is true if we got the full count requested (likely more available)
-    const hasNextPage = recommendedProducts.length >= productCount;
+    // Map discovery data directly to Product type — no additional API calls needed
+    const products: Product[] = recommendedProducts.map((rec) => ({
+      id: rec.id,
+      name: rec.name,
+      description: rec.description,
+      imageList: rec.imageList?.map((img) => ({
+        id: img.id,
+        url: img.url,
+        urlSmall: img.urlSmall,
+        urlMedium: img.urlMedium,
+      })),
+      guidePrice: rec.holibobGuidePrice?.gross,
+      guidePriceFormattedText: rec.holibobGuidePrice?.grossFormattedText,
+      guidePriceCurrency: rec.holibobGuidePrice?.currency,
+      maxDuration: rec.maxDuration ?? undefined,
+      reviewRating: rec.reviewRating,
+      reviewCount: rec.reviewCount,
+      cancellationPolicy: rec.cancellationPolicy
+        ? {
+            type: rec.cancellationPolicy.hasFreeCancellation ? 'FREE' : undefined,
+          }
+        : undefined,
+    }));
 
     return {
       products,
       pageInfo: {
-        hasNextPage,
+        hasNextPage: hasMore,
         hasPreviousPage: (seenProductIdList?.length ?? 0) > 0,
         startCursor: undefined,
         endCursor: undefined,

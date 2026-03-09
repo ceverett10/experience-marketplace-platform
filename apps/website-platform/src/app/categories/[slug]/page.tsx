@@ -76,7 +76,12 @@ async function getRelatedExperiences(
       slug: product.id, // Product type doesn't have slug, use id
       title: product.name,
       shortDescription: product.shortDescription || '',
-      imageUrl: product.primaryImageUrl || product.imageUrl || product.imageList?.[0]?.url || '',
+      imageUrl:
+        product.imageList?.[0]?.urlMedium ||
+        product.primaryImageUrl ||
+        product.imageUrl ||
+        product.imageList?.[0]?.url ||
+        '',
       price: {
         formatted: product.priceFromFormatted || product.guidePriceFormattedText || 'From £0',
       },

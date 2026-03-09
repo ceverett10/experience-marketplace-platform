@@ -143,13 +143,14 @@ export async function GET(request: NextRequest) {
     );
 
     const experiences = response.products.map((product) => {
-      const rawImageUrl =
-        product.imageList?.[0]?.url ?? product.imageUrl ?? '/placeholder-experience.jpg';
-
-      // Optimize Holibob images to request card-sized versions (400x267px, quality 75)
-      const primaryImage = rawImageUrl.includes('images.holibob.tech')
-        ? optimizeHolibobImageWithPreset(rawImageUrl, 'card')
-        : rawImageUrl;
+      // Prefer pre-sized urlMedium (~500px) from discovery API, fall back to manual optimization
+      const firstImage = product.imageList?.[0];
+      const primaryImage =
+        firstImage?.urlMedium ??
+        optimizeHolibobImageWithPreset(
+          firstImage?.url ?? product.imageUrl ?? '/placeholder-experience.jpg',
+          'card'
+        );
 
       const priceAmount = product.guidePrice ?? product.priceFrom ?? 0;
       const priceCurrency =
