@@ -202,9 +202,14 @@ async function getRelatedExperiences(
       .filter((p) => p.id !== experience.id)
       .slice(0, 4)
       .map((product) => {
-        const rawImageUrl =
-          product.imageList?.[0]?.url ?? product.imageUrl ?? '/placeholder-experience.jpg';
-        const primaryImage = optimizeHolibobImageWithPreset(rawImageUrl, 'card');
+        // Prefer pre-sized urlMedium (~500px) from discovery API
+        const firstImg = product.imageList?.[0];
+        const primaryImage =
+          firstImg?.urlMedium ??
+          optimizeHolibobImageWithPreset(
+            firstImg?.url ?? product.imageUrl ?? '/placeholder-experience.jpg',
+            'card'
+          );
         const priceAmount = product.guidePrice ?? product.priceFrom ?? 0;
         const priceCurrency =
           product.guidePriceCurrency ?? product.priceCurrency ?? product.currency ?? 'GBP';

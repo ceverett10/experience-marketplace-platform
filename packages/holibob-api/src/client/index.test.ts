@@ -58,30 +58,37 @@ describe('HolibobClient', () => {
   });
 
   describe('discoverProducts', () => {
-    it('should fetch products with location filter (discovery + details)', async () => {
-      // Mock Product Discovery returns just id and name
+    it('should fetch products with rich data in single query', async () => {
+      // Discovery now returns full product data — no N+1 getProduct() calls
       const discoveryResponse = {
         productDiscovery: {
           recommendedProductList: {
-            nodes: [{ id: 'prod-1', name: 'Test Experience' }],
+            nodes: [
+              {
+                id: 'prod-1',
+                name: 'Test Experience',
+                description: 'A great experience',
+                imageList: [
+                  {
+                    id: 'img-1',
+                    url: 'https://images.holibob.tech/abc',
+                    urlSmall: 'https://images.holibob.tech/small',
+                    urlMedium: 'https://images.holibob.tech/medium',
+                  },
+                ],
+                holibobGuidePrice: { gross: 50, grossFormattedText: '£50.00', currency: 'GBP' },
+                maxDuration: 'PT120M',
+                reviewCount: 42,
+                reviewRating: 4.5,
+                cancellationPolicy: { hasFreeCancellation: true },
+              },
+            ],
+            hasMore: false,
           },
         },
       };
 
-      // Mock Product Detail returns full product info
-      const productDetailResponse = {
-        productDetail: {
-          id: 'prod-1',
-          name: 'Test Experience',
-          shortDescription: 'A great experience',
-          guidePrice: 5000,
-          guidePriceFormattedText: '£50.00',
-        },
-      };
-
-      mockRequest
-        .mockResolvedValueOnce(discoveryResponse)
-        .mockResolvedValueOnce(productDetailResponse);
+      mockRequest.mockResolvedValueOnce(discoveryResponse);
 
       const result = await client.discoverProducts({
         placeIds: ['place-123'],
@@ -90,9 +97,17 @@ describe('HolibobClient', () => {
 
       expect(result.products).toHaveLength(1);
       expect(result.products[0].id).toBe('prod-1');
-      expect(result.products[0].shortDescription).toBe('A great experience');
+      expect(result.products[0].description).toBe('A great experience');
+      expect(result.products[0].guidePrice).toBe(50);
+      expect(result.products[0].guidePriceFormattedText).toBe('£50.00');
+      expect(result.products[0].reviewRating).toBe(4.5);
+      expect(result.products[0].imageList?.[0]?.urlMedium).toBe(
+        'https://images.holibob.tech/medium'
+      );
+      expect(result.products[0].cancellationPolicy?.type).toBe('FREE');
       expect(result.totalCount).toBe(1);
-      expect(mockRequest).toHaveBeenCalledTimes(2); // Discovery + 1 product detail
+      expect(result.pageInfo.hasNextPage).toBe(false);
+      expect(mockRequest).toHaveBeenCalledTimes(1); // Single discovery query
     });
 
     it('should handle geo point filter', async () => {
@@ -100,6 +115,7 @@ describe('HolibobClient', () => {
         productDiscovery: {
           recommendedProductList: {
             nodes: [],
+            hasMore: false,
           },
         },
       };
@@ -114,31 +130,29 @@ describe('HolibobClient', () => {
       expect(result.totalCount).toBe(0);
     });
 
-    it('should handle product detail fetch failure gracefully', async () => {
-      // Product Discovery returns IDs
+    it('should handle products with minimal data', async () => {
+      // Products with only id and name (other fields undefined)
       const discoveryResponse = {
         productDiscovery: {
           recommendedProductList: {
             nodes: [{ id: 'prod-1', name: 'Test Experience' }],
+            hasMore: false,
           },
         },
       };
 
-      mockRequest
-        .mockResolvedValueOnce(discoveryResponse)
-        .mockRejectedValueOnce(new Error('Product not found'));
+      mockRequest.mockResolvedValueOnce(discoveryResponse);
 
       const result = await client.discoverProducts({
         placeIds: ['place-123'],
       });
 
-      // Should fallback to basic info from discovery
       expect(result.products).toHaveLength(1);
       expect(result.products[0].id).toBe('prod-1');
       expect(result.products[0].name).toBe('Test Experience');
     });
 
-    it('should support pagination', async () => {
+    it('should support pagination with hasMore', async () => {
       const mockNodes = Array(10)
         .fill(null)
         .map((_, i) => ({ id: `prod-${i}`, name: `Test ${i}` }));
@@ -146,27 +160,18 @@ describe('HolibobClient', () => {
         productDiscovery: {
           recommendedProductList: {
             nodes: mockNodes,
+            hasMore: true,
           },
         },
       };
 
-      // Mock discovery response
       mockRequest.mockResolvedValueOnce(mockResponse);
 
-      // Mock product detail responses for all 10 products
-      for (let i = 0; i < 10; i++) {
-        mockRequest.mockResolvedValueOnce({
-          productDetail: { id: `prod-${i}`, name: `Test ${i}` },
-        });
-      }
+      const result = await client.discoverProducts({ placeIds: ['place-1'] }, { pageSize: 10 });
 
-      const result = await client.discoverProducts(
-        { placeIds: ['place-1'] },
-        { page: 2, pageSize: 10 }
-      );
-
-      // Pagination is simplified - handled client-side
       expect(result.totalCount).toBe(10);
+      expect(result.pageInfo.hasNextPage).toBe(true);
+      expect(mockRequest).toHaveBeenCalledTimes(1); // Single query
     });
   });
 

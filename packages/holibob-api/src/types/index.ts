@@ -54,6 +54,10 @@ export const ProductImageSchema = z.object({
   id: z.string().optional(),
   url: z.string(),
   altText: z.string().optional(),
+  /** Pre-sized ~300px wide image URL from Product Discovery API */
+  urlSmall: z.string().optional(),
+  /** Pre-sized ~500px wide image URL from Product Discovery API */
+  urlMedium: z.string().optional(),
 });
 
 export type ProductImage = z.infer<typeof ProductImageSchema>;
@@ -119,7 +123,7 @@ export const ProductSchema = z.object({
 
   // Details
   duration: z.number().optional(), // minutes
-  maxDuration: z.number().optional(), // Product Discovery API
+  maxDuration: z.union([z.number(), z.string()]).optional(), // number from productList, ISO 8601 string from Product Discovery
   durationText: z.string().optional(),
   highlights: z.array(z.string()).optional(),
   inclusions: z.array(z.string()).optional(),
