@@ -231,8 +231,9 @@ function makeWorkerOptions(queueName: string, concurrency: number) {
     lockDuration: 300_000, // 5 minutes
     // Check for stalled jobs every 30 seconds
     stalledInterval: 30_000,
-    // Max stalled count before moving to failed (allows retries on worker restart)
-    maxStalledCount: 10,
+    // Max stalled count before moving to failed (reduced from 10 to prevent OOM crash loop
+    // where stalled memory-heavy jobs keep getting reclaimed and re-crashing the worker)
+    maxStalledCount: 1,
     // Cap event streams to prevent unbounded Redis memory growth (matches Queue config)
     metrics: { maxDataPoints: 200 },
   };
