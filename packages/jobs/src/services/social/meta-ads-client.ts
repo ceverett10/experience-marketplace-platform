@@ -1081,6 +1081,41 @@ export class MetaAdsClient {
   }
 
   /**
+   * Get all ads under a specific ad set.
+   * Endpoint: GET /{ad_set_id}/ads
+   */
+  async getAdsForAdSet(adSetId: string): Promise<Array<{ id: string; name: string }>> {
+    try {
+      await this.enforceRateLimit();
+
+      const params = new URLSearchParams({
+        fields: 'id,name',
+        access_token: this.accessToken,
+        limit: '100',
+      });
+
+      const response = await fetch(`${META_API_BASE}/${adSetId}/ads?${params}`);
+
+      if (!response.ok) {
+        const error = await response.text();
+        console.error(
+          `[MetaAds] Get ads for ad set error (${response.status}): ${error.substring(0, 200)}`
+        );
+        return [];
+      }
+
+      const data = (await response.json()) as {
+        data?: Array<{ id: string; name: string }>;
+      };
+
+      return data.data || [];
+    } catch (error) {
+      console.error('[MetaAds] Get ads for ad set failed:', error);
+      return [];
+    }
+  }
+
+  /**
    * Update an existing ad's creative (e.g., replace the image).
    * Creates a new creative object and attaches it to the existing ad.
    */
