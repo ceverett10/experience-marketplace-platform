@@ -45,7 +45,7 @@ async function main() {
   // 3. Ad campaigns by platform and status (parents only)
   const campaigns = await p.$queryRaw`
     SELECT platform, status, COUNT(*)::int as count
-    FROM "AdCampaign"
+    FROM ad_campaigns
     WHERE "parentCampaignId" IS NULL
     GROUP BY platform, status
     ORDER BY platform, status
@@ -58,7 +58,7 @@ async function main() {
   // 4. Ad campaigns with landing page types
   const lpTypes = await p.$queryRaw`
     SELECT "landingPageType", platform, COUNT(*)::int as count
-    FROM "AdCampaign"
+    FROM ad_campaigns
     WHERE status IN ('ACTIVE', 'DRAFT')
     GROUP BY "landingPageType", platform
     ORDER BY count DESC
@@ -128,7 +128,7 @@ async function main() {
   // 7. Sample destination landing pages with their ad coverage
   const destPages = await p.$queryRaw`
     SELECT p.title, p.slug, p.status, s.name as site_name,
-      (SELECT COUNT(*)::int FROM "AdCampaign" ac
+      (SELECT COUNT(*)::int FROM ad_campaigns ac
        WHERE ac."landingPagePath" LIKE '%' || p.slug || '%'
        AND ac.status IN ('ACTIVE', 'DRAFT')) as ad_count
     FROM "Page" p
@@ -165,12 +165,12 @@ async function main() {
     SELECT
       COUNT(*)::int as total_published,
       SUM(CASE WHEN (
-        SELECT COUNT(*) FROM "AdCampaign" ac
+        SELECT COUNT(*) FROM ad_campaigns ac
         WHERE ac."landingPagePath" LIKE '%' || p.slug || '%'
         AND ac.status IN ('ACTIVE', 'DRAFT')
       ) > 0 THEN 1 ELSE 0 END)::int as with_ads,
       SUM(CASE WHEN (
-        SELECT COUNT(*) FROM "AdCampaign" ac
+        SELECT COUNT(*) FROM ad_campaigns ac
         WHERE ac."landingPagePath" LIKE '%' || p.slug || '%'
         AND ac.status IN ('ACTIVE', 'DRAFT')
       ) = 0 THEN 1 ELSE 0 END)::int as without_ads
@@ -192,7 +192,7 @@ async function main() {
   // 9. Bidding engine last run
   const lastRun = await p.$queryRaw`
     SELECT "createdAt", status, "proposalData"
-    FROM "AdCampaign"
+    FROM ad_campaigns
     WHERE "parentCampaignId" IS NULL
     ORDER BY "createdAt" DESC
     LIMIT 1
