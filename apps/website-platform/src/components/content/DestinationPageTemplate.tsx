@@ -1,15 +1,18 @@
+'use client';
+
 /**
  * DestinationPageTemplate Component
- * Template for rendering destination guide pages from database
+ * Template for rendering destination guide pages from database.
+ * Uses PremiumExperienceCard for consistent product cards across the site.
  */
 
 import React from 'react';
-import Image from 'next/image';
+import Link from 'next/link';
 import { cleanPlainText } from '@/lib/seo';
 import { ContentRenderer } from './ContentRenderer';
+import { PremiumExperienceCard } from '@/components/experiences/PremiumExperienceCard';
+import type { ExperienceListItem } from '@/lib/holibob';
 import type { PageStatus, ContentFormat } from '@prisma/client';
-import Link from 'next/link';
-import { BLUR_PLACEHOLDER, isHolibobImage } from '@/lib/image-utils';
 
 interface DestinationPageData {
   id: string;
@@ -27,32 +30,54 @@ interface DestinationPageData {
   } | null;
 }
 
-interface RelatedExperience {
-  id: string;
-  slug: string;
-  title: string;
-  shortDescription: string;
-  imageUrl: string;
-  price: {
-    formatted: string;
-  };
-  rating: {
-    average: number;
-    count: number;
-  } | null;
-  categories: {
-    name: string;
-  }[];
-}
-
 interface DestinationPageTemplateProps {
   destination: DestinationPageData;
-  topExperiences?: RelatedExperience[];
+  topExperiences?: ExperienceListItem[];
   siteName?: string;
   isPpc?: boolean;
   experienceCount?: number;
   priceRange?: { min: string; max: string } | null;
+  searchTerm?: string;
 }
+
+/** Slugify text for anchor IDs — must match ContentRenderer's slugifyHeading */
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .trim();
+}
+
+/** Extract H2 headings from markdown content for dynamic sidebar navigation */
+function extractHeadings(body: string): { text: string; id: string }[] {
+  const headingRegex = /^##\s+(.+)$/gm;
+  const headings: { text: string; id: string }[] = [];
+  let match;
+  while ((match = headingRegex.exec(body)) !== null) {
+    const text = match[1]?.trim() ?? '';
+    if (text) {
+      headings.push({ text, id: slugify(text) });
+    }
+  }
+  return headings;
+}
+
+/** Build /experiences URL with destination and search term pre-populated */
+function buildExperiencesUrl(destinationName: string, searchTerm?: string): string {
+  const params = new URLSearchParams();
+  params.set('destination', destinationName);
+  if (searchTerm) params.set('q', searchTerm);
+  return `/experiences?${params.toString()}`;
+}
+
+/** Deterministic badge assignment for experience cards */
+const BADGE_ROTATION: ('topPick' | 'recommended' | 'bestseller')[] = [
+  'topPick',
+  'recommended',
+  'bestseller',
+];
 
 /**
  * Destination guide page template with SEO optimization
@@ -64,6 +89,7 @@ export function DestinationPageTemplate({
   isPpc = false,
   experienceCount,
   priceRange,
+  searchTerm,
 }: DestinationPageTemplateProps) {
   if (!destination.content) {
     return (
@@ -84,6 +110,7 @@ export function DestinationPageTemplate({
     : destination.title.replace(/^(?:Discover|Visit|Explore|Travel Experiences?)\s+/i, '').trim() ||
       destination.title;
   const displayCount = experienceCount ?? topExperiences.length;
+  const experiencesUrl = buildExperiencesUrl(destinationName, searchTerm);
 
   if (isPpc) {
     return (
@@ -93,6 +120,7 @@ export function DestinationPageTemplate({
         topExperiences={topExperiences}
         displayCount={displayCount}
         priceRange={priceRange}
+        experiencesUrl={experiencesUrl}
       />
     );
   }
@@ -103,7 +131,82 @@ export function DestinationPageTemplate({
       destinationName={destinationName}
       topExperiences={topExperiences}
       displayCount={displayCount}
+      experiencesUrl={experiencesUrl}
     />
+  );
+}
+
+/** Shared trust signals bar used by both layouts */
+function TrustSignalsBar() {
+  return (
+    <div className="border-b border-gray-200 bg-white">
+      <div className="mx-auto max-w-7xl flex items-center justify-center gap-6 px-4 py-2.5 overflow-x-auto">
+        {[
+          'Best Price Guarantee',
+          'Free Cancellation',
+          'Instant Confirmation',
+          'Secure Payments',
+        ].map((text) => (
+          <div
+            key={text}
+            className="flex flex-shrink-0 items-center gap-1.5 text-xs font-medium text-gray-600"
+          >
+            <svg className="h-3.5 w-3.5 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
+              <path
+                fillRule="evenodd"
+                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
+                clipRule="evenodd"
+              />
+            </svg>
+            {text}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Shared CTA section */
+function CtaSection({
+  destinationName,
+  experiencesUrl,
+}: {
+  destinationName: string;
+  experiencesUrl: string;
+}) {
+  return (
+    <section className="bg-gradient-to-r from-indigo-600 to-blue-600 text-white py-12">
+      <div className="max-w-7xl mx-auto px-4 text-center">
+        <h2 className="text-3xl font-bold mb-4">Ready to Explore {destinationName}?</h2>
+        <p className="text-xl text-blue-100 mb-6">
+          Browse all available activities and experiences
+        </p>
+        <Link
+          href={experiencesUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-block bg-white text-blue-600 font-semibold px-8 py-3 rounded-lg hover:bg-blue-50 transition-colors"
+        >
+          View All Experiences
+        </Link>
+      </div>
+    </section>
+  );
+}
+
+/** Experience grid using PremiumExperienceCard */
+function ExperienceGrid({ experiences }: { experiences: ExperienceListItem[] }) {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {experiences.map((experience, index) => (
+        <PremiumExperienceCard
+          key={experience.id}
+          experience={experience}
+          rank={index < 3 ? index + 1 : undefined}
+          badges={index < 3 ? [BADGE_ROTATION[index % BADGE_ROTATION.length]!] : undefined}
+        />
+      ))}
+    </div>
   );
 }
 
@@ -112,17 +215,19 @@ export function DestinationPageTemplate({
  * Compact hero, trust signals, product grid immediately, no long-form content.
  */
 function PpcLayout({
-  destination,
+  destination: _destination,
   destinationName,
   topExperiences,
   displayCount,
   priceRange,
+  experiencesUrl,
 }: {
   destination: DestinationPageData;
   destinationName: string;
-  topExperiences: RelatedExperience[];
+  topExperiences: ExperienceListItem[];
   displayCount: number;
   priceRange?: { min: string; max: string } | null;
+  experiencesUrl: string;
 }) {
   return (
     <div className="min-h-screen">
@@ -147,31 +252,7 @@ function PpcLayout({
         </div>
       </header>
 
-      {/* Trust Signals Bar */}
-      <div className="border-b border-gray-200 bg-white">
-        <div className="mx-auto max-w-7xl flex items-center justify-center gap-6 px-4 py-2.5 overflow-x-auto">
-          {[
-            'Best Price Guarantee',
-            'Free Cancellation',
-            'Instant Confirmation',
-            'Secure Payments',
-          ].map((text) => (
-            <div
-              key={text}
-              className="flex flex-shrink-0 items-center gap-1.5 text-xs font-medium text-gray-600"
-            >
-              <svg className="h-3.5 w-3.5 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
-                <path
-                  fillRule="evenodd"
-                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              {text}
-            </div>
-          ))}
-        </div>
-      </div>
+      <TrustSignalsBar />
 
       {/* Product Grid — immediately after hero */}
       {topExperiences.length > 0 && (
@@ -182,21 +263,7 @@ function PpcLayout({
         </section>
       )}
 
-      {/* CTA Section */}
-      <section className="bg-gradient-to-r from-indigo-600 to-blue-600 text-white py-10">
-        <div className="max-w-7xl mx-auto px-4 text-center">
-          <h2 className="text-2xl font-bold mb-3">Ready to Explore {destinationName}?</h2>
-          <p className="text-lg text-blue-100 mb-5">
-            Browse all available activities and experiences
-          </p>
-          <Link
-            href="/experiences"
-            className="inline-block bg-white text-blue-600 font-semibold px-8 py-3 rounded-lg hover:bg-blue-50 transition-colors"
-          >
-            View All Experiences
-          </Link>
-        </div>
-      </section>
+      <CtaSection destinationName={destinationName} experiencesUrl={experiencesUrl} />
 
       {/* Sticky mobile CTA */}
       <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-gray-200 bg-white p-3 shadow-lg md:hidden">
@@ -212,19 +279,24 @@ function PpcLayout({
 }
 
 /**
- * SEO variant — content-rich layout for organic traffic (original layout).
+ * SEO variant — content-rich layout for organic traffic.
  */
 function SeoLayout({
   destination,
   destinationName,
   topExperiences,
   displayCount,
+  experiencesUrl,
 }: {
   destination: DestinationPageData;
   destinationName: string;
-  topExperiences: RelatedExperience[];
+  topExperiences: ExperienceListItem[];
   displayCount: number;
+  experiencesUrl: string;
 }) {
+  // Extract headings from content for dynamic sidebar navigation
+  const headings = destination.content ? extractHeadings(destination.content.body) : [];
+
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
@@ -256,31 +328,7 @@ function SeoLayout({
         </div>
       </header>
 
-      {/* Trust Signals Bar */}
-      <div className="border-b border-gray-200 bg-white">
-        <div className="mx-auto max-w-7xl flex items-center justify-center gap-6 px-4 py-2.5 overflow-x-auto">
-          {[
-            'Best Price Guarantee',
-            'Free Cancellation',
-            'Instant Confirmation',
-            'Secure Payments',
-          ].map((text) => (
-            <div
-              key={text}
-              className="flex flex-shrink-0 items-center gap-1.5 text-xs font-medium text-gray-600"
-            >
-              <svg className="h-3.5 w-3.5 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
-                <path
-                  fillRule="evenodd"
-                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              {text}
-            </div>
-          ))}
-        </div>
-      </div>
+      <TrustSignalsBar />
 
       {/* Top Experiences Section — above content for conversion */}
       {topExperiences.length > 0 && (
@@ -298,7 +346,9 @@ function SeoLayout({
             {displayCount > topExperiences.length && (
               <div className="mt-8 text-center">
                 <Link
-                  href="/experiences"
+                  href={experiencesUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="inline-block text-blue-600 font-semibold hover:text-blue-800 hover:underline"
                 >
                   View all {displayCount.toLocaleString()} experiences &rarr;
@@ -308,6 +358,9 @@ function SeoLayout({
           </div>
         </section>
       )}
+
+      {/* CTA — directly after product cards */}
+      <CtaSection destinationName={destinationName} experiencesUrl={experiencesUrl} />
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-12">
@@ -327,36 +380,23 @@ function SeoLayout({
           {/* Sidebar - Quick Info */}
           <aside className="lg:col-span-1">
             <div className="sticky top-8 space-y-6">
-              {/* Quick Links */}
-              <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Navigation</h3>
-                <nav className="space-y-2">
-                  <a
-                    href="#things-to-do"
-                    className="block text-sm text-blue-600 hover:text-blue-800 hover:underline"
-                  >
-                    Things to Do
-                  </a>
-                  <a
-                    href="#best-time"
-                    className="block text-sm text-blue-600 hover:text-blue-800 hover:underline"
-                  >
-                    Best Time to Visit
-                  </a>
-                  <a
-                    href="#getting-around"
-                    className="block text-sm text-blue-600 hover:text-blue-800 hover:underline"
-                  >
-                    Getting Around
-                  </a>
-                  <a
-                    href="#where-to-stay"
-                    className="block text-sm text-blue-600 hover:text-blue-800 hover:underline"
-                  >
-                    Where to Stay
-                  </a>
-                </nav>
-              </div>
+              {/* Quick Links — dynamically extracted from content headings */}
+              {headings.length > 0 && (
+                <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Navigation</h3>
+                  <nav className="space-y-2">
+                    {headings.map((heading) => (
+                      <a
+                        key={heading.id}
+                        href={`#${heading.id}`}
+                        className="block text-sm text-blue-600 hover:text-blue-800 hover:underline"
+                      >
+                        {heading.text}
+                      </a>
+                    ))}
+                  </nav>
+                </div>
+              )}
 
               {/* Travel Tips */}
               <div className="bg-yellow-50 rounded-lg p-6 border border-yellow-200">
@@ -373,22 +413,6 @@ function SeoLayout({
         </div>
       </div>
 
-      {/* CTA Section */}
-      <section className="bg-gradient-to-r from-indigo-600 to-blue-600 text-white py-12">
-        <div className="max-w-7xl mx-auto px-4 text-center">
-          <h2 className="text-3xl font-bold mb-4">Ready to Explore {destinationName}?</h2>
-          <p className="text-xl text-blue-100 mb-6">
-            Browse all available activities and experiences
-          </p>
-          <Link
-            href="/experiences"
-            className="inline-block bg-white text-blue-600 font-semibold px-8 py-3 rounded-lg hover:bg-blue-50 transition-colors"
-          >
-            View All Experiences
-          </Link>
-        </div>
-      </section>
-
       {/* Bottom spacer for sticky mobile CTA */}
       <div className="h-16 md:hidden" />
 
@@ -401,69 +425,6 @@ function SeoLayout({
           Browse {displayCount > 0 ? `${displayCount} ` : ''}Experiences
         </Link>
       </div>
-    </div>
-  );
-}
-
-/**
- * Shared experience card grid used by both PPC and SEO layouts.
- */
-function ExperienceGrid({ experiences }: { experiences: RelatedExperience[] }) {
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {experiences.map((experience) => (
-        <Link
-          key={experience.id}
-          href={`/experiences/${experience.slug}`}
-          className="group bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow"
-        >
-          <div className="relative h-56 overflow-hidden bg-gray-200">
-            <Image
-              src={experience.imageUrl}
-              alt={experience.title}
-              fill
-              sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
-              className="object-cover group-hover:scale-105 transition-transform duration-300"
-              loading="lazy"
-              placeholder="blur"
-              blurDataURL={BLUR_PLACEHOLDER}
-              unoptimized={isHolibobImage(experience.imageUrl)}
-            />
-            <div className="absolute top-3 right-3 bg-white px-3 py-1 rounded-md shadow-sm z-10">
-              <span className="text-sm font-semibold text-gray-900">
-                {experience.price.formatted}
-              </span>
-            </div>
-            {experience.categories[0] && (
-              <div className="absolute bottom-3 left-3 bg-blue-600 text-white px-3 py-1 rounded-md text-xs font-medium z-10">
-                {experience.categories[0].name}
-              </div>
-            )}
-          </div>
-
-          <div className="p-5">
-            <h3 className="font-semibold text-lg text-gray-900 mb-2 group-hover:text-blue-600 transition-colors line-clamp-2">
-              {experience.title}
-            </h3>
-
-            <p className="text-sm text-gray-600 mb-4 line-clamp-2">{experience.shortDescription}</p>
-
-            {experience.rating && (
-              <div className="flex items-center text-sm">
-                <div className="flex items-center">
-                  <svg className="w-4 h-4 text-yellow-400 fill-current" viewBox="0 0 20 20">
-                    <path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z" />
-                  </svg>
-                  <span className="ml-1 font-medium text-gray-900">
-                    {experience.rating.average.toFixed(1)}
-                  </span>
-                </div>
-                <span className="ml-1 text-gray-500">({experience.rating.count} reviews)</span>
-              </div>
-            )}
-          </div>
-        </Link>
-      ))}
     </div>
   );
 }

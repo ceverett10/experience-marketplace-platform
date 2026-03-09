@@ -15,6 +15,27 @@ interface ContentRendererProps {
   className?: string;
 }
 
+/** Recursively extract plain text from React children (for heading IDs) */
+function extractTextContent(children: React.ReactNode): string {
+  if (typeof children === 'string') return children;
+  if (typeof children === 'number') return String(children);
+  if (Array.isArray(children)) return children.map(extractTextContent).join('');
+  if (React.isValidElement(children) && children.props?.children) {
+    return extractTextContent(children.props.children as React.ReactNode);
+  }
+  return '';
+}
+
+/** Slugify heading text to generate anchor IDs matching DestinationPageTemplate nav */
+function slugifyHeading(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .trim();
+}
+
 /**
  * Renders content in various formats with proper sanitization
  */
@@ -55,12 +76,22 @@ export function ContentRenderer({
           h1: ({ children }) => (
             <h1 className="text-4xl font-bold mb-6 text-gray-900">{children}</h1>
           ),
-          h2: ({ children }) => (
-            <h2 className="text-3xl font-bold mb-4 mt-8 text-gray-900">{children}</h2>
-          ),
-          h3: ({ children }) => (
-            <h3 className="text-2xl font-semibold mb-3 mt-6 text-gray-900">{children}</h3>
-          ),
+          h2: ({ children }) => {
+            const id = slugifyHeading(extractTextContent(children));
+            return (
+              <h2 id={id} className="text-3xl font-bold mb-4 mt-8 text-gray-900 scroll-mt-20">
+                {children}
+              </h2>
+            );
+          },
+          h3: ({ children }) => {
+            const id = slugifyHeading(extractTextContent(children));
+            return (
+              <h3 id={id} className="text-2xl font-semibold mb-3 mt-6 text-gray-900 scroll-mt-20">
+                {children}
+              </h3>
+            );
+          },
           // Customize paragraph spacing
           p: ({ children }) => <p className="mb-4 text-gray-700 leading-relaxed">{children}</p>,
           // Customize links
