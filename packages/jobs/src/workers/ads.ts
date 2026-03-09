@@ -1433,6 +1433,7 @@ async function deployMetaChildAdSet(
       landingPagePath: campaign.landingPagePath,
       landingPageType: campaign.landingPageType,
       landingPageProducts: campaign.landingPageProducts,
+      landingPageUrl: landingUrl,
       geoTargets: campaign.geoTargets,
     });
 
@@ -1611,6 +1612,7 @@ async function deployToMeta(
       landingPagePath: campaign.landingPagePath,
       landingPageType: campaign.landingPageType,
       landingPageProducts: campaign.landingPageProducts,
+      landingPageUrl: landingUrl,
       geoTargets: campaign.geoTargets,
     });
 
@@ -1727,7 +1729,8 @@ async function generateGoogleRSA(
   keyword: string,
   siteName: string,
   siteId?: string | null,
-  landingPagePath?: string | null
+  landingPagePath?: string | null,
+  landingPageUrl?: string | null
 ): Promise<GoogleRSACreative> {
   const apiKey = process.env['ANTHROPIC_API_KEY'] || process.env['CLAUDE_API_KEY'] || '';
 
@@ -1764,6 +1767,8 @@ async function generateGoogleRSA(
         imageUrl: null,
         imageSource: undefined,
         keywords: [keyword],
+        landingPageUrl,
+        siteName,
         landingPage: {
           title: context.pageTitle,
           description: context.pageDescription,
@@ -1804,6 +1809,8 @@ async function generateGoogleRSA(
                 imageUrl: null,
                 imageSource: undefined,
                 keywords: [keyword],
+                landingPageUrl,
+                siteName,
                 landingPage: {
                   title: context.pageTitle,
                   description: context.pageDescription,
@@ -2182,7 +2189,8 @@ async function deployToGoogle(
           agConfig.primaryKeyword,
           siteName,
           campaign.siteId,
-          campaign.landingPagePath
+          campaign.landingPagePath,
+          agUrl.toString()
         );
         if (!primaryRsa) primaryRsa = rsa;
         const rsaResult = await createResponsiveSearchAd({
@@ -2224,7 +2232,8 @@ async function deployToGoogle(
           keyword,
           siteName,
           campaign.siteId,
-          campaign.landingPagePath
+          campaign.landingPagePath,
+          landingUrl
         );
         primaryRsa = rsa;
         const rsaResult = await createResponsiveSearchAd({
@@ -3147,6 +3156,8 @@ export async function handleAdCreativeRefresh(_job: Job): Promise<JobResult> {
         imageUrl: existingImageUrl,
         imageSource: (existingCreative?.['imageSource'] as string) || undefined,
         keywords: campaign.keywords,
+        landingPageUrl: campaign.targetUrl,
+        siteName: campaign.microsite?.siteName || campaign.site?.name || null,
         landingPage,
       });
 
@@ -3169,6 +3180,7 @@ export async function handleAdCreativeRefresh(_job: Job): Promise<JobResult> {
           landingPagePath: campaign.landingPagePath,
           landingPageType: campaign.landingPageType,
           landingPageProducts: campaign.landingPageProducts,
+          landingPageUrl: campaign.targetUrl,
           geoTargets: campaign.geoTargets,
         });
 

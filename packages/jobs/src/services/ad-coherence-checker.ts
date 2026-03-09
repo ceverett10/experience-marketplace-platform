@@ -22,6 +22,10 @@ export interface CoherenceCheckInput {
   imageUrl: string | null;
   imageSource?: string; // 'product' | 'supplier' | 'unsplash' | 'site'
   keywords: string[];
+  /** Landing page URL including domain (e.g. https://outdoorexploring.com/destinations/london) */
+  landingPageUrl?: string | null;
+  /** Site/brand name the ad will appear under (e.g. "Outdoor Exploring") */
+  siteName?: string | null;
   landingPage: {
     title: string | null;
     description: string | null;
@@ -58,6 +62,8 @@ export async function checkAdCoherence(
   if (!lp.title && !lp.bodyExcerpt) return null;
 
   const landingPageLines: string[] = [];
+  if (input.landingPageUrl) landingPageLines.push(`- URL: ${input.landingPageUrl}`);
+  if (input.siteName) landingPageLines.push(`- Site/Brand: "${input.siteName}"`);
   if (lp.type) landingPageLines.push(`- Type: ${lp.type}`);
   if (lp.title) landingPageLines.push(`- Title: "${lp.title}"`);
   if (lp.description) landingPageLines.push(`- Description: "${lp.description}"`);
@@ -66,7 +72,7 @@ export async function checkAdCoherence(
 
   const prompt = `You are an ad quality auditor for a travel experiences platform.
 
-Review this Facebook ad campaign for internal coherence. A consumer who clicks this ad should find what they expect on the landing page.
+Review this ad campaign for internal coherence. A consumer who clicks this ad should find what they expect on the landing page, and the site/brand should be appropriate for the keywords.
 
 CAMPAIGN KEYWORDS: ${input.keywords.join(', ')}
 
@@ -84,6 +90,7 @@ Evaluate alignment across these dimensions:
 2. AD TEXT ↔ LANDING PAGE: Would a consumer find what the ad promises on this page?
 3. IMAGE SOURCE ↔ CONTENT: Does the image source type suit the landing page content?
 4. KEYWORDS ↔ LANDING PAGE: Are the keywords actually represented in the page content?
+5. DOMAIN/BRAND ↔ KEYWORDS: Is the site domain and brand name appropriate for these keywords? For example, a "london-food-tours.com" domain should NOT be used for "safari tanzania" or "auschwitz tours" keywords. A branded domain should only serve keywords matching its niche and geography. This is a CRITICAL check — score 1 if the domain clearly mismatches the keyword intent.
 
 Respond EXACTLY as:
 SCORE: [1-10]
