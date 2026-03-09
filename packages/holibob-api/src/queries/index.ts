@@ -124,7 +124,6 @@ export const PRODUCT_DETAIL_QUERY = gql`
       name
       description
       guidePrice
-      guidePriceFormattedText
       guidePriceCurrency
       imageList {
         id
@@ -859,7 +858,6 @@ export const PRODUCT_LIST_BY_PROVIDER_QUERY = gql`
         name
         description
         guidePrice
-        guidePriceFormattedText
         guidePriceCurrency
         imageList {
           id
@@ -903,7 +901,6 @@ export const PRODUCT_LIST_ALL_QUERY = gql`
         name
         description
         guidePrice
-        guidePriceFormattedText
         guidePriceCurrency
         imageList {
           id
