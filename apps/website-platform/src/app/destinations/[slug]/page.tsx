@@ -3,7 +3,7 @@ import { notFound, permanentRedirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getSiteFromHostname, type HomepageConfig } from '@/lib/tenant';
 import { cleanPlainText } from '@/lib/seo';
-import { getHolibobClient } from '@/lib/holibob';
+import { getHolibobClient, parseIsoDuration, type ExperienceListItem } from '@/lib/holibob';
 import { prisma } from '@/lib/prisma';
 import { DestinationPageTemplate } from '@/components/content/DestinationPageTemplate';
 
@@ -158,10 +158,29 @@ async function getDestinationPage(siteId: string, slug: string) {
   });
 }
 
+function formatPrice(amount: number, currency: string): string {
+  return new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(amount);
+}
+
+function formatDuration(value: number, unit: string): string {
+  if (!Number.isFinite(value) || value <= 0) return '';
+  if (unit === 'minutes') {
+    if (value >= 60) {
+      const hours = Math.floor(value / 60);
+      const mins = value % 60;
+      return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+    }
+    return `${value}m`;
+  }
+  if (unit === 'hours') return value === 1 ? '1 hour' : `${value} hours`;
+  if (unit === 'days') return value === 1 ? '1 day' : `${value} days`;
+  return `${value} ${unit}`;
+}
+
 /**
  * Fetch top experiences from Holibob Product Discovery API.
- * Uses the same pattern as the /experiences page: freeText for WHERE (city name)
- * and searchTerm for WHAT (site theme). No placeIds or categoryIds.
+ * Returns ExperienceListItem[] so PremiumExperienceCard can render with
+ * full pricing, duration, discount badges, etc.
  */
 async function getTopExperiences(
   site: Awaited<ReturnType<typeof getSiteFromHostname>>,
@@ -170,9 +189,7 @@ async function getTopExperiences(
     pageSize?: number;
     searchTerm?: string;
   }
-) {
-  // Extract clean city name from slug for the API's "where" parameter
-  // e.g. "london-england" → "London", "new-york-usa" → "New York"
+): Promise<ExperienceListItem[]> {
   const cityName = extractCityFromSlug(slug);
   const pageSize = options?.pageSize ?? 9;
 
@@ -211,27 +228,42 @@ async function getTopExperiences(
       );
     }
 
-    return response.products.map((product) => ({
-      id: product.id,
-      slug: product.id, // Product type doesn't have slug, use id
-      title: product.name,
-      shortDescription: product.shortDescription || '',
-      imageUrl: product.primaryImageUrl || product.imageUrl || product.imageList?.[0]?.url || '',
-      price: {
-        formatted: product.priceFromFormatted || product.guidePriceFormattedText || 'From £0',
-      },
-      rating:
-        product.reviewRating && product.reviewCount
-          ? {
-              average: product.reviewRating,
-              count: product.reviewCount,
-            }
+    return response.products.map((product) => {
+      const primaryImage =
+        product.imageList?.[0]?.url ??
+        product.primaryImageUrl ??
+        product.imageUrl ??
+        '/placeholder-experience.jpg';
+      const priceAmount = product.guidePrice ?? product.priceFrom ?? 0;
+      const priceCurrency =
+        product.guidePriceCurrency ?? product.priceCurrency ?? product.currency ?? 'GBP';
+      const priceFormatted =
+        product.guidePriceFormattedText ??
+        product.priceFromFormatted ??
+        formatPrice(priceAmount, priceCurrency);
+
+      let durationFormatted = '';
+      if (product.durationText && !product.durationText.includes('NaN')) {
+        durationFormatted = product.durationText;
+      } else if (product.maxDuration != null) {
+        const minutes = parseIsoDuration(product.maxDuration);
+        if (minutes > 0) durationFormatted = formatDuration(minutes, 'minutes');
+      }
+
+      return {
+        id: product.id,
+        title: product.name ?? 'Experience',
+        slug: product.id,
+        shortDescription: product.shortDescription ?? '',
+        imageUrl: primaryImage,
+        price: { amount: priceAmount, currency: priceCurrency, formatted: priceFormatted },
+        duration: { formatted: durationFormatted },
+        rating: product.reviewRating
+          ? { average: product.reviewRating, count: product.reviewCount ?? 0 }
           : null,
-      categories:
-        product.categoryList?.nodes.map((cat) => ({
-          name: cat.name,
-        })) || [],
-    }));
+        location: { name: product.location?.name ?? cityName },
+      };
+    });
   } catch (error) {
     console.error('[Destination] Error fetching top experiences:', error);
     return [];
@@ -489,6 +521,7 @@ export default async function DestinationPage({ params, searchParams }: Props) {
         isPpc={isPpc}
         experienceCount={topExperiences.length}
         priceRange={priceRange}
+        searchTerm={searchTerm}
       />
     </>
   );

@@ -17,6 +17,14 @@ const mockGetSiteFromHostname = vi.fn();
 
 vi.mock('@/lib/tenant', () => ({
   getSiteFromHostname: (...args: unknown[]) => mockGetSiteFromHostname(...args),
+  DEFAULT_SITE_CONFIG: {
+    id: 'default',
+    name: 'Default',
+    hostname: 'localhost',
+    brand: { primaryColor: '#0d9488' },
+    seoConfig: {},
+    homepageConfig: {},
+  },
 }));
 
 const mockPageFindUnique = vi.fn();
@@ -33,6 +41,7 @@ vi.mock('@/lib/holibob', () => ({
   getHolibobClient: vi.fn(() => ({
     discoverProducts: vi.fn(async () => ({ products: [], totalCount: 0 })),
   })),
+  parseIsoDuration: vi.fn(() => 0),
 }));
 
 const defaultSite = {
