@@ -208,47 +208,46 @@ async function main() {
     }
 
     try {
-      // For child ad sets, use platformAdId directly (getAdsForCampaign would
-      // return ALL ads under the parent campaign, not just this child's ad).
-      // For standalone campaigns, query the campaign for its ads.
-      let adIds: string[];
+      // Find the Meta ad(s) to update. Priority:
+      // 1. platformAdId (set when our worker deployed the ad)
+      // 2. platformAdSetId (query Meta for ads under this ad set)
+      // 3. platformCampaignId (query Meta for all ads under campaign — standalone only)
+      let adIds: string[] = [];
       if (campaign.platformAdId) {
         adIds = [campaign.platformAdId];
-      } else {
+      } else if (campaign.platformAdSetId) {
+        const ads = await metaClient!.getAdsForAdSet(campaign.platformAdSetId);
+        adIds = ads.map((a) => a.id);
+      } else if (!campaign.parentCampaignId) {
+        // Standalone campaign — query at campaign level
         const ads = await metaClient!.getAdsForCampaign(campaign.platformCampaignId!);
         adIds = ads.map((a) => a.id);
       }
 
-      if (adIds.length === 0) {
-        console.warn(`  No ads found for campaign ${campaign.platformCampaignId}`);
-        skipped++;
-        continue;
-      }
-
       let adUpdated = false;
-      for (const adId of adIds) {
-        const success = await metaClient!.updateAdCreative(adId, {
-          pageId,
-          linkUrl: finalUrl,
-          headline,
-          body,
-          imageUrl,
-          callToAction,
-        });
-        if (success) {
-          console.info(`  Updated Meta ad ${adId}`);
-          adUpdated = true;
-        } else {
-          console.error(`  Failed to update Meta ad ${adId}`);
+      if (adIds.length === 0) {
+        console.warn(`  No Meta ads found — updating DB only`);
+      } else {
+        for (const adId of adIds) {
+          const success = await metaClient!.updateAdCreative(adId, {
+            pageId,
+            linkUrl: finalUrl,
+            headline,
+            body,
+            imageUrl,
+            callToAction,
+          });
+          if (success) {
+            console.info(`  Updated Meta ad ${adId}`);
+            adUpdated = true;
+          } else {
+            console.error(`  Failed to update Meta ad ${adId}`);
+          }
         }
       }
 
-      if (!adUpdated) {
-        failed++;
-        continue;
-      }
-
-      // Update DB record (without UTM params — those are added at deploy time)
+      // Always update DB record regardless of Meta API result.
+      // The correct URL matters for future deployments and dashboard display.
       await prisma.adCampaign.update({
         where: { id: campaign.id },
         data: {
@@ -256,7 +255,14 @@ async function main() {
         },
       });
 
-      fixed++;
+      if (adUpdated) {
+        fixed++;
+      } else if (adIds.length === 0) {
+        fixed++; // DB-only fix
+        console.info(`  DB updated (no Meta ads to update)`);
+      } else {
+        failed++; // Had ads but all updates failed
+      }
     } catch (err) {
       console.error(
         `  Error fixing "${campaign.name}": ${err instanceof Error ? err.message : err}`
