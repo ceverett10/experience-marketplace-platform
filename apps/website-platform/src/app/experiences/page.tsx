@@ -2,7 +2,12 @@ import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getSiteFromHostname, type SiteConfig } from '@/lib/tenant';
-import { getHolibobClient, type ExperienceListItem, parseIsoDuration } from '@/lib/holibob';
+import {
+  getHolibobClient,
+  type ExperienceListItem,
+  parseIsoDuration,
+  optimizeHolibobImageWithPreset,
+} from '@/lib/holibob';
 import { ExperiencesGrid } from '@/components/experiences/ExperiencesGrid';
 import { ProductDiscoverySearch } from '@/components/search/ProductDiscoverySearch';
 import { TrustBadges } from '@/components/ui/TrustSignals';
@@ -271,9 +276,10 @@ async function getExperiences(
     );
 
     const experiences = response.products.map((product) => {
-      // Get primary image from imageList (Product Detail API format - direct array)
-      const primaryImage =
+      // Get primary image from imageList — optimize to card preset (400x267) to reduce bandwidth
+      const rawImage =
         product.imageList?.[0]?.url ?? product.imageUrl ?? '/placeholder-experience.jpg';
+      const primaryImage = optimizeHolibobImageWithPreset(rawImage, 'card');
 
       // Get price - Product Detail API uses guidePrice, Product Discovery uses priceFrom
       const priceAmount = product.guidePrice ?? product.priceFrom ?? 0;
@@ -466,7 +472,10 @@ async function getExperiencesFromLocalDB(
       title: product.title,
       slug: product.holibobProductId, // Must use Holibob ID — detail page passes slug to getProduct(id)
       shortDescription: product.shortDescription ?? '',
-      imageUrl: product.primaryImageUrl ?? '/placeholder-experience.jpg',
+      imageUrl: optimizeHolibobImageWithPreset(
+        product.primaryImageUrl ?? '/placeholder-experience.jpg',
+        'card'
+      ),
       price: {
         amount: product.priceFrom ? Number(product.priceFrom) : 0,
         currency: product.currency,
@@ -551,7 +560,8 @@ async function getExperiencesFromHolibobAPI(
 
     // Map Holibob products to ExperienceListItem format
     let experiences: ExperienceListItem[] = response.nodes.map((product) => {
-      const primaryImage = product.imageList?.[0]?.url ?? '/placeholder-experience.jpg';
+      const rawImage = product.imageList?.[0]?.url ?? '/placeholder-experience.jpg';
+      const primaryImage = optimizeHolibobImageWithPreset(rawImage, 'card');
 
       // ProductList API returns guidePrice in MAJOR units (e.g., 71 EUR, not cents)
       const priceAmount = product.guidePrice ?? 0;
@@ -1094,10 +1104,22 @@ export default async function ExperiencesPage({ searchParams }: Props) {
   const site = await getSiteFromHostname(hostname);
   const resolvedSearchParams = await searchParams;
 
-  const { experiences, totalCount, filteredCount, hasMore, apiError } = await getExperiences(
-    site,
-    resolvedSearchParams
-  );
+  const isMicrosite =
+    !!site.micrositeContext?.supplierId ||
+    !!site.micrositeContext?.discoveryConfig ||
+    isTickittoSite(site);
+  const isMarketplace =
+    isMicrosite &&
+    !!site.micrositeContext?.supplierId &&
+    site.micrositeContext.layoutConfig?.resolvedType === 'MARKETPLACE';
+
+  // Fetch experiences and filter options in parallel for MARKETPLACE layouts
+  const [experiencesResult, filterOptionsResult] = await Promise.all([
+    getExperiences(site, resolvedSearchParams),
+    isMarketplace ? getFilterOptions(site.micrositeContext!.supplierId!) : Promise.resolve(null),
+  ]);
+
+  const { experiences, totalCount, filteredCount, hasMore, apiError } = experiencesResult;
 
   // PPC fallback: if filtered page returns 0 results and traffic is from PPC, redirect to homepage
   const hasFilters = resolvedSearchParams['cities'] || resolvedSearchParams['categories'];
@@ -1129,103 +1151,95 @@ export default async function ExperiencesPage({ searchParams }: Props) {
   }
 
   const destination = resolvedSearchParams.destination || resolvedSearchParams.location;
-  const isMicrosite =
-    !!site.micrositeContext?.supplierId ||
-    !!site.micrositeContext?.discoveryConfig ||
-    isTickittoSite(site);
 
   // For MARKETPLACE microsites (50+ products), show horizontal filter bar
-  if (isMicrosite && site.micrositeContext?.supplierId) {
-    const layoutType = site.micrositeContext.layoutConfig?.resolvedType;
+  if (isMarketplace && site.micrositeContext?.supplierId) {
+    // Use pre-fetched filter options, fallback to API-based filter options
+    let filterOptions = filterOptionsResult!;
 
-    if (layoutType === 'MARKETPLACE') {
-      // Try local DB filter options first, fallback to API-based filter options
-      let filterOptions = await getFilterOptions(site.micrositeContext.supplierId);
-
-      // If no local products, fetch all from API to build filter options
-      if (filterOptions.categories.length === 0 && filterOptions.priceRanges.length === 0) {
-        if (site.micrositeContext.holibobSupplierId) {
-          filterOptions = await getFilterOptionsFromAPI(
-            site,
-            site.micrositeContext.holibobSupplierId,
-            site.micrositeContext.cachedProductCount
-          );
-        }
+    // If no local products, fetch all from API to build filter options
+    if (filterOptions.categories.length === 0 && filterOptions.priceRanges.length === 0) {
+      if (site.micrositeContext.holibobSupplierId) {
+        filterOptions = await getFilterOptionsFromAPI(
+          site,
+          site.micrositeContext.holibobSupplierId,
+          site.micrositeContext.cachedProductCount
+        );
       }
-
-      // Convert FilterOptions to FilterCounts for the new component
-      const initialFilterCounts: FilterCounts = {
-        categories: filterOptions.categories,
-        priceRanges: filterOptions.priceRanges,
-        durations: filterOptions.durations,
-        ratings: filterOptions.ratings,
-        cities: filterOptions.cities,
-      };
-
-      // Build page title for marketplace — use URL filter params when present
-      const ctx = site.micrositeContext;
-      const urlCities = resolvedSearchParams.cities?.split(',').filter(Boolean) ?? [];
-      const urlCategories = resolvedSearchParams.categories?.split(',').filter(Boolean) ?? [];
-
-      const topCity =
-        urlCities.length === 1
-          ? urlCities[0]
-          : urlCities.length > 1
-            ? undefined
-            : (ctx?.supplierCities?.[0] ?? site.homepageConfig?.destinations?.[0]?.name);
-      const topCategory =
-        urlCategories.length === 1
-          ? urlCategories[0]
-          : urlCategories.length > 1
-            ? undefined
-            : (ctx?.supplierCategories?.[0] ??
-              site.homepageConfig?.categories?.map((c) => c.name)?.[0]);
-
-      let marketplaceTitle = 'All Experiences & Tours';
-      let marketplaceSubtitle = `Explore our curated collection of tours and activities`;
-
-      if (urlCities.length > 1 && topCategory) {
-        marketplaceTitle = `${topCategory} in ${urlCities.length} Cities`;
-        marketplaceSubtitle = `Browse ${topCategory.toLowerCase()} in ${urlCities.join(', ')}`;
-      } else if (urlCities.length > 1) {
-        marketplaceTitle = `Experiences in ${urlCities.length} Cities`;
-        marketplaceSubtitle = `Browse experiences in ${urlCities.join(', ')}`;
-      } else if (topCategory && topCity) {
-        marketplaceTitle = `${topCategory} in ${topCity}`;
-        marketplaceSubtitle = `Browse the best ${topCategory.toLowerCase()} and more in ${topCity}`;
-      } else if (topCity) {
-        marketplaceTitle = `Things to Do in ${topCity}`;
-        marketplaceSubtitle = `Explore tours, activities, and unique experiences in ${topCity}`;
-      } else if (topCategory) {
-        marketplaceTitle = `${topCategory} & Experiences`;
-        marketplaceSubtitle = `Browse our collection of ${topCategory.toLowerCase()} and more`;
-      }
-
-      // Build extra API params for the client-side fetch hook
-      const extraApiParams: Record<string, string> = {};
-      if (site.micrositeContext['holibobSupplierId']) {
-        extraApiParams['holibobSupplierId'] = site.micrositeContext['holibobSupplierId'];
-      }
-
-      return (
-        <MarketplaceFilteredPage
-          siteName={site.name}
-          primaryColor={site.brand?.primaryColor ?? '#0F766E'}
-          hostname={hostname}
-          pageTitle={marketplaceTitle}
-          pageSubtitle={marketplaceSubtitle}
-          initialExperiences={experiences}
-          initialTotalCount={totalCount}
-          initialFilteredCount={filteredCount}
-          initialHasMore={hasMore}
-          initialFilterCounts={initialFilterCounts}
-          extraApiParams={extraApiParams}
-          apiError={apiError}
-          supplierCities={ctx?.supplierCities ?? []}
-          supplierCategories={ctx?.supplierCategories ?? []}
-        />
-      );
     }
+
+    // Convert FilterOptions to FilterCounts for the new component
+    const initialFilterCounts: FilterCounts = {
+      categories: filterOptions.categories,
+      priceRanges: filterOptions.priceRanges,
+      durations: filterOptions.durations,
+      ratings: filterOptions.ratings,
+      cities: filterOptions.cities,
+    };
+
+    // Build page title for marketplace — use URL filter params when present
+    const ctx = site.micrositeContext;
+    const urlCities = resolvedSearchParams.cities?.split(',').filter(Boolean) ?? [];
+    const urlCategories = resolvedSearchParams.categories?.split(',').filter(Boolean) ?? [];
+
+    const topCity =
+      urlCities.length === 1
+        ? urlCities[0]
+        : urlCities.length > 1
+          ? undefined
+          : (ctx?.supplierCities?.[0] ?? site.homepageConfig?.destinations?.[0]?.name);
+    const topCategory =
+      urlCategories.length === 1
+        ? urlCategories[0]
+        : urlCategories.length > 1
+          ? undefined
+          : (ctx?.supplierCategories?.[0] ??
+            site.homepageConfig?.categories?.map((c) => c.name)?.[0]);
+
+    let marketplaceTitle = 'All Experiences & Tours';
+    let marketplaceSubtitle = `Explore our curated collection of tours and activities`;
+
+    if (urlCities.length > 1 && topCategory) {
+      marketplaceTitle = `${topCategory} in ${urlCities.length} Cities`;
+      marketplaceSubtitle = `Browse ${topCategory.toLowerCase()} in ${urlCities.join(', ')}`;
+    } else if (urlCities.length > 1) {
+      marketplaceTitle = `Experiences in ${urlCities.length} Cities`;
+      marketplaceSubtitle = `Browse experiences in ${urlCities.join(', ')}`;
+    } else if (topCategory && topCity) {
+      marketplaceTitle = `${topCategory} in ${topCity}`;
+      marketplaceSubtitle = `Browse the best ${topCategory.toLowerCase()} and more in ${topCity}`;
+    } else if (topCity) {
+      marketplaceTitle = `Things to Do in ${topCity}`;
+      marketplaceSubtitle = `Explore tours, activities, and unique experiences in ${topCity}`;
+    } else if (topCategory) {
+      marketplaceTitle = `${topCategory} & Experiences`;
+      marketplaceSubtitle = `Browse our collection of ${topCategory.toLowerCase()} and more`;
+    }
+
+    // Build extra API params for the client-side fetch hook
+    const extraApiParams: Record<string, string> = {};
+    if (site.micrositeContext['holibobSupplierId']) {
+      extraApiParams['holibobSupplierId'] = site.micrositeContext['holibobSupplierId'];
+    }
+
+    return (
+      <MarketplaceFilteredPage
+        siteName={site.name}
+        primaryColor={site.brand?.primaryColor ?? '#0F766E'}
+        hostname={hostname}
+        pageTitle={marketplaceTitle}
+        pageSubtitle={marketplaceSubtitle}
+        initialExperiences={experiences}
+        initialTotalCount={totalCount}
+        initialFilteredCount={filteredCount}
+        initialHasMore={hasMore}
+        initialFilterCounts={initialFilterCounts}
+        extraApiParams={extraApiParams}
+        apiError={apiError}
+        supplierCities={ctx?.supplierCities ?? []}
+        supplierCategories={ctx?.supplierCategories ?? []}
+      />
+    );
   }
 
   // Build page title based on context
