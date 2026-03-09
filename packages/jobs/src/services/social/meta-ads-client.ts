@@ -274,6 +274,7 @@ export class MetaAdsClient {
       excludedCustomAudiences?: Array<{ id: string }>; // Audiences to exclude
       ageMin?: number;
       ageMax?: number;
+      publisherPlatforms?: string[]; // e.g. ['facebook', 'instagram'] — omit audience_network
     };
     optimizationGoal?: string;
     billingEvent?: string;
@@ -310,6 +311,9 @@ export class MetaAdsClient {
       }
       if (config.targeting.ageMin) targetingSpec['age_min'] = config.targeting.ageMin;
       if (config.targeting.ageMax) targetingSpec['age_max'] = config.targeting.ageMax;
+      if (config.targeting.publisherPlatforms?.length) {
+        targetingSpec['publisher_platforms'] = config.targeting.publisherPlatforms;
+      }
 
       const params = new URLSearchParams({
         name: config.name,
@@ -363,7 +367,7 @@ export class MetaAdsClient {
       }
 
       const data = (await response.json()) as { id: string };
-      console.log(`[MetaAds] Created ad set ${data.id}: "${config.name}"`);
+      console.info(`[MetaAds] Created ad set ${data.id}: "${config.name}"`);
       return { adSetId: data.id };
     } catch (error) {
       console.error('[MetaAds] Create ad set failed:', error);
