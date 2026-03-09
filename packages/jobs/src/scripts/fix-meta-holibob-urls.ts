@@ -142,20 +142,37 @@ async function main() {
       continue;
     }
 
-    // Build correct URL
-    let correctUrl = `https://${domain}`;
-    if (campaign.landingPagePath) {
-      correctUrl += campaign.landingPagePath.startsWith('/')
-        ? campaign.landingPagePath
-        : `/${campaign.landingPagePath}`;
+    // Build correct URL by swapping the domain on the existing targetUrl.
+    // This preserves query params like ?q=limassol and path segments.
+    let oldUrl: URL;
+    try {
+      oldUrl = new URL(campaign.targetUrl);
+    } catch {
+      console.warn(`SKIP "${campaign.name}": malformed targetUrl "${campaign.targetUrl}"`);
+      skipped++;
+      continue;
     }
 
-    // Add UTM params
-    const url = new URL(correctUrl);
+    const url = new URL(`https://${domain}${oldUrl.pathname}`);
+    // Preserve original query params (e.g. ?q=limassol)
+    oldUrl.searchParams.forEach((value, key) => {
+      if (!key.startsWith('utm_')) url.searchParams.set(key, value);
+    });
+    // Set/override UTM params from campaign record
     if (campaign.utmSource) url.searchParams.set('utm_source', campaign.utmSource);
     if (campaign.utmMedium) url.searchParams.set('utm_medium', campaign.utmMedium);
     if (campaign.utmCampaign) url.searchParams.set('utm_campaign', campaign.utmCampaign);
     const finalUrl = url.toString();
+    // For DB update, store URL without UTM params
+    const correctUrlForDb = `https://${domain}${oldUrl.pathname}${
+      oldUrl.search
+        ? '?' +
+          [...oldUrl.searchParams]
+            .filter(([k]) => !k.startsWith('utm_'))
+            .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
+            .join('&')
+        : ''
+    }`;
 
     // Get creative data from proposalData
     const proposalData = campaign.proposalData as Record<string, unknown> | null;
@@ -231,11 +248,11 @@ async function main() {
         continue;
       }
 
-      // Update DB record
+      // Update DB record (without UTM params — those are added at deploy time)
       await prisma.adCampaign.update({
         where: { id: campaign.id },
         data: {
-          targetUrl: correctUrl, // Without UTM params (those are added at deploy time)
+          targetUrl: correctUrlForDb || `https://${domain}${oldUrl.pathname}`,
         },
       });
 
