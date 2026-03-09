@@ -2281,6 +2281,17 @@ export default function PaidTrafficDashboard() {
                           </td>
                           <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                             {(() => {
+                              // Meta parent campaigns with child ad sets: show child count
+                              // instead of the parent's (often incorrect) targetUrl
+                              if (isMetaCampaign && metaAdSets.length > 0) {
+                                return (
+                                  <span className="text-xs text-slate-500 italic">
+                                    {metaAdSets.length} ad set{metaAdSets.length !== 1 ? 's' : ''} —
+                                    expand for URLs
+                                  </span>
+                                );
+                              }
+
                               // Resolve landing page URL: prefer targetUrl, fall back to
                               // constructing from micrositeDomain + landingPagePath
                               const resolvedUrl =

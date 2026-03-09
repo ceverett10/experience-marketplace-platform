@@ -2463,7 +2463,7 @@ export async function deployDraftCampaigns(
       dailyBudget: Number(draft.dailyBudget),
       maxCpc: Number(draft.maxCpc),
       keywords: draft.keywords,
-      targetUrl: draft.targetUrl || `https://${effectiveSite?.primaryDomain || 'holibob.com'}`,
+      targetUrl: draft.targetUrl || `https://${effectiveSite?.primaryDomain || 'experiencess.com'}`,
       geoTargets: draft.geoTargets,
       utmSource: draft.utmSource,
       utmMedium: draft.utmMedium,
