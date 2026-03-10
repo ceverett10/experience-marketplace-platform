@@ -880,6 +880,8 @@ export const PRODUCT_LIST_BY_PROVIDER_QUERY = gql`
         }
         place {
           cityId
+          cityName
+          countryName
         }
       }
     }
@@ -889,7 +891,7 @@ export const PRODUCT_LIST_BY_PROVIDER_QUERY = gql`
 /**
  * Get all products - for bulk sync operations
  * NOTE: productList does not support pagination (no first/after args)
- * NOTE: place field in productList uses different schema than productDetail
+ * NOTE: place field in productList uses ProductPlace schema (cityName, not name)
  */
 export const PRODUCT_LIST_ALL_QUERY = gql`
   query ProductListAll($pageSize: Int, $page: Int) {
@@ -924,6 +926,8 @@ export const PRODUCT_LIST_ALL_QUERY = gql`
         }
         place {
           cityId
+          cityName
+          countryName
         }
       }
     }
