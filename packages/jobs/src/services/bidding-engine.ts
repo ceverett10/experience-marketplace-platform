@@ -39,17 +39,31 @@ const LOOKBACK_DAYS = 90; // Days of data to consider
  * If the keyword starts with a known activity pattern, return that pattern.
  * Otherwise, heuristically strip trailing single words that look like place names.
  */
+/**
+ * Naive de-pluralisation: strip trailing 's' from words >3 chars that don't end in 'ss'.
+ * "walking tours" → "walking tour", "cruises" → "cruise", "bus" → "bus", "glass" → "glass"
+ */
+function depluralize(text: string): string {
+  return text
+    .split(/\s+/)
+    .map((w) => (w.length > 3 && !w.endsWith('ss') && w.endsWith('s') ? w.slice(0, -1) : w))
+    .join(' ');
+}
+
 function stripCityFromActivity(activity: string, _keyword: string): string {
   const actLower = activity.toLowerCase().trim();
   if (!actLower) return activity;
 
   const { categoryPatterns } = PAID_TRAFFIC_CONFIG.metaConsolidated;
+  // De-pluralise activity for matching (patterns are singular, e.g., "walking tour")
+  const actDeplural = depluralize(actLower);
 
   // Pass 1: Check if activity STARTS with a known pattern (e.g., "wildlife portugal")
   for (const patterns of Object.values(categoryPatterns)) {
     for (const pattern of patterns as string[]) {
-      if (actLower.startsWith(pattern) && actLower.length > pattern.length) {
-        const remainder = actLower.slice(pattern.length).trim();
+      const actToCheck = actDeplural.startsWith(pattern) ? actDeplural : actLower;
+      if (actToCheck.startsWith(pattern) && actToCheck.length > pattern.length) {
+        const remainder = actToCheck.slice(pattern.length).trim();
         const remainderWords = remainder.split(/\s+/);
         if (remainderWords.length <= 2) {
           return pattern;
@@ -62,8 +76,9 @@ function stripCityFromActivity(activity: string, _keyword: string): string {
   // This handles city-first keywords like "murcia walking tour", "utrecht walking tour"
   for (const patterns of Object.values(categoryPatterns)) {
     for (const pattern of patterns as string[]) {
-      if (actLower.endsWith(pattern) && actLower.length > pattern.length) {
-        const prefix = actLower.slice(0, actLower.length - pattern.length).trim();
+      const actToCheck = actDeplural.endsWith(pattern) ? actDeplural : actLower;
+      if (actToCheck.endsWith(pattern) && actToCheck.length > pattern.length) {
+        const prefix = actToCheck.slice(0, actToCheck.length - pattern.length).trim();
         const prefixWords = prefix.split(/\s+/);
         if (prefixWords.length <= 2) {
           return pattern;
@@ -1636,14 +1651,6 @@ export function groupCandidatesIntoCampaigns(candidates: CampaignCandidate[]): C
     // "activity type" (core search term minus city/location) rather than exact ?q= path.
     // This merges "wildlife portugal", "wildlife phuket", "wildlife iceland" into one
     // "wildlife" ad group landing on /experiences?q=wildlife.
-    // Save original keyword-specific URLs before consolidation overwrites them.
-    // These become keyword-level final URLs so each keyword lands on its city-specific page.
-    const originalUrlByKeyword = new Map<string, string>();
-    for (const c of groupCandidates) {
-      if (c.landingPageType === 'EXPERIENCES_FILTERED') {
-        originalUrlByKeyword.set(c.keyword, c.targetUrl);
-      }
-    }
 
     const adGroupsByLp = new Map<string, CampaignCandidate[]>();
     for (const c of groupCandidates) {
@@ -1685,19 +1692,36 @@ export function groupCandidatesIntoCampaigns(candidates: CampaignCandidate[]): C
             ? ` Group ${Math.floor(chunk / MAX_KEYWORDS_PER_AD_GROUP) + 1}`
             : '';
         // Build keyword-level final URLs for consolidated EXPERIENCES_FILTERED groups.
-        // Each keyword retains its city-specific URL even though they share an ad group.
+        // Each keyword gets a URL built from its RAW keyword text (preserving city/location)
+        // so "wildlife portugal" lands on /experiences?q=wildlife+portugal, not just ?q=wildlife.
         const kwFinalUrls: Record<string, string> = {};
-        for (const c of chunkCandidates) {
-          const origUrl = originalUrlByKeyword.get(c.keyword);
-          if (origUrl && origUrl !== c.targetUrl) {
-            kwFinalUrls[c.keyword] = origUrl;
+        if (lpPrimary.landingPageType === 'EXPERIENCES_FILTERED') {
+          const domain = lpPrimary.targetUrl.split('/')[2] ?? '';
+          for (const c of chunkCandidates) {
+            // Build URL from the raw keyword, only stripping SEO market location words
+            const rawQuery = extractSearchQuery(c.keyword, c.location);
+            if (rawQuery) {
+              const kwUrl = `https://${domain}/experiences?q=${encodeURIComponent(rawQuery).replace(/%20/g, '+')}`;
+              if (kwUrl !== lpPrimary.targetUrl) {
+                kwFinalUrls[c.keyword] = kwUrl;
+              }
+            }
           }
         }
 
+        // If every keyword has its own final URL, use the homepage as the ad-level URL.
+        // This avoids sending users to a generic activity-only page when their keyword
+        // doesn't match (e.g., ad sitelink click uses ad-level URL).
+        const allKeywordsHaveUrls =
+          Object.keys(kwFinalUrls).length > 0 &&
+          chunkCandidates.every((c) => kwFinalUrls[c.keyword]);
+        const domain = lpPrimary.targetUrl.split('/')[2] ?? '';
+        const adGroupTargetUrl = allKeywordsHaveUrls ? `https://${domain}/` : lpPrimary.targetUrl;
+
         adGroups.push({
-          landingPagePath: lpPath,
+          landingPagePath: allKeywordsHaveUrls ? '/' : lpPath,
           landingPageType: lpPrimary.landingPageType,
-          targetUrl: lpPrimary.targetUrl,
+          targetUrl: adGroupTargetUrl,
           keywords: chunkCandidates.map((c) => c.keyword),
           primaryKeyword: lpPrimary.keyword + suffix,
           maxBid: Math.max(...chunkCandidates.map((c) => c.maxBid)),

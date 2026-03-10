@@ -533,8 +533,8 @@ function buildSupplierMicrositeLandingPage(
   const url = new URL(`https://${domain}/experiences`);
   let hasFilter = false;
 
-  // Match keyword to supplier's cities
-  const cityMatch = context.supplierCities?.find((city) => kw.includes(city.toLowerCase()));
+  // Match keyword to supplier's cities (word-boundary match to avoid "san" matching "santorini")
+  const cityMatch = context.supplierCities?.find((city) => keywordContainsAllWords(kw, city));
   if (cityMatch) {
     url.searchParams.set('cities', cityMatch);
     hasFilter = true;
@@ -629,7 +629,7 @@ function buildDiscoveryLandingPage(
 
     case 'DESTINATION': {
       const page = context.sitePages.find(
-        (p) => p.type === 'LANDING' && p.holibobLocationId && kw.includes(p.title.toLowerCase())
+        (p) => p.type === 'LANDING' && p.holibobLocationId && keywordContainsAllWords(kw, p.title)
       );
       if (page) {
         return {
@@ -676,6 +676,17 @@ function buildDiscoveryLandingPage(
 }
 
 // --- Matching Helpers --------------------------------------------------------
+
+/**
+ * Checks if ALL words in `phrase` appear as complete words in `keyword`.
+ * Prevents substring false positives: "santorini" won't match "San Diego"
+ * because "san" and "diego" are checked as whole words.
+ */
+function keywordContainsAllWords(keyword: string, phrase: string): boolean {
+  const kwWords = new Set(keyword.toLowerCase().split(/\s+/));
+  const phraseWords = phrase.toLowerCase().split(/\s+/);
+  return phraseWords.length > 0 && phraseWords.every((w) => kwWords.has(w));
+}
 
 /**
  * Checks if a keyword matches a blog post title.
