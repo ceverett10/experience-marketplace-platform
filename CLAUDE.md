@@ -248,6 +248,40 @@ npm run lint && npm run typecheck && npm run format:check && npm run test
 5. **Missing `type` keyword** — Use `import type { Foo }` for type-only imports
 6. **Build fails with "module not found"** — Packages must build before apps
 
+## Heroku Runtime Constraints
+
+- **Memory**: Standard-2X dynos (1GB). All worker concurrency reduced to 1 to prevent R15 OOM kills. Do not increase without memory profiling.
+- **Postgres**: Heroku essential-1, 20 total connections. Prisma pool capped at 4/process (auto-appended to DATABASE_URL). With multiple dynos, connections fill fast.
+- **HTTP timeout**: 30 seconds — long Holibob API calls can cascade to 503s
+- **Scheduler**: `ENABLE_SCHEDULER=true` on `worker-infra` dyno ONLY. Multiple dynos running scheduler = duplicate cron jobs.
+- **Autonomous roadmap processor**: Permanently disabled (commented out in `demand-generation/src/index.ts`). Do not re-enable without memory profiling.
+- **Release phase**: `prisma migrate deploy` runs automatically before every deploy. Failed migration = failed deploy.
+
+### Dyno Layout (Procfile)
+
+| Dyno           | Purpose                                                                  |
+| -------------- | ------------------------------------------------------------------------ |
+| `web`          | Proxy (8080) → website (3000) + admin (3001) + MCP (3100)                |
+| `worker`       | Generic demand-generation orchestrator                                   |
+| `worker-fast`  | Content, SEO, analytics, social, microsites                              |
+| `worker-heavy` | Long-running audits                                                      |
+| `worker-infra` | Site/domain/GSC + **scheduler** (only dyno with `ENABLE_SCHEDULER=true`) |
+
+### Redis
+
+- TLS auto-detected via `rediss://` scheme (`rejectUnauthorized: false` for Heroku self-signed certs)
+- BullMQ requires `maxRetriesPerRequest: null` and `enableReadyCheck: false` — do not change
+- Event streams capped at 50 entries to prevent Redis OOM
+- Dedup keys: 2h TTL — re-queuing a killed job within 2h is silently dropped
+- Daily budgets: fail-open (allow through if Redis unavailable)
+
+### Silent Failure Modes
+
+- Budget exceeded → returns fake job ID (`budget-exceeded:...`), not an error
+- Dedup hit → silently dropped with warning log only
+- `isProcessingAllowed()` → fails open on DB error (allows work through)
+- Server component try/catch → `return null` for non-critical sections (renders nothing)
+
 ## What NOT To Do
 
 - Do not use `location_types` in Meta Ads targeting (deprecated)
@@ -256,3 +290,6 @@ npm run lint && npm run typecheck && npm run format:check && npm run test
 - Do not commit `.env` files or secrets
 - Do not use `git push --force` on `main`
 - Do not skip pre-commit hooks with `--no-verify`
+- Do not increase worker concurrency above 1 (R15 OOM risk)
+- Do not set `ENABLE_SCHEDULER=true` on more than one dyno
+- Do not re-enable the autonomous roadmap processor

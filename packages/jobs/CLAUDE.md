@@ -142,6 +142,23 @@ beforeEach(async () => {
 6. If scheduled: add cron to `schedulers/index.ts`
 7. Test: `npm run test --workspace=@experience-marketplace/jobs`
 
+## Runtime Constraints
+
+- **Worker concurrency**: All queues at 1 (reduced from 2-5 to prevent R15 OOM). Do not increase.
+- **Lock duration**: 5 min (`lockDuration: 300_000`), stalled interval 30s, maxStalledCount 1
+- **Job cleanup**: `removeOnComplete: 20`, `removeOnFail: 100` per queue
+- **BullMQ Redis**: Requires `maxRetriesPerRequest: null` and `enableReadyCheck: false`
+- **Event streams**: Capped at 50 entries to prevent Redis memory growth
+- **Dedup**: Redis SET NX with 2h TTL. Jobs in `dedupExemptTypes` bypass. Re-queuing within 2h is silently dropped.
+- **Daily budgets**: Fail-open (allow through if Redis unavailable). Returns fake ID `budget-exceeded:...` when exceeded.
+
+## PlatformSettings & Pause Control
+
+- Singleton record ID: `'platform_settings_singleton'`
+- `isProcessingAllowed(siteId?)`: checks global pause → per-site pause. **Fails open** on DB error.
+- `isFeatureEnabled(featureName)`: checks feature-specific flags (enableContentGeneration, etc.)
+- Per-site pause: `site.autonomousProcessesPaused` — independent of global pause
+
 ## Known Stubs (Not Yet Implemented)
 
 These features have TODO placeholders in the code — do not try to integrate with them:
@@ -161,3 +178,6 @@ These features have TODO placeholders in the code — do not try to integrate wi
 5. **Pause control**: Check `canExecuteAutonomousOperation()` before autonomous work
 6. **Tightly coupled files**: `bidding-engine.ts` ↔ `landing-page-routing.ts` — always change together
 7. **Prisma enum casts**: May need `as any` for string literals — this is a known friction point
+8. **Silent job drops**: Budget exceeded and dedup both return fake IDs, not errors
+9. **Do not increase worker concurrency** — all set to 1 after R15 OOM crashes
+10. **Autonomous roadmap processor is disabled** — commented out, do not re-enable

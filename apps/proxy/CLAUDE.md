@@ -27,3 +27,11 @@ Heroku Ingress (8080)
 - Admin Next.js app uses `basePath = '/admin'` in production
 - Proxy does NOT rewrite paths — Next.js handles `/admin` prefix internally
 - In development, admin runs standalone with empty basePath on port 3001
+
+## Common Pitfalls
+
+1. **`changeOrigin` must stay `false`** — changing it breaks multi-tenant hostname resolution downstream
+2. **Route order matters**: OAuth discovery endpoints must be BEFORE the catch-all website proxy, or they'll never match
+3. **Admin subdomain rewrite**: Both `req.url` AND `req.originalUrl` must be modified — `http-proxy-middleware` reads `originalUrl`
+4. **MCP path stripping**: MCP server expects `/sse`, `/messages`, `/health` at root — the `/mcp` prefix must be stripped
+5. **`x-forwarded-host` is the canonical tenant identifier** in production — `host` resolves incorrectly behind Cloudflare

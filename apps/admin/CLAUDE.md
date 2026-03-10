@@ -73,9 +73,34 @@ Internal management dashboard. Next.js 14, port 3001. In production, served via 
 - **Parallel queries**: Use `Promise.all()` for independent DB calls
 - **Error handling**: Zod validation → 400, not found → 404, catch-all → 500
 
+## Authentication Details
+
+- Auth is enforced in **middleware only** — new API routes get auth automatically
+- To add a public route, add it to `PUBLIC_PATHS` in `src/middleware.ts`
+- Middleware uses Web Crypto API (Edge Runtime), while `auth.ts` uses Node `crypto` — both must produce identical results
+- Session secret resolves: `ADMIN_SESSION_SECRET` → `TOKEN_SECRET` → `HOLIBOB_API_SECRET`
+
+## API Patterns
+
+- **Action-based POST**: Many routes use `{ action: 'syncFromCloudflare' | 'createSiteFromDomain' | ... }` instead of sub-routes
+- **Stats queries**: Use `prisma.model.groupBy({ by: ['status'], _count: { id: true } })` — single query for all stats
+- **Response key inconsistency**: Some routes use `items`, others use the resource name (`domains`, `sites`). No single convention.
+
+## Cloudflare Dual Credentials
+
+Two different Cloudflare credential sets are needed:
+
+- **Global API Key**: `CLOUDFLARE_API_KEY` + `CLOUDFLARE_EMAIL` — used in `api/domains/route.ts` for domain sync
+- **Scoped API Token**: `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` — used everywhere else (DNS, CDN)
+
+Both must be configured in production.
+
 ## Common Pitfalls
 
 1. API routes need session validation — check middleware coverage for new routes
 2. Domain sync must include SNI endpoint (three code paths)
 3. Content status mapping differs from DB enum names
 4. Operations page depends on Redis — gracefully degrade when unavailable
+5. New public endpoints MUST be added to `PUBLIC_PATHS` or they'll return 401
+6. `ADMIN_SESSION_SECRET` is not in `.env.example` — it's the primary auth secret
+7. `(prisma as any).adminUser` cast exists because Prisma client gen may lag — known friction

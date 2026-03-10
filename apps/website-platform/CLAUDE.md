@@ -147,6 +147,25 @@ npm run test:e2e --workspace=@experience-marketplace/website-platform        # P
 
 Test environment is `jsdom`. Mocks for next/navigation, next/headers in `src/test/setup.tsx`.
 
+## Caching & Error Handling
+
+- **ISR**: All pages use `revalidate = 300` (5 min). No `generateStaticParams` — all pages are dynamically rendered then cached.
+- **Error boundaries**: Root `error.tsx` and `experiences/[slug]/error.tsx` exist. No `global-error.tsx` — root layout errors are uncaught.
+- **Graceful fallback**: Server components use try/catch → `return null` for non-critical sections. Data fetch failures render nothing rather than triggering error boundary.
+- **Stripe webhook**: `api/payment/webhook` requires raw body — any middleware that parses the body will break signature verification.
+
+## Middleware Details
+
+- Reads `x-forwarded-host` first (Cloudflare/Heroku sets this), then falls back to `host`
+- Sets `x-site-id` cookie/header but does NOT do a DB lookup — that happens later in `getSiteFromHostname()`
+- `utm_params` cookie: `httpOnly: false` (client-side checkout reads it for attribution)
+- `funnel_session` cookie: `httpOnly: true`, 30-min rolling TTL (reset on every request)
+- AI referral detection: hardcoded list of 8 LLM platform referers, not configurable via env
+
+## PlatformSettings (Feature Flags)
+
+Singleton record with ID `'platform_settings_singleton'`. Workers check `isProcessingAllowed()` from `packages/jobs/src/services/pause-control.ts`. Fails open on DB error. Per-site pause (`site.autonomousProcessesPaused`) is separate from global pause.
+
 ## Common Pitfalls
 
 1. Don't route experiences by human-readable slug — always product ID
@@ -156,3 +175,5 @@ Test environment is `jsdom`. Mocks for next/navigation, next/headers in `src/tes
 5. Don't access site config without `getSiteFromHostname()`
 6. Schema.org `BlogPosting` MUST have `image` — use fallback chain
 7. New page type? Update sitemap.ts slug handling AND this CLAUDE.md
+8. Stripe webhook body must not be pre-parsed — use `request.text()` for raw body
+9. No `global-error.tsx` — errors in root layout (e.g., brand CSS injection) are uncaught
