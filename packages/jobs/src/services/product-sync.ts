@@ -224,8 +224,9 @@ export async function syncProductsFromHolibob(
             }
 
             // Aggregate supplier data from products
-            if (product.place?.name) {
-              supplierCities.add(product.place.name);
+            const cityName = product.place?.cityName ?? product.place?.name;
+            if (cityName) {
+              supplierCities.add(cityName);
             }
             if (product.categoryList?.nodes) {
               for (const cat of product.categoryList.nodes) {
@@ -364,9 +365,8 @@ async function upsertProduct(
   }
 
   // Extract location from startPlace or place
-  // NOTE: productList endpoint only returns place.cityId, not place.name
-  // City names are backfilled separately via backfill-product-cities script
-  const city = product.place?.name ?? undefined;
+  // productList returns place.cityName (ProductPlace type), productDetail returns place.name
+  const city = product.place?.cityName ?? product.place?.name ?? null;
   const coordinates = product.startPlace?.geoCoordinate
     ? {
         lat: product.startPlace.geoCoordinate.latitude,
@@ -447,8 +447,8 @@ async function upsertProduct(
     priceFrom: newPriceFrom,
     currency: product.guidePriceCurrency ?? product.priceCurrency ?? 'GBP',
     duration,
-    ...(city ? { city } : {}),
-    country: null, // Not directly available in product response
+    city,
+    country: product.place?.countryName ?? null,
     // Prisma requires special handling for nullable JSON fields
     coordinates: coordinates ?? Prisma.JsonNull,
     rating: newRating,
@@ -631,8 +631,9 @@ export async function bulkSyncAllProducts(): Promise<ProductSyncResult> {
 
           // Aggregate supplier metadata
           agg.productCount++;
-          if (product.place?.name) {
-            agg.cities.add(product.place.name);
+          const aggCityName = product.place?.cityName ?? product.place?.name;
+          if (aggCityName) {
+            agg.cities.add(aggCityName);
           }
           if (product.categoryList?.nodes) {
             for (const cat of product.categoryList.nodes) {
