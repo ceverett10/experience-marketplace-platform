@@ -445,16 +445,7 @@ export const PAID_TRAFFIC_CONFIG = {
     },
 
     // ---- Audience sites (broader — general categories across all cities) ----
-    'broke-nomad.com': {
-      stems: ['budget tours', 'cheap tours', 'affordable experiences'],
-      holibobCategories: ['Local tour', 'Walking', 'City Tour'],
-      minProducts: 5,
-    },
-    'grad-trip.com': {
-      stems: ['group tours', 'party tours', 'nightlife tours', 'pub crawl'],
-      holibobCategories: ['Local tour', 'Food and Drink Tours', 'Walking'],
-      minProducts: 5,
-    },
+    // broke-nomad.com and grad-trip.com excluded — low AOV demographic
     'bachelorette-party-ideas.com': {
       stems: ['bachelorette party', 'hen party', 'group activities'],
       holibobCategories: ['Local tour', 'Food and Drink Tours', 'Cruise / Cruise Excursion'],
