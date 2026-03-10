@@ -3,6 +3,7 @@ import { cookies, headers } from 'next/headers';
 import { Inter, Playfair_Display } from 'next/font/google';
 import { getSiteFromHostname, generateBrandCSSVariables } from '@/lib/tenant';
 import { getRelatedMicrosites } from '@/lib/microsite-experiences';
+import { prisma } from '@/lib/prisma';
 import { SiteProvider } from '@/lib/site-context';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
@@ -111,6 +112,20 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       }));
     } catch (err) {
       console.warn('[Layout] Failed to fetch related microsites:', err);
+    }
+
+    // Check if microsite has published blog posts (for conditional Blog nav link)
+    try {
+      const blogCount = await prisma.page.count({
+        where: {
+          micrositeId: site.micrositeContext.micrositeId,
+          type: 'BLOG',
+          status: 'PUBLISHED',
+        },
+      });
+      site.hasBlogPosts = blogCount > 0;
+    } catch (err) {
+      console.warn('[Layout] Failed to check blog posts:', err);
     }
   }
 
