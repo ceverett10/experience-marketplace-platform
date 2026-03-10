@@ -109,7 +109,21 @@ gh pr merge --auto --squash && git fetch origin main && git rebase origin/main &
 - Framework: Vitest
 - Test files: `*.test.ts` / `*.test.tsx`
 - E2E: Playwright (website-platform only)
-- Coverage target: 80%
+- Coverage thresholds vary by workspace (check each `vitest.config.ts`):
+  - `ui-components`, `holibob-api`: 80%
+  - `website-platform`: 65%
+  - `database`: 35%
+  - `admin`: 13%
+  - Others: 20% (default)
+- When writing tests, match the workspace's configured threshold, not a blanket 80%
+
+### Existing Code Debt (Do Not Replicate)
+
+The codebase has legacy `console.log` usage (~1700 occurrences) and `as any` casts (~400).
+These exist as tech debt — **do not add new ones**. Follow the rules:
+
+- Use `console.info`/`console.warn`/`console.error` instead of `console.log`
+- Type properly instead of `as any` — only use when Prisma enum casts require it (documented friction point)
 
 ## Monorepo Structure
 
@@ -140,6 +154,90 @@ packages/
 - `content-engine` depends on: shared
 
 When changing a package, check downstream consumers for breakage.
+
+### Change Ripple Map (If You Change X, Also Update Y)
+
+**Prisma schema** (`packages/database/prisma/schema.prisma`):
+
+- Add enum value → update `packages/jobs/src/types/index.ts` (JOB_TYPE_TO_QUEUE, payload types)
+- Add PageType → update 17+ files that switch/filter on page type (see `database/CLAUDE.md`)
+- Add/change model → run `db:generate`, then `npm run typecheck` across all workspaces
+- Add JobType → add to JOB_TYPE_TO_QUEUE + create worker handler + add payload type
+
+**Shared package** (`packages/shared/`):
+
+- Change types → affects ALL workspaces. Run full `npm run typecheck`
+- Change `CATEGORY_DISPLAY_MAP` → affects content generation, microsite creation, keyword research
+- Change utilities → verify behavior in jobs, website-platform, admin
+
+**Bidding engine** (`packages/jobs/src/services/bidding-engine.ts`):
+
+- Always check `landing-page-routing.ts` — they import from each other
+- Also check `config/paid-traffic.ts`, `workers/ads.ts`, `google-ads-client.ts`
+
+**Content generation** (content-engine or jobs content workers):
+
+- Check `daily-content-generator.ts`, `content-optimizer.ts`, `workers/content.ts` together
+
+### Keeping CLAUDE.md Files Current
+
+When you make changes that affect patterns, conventions, or architecture documented in any
+CLAUDE.md file, **update the relevant CLAUDE.md in the same PR**. Examples:
+
+- Add a new queue → update `packages/jobs/CLAUDE.md`
+- Add a new page type → update `packages/database/CLAUDE.md` and `apps/website-platform/CLAUDE.md`
+- Change URL routing → update `apps/website-platform/CLAUDE.md`
+- Add a new API route → update `apps/admin/CLAUDE.md`
+- Hit a new bug or gotcha → add to "Common Pitfalls" in the relevant file
+
+This is not optional — stale docs cause agents to repeat past mistakes.
+
+## Business Model & Strategy
+
+This is a **multi-tenant experience marketplace** — white-label storefronts selling tours, activities,
+and attractions sourced from Holibob (and Tickitto for events). Revenue comes from commission on
+bookings (default 18%). The platform automates everything: site creation, branding, content, SEO,
+and paid traffic.
+
+### Three-Tier Site Hierarchy
+
+1. **Main Sites** — Custom-domain storefronts (e.g., `london-tours.com`, `food-tour-guide.com`).
+   Full branding, SEO, content generation, paid traffic. Each has a `Site` record with custom
+   `holibobPartnerId`, domain(s), and complete page set. These are the primary revenue drivers.
+
+2. **Opportunity Microsites** — SEO-driven subdomains on `experiencess.com`
+   (e.g., `kayaking-barcelona.experiencess.com`). Created from `SEOOpportunity` records when keyword
+   research identifies high-value search terms. Full content generation (homepage, about, blog, FAQ,
+   experiences), MARKETPLACE layout, comprehensive AI-generated branding. Each gets content refreshed
+   every ~20 days (5% daily rotation).
+
+3. **Supplier/Product Microsites** — Lightweight subdomains on `experiencess.com`
+   (e.g., `adventure-co.experiencess.com`). Created from supplier or product data. Minimal content
+   (homepage, about, experiences), lightweight branding. Layout auto-determined by product count:
+   1 = PRODUCT_SPOTLIGHT, 2-50 = CATALOG, 50+ = MARKETPLACE.
+
+**Parent domain** (`experiencess.com`) serves as the network hub and microsite namespace.
+
+### Traffic Strategy: Paid + Organic Working Together
+
+**Paid traffic** (Google Search + Meta Ads):
+
+- Bidding engine discovers keywords → AI evaluates quality → scores profitability → creates campaigns
+- Google uses STAG pattern (Single Theme Ad Groups) with phrase-match keywords and RSAs
+- Meta uses consolidated CBO campaigns grouped by activity category
+- Landing pages routed to the most relevant page type (blog > collection > destination > category)
+- Profitability model: `maxCPC = (AOV × CVR × commission) / targetROAS`
+
+**Organic traffic** (SEO):
+
+- Daily AI content generation: blogs, destination pages, FAQ hubs, comparison pages, local guides
+- GSC integration syncs every 6h — identifies underperforming pages for refresh
+- Meta title maintenance ensures titles stay within 30-60 chars
+- Structured data (Schema.org) on every indexable page
+- Internal linking and cross-site linking between main sites and microsites
+
+**The flywheel**: Paid traffic validates keywords → high-performing keywords get organic content →
+organic content reduces paid dependency → freed budget tests new keywords.
 
 ## Architecture Patterns
 
@@ -176,6 +274,15 @@ import { createHolibobClient } from '@experience-marketplace/holibob-api';
 // Env vars: HOLIBOB_API_URL, HOLIBOB_PARTNER_ID, HOLIBOB_API_KEY, HOLIBOB_API_SECRET
 ```
 
+**Holibob docs** (read these before working on product/booking features):
+
+- `packages/holibob-api/CLAUDE.md` — 9-step booking flow, methods, auth, error handling, pitfalls
+- `packages/holibob-api/src/client/index.ts` — Client class with all methods
+- `packages/holibob-api/src/queries/index.ts` — All 56+ GraphQL queries/mutations
+- `packages/holibob-api/src/types/index.ts` — Zod schemas for all API types
+- `packages/mcp-server/CLAUDE.md` — MCP server tools for AI-assisted booking
+- `docs/plans/campaign-pipeline-optimization.md` — How Holibob products feed the ad pipeline
+
 ### Database
 
 - ORM: Prisma
@@ -194,6 +301,69 @@ CI runs on all PRs to `main`:
 
 Deploy is automatic on `main` after CI passes (Heroku).
 
+**Build order matters**: packages must build before apps (`npm run build:packages` then `build:apps`).
+CI generates Prisma client first (`npm run db:generate` with dummy DATABASE_URL).
+
+### Quick Test Commands
+
+```bash
+# Test a specific workspace
+npm run test --workspace=@experience-marketplace/jobs
+npm run test --workspace=@experience-marketplace/website-platform
+
+# Test with coverage
+npm run test:coverage --workspace=@experience-marketplace/website-platform
+
+# E2E (website-platform only)
+npm run test:e2e --workspace=@experience-marketplace/website-platform
+
+# All checks (what CI runs)
+npm run lint && npm run typecheck && npm run format:check && npm run test
+```
+
+### Common CI Failures
+
+1. **Prettier formatting** — Run `npm run format` to auto-fix
+2. **Type errors after schema change** — Run `npm run db:generate` first
+3. **`console.log` violations** — Replace with `console.info`, `console.warn`, or `console.error`
+4. **Unused imports** — Remove them or prefix with `_`
+5. **Missing `type` keyword** — Use `import type { Foo }` for type-only imports
+6. **Build fails with "module not found"** — Packages must build before apps
+
+## Heroku Runtime Constraints
+
+- **Memory**: Standard-2X dynos (1GB). All worker concurrency reduced to 1 to prevent R15 OOM kills. Do not increase without memory profiling.
+- **Postgres**: Heroku essential-1, 20 total connections. Prisma pool capped at 4/process (auto-appended to DATABASE_URL). With multiple dynos, connections fill fast.
+- **HTTP timeout**: 30 seconds — long Holibob API calls can cascade to 503s
+- **Scheduler**: `ENABLE_SCHEDULER=true` on `worker-infra` dyno ONLY. Multiple dynos running scheduler = duplicate cron jobs.
+- **Autonomous roadmap processor**: Permanently disabled (commented out in `demand-generation/src/index.ts`). Do not re-enable without memory profiling.
+- **Release phase**: `prisma migrate deploy` runs automatically before every deploy. Failed migration = failed deploy.
+
+### Dyno Layout (Procfile)
+
+| Dyno           | Purpose                                                                  |
+| -------------- | ------------------------------------------------------------------------ |
+| `web`          | Proxy (8080) → website (3000) + admin (3001) + MCP (3100)                |
+| `worker`       | Generic demand-generation orchestrator                                   |
+| `worker-fast`  | Content, SEO, analytics, social, microsites                              |
+| `worker-heavy` | Long-running audits                                                      |
+| `worker-infra` | Site/domain/GSC + **scheduler** (only dyno with `ENABLE_SCHEDULER=true`) |
+
+### Redis
+
+- TLS auto-detected via `rediss://` scheme (`rejectUnauthorized: false` for Heroku self-signed certs)
+- BullMQ requires `maxRetriesPerRequest: null` and `enableReadyCheck: false` — do not change
+- Event streams capped at 50 entries to prevent Redis OOM
+- Dedup keys: 2h TTL — re-queuing a killed job within 2h is silently dropped
+- Daily budgets: fail-open (allow through if Redis unavailable)
+
+### Silent Failure Modes
+
+- Budget exceeded → returns fake job ID (`budget-exceeded:...`), not an error
+- Dedup hit → silently dropped with warning log only
+- `isProcessingAllowed()` → fails open on DB error (allows work through)
+- Server component try/catch → `return null` for non-critical sections (renders nothing)
+
 ## What NOT To Do
 
 - Do not use `location_types` in Meta Ads targeting (deprecated)
@@ -202,3 +372,6 @@ Deploy is automatic on `main` after CI passes (Heroku).
 - Do not commit `.env` files or secrets
 - Do not use `git push --force` on `main`
 - Do not skip pre-commit hooks with `--no-verify`
+- Do not increase worker concurrency above 1 (R15 OOM risk)
+- Do not set `ENABLE_SCHEDULER=true` on more than one dyno
+- Do not re-enable the autonomous roadmap processor
