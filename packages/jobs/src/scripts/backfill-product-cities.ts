@@ -1,9 +1,9 @@
 /**
  * Backfill product city data from the Holibob API.
  *
- * The `productList` endpoint only returns `place.cityId` (not `place.name`),
- * so we build a cityId → name lookup using the `placeList` API, then page
- * through all products and match cityIds to city names.
+ * The productList endpoint returns `place.cityName` and `place.countryName`
+ * on the ProductPlace type. This script pages through all products and
+ * updates the local database with city/country data.
  *
  * Usage:
  *   heroku run 'cd /app && node packages/jobs/dist/scripts/backfill-product-cities.js --dry-run'
@@ -34,18 +34,7 @@ async function main() {
 
   const client = getHolibobClient();
 
-  // Step 1: Build cityId → name lookup from Holibob places API
-  console.info('[Backfill] Fetching city list from Holibob places API...');
-  const places = await client.getPlaces({ type: 'CITY' });
-  const cityNameById = new Map<string, string>();
-  for (const place of places) {
-    if (place.id && place.name) {
-      cityNameById.set(place.id, place.name);
-    }
-  }
-  console.info(`[Backfill] Loaded ${cityNameById.size} city names from places API`);
-
-  // Step 2: Load products without city from local DB
+  // Load products without city from local DB
   console.info('[Backfill] Loading products without city...');
   const productsWithoutCity = await prisma.product.findMany({
     where: { OR: [{ city: null }, { city: '' }] },
@@ -59,40 +48,33 @@ async function main() {
     process.exit(0);
   }
 
-  // Step 3: Page through Holibob products, match cityId to city name
+  // Fetch all products from Holibob (now returns place.cityName)
   console.info('[Backfill] Fetching all products from Holibob API (this may take a while)...');
   const response = await client.getAllProducts();
   console.info(`[Backfill] Fetched ${response.nodes.length} products from API`);
 
-  const cityUpdates: Array<{ localId: string; city: string }> = [];
+  const cityUpdates: Array<{ localId: string; city: string; country: string | null }> = [];
   const cityCounts = new Map<string, number>();
-  let missingCityId = 0;
-  let unknownCityId = 0;
+  let missingCity = 0;
 
   for (const product of response.nodes) {
-    const cityId = product.place?.cityId;
-    if (!cityId) {
-      missingCityId++;
+    const cityName = product.place?.cityName;
+    if (!cityName) {
+      missingCity++;
       continue;
     }
     if (!localProductMap.has(product.id)) continue;
 
-    const cityName = cityNameById.get(cityId);
-    if (!cityName) {
-      unknownCityId++;
-      continue;
-    }
-
     cityUpdates.push({
       localId: localProductMap.get(product.id)!,
       city: cityName,
+      country: product.place?.countryName ?? null,
     });
     cityCounts.set(cityName, (cityCounts.get(cityName) ?? 0) + 1);
   }
 
   console.info(`[Backfill] Matched ${cityUpdates.length} products to city names`);
-  console.info(`[Backfill] ${missingCityId} products had no cityId`);
-  console.info(`[Backfill] ${unknownCityId} products had cityId not in places list`);
+  console.info(`[Backfill] ${missingCity} products had no cityName in API response`);
 
   // Show top cities
   const topCities = [...cityCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 30);
@@ -116,7 +98,7 @@ async function main() {
       batch.map((u) =>
         prisma.product.update({
           where: { id: u.localId },
-          data: { city: u.city },
+          data: { city: u.city, country: u.country },
         })
       )
     );

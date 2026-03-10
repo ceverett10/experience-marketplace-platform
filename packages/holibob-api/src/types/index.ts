@@ -193,12 +193,15 @@ export const ProductSchema = z.object({
     })
     .optional(),
 
-  // Place information from Product Detail API
+  // Place information — productList uses ProductPlace (cityId, cityName, countryName)
+  // productDetail uses a different Place type (name, address)
   place: z
     .object({
       cityId: z.string().optional(),
       name: z.string().optional(),
       address: z.string().optional(),
+      cityName: z.string().optional(),
+      countryName: z.string().optional(),
     })
     .optional(),
 
