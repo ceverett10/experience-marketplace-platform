@@ -49,6 +49,7 @@ const navItems: NavItem[] = [
     ],
   },
   { href: '/content', label: 'Content', icon: '📝' },
+  { href: '/destinations', label: 'Destinations', icon: '📍' },
   { href: '/social', label: 'Social', icon: '📱' },
   { href: '/seo-issues', label: 'SEO Issues', icon: '🎯' },
   { href: '/link-building', label: 'Link Building', icon: '🔗' },
