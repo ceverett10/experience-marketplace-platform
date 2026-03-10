@@ -13,47 +13,14 @@
  *   heroku run 'cd /app && node packages/jobs/dist/scripts/backfill-product-cities.js --apply'
  */
 import { prisma } from '@experience-marketplace/database';
-import { GraphQLClient, gql } from 'graphql-request';
+import { createHolibobClient } from '@experience-marketplace/holibob-api';
 
-const PRODUCT_LIST_PAGE_QUERY = gql`
-  query ProductListPage($pageSize: Int, $page: Int) {
-    productList(pageSize: $pageSize, page: $page) {
-      recordCount
-      nextPage
-      nodes {
-        id
-        place {
-          cityId
-          cityName
-          countryName
-        }
-      }
-    }
-  }
-`;
-
-interface PageResult {
-  productList: {
-    recordCount: number;
-    nextPage: number | null;
-    nodes: Array<{
-      id: string;
-      place?: { cityId?: string; cityName?: string; countryName?: string };
-    }>;
-  };
-}
-
-function createGraphQLClient(): GraphQLClient {
-  const apiUrl = process.env['HOLIBOB_API_URL'] ?? '';
-  const apiKey = process.env['HOLIBOB_API_KEY'] ?? '';
-  const partnerId = process.env['HOLIBOB_PARTNER_ID'] ?? '';
-
-  return new GraphQLClient(apiUrl, {
-    headers: {
-      'X-API-Key': apiKey,
-      'X-Partner-Id': partnerId,
-      'Content-Type': 'application/json',
-    },
+function getHolibobClient() {
+  return createHolibobClient({
+    apiUrl: process.env['HOLIBOB_API_URL'] ?? '',
+    partnerId: process.env['HOLIBOB_PARTNER_ID'] ?? '',
+    apiKey: process.env['HOLIBOB_API_KEY'] ?? '',
+    apiSecret: process.env['HOLIBOB_API_SECRET'] ?? '',
   });
 }
 
@@ -67,6 +34,8 @@ async function main() {
   } else {
     console.info('=== PRODUCT CITY BACKFILL (APPLYING) ===\n');
   }
+
+  const client = getHolibobClient();
 
   // Load products without city from local DB
   console.info('[Backfill] Loading products without city...');
@@ -83,7 +52,6 @@ async function main() {
   }
 
   // Process products page by page to avoid memory issues (414k+ products)
-  const gqlClient = createGraphQLClient();
   console.info('[Backfill] Fetching products from Holibob API page by page...');
 
   const cityCounts = new Map<string, number>();
@@ -93,16 +61,10 @@ async function main() {
   let updated = 0;
   let page = 1;
   let hasMore = true;
-  const PAGE_SIZE = 500;
   const BATCH_SIZE = 100;
 
   while (hasMore) {
-    const response = await gqlClient.request<PageResult>(PRODUCT_LIST_PAGE_QUERY, {
-      pageSize: PAGE_SIZE,
-      page,
-    });
-
-    const result = response.productList;
+    const result = await client.getProductsPage(page);
     totalFetched += result.nodes.length;
 
     // Process this page immediately — don't accumulate

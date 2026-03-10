@@ -957,6 +957,18 @@ export class HolibobClient {
     };
   }
 
+  /**
+   * Get a single page of products (for memory-efficient iteration).
+   * Returns the page result including nextPage for pagination.
+   */
+  async getProductsPage(page: number, pageSize = 500): Promise<ProductListByProviderResponse> {
+    const response = await this.executeQuery<{
+      productList: ProductListByProviderResponse;
+    }>(PRODUCT_LIST_ALL_QUERY, { pageSize, page });
+
+    return response.productList;
+  }
+
   // ==========================================================================
   // HIGH-LEVEL BOOKING FLOW HELPERS
   // ==========================================================================
