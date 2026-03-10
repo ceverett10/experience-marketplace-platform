@@ -248,6 +248,15 @@ import { createHolibobClient } from '@experience-marketplace/holibob-api';
 // Env vars: HOLIBOB_API_URL, HOLIBOB_PARTNER_ID, HOLIBOB_API_KEY, HOLIBOB_API_SECRET
 ```
 
+**Holibob docs** (read these before working on product/booking features):
+
+- `packages/holibob-api/CLAUDE.md` — 9-step booking flow, methods, auth, error handling, pitfalls
+- `packages/holibob-api/src/client/index.ts` — Client class with all methods
+- `packages/holibob-api/src/queries/index.ts` — All 56+ GraphQL queries/mutations
+- `packages/holibob-api/src/types/index.ts` — Zod schemas for all API types
+- `packages/mcp-server/CLAUDE.md` — MCP server tools for AI-assisted booking
+- `docs/plans/campaign-pipeline-optimization.md` — How Holibob products feed the ad pipeline
+
 ### Database
 
 - ORM: Prisma

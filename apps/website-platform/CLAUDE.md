@@ -137,6 +137,8 @@ Tailwind config references these: `colors: { primary: 'hsl(var(--primary))' }`
 
 API routes in `api/booking/`, `api/products/`, `api/payment/`.
 
+**Full Holibob docs**: `packages/holibob-api/CLAUDE.md` (methods, auth, GraphQL queries, pitfalls).
+
 ## Testing
 
 - **Framework**: Vitest + React Testing Library + Playwright (E2E)
