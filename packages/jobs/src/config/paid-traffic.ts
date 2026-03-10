@@ -276,6 +276,206 @@ export const PAID_TRAFFIC_CONFIG = {
   },
 
   // ---------------------------------------------------------------------------
+  // Site-driven keyword generation config
+  // ---------------------------------------------------------------------------
+  /**
+   * Maps each branded domain to:
+   *   - stems: search-friendly keyword stems to combine with cities
+   *   - holibobCategories: raw Holibob categories that confirm product inventory
+   *   - minProducts: minimum products in a city before generating keywords
+   *   - cityFilter: optional — restrict to specific cities (for city-specific sites)
+   */
+  siteKeywordConfig: {
+    // ---- Category sites (global — all cities with inventory) ----
+    'food-tour-guide.com': {
+      stems: [
+        'food tours',
+        'cooking classes',
+        'wine tasting',
+        'street food tours',
+        'beer tours',
+        'dining experiences',
+      ],
+      holibobCategories: [
+        'Food and Drink Tours',
+        'Cooking Classes',
+        'Wine Tasting',
+        'Street Food Tours',
+        'Beer Tours',
+        'Dining Experience',
+        'Food Tours',
+        'Wine Tours',
+      ],
+      minProducts: 3,
+    },
+    'water-tours.com': {
+      stems: [
+        'boat tours',
+        'sailing tours',
+        'kayaking',
+        'snorkeling tours',
+        'diving tours',
+        'water sports',
+      ],
+      holibobCategories: [
+        'Watersports',
+        'Boat',
+        'Sailing',
+        'Scuba Diving / Snorkelling',
+        'Kayaking / Canoeing',
+        'Cruise / Cruise Excursion',
+      ],
+      minProducts: 3,
+    },
+    'outdoorexploring.com': {
+      stems: [
+        'hiking tours',
+        'safari tours',
+        'ATV tours',
+        'cycling tours',
+        'horse riding',
+        'wildlife tours',
+      ],
+      holibobCategories: [
+        'Hiking',
+        'Safari',
+        'ATV / Quad Bike',
+        'Biking / Cycling',
+        'Horse Riding',
+        'Wildlife',
+      ],
+      minProducts: 3,
+    },
+    'cultural-tours.com': {
+      stems: [
+        'walking tours',
+        'city tours',
+        'museum tours',
+        'architecture tours',
+        'sightseeing tours',
+      ],
+      holibobCategories: [
+        'Walking',
+        'City Tour',
+        'Architecture',
+        'Museum',
+        'Culture',
+        'Local tour',
+      ],
+      minProducts: 3,
+    },
+    'attractionbooking.com': {
+      stems: ['attraction tickets', 'skip the line tickets', 'hop on hop off'],
+      holibobCategories: ['Passes', 'Hop-on Hop-off'],
+      minProducts: 3,
+    },
+    'winetravelcollective.com': {
+      stems: ['wine tours', 'wine tasting tours', 'vineyard tours'],
+      holibobCategories: ['Wine Tasting', 'Wine Tours'],
+      minProducts: 3,
+    },
+    'honeymoonexperiences.com': {
+      stems: ['romantic experiences', 'couples tours', 'honeymoon activities'],
+      holibobCategories: ['Couples'],
+      minProducts: 3,
+    },
+
+    // ---- City-specific sites (only their city) ----
+    'london-food-tours.com': {
+      stems: ['food tours', 'cooking classes', 'street food tours'],
+      holibobCategories: [
+        'Food and Drink Tours',
+        'Cooking Classes',
+        'Street Food Tours',
+        'Food Tours',
+      ],
+      minProducts: 1,
+      cityFilter: ['London'],
+    },
+    'paris-food-tours.com': {
+      stems: ['food tours', 'cooking classes', 'street food tours'],
+      holibobCategories: [
+        'Food and Drink Tours',
+        'Cooking Classes',
+        'Street Food Tours',
+        'Food Tours',
+      ],
+      minProducts: 1,
+      cityFilter: ['Paris'],
+    },
+    'barcelona-food-tours.com': {
+      stems: ['food tours', 'cooking classes', 'street food tours'],
+      holibobCategories: [
+        'Food and Drink Tours',
+        'Cooking Classes',
+        'Street Food Tours',
+        'Food Tours',
+      ],
+      minProducts: 1,
+      cityFilter: ['Barcelona'],
+    },
+    'new-york-food-tours.com': {
+      stems: ['food tours', 'cooking classes', 'street food tours'],
+      holibobCategories: [
+        'Food and Drink Tours',
+        'Cooking Classes',
+        'Street Food Tours',
+        'Food Tours',
+      ],
+      minProducts: 1,
+      cityFilter: ['New York'],
+    },
+    'london-museum-tickets.com': {
+      stems: ['museum tickets', 'museum tours', 'gallery tickets'],
+      holibobCategories: ['Museum'],
+      minProducts: 1,
+      cityFilter: ['London'],
+    },
+    'new-york-museum-tickets.com': {
+      stems: ['museum tickets', 'museum tours', 'gallery tickets'],
+      holibobCategories: ['Museum'],
+      minProducts: 1,
+      cityFilter: ['New York'],
+    },
+    'harry-potter-tours.com': {
+      stems: ['harry potter tours', 'harry potter experience'],
+      holibobCategories: ['Themed'],
+      minProducts: 1,
+      cityFilter: ['London', 'Edinburgh'],
+    },
+
+    // ---- Audience sites (broader — general categories across all cities) ----
+    'broke-nomad.com': {
+      stems: ['budget tours', 'cheap tours', 'affordable experiences'],
+      holibobCategories: ['Local tour', 'Walking', 'City Tour'],
+      minProducts: 5,
+    },
+    'grad-trip.com': {
+      stems: ['group tours', 'party tours', 'nightlife tours', 'pub crawl'],
+      holibobCategories: ['Local tour', 'Food and Drink Tours', 'Walking'],
+      minProducts: 5,
+    },
+    'bachelorette-party-ideas.com': {
+      stems: ['bachelorette party', 'hen party', 'group activities'],
+      holibobCategories: ['Local tour', 'Food and Drink Tours', 'Cruise / Cruise Excursion'],
+      minProducts: 5,
+    },
+    'zen-journeys.com': {
+      stems: ['wellness retreats', 'yoga tours', 'meditation experiences', 'spa experiences'],
+      holibobCategories: ['Local tour', 'Walking', 'Wildlife'],
+      minProducts: 3,
+    },
+  } as Record<
+    string,
+    {
+      stems: string[];
+      holibobCategories: string[];
+      minProducts: number;
+      cityFilter?: string[];
+    }
+  >,
+
+  // ---------------------------------------------------------------------------
   // Default negative keywords (applied to every new Google campaign)
   // ---------------------------------------------------------------------------
   defaultNegativeKeywords: [

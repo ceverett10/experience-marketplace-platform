@@ -1,167 +1,202 @@
 /**
- * Catalogue Keyword Generator
+ * Site-driven Catalogue Keyword Generator
  *
- * Generates paid search keyword candidates from existing product data in the
- * local database. Queries distinct city × category combinations from the Product
- * table and creates keyword patterns like "{category} {city}", "{category} in {city}",
- * and "{city} {category}".
+ * Generates paid search keyword candidates by combining search-friendly stems
+ * (defined per site) with cities that have matching product inventory.
  *
- * Uses the "let Google filter" approach — no DataForSEO volume validation needed.
- * Google won't show ads for zero-volume keywords, so there's no wasted spend.
+ * Each branded domain defines:
+ *   - stems: human-friendly keyword stems ("food tours", "walking tours")
+ *   - holibobCategories: raw product categories that confirm inventory
+ *   - minProducts: minimum product count per city before generating keywords
+ *   - cityFilter: optional city restriction (for city-specific sites)
+ *
+ * City-specific sites (london-food-tours.com) take priority over global sites
+ * (food-tour-guide.com) for their city — dedup ensures no double-targeting.
+ *
+ * Uses the "let Google filter" approach — no volume validation needed.
  */
 
+import type { Prisma } from '@experience-marketplace/database';
 import { prisma } from '@experience-marketplace/database';
 import { PAID_TRAFFIC_CONFIG } from '../config/paid-traffic';
 
-// Minimum number of products for a city×category combo to generate keywords
-const MIN_PRODUCTS_PER_COMBO = 3;
-
-interface CityCategory {
-  city: string;
-  category: string;
-  productCount: number;
-}
-
-interface GenerationResult {
-  cityCategoryCombos: number;
+interface SiteKeywordResult {
+  domain: string;
+  siteId: string;
   keywordsGenerated: number;
-  keywordsInserted: number;
-  keywordsSkippedDuplicate: number;
+  citiesMatched: number;
   sampleKeywords: string[];
 }
 
-/**
- * Map a Holibob product category to our campaign group classification patterns.
- * Returns the campaign group name if the category matches, otherwise null.
- */
-function mapCategoryToCampaignGroup(category: string): string | null {
-  const catLower = category.toLowerCase();
-  const { categoryPatterns } = PAID_TRAFFIC_CONFIG.metaConsolidated;
+export interface GenerationResult {
+  sitesProcessed: number;
+  sitesSkipped: number;
+  totalKeywords: number;
+  totalInserted: number;
+  totalSkippedDuplicate: number;
+  perSite: SiteKeywordResult[];
+}
 
-  for (const [group, patterns] of Object.entries(categoryPatterns)) {
-    if ((patterns as string[]).some((p) => catLower.includes(p))) return group;
+/**
+ * Query cities that have enough products in the given Holibob categories.
+ */
+async function getCitiesWithInventory(
+  holibobCategories: string[],
+  minProducts: number,
+  cityFilter?: string[]
+): Promise<string[]> {
+  // Build the category array literal for the && (overlap) operator
+  const catArray = holibobCategories.map((c) => `"${c}"`).join(',');
+  const catClause = `categories && ARRAY[${catArray}]::text[]`;
+
+  let query = `
+    SELECT city, COUNT(*) as cnt
+    FROM products
+    WHERE city IS NOT NULL
+      AND city != ''
+      AND ${catClause}
+  `;
+
+  if (cityFilter && cityFilter.length > 0) {
+    const cityList = cityFilter.map((c) => `'${c.replace(/'/g, "''")}'`).join(',');
+    query += ` AND city IN (${cityList})`;
   }
 
-  return null;
-}
-
-/**
- * Normalise a category name for keyword generation.
- * "Boat Tours & Cruises" → "boat tours cruises"
- */
-function normaliseCategory(category: string): string {
-  return category
-    .toLowerCase()
-    .replace(/[&+]/g, ' ')
-    .replace(/[^a-z0-9\s]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-/**
- * Generate keyword patterns from a city × category combination.
- */
-function generateKeywordPatterns(city: string, category: string): string[] {
-  const normCat = normaliseCategory(category);
-  const normCity = city.toLowerCase().trim();
-
-  if (!normCat || !normCity) return [];
-
-  const keywords: string[] = [];
-
-  // Pattern 1: "{category} {city}" — e.g., "boat tours lisbon"
-  keywords.push(`${normCat} ${normCity}`);
-
-  // Pattern 2: "{category} in {city}" — e.g., "boat tours in lisbon"
-  keywords.push(`${normCat} in ${normCity}`);
-
-  // Pattern 3: "{city} {category}" — e.g., "lisbon boat tours"
-  keywords.push(`${normCity} ${normCat}`);
-
-  return keywords;
-}
-
-/**
- * Query distinct city × category combinations from the Product table
- * that have enough products to justify keyword generation.
- */
-async function getCityCategoryCombos(): Promise<CityCategory[]> {
-  // Use raw SQL for efficient unnest + groupBy on the categories array
-  const results = await prisma.$queryRaw<
-    Array<{ city: string; category: string; product_count: bigint }>
-  >`
-    SELECT p.city, unnest(p.categories) as category, COUNT(*) as product_count
-    FROM products p
-    WHERE p.city IS NOT NULL
-      AND p.city != ''
-      AND array_length(p.categories, 1) > 0
-    GROUP BY p.city, category
-    HAVING COUNT(*) >= ${MIN_PRODUCTS_PER_COMBO}
+  query += `
+    GROUP BY city
+    HAVING COUNT(*) >= ${minProducts}
     ORDER BY COUNT(*) DESC
   `;
 
-  return results.map((r) => ({
-    city: r.city,
-    category: r.category,
-    productCount: Number(r.product_count),
-  }));
+  const rows = await prisma.$queryRawUnsafe<Array<{ city: string; cnt: bigint }>>(query);
+  return rows.map((r) => r.city);
+}
+
+/**
+ * Generate keyword patterns from a stem × city combination.
+ */
+function generateKeywordPatterns(stem: string, city: string): string[] {
+  const normStem = stem.toLowerCase().trim();
+  const normCity = city.toLowerCase().trim();
+  if (!normStem || !normCity) return [];
+
+  return [
+    `${normStem} ${normCity}`, // "food tours rome"
+    `${normStem} in ${normCity}`, // "food tours in rome"
+    `${normCity} ${normStem}`, // "rome food tours"
+  ];
+}
+
+/**
+ * Look up siteId for a domain from the database.
+ */
+async function getSiteIdForDomain(domain: string): Promise<string | null> {
+  const site = await prisma.site.findFirst({
+    where: {
+      primaryDomain: domain,
+      status: { in: ['ACTIVE', 'REVIEW', 'DNS_PENDING', 'SSL_PENDING'] },
+    },
+    select: { id: true },
+  });
+  return site?.id ?? null;
 }
 
 /**
  * Generate and store keyword candidates from the product catalogue.
  *
  * @param dryRun - If true, only generates keywords without writing to DB
- * @returns Generation statistics
  */
 export async function generateCatalogueKeywords(dryRun = false): Promise<GenerationResult> {
-  console.info('[CatalogueKeywords] Querying city × category combinations...');
-  const combos = await getCityCategoryCombos();
-  console.info(
-    `[CatalogueKeywords] Found ${combos.length} combos with ≥${MIN_PRODUCTS_PER_COMBO} products`
-  );
+  const { siteKeywordConfig } = PAID_TRAFFIC_CONFIG;
+  const configEntries = Object.entries(siteKeywordConfig);
 
+  console.info(`[CatalogueKeywords] Processing ${configEntries.length} site configs...`);
+
+  // Track all generated keywords globally to handle cross-site dedup.
+  // City-specific sites are processed first so they take priority.
+  const globalSeen = new Set<string>();
+
+  // Sort: city-specific sites first (they have cityFilter), then global sites
+  const sorted = [...configEntries].sort((a, b) => {
+    const aHasFilter = a[1].cityFilter ? 0 : 1;
+    const bHasFilter = b[1].cityFilter ? 0 : 1;
+    return aHasFilter - bHasFilter;
+  });
+
+  const perSite: SiteKeywordResult[] = [];
+  let sitesSkipped = 0;
+
+  // Accumulate all keywords for batch insert
   const allKeywords: Array<{
     keyword: string;
     niche: string;
-    campaignGroup: string | null;
+    siteId: string;
+    domain: string;
   }> = [];
 
-  const seen = new Set<string>();
-
-  for (const combo of combos) {
-    const patterns = generateKeywordPatterns(combo.city, combo.category);
-    const campaignGroup = mapCategoryToCampaignGroup(combo.category);
-
-    for (const kw of patterns) {
-      if (seen.has(kw)) continue;
-      seen.add(kw);
-      allKeywords.push({
-        keyword: kw,
-        niche: combo.category,
-        campaignGroup,
-      });
+  for (const [domain, config] of sorted) {
+    const siteId = await getSiteIdForDomain(domain);
+    if (!siteId) {
+      console.info(`[CatalogueKeywords] Skipping ${domain} — site not found or not active`);
+      sitesSkipped++;
+      continue;
     }
+
+    const cities = await getCitiesWithInventory(
+      config.holibobCategories,
+      config.minProducts,
+      config.cityFilter
+    );
+
+    if (cities.length === 0) {
+      console.info(`[CatalogueKeywords] Skipping ${domain} — no cities with enough inventory`);
+      sitesSkipped++;
+      continue;
+    }
+
+    const siteKeywords: string[] = [];
+
+    for (const city of cities) {
+      for (const stem of config.stems) {
+        const patterns = generateKeywordPatterns(stem, city);
+        for (const kw of patterns) {
+          if (globalSeen.has(kw)) continue;
+          globalSeen.add(kw);
+          siteKeywords.push(kw);
+          allKeywords.push({ keyword: kw, niche: stem, siteId, domain });
+        }
+      }
+    }
+
+    const result: SiteKeywordResult = {
+      domain,
+      siteId,
+      keywordsGenerated: siteKeywords.length,
+      citiesMatched: cities.length,
+      sampleKeywords: siteKeywords.slice(0, 5),
+    };
+    perSite.push(result);
+
+    console.info(
+      `[CatalogueKeywords] ${domain}: ${siteKeywords.length} keywords across ${cities.length} cities`
+    );
   }
 
-  console.info(`[CatalogueKeywords] Generated ${allKeywords.length} unique keywords`);
+  const totalKeywords = allKeywords.length;
+  console.info(`\n[CatalogueKeywords] Total: ${totalKeywords} unique keywords`);
 
   if (dryRun) {
-    const sample = allKeywords.slice(0, 20).map((k) => k.keyword);
-    console.info('[CatalogueKeywords] DRY RUN — sample keywords:');
-    for (const kw of sample) {
-      console.info(`  - ${kw}`);
-    }
     return {
-      cityCategoryCombos: combos.length,
-      keywordsGenerated: allKeywords.length,
-      keywordsInserted: 0,
-      keywordsSkippedDuplicate: 0,
-      sampleKeywords: sample,
+      sitesProcessed: perSite.length,
+      sitesSkipped,
+      totalKeywords,
+      totalInserted: 0,
+      totalSkippedDuplicate: 0,
+      perSite,
     };
   }
 
   // Batch insert as PAID_CANDIDATE with source: 'catalogue'
-  // Uses skipDuplicates to handle the @@unique([keyword, location]) constraint
   const BATCH_SIZE = 500;
   let inserted = 0;
   let skipped = 0;
@@ -169,23 +204,33 @@ export async function generateCatalogueKeywords(dryRun = false): Promise<Generat
   for (let i = 0; i < allKeywords.length; i += BATCH_SIZE) {
     const batch = allKeywords.slice(i, i + BATCH_SIZE);
     const result = await prisma.sEOOpportunity.createMany({
-      data: batch.map((k) => ({
-        keyword: k.keyword,
-        location: null,
-        searchVolume: 0,
-        difficulty: 50,
-        cpc: 0,
-        intent: 'COMMERCIAL' as const,
-        niche: k.niche,
-        priorityScore: 50,
-        status: 'PAID_CANDIDATE' as const,
-        source: 'catalogue',
-        sourceData: k.campaignGroup ? { campaignGroup: k.campaignGroup } : undefined,
-      })),
+      data: batch.map(
+        (k) =>
+          ({
+            keyword: k.keyword,
+            location: null,
+            searchVolume: 0,
+            difficulty: 50,
+            cpc: 0,
+            intent: 'COMMERCIAL',
+            niche: k.niche,
+            priorityScore: 50,
+            status: 'PAID_CANDIDATE',
+            source: 'catalogue',
+            siteId: k.siteId,
+            sourceData: { domain: k.domain },
+          }) satisfies Prisma.SEOOpportunityCreateManyInput
+      ),
       skipDuplicates: true,
     });
     inserted += result.count;
     skipped += batch.length - result.count;
+
+    if ((i + BATCH_SIZE) % 5000 < BATCH_SIZE || i + BATCH_SIZE >= allKeywords.length) {
+      console.info(
+        `[CatalogueKeywords] Progress: ${Math.min(i + BATCH_SIZE, allKeywords.length)}/${totalKeywords}`
+      );
+    }
   }
 
   console.info(
@@ -193,10 +238,11 @@ export async function generateCatalogueKeywords(dryRun = false): Promise<Generat
   );
 
   return {
-    cityCategoryCombos: combos.length,
-    keywordsGenerated: allKeywords.length,
-    keywordsInserted: inserted,
-    keywordsSkippedDuplicate: skipped,
-    sampleKeywords: allKeywords.slice(0, 10).map((k) => k.keyword),
+    sitesProcessed: perSite.length,
+    sitesSkipped,
+    totalKeywords,
+    totalInserted: inserted,
+    totalSkippedDuplicate: skipped,
+    perSite,
   };
 }

@@ -21,15 +21,21 @@ async function main() {
   const result = await generateCatalogueKeywords(dryRun);
 
   console.info('\n=== RESULTS ===');
-  console.info(`City × Category combos: ${result.cityCategoryCombos}`);
-  console.info(`Keywords generated:     ${result.keywordsGenerated}`);
-  console.info(`Keywords inserted:      ${result.keywordsInserted}`);
-  console.info(`Duplicates skipped:     ${result.keywordsSkippedDuplicate}`);
+  console.info(`Sites processed:    ${result.sitesProcessed}`);
+  console.info(`Sites skipped:      ${result.sitesSkipped}`);
+  console.info(`Keywords generated: ${result.totalKeywords}`);
+  console.info(`Keywords inserted:  ${result.totalInserted}`);
+  console.info(`Duplicates skipped: ${result.totalSkippedDuplicate}`);
 
-  if (result.sampleKeywords.length > 0) {
-    console.info('\nSample keywords:');
-    for (const kw of result.sampleKeywords) {
-      console.info(`  - ${kw}`);
+  if (result.perSite.length > 0) {
+    console.info('\n--- Per-site breakdown ---');
+    for (const site of result.perSite) {
+      console.info(
+        `\n  ${site.domain} — ${site.keywordsGenerated} keywords, ${site.citiesMatched} cities`
+      );
+      for (const kw of site.sampleKeywords) {
+        console.info(`    - ${kw}`);
+      }
     }
   }
 
