@@ -35,6 +35,25 @@ Or run all tests: `npm run test`
 - Keep branches short-lived. One concern per branch.
 - Rebase on `main` before pushing if your branch is behind.
 
+### Merging PRs (Auto-Merge Workflow)
+
+Branch protection requires PRs to be up-to-date with `main` before merging. To avoid
+babysitting CI after every rebase, **always use auto-merge**:
+
+```bash
+# After creating the PR, enable auto-merge immediately:
+gh pr merge --auto --squash
+
+# If the branch is behind main, update it:
+gh pr merge --auto --squash && git fetch origin main && git rebase origin/main && git push --force-with-lease
+```
+
+- `--auto` queues the merge — GitHub merges automatically once CI passes
+- `--squash` keeps `main` history clean (one commit per PR)
+- `--force-with-lease` is safe — it refuses to push if someone else pushed to your branch
+- After enabling auto-merge, you do NOT need to wait for CI — move on to the next task
+- If CI fails after rebase, fix the issue, push again, and auto-merge stays queued
+
 ## Commit Messages
 
 - Imperative mood: "Fix bug", "Add feature", not "Fixed" or "Adds"
