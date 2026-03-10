@@ -142,6 +142,16 @@ beforeEach(async () => {
 6. If scheduled: add cron to `schedulers/index.ts`
 7. Test: `npm run test --workspace=@experience-marketplace/jobs`
 
+## Known Stubs (Not Yet Implemented)
+
+These features have TODO placeholders in the code — do not try to integrate with them:
+
+- **Notifications** (Slack/email/PagerDuty): `errors/tracking.ts`, `workers/content.ts` — stubs only
+- **Email service**: `workers/analytics.ts` — no email provider wired in
+- **Logo generation**: `workers/microsite.ts` — intentionally disabled, awaiting higher quality
+- **Seasonality scoring**: `workers/opportunity.ts` — hardcoded placeholder
+- **Admin site metrics**: `admin/api/sites/route.ts` — revenue, visitors, bookings all return 0
+
 ## Common Pitfalls
 
 1. **Supplier cities** list claimed cities — validate products actually exist via Holibob API

@@ -83,7 +83,21 @@ gh pr merge --auto --squash && git fetch origin main && git rebase origin/main &
 - Framework: Vitest
 - Test files: `*.test.ts` / `*.test.tsx`
 - E2E: Playwright (website-platform only)
-- Coverage target: 80%
+- Coverage thresholds vary by workspace (check each `vitest.config.ts`):
+  - `ui-components`, `holibob-api`: 80%
+  - `website-platform`: 65%
+  - `database`: 35%
+  - `admin`: 13%
+  - Others: 20% (default)
+- When writing tests, match the workspace's configured threshold, not a blanket 80%
+
+### Existing Code Debt (Do Not Replicate)
+
+The codebase has legacy `console.log` usage (~1700 occurrences) and `as any` casts (~400).
+These exist as tech debt — **do not add new ones**. Follow the rules:
+
+- Use `console.info`/`console.warn`/`console.error` instead of `console.log`
+- Type properly instead of `as any` — only use when Prisma enum casts require it (documented friction point)
 
 ## Monorepo Structure
 
