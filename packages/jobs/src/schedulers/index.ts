@@ -289,6 +289,9 @@ export async function initializeScheduledJobs(): Promise<void> {
   );
   console.info('[Scheduler] ✓ Paid Keyword Scanner - Tuesdays at 3 AM');
 
+  await scheduleJob('CATALOGUE_KEYWORD_SEED' as any, {} as any, '0 6 * * 1');
+  console.info('[Scheduler] ✓ Catalogue Keyword Generation - Mondays at 6 AM');
+
   console.info('[Scheduler] ⏸ Bidding Engine Run - PAUSED');
 
   await scheduleJob('AD_CAMPAIGN_SYNC' as any, {}, '0 * * * *');
