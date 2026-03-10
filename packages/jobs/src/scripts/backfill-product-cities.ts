@@ -5,19 +5,55 @@
  * on the ProductPlace type. This script pages through all products and
  * updates the local database with city/country data.
  *
+ * Memory-optimized: processes one page at a time instead of loading all
+ * 400k+ products into memory.
+ *
  * Usage:
  *   heroku run 'cd /app && node packages/jobs/dist/scripts/backfill-product-cities.js --dry-run'
  *   heroku run 'cd /app && node packages/jobs/dist/scripts/backfill-product-cities.js --apply'
  */
 import { prisma } from '@experience-marketplace/database';
-import { createHolibobClient } from '@experience-marketplace/holibob-api';
+import { GraphQLClient, gql } from 'graphql-request';
 
-function getHolibobClient() {
-  return createHolibobClient({
-    apiUrl: process.env['HOLIBOB_API_URL'] ?? '',
-    partnerId: process.env['HOLIBOB_PARTNER_ID'] ?? '',
-    apiKey: process.env['HOLIBOB_API_KEY'] ?? '',
-    apiSecret: process.env['HOLIBOB_API_SECRET'] ?? '',
+const PRODUCT_LIST_PAGE_QUERY = gql`
+  query ProductListPage($pageSize: Int, $page: Int) {
+    productList(pageSize: $pageSize, page: $page) {
+      recordCount
+      nextPage
+      nodes {
+        id
+        place {
+          cityId
+          cityName
+          countryName
+        }
+      }
+    }
+  }
+`;
+
+interface PageResult {
+  productList: {
+    recordCount: number;
+    nextPage: number | null;
+    nodes: Array<{
+      id: string;
+      place?: { cityId?: string; cityName?: string; countryName?: string };
+    }>;
+  };
+}
+
+function createGraphQLClient(): GraphQLClient {
+  const apiUrl = process.env['HOLIBOB_API_URL'] ?? '';
+  const apiKey = process.env['HOLIBOB_API_KEY'] ?? '';
+  const partnerId = process.env['HOLIBOB_PARTNER_ID'] ?? '';
+
+  return new GraphQLClient(apiUrl, {
+    headers: {
+      'X-API-Key': apiKey,
+      'X-Partner-Id': partnerId,
+      'Content-Type': 'application/json',
+    },
   });
 }
 
@@ -31,8 +67,6 @@ async function main() {
   } else {
     console.info('=== PRODUCT CITY BACKFILL (APPLYING) ===\n');
   }
-
-  const client = getHolibobClient();
 
   // Load products without city from local DB
   console.info('[Backfill] Loading products without city...');
@@ -48,32 +82,84 @@ async function main() {
     process.exit(0);
   }
 
-  // Fetch all products from Holibob (now returns place.cityName)
-  console.info('[Backfill] Fetching all products from Holibob API (this may take a while)...');
-  const response = await client.getAllProducts();
-  console.info(`[Backfill] Fetched ${response.nodes.length} products from API`);
+  // Process products page by page to avoid memory issues (414k+ products)
+  const gqlClient = createGraphQLClient();
+  console.info('[Backfill] Fetching products from Holibob API page by page...');
 
-  const cityUpdates: Array<{ localId: string; city: string; country: string | null }> = [];
   const cityCounts = new Map<string, number>();
+  let totalFetched = 0;
   let missingCity = 0;
+  let matchedCount = 0;
+  let updated = 0;
+  let page = 1;
+  let hasMore = true;
+  const PAGE_SIZE = 500;
+  const BATCH_SIZE = 100;
 
-  for (const product of response.nodes) {
-    const cityName = product.place?.cityName;
-    if (!cityName) {
-      missingCity++;
-      continue;
-    }
-    if (!localProductMap.has(product.id)) continue;
-
-    cityUpdates.push({
-      localId: localProductMap.get(product.id)!,
-      city: cityName,
-      country: product.place?.countryName ?? null,
+  while (hasMore) {
+    const response = await gqlClient.request<PageResult>(PRODUCT_LIST_PAGE_QUERY, {
+      pageSize: PAGE_SIZE,
+      page,
     });
-    cityCounts.set(cityName, (cityCounts.get(cityName) ?? 0) + 1);
+
+    const result = response.productList;
+    totalFetched += result.nodes.length;
+
+    // Process this page immediately — don't accumulate
+    const pageBatch: Array<{ localId: string; city: string; country: string | null }> = [];
+
+    for (const product of result.nodes) {
+      const cityName = product.place?.cityName;
+      if (!cityName) {
+        missingCity++;
+        continue;
+      }
+      if (!localProductMap.has(product.id)) continue;
+
+      pageBatch.push({
+        localId: localProductMap.get(product.id)!,
+        city: cityName,
+        country: product.place?.countryName ?? null,
+      });
+      cityCounts.set(cityName, (cityCounts.get(cityName) ?? 0) + 1);
+    }
+
+    matchedCount += pageBatch.length;
+
+    // Apply updates for this page immediately (if not dry run)
+    if (!dryRun && pageBatch.length > 0) {
+      for (let i = 0; i < pageBatch.length; i += BATCH_SIZE) {
+        const batch = pageBatch.slice(i, i + BATCH_SIZE);
+        await prisma.$transaction(
+          batch.map((u) =>
+            prisma.product.update({
+              where: { id: u.localId },
+              data: { city: u.city, country: u.country },
+            })
+          )
+        );
+        updated += batch.length;
+      }
+    }
+
+    hasMore = result.nextPage != null && result.nextPage > page;
+    page++;
+
+    if (page % 50 === 0 || !hasMore) {
+      console.info(
+        `[Backfill] Page ${page - 1} — ${totalFetched}/${result.recordCount} fetched, ${matchedCount} matched`
+      );
+    }
+
+    // Safety limit
+    if (page > 1000) {
+      console.warn('[Backfill] Stopped at page 1000 (safety limit)');
+      break;
+    }
   }
 
-  console.info(`[Backfill] Matched ${cityUpdates.length} products to city names`);
+  console.info(`\n[Backfill] Fetched ${totalFetched} products total`);
+  console.info(`[Backfill] Matched ${matchedCount} products to city names`);
   console.info(`[Backfill] ${missingCity} products had no cityName in API response`);
 
   // Show top cities
@@ -84,31 +170,11 @@ async function main() {
   }
 
   if (dryRun) {
-    console.info(`\n[Backfill] DRY RUN — would update ${cityUpdates.length} products`);
+    console.info(`\n[Backfill] DRY RUN — would update ${matchedCount} products`);
     process.exit(0);
   }
 
-  // Batch update in groups of 100
-  const BATCH_SIZE = 100;
-  let updated = 0;
-
-  for (let i = 0; i < cityUpdates.length; i += BATCH_SIZE) {
-    const batch = cityUpdates.slice(i, i + BATCH_SIZE);
-    await prisma.$transaction(
-      batch.map((u) =>
-        prisma.product.update({
-          where: { id: u.localId },
-          data: { city: u.city, country: u.country },
-        })
-      )
-    );
-    updated += batch.length;
-    if (updated % 5000 === 0 || updated === cityUpdates.length) {
-      console.info(`[Backfill] Updated ${updated}/${cityUpdates.length} products`);
-    }
-  }
-
-  // Also update supplier cities aggregation
+  // Update supplier cities aggregation
   console.info('\n[Backfill] Updating supplier city aggregations...');
   const supplierCities = await prisma.$queryRawUnsafe<
     Array<{ supplier_id: string; cities: string[] }>
