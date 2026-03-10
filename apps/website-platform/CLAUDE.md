@@ -4,12 +4,42 @@ Multi-tenant consumer storefronts. Next.js 14 App Router, React 18, Tailwind CSS
 
 ## Multi-Tenant Architecture
 
+This app serves ALL site types from one codebase: main sites (custom domains), opportunity microsites,
+supplier microsites, and the parent `experiencess.com` portal.
+
 ### Request Flow
 
 1. **Middleware** (`middleware.ts`): Extracts hostname from `x-forwarded-host` → strips port/www
 2. **Microsite detection**: `*.experiencess.com` → `parseMicrositeHostname()` → returns `MicrositeContext`
 3. **Site resolution**: `getSiteFromHostname(hostname)` in `lib/tenant.ts` → DB lookup by domain or slug
 4. **Context injection**: `SiteProvider` wraps app → hooks: `useSite()`, `useBrand()`, `useSEO()`
+
+### Site Type Resolution Order (`lib/tenant.ts`)
+
+1. **Microsite subdomains** (early exit): `parseMicrositeHostname()` checks if hostname matches
+   `*.experiencess.com` → looks up `MicrositeConfig` by subdomain + parentDomain composite key →
+   returns `MicrositeContext` with entityType, supplierId/productId, supplierCities/categories,
+   layoutConfig, discoveryConfig. **1-minute in-memory cache** per subdomain.
+
+2. **Parent domain**: Bare `experiencess.com` or `www.experiencess.com` → returns parent site config
+   (the network hub / aggregator portal).
+
+3. **Dev fallback**: `localhost`, `*.vercel.app`, `*.herokuapp.com` → returns DEFAULT_SITE_CONFIG.
+
+4. **Production main sites**: DB lookup on `domain` table by hostname, or fallback to `site.slug`.
+
+### How Microsites Differ from Main Sites
+
+| Aspect            | Main Site                       | Microsite                              |
+| ----------------- | ------------------------------- | -------------------------------------- |
+| Domain            | Custom (e.g., london-tours.com) | Subdomain (e.g., X.experiencess.com)   |
+| DB model          | `Site` + `Domain`               | `MicrositeConfig` (+ linked Brand)     |
+| Content scope     | Full (all page types)           | OPPORTUNITY: full / SUPPLIER: minimal  |
+| Layout            | Configurable                    | Auto: product count → layout type      |
+| Holibob filtering | By partner ID                   | By supplierId, productId, or discovery |
+| Branding          | Full custom brand               | AI-generated (comprehensive or light)  |
+| Paid traffic      | Full bidding engine             | OPPORTUNITY: yes / SUPPLIER: no        |
+| SEO               | Full                            | OPPORTUNITY: full / SUPPLIER: basic    |
 
 ### Attribution Cookies (set by middleware)
 

@@ -61,15 +61,49 @@ Key schedules (UTC):
 
 ## Paid Traffic / Bidding Engine
 
-**Profitability**: `revenuePerClick = AOV × CVR × commission` / `targetROAS`
+### End-to-End Pipeline
 
-- Budget: £1,200/day max, £50/campaign max
-- ROAS thresholds: pause < 0.5, target = 1.0, scale > 2.0
+1. **Keyword Discovery** (`paid-keyword-scanner.ts`) — 5 modes, runs twice weekly:
+   - GSC Mining: keywords with 50+ impressions but position > 15 (organic underperformance)
+   - Keyword Expansion: related keywords from top-50 performing opportunities (10 seeds max)
+   - Category Discovery: destination × category combinations from site configs (20 seeds max)
+   - Pinterest CPC: enriches candidates with bid estimates
+   - Meta Audience: searches interests for Meta targeting + delivery estimates
 
-**Meta Ads client**: Graph API v18.0, 3 req/min rate limit
+2. **AI Quality Evaluation** (`keyword-quality-evaluator.ts`) — Claude Haiku scores 4 dimensions:
+   - Relevance (tours/activities = high, flights/hotels = low)
+   - Commercial Intent (booking likelihood)
+   - Competition Viability (CPC vs difficulty)
+   - Landing Page Fit (does site have relevant content?)
+   - Decision: BID (≥65), REVIEW (40-64), SKIP (<40). Auto-penalties for single-word (-30),
+     hotel/flight (-25), navigational (-25). Quality decay: >£10 spend + 0 conversions → -20%/week.
 
-- Encrypted tokens (`:` separator) prioritized over plaintext
-- DSA compliance required for EU targeting
+3. **Profitability Scoring** (`bidding-engine.ts`):
+   - `maxCPC = (AOV × CVR × commission) / targetROAS`
+   - Defaults: AOV £197, CVR 1.5%, commission 18%, targetROAS 1.0
+   - Requires min 3 bookings for AOV, 100 sessions for CVR (90-day lookback)
+
+4. **Campaign Selection**: Top-N campaigns within daily budget (85% greedy + 15% exploration).
+   Budget: £1,200/day max, £50/campaign max. ROAS thresholds: pause < 0.5, target 1.0, scale > 2.0.
+
+5. **Landing Page Routing** (`landing-page-routing.ts`) — priority ladder:
+   HOMEPAGE (branded intent) → BLOG (informational) → COLLECTION (audience-specific) →
+   DESTINATION ("things to do in X") → CATEGORY (activity-specific) →
+   EXPERIENCES_FILTERED (activity + location combo)
+
+6. **Deployment** (`workers/ads.ts` → `google-ads-client.ts` / `meta-ads-client.ts`):
+   - **Google**: STAG pattern — 1 campaign per theme, 1-5 ad groups, exact-match keywords, RSAs.
+     Starts MANUAL_CPC → migrates to TARGET_ROAS after 15+ conversions.
+   - **Meta**: Consolidated CBO campaigns grouped by activity category (8 groups).
+     Interest-based targeting, DSA compliance for EU.
+
+### Platform-Specific Notes
+
+**Google Ads**: 50 req/min rate limit. Geo-targeting uses PRESENCE_OR_INTEREST.
+Sitelinks, callouts, structured snippets auto-attached. Negative keywords batched 1000/request.
+
+**Meta Ads**: Graph API v18.0, 3 req/min rate limit.
+Encrypted tokens (`:` separator) prioritized over plaintext. DSA compliance required for EU.
 
 **CRITICAL**: `location_types` is deprecated. `budget_rebalance_flag` deprecated since v7.0.
 
@@ -77,10 +111,33 @@ Key schedules (UTC):
 
 Uses `@experience-marketplace/content-engine` (Claude Haiku model).
 
-- Pipeline: Draft → Quality Assess (0-100) → Rewrite (max 3) → Publish
+### Content Types & Topic Selection (`daily-content-generator.ts`)
+
+| Type                | Strategy                                                                | Schedule        |
+| ------------------- | ----------------------------------------------------------------------- | --------------- |
+| Blog                | Site keywords/destinations, rotate topics                               | Daily 4 AM      |
+| Destination Landing | Top SEO opportunities by location + site config destinations            | Daily 5:30 AM   |
+| FAQ Hub             | GSC question queries (30-day) + existing H3 headers + AI fallback       | Mondays 1:30 AM |
+| Comparison          | Deterministic pairing: category vs category, destination vs destination | Daily 6 AM      |
+| Content Refresh     | SEO health identifies underperforming pages (low CTR, position drop)    | Daily 2 AM      |
+| Local Guide         | "First-timers guide" per destination                                    | Sundays 3 AM    |
+| Seasonal Event      | Current + upcoming month events (Christmas, Easter, etc.)               | Daily 7 AM      |
+
+Topics sourced from: `homepageConfig` (destinations/categories), `seoConfig` (primaryKeywords),
+microsite `discoveryConfig` (keyword, destination, niche).
+
+### Quality Pipeline
+
+- Draft → Quality Assess (0-100) → Rewrite (max 3) → Publish
 - Auto-publish at 90+, pass at 75+
 - Link sanitization: strips hallucinated URLs, placeholder domains
 - Cost limits: $0.50/piece, $50/day
+
+### Microsite Content
+
+- **Opportunity microsites**: Full content set (homepage, about, blog, FAQ, experiences, contact, privacy, terms)
+- **Supplier/Product microsites**: Minimal (homepage, about, experiences)
+- Opportunity microsites get content refreshed every ~20 days (5% daily rotation across all microsites)
 
 ## Testing Pattern
 

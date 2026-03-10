@@ -166,6 +166,53 @@ CLAUDE.md file, **update the relevant CLAUDE.md in the same PR**. Examples:
 
 This is not optional — stale docs cause agents to repeat past mistakes.
 
+## Business Model & Strategy
+
+This is a **multi-tenant experience marketplace** — white-label storefronts selling tours, activities,
+and attractions sourced from Holibob (and Tickitto for events). Revenue comes from commission on
+bookings (default 18%). The platform automates everything: site creation, branding, content, SEO,
+and paid traffic.
+
+### Three-Tier Site Hierarchy
+
+1. **Main Sites** — Custom-domain storefronts (e.g., `london-tours.com`, `food-tour-guide.com`).
+   Full branding, SEO, content generation, paid traffic. Each has a `Site` record with custom
+   `holibobPartnerId`, domain(s), and complete page set. These are the primary revenue drivers.
+
+2. **Opportunity Microsites** — SEO-driven subdomains on `experiencess.com`
+   (e.g., `kayaking-barcelona.experiencess.com`). Created from `SEOOpportunity` records when keyword
+   research identifies high-value search terms. Full content generation (homepage, about, blog, FAQ,
+   experiences), MARKETPLACE layout, comprehensive AI-generated branding. Each gets content refreshed
+   every ~20 days (5% daily rotation).
+
+3. **Supplier/Product Microsites** — Lightweight subdomains on `experiencess.com`
+   (e.g., `adventure-co.experiencess.com`). Created from supplier or product data. Minimal content
+   (homepage, about, experiences), lightweight branding. Layout auto-determined by product count:
+   1 = PRODUCT_SPOTLIGHT, 2-50 = CATALOG, 50+ = MARKETPLACE.
+
+**Parent domain** (`experiencess.com`) serves as the network hub and microsite namespace.
+
+### Traffic Strategy: Paid + Organic Working Together
+
+**Paid traffic** (Google Search + Meta Ads):
+
+- Bidding engine discovers keywords → AI evaluates quality → scores profitability → creates campaigns
+- Google uses STAG pattern (Single Theme Ad Groups) with phrase-match keywords and RSAs
+- Meta uses consolidated CBO campaigns grouped by activity category
+- Landing pages routed to the most relevant page type (blog > collection > destination > category)
+- Profitability model: `maxCPC = (AOV × CVR × commission) / targetROAS`
+
+**Organic traffic** (SEO):
+
+- Daily AI content generation: blogs, destination pages, FAQ hubs, comparison pages, local guides
+- GSC integration syncs every 6h — identifies underperforming pages for refresh
+- Meta title maintenance ensures titles stay within 30-60 chars
+- Structured data (Schema.org) on every indexable page
+- Internal linking and cross-site linking between main sites and microsites
+
+**The flywheel**: Paid traffic validates keywords → high-performing keywords get organic content →
+organic content reduces paid dependency → freed budget tests new keywords.
+
 ## Architecture Patterns
 
 ### Multi-Tenant Sites
