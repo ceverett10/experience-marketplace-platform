@@ -364,7 +364,9 @@ async function upsertProduct(
   }
 
   // Extract location from startPlace or place
-  const city = product.place?.name ?? null;
+  // NOTE: productList endpoint only returns place.cityId, not place.name
+  // City names are backfilled separately via backfill-product-cities script
+  const city = product.place?.name ?? undefined;
   const coordinates = product.startPlace?.geoCoordinate
     ? {
         lat: product.startPlace.geoCoordinate.latitude,
@@ -445,7 +447,7 @@ async function upsertProduct(
     priceFrom: newPriceFrom,
     currency: product.guidePriceCurrency ?? product.priceCurrency ?? 'GBP',
     duration,
-    city,
+    ...(city ? { city } : {}),
     country: null, // Not directly available in product response
     // Prisma requires special handling for nullable JSON fields
     coordinates: coordinates ?? Prisma.JsonNull,
