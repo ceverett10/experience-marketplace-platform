@@ -217,12 +217,12 @@ describe('CatalogHomepage', () => {
     expect(document.querySelector('[data-testid="blog-section"]')).toBeTruthy();
   });
 
-  it('renders related microsites when provided', () => {
+  it('does not render related microsites on homepage (moved to About page)', () => {
     const relatedMicrosites = [
       { id: 'ms-1', name: 'Paris Tours', slug: 'paris-tours', primaryColor: '#f00' },
     ];
     render(<CatalogHomepage {...defaultProps} relatedMicrosites={relatedMicrosites as any} />);
-    expect(document.querySelector('[data-testid="related-microsites"]')).toBeTruthy();
+    expect(document.querySelector('[data-testid="related-microsites"]')).toBeNull();
   });
 
   it('renders collections when provided', () => {
