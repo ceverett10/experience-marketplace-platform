@@ -389,62 +389,79 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
           </p>
 
           {/* Progress Steps */}
-          <div className="mt-6 flex items-center gap-0">
-            {[
-              { label: 'Your Details', step: 1 },
-              { label: 'Payment', step: 2 },
-            ].map((item, idx) => {
-              const currentStep = showPayment ? 2 : 1;
-              const isActive = item.step === currentStep;
-              const isCompleted = item.step < currentStep;
-              return (
-                <div key={item.step} className="flex flex-1 items-center">
-                  <div className="flex flex-1 flex-col items-center">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className={`flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold sm:h-8 sm:w-8 ${
-                          isCompleted
-                            ? 'bg-green-500 text-white'
-                            : isActive
-                              ? 'text-white'
-                              : 'bg-gray-200 text-gray-500'
-                        }`}
-                        style={isActive ? { backgroundColor: primaryColor } : {}}
+          {(() => {
+            const currentStep = showPayment ? 2 : 1;
+            const step1Completed = currentStep > 1;
+            const step1Active = currentStep === 1;
+            const step2Active = currentStep === 2;
+
+            const circleClasses = (completed: boolean, active: boolean) =>
+              `flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold sm:h-8 sm:w-8 ${
+                completed
+                  ? 'bg-green-500 text-white'
+                  : active
+                    ? 'text-white'
+                    : 'bg-gray-200 text-gray-500'
+              }`;
+
+            return (
+              <div className="mt-6" data-testid="step-indicator">
+                <div className="flex items-center">
+                  {/* Step 1 circle */}
+                  <div
+                    className={circleClasses(step1Completed, step1Active)}
+                    style={step1Active ? { backgroundColor: primaryColor } : {}}
+                  >
+                    {step1Completed ? (
+                      <svg
+                        className="h-4 w-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth="3"
+                        stroke="currentColor"
                       >
-                        {isCompleted ? (
-                          <svg
-                            className="h-4 w-4"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            strokeWidth="3"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M4.5 12.75l6 6 9-13.5"
-                            />
-                          </svg>
-                        ) : (
-                          item.step
-                        )}
-                      </div>
-                    </div>
-                    <span
-                      className={`mt-1 hidden text-xs font-medium sm:inline ${isActive ? 'text-gray-900' : 'text-gray-500'}`}
-                    >
-                      {item.label}
-                    </span>
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M4.5 12.75l6 6 9-13.5"
+                        />
+                      </svg>
+                    ) : (
+                      1
+                    )}
                   </div>
-                  {idx < 1 && (
-                    <div
-                      className={`mb-5 h-0.5 flex-1 ${item.step < currentStep ? 'bg-green-500' : 'bg-gray-200'}`}
-                    />
-                  )}
+
+                  {/* Connector line */}
+                  <div
+                    className={`h-0.5 flex-1 ${step1Completed ? 'bg-green-500' : 'bg-gray-200'}`}
+                  />
+
+                  {/* Step 2 circle */}
+                  <div
+                    className={circleClasses(false, step2Active)}
+                    style={step2Active ? { backgroundColor: primaryColor } : {}}
+                  >
+                    2
+                  </div>
                 </div>
-              );
-            })}
-          </div>
+
+                {/* Labels row */}
+                <div className="mt-1 hidden sm:flex">
+                  <span
+                    className={`w-7 text-center text-xs font-medium sm:w-8 ${step1Active || step1Completed ? 'text-gray-900' : 'text-gray-500'}`}
+                  >
+                    Your Details
+                  </span>
+                  <div className="flex-1" />
+                  <span
+                    className={`w-7 text-center text-xs font-medium sm:w-8 ${step2Active ? 'text-gray-900' : 'text-gray-500'}`}
+                  >
+                    Payment
+                  </span>
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
         {/* Mobile Order Summary - sticky bar visible only on mobile */}

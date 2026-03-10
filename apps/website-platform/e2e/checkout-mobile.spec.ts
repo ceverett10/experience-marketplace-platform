@@ -165,7 +165,7 @@ test.describe('Checkout Flow - Mobile', () => {
 
     // The step indicator container should not cause horizontal overflow
     const viewportWidth = page.viewportSize()?.width ?? 390;
-    const stepIndicators = page.locator('[class*="flex items-center gap-0"]');
+    const stepIndicators = page.getByTestId('step-indicator');
     const box = await stepIndicators.boundingBox();
 
     if (box) {
