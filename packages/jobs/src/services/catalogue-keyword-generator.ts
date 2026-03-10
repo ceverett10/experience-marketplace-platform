@@ -19,6 +19,7 @@
 import type { Prisma } from '@experience-marketplace/database';
 import { prisma } from '@experience-marketplace/database';
 import { PAID_TRAFFIC_CONFIG } from '../config/paid-traffic';
+import { classifyKeywordToCampaignGroup } from './bidding-engine';
 
 interface SiteKeywordResult {
   domain: string;
@@ -37,14 +38,20 @@ export interface GenerationResult {
   perSite: SiteKeywordResult[];
 }
 
+interface CityInventory {
+  city: string;
+  productCount: number;
+}
+
 /**
  * Query cities that have enough products in the given Holibob categories.
+ * Returns city name and product count (used for priority scoring).
  */
 async function getCitiesWithInventory(
   holibobCategories: string[],
   minProducts: number,
   cityFilter?: string[]
-): Promise<string[]> {
+): Promise<CityInventory[]> {
   // Build the category array literal for the && (overlap) operator
   const catArray = holibobCategories.map((c) => `'${c.replace(/'/g, "''")}'`).join(',');
   const catClause = `categories && ARRAY[${catArray}]::text[]`;
@@ -69,7 +76,19 @@ async function getCitiesWithInventory(
   `;
 
   const rows = await prisma.$queryRawUnsafe<Array<{ city: string; cnt: bigint }>>(query);
-  return rows.map((r) => r.city);
+  return rows.map((r) => ({ city: r.city, productCount: Number(r.cnt) }));
+}
+
+/**
+ * Calculate priority score for a catalogue keyword.
+ * Base 60 for all, +10 for city-specific branded sites (best Quality Score),
+ * +0 to +5 based on product count (log scale tiebreaker).
+ */
+function calculateCataloguePriorityScore(productCount: number, hasCityFilter: boolean): number {
+  const base = 60;
+  const cityBonus = hasCityFilter ? 10 : 0;
+  const countBonus = Math.min(5, Math.floor(Math.log10(Math.max(productCount, 1))));
+  return Math.min(75, base + cityBonus + countBonus);
 }
 
 /**
@@ -132,6 +151,8 @@ export async function generateCatalogueKeywords(dryRun = false): Promise<Generat
     niche: string;
     siteId: string;
     domain: string;
+    campaignGroup: string;
+    priorityScore: number;
   }> = [];
 
   for (const [domain, config] of sorted) {
@@ -154,16 +175,29 @@ export async function generateCatalogueKeywords(dryRun = false): Promise<Generat
       continue;
     }
 
+    const hasCityFilter = Boolean(config.cityFilter);
     const siteKeywords: string[] = [];
 
-    for (const city of cities) {
+    for (const { city, productCount } of cities) {
+      const priorityScore = calculateCataloguePriorityScore(productCount, hasCityFilter);
       for (const stem of config.stems) {
         const patterns = generateKeywordPatterns(stem, city);
+        // Classify using the first pattern (all patterns for same stem get same group)
+        const campaignGroup = patterns[0]
+          ? classifyKeywordToCampaignGroup(patterns[0], priorityScore)
+          : 'General Tours – Tier 1';
         for (const kw of patterns) {
           if (globalSeen.has(kw)) continue;
           globalSeen.add(kw);
           siteKeywords.push(kw);
-          allKeywords.push({ keyword: kw, niche: stem, siteId, domain });
+          allKeywords.push({
+            keyword: kw,
+            niche: stem,
+            siteId,
+            domain,
+            campaignGroup,
+            priorityScore,
+          });
         }
       }
     }
@@ -214,7 +248,8 @@ export async function generateCatalogueKeywords(dryRun = false): Promise<Generat
             cpc: 0,
             intent: 'COMMERCIAL',
             niche: k.niche,
-            priorityScore: 50,
+            priorityScore: k.priorityScore,
+            campaignGroup: k.campaignGroup,
             status: 'PAID_CANDIDATE',
             source: 'catalogue',
             siteId: k.siteId,

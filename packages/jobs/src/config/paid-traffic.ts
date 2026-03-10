@@ -94,10 +94,18 @@ export const PAID_TRAFFIC_CONFIG = {
     /** Max budget per consolidated campaign */
     maxPerCampaignBudget: 100,
 
-    /** Keyword patterns → campaign group mapping */
+    /** Keyword patterns → campaign group mapping (first match wins — order matters) */
     categoryPatterns: {
+      // Branded sites (exact match first)
       'Branded – Harry Potter Tours': ['harry potter'],
       'Branded – London Food Tours': ['london food tour'],
+      // New niche groups (before broader groups to avoid mis-classification)
+      'Wine & Vineyard': ['wine tour', 'wine tasting', 'vineyard'],
+      'Attractions & Tickets': ['attraction ticket', 'skip the line', 'hop on hop off'],
+      'Wellness & Spa': ['wellness', 'yoga tour', 'meditation', 'spa experience'],
+      'Parties & Groups': ['bachelorette', 'hen party', 'group activit'],
+      'Romantic & Honeymoon': ['romantic', 'couples tour', 'honeymoon'],
+      // Broad category groups
       'Adventure & Outdoor': [
         'adventure',
         'hiking',
@@ -108,14 +116,7 @@ export const PAID_TRAFFIC_CONFIG = {
         'expedition',
         'wildlife',
       ],
-      'Food, Drink & Culinary': [
-        'food tour',
-        'culinary',
-        'wine tast',
-        'cooking class',
-        'gastro',
-        'street food',
-      ],
+      'Food, Drink & Culinary': ['food tour', 'culinary', 'cooking class', 'gastro', 'street food'],
       'Boats, Sailing & Water': [
         'boat',
         'sailing',
@@ -208,9 +209,13 @@ export const PAID_TRAFFIC_CONFIG = {
       'Boats, Sailing & Water': ['water-tours.com'],
       'Adventure & Outdoor': ['outdoorexploring.com'],
       'Cultural & Sightseeing': ['cultural-tours.com'],
+      'Wine & Vineyard': ['winetravelcollective.com'],
+      'Attractions & Tickets': ['attractionbooking.com'],
+      'Wellness & Spa': ['zen-journeys.com'],
+      'Parties & Groups': ['bachelorette-party-ideas.com'],
+      'Romantic & Honeymoon': ['honeymoonexperiences.com'],
       'General Tours – Tier 1': ['experiencess.com'],
       'General Tours – Tier 2': ['experiencess.com'],
-      'Branded – Attraction Tickets': ['attractionbooking.com'],
       'Branded – Harry Potter Tours': ['harry-potter-tours.com'],
       'Branded – London Food Tours': ['london-food-tours.com'],
       'Transfers & Transport': [],

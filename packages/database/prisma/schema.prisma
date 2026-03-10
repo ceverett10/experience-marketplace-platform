@@ -456,6 +456,9 @@ model SEOOpportunity {
   // Status Tracking
   status OpportunityStatus @default(IDENTIFIED)
 
+  // Campaign group classification (for per-group bidding)
+  campaignGroup String?
+
   // Relationships
   site    Site?     @relation(fields: [siteId], references: [id])
   siteId  String?
@@ -483,6 +486,7 @@ model SEOOpportunity {
   @@index([priorityScore])
   @@index([siteId])
   @@index([cpc])
+  @@index([campaignGroup])
 }
 
 enum SearchIntent {

@@ -4,14 +4,31 @@
  * Usage:
  *   heroku run 'cd /app && node packages/jobs/dist/scripts/seed-catalogue-keywords.js --dry-run'
  *   heroku run 'cd /app && node packages/jobs/dist/scripts/seed-catalogue-keywords.js --apply'
+ *   heroku run 'cd /app && node packages/jobs/dist/scripts/seed-catalogue-keywords.js --reseed --apply'
  */
+import { prisma } from '@experience-marketplace/database';
 import { generateCatalogueKeywords } from '../services/catalogue-keyword-generator';
 
 async function main() {
   const args = process.argv.slice(2);
   const dryRun = !args.includes('--apply');
+  const reseed = args.includes('--reseed');
 
-  if (dryRun) {
+  if (reseed && !dryRun) {
+    console.info('=== CATALOGUE KEYWORD RESEED (APPLYING) ===');
+    console.info('Deleting existing catalogue keywords before re-inserting...\n');
+    const deleted = await prisma.sEOOpportunity.deleteMany({
+      where: { source: 'catalogue' },
+    });
+    console.info(`Deleted ${deleted.count} existing catalogue keywords.\n`);
+  } else if (reseed && dryRun) {
+    console.info('=== CATALOGUE KEYWORD RESEED (DRY RUN) ===');
+    const existing = await prisma.sEOOpportunity.count({
+      where: { source: 'catalogue' },
+    });
+    console.info(`Would delete ${existing} existing catalogue keywords before re-inserting.`);
+    console.info('Pass --apply to actually reseed.\n');
+  } else if (dryRun) {
     console.info('=== CATALOGUE KEYWORD SEED (DRY RUN) ===');
     console.info('Pass --apply to actually insert keywords.\n');
   } else {

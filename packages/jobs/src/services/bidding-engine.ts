@@ -837,11 +837,14 @@ export async function assignKeywordsToSites(): Promise<number> {
 // --- Meta Consolidated Campaign Classification --------------------------------
 
 /**
- * Classify a keyword into one of the 9 consolidated Meta campaign groups.
- * Uses keyword pattern matching against the metaConsolidated.categoryPatterns config.
+ * Classify a keyword into a campaign group using pattern matching.
+ * Iterates categoryPatterns in order (first match wins).
  * Unmatched keywords fall into General Tours Tier 1 or Tier 2 based on profitability.
  */
-function classifyKeywordToCampaignGroup(keyword: string, profitabilityScore: number): string {
+export function classifyKeywordToCampaignGroup(
+  keyword: string,
+  profitabilityScore: number
+): string {
   const kw = keyword.toLowerCase();
   for (const [group, patterns] of Object.entries(
     PAID_TRAFFIC_CONFIG.metaConsolidated.categoryPatterns
@@ -865,23 +868,64 @@ function classifyKeywordToCampaignGroup(keyword: string, profitabilityScore: num
 export async function scoreCampaignOpportunities(
   profiles: SiteProfitability[]
 ): Promise<CampaignCandidate[]> {
-  const allOpportunities = await prisma.sEOOpportunity.findMany({
-    where: { status: 'PAID_CANDIDATE' },
-    select: {
-      id: true,
-      keyword: true,
-      searchVolume: true,
-      cpc: true,
-      intent: true,
-      location: true,
-      priorityScore: true,
-      sourceData: true,
-      siteId: true,
-      site: { select: { name: true, primaryDomain: true } },
-    },
-    orderBy: { priorityScore: 'desc' },
-    take: 10000, // Process all enriched keywords for microsite matching
+  // Per-group keyword selection: fetch top keywords from each campaign group
+  // to ensure every group gets representation (not just globally top-scored keywords).
+  const oppSelect = {
+    id: true,
+    keyword: true,
+    searchVolume: true,
+    cpc: true,
+    intent: true,
+    location: true,
+    priorityScore: true,
+    sourceData: true,
+    siteId: true,
+    site: { select: { name: true, primaryDomain: true } },
+  } as const;
+
+  const PER_GROUP_LIMIT = 1000;
+  const UNGROUPED_LIMIT = 5000;
+
+  const groups = await prisma.sEOOpportunity.groupBy({
+    by: ['campaignGroup'],
+    where: { status: 'PAID_CANDIDATE', campaignGroup: { not: null } },
   });
+
+  // Fetch first group to establish the type, then fetch the rest
+  const firstGroup = groups[0];
+  const firstGroupOpps = firstGroup
+    ? await prisma.sEOOpportunity.findMany({
+        where: { status: 'PAID_CANDIDATE', campaignGroup: firstGroup.campaignGroup },
+        select: oppSelect,
+        orderBy: { priorityScore: 'desc' },
+        take: PER_GROUP_LIMIT,
+      })
+    : [];
+  const allOpportunities = [...firstGroupOpps];
+
+  for (const { campaignGroup } of groups.slice(1)) {
+    const groupOpps = await prisma.sEOOpportunity.findMany({
+      where: { status: 'PAID_CANDIDATE', campaignGroup },
+      select: oppSelect,
+      orderBy: { priorityScore: 'desc' },
+      take: PER_GROUP_LIMIT,
+    });
+    allOpportunities.push(...groupOpps);
+  }
+
+  // Legacy keywords without campaignGroup (from other sources like scanners/enrichment)
+  const ungrouped = await prisma.sEOOpportunity.findMany({
+    where: { status: 'PAID_CANDIDATE', campaignGroup: null },
+    select: oppSelect,
+    orderBy: { priorityScore: 'desc' },
+    take: UNGROUPED_LIMIT,
+  });
+  allOpportunities.push(...ungrouped);
+
+  console.info(
+    `[BiddingEngine] Loaded ${allOpportunities.length} keywords ` +
+      `(${groups.length} campaign groups + ungrouped)`
+  );
 
   // Task 2.4: Only process keywords with AI decision = 'BID' (or not yet evaluated).
   // REVIEW keywords need manual approval before creating campaigns.
