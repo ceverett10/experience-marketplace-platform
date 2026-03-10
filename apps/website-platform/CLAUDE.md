@@ -115,6 +115,38 @@ API routes in `api/booking/`, `api/products/`, `api/payment/`.
 - **Custom render**: `renderWithSite(component, site)` wraps in `SiteProvider`
 - **E2E**: Booking flow, checkout in `booking-flow.e2e.test.ts`
 
+## Where to Find Things
+
+| Feature                       | File(s)                                                |
+| ----------------------------- | ------------------------------------------------------ |
+| Multi-tenant resolution       | `src/lib/tenant.ts` (getSiteFromHostname)              |
+| Site context provider         | `src/lib/site-context.tsx` (useSite, useBrand, useSEO) |
+| Middleware (cookies, headers) | `src/middleware.ts`                                    |
+| Homepage                      | `src/app/page.tsx`                                     |
+| Experience detail page        | `src/app/experiences/[slug]/page.tsx`                  |
+| Blog detail page              | `src/app/blog/[slug]/page.tsx`                         |
+| Destination pages             | `src/app/destinations/[slug]/page.tsx`                 |
+| Category pages                | `src/app/categories/[slug]/page.tsx`                   |
+| Sitemap generation            | `src/app/sitemap.ts`                                   |
+| Booking API routes            | `src/app/api/booking/`                                 |
+| Product API routes            | `src/app/api/products/`                                |
+| Payment (Stripe)              | `src/app/api/payment/`                                 |
+| Checkout flow                 | `src/app/checkout/[bookingId]/page.tsx`                |
+| Root layout + brand CSS       | `src/app/layout.tsx`                                   |
+| Image utilities               | `src/lib/image-utils.ts`                               |
+| Structured data               | `src/components/seo/StructuredData.tsx`                |
+| Brand CSS variables           | `src/lib/brand-css.ts` (generateBrandCSSVariables)     |
+
+## Testing Commands
+
+```bash
+npm run test --workspace=@experience-marketplace/website-platform           # Unit tests
+npm run test:coverage --workspace=@experience-marketplace/website-platform   # With coverage
+npm run test:e2e --workspace=@experience-marketplace/website-platform        # Playwright E2E
+```
+
+Test environment is `jsdom`. Mocks for next/navigation, next/headers in `src/test/setup.tsx`.
+
 ## Common Pitfalls
 
 1. Don't route experiences by human-readable slug — always product ID
@@ -123,3 +155,4 @@ API routes in `api/booking/`, `api/products/`, `api/payment/`.
 4. Don't hardcode Holibob partner ID — use `site.holibobPartnerId`
 5. Don't access site config without `getSiteFromHostname()`
 6. Schema.org `BlogPosting` MUST have `image` — use fallback chain
+7. New page type? Update sitemap.ts slug handling AND this CLAUDE.md

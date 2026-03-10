@@ -115,6 +115,43 @@ packages/
 
 When changing a package, check downstream consumers for breakage.
 
+### Change Ripple Map (If You Change X, Also Update Y)
+
+**Prisma schema** (`packages/database/prisma/schema.prisma`):
+
+- Add enum value → update `packages/jobs/src/types/index.ts` (JOB_TYPE_TO_QUEUE, payload types)
+- Add PageType → update 17+ files that switch/filter on page type (see `database/CLAUDE.md`)
+- Add/change model → run `db:generate`, then `npm run typecheck` across all workspaces
+- Add JobType → add to JOB_TYPE_TO_QUEUE + create worker handler + add payload type
+
+**Shared package** (`packages/shared/`):
+
+- Change types → affects ALL workspaces. Run full `npm run typecheck`
+- Change `CATEGORY_DISPLAY_MAP` → affects content generation, microsite creation, keyword research
+- Change utilities → verify behavior in jobs, website-platform, admin
+
+**Bidding engine** (`packages/jobs/src/services/bidding-engine.ts`):
+
+- Always check `landing-page-routing.ts` — they import from each other
+- Also check `config/paid-traffic.ts`, `workers/ads.ts`, `google-ads-client.ts`
+
+**Content generation** (content-engine or jobs content workers):
+
+- Check `daily-content-generator.ts`, `content-optimizer.ts`, `workers/content.ts` together
+
+### Keeping CLAUDE.md Files Current
+
+When you make changes that affect patterns, conventions, or architecture documented in any
+CLAUDE.md file, **update the relevant CLAUDE.md in the same PR**. Examples:
+
+- Add a new queue → update `packages/jobs/CLAUDE.md`
+- Add a new page type → update `packages/database/CLAUDE.md` and `apps/website-platform/CLAUDE.md`
+- Change URL routing → update `apps/website-platform/CLAUDE.md`
+- Add a new API route → update `apps/admin/CLAUDE.md`
+- Hit a new bug or gotcha → add to "Common Pitfalls" in the relevant file
+
+This is not optional — stale docs cause agents to repeat past mistakes.
+
 ## Architecture Patterns
 
 ### Multi-Tenant Sites
@@ -167,6 +204,35 @@ CI runs on all PRs to `main`:
 5. **Security** — npm audit
 
 Deploy is automatic on `main` after CI passes (Heroku).
+
+**Build order matters**: packages must build before apps (`npm run build:packages` then `build:apps`).
+CI generates Prisma client first (`npm run db:generate` with dummy DATABASE_URL).
+
+### Quick Test Commands
+
+```bash
+# Test a specific workspace
+npm run test --workspace=@experience-marketplace/jobs
+npm run test --workspace=@experience-marketplace/website-platform
+
+# Test with coverage
+npm run test:coverage --workspace=@experience-marketplace/website-platform
+
+# E2E (website-platform only)
+npm run test:e2e --workspace=@experience-marketplace/website-platform
+
+# All checks (what CI runs)
+npm run lint && npm run typecheck && npm run format:check && npm run test
+```
+
+### Common CI Failures
+
+1. **Prettier formatting** — Run `npm run format` to auto-fix
+2. **Type errors after schema change** — Run `npm run db:generate` first
+3. **`console.log` violations** — Replace with `console.info`, `console.warn`, or `console.error`
+4. **Unused imports** — Remove them or prefix with `_`
+5. **Missing `type` keyword** — Use `import type { Foo }` for type-only imports
+6. **Build fails with "module not found"** — Packages must build before apps
 
 ## What NOT To Do
 

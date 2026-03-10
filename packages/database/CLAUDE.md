@@ -74,6 +74,31 @@ Exported as both `prisma` and `db` from package root.
 - Composite unique keys for multi-tenant isolation: `@@unique([siteId, slug])`
 - JSON fields for flexible config (homepageConfig, seoConfig, brand colors)
 
+## Schema Change Checklist
+
+When modifying `prisma/schema.prisma`:
+
+1. Make your change
+2. Run `npm run db:generate --workspace=@experience-marketplace/database`
+3. Run `npm run typecheck` (full monorepo — schema changes cascade everywhere)
+4. If adding a **new enum value**:
+   - `JobType` → also update `packages/jobs/src/types/index.ts` (JOB_TYPE_TO_QUEUE + payload)
+   - `PageType` → also update 17+ files that filter on page type (sitemap, content generators, admin API)
+   - `SiteStatus` → check `daily-content-generator.ts`, `meta-title-maintenance.ts`, `site-roadmap.ts`
+5. If adding a **new model** → verify no N+1 queries in consuming code
+6. Create migration: `npm run db:migrate --workspace=@experience-marketplace/database`
+7. Test: `npm run test --workspace=@experience-marketplace/database`
+
+## High-Impact Enums (Change With Care)
+
+| Enum           | Files affected                        | Notes                                    |
+| -------------- | ------------------------------------- | ---------------------------------------- |
+| `JobType`      | `jobs/types/index.ts`, all workers    | 80+ values, must add to queue mapping    |
+| `PageType`     | 17+ files across jobs, admin, website | Slug prefix convention depends on type   |
+| `SiteStatus`   | Content generators, site roadmap      | Filters active sites for autonomous work |
+| `DomainStatus` | Domain workers, admin API             | Full lifecycle state machine             |
+| `AdPlatform`   | Bidding engine, ads worker            | Affects campaign deployment              |
+
 ## Common Pitfalls
 
 1. **Slug queries** must account for prefix convention (BLOG stores `blog/my-post`, CATEGORY stores `food-tours`)
@@ -81,3 +106,5 @@ Exported as both `prisma` and `db` from package root.
 3. **Microsite queries**: Use `micrositeId_slug` composite key, not `siteId_slug`
 4. **Pool limit**: 4 connections — avoid long transactions or connection leaks
 5. After schema changes, run `db:generate` AND check all downstream consumers
+6. **Prisma enum → string literal casts**: May need `as any` — known friction point with strict types
+7. Schema changes require `db:generate` BEFORE `typecheck` in CI — order matters
