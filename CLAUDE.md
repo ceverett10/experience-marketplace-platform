@@ -35,6 +35,32 @@ Or run all tests: `npm run test`
 - Keep branches short-lived. One concern per branch.
 - Rebase on `main` before pushing if your branch is behind.
 
+### Pre-Push Coordination (MANDATORY)
+
+Before pushing a branch or creating a PR, check for other open PRs that may conflict:
+
+```bash
+# 1. List open PRs and their changed files
+gh pr list --state open --json number,title,headRefName,files --jq '.[] | "\(.number) \(.title) [\(.headRefName)]"'
+
+# 2. For each open PR, check if it touches the same files you changed
+gh pr diff <PR_NUMBER> --name-only
+
+# 3. Compare against your changes
+git diff --name-only origin/main...HEAD
+```
+
+**If there is overlap in changed files:**
+
+- Read the other PR's changes: `gh pr diff <PR_NUMBER>`
+- Determine if your changes are compatible or will conflict
+- If the other PR is close to merging (CI passing, approved), wait for it to merge first, then rebase
+- If both PRs modify the same functions/logic, coordinate: rebase on top of the other branch or adjust your approach to avoid conflicts
+
+**If no overlap:** proceed normally — push and create your PR.
+
+This prevents merge conflicts, wasted CI runs, and the rebase cycle.
+
 ### Merging PRs (Auto-Merge Workflow)
 
 Branch protection requires PRs to be up-to-date with `main` before merging. To avoid
