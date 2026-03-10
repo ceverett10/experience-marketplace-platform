@@ -91,7 +91,7 @@ async function getCityCategoryCombos(): Promise<CityCategory[]> {
     Array<{ city: string; category: string; product_count: bigint }>
   >`
     SELECT p.city, unnest(p.categories) as category, COUNT(*) as product_count
-    FROM "Product" p
+    FROM products p
     WHERE p.city IS NOT NULL
       AND p.city != ''
       AND array_length(p.categories, 1) > 0
