@@ -723,6 +723,53 @@ export default async function HomePage() {
         detectPpcTraffic(),
       ]);
 
+      // Fetch real product reviews from top-rated experiences
+      type ProductReview = {
+        id: string;
+        title: string;
+        content: string;
+        rating: number;
+        authorName: string;
+        publishedDate: string;
+        images: string[];
+      };
+      let micrositeReviews: ProductReview[] = [];
+      try {
+        const topRated = experiences
+          .filter((e) => e.rating && e.rating.count > 0)
+          .sort((a, b) => (b.rating?.average ?? 0) - (a.rating?.average ?? 0))
+          .slice(0, 3);
+
+        if (topRated.length > 0) {
+          const client = getHolibobClient(site);
+          const productDetails = await Promise.all(
+            topRated.map((e) => client.getProduct(e.id).catch(() => null))
+          );
+          for (const product of productDetails) {
+            if (product?.reviewList?.nodes) {
+              for (const review of product.reviewList.nodes) {
+                if (review.content && review.authorName && review.rating) {
+                  micrositeReviews.push({
+                    id: review.id || `review-${micrositeReviews.length}`,
+                    title: review.title || '',
+                    content: review.content,
+                    rating: review.rating,
+                    authorName: review.authorName,
+                    publishedDate: review.publishedDate || '',
+                    images:
+                      review.imageList?.nodes?.map((img) => img.url || '').filter(Boolean) || [],
+                  });
+                }
+              }
+            }
+          }
+          // Keep best 6 reviews, sorted by rating
+          micrositeReviews = micrositeReviews.sort((a, b) => b.rating - a.rating).slice(0, 6);
+        }
+      } catch (err) {
+        console.warn('[Homepage] Failed to fetch microsite reviews:', err);
+      }
+
       // Build structured data for microsite homepage (same as main sites)
       const micrositeSiteUrl = `https://${site.primaryDomain || hostname}`;
       const micrositeLogoUrl = site.brand?.logoUrl
@@ -770,6 +817,7 @@ export default async function HomePage() {
             totalExperienceCount={totalCount}
             heroConfig={site.homepageConfig?.hero}
             testimonials={site.homepageConfig?.testimonials}
+            reviews={micrositeReviews}
             relatedMicrosites={relatedMicrosites}
             blogPosts={micrositeBlogPosts}
             collections={micrositeCollections}

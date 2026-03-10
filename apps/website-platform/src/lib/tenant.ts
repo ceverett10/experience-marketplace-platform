@@ -224,6 +224,9 @@ export interface SiteConfig {
   // Homepage Configuration (AI-generated)
   homepageConfig: HomepageConfig | null;
 
+  // Whether this site/microsite has published blog posts (set in layout.tsx)
+  hasBlogPosts?: boolean;
+
   // Microsite context (only present for microsites on *.experiencess.com)
   micrositeContext?: MicrositeContext;
 

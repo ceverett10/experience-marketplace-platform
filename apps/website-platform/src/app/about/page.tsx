@@ -7,6 +7,8 @@ import { isParentDomain } from '@/lib/parent-domain';
 import { getPlatformStats } from '@/lib/parent-domain';
 import { prisma } from '@/lib/prisma';
 import { StaticPageTemplate } from '@/components/content/StaticPageTemplate';
+import { getRelatedMicrosites } from '@/lib/microsite-experiences';
+import { RelatedMicrosites } from '@/components/microsites/RelatedMicrosites';
 
 /**
  * Fetch About page from database
@@ -96,6 +98,21 @@ export default async function AboutPage() {
   const isMicrosite = !!site.micrositeContext;
   const hasCustomContent = !!(page?.content as { body?: string })?.body?.trim();
 
+  // Fetch related microsites for cross-linking on About page
+  let relatedMicrosites: Awaited<ReturnType<typeof getRelatedMicrosites>> = [];
+  if (isMicrosite && site.micrositeContext?.micrositeId) {
+    try {
+      relatedMicrosites = await getRelatedMicrosites(
+        site.micrositeContext.micrositeId,
+        site.micrositeContext.supplierCities || [],
+        site.micrositeContext.supplierCategories || [],
+        6
+      );
+    } catch (err) {
+      console.warn('[About] Failed to fetch related microsites:', err);
+    }
+  }
+
   // Generate JSON-LD structured data
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -160,6 +177,8 @@ export default async function AboutPage() {
         </div>
 
         <MicrositeAbout siteName={site.name} />
+
+        {relatedMicrosites.length > 0 && <RelatedMicrosites microsites={relatedMicrosites} />}
       </>
     );
   }
@@ -207,6 +226,11 @@ export default async function AboutPage() {
 
       {/* Page Content */}
       <StaticPageTemplate page={displayPage} siteName={site.name} pageType="about" />
+
+      {/* Related microsites cross-linking */}
+      {isMicrosite && relatedMicrosites.length > 0 && (
+        <RelatedMicrosites microsites={relatedMicrosites} />
+      )}
     </>
   );
 }
