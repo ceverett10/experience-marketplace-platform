@@ -22,6 +22,7 @@ import {
   loadPageCaches,
   getLandingPageBonus,
   extractSearchQuery,
+  keywordContainsAllWords,
 } from './landing-page-routing';
 
 // --- Configuration -----------------------------------------------------------
@@ -1177,7 +1178,7 @@ export async function scoreCampaignOpportunities(
     //    to a taxi transfer company with 500 products instead of a walking tour company with 30).
     if (!matchedMicrosite) {
       for (const [city, micrositesInCity] of micrositesByCity) {
-        if (kwLower.includes(city)) {
+        if (keywordContainsAllWords(kwLower, city)) {
           // Score each microsite by category relevance to keyword
           let bestMs = micrositesInCity[0]!;
           let bestScore = 0;
@@ -1366,12 +1367,11 @@ export async function scoreCampaignOpportunities(
             // Extract city name from slug: "destinations/london-england" → "london"
             const slugBody = p.slug.replace('destinations/', '');
             const dashParts = slugBody.split('-');
-            // Try matching just the first word (city name) against the keyword
-            // Also try multi-word cities: "new-york", "las-vegas", "san-francisco"
+            // Try matching city name against keyword using word-boundary matching.
+            // Multi-word cities: "new-york", "las-vegas", "san-francisco"
             for (let len = Math.min(dashParts.length - 1, 3); len >= 1; len--) {
-              const citySlug = dashParts.slice(0, len).join('-');
               const citySpaced = dashParts.slice(0, len).join(' ');
-              if (kwLower.includes(citySpaced) || kwLower.includes(citySlug)) {
+              if (keywordContainsAllWords(kwLower, citySpaced)) {
                 return true;
               }
             }

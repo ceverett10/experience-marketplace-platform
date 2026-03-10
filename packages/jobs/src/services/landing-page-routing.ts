@@ -682,7 +682,7 @@ function buildDiscoveryLandingPage(
  * Prevents substring false positives: "santorini" won't match "San Diego"
  * because "san" and "diego" are checked as whole words.
  */
-function keywordContainsAllWords(keyword: string, phrase: string): boolean {
+export function keywordContainsAllWords(keyword: string, phrase: string): boolean {
   const kwWords = new Set(keyword.toLowerCase().split(/\s+/));
   const phraseWords = phrase.toLowerCase().split(/\s+/);
   return phraseWords.length > 0 && phraseWords.every((w) => kwWords.has(w));
