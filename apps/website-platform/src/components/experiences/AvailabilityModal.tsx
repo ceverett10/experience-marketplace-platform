@@ -440,11 +440,12 @@ export function AvailabilityModal({
                         <div>
                           <p className="font-medium text-gray-900">{formatDate(slot.date)}</p>
                         </div>
-                        {slot.guidePriceFormattedText && (
-                          <p className="text-sm font-semibold" style={{ color: primaryColor }}>
-                            from {slot.guidePriceFormattedText}
-                          </p>
-                        )}
+                        {slot.guidePriceFormattedText &&
+                          !/^\s*[^\d]*\s*0[.,]00\s*$/.test(slot.guidePriceFormattedText) && (
+                            <p className="text-sm font-semibold" style={{ color: primaryColor }}>
+                              from {slot.guidePriceFormattedText}
+                            </p>
+                          )}
                       </button>
                     ))}
                   </div>
