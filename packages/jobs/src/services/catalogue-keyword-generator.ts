@@ -46,7 +46,7 @@ async function getCitiesWithInventory(
   cityFilter?: string[]
 ): Promise<string[]> {
   // Build the category array literal for the && (overlap) operator
-  const catArray = holibobCategories.map((c) => `"${c}"`).join(',');
+  const catArray = holibobCategories.map((c) => `'${c.replace(/'/g, "''")}'`).join(',');
   const catClause = `categories && ARRAY[${catArray}]::text[]`;
 
   let query = `
