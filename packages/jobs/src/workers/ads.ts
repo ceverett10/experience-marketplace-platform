@@ -2154,6 +2154,7 @@ async function deployToGoogle(
           maxBid: number;
           targetUrl: string;
           landingPageType?: string;
+          keywordFinalUrls?: Record<string, string>;
         }>;
       }
     )?.adGroups;
@@ -2166,10 +2167,24 @@ async function deployToGoogle(
       for (const agConfig of adGroupConfigs) {
         // STAG: phrase match only — broad requires Smart Bidding with conversion data,
         // exact is too restrictive for accounts with <50 conversions/month
-        const keywords = agConfig.keywords.map((kw) => ({
-          text: kw,
-          matchType: 'PHRASE' as const,
-        }));
+        const keywords = agConfig.keywords.map((kw) => {
+          // Build keyword-level final URL if available (city-specific landing pages)
+          let kwFinalUrl: string | undefined;
+          const kwOrigUrl = agConfig.keywordFinalUrls?.[kw];
+          if (kwOrigUrl) {
+            const kwUrl = new URL(ensureProtocol(kwOrigUrl));
+            const baseUrl = new URL(landingUrl);
+            for (const [key, val] of baseUrl.searchParams) {
+              if (key.startsWith('utm_')) kwUrl.searchParams.set(key, val);
+            }
+            kwFinalUrl = kwUrl.toString();
+          }
+          return {
+            text: kw,
+            matchType: 'PHRASE' as const,
+            finalUrl: kwFinalUrl,
+          };
+        });
 
         const adGroupResult = await createKeywordAdGroup({
           campaignId: campaignResult.campaignId,
