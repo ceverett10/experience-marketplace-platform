@@ -1428,17 +1428,12 @@ export async function scoreCampaignOpportunities(
             if (p.type !== 'LANDING' || !p.slug.startsWith('destinations/')) return false;
             const slugBody = p.slug.replace('destinations/', '');
             const dashParts = slugBody.split('-');
-            // Try from longest match (full slug) down to 2-word minimum.
-            // Single-word matches are only allowed for short slugs (1-2 dash parts)
-            // to prevent "south" matching "south queensferry" via "south-africa".
-            const minLen = dashParts.length <= 2 ? 1 : 2;
-            for (let len = Math.min(dashParts.length, 3); len >= minLen; len--) {
-              const citySpaced = dashParts.slice(0, len).join(' ');
-              if (keywordContainsAllWords(kwLower, citySpaced)) {
-                return true;
-              }
-            }
-            return false;
+            // Match the FULL slug as a city name (all dash parts joined by spaces).
+            // For single-part slugs like "london", match just that word.
+            // For multi-part slugs like "los-angeles" or "south-africa", ALL parts
+            // must appear in the keyword to prevent "south" matching "south queensferry".
+            const fullCity = dashParts.join(' ');
+            return keywordContainsAllWords(kwLower, fullCity);
           });
 
           if (!destPage) continue;
@@ -1810,8 +1805,13 @@ export function groupCandidatesIntoCampaigns(candidates: CampaignCandidate[]): C
       // Only create booking-intent AGs for groups with enough keywords to justify it
       if (ag.keywords.length < 2) continue;
 
-      // Take top 5 keywords from the ad group (first ones are highest-scoring)
-      const topKeywords = ag.keywords.slice(0, 5);
+      // Take top 5 keywords from the ad group (first ones are highest-scoring).
+      // Skip keywords that already contain booking-intent words to avoid "book book ..."
+      const BOOKING_WORDS = new Set(['book', 'reserve', 'buy', 'purchase', 'ticket', 'tickets']);
+      const topKeywords = ag.keywords
+        .filter((kw) => !kw.split(/\s+/).some((w) => BOOKING_WORDS.has(w)))
+        .slice(0, 5);
+      if (topKeywords.length === 0) continue;
       const prefix = BOOKING_PREFIXES[0]!; // "book"
       const bookingKeywords = topKeywords.map((kw) => `${prefix} ${kw}`);
 
