@@ -19,10 +19,12 @@ import {
   type LandingPageContext,
   type SiteType,
   buildLandingPageUrl,
+  buildExperiencesFilteredUrl,
   loadPageCaches,
   getLandingPageBonus,
   extractSearchQuery,
   keywordContainsAllWords,
+  depluralize,
 } from './landing-page-routing';
 
 // --- Configuration -----------------------------------------------------------
@@ -40,17 +42,6 @@ const LOOKBACK_DAYS = 90; // Days of data to consider
  * If the keyword starts with a known activity pattern, return that pattern.
  * Otherwise, heuristically strip trailing single words that look like place names.
  */
-/**
- * Naive de-pluralisation: strip trailing 's' from words >3 chars that don't end in 'ss'.
- * "walking tours" → "walking tour", "cruises" → "cruise", "bus" → "bus", "glass" → "glass"
- */
-function depluralize(text: string): string {
-  return text
-    .split(/\s+/)
-    .map((w) => (w.length > 3 && !w.endsWith('ss') && w.endsWith('s') ? w.slice(0, -1) : w))
-    .join(' ');
-}
-
 function stripCityFromActivity(activity: string, _keyword: string): string {
   const actLower = activity.toLowerCase().trim();
   if (!actLower) return activity;
@@ -1775,7 +1766,7 @@ export function groupCandidatesIntoCampaigns(candidates: CampaignCandidate[]): C
             // Build URL from the raw keyword, only stripping SEO market location words
             const rawQuery = extractSearchQuery(c.keyword, c.location);
             if (rawQuery) {
-              const kwUrl = `https://${domain}/experiences?q=${encodeURIComponent(rawQuery).replace(/%20/g, '+')}`;
+              const { url: kwUrl } = buildExperiencesFilteredUrl(domain, rawQuery);
               if (kwUrl !== lpPrimary.targetUrl) {
                 kwFinalUrls[c.keyword] = kwUrl;
               }

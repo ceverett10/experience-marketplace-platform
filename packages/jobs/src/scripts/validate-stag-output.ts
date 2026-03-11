@@ -160,7 +160,12 @@ function getDomain(url: string): string {
 function getSearchQuery(url: string): string {
   try {
     const u = new URL(url);
-    return u.searchParams.get('q') ?? '';
+    const parts: string[] = [];
+    const q = u.searchParams.get('q');
+    const dest = u.searchParams.get('destination');
+    if (q) parts.push(q);
+    if (dest) parts.push(dest);
+    return parts.join(' ');
   } catch {
     return '';
   }

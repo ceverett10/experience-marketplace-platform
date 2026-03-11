@@ -11,6 +11,7 @@
  */
 
 import { prisma } from '@experience-marketplace/database';
+import { PAID_TRAFFIC_CONFIG } from '../config/paid-traffic';
 
 // --- Types -------------------------------------------------------------------
 
@@ -353,6 +354,254 @@ export function extractSearchQuery(keyword: string, location: string | null): st
   return words.join(' ').trim();
 }
 
+// --- Activity / Destination Splitting ----------------------------------------
+
+/**
+ * Naive de-pluralisation for matching keyword text against category patterns.
+ * Handles common English plural suffixes.
+ */
+export function depluralize(text: string): string {
+  return text
+    .split(/\s+/)
+    .map((w) => {
+      if (w.length <= 3) return w;
+      if (w.endsWith('sses') || w.endsWith('shes') || w.endsWith('ches') || w.endsWith('xes')) {
+        return w.slice(0, -2);
+      }
+      if (w.endsWith('ies') && w.length > 4) return w.slice(0, -3) + 'y';
+      if (w.endsWith('s') && !w.endsWith('ss')) return w.slice(0, -1);
+      return w;
+    })
+    .join(' ');
+}
+
+/** Suffixes that belong to the activity, not the destination. */
+const ACTIVITY_SUFFIXES = new Set([
+  'tour',
+  'tours',
+  'trip',
+  'trips',
+  'class',
+  'classes',
+  'sport',
+  'sports',
+  'ride',
+  'rides',
+  'lesson',
+  'lessons',
+  'experience',
+  'experiences',
+  'charter',
+  'charters',
+  'cruise',
+  'cruises',
+  'holiday',
+  'holidays',
+]);
+
+/** Prepositions to strip from destination remainder. */
+const DEST_STRIP_WORDS = new Set(['in', 'at', 'near', 'around', 'from']);
+
+/** Compound-activity keywords that should never be split. */
+const NO_SPLIT_KEYWORDS = new Set([
+  'sailing catamaran',
+  'snorkeling whale sharks',
+  'atv quad biking',
+  'atv quad bike',
+  'adventure travel',
+  'glass bottomed boat tour',
+  'harry potter studios',
+  'harry potter studio tour',
+  'harry potter universal studios',
+  'universal studios harry potter world',
+  'harry potter land universal studios',
+  'universal studios with harry potter',
+  'harry potter universe',
+  'universal and harry potter',
+  'harry potter filming locations',
+  'harry potter film locations',
+  'harry potter movie locations',
+  'harry potter film location',
+  'making harry potter studio',
+  'making of harry potter',
+  'warner bros harry potter',
+  'harry potter warner bros',
+  'harry potter warner bros london',
+]);
+
+/**
+ * Splits a search query into activity (what) and destination (where) components
+ * using known category patterns from the paid-traffic config.
+ *
+ * Examples:
+ * - "wine tasting crete" → { activity: "wine tasting", destination: "crete" }
+ * - "boat tours killarney" → { activity: "boat tour", destination: "killarney" }
+ * - "murcia walking tours" → { activity: "walking tour", destination: "murcia" }
+ * - "sailing catamaran" → { activity: "sailing catamaran", destination: "" } (no-split)
+ */
+export function splitActivityAndDestination(searchQuery: string): {
+  activity: string;
+  destination: string;
+} {
+  const query = searchQuery.toLowerCase().trim();
+  if (!query) return { activity: '', destination: '' };
+
+  // Check no-split list
+  if (NO_SPLIT_KEYWORDS.has(query)) {
+    return { activity: query, destination: '' };
+  }
+
+  // Build expanded pattern list from config, sorted longest-first
+  const { categoryPatterns } = PAID_TRAFFIC_CONFIG.metaConsolidated;
+  const patterns: string[] = [];
+  for (const patternList of Object.values(categoryPatterns)) {
+    for (const p of patternList) {
+      patterns.push(p.toLowerCase());
+    }
+  }
+
+  // Add -ing forms of single-word patterns
+  const ING_MAP: Record<string, string> = {
+    kayak: 'kayaking',
+    snorkel: 'snorkeling',
+    climb: 'climbing',
+    surf: 'surfing',
+    cycle: 'cycling',
+    trek: 'trekking',
+    hike: 'hiking',
+    dive: 'diving',
+    sail: 'sailing',
+  };
+  for (const [_base, ingForm] of Object.entries(ING_MAP)) {
+    if (!patterns.includes(ingForm)) patterns.push(ingForm);
+  }
+
+  // Sort longest-first for most specific match
+  patterns.sort((a, b) => b.length - a.length);
+
+  const words = query.split(/\s+/);
+
+  // Collect standalone activity words for safety check.
+  // Only single-word patterns count — fragments of multi-word patterns (e.g. "london"
+  // from "london food tour") are NOT standalone activity indicators.
+  const activityWords = new Set<string>();
+  for (const p of patterns) {
+    const pw = p.split(/\s+/);
+    if (pw.length === 1) activityWords.add(pw[0]!);
+  }
+  // Also add -ing forms as activity words
+  for (const ingForm of Object.values(ING_MAP)) {
+    activityWords.add(ingForm);
+  }
+
+  // --- Pass 1: activity at START of query ---
+  for (const pattern of patterns) {
+    const patternWords = pattern.split(/\s+/);
+    const queryDeplural = depluralize(query);
+    const queryDepluralWords = queryDeplural.split(/\s+/);
+
+    // Check if query starts with this pattern (depluralized match)
+    if (patternWords.length > queryDepluralWords.length) continue;
+    const match = patternWords.every((pw, i) => queryDepluralWords[i] === pw);
+    if (!match) continue;
+
+    // Absorb trailing activity suffixes
+    let actEnd = patternWords.length;
+    while (actEnd < words.length && ACTIVITY_SUFFIXES.has(words[actEnd]!)) {
+      actEnd++;
+    }
+
+    // Strip leading prepositions from destination
+    let destStart = actEnd;
+    while (destStart < words.length && DEST_STRIP_WORDS.has(words[destStart]!)) {
+      destStart++;
+    }
+    const destWords = words.slice(destStart);
+    if (destWords.length === 0) continue; // No destination = no split
+    if (destWords.length > 4) continue; // Too many words = probably not a destination
+
+    // Safety: skip if destination contains known activity words
+    if (destWords.some((w) => activityWords.has(depluralize(w)))) continue;
+
+    const activity = depluralize(words.slice(0, actEnd).join(' '));
+    const destination = destWords.join(' ');
+    return { activity, destination };
+  }
+
+  // --- Pass 2: activity at END of query ---
+  for (const pattern of patterns) {
+    const patternWords = pattern.split(/\s+/);
+    const queryDeplural = depluralize(query);
+    const queryDepluralWords = queryDeplural.split(/\s+/);
+
+    // Check if query ends with this pattern
+    const startIdx = queryDepluralWords.length - patternWords.length;
+    if (startIdx <= 0) continue;
+    const match = patternWords.every((pw, i) => queryDepluralWords[startIdx + i] === pw);
+    if (!match) continue;
+
+    // Absorb leading activity suffixes into activity
+    let destEnd = startIdx;
+    while (destEnd > 0 && ACTIVITY_SUFFIXES.has(words[destEnd - 1]!)) {
+      destEnd--;
+    }
+
+    const destWords = words.slice(0, destEnd);
+    if (destWords.length === 0) continue;
+    if (destWords.length > 4) continue;
+
+    // Safety: skip if destination contains known activity words
+    if (destWords.some((w) => activityWords.has(depluralize(w)))) continue;
+
+    const activity = depluralize(words.slice(destEnd).join(' '));
+    const destination = destWords.join(' ');
+    return { activity, destination };
+  }
+
+  // --- Pass 3: single-word pattern in MIDDLE with trailing suffix ---
+  // Handles "black river safari tours" → activity="safari tour", dest="black river"
+  for (const pattern of patterns) {
+    const patternWords = pattern.split(/\s+/);
+    if (patternWords.length !== 1) continue;
+    const pw = patternWords[0]!;
+
+    for (let i = 1; i < words.length - 1; i++) {
+      if (depluralize(words[i]!) !== pw && words[i] !== pw) continue;
+
+      // Absorb trailing suffixes
+      let actEnd = i + 1;
+      while (actEnd < words.length && ACTIVITY_SUFFIXES.has(words[actEnd]!)) {
+        actEnd++;
+      }
+      if (actEnd < words.length) continue; // Trailing non-suffix words = skip
+
+      const destWords = words.slice(0, i);
+      if (destWords.length === 0 || destWords.length > 4) continue;
+      if (destWords.some((w) => activityWords.has(depluralize(w)))) continue;
+
+      const activity = depluralize(words.slice(i, actEnd).join(' '));
+      return { activity, destination: destWords.join(' ') };
+    }
+  }
+
+  // No match — return full query as activity
+  return { activity: query, destination: '' };
+}
+
+/**
+ * Builds a /experiences URL with split ?destination= and ?q= params.
+ */
+export function buildExperiencesFilteredUrl(
+  domain: string,
+  searchQuery: string
+): { url: string; path: string } {
+  const urlObj = new URL(`https://${domain}/experiences`);
+  const { activity, destination } = splitActivityAndDestination(searchQuery);
+  if (destination) urlObj.searchParams.set('destination', destination);
+  if (activity) urlObj.searchParams.set('q', activity);
+  return { url: urlObj.toString(), path: urlObj.pathname + urlObj.search };
+}
+
 // --- Page Cache Loading ------------------------------------------------------
 
 /**
@@ -677,17 +926,14 @@ function buildDiscoveryLandingPage(
   }
 
   // Fallback: filtered experiences listing
-  // NOTE: `location` is the SEO geo-target market (e.g. "United Kingdom"), NOT the
-  // experience destination. Using it as a product filter would hide relevant results
-  // (e.g. "efteling amusement park" filtered to UK shows nothing — it's in Netherlands).
-  // We only use `q` search, which naturally surfaces the right experiences.
-  const url = new URL(`https://${domain}/experiences`);
+  // Split search query into activity (?q=) and destination (?destination=) so the
+  // Holibob Product Discovery API can filter by location AND activity independently.
   const searchQuery = extractSearchQuery(keyword, location);
-  if (searchQuery) url.searchParams.set('q', searchQuery);
+  const { url: builtUrl, path } = buildExperiencesFilteredUrl(domain, searchQuery);
 
   return {
-    url: url.toString(),
-    path: url.pathname + url.search,
+    url: builtUrl,
+    path,
     type: 'EXPERIENCES_FILTERED',
     validated: false,
   };
