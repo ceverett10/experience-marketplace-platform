@@ -88,7 +88,7 @@ export function AvailabilityModal({
       setError(null);
       try {
         const result = await fetchAvailability(productId, dateRange.from, dateRange.to);
-        const available = result.nodes.filter((slot) => !slot.soldOut);
+        const available = (result?.nodes ?? []).filter((slot) => !slot.soldOut);
         setAvailabilitySlots(available);
         // Pre-select the first available date
         if (available.length > 0 && !selectedSlot) {
