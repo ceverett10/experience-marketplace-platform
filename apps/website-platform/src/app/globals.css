@@ -119,15 +119,18 @@
 
 /* Search bar glow pulse */
 @keyframes searchGlow {
-  0%, 100% {
-    box-shadow: 0 0 20px rgba(255, 255, 255, 0.15),
-                0 0 60px rgba(255, 255, 255, 0.05),
-                0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  0%,
+  100% {
+    box-shadow:
+      0 0 20px rgba(255, 255, 255, 0.15),
+      0 0 60px rgba(255, 255, 255, 0.05),
+      0 25px 50px -12px rgba(0, 0, 0, 0.25);
   }
   50% {
-    box-shadow: 0 0 30px rgba(255, 255, 255, 0.25),
-                0 0 80px rgba(255, 255, 255, 0.1),
-                0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    box-shadow:
+      0 0 30px rgba(255, 255, 255, 0.25),
+      0 0 80px rgba(255, 255, 255, 0.1),
+      0 25px 50px -12px rgba(0, 0, 0, 0.25);
   }
 }
 
@@ -160,6 +163,20 @@
   animation: slideUp 0.3s ease-out;
 }
 
+/* Search bottom sheet slide-up (mobile) */
+@keyframes slideUpSheet {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.search-sheet-enter {
+  animation: slideUpSheet 0.3s ease-out both;
+}
+
 /* Accessibility: disable animations for users who prefer reduced motion */
 @media (prefers-reduced-motion: reduce) {
   .hero-animate-title,
@@ -178,6 +195,9 @@
   .animate-slide-up {
     animation: none;
     opacity: 1;
+  }
+  .search-sheet-enter {
+    animation: none;
   }
 }
 

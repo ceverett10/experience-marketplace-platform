@@ -84,6 +84,70 @@ const DEFAULT_WHAT_SUGGESTIONS = [
 
 type ActiveSection = 'where' | 'when' | 'who' | 'what' | null;
 
+// Reusable field icon components
+interface IconProps {
+  className?: string;
+  style?: React.CSSProperties;
+}
+
+function MapPinIcon({ className = 'h-4 w-4', style }: IconProps) {
+  return (
+    <svg className={className} style={style} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+      />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+      />
+    </svg>
+  );
+}
+
+function CalendarIcon({ className = 'h-4 w-4', style }: IconProps) {
+  return (
+    <svg className={className} style={style} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+      />
+    </svg>
+  );
+}
+
+function PeopleIcon({ className = 'h-4 w-4', style }: IconProps) {
+  return (
+    <svg className={className} style={style} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
+      />
+    </svg>
+  );
+}
+
+function SearchIcon({ className = 'h-4 w-4', style }: IconProps) {
+  return (
+    <svg className={className} style={style} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+      />
+    </svg>
+  );
+}
+
 export function ProductDiscoverySearch({
   variant = 'hero',
   defaultDestination = '',
@@ -493,235 +557,140 @@ export function ProductDiscoverySearch({
     }
   };
 
-  // Render dropdown content for each section
-  const renderDropdown = () => {
+  // Section icon/label/placeholder config
+  const sectionConfig = {
+    where: {
+      icon: MapPinIcon,
+      label: 'Where',
+      subtitle: 'are you going?',
+      placeholder: 'e.g. London, Paris, or Rome',
+    },
+    when: {
+      icon: CalendarIcon,
+      label: 'When',
+      subtitle: 'are you free?',
+      placeholder: 'e.g. This weekend, Next month, or March 15',
+    },
+    who: {
+      icon: PeopleIcon,
+      label: 'Who',
+      subtitle: 'is coming along?',
+      placeholder: 'e.g. 2 adults, Family with kids, or Solo',
+    },
+    what: {
+      icon: SearchIcon,
+      label: 'What',
+      subtitle: 'is on your bucket list?',
+      placeholder: 'e.g. Walking tours, Museums, or Skip-the-line',
+    },
+  } as const;
+
+  // Get value/setter for a section
+  const sectionValues: Record<
+    'where' | 'when' | 'who' | 'what',
+    { value: string; setter: (v: string) => void }
+  > = {
+    where: { value: where, setter: setWhere },
+    when: { value: when, setter: setWhen },
+    who: { value: who, setter: setWho },
+    what: { value: what, setter: setWhat },
+  };
+
+  // Get suggestions for a section
+  const getSuggestionsForSection = (section: ActiveSection) => {
+    if (section === 'where') {
+      return getLocationSuggestions().map((loc) => ({ id: loc.id, label: loc.name }));
+    }
+    if (section === 'when') return WHEN_SUGGESTIONS;
+    if (section === 'who') return WHO_SUGGESTIONS;
+    if (section === 'what') return getWhatSuggestions();
+    return [];
+  };
+
+  // Render dropdown content for a section (shared between mobile bottom sheet and desktop inline)
+  const renderDropdownContent = (section: NonNullable<ActiveSection>) => {
+    const config = sectionConfig[section];
+    const { value, setter } = sectionValues[section];
+    const suggestions = getSuggestionsForSection(section);
+    const showLoading = isLoadingSuggestions && (section === 'where' || section === 'what');
+    const Icon = config.icon;
+
+    return (
+      <>
+        <div className="mb-3 flex items-center gap-2 text-sm font-medium text-gray-900">
+          <Icon className="h-4 w-4 text-gray-500" />
+          <span>{config.label}</span>
+          <span className="font-normal text-gray-500">{config.subtitle}</span>
+        </div>
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => setter(e.target.value)}
+          placeholder={config.placeholder}
+          className="mb-3 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:border-transparent focus:outline-none focus:ring-2"
+          style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
+          autoFocus
+          onKeyDown={(e) => handleKeyDown(e, section)}
+        />
+        <div className="flex flex-wrap gap-2">
+          {showLoading && (
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+              <div
+                className="h-4 w-4 animate-spin rounded-full border-2 border-t-transparent"
+                style={{
+                  borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}`,
+                }}
+              />
+              Loading suggestions...
+            </div>
+          )}
+          {suggestions.map((sug) => (
+            <button
+              key={sug.id}
+              type="button"
+              onClick={() => selectSuggestion(section, sug.label)}
+              className="rounded-full px-4 py-2 text-sm font-medium transition-all hover:scale-105"
+              style={{
+                backgroundColor:
+                  value.toLowerCase() === sug.label.toLowerCase() ? primaryColor : '#f3f4f6',
+                color: value.toLowerCase() === sug.label.toLowerCase() ? 'white' : '#374151',
+              }}
+            >
+              {sug.label}
+            </button>
+          ))}
+        </div>
+      </>
+    );
+  };
+
+  // Desktop inline dropdown
+  const renderDesktopDropdown = () => {
     if (!activeSection) return null;
 
     return (
-      <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[60vh] overflow-y-auto rounded-2xl border border-gray-100 bg-white p-4 shadow-2xl">
-        {activeSection === 'where' && (
-          <>
-            <div className="mb-3 flex items-center gap-2 text-sm font-medium text-gray-900">
-              <svg
-                className="h-4 w-4 text-gray-500"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                />
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                />
-              </svg>
-              <span>Where</span>
-              <span className="font-normal text-gray-500">are you going?</span>
-            </div>
-            <input
-              type="text"
-              value={where}
-              onChange={(e) => setWhere(e.target.value)}
-              placeholder="e.g. London, Paris, or Rome"
-              className="mb-3 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:border-transparent focus:outline-none focus:ring-2"
-              style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
-              autoFocus
-              onKeyDown={(e) => handleKeyDown(e, 'where')}
-            />
-            <div className="flex flex-wrap gap-2">
-              {isLoadingSuggestions && (
-                <div className="flex items-center gap-2 text-sm text-gray-500">
-                  <div
-                    className="h-4 w-4 animate-spin rounded-full border-2 border-t-transparent"
-                    style={{
-                      borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}`,
-                    }}
-                  />
-                  Loading suggestions...
-                </div>
-              )}
-              {getLocationSuggestions().map((loc) => (
-                <button
-                  key={loc.id}
-                  type="button"
-                  onClick={() => selectSuggestion('where', loc.name)}
-                  className="rounded-full px-4 py-2 text-sm font-medium transition-all hover:scale-105"
-                  style={{
-                    backgroundColor:
-                      where.toLowerCase() === loc.name.toLowerCase() ? primaryColor : '#f3f4f6',
-                    color: where.toLowerCase() === loc.name.toLowerCase() ? 'white' : '#374151',
-                  }}
-                >
-                  {loc.name}
-                </button>
-              ))}
-            </div>
-          </>
-        )}
+      <div className="absolute left-0 right-0 top-full z-50 mt-2 hidden max-h-[60vh] overflow-y-auto rounded-2xl border border-gray-100 bg-white p-4 shadow-2xl md:block">
+        {renderDropdownContent(activeSection)}
+      </div>
+    );
+  };
 
-        {activeSection === 'when' && (
-          <>
-            <div className="mb-3 flex items-center gap-2 text-sm font-medium text-gray-900">
-              <svg
-                className="h-4 w-4 text-gray-500"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                />
-              </svg>
-              <span>When</span>
-              <span className="font-normal text-gray-500">are you free?</span>
-            </div>
-            <input
-              type="text"
-              value={when}
-              onChange={(e) => setWhen(e.target.value)}
-              placeholder="e.g. This weekend, Next month, or March 15"
-              className="mb-3 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:border-transparent focus:outline-none focus:ring-2"
-              style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
-              autoFocus
-              onKeyDown={(e) => handleKeyDown(e, 'when')}
-            />
-            <div className="flex flex-wrap gap-2">
-              {WHEN_SUGGESTIONS.map((sug) => (
-                <button
-                  key={sug.id}
-                  type="button"
-                  onClick={() => selectSuggestion('when', sug.label)}
-                  className="rounded-full px-4 py-2 text-sm font-medium transition-all hover:scale-105"
-                  style={{
-                    backgroundColor:
-                      when.toLowerCase() === sug.label.toLowerCase() ? primaryColor : '#f3f4f6',
-                    color: when.toLowerCase() === sug.label.toLowerCase() ? 'white' : '#374151',
-                  }}
-                >
-                  {sug.label}
-                </button>
-              ))}
-            </div>
-          </>
-        )}
+  // Mobile bottom sheet dropdown
+  const renderMobileBottomSheet = () => {
+    if (!activeSection) return null;
 
-        {activeSection === 'who' && (
-          <>
-            <div className="mb-3 flex items-center gap-2 text-sm font-medium text-gray-900">
-              <svg
-                className="h-4 w-4 text-gray-500"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
-                />
-              </svg>
-              <span>Who</span>
-              <span className="font-normal text-gray-500">is coming along?</span>
-            </div>
-            <input
-              type="text"
-              value={who}
-              onChange={(e) => setWho(e.target.value)}
-              placeholder="e.g. 2 adults, Family with kids, or Solo"
-              className="mb-3 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:border-transparent focus:outline-none focus:ring-2"
-              style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
-              autoFocus
-              onKeyDown={(e) => handleKeyDown(e, 'who')}
-            />
-            <div className="flex flex-wrap gap-2">
-              {WHO_SUGGESTIONS.map((sug) => (
-                <button
-                  key={sug.id}
-                  type="button"
-                  onClick={() => selectSuggestion('who', sug.label)}
-                  className="rounded-full px-4 py-2 text-sm font-medium transition-all hover:scale-105"
-                  style={{
-                    backgroundColor:
-                      who.toLowerCase() === sug.label.toLowerCase() ? primaryColor : '#f3f4f6',
-                    color: who.toLowerCase() === sug.label.toLowerCase() ? 'white' : '#374151',
-                  }}
-                >
-                  {sug.label}
-                </button>
-              ))}
-            </div>
-          </>
-        )}
-
-        {activeSection === 'what' && (
-          <>
-            <div className="mb-3 flex items-center gap-2 text-sm font-medium text-gray-900">
-              <svg
-                className="h-4 w-4 text-gray-500"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
-              </svg>
-              <span>What</span>
-              <span className="font-normal text-gray-500">is on your bucket list?</span>
-            </div>
-            <input
-              type="text"
-              value={what}
-              onChange={(e) => setWhat(e.target.value)}
-              placeholder="e.g. Walking tours, Museums, or Skip-the-line"
-              className="mb-3 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:border-transparent focus:outline-none focus:ring-2"
-              style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
-              autoFocus
-              onKeyDown={(e) => handleKeyDown(e, 'what')}
-            />
-            <div className="flex flex-wrap gap-2">
-              {isLoadingSuggestions && (
-                <div className="flex items-center gap-2 text-sm text-gray-500">
-                  <div
-                    className="h-4 w-4 animate-spin rounded-full border-2 border-t-transparent"
-                    style={{
-                      borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}`,
-                    }}
-                  />
-                  Loading suggestions...
-                </div>
-              )}
-              {getWhatSuggestions().map((sug) => (
-                <button
-                  key={sug.id}
-                  type="button"
-                  onClick={() => selectSuggestion('what', sug.label)}
-                  className="rounded-full px-4 py-2 text-sm font-medium transition-all hover:scale-105"
-                  style={{
-                    backgroundColor:
-                      what.toLowerCase() === sug.label.toLowerCase() ? primaryColor : '#f3f4f6',
-                    color: what.toLowerCase() === sug.label.toLowerCase() ? 'white' : '#374151',
-                  }}
-                >
-                  {sug.label}
-                </button>
-              ))}
-            </div>
-          </>
-        )}
+    return (
+      <div className="fixed inset-0 z-[100] md:hidden">
+        {/* Backdrop */}
+        <div className="absolute inset-0 bg-black/40" onClick={() => setActiveSection(null)} />
+        {/* Sheet */}
+        <div className="search-sheet-enter absolute inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-2xl bg-white px-5 pb-8 pt-3 shadow-2xl">
+          {/* Drag handle */}
+          <div className="mb-4 flex justify-center">
+            <div className="h-1.5 w-10 rounded-full bg-gray-300" />
+          </div>
+          {renderDropdownContent(activeSection)}
+        </div>
       </div>
     );
   };
@@ -814,7 +783,11 @@ export function ProductDiscoverySearch({
         </button>
 
         {/* Dropdown */}
-        {renderDropdown()}
+        {activeSection && (
+          <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[60vh] overflow-y-auto rounded-2xl border border-gray-100 bg-white p-4 shadow-2xl">
+            {renderDropdownContent(activeSection)}
+          </div>
+        )}
 
         {/* Context-aware attraction chips */}
         {where && (
@@ -840,104 +813,124 @@ export function ProductDiscoverySearch({
     );
   }
 
+  // Mobile field placeholder text
+  const mobileFieldPlaceholders = {
+    where: 'Search destinations...',
+    when: 'Pick a date',
+    who: 'Add guests',
+    what: 'Tours, activities...',
+  };
+
+  // Render a mobile field button with icon
+  const renderMobileField = (section: 'where' | 'when' | 'who' | 'what') => {
+    const config = sectionConfig[section];
+    const { value } = sectionValues[section];
+    const Icon = config.icon;
+    const isActive = activeSection === section;
+    const isFilled = !!value;
+
+    return (
+      <button
+        type="button"
+        onClick={() => setActiveSection(isActive ? null : section)}
+        className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-all ${
+          isActive ? 'bg-gray-50' : 'hover:bg-gray-50/50'
+        }`}
+        style={
+          isActive
+            ? { borderLeft: `3px solid ${primaryColor}`, paddingLeft: '9px' }
+            : { borderLeft: '3px solid transparent', paddingLeft: '9px' }
+        }
+      >
+        <div
+          className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full"
+          style={{ backgroundColor: `${primaryColor}15` }}
+        >
+          <Icon className="h-4 w-4" style={{ color: primaryColor }} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <span className="block text-xs font-semibold text-gray-800">{config.label}</span>
+          <span
+            className={`block truncate text-sm ${
+              isFilled ? 'font-medium text-gray-900' : 'text-gray-400'
+            }`}
+          >
+            {value || mobileFieldPlaceholders[section]}
+          </span>
+        </div>
+        {isFilled && (
+          <div
+            className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full"
+            style={{ backgroundColor: primaryColor }}
+          >
+            <svg
+              className="h-3 w-3 text-white"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={3}
+                d="M5 13l4 4L19 7"
+              />
+            </svg>
+          </div>
+        )}
+      </button>
+    );
+  };
+
   // Hero variant (default) - Horizontal 4-section search bar (stacks on mobile)
   return (
     <div ref={searchBarRef} className={`relative w-full ${className}`}>
       {/* Main Search Bar - Desktop: horizontal pill, Mobile: vertical card */}
       <div className="rounded-2xl bg-white p-2 shadow-2xl shadow-black/10 md:rounded-full">
-        {/* Mobile Layout - Stacked */}
-        <div className="flex flex-col gap-1 md:hidden">
-          {/* Where */}
-          <button
-            type="button"
-            onClick={() => setActiveSection(activeSection === 'where' ? null : 'where')}
-            className={`w-full rounded-xl px-4 py-3 text-left transition-colors ${
-              activeSection === 'where' ? 'bg-gray-100' : 'hover:bg-gray-50'
-            }`}
-          >
-            <span className="block text-xs font-semibold text-gray-800">Where</span>
-            <span className="block truncate text-sm text-gray-500">
-              {where || 'Search destinations...'}
-            </span>
-          </button>
+        {/* Mobile Layout - Stacked with icons */}
+        <div className="flex flex-col md:hidden">
+          {renderMobileField('where')}
+          <div className="mx-3 border-t border-gray-100" />
+          {renderMobileField('when')}
+          <div className="mx-3 border-t border-gray-100" />
+          {renderMobileField('who')}
+          <div className="mx-3 border-t border-gray-100" />
+          {renderMobileField('what')}
 
-          <div className="mx-4 border-t border-gray-100" />
-
-          {/* When */}
-          <button
-            type="button"
-            onClick={() => setActiveSection(activeSection === 'when' ? null : 'when')}
-            className={`w-full rounded-xl px-4 py-3 text-left transition-colors ${
-              activeSection === 'when' ? 'bg-gray-100' : 'hover:bg-gray-50'
-            }`}
-          >
-            <span className="block text-xs font-semibold text-gray-800">When</span>
-            <span className="block truncate text-sm text-gray-500">{when || 'Pick a date'}</span>
-          </button>
-
-          <div className="mx-4 border-t border-gray-100" />
-
-          {/* Who */}
-          <button
-            type="button"
-            onClick={() => setActiveSection(activeSection === 'who' ? null : 'who')}
-            className={`w-full rounded-xl px-4 py-3 text-left transition-colors ${
-              activeSection === 'who' ? 'bg-gray-100' : 'hover:bg-gray-50'
-            }`}
-          >
-            <span className="block text-xs font-semibold text-gray-800">Who</span>
-            <span className="block truncate text-sm text-gray-500">{who || 'Add guests'}</span>
-          </button>
-
-          <div className="mx-4 border-t border-gray-100" />
-
-          {/* What */}
-          <button
-            type="button"
-            onClick={() => setActiveSection(activeSection === 'what' ? null : 'what')}
-            className={`w-full rounded-xl px-4 py-3 text-left transition-colors ${
-              activeSection === 'what' ? 'bg-gray-100' : 'hover:bg-gray-50'
-            }`}
-          >
-            <span className="block text-xs font-semibold text-gray-800">What</span>
-            <span className="block truncate text-sm text-gray-500">
-              {what || 'Tours, activities...'}
-            </span>
-          </button>
-
-          {/* Mobile Search Button - Full Width */}
+          {/* Mobile Search Button - Gradient with shadow */}
           <button
             type="button"
             onClick={navigateToResults}
-            className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-semibold text-white transition-all hover:opacity-90"
-            style={{ backgroundColor: primaryColor }}
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl py-4 text-sm font-semibold text-white shadow-lg transition-all hover:opacity-90 active:scale-[0.98]"
+            style={{
+              background: `linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}dd 100%)`,
+              boxShadow: `0 4px 14px ${primaryColor}40`,
+            }}
           >
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-              />
-            </svg>
+            <SearchIcon className="h-5 w-5" />
             Search Experiences
           </button>
         </div>
 
-        {/* Desktop Layout - Horizontal */}
+        {/* Desktop Layout - Horizontal with icons */}
         <div className="hidden items-center md:flex">
           {/* Where */}
           <button
             type="button"
             onClick={() => setActiveSection(activeSection === 'where' ? null : 'where')}
-            className={`flex-1 rounded-full px-6 py-3 text-left transition-colors ${
-              activeSection === 'where' ? 'bg-gray-100' : 'hover:bg-gray-50'
+            className={`flex flex-1 items-center gap-2 rounded-full px-5 py-3 text-left transition-all ${
+              activeSection === 'where' ? 'bg-gray-100 shadow-sm' : 'hover:bg-gray-50'
             }`}
           >
-            <span className="block text-xs font-semibold text-gray-800">Where</span>
-            <span className="block truncate text-sm text-gray-500">
-              {where || 'Search destinations...'}
-            </span>
+            <MapPinIcon className="h-4 w-4 flex-shrink-0 text-gray-400" />
+            <div className="min-w-0">
+              <span className="block text-xs font-semibold text-gray-800">Where</span>
+              <span
+                className={`block truncate text-sm ${where ? 'font-medium text-gray-900' : 'text-gray-500'}`}
+              >
+                {where || 'Search destinations...'}
+              </span>
+            </div>
           </button>
 
           <div className="h-8 w-px bg-gray-200" />
@@ -946,12 +939,19 @@ export function ProductDiscoverySearch({
           <button
             type="button"
             onClick={() => setActiveSection(activeSection === 'when' ? null : 'when')}
-            className={`flex-1 rounded-full px-6 py-3 text-left transition-colors ${
-              activeSection === 'when' ? 'bg-gray-100' : 'hover:bg-gray-50'
+            className={`flex flex-1 items-center gap-2 rounded-full px-5 py-3 text-left transition-all ${
+              activeSection === 'when' ? 'bg-gray-100 shadow-sm' : 'hover:bg-gray-50'
             }`}
           >
-            <span className="block text-xs font-semibold text-gray-800">When</span>
-            <span className="block truncate text-sm text-gray-500">{when || 'Pick a date'}</span>
+            <CalendarIcon className="h-4 w-4 flex-shrink-0 text-gray-400" />
+            <div className="min-w-0">
+              <span className="block text-xs font-semibold text-gray-800">When</span>
+              <span
+                className={`block truncate text-sm ${when ? 'font-medium text-gray-900' : 'text-gray-500'}`}
+              >
+                {when || 'Pick a date'}
+              </span>
+            </div>
           </button>
 
           <div className="h-8 w-px bg-gray-200" />
@@ -960,12 +960,19 @@ export function ProductDiscoverySearch({
           <button
             type="button"
             onClick={() => setActiveSection(activeSection === 'who' ? null : 'who')}
-            className={`flex-1 rounded-full px-6 py-3 text-left transition-colors ${
-              activeSection === 'who' ? 'bg-gray-100' : 'hover:bg-gray-50'
+            className={`flex flex-1 items-center gap-2 rounded-full px-5 py-3 text-left transition-all ${
+              activeSection === 'who' ? 'bg-gray-100 shadow-sm' : 'hover:bg-gray-50'
             }`}
           >
-            <span className="block text-xs font-semibold text-gray-800">Who</span>
-            <span className="block truncate text-sm text-gray-500">{who || 'Add guests'}</span>
+            <PeopleIcon className="h-4 w-4 flex-shrink-0 text-gray-400" />
+            <div className="min-w-0">
+              <span className="block text-xs font-semibold text-gray-800">Who</span>
+              <span
+                className={`block truncate text-sm ${who ? 'font-medium text-gray-900' : 'text-gray-500'}`}
+              >
+                {who || 'Add guests'}
+              </span>
+            </div>
           </button>
 
           <div className="h-8 w-px bg-gray-200" />
@@ -974,45 +981,47 @@ export function ProductDiscoverySearch({
           <button
             type="button"
             onClick={() => setActiveSection(activeSection === 'what' ? null : 'what')}
-            className={`flex-1 rounded-full px-6 py-3 text-left transition-colors ${
-              activeSection === 'what' ? 'bg-gray-100' : 'hover:bg-gray-50'
+            className={`flex flex-1 items-center gap-2 rounded-full px-5 py-3 text-left transition-all ${
+              activeSection === 'what' ? 'bg-gray-100 shadow-sm' : 'hover:bg-gray-50'
             }`}
           >
-            <span className="block text-xs font-semibold text-gray-800">What</span>
-            <span className="block truncate text-sm text-gray-500">
-              {what || 'Tours, activities...'}
-            </span>
+            <SearchIcon className="h-4 w-4 flex-shrink-0 text-gray-400" />
+            <div className="min-w-0">
+              <span className="block text-xs font-semibold text-gray-800">What</span>
+              <span
+                className={`block truncate text-sm ${what ? 'font-medium text-gray-900' : 'text-gray-500'}`}
+              >
+                {what || 'Tours, activities...'}
+              </span>
+            </div>
           </button>
 
           {/* Search Button */}
           <button
             type="button"
             onClick={navigateToResults}
-            className="ml-2 flex h-12 w-12 items-center justify-center rounded-full text-white transition-all hover:scale-105"
-            style={{ backgroundColor: primaryColor }}
+            className="ml-2 flex h-12 w-12 items-center justify-center rounded-full text-white shadow-md transition-all hover:scale-105 hover:shadow-lg"
+            style={{
+              background: `linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}dd 100%)`,
+            }}
             aria-label="Search"
           >
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-              />
-            </svg>
+            <SearchIcon className="h-5 w-5" />
           </button>
         </div>
       </div>
 
-      {/* Dropdown */}
-      {renderDropdown()}
+      {/* Desktop Dropdown (inline) */}
+      {renderDesktopDropdown()}
 
-      {/* Context-aware attraction chips - Hidden on mobile, shown on desktop */}
-      <div className="mt-4 hidden flex-wrap items-center justify-center gap-2 sm:flex">
+      {/* Mobile Bottom Sheet */}
+      {renderMobileBottomSheet()}
+
+      {/* Context-aware attraction chips - Visible on all sizes, scrollable on mobile */}
+      <div className="mt-4 flex items-center gap-2 overflow-x-auto sm:flex-wrap sm:justify-center sm:overflow-visible">
         {where ? (
-          // Show context-aware chips when destination is selected
           <>
-            <span className="text-sm text-white/80">Explore:</span>
+            <span className="flex-shrink-0 text-sm text-white/80">Explore:</span>
             {getWhatSuggestions()
               .slice(0, 6)
               .map((sug) => (
@@ -1023,22 +1032,21 @@ export function ProductDiscoverySearch({
                     setWhat(sug.label);
                     navigateToResults();
                   }}
-                  className="rounded-full bg-white/20 px-3 py-1 text-sm text-white backdrop-blur-sm transition-colors hover:bg-white/30"
+                  className="flex-shrink-0 rounded-full bg-white/20 px-3 py-1 text-sm text-white backdrop-blur-sm transition-colors hover:bg-white/30"
                 >
                   {sug.label}
                 </button>
               ))}
           </>
         ) : (
-          // Show generic popular chips when no destination
           <>
-            <span className="text-sm text-white/80">Popular:</span>
+            <span className="flex-shrink-0 text-sm text-white/80">Popular:</span>
             {DEFAULT_WHAT_SUGGESTIONS.map((sug) => (
               <button
                 key={sug.id}
                 type="button"
                 onClick={() => setWhat(sug.label)}
-                className="rounded-full bg-white/20 px-3 py-1 text-sm text-white backdrop-blur-sm transition-colors hover:bg-white/30"
+                className="flex-shrink-0 rounded-full bg-white/20 px-3 py-1 text-sm text-white backdrop-blur-sm transition-colors hover:bg-white/30"
               >
                 {sug.label}
               </button>
