@@ -81,6 +81,7 @@ export function AvailabilityModal({
   // Fetch availability when modal opens or date range changes
   useEffect(() => {
     if (!isOpen || step !== 'dates') return;
+    if (!dateRange.from || !dateRange.to || dateRange.from >= dateRange.to) return;
 
     const loadAvailability = async () => {
       setIsLoading(true);
@@ -393,7 +394,20 @@ export function AvailabilityModal({
                     type="date"
                     value={dateRange.from}
                     min={new Date().toISOString().split('T')[0]}
-                    onChange={(e) => setDateRange((prev) => ({ ...prev, from: e.target.value }))}
+                    onChange={(e) => {
+                      const newFrom = e.target.value;
+                      setDateRange((prev) => {
+                        if (newFrom >= prev.to) {
+                          const newTo = new Date(newFrom);
+                          newTo.setDate(newTo.getDate() + 30);
+                          return {
+                            from: newFrom,
+                            to: newTo.toISOString().split('T')[0] ?? prev.to,
+                          };
+                        }
+                        return { ...prev, from: newFrom };
+                      });
+                    }}
                     className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
                   />
                 </div>
@@ -402,7 +416,11 @@ export function AvailabilityModal({
                   <input
                     type="date"
                     value={dateRange.to}
-                    min={dateRange.from}
+                    min={(() => {
+                      const d = new Date(dateRange.from);
+                      d.setDate(d.getDate() + 1);
+                      return d.toISOString().split('T')[0];
+                    })()}
                     onChange={(e) => setDateRange((prev) => ({ ...prev, to: e.target.value }))}
                     className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
                   />
