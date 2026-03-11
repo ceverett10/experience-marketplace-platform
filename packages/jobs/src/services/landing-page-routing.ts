@@ -658,24 +658,9 @@ function buildDiscoveryLandingPage(
     }
   }
 
-  // Before falling through to filtered search, attempt cross-type matching.
-  // A keyword classified as EXPERIENCES_FILTERED may still have a relevant
-  // blog post or destination page that would be a higher-quality landing page.
-  const blogFallback = context.sitePages.find(
-    (p) => p.type === 'BLOG' && keywordMatchesBlogTitle(kw, p.title)
-  );
-  if (blogFallback) {
-    const slug = blogFallback.slug.startsWith('blog/')
-      ? blogFallback.slug.substring(5)
-      : blogFallback.slug;
-    return {
-      url: `https://${domain}/blog/${slug}`,
-      path: `/blog/${slug}`,
-      type: 'BLOG',
-      validated: true,
-    };
-  }
-
+  // Before falling through to filtered search, check for a matching destination page.
+  // Destination pages have bookable products — unlike blogs which have no conversion path.
+  // Blog pages are intentionally excluded from paid campaign landing pages.
   const destFallback = context.sitePages.find(
     (p) => p.type === 'LANDING' && p.holibobLocationId && keywordContainsAllWords(kw, p.title)
   );
@@ -846,7 +831,7 @@ export function getLandingPageBonus(type: LandingPageType): number {
     case 'EXPERIENCES_FILTERED':
       return 8; // Good: relevant filtered results
     case 'BLOG':
-      return 5; // OK: informational, lower conversion rate
+      return 0; // No bonus: no bookable products on blog pages
     case 'HOMEPAGE':
     default:
       return 0; // No bonus: generic landing page
