@@ -1201,3 +1201,64 @@ export async function addKeywordsToAdGroup(adGroupId: string, keywords: string[]
     return totalAdded;
   }
 }
+
+// --- Keyword Planner API ----------------------------------------------------
+
+export interface KeywordMetrics {
+  keyword: string;
+  avgMonthlySearches: number;
+  averageCpcMicros: number;
+}
+
+/**
+ * Get historical search volume and CPC for a list of keywords using
+ * the Google Ads Keyword Planner API. Free to use, no billing required.
+ *
+ * @param keywords - Up to 10,000 keywords per call (batched internally)
+ * @param geoTargetConstant - Geo target ID, e.g. '2826' for United Kingdom
+ * @param languageConstant - Language ID, e.g. '1000' for English
+ */
+export async function getKeywordHistoricalMetrics(
+  config: GoogleAdsConfig,
+  keywords: string[],
+  geoTargetConstant = '2826',
+  languageConstant = '1000'
+): Promise<KeywordMetrics[]> {
+  const BATCH_SIZE = 10_000;
+  const allMetrics: KeywordMetrics[] = [];
+
+  for (let i = 0; i < keywords.length; i += BATCH_SIZE) {
+    const batch = keywords.slice(i, i + BATCH_SIZE);
+    console.info(
+      `[GoogleAds] Keyword Planner: fetching metrics for ${batch.length} keywords ` +
+        `(batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(keywords.length / BATCH_SIZE)})`
+    );
+
+    const response = (await apiRequest(config, 'POST', ':generateKeywordHistoricalMetrics', {
+      keywords: batch,
+      geoTargetConstants: [`geoTargetConstants/${geoTargetConstant}`],
+      language: `languageConstants/${languageConstant}`,
+      keywordPlanNetwork: 'GOOGLE_SEARCH',
+    })) as {
+      results?: Array<{
+        text: string;
+        keywordMetrics?: {
+          avgMonthlySearches?: string;
+          averageCpcMicros?: string;
+        };
+      }>;
+    };
+
+    if (response.results) {
+      for (const result of response.results) {
+        allMetrics.push({
+          keyword: result.text,
+          avgMonthlySearches: parseInt(result.keywordMetrics?.avgMonthlySearches || '0', 10),
+          averageCpcMicros: parseInt(result.keywordMetrics?.averageCpcMicros || '0', 10),
+        });
+      }
+    }
+  }
+
+  return allMetrics;
+}
