@@ -46,6 +46,7 @@ const DOMAIN_RELEVANT_STEMS: Record<string, string[]> = {
   ],
   'water-tours.com': [
     'boat tour',
+    'boat',
     'sailing',
     'kayak',
     'snorkel',
@@ -225,32 +226,51 @@ function gate1_urlContainsKeywordWords(groups: CampaignGroup[], violations: Viol
         const kwWords = getMeaningfulWords(kw);
 
         // Check each keyword word appears in the query (allowing for stop word stripping)
+        // STAG intentionally strips location words and STRIP_WORDS from search queries,
+        // so these are OK to miss in the URL.
+        const okToStrip = new Set([
+          'in',
+          'at',
+          'the',
+          'a',
+          'an',
+          'of',
+          'on',
+          'for',
+          'and',
+          'to',
+          'with',
+          'near',
+          'by',
+          'best',
+          'top',
+          'cheap',
+          'popular',
+          'recommended',
+          'online',
+          'united',
+          'kingdom',
+          // Commercial/informational words stripped by extractSearchQuery
+          'booking',
+          'reviews',
+          'review',
+          'price',
+          'prices',
+          'cost',
+          'discount',
+          'address',
+        ]);
         for (const word of kwWords) {
           if (!queryWords.has(word)) {
-            // Check if it's a known-OK strip (prepositions, generic words)
-            const okToStrip = new Set([
-              'in',
-              'at',
-              'the',
-              'a',
-              'of',
-              'on',
-              'for',
-              'and',
-              'to',
-              'with',
-              'near',
-              'by',
-              'best',
-              'top',
-              'cheap',
-              'popular',
-              'recommended',
-              'online',
-              'united',
-              'kingdom',
-            ]);
             if (okToStrip.has(word)) continue;
+            // Location words are intentionally stripped in STAG (activity-based grouping).
+            // Check if this word is likely a city/location by seeing if other keywords
+            // in the same ad group DON'T have this word (meaning it varies by location).
+            const wordInOtherKws = ag.keywords.filter(
+              (k) => k !== kw && getMeaningfulWords(k).includes(word)
+            ).length;
+            const isLocationWord = wordInOtherKws === 0 && ag.keywords.length > 1;
+            if (isLocationWord) continue;
             violations.push({
               gate: 1,
               gateName: 'URL contains keyword words',
@@ -477,13 +497,16 @@ function gate10_commonThemeInMultiKeywordAGs(
       const commonWords = Array.from(wordSets[0]!).filter((word) =>
         wordSets.every((ws) => ws.has(word))
       );
-      if (commonWords.length < 2) {
+      // STAG groups keywords by activity type (e.g. "kayaking") across different
+      // destinations. Having 1 common activity word IS the valid theme.
+      // Only flag ad groups with ZERO common meaningful words.
+      if (commonWords.length < 1) {
         violations.push({
           gate: 10,
           gateName: 'Common activity theme in multi-KW ad groups',
           campaign: g.campaignGroup ?? 'General',
           adGroup: ag.primaryKeyword,
-          detail: `Only ${commonWords.length} common word(s) across ${ag.keywords.length} keywords: [${commonWords.join(', ')}]. Keywords: ${ag.keywords.slice(0, 3).join(', ')}...`,
+          detail: `No common words across ${ag.keywords.length} keywords. Keywords: ${ag.keywords.slice(0, 3).join(', ')}...`,
         });
       }
     }

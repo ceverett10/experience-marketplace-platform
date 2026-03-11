@@ -217,6 +217,16 @@ export const PAID_TRAFFIC_CONFIG = {
       'adventure out',
       'street food market',
       'trekking planner',
+      // Navigational / informational (no booking intent)
+      ' address',
+      'car park',
+      ' reviews',
+      ' directions',
+      'phone number',
+      'opening hours',
+      'opening times',
+      'how to get to',
+      ' map ',
     ] as string[],
 
     /** Campaign group → branded domain mapping for destination page ad sets */
@@ -332,6 +342,7 @@ export const PAID_TRAFFIC_CONFIG = {
     'water-tours.com': {
       stems: [
         'boat tours',
+        'boat',
         'sailing tours',
         'kayaking',
         'snorkeling tours',
