@@ -484,6 +484,15 @@ function gate9_maxKeywordsPerAdGroup(groups: CampaignGroup[], violations: Violat
   }
 }
 
+/** Naive English stemming: strip trailing 's', 'es', 'ing' for plural/verb matching */
+function stemWord(w: string): string {
+  if (w.endsWith('ies') && w.length > 4) return w.slice(0, -3) + 'y';
+  if (w.endsWith('es') && w.length > 3) return w.slice(0, -2);
+  if (w.endsWith('s') && !w.endsWith('ss') && w.length > 3) return w.slice(0, -1);
+  if (w.endsWith('ing') && w.length > 5) return w.slice(0, -3);
+  return w;
+}
+
 function gate10_commonThemeInMultiKeywordAGs(
   groups: CampaignGroup[],
   violations: Violation[]
@@ -491,11 +500,11 @@ function gate10_commonThemeInMultiKeywordAGs(
   for (const g of groups) {
     for (const ag of g.adGroups) {
       if (ag.keywords.length <= 1) continue;
-      // All keywords in an AG should share at least 2 common non-stop words
-      const wordSets = ag.keywords.map((kw) => new Set(getMeaningfulWords(kw)));
-      // Find words common to ALL keywords
-      const commonWords = Array.from(wordSets[0]!).filter((word) =>
-        wordSets.every((ws) => ws.has(word))
+      // All keywords in an AG should share at least 1 common stemmed non-stop word
+      const stemSets = ag.keywords.map((kw) => new Set(getMeaningfulWords(kw).map(stemWord)));
+      // Find stems common to ALL keywords
+      const commonWords = Array.from(stemSets[0]!).filter((stem) =>
+        stemSets.every((ws) => ws.has(stem))
       );
       // STAG groups keywords by activity type (e.g. "kayaking") across different
       // destinations. Having 1 common activity word IS the valid theme.
