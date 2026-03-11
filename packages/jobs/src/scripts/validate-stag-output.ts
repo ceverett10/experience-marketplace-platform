@@ -487,7 +487,13 @@ function gate9_maxKeywordsPerAdGroup(groups: CampaignGroup[], violations: Violat
 /** Naive English stemming: strip trailing 's', 'es', 'ing' for plural/verb matching */
 function stemWord(w: string): string {
   if (w.endsWith('ies') && w.length > 4) return w.slice(0, -3) + 'y';
-  if (w.endsWith('es') && w.length > 3) return w.slice(0, -2);
+  // Only strip 'es' for sibilant endings (ches, shes, xes, zes, ses)
+  if (
+    w.length > 4 &&
+    (w.endsWith('ches') || w.endsWith('shes') || w.endsWith('xes') || w.endsWith('sses'))
+  ) {
+    return w.slice(0, -2);
+  }
   if (w.endsWith('s') && !w.endsWith('ss') && w.length > 3) return w.slice(0, -1);
   if (w.endsWith('ing') && w.length > 5) return w.slice(0, -3);
   return w;
