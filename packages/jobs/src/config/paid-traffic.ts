@@ -58,6 +58,9 @@ export const PAID_TRAFFIC_CONFIG = {
     cvr: 0.015,
   },
 
+  /** Domains excluded from bidding — no keyword generation or profitability scoring */
+  excludedDomains: ['broke-nomad.com', 'grad-trip.com'] as string[],
+
   // ---------------------------------------------------------------------------
   // Keyword scanning / enrichment
   // ---------------------------------------------------------------------------
