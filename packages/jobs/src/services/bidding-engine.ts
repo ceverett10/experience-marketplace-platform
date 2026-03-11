@@ -1589,14 +1589,15 @@ export async function scoreCampaignOpportunities(
 
   // Deduplicate: keep only the best candidate per keyword+platform.
   // With branded domain routing, primary candidates and Sprint 2 destination candidates
-  // can overlap. Prefer DESTINATION > CATEGORY > COLLECTION > BLOG > EXPERIENCES_FILTERED > HOMEPAGE.
+  // can overlap. Paid campaigns need bookable pages — BLOG/HOMEPAGE have no products,
+  // so EXPERIENCES_FILTERED ranks above them.
   const LP_TYPE_PRIORITY: Record<string, number> = {
     DESTINATION: 6,
     CATEGORY: 5,
     COLLECTION: 4,
-    BLOG: 3,
-    EXPERIENCES_FILTERED: 2,
-    HOMEPAGE: 1,
+    EXPERIENCES_FILTERED: 3,
+    BLOG: 1,
+    HOMEPAGE: 0,
   };
   const bestByKeywordPlatform = new Map<string, CampaignCandidate>();
   for (const c of cityValidatedCandidates) {
@@ -1652,9 +1653,22 @@ export async function scoreCampaignOpportunities(
     );
   }
 
+  // Filter out candidates landing on non-bookable pages (BLOG, HOMEPAGE).
+  // Paid campaigns are conversion-focused — only pages with products should be used.
+  const NON_BOOKABLE_TYPES = new Set(['BLOG', 'HOMEPAGE']);
+  const bookableCandidates = dedupedCandidates.filter(
+    (c) => !NON_BOOKABLE_TYPES.has(c.landingPageType ?? '')
+  );
+  if (bookableCandidates.length < dedupedCandidates.length) {
+    console.info(
+      `[Bidding Engine] Dropped ${dedupedCandidates.length - bookableCandidates.length} candidates ` +
+        `landing on non-bookable pages (BLOG/HOMEPAGE)`
+    );
+  }
+
   // Sort by profitability score descending
-  dedupedCandidates.sort((a, b) => b.profitabilityScore - a.profitabilityScore);
-  return dedupedCandidates;
+  bookableCandidates.sort((a, b) => b.profitabilityScore - a.profitabilityScore);
+  return bookableCandidates;
 }
 
 // --- Grouping ----------------------------------------------------------------
