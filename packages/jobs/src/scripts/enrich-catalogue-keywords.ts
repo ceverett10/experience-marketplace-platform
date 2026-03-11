@@ -90,12 +90,12 @@ async function main() {
     const metrics = await getKeywordHistoricalMetrics(config, uniqueKeywords);
     totalApiCalls += Math.ceil(uniqueKeywords.length / 10000);
 
-    // Build lookup map
+    // Build lookup map — use highTopOfPageBidMicros as CPC estimate
     const metricsMap = new Map<string, { volume: number; cpcMicros: number }>();
     for (const m of metrics) {
       metricsMap.set(m.keyword.toLowerCase(), {
         volume: m.avgMonthlySearches,
-        cpcMicros: m.averageCpcMicros,
+        cpcMicros: m.highTopOfPageBidMicros,
       });
     }
 
@@ -132,10 +132,14 @@ async function main() {
   }
 
   // Clean up keywords that still have zero volume after enrichment
+  // Only delete within the groups we just enriched (respect --group filter)
+  const cleanupWhere = {
+    source: 'catalogue' as const,
+    searchVolume: 0,
+    campaignGroup: { in: groups.map((g) => g.campaignGroup).filter(Boolean) as string[] },
+  };
   console.info('\n--- Cleanup: removing zero-volume catalogue keywords ---');
-  const deleted = await prisma.sEOOpportunity.deleteMany({
-    where: { source: 'catalogue', searchVolume: 0 },
-  });
+  const deleted = await prisma.sEOOpportunity.deleteMany({ where: cleanupWhere });
   console.info(`  Deleted: ${deleted.count} dead keywords`);
 
   // Summary
