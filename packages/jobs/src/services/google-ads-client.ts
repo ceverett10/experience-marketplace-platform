@@ -1207,7 +1207,9 @@ export async function addKeywordsToAdGroup(adGroupId: string, keywords: string[]
 export interface KeywordMetrics {
   keyword: string;
   avgMonthlySearches: number;
-  averageCpcMicros: number;
+  lowTopOfPageBidMicros: number;
+  highTopOfPageBidMicros: number;
+  competitionIndex: number;
 }
 
 /**
@@ -1244,7 +1246,9 @@ export async function getKeywordHistoricalMetrics(
         text: string;
         keywordMetrics?: {
           avgMonthlySearches?: string;
-          averageCpcMicros?: string;
+          lowTopOfPageBidMicros?: string;
+          highTopOfPageBidMicros?: string;
+          competitionIndex?: string;
         };
       }>;
     };
@@ -1254,7 +1258,12 @@ export async function getKeywordHistoricalMetrics(
         allMetrics.push({
           keyword: result.text,
           avgMonthlySearches: parseInt(result.keywordMetrics?.avgMonthlySearches || '0', 10),
-          averageCpcMicros: parseInt(result.keywordMetrics?.averageCpcMicros || '0', 10),
+          lowTopOfPageBidMicros: parseInt(result.keywordMetrics?.lowTopOfPageBidMicros || '0', 10),
+          highTopOfPageBidMicros: parseInt(
+            result.keywordMetrics?.highTopOfPageBidMicros || '0',
+            10
+          ),
+          competitionIndex: parseInt(result.keywordMetrics?.competitionIndex || '0', 10),
         });
       }
     }
