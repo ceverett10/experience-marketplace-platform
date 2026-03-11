@@ -1202,6 +1202,57 @@ export async function addKeywordsToAdGroup(adGroupId: string, keywords: string[]
   }
 }
 
+/**
+ * Update a campaign's daily budget on Google Ads.
+ * Finds the campaign's budget resource via GAQL, then updates amountMicros.
+ */
+export async function updateCampaignBudget(
+  campaignId: string,
+  newDailyBudgetMicros: number
+): Promise<boolean> {
+  const config = getConfig();
+  if (!config) return false;
+
+  try {
+    // Step 1: Find the campaign's budget resource name
+    const query = `
+      SELECT campaign.campaign_budget
+      FROM campaign
+      WHERE campaign.id = ${campaignId}
+    `.trim();
+
+    const raw = await apiRequest(config, 'POST', '/googleAds:search', { query });
+    const results = (raw as { results?: Array<{ campaign: { campaignBudget: string } }> }).results;
+    const budgetResourceName = results?.[0]?.campaign?.campaignBudget;
+    if (!budgetResourceName) {
+      console.error(`[GoogleAds] No budget found for campaign ${campaignId}`);
+      return false;
+    }
+
+    // Step 2: Update the budget amount (round up to nearest 10,000 micros)
+    const roundedMicros = Math.ceil(newDailyBudgetMicros / 10_000) * 10_000;
+    await apiRequest(config, 'POST', '/campaignBudgets:mutate', {
+      operations: [
+        {
+          update: {
+            resourceName: budgetResourceName,
+            amountMicros: roundedMicros.toString(),
+          },
+          updateMask: 'amountMicros',
+        },
+      ],
+    });
+
+    console.info(
+      `[GoogleAds] Updated budget for campaign ${campaignId}: £${(roundedMicros / 1_000_000).toFixed(2)}/day`
+    );
+    return true;
+  } catch (error) {
+    console.error(`[GoogleAds] Update budget failed for campaign ${campaignId}:`, error);
+    return false;
+  }
+}
+
 // --- Keyword Planner API ----------------------------------------------------
 
 export interface KeywordMetrics {
