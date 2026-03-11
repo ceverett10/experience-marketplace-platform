@@ -1821,7 +1821,15 @@ export function groupCandidatesIntoCampaigns(candidates: CampaignCandidate[]): C
 
       // Take top 5 keywords from the ad group (first ones are highest-scoring).
       // Skip keywords that already contain booking-intent words to avoid "book book ..."
-      const BOOKING_WORDS = new Set(['book', 'reserve', 'buy', 'purchase', 'ticket', 'tickets']);
+      const BOOKING_WORDS = new Set([
+        'book',
+        'reserve',
+        'buy',
+        'purchase',
+        'ticket',
+        'tickets',
+        'booking',
+      ]);
       const topKeywords = ag.keywords
         .filter((kw) => !kw.split(/\s+/).some((w) => BOOKING_WORDS.has(w)))
         .slice(0, 5);
@@ -2024,7 +2032,29 @@ export async function runBiddingEngine(options?: {
   );
 
   // Step 3.5: Group selected candidates into per-microsite campaigns
-  const groups = groupCandidatesIntoCampaigns(selected);
+  const allGroups = groupCandidatesIntoCampaigns(selected);
+
+  // Step 3.6: Drop thin campaigns (too few keywords or too little budget to be effective)
+  const MIN_KEYWORDS_PER_CAMPAIGN = 3;
+  const MIN_DAILY_BUDGET = 0.5; // £0.50
+  const groups = allGroups.filter((g) => {
+    const totalKws = g.adGroups.reduce((sum, ag) => sum + ag.keywords.length, 0);
+    const label = g.campaignGroup ?? g.siteName;
+    if (totalKws < MIN_KEYWORDS_PER_CAMPAIGN) {
+      console.info(
+        `[BiddingEngine] Dropped thin campaign "${label}" — only ${totalKws} keyword(s)`
+      );
+      return false;
+    }
+    if (g.totalExpectedDailyCost < MIN_DAILY_BUDGET) {
+      console.info(
+        `[BiddingEngine] Dropped thin campaign "${label}" — budget £${g.totalExpectedDailyCost.toFixed(2)} < £${MIN_DAILY_BUDGET.toFixed(2)}`
+      );
+      return false;
+    }
+    return true;
+  });
+
   const msGroups = groups.filter((g) => g.isMicrosite);
   const mainGroups = groups.filter((g) => !g.isMicrosite);
   console.log(
