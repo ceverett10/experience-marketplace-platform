@@ -658,6 +658,39 @@ function buildDiscoveryLandingPage(
     }
   }
 
+  // Before falling through to filtered search, attempt cross-type matching.
+  // A keyword classified as EXPERIENCES_FILTERED may still have a relevant
+  // blog post or destination page that would be a higher-quality landing page.
+  const blogFallback = context.sitePages.find(
+    (p) => p.type === 'BLOG' && keywordMatchesBlogTitle(kw, p.title)
+  );
+  if (blogFallback) {
+    const slug = blogFallback.slug.startsWith('blog/')
+      ? blogFallback.slug.substring(5)
+      : blogFallback.slug;
+    return {
+      url: `https://${domain}/blog/${slug}`,
+      path: `/blog/${slug}`,
+      type: 'BLOG',
+      validated: true,
+    };
+  }
+
+  const destFallback = context.sitePages.find(
+    (p) => p.type === 'LANDING' && p.holibobLocationId && keywordContainsAllWords(kw, p.title)
+  );
+  if (destFallback) {
+    const destSlug = destFallback.slug.startsWith('destinations/')
+      ? destFallback.slug
+      : `destinations/${destFallback.slug}`;
+    return {
+      url: `https://${domain}/${destSlug}`,
+      path: `/${destSlug}`,
+      type: 'DESTINATION',
+      validated: false,
+    };
+  }
+
   // Fallback: filtered experiences listing
   // NOTE: `location` is the SEO geo-target market (e.g. "United Kingdom"), NOT the
   // experience destination. Using it as a product filter would hide relevant results

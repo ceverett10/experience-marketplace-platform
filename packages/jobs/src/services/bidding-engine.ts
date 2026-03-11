@@ -169,6 +169,9 @@ export interface CampaignGroupAdGroup {
    *  Used for consolidated EXPERIENCES_FILTERED groups where keywords share an ad group
    *  but each keyword should land on its city-specific search results page. */
   keywordFinalUrls?: Record<string, string>;
+  /** When true, RSA generation should use booking-intent headlines
+   *  ("Book Now", "Reserve Today", "Available This Week") */
+  bookingIntent?: boolean;
 }
 
 export interface CampaignGroup {
@@ -212,6 +215,11 @@ export async function calculateSiteProfitability(
     select: { id: true, name: true, primaryDomain: true, status: true },
   });
   if (!site || site.status !== 'ACTIVE') return null;
+
+  // Skip excluded domains (e.g. broke-nomad.com, grad-trip.com)
+  if (site.primaryDomain && PAID_TRAFFIC_CONFIG.excludedDomains.includes(site.primaryDomain)) {
+    return null;
+  }
 
   const lookbackDate = new Date();
   lookbackDate.setDate(lookbackDate.getDate() - LOOKBACK_DAYS);
@@ -288,7 +296,15 @@ export async function calculateSiteProfitability(
   const snapshotBookings = snapshots._sum.bookings || 0;
 
   if (sessionSampleSize >= MIN_SESSIONS_FOR_CVR && snapshotBookings > 0) {
-    conversionRate = snapshotBookings / sessionSampleSize;
+    const rawCvr = snapshotBookings / sessionSampleSize;
+    // Floor at 0.5% — below this, analytics data is likely polluted by
+    // non-converting organic traffic or incomplete tracking. Use default instead.
+    if (rawCvr >= 0.005) {
+      conversionRate = rawCvr;
+    } else {
+      conversionRate = PAID_TRAFFIC_CONFIG.defaults.cvr;
+      usedDefaultCvr = true;
+    }
   } else {
     conversionRate = PAID_TRAFFIC_CONFIG.defaults.cvr;
     usedDefaultCvr = true;
@@ -1405,21 +1421,19 @@ export async function scoreCampaignOpportunities(
       if (brandedEntries) {
         for (const { domain: brandedDomain, siteId: brandedSiteId } of brandedEntries) {
           const brandedPages = pagesBySite.get(brandedSiteId) ?? [];
-          // Find destination page matching this keyword's city
+          // Find destination page matching this keyword's city.
+          // Use the FULL slug body (e.g. "london-england", "south-africa") to avoid
+          // false positives where a single word like "south" or "los" matches incorrectly.
           const destPage = brandedPages.find((p) => {
             if (p.type !== 'LANDING' || !p.slug.startsWith('destinations/')) return false;
-            // Extract city name from slug: "destinations/london-england" → "london"
             const slugBody = p.slug.replace('destinations/', '');
             const dashParts = slugBody.split('-');
-            // Try matching city name against keyword using word-boundary matching.
-            // Multi-word cities: "new-york", "las-vegas", "san-francisco"
-            for (let len = Math.min(dashParts.length - 1, 3); len >= 1; len--) {
-              const citySpaced = dashParts.slice(0, len).join(' ');
-              if (keywordContainsAllWords(kwLower, citySpaced)) {
-                return true;
-              }
-            }
-            return false;
+            // Match the FULL slug as a city name (all dash parts joined by spaces).
+            // For single-part slugs like "london", match just that word.
+            // For multi-part slugs like "los-angeles" or "south-africa", ALL parts
+            // must appear in the keyword to prevent "south" matching "south queensferry".
+            const fullCity = dashParts.join(' ');
+            return keywordContainsAllWords(kwLower, fullCity);
           });
 
           if (!destPage) continue;
@@ -1722,7 +1736,9 @@ export function groupCandidatesIntoCampaigns(candidates: CampaignCandidate[]): C
       }
     }
 
-    const MAX_KEYWORDS_PER_AD_GROUP = 15;
+    // Keep ad groups small for RSA relevance — with multi-city keywords in the
+    // same theme group, 7 max ensures the RSA can still reference specific cities.
+    const MAX_KEYWORDS_PER_AD_GROUP = 7;
     const adGroups: CampaignGroupAdGroup[] = [];
     for (const [lpPath, lpCandidates] of adGroupsByLp) {
       // STAG: cap at 15 keywords per ad group, split into multiple if needed
@@ -1776,6 +1792,56 @@ export function groupCandidatesIntoCampaigns(candidates: CampaignCandidate[]): C
         });
       }
     }
+
+    // --- Generate booking-intent companion ad groups ---
+    // For high-scoring EXPERIENCES_FILTERED ad groups, create a companion ad group
+    // with "book {keyword}" variants. These target users with purchase intent and
+    // get booking-focused RSA headlines. With phrase match, the base keyword already
+    // captures these queries, but a dedicated ad group allows higher bids and better copy.
+    const BOOKING_PREFIXES = ['book', 'reserve', 'buy tickets'];
+    const bookingIntentAdGroups: CampaignGroupAdGroup[] = [];
+    for (const ag of adGroups) {
+      if (ag.landingPageType !== 'EXPERIENCES_FILTERED') continue;
+      // Only create booking-intent AGs for groups with enough keywords to justify it
+      if (ag.keywords.length < 2) continue;
+
+      // Take top 5 keywords from the ad group (first ones are highest-scoring).
+      // Skip keywords that already contain booking-intent words to avoid "book book ..."
+      const BOOKING_WORDS = new Set(['book', 'reserve', 'buy', 'purchase', 'ticket', 'tickets']);
+      const topKeywords = ag.keywords
+        .filter((kw) => !kw.split(/\s+/).some((w) => BOOKING_WORDS.has(w)))
+        .slice(0, 5);
+      if (topKeywords.length === 0) continue;
+      const prefix = BOOKING_PREFIXES[0]!; // "book"
+      const bookingKeywords = topKeywords.map((kw) => `${prefix} ${kw}`);
+
+      // Build keyword-level final URLs using the same pattern as the original
+      const bookingFinalUrls: Record<string, string> = {};
+      const agDomain = ag.targetUrl.split('/')[2] ?? '';
+      for (let i = 0; i < bookingKeywords.length; i++) {
+        const originalKw = topKeywords[i]!;
+        // Use the original keyword's final URL (same landing page, better ad copy)
+        const originalUrl = ag.keywordFinalUrls?.[originalKw];
+        if (originalUrl) {
+          bookingFinalUrls[bookingKeywords[i]!] = originalUrl;
+        }
+      }
+
+      bookingIntentAdGroups.push({
+        landingPagePath: ag.landingPagePath,
+        landingPageType: ag.landingPageType,
+        targetUrl: ag.targetUrl,
+        keywords: bookingKeywords,
+        primaryKeyword: `${prefix} ${ag.primaryKeyword}`,
+        maxBid: Math.min(ag.maxBid * 1.2, PAID_TRAFFIC_CONFIG.maxCpc),
+        totalExpectedDailyCost: ag.totalExpectedDailyCost * 0.3, // Estimate 30% of base
+        siteId: ag.siteId,
+        micrositeId: ag.micrositeId,
+        keywordFinalUrls: Object.keys(bookingFinalUrls).length > 0 ? bookingFinalUrls : undefined,
+        bookingIntent: true,
+      });
+    }
+    adGroups.push(...bookingIntentAdGroups);
 
     // Compute group-level aggregates
     const totalExpectedDailyCost = groupCandidates.reduce((s, c) => s + c.expectedDailyCost, 0);
