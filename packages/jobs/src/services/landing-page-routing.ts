@@ -418,6 +418,8 @@ const NO_SPLIT_KEYWORDS = new Set([
   'universal studios with harry potter',
   'harry potter universe',
   'universal and harry potter',
+  'universal harry potter',
+  'harry potter forbidden forest',
   'harry potter filming locations',
   'harry potter film locations',
   'harry potter movie locations',
