@@ -268,6 +268,18 @@ function gate1_urlContainsKeywordWords(groups: CampaignGroup[], violations: Viol
         for (const word of kwWords) {
           if (!queryWords.has(word)) {
             if (okToStrip.has(word)) continue;
+            // URL uses depluralized forms (e.g. "tours" → "tour"), so check singular too
+            const singular = word.endsWith('s') && !word.endsWith('ss') ? word.slice(0, -1) : word;
+            const singularEs =
+              word.endsWith('sses') ||
+              word.endsWith('shes') ||
+              word.endsWith('ches') ||
+              word.endsWith('xes')
+                ? word.slice(0, -2)
+                : word.endsWith('ies') && word.length > 4
+                  ? word.slice(0, -3) + 'y'
+                  : singular;
+            if (queryWords.has(singularEs)) continue;
             // Location words are intentionally stripped in STAG (activity-based grouping).
             // Check if this word is likely a city/location by seeing if other keywords
             // in the same ad group DON'T have this word (meaning it varies by location).
