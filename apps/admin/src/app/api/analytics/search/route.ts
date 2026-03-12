@@ -96,7 +96,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         ? prisma.micrositePerformanceMetric.aggregate({
             where: { date: dateFilter, micrositeId: { in: micrositeIds }, impressions: { gt: 0 } },
             _avg: { position: true },
-            _sum: { impressions: null },
+            _sum: { impressions: true },
           })
         : { _avg: { position: null }, _sum: { impressions: null } },
 
@@ -177,10 +177,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       (siteTotals._sum.impressions || 0) + (micrositeTotals._sum.impressions || 0);
 
     // Weighted average position from aggregates
-    const siteAvgPos = sitePositionAgg._avg.position || 0;
-    const siteImp = sitePositionAgg._sum.impressions || 0;
-    const msAvgPos = micrositePositionAgg._avg.position || 0;
-    const msImp = micrositePositionAgg._sum.impressions || 0;
+    const siteAvgPos = sitePositionAgg._avg?.position || 0;
+    const siteImp = sitePositionAgg._sum?.impressions || 0;
+    const msAvgPos = micrositePositionAgg._avg?.position || 0;
+    const msImp = micrositePositionAgg._sum?.impressions || 0;
     const totalPosWeight = siteImp + msImp;
     const avgPosition =
       totalPosWeight > 0 ? (siteAvgPos * siteImp + msAvgPos * msImp) / totalPosWeight : 0;
