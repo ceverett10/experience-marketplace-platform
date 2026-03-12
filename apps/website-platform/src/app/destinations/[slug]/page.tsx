@@ -6,6 +6,7 @@ import { cleanPlainText } from '@/lib/seo';
 import { getHolibobClient, parseIsoDuration, type ExperienceListItem } from '@/lib/holibob';
 import { prisma } from '@/lib/prisma';
 import { DestinationPageTemplate } from '@/components/content/DestinationPageTemplate';
+import { TrackFunnelEvent } from '@/components/analytics/TrackFunnelEvent';
 
 /** Detect paid traffic from URL search params */
 function isPaidTraffic(searchParams: Record<string, string | string[] | undefined>): boolean {
@@ -528,6 +529,7 @@ export default async function DestinationPage({ params, searchParams }: Props) {
         priceRange={priceRange}
         searchTerm={searchTerm}
       />
+      <TrackFunnelEvent step="LANDING_PAGE_VIEW" />
     </>
   );
 }

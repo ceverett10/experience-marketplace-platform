@@ -4,6 +4,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getSiteFromHostname } from '@/lib/tenant';
 import { prisma } from '@/lib/prisma';
+import { TrackFunnelEvent } from '@/components/analytics/TrackFunnelEvent';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -453,6 +454,7 @@ export default async function CollectionPage({ params }: Props) {
           </div>
         </div>
       </section>
+      <TrackFunnelEvent step="LANDING_PAGE_VIEW" />
     </>
   );
 }

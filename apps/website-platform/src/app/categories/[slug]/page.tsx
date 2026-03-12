@@ -6,6 +6,7 @@ import { cleanPlainText } from '@/lib/seo';
 import { getHolibobClient } from '@/lib/holibob';
 import { prisma } from '@/lib/prisma';
 import { CategoryPageTemplate } from '@/components/content/CategoryPageTemplate';
+import { TrackFunnelEvent } from '@/components/analytics/TrackFunnelEvent';
 
 /**
  * Get a default image for structured data from site configuration
@@ -264,6 +265,7 @@ export default async function CategoryPage({ params }: Props) {
         relatedExperiences={relatedExperiences}
         siteName={site.name}
       />
+      <TrackFunnelEvent step="LANDING_PAGE_VIEW" />
     </>
   );
 }
