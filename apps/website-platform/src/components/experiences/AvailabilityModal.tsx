@@ -444,7 +444,7 @@ export function AvailabilityModal({
                         key={slot.id}
                         onClick={() => setSelectedSlot(slot)}
                         data-testid={`date-slot-${slot.id}`}
-                        className={`flex items-center justify-between rounded-xl border-2 p-4 text-left transition-all ${
+                        className={`flex items-center justify-between gap-2 rounded-xl border-2 p-4 text-left transition-all ${
                           selectedSlot?.id === slot.id
                             ? 'border-teal-500 bg-teal-50'
                             : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
@@ -455,12 +455,15 @@ export function AvailabilityModal({
                             : {}
                         }
                       >
-                        <div>
+                        <div className="min-w-0">
                           <p className="font-medium text-gray-900">{formatDate(slot.date)}</p>
                         </div>
                         {slot.guidePriceFormattedText &&
                           !/^\s*[^\d]*\s*0[.,]00\s*$/.test(slot.guidePriceFormattedText) && (
-                            <p className="text-sm font-semibold" style={{ color: primaryColor }}>
+                            <p
+                              className="shrink-0 text-right text-sm font-semibold"
+                              style={{ color: primaryColor }}
+                            >
                               from {slot.guidePriceFormattedText}
                             </p>
                           )}
@@ -512,10 +515,10 @@ export function AvailabilityModal({
               {pricingCategories.map((category) => (
                 <div
                   key={category.id}
-                  className="flex items-center justify-between rounded-xl border border-gray-200 p-4"
+                  className="flex items-start justify-between gap-3 rounded-xl border border-gray-200 p-4"
                   data-testid={`guest-category-${category.id}`}
                 >
-                  <div>
+                  <div className="min-w-0 pt-1">
                     <p className="font-medium text-gray-900">{formatLabel(category.label)}</p>
                     {(() => {
                       const config = getProductPricingConfig(productId);
@@ -545,7 +548,7 @@ export function AvailabilityModal({
                       <p className="text-xs text-gray-400">Min: {category.minParticipants}</p>
                     )}
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex shrink-0 items-center gap-3">
                     <button
                       onClick={() => handleUnitChange(category.id, -1)}
                       disabled={(categoryUnits[category.id] ?? 0) <= 0}
@@ -601,7 +604,7 @@ export function AvailabilityModal({
         {/* Footer */}
         <div className="border-t border-gray-200 px-6 py-4">
           {/* Total and action buttons */}
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               {step === 'pricing' &&
                 totalPrice &&
@@ -634,7 +637,7 @@ export function AvailabilityModal({
               )}
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex gap-3 self-end sm:self-auto">
               {step !== 'dates' && (
                 <button
                   onClick={() => {
