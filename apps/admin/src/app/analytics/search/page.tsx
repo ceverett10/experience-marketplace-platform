@@ -28,8 +28,7 @@ interface SearchData {
     impressions: number;
     ctr: number;
     position: number;
-    siteId: string;
-    siteName: string;
+    siteCount: number;
   }>;
   topPages: Array<{
     pageUrl: string;
@@ -37,8 +36,7 @@ interface SearchData {
     impressions: number;
     ctr: number;
     position: number;
-    siteId: string;
-    siteName: string;
+    site: string;
   }>;
   positionDistribution: {
     top3: number;
@@ -383,12 +381,9 @@ export default function SearchPage() {
                       <span className="text-sm text-slate-900">{query.query}</span>
                     </td>
                     <td className="px-4 py-3">
-                      <Link
-                        href={`/analytics/sites/${query.siteId}`}
-                        className="text-xs text-slate-500 hover:text-sky-600"
-                      >
-                        {query.siteName}
-                      </Link>
+                      <span className="text-xs text-slate-500">
+                        {query.siteCount} site{query.siteCount !== 1 ? 's' : ''}
+                      </span>
                     </td>
                     <td className="px-4 py-3 text-right text-sm text-slate-700">
                       {query.clicks.toLocaleString()}
@@ -449,12 +444,7 @@ export default function SearchPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <Link
-                        href={`/analytics/sites/${page.siteId}`}
-                        className="text-xs text-slate-500 hover:text-sky-600"
-                      >
-                        {page.siteName}
-                      </Link>
+                      <span className="text-xs text-slate-500">{page.site}</span>
                     </td>
                     <td className="px-4 py-3 text-right text-sm text-slate-700">
                       {page.clicks.toLocaleString()}
