@@ -171,11 +171,11 @@ export const combinationMark: LogoTemplate = {
   styleTags: ['bold', 'iconic', 'professional', 'distinctive', 'two-line'],
 
   renderLight(params, custom) {
-    // Icon in secondary color, line1 in primary, line2 muted
+    // Icon in primary color (secondary can be too light on white backgrounds), line1 in primary, line2 muted
     return renderCombinationMark(
       params,
       custom,
-      params.secondaryColor,
+      params.primaryColor,
       params.primaryColor,
       '#6B7280'
     );
