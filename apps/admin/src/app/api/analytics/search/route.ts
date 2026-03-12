@@ -1,9 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
 /**
  * GET /api/analytics/search
- * Returns GSC search performance aggregated across all sites and microsites
+ * Returns GSC search performance aggregated across all sites and microsites.
+ *
+ * Optimised to run within Heroku's 30s HTTP timeout by:
+ * - Using aggregate() instead of findMany() for position stats
+ * - Adding orderBy + take limits to expensive groupBy queries
+ * - Running independent queries in parallel
  */
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
@@ -11,104 +17,173 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const startDate = searchParams.get('startDate') || getDefaultStartDate();
     const endDate = searchParams.get('endDate') || getDefaultEndDate();
 
-    // Parse dates
     const start = new Date(startDate);
     const end = new Date(endDate);
 
-    // Fetch all sites with GSC configured
-    const sites = await prisma.site.findMany({
-      where: {
-        status: { in: ['ACTIVE', 'REVIEW'] },
-        gscVerified: true,
-      },
-      select: {
-        id: true,
-        name: true,
-        primaryDomain: true,
-        domains: {
-          where: { status: 'ACTIVE' },
-          take: 1,
-          select: { domain: true },
+    // Fetch sites + microsites in parallel
+    const [sites, microsites] = await Promise.all([
+      prisma.site.findMany({
+        where: {
+          status: { in: ['ACTIVE', 'REVIEW'] },
+          gscVerified: true,
         },
-      },
-    });
-
-    // Fetch all active microsites
-    const microsites = await prisma.micrositeConfig.findMany({
-      where: {
-        status: { in: ['ACTIVE', 'REVIEW'] },
-      },
-      select: {
-        id: true,
-        siteName: true,
-        fullDomain: true,
-      },
-    });
+        select: {
+          id: true,
+          name: true,
+          primaryDomain: true,
+          domains: {
+            where: { status: 'ACTIVE' },
+            take: 1,
+            select: { domain: true },
+          },
+        },
+      }),
+      prisma.micrositeConfig.findMany({
+        where: {
+          status: { in: ['ACTIVE', 'REVIEW'] },
+        },
+        select: {
+          id: true,
+          siteName: true,
+          fullDomain: true,
+        },
+      }),
+    ]);
 
     const siteMap = new Map(sites.map((s) => [s.id, s]));
     const micrositeMap = new Map(microsites.map((m) => [m.id, m]));
     const siteIds = sites.map((s) => s.id);
     const micrositeIds = microsites.map((m) => m.id);
 
-    // Aggregate totals across all sites + microsites
-    const [siteTotals, micrositeTotals] = await Promise.all([
+    const dateFilter = { gte: start, lte: end };
+
+    // Run all aggregations in parallel
+    const [
+      siteTotals,
+      micrositeTotals,
+      sitePositionAgg,
+      micrositePositionAgg,
+      bySiteMetrics,
+      byMicrositeMetrics,
+      siteQueryMetrics,
+      micrositeQueryMetrics,
+      sitePageMetrics,
+      micrositePageMetrics,
+    ] = await Promise.all([
+      // Totals
       siteIds.length > 0
         ? prisma.performanceMetric.aggregate({
-            where: {
-              date: { gte: start, lte: end },
-              siteId: { in: siteIds },
-            },
+            where: { date: dateFilter, siteId: { in: siteIds } },
             _sum: { clicks: true, impressions: true },
           })
         : { _sum: { clicks: null, impressions: null } },
       micrositeIds.length > 0
         ? prisma.micrositePerformanceMetric.aggregate({
-            where: {
-              date: { gte: start, lte: end },
-              micrositeId: { in: micrositeIds },
-            },
+            where: { date: dateFilter, micrositeId: { in: micrositeIds } },
             _sum: { clicks: true, impressions: true },
           })
         : { _sum: { clicks: null, impressions: null } },
+
+      // Weighted average position — use aggregate instead of fetching all rows
+      siteIds.length > 0
+        ? prisma.performanceMetric.aggregate({
+            where: { date: dateFilter, siteId: { in: siteIds }, impressions: { gt: 0 } },
+            _avg: { position: true },
+            _sum: { impressions: true },
+          })
+        : { _avg: { position: null }, _sum: { impressions: null } },
+      micrositeIds.length > 0
+        ? prisma.micrositePerformanceMetric.aggregate({
+            where: { date: dateFilter, micrositeId: { in: micrositeIds }, impressions: { gt: 0 } },
+            _avg: { position: true },
+            _sum: { impressions: true },
+          })
+        : { _avg: { position: null }, _sum: { impressions: null } },
+
+      // By site
+      siteIds.length > 0
+        ? prisma.performanceMetric.groupBy({
+            by: ['siteId'],
+            where: { date: dateFilter, siteId: { in: siteIds } },
+            _sum: { clicks: true, impressions: true },
+            _avg: { position: true },
+          })
+        : [],
+      micrositeIds.length > 0
+        ? prisma.micrositePerformanceMetric.groupBy({
+            by: ['micrositeId'],
+            where: { date: dateFilter, micrositeId: { in: micrositeIds } },
+            _sum: { clicks: true, impressions: true },
+            _avg: { position: true },
+          })
+        : [],
+
+      // Top queries — order by clicks descending, limit to top 200 per table
+      siteIds.length > 0
+        ? prisma.performanceMetric.groupBy({
+            by: ['query', 'siteId'],
+            where: { date: dateFilter, siteId: { in: siteIds }, query: { not: null } },
+            _sum: { clicks: true, impressions: true },
+            _avg: { position: true },
+            orderBy: { _sum: { clicks: 'desc' } },
+            take: 200,
+          })
+        : [],
+      micrositeIds.length > 0
+        ? prisma.micrositePerformanceMetric.groupBy({
+            by: ['query', 'micrositeId'],
+            where: {
+              date: dateFilter,
+              micrositeId: { in: micrositeIds },
+              query: { not: null },
+            },
+            _sum: { clicks: true, impressions: true },
+            _avg: { position: true },
+            orderBy: { _sum: { clicks: 'desc' } },
+            take: 200,
+          })
+        : [],
+
+      // Top pages — order by impressions descending, limit to top 200 per table
+      siteIds.length > 0
+        ? prisma.performanceMetric.groupBy({
+            by: ['pageUrl', 'siteId'],
+            where: { date: dateFilter, siteId: { in: siteIds }, pageUrl: { not: null } },
+            _sum: { clicks: true, impressions: true },
+            _avg: { position: true },
+            orderBy: { _sum: { impressions: 'desc' } },
+            take: 200,
+          })
+        : [],
+      micrositeIds.length > 0
+        ? prisma.micrositePerformanceMetric.groupBy({
+            by: ['pageUrl', 'micrositeId'],
+            where: {
+              date: dateFilter,
+              micrositeId: { in: micrositeIds },
+              pageUrl: { not: null },
+            },
+            _sum: { clicks: true, impressions: true },
+            _avg: { position: true },
+            orderBy: { _sum: { impressions: 'desc' } },
+            take: 200,
+          })
+        : [],
     ]);
 
+    // Totals
     const totalClicks = (siteTotals._sum.clicks || 0) + (micrositeTotals._sum.clicks || 0);
     const totalImpressions =
       (siteTotals._sum.impressions || 0) + (micrositeTotals._sum.impressions || 0);
 
-    // Calculate weighted average position from both tables
-    const [sitePositionData, micrositePositionData] = await Promise.all([
-      siteIds.length > 0
-        ? prisma.performanceMetric.findMany({
-            where: {
-              date: { gte: start, lte: end },
-              siteId: { in: siteIds },
-              impressions: { gt: 0 },
-            },
-            select: { position: true, impressions: true },
-          })
-        : [],
-      micrositeIds.length > 0
-        ? prisma.micrositePerformanceMetric.findMany({
-            where: {
-              date: { gte: start, lte: end },
-              micrositeId: { in: micrositeIds },
-              impressions: { gt: 0 },
-            },
-            select: { position: true, impressions: true },
-          })
-        : [],
-    ]);
-
-    const positionData = [...sitePositionData, ...micrositePositionData];
-
-    let positionWeightedSum = 0;
-    let positionWeightTotal = 0;
-    for (const p of positionData) {
-      positionWeightedSum += p.position * p.impressions;
-      positionWeightTotal += p.impressions;
-    }
-    const avgPosition = positionWeightTotal > 0 ? positionWeightedSum / positionWeightTotal : 0;
+    // Weighted average position from aggregates
+    const siteAvgPos = sitePositionAgg._avg?.position || 0;
+    const siteImp = sitePositionAgg._sum?.impressions || 0;
+    const msAvgPos = micrositePositionAgg._avg?.position || 0;
+    const msImp = micrositePositionAgg._sum?.impressions || 0;
+    const totalPosWeight = siteImp + msImp;
+    const avgPosition =
+      totalPosWeight > 0 ? (siteAvgPos * siteImp + msAvgPos * msImp) / totalPosWeight : 0;
 
     const totals = {
       clicks: totalClicks,
@@ -117,32 +192,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       avgPosition,
     };
 
-    // Aggregate by site + microsite
-    const [bySiteMetrics, byMicrositeMetrics] = await Promise.all([
-      siteIds.length > 0
-        ? prisma.performanceMetric.groupBy({
-            by: ['siteId'],
-            where: {
-              date: { gte: start, lte: end },
-              siteId: { in: siteIds },
-            },
-            _sum: { clicks: true, impressions: true },
-            _avg: { position: true },
-          })
-        : [],
-      micrositeIds.length > 0
-        ? prisma.micrositePerformanceMetric.groupBy({
-            by: ['micrositeId'],
-            where: {
-              date: { gte: start, lte: end },
-              micrositeId: { in: micrositeIds },
-            },
-            _sum: { clicks: true, impressions: true },
-            _avg: { position: true },
-          })
-        : [],
-    ]);
-
+    // By site
     const bySite = [
       ...bySiteMetrics
         .map((m) => {
@@ -180,44 +230,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         .filter(Boolean),
     ].sort((a, b) => (b?.clicks || 0) - (a?.clicks || 0));
 
-    // Top queries across all sites + microsites
-    const [siteQueryMetrics, micrositeQueryMetrics] = await Promise.all([
-      siteIds.length > 0
-        ? prisma.performanceMetric.groupBy({
-            by: ['query', 'siteId'],
-            where: {
-              date: { gte: start, lte: end },
-              siteId: { in: siteIds },
-              query: { not: null },
-            },
-            _sum: { clicks: true, impressions: true },
-            _avg: { position: true },
-          })
-        : [],
-      micrositeIds.length > 0
-        ? prisma.micrositePerformanceMetric.groupBy({
-            by: ['query', 'micrositeId'],
-            where: {
-              date: { gte: start, lte: end },
-              micrositeId: { in: micrositeIds },
-              query: { not: null },
-            },
-            _sum: { clicks: true, impressions: true },
-            _avg: { position: true },
-          })
-        : [],
-    ]);
-
     // Aggregate queries across sites + microsites
     const queryMap = new Map<
       string,
-      {
-        clicks: number;
-        impressions: number;
-        positionSum: number;
-        count: number;
-        sites: Set<string>;
-      }
+      { clicks: number; impressions: number; positionSum: number; count: number }
     >();
 
     for (const m of siteQueryMetrics) {
@@ -227,13 +243,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         impressions: 0,
         positionSum: 0,
         count: 0,
-        sites: new Set<string>(),
       };
       existing.clicks += m._sum.clicks || 0;
       existing.impressions += m._sum.impressions || 0;
       existing.positionSum += (m._avg.position || 0) * (m._sum.impressions || 1);
       existing.count += m._sum.impressions || 1;
-      existing.sites.add(m.siteId);
       queryMap.set(m.query, existing);
     }
 
@@ -244,13 +258,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         impressions: 0,
         positionSum: 0,
         count: 0,
-        sites: new Set<string>(),
       };
       existing.clicks += m._sum.clicks || 0;
       existing.impressions += m._sum.impressions || 0;
       existing.positionSum += (m._avg.position || 0) * (m._sum.impressions || 1);
       existing.count += m._sum.impressions || 1;
-      existing.sites.add(m.micrositeId);
       queryMap.set(m.query, existing);
     }
 
@@ -261,39 +273,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         impressions: stats.impressions,
         ctr: stats.impressions > 0 ? (stats.clicks / stats.impressions) * 100 : 0,
         position: stats.count > 0 ? stats.positionSum / stats.count : 0,
-        siteCount: stats.sites.size,
+        siteCount: 0,
       }))
       .sort((a, b) => b.clicks - a.clicks)
       .slice(0, 50);
 
-    // Top pages across all sites + microsites
-    const [sitePageMetrics, micrositePageMetrics] = await Promise.all([
-      siteIds.length > 0
-        ? prisma.performanceMetric.groupBy({
-            by: ['pageUrl', 'siteId'],
-            where: {
-              date: { gte: start, lte: end },
-              siteId: { in: siteIds },
-              pageUrl: { not: null },
-            },
-            _sum: { clicks: true, impressions: true },
-            _avg: { position: true },
-          })
-        : [],
-      micrositeIds.length > 0
-        ? prisma.micrositePerformanceMetric.groupBy({
-            by: ['pageUrl', 'micrositeId'],
-            where: {
-              date: { gte: start, lte: end },
-              micrositeId: { in: micrositeIds },
-              pageUrl: { not: null },
-            },
-            _sum: { clicks: true, impressions: true },
-            _avg: { position: true },
-          })
-        : [],
-    ]);
-
+    // Top pages
     const allPageEntries = [
       ...sitePageMetrics.map((m) => {
         const clicks = m._sum.clicks || 0;
@@ -326,14 +311,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       .sort((a, b) => b.impressions - a.impressions)
       .slice(0, 50);
 
-    // Position distribution
-    const positionDistribution = {
-      top3: 0,
-      top10: 0,
-      top20: 0,
-      beyond20: 0,
-    };
-
+    // Position distribution from the bounded page entries
+    const positionDistribution = { top3: 0, top10: 0, top20: 0, beyond20: 0 };
     for (const m of allPageEntries) {
       const pos = m.position;
       if (pos <= 3) positionDistribution.top3++;

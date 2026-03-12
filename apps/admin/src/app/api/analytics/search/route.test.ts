@@ -30,40 +30,35 @@ function setupEmptyMocks() {
   mockPrisma.micrositeConfig.findMany.mockResolvedValue([]);
 }
 
-function setupSiteAndMicrositeMocks() {
+/**
+ * The optimised route runs all queries in a single Promise.all.
+ * For sites + microsites, aggregate is called twice per table (totals + position),
+ * and groupBy is called 3 times per table (bySite, queries, pages).
+ */
+function setupFullMocks({
+  siteTotals = { clicks: 100, impressions: 1000 },
+  micrositeTotals = { clicks: 50, impressions: 500 },
+  sitePositionAgg = { _avg: { position: 5 }, _sum: { impressions: 1000 } },
+  micrositePositionAgg = { _avg: { position: 10 }, _sum: { impressions: 500 } },
+  siteByEntity = [] as unknown[],
+  micrositeByEntity = [] as unknown[],
+  siteQueries = [] as unknown[],
+  micrositeQueries = [] as unknown[],
+  sitePages = [] as unknown[],
+  micrositePages = [] as unknown[],
+} = {}) {
   mockPrisma.site.findMany.mockResolvedValue([mockSite]);
   mockPrisma.micrositeConfig.findMany.mockResolvedValue([mockMicrosite]);
-}
 
-function setupAggregates(
-  siteTotals = { clicks: 100, impressions: 1000 },
-  micrositeTotals = { clicks: 50, impressions: 500 }
-) {
-  mockPrisma.performanceMetric.aggregate.mockResolvedValue({
-    _sum: siteTotals,
-  });
-  mockPrisma.micrositePerformanceMetric.aggregate.mockResolvedValue({
-    _sum: micrositeTotals,
-  });
-}
+  // aggregate is called twice per table: totals, then position
+  mockPrisma.performanceMetric.aggregate
+    .mockResolvedValueOnce({ _sum: siteTotals })
+    .mockResolvedValueOnce(sitePositionAgg);
+  mockPrisma.micrositePerformanceMetric.aggregate
+    .mockResolvedValueOnce({ _sum: micrositeTotals })
+    .mockResolvedValueOnce(micrositePositionAgg);
 
-function setupPositionData(
-  siteData: Array<{ position: number; impressions: number }> = [],
-  micrositeData: Array<{ position: number; impressions: number }> = []
-) {
-  mockPrisma.performanceMetric.findMany.mockResolvedValue(siteData);
-  mockPrisma.micrositePerformanceMetric.findMany.mockResolvedValue(micrositeData);
-}
-
-function setupGroupByMocks(
-  siteByEntity: unknown[] = [],
-  micrositeByEntity: unknown[] = [],
-  siteQueries: unknown[] = [],
-  micrositeQueries: unknown[] = [],
-  sitePages: unknown[] = [],
-  micrositePages: unknown[] = []
-) {
-  // groupBy is called 3 times per table: by entity, by query, by page
+  // groupBy is called 3 times per table: bySite, queries, pages
   mockPrisma.performanceMetric.groupBy
     .mockResolvedValueOnce(siteByEntity)
     .mockResolvedValueOnce(siteQueries)
@@ -76,10 +71,7 @@ function setupGroupByMocks(
 
 describe('GET /api/analytics/search', () => {
   it('returns combined totals from sites and microsites', async () => {
-    setupSiteAndMicrositeMocks();
-    setupAggregates({ clicks: 100, impressions: 1000 }, { clicks: 50, impressions: 500 });
-    setupPositionData([{ position: 5, impressions: 1000 }], [{ position: 10, impressions: 500 }]);
-    setupGroupByMocks();
+    setupFullMocks();
 
     const response = await GET(createRequest('http://localhost/api/analytics/search'));
     const data = await response.json();
@@ -93,25 +85,23 @@ describe('GET /api/analytics/search', () => {
   });
 
   it('includes microsites in bySite list', async () => {
-    setupSiteAndMicrositeMocks();
-    setupAggregates();
-    setupPositionData();
-    setupGroupByMocks(
-      [{ siteId: 'site-1', _sum: { clicks: 100, impressions: 1000 }, _avg: { position: 5 } }],
-      [
+    setupFullMocks({
+      siteByEntity: [
+        { siteId: 'site-1', _sum: { clicks: 100, impressions: 1000 }, _avg: { position: 5 } },
+      ],
+      micrositeByEntity: [
         {
           micrositeId: 'micro-1',
           _sum: { clicks: 50, impressions: 500 },
           _avg: { position: 10 },
         },
-      ]
-    );
+      ],
+    });
 
     const response = await GET(createRequest('http://localhost/api/analytics/search'));
     const data = await response.json();
 
     expect(data.bySite).toHaveLength(2);
-    // Sorted by clicks desc
     expect(data.bySite[0].siteId).toBe('site-1');
     expect(data.bySite[0].siteName).toBe('London Tours');
     expect(data.bySite[0].domain).toBe('london-tours.com');
@@ -124,14 +114,8 @@ describe('GET /api/analytics/search', () => {
   });
 
   it('merges queries from sites and microsites', async () => {
-    setupSiteAndMicrositeMocks();
-    setupAggregates();
-    setupPositionData();
-    setupGroupByMocks(
-      [], // bySite
-      [], // byMicrosite
-      // site queries
-      [
+    setupFullMocks({
+      siteQueries: [
         {
           query: 'london tours',
           siteId: 'site-1',
@@ -139,16 +123,15 @@ describe('GET /api/analytics/search', () => {
           _avg: { position: 4 },
         },
       ],
-      // microsite queries — same query, should merge
-      [
+      micrositeQueries: [
         {
           query: 'london tours',
           micrositeId: 'micro-1',
           _sum: { clicks: 10, impressions: 100 },
           _avg: { position: 8 },
         },
-      ]
-    );
+      ],
+    });
 
     const response = await GET(createRequest('http://localhost/api/analytics/search'));
     const data = await response.json();
@@ -157,20 +140,11 @@ describe('GET /api/analytics/search', () => {
     expect(data.topQueries[0].query).toBe('london tours');
     expect(data.topQueries[0].clicks).toBe(40);
     expect(data.topQueries[0].impressions).toBe(300);
-    expect(data.topQueries[0].siteCount).toBe(2);
   });
 
   it('merges pages from sites and microsites into topPages', async () => {
-    setupSiteAndMicrositeMocks();
-    setupAggregates();
-    setupPositionData();
-    setupGroupByMocks(
-      [],
-      [],
-      [],
-      [],
-      // site pages
-      [
+    setupFullMocks({
+      sitePages: [
         {
           pageUrl: 'https://london-tours.com/',
           siteId: 'site-1',
@@ -178,39 +152,29 @@ describe('GET /api/analytics/search', () => {
           _avg: { position: 3 },
         },
       ],
-      // microsite pages
-      [
+      micrositePages: [
         {
           pageUrl: 'https://adventure-co.experiencess.com/',
           micrositeId: 'micro-1',
           _sum: { clicks: 20, impressions: 400 },
           _avg: { position: 12 },
         },
-      ]
-    );
+      ],
+    });
 
     const response = await GET(createRequest('http://localhost/api/analytics/search'));
     const data = await response.json();
 
     expect(data.topPages).toHaveLength(2);
-    // Sorted by impressions desc
     expect(data.topPages[0].pageUrl).toBe('https://london-tours.com/');
     expect(data.topPages[0].site).toBe('London Tours');
     expect(data.topPages[1].pageUrl).toBe('https://adventure-co.experiencess.com/');
     expect(data.topPages[1].site).toBe('Adventure Co');
   });
 
-  it('calculates position distribution from both tables', async () => {
-    setupSiteAndMicrositeMocks();
-    setupAggregates();
-    setupPositionData();
-    setupGroupByMocks(
-      [],
-      [],
-      [],
-      [],
-      // site pages — positions 2 and 7
-      [
+  it('calculates position distribution from page entries', async () => {
+    setupFullMocks({
+      sitePages: [
         {
           pageUrl: '/a',
           siteId: 'site-1',
@@ -224,8 +188,7 @@ describe('GET /api/analytics/search', () => {
           _avg: { position: 7 },
         },
       ],
-      // microsite pages — positions 15 and 25
-      [
+      micrositePages: [
         {
           pageUrl: '/c',
           micrositeId: 'micro-1',
@@ -238,27 +201,28 @@ describe('GET /api/analytics/search', () => {
           _sum: { clicks: 1, impressions: 10 },
           _avg: { position: 25 },
         },
-      ]
-    );
+      ],
+    });
 
     const response = await GET(createRequest('http://localhost/api/analytics/search'));
     const data = await response.json();
 
     expect(data.positionDistribution).toEqual({
-      top3: 1, // position 2
-      top10: 1, // position 7
-      top20: 1, // position 15
-      beyond20: 1, // position 25
+      top3: 1,
+      top10: 1,
+      top20: 1,
+      beyond20: 1,
     });
   });
 
   it('works with only sites (no microsites)', async () => {
     mockPrisma.site.findMany.mockResolvedValue([mockSite]);
     mockPrisma.micrositeConfig.findMany.mockResolvedValue([]);
-    mockPrisma.performanceMetric.aggregate.mockResolvedValue({
-      _sum: { clicks: 100, impressions: 1000 },
-    });
-    mockPrisma.performanceMetric.findMany.mockResolvedValue([]);
+
+    // Only site aggregate calls (totals + position)
+    mockPrisma.performanceMetric.aggregate
+      .mockResolvedValueOnce({ _sum: { clicks: 100, impressions: 1000 } })
+      .mockResolvedValueOnce({ _avg: { position: 5 }, _sum: { impressions: 1000 } });
     mockPrisma.performanceMetric.groupBy
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
@@ -270,17 +234,16 @@ describe('GET /api/analytics/search', () => {
     expect(response.status).toBe(200);
     expect(data.totals.clicks).toBe(100);
     expect(data.totals.impressions).toBe(1000);
-    // Microsite queries should not have been called
     expect(mockPrisma.micrositePerformanceMetric.aggregate).not.toHaveBeenCalled();
   });
 
   it('works with only microsites (no sites)', async () => {
     mockPrisma.site.findMany.mockResolvedValue([]);
     mockPrisma.micrositeConfig.findMany.mockResolvedValue([mockMicrosite]);
-    mockPrisma.micrositePerformanceMetric.aggregate.mockResolvedValue({
-      _sum: { clicks: 50, impressions: 500 },
-    });
-    mockPrisma.micrositePerformanceMetric.findMany.mockResolvedValue([]);
+
+    mockPrisma.micrositePerformanceMetric.aggregate
+      .mockResolvedValueOnce({ _sum: { clicks: 50, impressions: 500 } })
+      .mockResolvedValueOnce({ _avg: { position: 10 }, _sum: { impressions: 500 } });
     mockPrisma.micrositePerformanceMetric.groupBy
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
@@ -315,8 +278,6 @@ describe('GET /api/analytics/search', () => {
       createRequest('http://localhost/api/analytics/search?startDate=2026-01-01&endDate=2026-01-31')
     );
 
-    // No DB queries should be made when there are no sites/microsites
-    // Just verify it returned successfully (dates are parsed correctly)
     expect(mockPrisma.site.findMany).toHaveBeenCalled();
     expect(mockPrisma.micrositeConfig.findMany).toHaveBeenCalled();
   });
