@@ -197,10 +197,10 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
   // Auto-scroll to payment section when it becomes visible
   useEffect(() => {
     if (showPayment && paymentSectionRef.current) {
-      // Small delay to let Stripe Elements render
+      // Delay to let Stripe Elements render before scrolling
       setTimeout(() => {
-        paymentSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 100);
+        paymentSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 300);
     }
   }, [showPayment]);
 
