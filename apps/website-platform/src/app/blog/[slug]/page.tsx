@@ -8,6 +8,7 @@ import { getRelatedMicrosites, getNetworkRelatedBlogPosts } from '@/lib/microsit
 import { BlogPostTemplate } from '@/components/content/BlogPostTemplate';
 import { RelatedMicrosites } from '@/components/microsites/RelatedMicrosites';
 import { NetworkRelatedPosts } from '@/components/microsites/NetworkRelatedPosts';
+import { TrackFunnelEvent } from '@/components/analytics/TrackFunnelEvent';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -290,6 +291,7 @@ export default async function BlogPostPage({ params }: Props) {
           }))}
         />
       )}
+      <TrackFunnelEvent step="LANDING_PAGE_VIEW" />
     </>
   );
 }

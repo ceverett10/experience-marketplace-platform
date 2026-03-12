@@ -18,6 +18,7 @@ import type { FilterOptions } from '@/components/experiences/FilterSidebar';
 import type { FilterCounts } from '@/hooks/useMarketplaceExperiences';
 import { isTickittoSite } from '@/lib/supplier';
 import { getTickittoClient, mapTickittoEventToExperienceListItem } from '@/lib/tickitto';
+import { TrackFunnelEvent } from '@/components/analytics/TrackFunnelEvent';
 
 interface SearchParams {
   [key: string]: string | undefined;
@@ -1404,6 +1405,7 @@ export default async function ExperiencesPage({ searchParams }: Props) {
           />
         </main>
       </div>
+      <TrackFunnelEvent step="LANDING_PAGE_VIEW" />
     </>
   );
 }

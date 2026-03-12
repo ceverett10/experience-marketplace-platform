@@ -6,6 +6,7 @@ import { getSiteFromHostname } from '@/lib/tenant';
 import { prisma } from '@/lib/prisma';
 import { cleanPlainText, generateFaqJsonLd } from '@/lib/seo';
 import { FAQPageTemplate } from '@/components/content/FAQPageTemplate';
+import { TrackFunnelEvent } from '@/components/analytics/TrackFunnelEvent';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -219,6 +220,7 @@ export default async function FAQDetailPage({ params }: Props) {
 
       {/* FAQ Content */}
       <FAQPageTemplate page={page} siteName={site.name} faqs={faqs} />
+      <TrackFunnelEvent step="LANDING_PAGE_VIEW" />
     </>
   );
 }

@@ -32,6 +32,7 @@ import { ParentDomainHomepage } from '@/components/parent-domain/ParentDomainHom
 import { TourOperatorSchema, WebSiteSchema } from '@/components/seo/StructuredData';
 import type { SiteConfig } from '@/lib/tenant';
 import { getBestCategory } from '@experience-marketplace/shared';
+import { TrackFunnelEvent } from '@/components/analytics/TrackFunnelEvent';
 
 // Revalidate every 5 minutes for fresh content
 export const revalidate = 300;
@@ -1214,6 +1215,7 @@ export default async function HomePage() {
 
       {/* Latest Blog Posts - SEO Content */}
       <LatestBlogPosts posts={blogPosts} siteName={site.name} />
+      <TrackFunnelEvent step="LANDING_PAGE_VIEW" />
     </>
   );
 }
