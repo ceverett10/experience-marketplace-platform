@@ -1203,6 +1203,41 @@ export async function addKeywordsToAdGroup(adGroupId: string, keywords: string[]
 }
 
 /**
+ * Update keyword-level final URLs on existing ad group criteria.
+ * Batches in chunks of 200 to stay within API limits.
+ */
+export async function updateKeywordFinalUrls(
+  keywords: Array<{ adGroupId: string; criterionId: string; finalUrl: string }>
+): Promise<number> {
+  const config = getConfig();
+  if (!config || keywords.length === 0) return 0;
+
+  const BATCH_SIZE = 200;
+  let totalUpdated = 0;
+
+  for (let i = 0; i < keywords.length; i += BATCH_SIZE) {
+    const batch = keywords.slice(i, i + BATCH_SIZE);
+    const operations = batch.map((kw) => ({
+      update: {
+        resourceName: `customers/${config.customerId}/adGroupCriteria/${kw.adGroupId}~${kw.criterionId}`,
+        finalUrls: [kw.finalUrl],
+      },
+      updateMask: 'finalUrls',
+    }));
+
+    try {
+      await apiRequest(config, 'POST', '/adGroupCriteria:mutate', { operations });
+      totalUpdated += batch.length;
+    } catch (error) {
+      console.error(`[GoogleAds] Update keyword URLs batch ${i / BATCH_SIZE + 1} failed:`, error);
+    }
+  }
+
+  console.info(`[GoogleAds] Updated final URLs on ${totalUpdated} keywords`);
+  return totalUpdated;
+}
+
+/**
  * Update a campaign's daily budget on Google Ads.
  * Finds the campaign's budget resource via GAQL, then updates amountMicros.
  */
