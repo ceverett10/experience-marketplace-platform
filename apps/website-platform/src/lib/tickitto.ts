@@ -56,6 +56,9 @@ export function mapTickittoEventToExperience(event: TickittoEvent): Experience {
     description: event.description,
     imageUrl: primaryImage,
     images: event.images.map((img) => img.desktop).filter((url): url is string => url != null),
+    lightboxImages: event.images
+      .map((img) => img.desktop)
+      .filter((url): url is string => url != null),
     price: {
       amount: priceAmount,
       currency,
