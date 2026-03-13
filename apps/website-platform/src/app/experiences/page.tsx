@@ -10,6 +10,7 @@ import {
 } from '@/lib/holibob';
 import { ExperiencesGrid } from '@/components/experiences/ExperiencesGrid';
 import { ProductDiscoverySearch } from '@/components/search/ProductDiscoverySearch';
+import { PpcSearchAccordion } from '@/components/search/PpcSearchAccordion';
 import { TrustBadges } from '@/components/ui/TrustSignals';
 import { ExperienceListSchema, BreadcrumbSchema } from '@/components/seo/StructuredData';
 import { prisma } from '@/lib/prisma';
@@ -1124,6 +1125,15 @@ export default async function ExperiencesPage({ searchParams }: Props) {
     !!site.micrositeContext?.supplierId &&
     site.micrositeContext.layoutConfig?.resolvedType === 'MARKETPLACE';
 
+  // Detect PPC traffic — used to render compact header with products-first layout
+  const isPpcTraffic = !!(
+    resolvedSearchParams['utm_source'] ||
+    resolvedSearchParams['utm_medium'] ||
+    resolvedSearchParams['utm_campaign'] ||
+    resolvedSearchParams['gclid'] ||
+    resolvedSearchParams['fbclid']
+  );
+
   // Fetch experiences and filter options in parallel for MARKETPLACE layouts
   const [experiencesResult, filterOptionsResult] = await Promise.all([
     getExperiences(site, resolvedSearchParams),
@@ -1134,12 +1144,6 @@ export default async function ExperiencesPage({ searchParams }: Props) {
 
   // PPC fallback: if filtered page returns 0 results and traffic is from PPC, redirect to homepage
   const hasFilters = resolvedSearchParams['cities'] || resolvedSearchParams['categories'];
-  const isPpcTraffic =
-    resolvedSearchParams['utm_source'] ||
-    resolvedSearchParams['utm_medium'] ||
-    resolvedSearchParams['utm_campaign'] ||
-    resolvedSearchParams['fbclid'] ||
-    resolvedSearchParams['gclid'];
 
   if (hasFilters && isPpcTraffic && experiences.length === 0) {
     // Preserve UTM params on redirect so attribution isn't lost
@@ -1325,55 +1329,64 @@ export default async function ExperiencesPage({ searchParams }: Props) {
           </div>
         )}
 
-        {/* Page Header */}
+        {/* Page Header — compact for PPC traffic to show products immediately */}
         <header className="bg-white shadow-sm">
-          <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-            {/* Breadcrumb */}
-            <nav className="mb-4" aria-label="Breadcrumb">
-              <ol className="flex items-center gap-2 text-sm text-gray-500">
-                <li>
-                  <a href="/" className="hover:text-gray-700">
-                    Home
-                  </a>
-                </li>
-                <li>
-                  <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path
-                      fillRule="evenodd"
-                      d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                </li>
-                <li className="font-medium text-gray-900">Experiences</li>
-                {destination && (
-                  <>
-                    <li>
-                      <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path
-                          fillRule="evenodd"
-                          d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    </li>
-                    <li className="font-medium text-gray-900">{destination}</li>
-                  </>
-                )}
-              </ol>
-            </nav>
+          <div
+            className={`mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 ${
+              isPpcTraffic ? 'py-3 sm:py-4' : 'py-8'
+            }`}
+          >
+            {/* Breadcrumb — hidden for PPC (users came from ad, don't need nav crumbs) */}
+            {!isPpcTraffic && (
+              <nav className="mb-4" aria-label="Breadcrumb">
+                <ol className="flex items-center gap-2 text-sm text-gray-500">
+                  <li>
+                    <a href="/" className="hover:text-gray-700">
+                      Home
+                    </a>
+                  </li>
+                  <li>
+                    <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path
+                        fillRule="evenodd"
+                        d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </li>
+                  <li className="font-medium text-gray-900">Experiences</li>
+                  {destination && (
+                    <>
+                      <li>
+                        <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                          <path
+                            fillRule="evenodd"
+                            d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      </li>
+                      <li className="font-medium text-gray-900">{destination}</li>
+                    </>
+                  )}
+                </ol>
+              </nav>
+            )}
 
-            {/* Title */}
-            <h1 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
+            {/* Title — smaller for PPC */}
+            <h1
+              className={`font-bold tracking-tight text-gray-900 ${
+                isPpcTraffic ? 'text-xl sm:text-2xl' : 'text-3xl sm:text-4xl'
+              }`}
+            >
               {pageTitle}
             </h1>
-            <p className="mt-2 text-lg text-gray-600">{pageSubtitle}</p>
+            {!isPpcTraffic && <p className="mt-2 text-lg text-gray-600">{pageSubtitle}</p>}
 
-            {/* Search Bar - Only show on main site, not on operator microsites */}
-            {!isMicrosite && (
-              <div className="mt-6">
-                <ProductDiscoverySearch
-                  variant="hero"
+            {/* Search Bar — full for organic, collapsed accordion for PPC, hidden on microsites */}
+            {!isMicrosite &&
+              (isPpcTraffic ? (
+                <PpcSearchAccordion
                   defaultDestination={destination}
                   defaultWhat={resolvedSearchParams.q}
                   defaultDates={{
@@ -1381,18 +1394,37 @@ export default async function ExperiencesPage({ searchParams }: Props) {
                     endDate: resolvedSearchParams.endDate,
                   }}
                 />
+              ) : (
+                <div className="mt-6">
+                  <ProductDiscoverySearch
+                    variant="hero"
+                    defaultDestination={destination}
+                    defaultWhat={resolvedSearchParams.q}
+                    defaultDates={{
+                      startDate: resolvedSearchParams.startDate,
+                      endDate: resolvedSearchParams.endDate,
+                    }}
+                  />
+                </div>
+              ))}
+
+            {/* Trust — inline text for PPC, full badges for organic */}
+            {isPpcTraffic ? (
+              <p className="mt-2 text-xs text-gray-500">
+                Free cancellation &middot; Instant confirmation &middot; Secure payment
+              </p>
+            ) : (
+              <div className="mt-6">
+                <TrustBadges />
               </div>
             )}
-
-            {/* Trust Badges */}
-            <div className="mt-6">
-              <TrustBadges />
-            </div>
           </div>
         </header>
 
-        {/* Main Content */}
-        <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        {/* Main Content — reduced padding for PPC */}
+        <main
+          className={`mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 ${isPpcTraffic ? 'py-4' : 'py-8'}`}
+        >
           <ExperiencesGrid
             key={Object.entries(resolvedSearchParams)
               .filter(([, v]) => v)
@@ -1402,6 +1434,7 @@ export default async function ExperiencesPage({ searchParams }: Props) {
             initialExperiences={experiences}
             hasMore={hasMore}
             searchParams={resolvedSearchParams}
+            isPpc={isPpcTraffic}
           />
         </main>
       </div>
