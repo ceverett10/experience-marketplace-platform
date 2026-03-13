@@ -16,7 +16,7 @@ import { ExperienceGallery } from '@/components/experiences/ExperienceGallery';
 import { BookingWidget } from '@/components/experiences/BookingWidget';
 import { MobileBookingCTA } from '@/components/experiences/MobileBookingCTA';
 import { TrackViewItem } from '@/components/analytics/TrackViewItem';
-import { BLUR_PLACEHOLDER, isHolibobImage } from '@/lib/image-utils';
+import { BLUR_PLACEHOLDER } from '@/lib/image-utils';
 import { PriceDisplay } from '@/components/ui/PriceDisplay';
 import { getProductPricingConfig } from '@/lib/pricing';
 import type { Experience } from '@/lib/holibob';
@@ -58,7 +58,6 @@ export function ProductSpotlightHomepage({ site, experience }: ProductSpotlightH
             className="object-cover"
             placeholder="blur"
             blurDataURL={BLUR_PLACEHOLDER}
-            unoptimized={isHolibobImage(experience.imageUrl)}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/60 to-transparent" />
         </div>

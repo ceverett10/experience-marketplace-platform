@@ -10,7 +10,7 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { BLUR_PLACEHOLDER, isHolibobImage } from '@/lib/image-utils';
+import { BLUR_PLACEHOLDER } from '@/lib/image-utils';
 
 const STORAGE_KEY = 'holibob_recently_viewed';
 const MAX_ITEMS = 6;
@@ -90,7 +90,6 @@ export function RecentlyViewed({ currentId }: RecentlyViewedProps) {
                 className="object-cover transition-transform duration-300 group-hover:scale-105"
                 placeholder="blur"
                 blurDataURL={BLUR_PLACEHOLDER}
-                unoptimized={isHolibobImage(item.imageUrl)}
               />
             </div>
             <div className="p-3">

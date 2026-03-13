@@ -14,7 +14,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { BLUR_PLACEHOLDER, isHolibobImage } from '@/lib/image-utils';
+import { BLUR_PLACEHOLDER } from '@/lib/image-utils';
 import type { SiteConfig, HomepageConfig } from '@/lib/tenant';
 import type { MicrositeLayoutConfig } from '@/lib/microsite-layout';
 import type { ExperienceListItem } from '@/lib/holibob';
@@ -136,7 +136,6 @@ export function CatalogHomepage({
               className="object-cover"
               placeholder="blur"
               blurDataURL={BLUR_PLACEHOLDER}
-              unoptimized={isHolibobImage(heroConfig.backgroundImage)}
             />
           ) : (
             <div
@@ -649,7 +648,6 @@ function CatalogExperienceCard({
           className="object-cover transition-transform duration-300 group-hover:scale-105"
           placeholder="blur"
           blurDataURL={BLUR_PLACEHOLDER}
-          unoptimized={isHolibobImage(experience.imageUrl)}
           {...(priority ? { priority: true } : { loading: 'lazy' as const })}
         />
         {/* Discount Badge */}

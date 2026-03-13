@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useBrand } from '@/lib/site-context';
-import { BLUR_PLACEHOLDER, isHolibobImage } from '@/lib/image-utils';
+import { BLUR_PLACEHOLDER } from '@/lib/image-utils';
 import { PriceDisplay, DiscountBadge } from '@/components/ui/PriceDisplay';
 import { getProductPricingConfig } from '@/lib/pricing';
 import type { ExperienceListItem } from '@/lib/holibob';
@@ -176,7 +176,6 @@ export function PremiumExperienceCard({
           className="object-cover transition-transform duration-700 group-hover:scale-105"
           placeholder="blur"
           blurDataURL={BLUR_PLACEHOLDER}
-          unoptimized={isHolibobImage(experience.imageUrl)}
         />
 
         {/* Gradient Overlay */}
@@ -305,7 +304,6 @@ export function PremiumExperienceCard({
           className="object-cover transition-transform duration-500 group-hover:scale-105"
           placeholder="blur"
           blurDataURL={BLUR_PLACEHOLDER}
-          unoptimized={isHolibobImage(experience.imageUrl)}
         />
 
         {/* Gradient Overlay */}
@@ -454,7 +452,6 @@ export function PremiumExperienceCard({
           className="object-cover transition-transform duration-500 group-hover:scale-105"
           placeholder="blur"
           blurDataURL={BLUR_PLACEHOLDER}
-          unoptimized={isHolibobImage(experience.imageUrl)}
         />
 
         {/* Badges - Top Left */}
