@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { useState, useCallback, useRef } from 'react';
-import { BLUR_PLACEHOLDER, isHolibobImage } from '@/lib/image-utils';
+import { BLUR_PLACEHOLDER } from '@/lib/image-utils';
 
 interface ExperienceGalleryProps {
   images: string[];
@@ -71,7 +71,6 @@ export function ExperienceGallery({ images, lightboxImages, title }: ExperienceG
               className="object-cover transition-opacity hover:opacity-90"
               placeholder="blur"
               blurDataURL={BLUR_PLACEHOLDER}
-              unoptimized={isHolibobImage(displayImages[0])}
             />
           </div>
 
@@ -94,7 +93,6 @@ export function ExperienceGallery({ images, lightboxImages, title }: ExperienceG
                 className="object-cover transition-opacity hover:opacity-90"
                 placeholder="blur"
                 blurDataURL={BLUR_PLACEHOLDER}
-                unoptimized={isHolibobImage(image)}
               />
               {/* Show more overlay on last image */}
               {idx === 3 && remainingCount > 0 && (
