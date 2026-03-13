@@ -1434,7 +1434,6 @@ export default async function ExperiencesPage({ searchParams }: Props) {
             initialExperiences={experiences}
             hasMore={hasMore}
             searchParams={resolvedSearchParams}
-            isPpc={isPpcTraffic}
           />
         </main>
       </div>

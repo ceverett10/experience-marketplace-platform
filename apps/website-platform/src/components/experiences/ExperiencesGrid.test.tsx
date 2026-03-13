@@ -42,18 +42,13 @@ describe('ExperiencesGrid', () => {
     expect(screen.getByText('Clear all filters')).toBeInTheDocument();
   });
 
-  it('renders first experience as featured', () => {
-    const experiences = [makeExperience('1'), makeExperience('2')];
-    render(<ExperiencesGrid initialExperiences={experiences} hasMore={false} searchParams={{}} />);
-    const featured = screen.getByTestId('experience-card-1');
-    expect(featured).toHaveAttribute('data-variant', 'featured');
-  });
-
-  it('renders remaining experiences in grid', () => {
+  it('renders all experiences in uniform grid', () => {
     const experiences = [makeExperience('1'), makeExperience('2'), makeExperience('3')];
     render(<ExperiencesGrid initialExperiences={experiences} hasMore={false} searchParams={{}} />);
+    const card1 = screen.getByTestId('experience-card-1');
     const card2 = screen.getByTestId('experience-card-2');
     const card3 = screen.getByTestId('experience-card-3');
+    expect(card1).not.toHaveAttribute('data-variant', 'featured');
     expect(card2).not.toHaveAttribute('data-variant', 'featured');
     expect(card3).not.toHaveAttribute('data-variant', 'featured');
   });

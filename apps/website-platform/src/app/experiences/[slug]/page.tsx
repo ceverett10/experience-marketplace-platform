@@ -636,6 +636,11 @@ export default async function ExperienceDetailPage({ params }: Props) {
         <div className="bg-white">
           <ExperienceGallery
             images={experience.images.length > 0 ? experience.images : [experience.imageUrl]}
+            lightboxImages={
+              experience.lightboxImages.length > 0
+                ? experience.lightboxImages
+                : [experience.imageUrl]
+            }
             title={experience.title}
           />
         </div>
@@ -691,27 +696,29 @@ export default async function ExperienceDetailPage({ params }: Props) {
                   )}
 
                   {/* Location */}
-                  <div className="flex items-center gap-1.5 text-gray-600">
-                    <svg
-                      className="h-5 w-5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth="1.5"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"
-                      />
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"
-                      />
-                    </svg>
-                    <span>{experience.location.name}</span>
-                  </div>
+                  {experience.location.name && (
+                    <div className="flex items-center gap-1.5 text-gray-600">
+                      <svg
+                        className="h-5 w-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth="1.5"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"
+                        />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"
+                        />
+                      </svg>
+                      <span>{experience.location.name}</span>
+                    </div>
+                  )}
 
                   {/* Live Activity Indicator */}
                   <LiveActivityIndicator count={getViewerCount(experience.id)} />
@@ -1007,21 +1014,41 @@ export default async function ExperienceDetailPage({ params }: Props) {
                 {/* Map */}
                 <div className="relative mt-4 h-48 overflow-hidden rounded-lg bg-gray-100">
                   {experience.location.mapImageUrl ? (
-                    <Image
-                      src={experience.location.mapImageUrl}
-                      alt={`Map showing ${experience.location.name}`}
-                      fill
-                      className="object-cover"
-                      unoptimized
-                    />
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${experience.location.lat},${experience.location.lng}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group block h-full"
+                    >
+                      <Image
+                        src={experience.location.mapImageUrl}
+                        alt={`Map showing ${experience.location.name}`}
+                        fill
+                        className="object-cover transition-opacity group-hover:opacity-90"
+                        unoptimized
+                      />
+                      <div className="absolute bottom-2 right-2 rounded-md bg-white/90 px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm">
+                        Open in Google Maps
+                      </div>
+                    </a>
                   ) : experience.location.lat && experience.location.lng ? (
-                    <Image
-                      src={`https://maps.googleapis.com/maps/api/staticmap?center=${experience.location.lat},${experience.location.lng}&zoom=15&size=640x400&markers=color:red|${experience.location.lat},${experience.location.lng}&maptype=roadmap&key=${process.env['NEXT_PUBLIC_GOOGLE_MAPS_API_KEY'] || ''}`}
-                      alt={`Map showing ${experience.location.name}`}
-                      fill
-                      className="object-cover"
-                      unoptimized
-                    />
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${experience.location.lat},${experience.location.lng}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group block h-full"
+                    >
+                      <Image
+                        src={`https://maps.googleapis.com/maps/api/staticmap?center=${experience.location.lat},${experience.location.lng}&zoom=15&size=640x400&markers=color:red|${experience.location.lat},${experience.location.lng}&maptype=roadmap&key=${process.env['NEXT_PUBLIC_GOOGLE_MAPS_API_KEY'] || ''}`}
+                        alt={`Map showing ${experience.location.name}`}
+                        fill
+                        className="object-cover transition-opacity group-hover:opacity-90"
+                        unoptimized
+                      />
+                      <div className="absolute bottom-2 right-2 rounded-md bg-white/90 px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm">
+                        Open in Google Maps
+                      </div>
+                    </a>
                   ) : (
                     <div className="flex h-full items-center justify-center text-gray-400">
                       <svg

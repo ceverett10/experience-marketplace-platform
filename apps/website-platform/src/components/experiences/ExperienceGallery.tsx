@@ -6,12 +6,16 @@ import { BLUR_PLACEHOLDER, isHolibobImage } from '@/lib/image-utils';
 
 interface ExperienceGalleryProps {
   images: string[];
+  lightboxImages?: string[];
   title: string;
 }
 
-export function ExperienceGallery({ images, title }: ExperienceGalleryProps) {
+export function ExperienceGallery({ images, lightboxImages, title }: ExperienceGalleryProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Use lightbox-quality images for the modal, fall back to gallery images
+  const fullImages = lightboxImages && lightboxImages.length > 0 ? lightboxImages : images;
 
   // Touch/swipe handling for lightbox
   const touchStartX = useRef(0);
@@ -196,10 +200,10 @@ export function ExperienceGallery({ images, title }: ExperienceGalleryProps) {
             </>
           )}
 
-          {/* Image - using next/image for optimization */}
+          {/* Image - using lightbox-quality images for full-screen viewing */}
           <div className="relative h-[90vh] w-[90vw]" onClick={(e) => e.stopPropagation()}>
             <Image
-              src={images[selectedIndex] ?? images[0] ?? '/placeholder-experience.jpg'}
+              src={fullImages[selectedIndex] ?? fullImages[0] ?? '/placeholder-experience.jpg'}
               alt={`${title} - Image ${selectedIndex + 1}`}
               fill
               sizes="90vw"

@@ -42,6 +42,7 @@ const createExperience = (overrides: Partial<Experience> = {}): Experience => ({
   description: 'Full description here',
   imageUrl: 'https://example.com/image.jpg',
   images: ['https://example.com/image.jpg'],
+  lightboxImages: ['https://example.com/image.jpg'],
   price: { amount: 35, currency: 'GBP', formatted: '£35.00' },
   duration: { value: 30, unit: 'minutes', formatted: '30 minutes' },
   rating: { average: 4.7, count: 2453 },

@@ -36,7 +36,6 @@ interface ExperiencesGridProps {
   initialExperiences: Experience[];
   hasMore: boolean;
   searchParams: Record<string, string | undefined>;
-  isPpc?: boolean;
 }
 
 function assignBadges(experience: Experience): BadgeType[] {
@@ -54,7 +53,6 @@ export function ExperiencesGrid({
   initialExperiences,
   hasMore: initialHasMore,
   searchParams,
-  isPpc,
 }: ExperiencesGridProps) {
   const brand = useBrand();
   const [experiences, setExperiences] = useState<Experience[]>(initialExperiences);
@@ -137,28 +135,11 @@ export function ExperiencesGrid({
     );
   }
 
-  // PPC: show all cards in uniform grid for maximum density
-  // Organic: first card is featured (larger)
-  const featuredExperience = isPpc ? null : experiences[0];
-  const gridExperiences = isPpc ? experiences : experiences.slice(1);
-
   return (
     <div>
-      {/* Featured Experience (first item, larger) — skipped for PPC */}
-      {featuredExperience && (
-        <div className="mb-8">
-          <PremiumExperienceCard
-            experience={featuredExperience}
-            variant="featured"
-            badges={assignBadges(featuredExperience)}
-            priority
-          />
-        </div>
-      )}
-
-      {/* Grid of experiences */}
+      {/* Uniform grid of experiences */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 lg:gap-6 xl:grid-cols-4">
-        {gridExperiences.map((experience, index) => (
+        {experiences.map((experience, index) => (
           <PremiumExperienceCard
             key={experience.id}
             experience={experience}

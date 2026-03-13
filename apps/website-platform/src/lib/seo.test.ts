@@ -26,6 +26,7 @@ const mockExperience: Experience = {
   description: 'Experience breathtaking views of London from the iconic London Eye.',
   imageUrl: 'https://example.com/london-eye.jpg',
   images: ['https://example.com/img1.jpg', 'https://example.com/img2.jpg'],
+  lightboxImages: ['https://example.com/img1.jpg', 'https://example.com/img2.jpg'],
   price: {
     amount: 35,
     currency: 'GBP',

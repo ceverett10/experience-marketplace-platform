@@ -72,6 +72,7 @@ export interface Experience {
   description: string;
   imageUrl: string;
   images: string[];
+  lightboxImages: string[];
   price: {
     amount: number;
     currency: string;
@@ -463,7 +464,13 @@ export function mapProductToExperience(product: {
     imageUrl: primaryImageUrl,
     images:
       allImages.length > 0
-        ? allImages.map((img) => optimizeHolibobImageWithPreset(img, 'lightbox')) // Lightbox quality for gallery
+        ? allImages.map((img) => optimizeHolibobImageWithPreset(img, 'galleryMain'))
+        : primaryImageUrl === '/placeholder-experience.jpg'
+          ? []
+          : [primaryImageUrl],
+    lightboxImages:
+      allImages.length > 0
+        ? allImages.map((img) => optimizeHolibobImageWithPreset(img, 'lightbox'))
         : primaryImageUrl === '/placeholder-experience.jpg'
           ? []
           : [primaryImageUrl],
