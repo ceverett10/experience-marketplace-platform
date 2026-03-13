@@ -1176,6 +1176,16 @@ function ensureProtocol(url: string): string {
   return url;
 }
 
+/** Truncate text at a word boundary to fit within maxLen, avoiding mid-word cuts. */
+function truncateAtWordBoundary(text: string, maxLen: number): string {
+  if (text.length <= maxLen) return text;
+  const truncated = text.substring(0, maxLen);
+  const lastSpace = truncated.lastIndexOf(' ');
+  // If no space found or the result would be very short, just hard-cut
+  if (lastSpace < maxLen * 0.4) return truncated;
+  return truncated.substring(0, lastSpace);
+}
+
 function buildLandingUrl(campaign: {
   targetUrl: string;
   utmSource: string | null;
@@ -1865,7 +1875,8 @@ async function generateGoogleRSAWithAI(
   const tone = context?.tonePersonality.length
     ? context.tonePersonality.join(', ')
     : 'friendly, enthusiastic';
-  const destination = toTitleCase(extractDestination(keyword));
+  // keyword is the activity theme (e.g. "boat tours"), NOT a city-specific keyword
+  const activity = toTitleCase(keyword);
 
   // Build context lines (same structure as Meta prompt)
   const contextLines: string[] = [];
@@ -1889,25 +1900,36 @@ You MUST address each issue above. Ensure the ad copy aligns with the landing pa
 
   const prompt = `You are a performance marketing copywriter for a travel experiences platform.
 Brand: "${brand}". Tone: ${tone}.
-Target keyword: ${keyword}
-Destination/activity: ${destination}
+Activity theme: ${activity}
 ${contextLines.length > 0 ? contextLines.join('\n') : ''}
 ${remediationBlock}
-Write a Google Responsive Search Ad for "${destination}" experiences.
+Write a Google Responsive Search Ad for "${activity}" experiences.
+The ad group serves MULTIPLE destinations, so do NOT mention any specific city or country.
+Keep all copy generic to the activity theme.
 
 CRITICAL RULES:
-- The ad MUST be specifically about "${destination}". Do NOT mention unrelated activities or locations.
-- 6 headlines, each MAX 30 characters (hard limit — Google rejects longer)
-- 2 descriptions, each MAX 90 characters (hard limit)
-- First 3 headlines MUST include "${destination}" or a recognisable short form
+- 15 headlines, each MAX 30 characters (hard limit — Google rejects longer)
+- 4 descriptions, each MAX 90 characters (hard limit)
+- Do NOT mention any specific city, country, or region name
 - Do NOT use pipe character | in any headline or description
 - Do NOT use "Free cancellation" (cannot guarantee for all products)
 - Do NOT invent prices, discounts, star ratings, or review counts
-- Focus on booking intent: "Book Now", "Instant Confirmation", "Top-Rated"
-- Include "${brand}" in at most one headline
+- Include "${brand}" in exactly 1 headline
 
-Good headlines: "Tours in ${destination}", "Book ${destination} Today", "${destination} Experiences"
-Bad headlines: "Best Prices Guaranteed", "Amazing Travel Deals", "${destination} | ${brand}"
+HEADLINE DIVERSITY — each headline must use a DIFFERENT angle:
+1-3: Activity-focused ("${activity} Experiences", "Book ${activity} Online", "Top ${activity}")
+4-5: Benefit-focused ("Instant Confirmation", "Trusted Local Guides")
+6-7: Action-focused ("Book Now & Save Time", "Reserve Your Spot Today")
+8-9: Social proof ("Top-Rated Experiences", "Loved by Travellers")
+10-11: Unique selling points ("Compare Top Providers", "Best Selection Online")
+12-13: Urgency/availability ("Limited Spots Available", "Book Today")
+14-15: Brand + trust ("${brand}", "Secure Online Booking")
+
+DESCRIPTION DIVERSITY — each description must cover a DIFFERENT selling point:
+1: What you get (the experience)
+2: Trust signals (instant confirmation, top-rated providers)
+3: How it works (browse, compare, book online)
+4: Why choose us (best selection, secure booking, local experts)
 
 Return JSON only:
 {"headlines":["..."],"descriptions":["..."]}`;
@@ -1921,7 +1943,7 @@ Return JSON only:
     },
     body: JSON.stringify({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 500,
+      max_tokens: 1000,
       messages: [{ role: 'user', content: prompt }],
     }),
   });
@@ -1937,10 +1959,12 @@ Return JSON only:
   if (!jsonMatch) return null;
 
   const parsed = JSON.parse(jsonMatch[0]) as { headlines: string[]; descriptions: string[] };
-  const headlines = (parsed.headlines || []).map((h: string) => h.substring(0, 30)).slice(0, 6);
+  const headlines = (parsed.headlines || [])
+    .map((h: string) => truncateAtWordBoundary(h, 30))
+    .slice(0, 15);
   const descriptions = (parsed.descriptions || [])
-    .map((d: string) => d.substring(0, 90))
-    .slice(0, 2);
+    .map((d: string) => truncateAtWordBoundary(d, 90))
+    .slice(0, 4);
 
   if (headlines.length < 3 || descriptions.length < 1) return null;
 
@@ -1953,25 +1977,43 @@ function generateGoogleRSATemplate(
   siteName: string,
   context?: SiteContext | null
 ): GoogleRSACreative {
-  const destination = toTitleCase(extractDestination(keyword));
+  // keyword is the activity theme (e.g. "boat tours"), city-agnostic
+  const activity = toTitleCase(keyword);
   const brand = context?.brandName || siteName;
 
   return {
     headlines: [
-      destination.substring(0, 30),
-      `Book ${destination}`.substring(0, 30),
-      `${destination} - ${brand}`.substring(0, 30),
-      `Best ${destination} Deals`.substring(0, 30),
+      truncateAtWordBoundary(`${activity} Experiences`, 30),
+      truncateAtWordBoundary(`Book ${activity} Online`, 30),
+      truncateAtWordBoundary(`Top-Rated ${activity}`, 30),
+      truncateAtWordBoundary(`${activity} - ${brand}`, 30),
+      truncateAtWordBoundary(`Best ${activity}`, 30),
+      truncateAtWordBoundary(`Reserve ${activity} Now`, 30),
       'Instant Confirmation',
-      'Book Online Today',
+      'Book Now & Save Time',
+      'Top-Rated Experiences',
+      'Compare Top Providers',
+      'Trusted Local Guides',
+      'Secure Online Booking',
+      'Reserve Your Spot Today',
+      truncateAtWordBoundary(`Explore ${activity}`, 30),
+      truncateAtWordBoundary(brand, 30),
     ],
     descriptions: [
-      `Discover and book ${destination} experiences. Instant confirmation, top-rated providers.`.substring(
-        0,
+      truncateAtWordBoundary(
+        `Discover and book the best ${activity} experiences. Browse top-rated providers online.`,
         90
       ),
-      `Compare and book the best ${destination}. Trusted by thousands of travellers.`.substring(
-        0,
+      truncateAtWordBoundary(
+        `Instant confirmation on all ${activity} bookings. Trusted by thousands of travellers.`,
+        90
+      ),
+      truncateAtWordBoundary(
+        `Compare ${activity} from local experts. Find the perfect experience and book securely.`,
+        90
+      ),
+      truncateAtWordBoundary(
+        `${brand} offers top ${activity} from verified providers. Easy booking, great experiences.`,
         90
       ),
     ],
@@ -2204,9 +2246,18 @@ async function deployToGoogle(
           if (key.startsWith('utm_')) agUrl.searchParams.set(key, val);
         }
 
-        // AI-powered RSA generation with full context pipeline
+        // RSA copy must be city-agnostic for EXPERIENCES_FILTERED ad groups since
+        // each ad group serves multiple destinations via keyword-level URLs.
+        // Extract the activity theme from the ad-group URL's ?q= param.
+        let rsaKeyword = agConfig.primaryKeyword;
+        if (agConfig.landingPageType === 'EXPERIENCES_FILTERED') {
+          const activityFromUrl = agUrl.searchParams.get('q');
+          if (activityFromUrl) {
+            rsaKeyword = activityFromUrl.replace(/\+/g, ' ');
+          }
+        }
         const rsa = await generateGoogleRSA(
-          agConfig.primaryKeyword,
+          rsaKeyword,
           siteName,
           campaign.siteId,
           campaign.landingPagePath,
