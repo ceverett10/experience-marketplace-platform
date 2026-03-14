@@ -1,27 +1,26 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
-import { decryptSession, SESSION_COOKIE_NAME } from '@/lib/auth';
 import { randomBytes } from 'crypto';
-
-async function getSession() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
-  if (!token) return null;
-  return decryptSession(token);
-}
+import { requireSuperAdmin } from '@/lib/require-role';
+import { logAudit, getClientIp } from '@/lib/audit';
 
 /** GET /api/auth/users — List all admin users */
 export async function GET() {
-  const session = await getSession();
-  if (!session || session.role !== 'SUPER_ADMIN') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const result = await requireSuperAdmin();
+  if ('error' in result) return result.error;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const users = await (prisma as any).adminUser.findMany({
-    select: { id: true, email: true, name: true, role: true, lastLoginAt: true, createdAt: true },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      lastLoginAt: true,
+      mustChangePassword: true,
+      createdAt: true,
+    },
     orderBy: { createdAt: 'asc' },
   });
 
@@ -30,10 +29,8 @@ export async function GET() {
 
 /** POST /api/auth/users — Create a new admin user */
 export async function POST(request: Request) {
-  const session = await getSession();
-  if (!session || session.role !== 'SUPER_ADMIN') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const result = await requireSuperAdmin();
+  if ('error' in result) return result.error;
 
   const { email, name, role } = await request.json();
 
@@ -61,8 +58,17 @@ export async function POST(request: Request) {
       passwordHash,
       name,
       role: role === 'SUPER_ADMIN' ? 'SUPER_ADMIN' : 'ADMIN',
+      mustChangePassword: true, // Force password change on first login
     },
     select: { id: true, email: true, name: true, role: true, createdAt: true },
+  });
+
+  await logAudit({
+    userId: result.session.userId,
+    userEmail: result.session.email,
+    action: 'CREATE_USER',
+    details: { createdUserId: user.id, createdUserEmail: user.email, role: user.role },
+    ipAddress: getClientIp(request),
   });
 
   return NextResponse.json({ user, tempPassword }, { status: 201 });
@@ -70,10 +76,8 @@ export async function POST(request: Request) {
 
 /** DELETE /api/auth/users — Delete an admin user */
 export async function DELETE(request: Request) {
-  const session = await getSession();
-  if (!session || session.role !== 'SUPER_ADMIN') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const result = await requireSuperAdmin();
+  if ('error' in result) return result.error;
 
   const { searchParams } = new URL(request.url);
   const userId = searchParams.get('id');
@@ -83,12 +87,31 @@ export async function DELETE(request: Request) {
   }
 
   // Prevent self-deletion
-  if (userId === session.userId) {
+  if (userId === result.session.userId) {
     return NextResponse.json({ error: 'You cannot delete your own account' }, { status: 400 });
   }
 
+  // Get user info for audit log before deletion
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const userToDelete = await (prisma as any).adminUser.findUnique({
+    where: { id: userId },
+    select: { email: true, name: true, role: true },
+  });
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (prisma as any).adminUser.delete({ where: { id: userId } });
+
+  await logAudit({
+    userId: result.session.userId,
+    userEmail: result.session.email,
+    action: 'DELETE_USER',
+    details: {
+      deletedUserId: userId,
+      deletedUserEmail: userToDelete?.email,
+      deletedUserRole: userToDelete?.role,
+    },
+    ipAddress: getClientIp(request),
+  });
 
   return NextResponse.json({ success: true });
 }

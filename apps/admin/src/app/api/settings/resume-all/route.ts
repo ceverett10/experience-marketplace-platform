@@ -1,7 +1,12 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@experience-marketplace/database';
+import { requireSuperAdmin } from '@/lib/require-role';
+import { logAudit, getClientIp } from '@/lib/audit';
 
-export async function POST() {
+export async function POST(request: Request) {
+  const result = await requireSuperAdmin();
+  if ('error' in result) return result.error;
+
   try {
     // Update platform settings to resume all autonomous processes
     await prisma.platformSettings.update({
@@ -12,6 +17,13 @@ export async function POST() {
         pausedBy: null,
         pauseReason: null,
       },
+    });
+
+    await logAudit({
+      userId: result.session.userId,
+      userEmail: result.session.email,
+      action: 'RESUME_ALL',
+      ipAddress: getClientIp(request),
     });
 
     return NextResponse.json({

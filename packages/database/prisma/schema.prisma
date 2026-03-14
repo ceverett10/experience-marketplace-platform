@@ -55,16 +55,37 @@ model PlatformSettings {
 // ============================================================================
 
 model AdminUser {
-  id           String    @id @default(cuid())
-  email        String    @unique
-  passwordHash String
-  name         String
-  role         String    @default("ADMIN") // ADMIN, SUPER_ADMIN
-  lastLoginAt  DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id                   String    @id @default(cuid())
+  email                String    @unique
+  passwordHash         String
+  name                 String
+  role                 String    @default("ADMIN") // ADMIN, SUPER_ADMIN
+  lastLoginAt          DateTime?
+  mustChangePassword   Boolean   @default(false)
+  sessionInvalidatedAt DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  auditLogs AdminAuditLog[]
 
   @@map("admin_users")
+}
+
+model AdminAuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  userEmail String?
+  action    String // LOGIN, LOGOUT, LOGIN_FAILED, CREATE_USER, DELETE_USER, CHANGE_PASSWORD, PAUSE_ALL, RESUME_ALL, UPDATE_SETTINGS
+  details   String? // JSON string with additional context
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  user AdminUser? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("admin_audit_logs")
 }
 
 // ============================================================================

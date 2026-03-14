@@ -77,7 +77,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   // Fetch current user session
   useEffect(() => {
-    if (pathname === '/login') return;
+    if (pathname === '/login' || pathname === '/change-password') return;
     fetch(`${basePath}/api/auth/session`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
@@ -99,8 +99,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     setExpandedGroup(expandedGroup === href ? null : href);
   };
 
-  // Login page gets a minimal layout (no sidebar/header)
-  if (pathname === '/login') {
+  // Login and change-password pages get a minimal layout (no sidebar/header)
+  if (pathname === '/login' || pathname === '/change-password') {
     return (
       <html lang="en">
         <body className="min-h-screen bg-slate-50 font-sans antialiased">{children}</body>
