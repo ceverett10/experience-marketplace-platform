@@ -753,6 +753,7 @@ enum BookingFunnelStep {
   QUESTIONS_ANSWERED
   PAYMENT_STARTED
   BOOKING_COMPLETED
+  EXIT_FEEDBACK
 }
 
 model BookingFunnelEvent {
