@@ -16,16 +16,11 @@ const PUBLIC_PATHS = [
  * Compatible with the Node.js crypto version in auth.ts (SHA-256 → 32 bytes).
  */
 async function getSessionKey(): Promise<CryptoKey> {
-  const secret =
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (globalThis as any).process?.env?.['ADMIN_SESSION_SECRET'] ??
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (globalThis as any).process?.env?.['TOKEN_SECRET'] ??
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (globalThis as any).process?.env?.['HOLIBOB_API_SECRET'];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const secret = (globalThis as any).process?.env?.['ADMIN_SESSION_SECRET'];
 
   if (!secret) {
-    throw new Error('Session secret env var not configured');
+    throw new Error('ADMIN_SESSION_SECRET env var is required for admin session encryption');
   }
 
   // SHA-256 hash to get 32-byte key (same as auth.ts)

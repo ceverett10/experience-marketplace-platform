@@ -10,9 +10,37 @@ vi.mock('@experience-marketplace/jobs', () => ({
   processAllSiteRoadmaps: mockProcessAllSiteRoadmaps,
 }));
 
+// Mock RBAC
+const mockGetSession = vi.fn();
+const mockRequireSuperAdmin = vi.fn();
+
+vi.mock('@/lib/require-role', () => ({
+  getSession: (...args: unknown[]) => mockGetSession(...args),
+  requireSuperAdmin: (...args: unknown[]) => mockRequireSuperAdmin(...args),
+}));
+
+// Mock audit logging
+vi.mock('@/lib/audit', () => ({
+  logAudit: vi.fn().mockResolvedValue(undefined),
+  getClientIp: vi.fn().mockReturnValue('127.0.0.1'),
+}));
+
 import { GET, POST } from './route';
 
+function makeRequest(): Request {
+  return new Request('http://localhost/api/settings/roadmap-processor', { method: 'POST' });
+}
+
 describe('GET /api/settings/roadmap-processor', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetSession.mockResolvedValue({
+      userId: 'user-1',
+      email: 'admin@test.com',
+      role: 'ADMIN',
+    });
+  });
+
   it('returns processor status with site counts and job stats', async () => {
     mockPrisma.site.count
       .mockResolvedValueOnce(10) // totalSites
@@ -75,6 +103,13 @@ describe('GET /api/settings/roadmap-processor', () => {
 });
 
 describe('POST /api/settings/roadmap-processor', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockRequireSuperAdmin.mockResolvedValue({
+      session: { userId: 'user-1', email: 'admin@test.com', role: 'SUPER_ADMIN' },
+    });
+  });
+
   it('runs roadmap processor and returns results', async () => {
     mockPrisma.platformSettings.findUnique.mockResolvedValue({
       allAutonomousProcessesPaused: false,
@@ -85,7 +120,7 @@ describe('POST /api/settings/roadmap-processor', () => {
       errors: [],
     });
 
-    const response = await POST();
+    const response = await POST(makeRequest());
     const data = await response.json();
 
     expect(response.status).toBe(200);
@@ -100,7 +135,7 @@ describe('POST /api/settings/roadmap-processor', () => {
       allAutonomousProcessesPaused: true,
     });
 
-    const response = await POST();
+    const response = await POST(makeRequest());
     const data = await response.json();
 
     expect(response.status).toBe(400);
@@ -114,7 +149,7 @@ describe('POST /api/settings/roadmap-processor', () => {
     });
     mockProcessAllSiteRoadmaps.mockRejectedValue(new Error('Processing failed'));
 
-    const response = await POST();
+    const response = await POST(makeRequest());
     const data = await response.json();
 
     expect(response.status).toBe(500);

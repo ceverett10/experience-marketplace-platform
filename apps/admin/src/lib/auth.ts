@@ -11,6 +11,7 @@ export interface SessionPayload {
   email: string;
   name: string;
   role: string;
+  iat: number; // issued-at as unix timestamp (ms)
   exp: number; // expiry as unix timestamp (ms)
 }
 
@@ -18,13 +19,11 @@ export const SESSION_COOKIE_NAME = 'admin_session';
 export const SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 function getSessionKey(): Buffer {
-  const secret =
-    process.env['ADMIN_SESSION_SECRET'] ??
-    process.env['TOKEN_SECRET'] ??
-    process.env['HOLIBOB_API_SECRET'];
+  const secret = process.env['ADMIN_SESSION_SECRET'];
   if (!secret) {
     throw new Error(
-      'ADMIN_SESSION_SECRET (or TOKEN_SECRET / HOLIBOB_API_SECRET) env var required for session encryption'
+      'ADMIN_SESSION_SECRET env var is required for admin session encryption. ' +
+        'Set a unique, high-entropy secret dedicated to admin sessions.'
     );
   }
   return createHash('sha256').update(secret).digest();
@@ -65,11 +64,13 @@ export function createSessionPayload(user: {
   name: string;
   role: string;
 }): SessionPayload {
+  const now = Date.now();
   return {
     userId: user.id,
     email: user.email,
     name: user.name,
     role: user.role,
-    exp: Date.now() + SESSION_TTL_MS,
+    iat: now,
+    exp: now + SESSION_TTL_MS,
   };
 }

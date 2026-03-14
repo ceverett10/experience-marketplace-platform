@@ -5,6 +5,19 @@ vi.mock('@experience-marketplace/database', () => ({
   prisma: mockPrisma,
 }));
 
+// Mock RBAC — simulate SUPER_ADMIN session
+vi.mock('@/lib/require-role', () => ({
+  requireSuperAdmin: vi.fn().mockResolvedValue({
+    session: { userId: 'user-1', email: 'admin@test.com', role: 'SUPER_ADMIN' },
+  }),
+}));
+
+// Mock audit logging
+vi.mock('@/lib/audit', () => ({
+  logAudit: vi.fn().mockResolvedValue(undefined),
+  getClientIp: vi.fn().mockReturnValue('127.0.0.1'),
+}));
+
 import { POST } from './route';
 
 function createRequest(body: Record<string, unknown>) {
@@ -16,12 +29,14 @@ function createRequest(body: Record<string, unknown>) {
 }
 
 describe('POST /api/settings/pause-all', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('pauses all autonomous processes with provided reason', async () => {
     mockPrisma.platformSettings.update.mockResolvedValue({});
 
-    const response = await POST(
-      createRequest({ pausedBy: 'admin-user', pauseReason: 'Deploying new version' })
-    );
+    const response = await POST(createRequest({ pauseReason: 'Deploying new version' }));
     const data = await response.json();
 
     expect(response.status).toBe(200);
@@ -31,13 +46,13 @@ describe('POST /api/settings/pause-all', () => {
       where: { id: 'platform_settings_singleton' },
       data: expect.objectContaining({
         allAutonomousProcessesPaused: true,
-        pausedBy: 'admin-user',
+        pausedBy: 'admin@test.com',
         pauseReason: 'Deploying new version',
       }),
     });
   });
 
-  it('uses default values when pausedBy and pauseReason not provided', async () => {
+  it('uses default reason when pauseReason not provided', async () => {
     mockPrisma.platformSettings.update.mockResolvedValue({});
 
     const response = await POST(createRequest({}));
@@ -48,7 +63,7 @@ describe('POST /api/settings/pause-all', () => {
     expect(mockPrisma.platformSettings.update).toHaveBeenCalledWith({
       where: { id: 'platform_settings_singleton' },
       data: expect.objectContaining({
-        pausedBy: 'admin',
+        pausedBy: 'admin@test.com',
         pauseReason: 'Manual pause from admin dashboard',
       }),
     });
@@ -57,7 +72,7 @@ describe('POST /api/settings/pause-all', () => {
   it('returns 500 when database update fails', async () => {
     mockPrisma.platformSettings.update.mockRejectedValue(new Error('DB error'));
 
-    const response = await POST(createRequest({ pausedBy: 'admin' }));
+    const response = await POST(createRequest({ pauseReason: 'test' }));
     const data = await response.json();
 
     expect(response.status).toBe(500);

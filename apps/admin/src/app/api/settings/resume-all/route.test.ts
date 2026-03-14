@@ -5,13 +5,34 @@ vi.mock('@experience-marketplace/database', () => ({
   prisma: mockPrisma,
 }));
 
+// Mock RBAC — simulate SUPER_ADMIN session
+vi.mock('@/lib/require-role', () => ({
+  requireSuperAdmin: vi.fn().mockResolvedValue({
+    session: { userId: 'user-1', email: 'admin@test.com', role: 'SUPER_ADMIN' },
+  }),
+}));
+
+// Mock audit logging
+vi.mock('@/lib/audit', () => ({
+  logAudit: vi.fn().mockResolvedValue(undefined),
+  getClientIp: vi.fn().mockReturnValue('127.0.0.1'),
+}));
+
 import { POST } from './route';
 
+function makeRequest(): Request {
+  return new Request('http://localhost/api/settings/resume-all', { method: 'POST' });
+}
+
 describe('POST /api/settings/resume-all', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('resumes all autonomous processes', async () => {
     mockPrisma.platformSettings.update.mockResolvedValue({});
 
-    const response = await POST();
+    const response = await POST(makeRequest());
     const data = await response.json();
 
     expect(response.status).toBe(200);
@@ -31,7 +52,7 @@ describe('POST /api/settings/resume-all', () => {
   it('returns 500 when database update fails', async () => {
     mockPrisma.platformSettings.update.mockRejectedValue(new Error('DB error'));
 
-    const response = await POST();
+    const response = await POST(makeRequest());
     const data = await response.json();
 
     expect(response.status).toBe(500);

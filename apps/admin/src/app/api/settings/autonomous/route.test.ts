@@ -5,6 +5,21 @@ vi.mock('@experience-marketplace/database', () => ({
   prisma: mockPrisma,
 }));
 
+// Mock RBAC
+const mockGetSession = vi.fn();
+const mockRequireSuperAdmin = vi.fn();
+
+vi.mock('@/lib/require-role', () => ({
+  getSession: (...args: unknown[]) => mockGetSession(...args),
+  requireSuperAdmin: (...args: unknown[]) => mockRequireSuperAdmin(...args),
+}));
+
+// Mock audit logging
+vi.mock('@/lib/audit', () => ({
+  logAudit: vi.fn().mockResolvedValue(undefined),
+  getClientIp: vi.fn().mockReturnValue('127.0.0.1'),
+}));
+
 import { GET, PATCH } from './route';
 
 function createPatchRequest(body: Record<string, unknown>) {
@@ -34,6 +49,15 @@ const mockSettings = {
 };
 
 describe('GET /api/settings/autonomous', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetSession.mockResolvedValue({
+      userId: 'user-1',
+      email: 'admin@test.com',
+      role: 'ADMIN',
+    });
+  });
+
   it('returns autonomous settings', async () => {
     mockPrisma.platformSettings.findUnique.mockResolvedValue(mockSettings);
 
@@ -73,6 +97,13 @@ describe('GET /api/settings/autonomous', () => {
 });
 
 describe('PATCH /api/settings/autonomous', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockRequireSuperAdmin.mockResolvedValue({
+      session: { userId: 'user-1', email: 'admin@test.com', role: 'SUPER_ADMIN' },
+    });
+  });
+
   it('updates allowed fields', async () => {
     mockPrisma.platformSettings.update.mockResolvedValue({
       ...mockSettings,

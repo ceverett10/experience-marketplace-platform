@@ -1,12 +1,20 @@
 import { NextResponse } from 'next/server';
 import { processAllSiteRoadmaps } from '@experience-marketplace/jobs';
 import { prisma } from '@experience-marketplace/database';
+import { getSession, requireSuperAdmin } from '@/lib/require-role';
+import { logAudit, getClientIp } from '@/lib/audit';
 
 /**
  * GET /api/settings/roadmap-processor
  * Returns the status of the autonomous roadmap processor
  */
 export async function GET() {
+  // Any authenticated admin can view status
+  const session = await getSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     // Get count of sites and their processing status
     const [totalSites, pausedSites, activeSites] = await Promise.all([
@@ -79,9 +87,12 @@ export async function GET() {
 
 /**
  * POST /api/settings/roadmap-processor
- * Manually triggers the roadmap processor
+ * Manually triggers the roadmap processor — SUPER_ADMIN only
  */
-export async function POST() {
+export async function POST(request: Request) {
+  const result = await requireSuperAdmin();
+  if ('error' in result) return result.error;
+
   try {
     // Check if globally paused
     const platformSettings = await prisma.platformSettings.findUnique({
@@ -100,15 +111,26 @@ export async function POST() {
     }
 
     // Run the processor
-    const result = await processAllSiteRoadmaps();
+    const processorResult = await processAllSiteRoadmaps();
+
+    await logAudit({
+      userId: result.session.userId,
+      userEmail: result.session.email,
+      action: 'TRIGGER_ROADMAP_PROCESSOR',
+      details: {
+        sitesProcessed: processorResult.sitesProcessed,
+        tasksQueued: processorResult.tasksQueued,
+      },
+      ipAddress: getClientIp(request),
+    });
 
     return NextResponse.json({
       success: true,
-      message: `Processed ${result.sitesProcessed} sites, queued ${result.tasksQueued} tasks`,
+      message: `Processed ${processorResult.sitesProcessed} sites, queued ${processorResult.tasksQueued} tasks`,
       result: {
-        sitesProcessed: result.sitesProcessed,
-        tasksQueued: result.tasksQueued,
-        errors: result.errors,
+        sitesProcessed: processorResult.sitesProcessed,
+        tasksQueued: processorResult.tasksQueued,
+        errors: processorResult.errors,
       },
     });
   } catch (error) {

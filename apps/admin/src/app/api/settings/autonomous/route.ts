@@ -1,7 +1,15 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@experience-marketplace/database';
+import { getSession, requireSuperAdmin } from '@/lib/require-role';
+import { logAudit, getClientIp } from '@/lib/audit';
 
 export async function GET() {
+  // Any authenticated admin can view settings (enforced by middleware)
+  const session = await getSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const settings = await prisma.platformSettings.findUnique({
       where: { id: 'platform_settings_singleton' },
@@ -43,6 +51,10 @@ export async function GET() {
 }
 
 export async function PATCH(request: Request) {
+  // Only SUPER_ADMIN can modify settings
+  const result = await requireSuperAdmin();
+  if ('error' in result) return result.error;
+
   try {
     const updates = await request.json();
 
@@ -71,6 +83,14 @@ export async function PATCH(request: Request) {
     const updatedSettings = await prisma.platformSettings.update({
       where: { id: 'platform_settings_singleton' },
       data: validUpdates,
+    });
+
+    await logAudit({
+      userId: result.session.userId,
+      userEmail: result.session.email,
+      action: 'UPDATE_SETTINGS',
+      details: { updatedFields: Object.keys(validUpdates), values: validUpdates },
+      ipAddress: getClientIp(request),
     });
 
     return NextResponse.json({

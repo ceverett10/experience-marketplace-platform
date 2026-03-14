@@ -9,6 +9,8 @@ import {
   SESSION_COOKIE_NAME,
   SESSION_TTL_MS,
 } from '@/lib/auth';
+import { validatePassword } from '@/lib/password';
+import { logAudit, getClientIp } from '@/lib/audit';
 
 /** POST /api/auth/change-password — Change the current user's password */
 export async function POST(request: Request) {
@@ -29,9 +31,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Current and new password are required' }, { status: 400 });
   }
 
-  if (newPassword.length < 8) {
+  // Strong password validation
+  const validation = validatePassword(newPassword);
+  if (!validation.valid) {
     return NextResponse.json(
-      { error: 'New password must be at least 8 characters' },
+      { error: `Password requirements not met: ${validation.errors.join('; ')}` },
       { status: 400 }
     );
   }
@@ -51,12 +55,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Current password is incorrect' }, { status: 401 });
   }
 
-  // Hash and update
+  // Hash and update — also clear mustChangePassword flag
   const passwordHash = await bcrypt.hash(newPassword, 12);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (prisma as any).adminUser.update({
     where: { id: session.userId },
-    data: { passwordHash },
+    data: { passwordHash, mustChangePassword: false },
+  });
+
+  await logAudit({
+    userId: session.userId,
+    userEmail: session.email,
+    action: 'CHANGE_PASSWORD',
+    ipAddress: getClientIp(request),
   });
 
   // Reissue session cookie with fresh expiry
