@@ -10,8 +10,8 @@ test.describe('Experience/Product Page', () => {
     await expect(body).not.toBeEmpty();
 
     // Header and footer should be present
-    await expect(page.locator('header')).toBeVisible();
-    await expect(page.locator('footer')).toBeVisible();
+    await expect(page.locator('header').first()).toBeVisible();
+    await expect(page.locator('footer').first()).toBeVisible();
   });
 
   test('experience cards are clickable and link to product pages', async ({ page }) => {
