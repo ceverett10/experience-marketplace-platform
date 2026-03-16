@@ -18,6 +18,7 @@
     "dev": "tsc --watch",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
     "typecheck": "tsc --noEmit",
@@ -46,6 +47,7 @@
     "eslint": "^8.55.0",
     "eslint-config-prettier": "^9.1.0",
     "typescript": "^5.3.0",
+    "@vitest/coverage-v8": "^1.0.0",
     "vitest": "^1.0.0"
   }
 }

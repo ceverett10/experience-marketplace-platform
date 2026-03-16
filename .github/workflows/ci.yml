@@ -99,18 +99,19 @@ jobs:
         run: npm run test --workspace=@experience-marketplace/content-engine
 
       - name: Run tests - Jobs
-        run: npm run test --workspace=@experience-marketplace/jobs
+        run: npm run test:coverage --workspace=@experience-marketplace/jobs
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          fail_ci_if_error: false
+          fail_ci_if_error: true
           files: |
             packages/shared/coverage/lcov.info
             packages/database/coverage/lcov.info
             packages/holibob-api/coverage/lcov.info
             packages/ui-components/coverage/lcov.info
+            packages/jobs/coverage/lcov.info
             apps/demand-generation/coverage/lcov.info
             apps/admin/coverage/lcov.info
             apps/website-platform/coverage/lcov.info

@@ -11,12 +11,11 @@ export default defineConfig({
       include: ['src/**/*.ts'],
       exclude: ['src/**/*.test.ts', 'src/**/*.d.ts', 'prisma/**'],
       thresholds: {
-        // Lower thresholds for database package as it's Prisma infrastructure
-        // that requires mocking - actual code paths are tested via integration
-        statements: 35,
-        branches: 30,
-        functions: 45,
-        lines: 35,
+        // Raised to match actual coverage (97%+). Prevents regression.
+        statements: 90,
+        branches: 60,
+        functions: 100,
+        lines: 90,
       },
     },
     testTimeout: 10000,
