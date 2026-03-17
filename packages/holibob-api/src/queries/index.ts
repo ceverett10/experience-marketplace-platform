@@ -451,6 +451,13 @@ export const BOOKING_QUESTIONS_QUERY = gql`
           product {
             id
             name
+            cancellationPolicy {
+              penaltyList {
+                nodes {
+                  formattedText
+                }
+              }
+            }
           }
           questionList {
             nodes {
