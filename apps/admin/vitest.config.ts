@@ -12,7 +12,7 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.tsx'],
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'json', 'html'],
+      reporter: ['text', 'json', 'html', 'lcov'],
       include: ['src/**/*.{ts,tsx}'],
       exclude: [
         'src/**/*.test.{ts,tsx}',
@@ -23,10 +23,11 @@ export default defineConfig({
         'src/app/**/error.tsx',
       ],
       thresholds: {
-        statements: 13,
-        branches: 12,
-        functions: 35,
-        lines: 13,
+        // Floor thresholds — prevent coverage regression. Raise as tests are added.
+        statements: 15,
+        branches: 74,
+        functions: 42,
+        lines: 15,
       },
     },
     testTimeout: 15000,

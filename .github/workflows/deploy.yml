@@ -2,7 +2,7 @@ name: Deploy
 
 on:
   workflow_run:
-    workflows: ["CI"]
+    workflows: ['CI']
     types: [completed]
     branches: [main]
   workflow_dispatch:
@@ -29,7 +29,6 @@ jobs:
       github.event.workflow_run.conclusion == 'success' ||
       github.event_name == 'workflow_dispatch'
     environment: ${{ github.event.inputs.environment || 'production' }}
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -110,10 +109,25 @@ jobs:
         env:
           HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
 
-      - name: Verify deployment
+      - name: Verify deployment - check dynos are running
+        run: heroku ps --app ${{ env.HEROKU_APP_NAME }}
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+
+      - name: Smoke test - verify health endpoint
         run: |
-          sleep 10
-          heroku ps --app ${{ env.HEROKU_APP_NAME }}
+          APP_URL=$(heroku apps:info --app ${{ env.HEROKU_APP_NAME }} --json | jq -r '.app.web_url')
+          for i in 1 2 3 4 5; do
+            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${APP_URL}health")
+            if [ "$HTTP_STATUS" = "200" ]; then
+              echo "Health check passed (attempt $i)"
+              exit 0
+            fi
+            echo "Health check returned $HTTP_STATUS (attempt $i/5), retrying..."
+            sleep 10
+          done
+          echo "Health check failed after 5 attempts"
+          exit 1
         env:
           HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
 
