@@ -571,6 +571,19 @@ export const BookingAvailabilitySchema = z.object({
           nodes: z.array(ProductImageSchema),
         })
         .optional(),
+      cancellationPolicy: z
+        .object({
+          penaltyList: z
+            .object({
+              nodes: z.array(
+                z.object({
+                  formattedText: z.string().optional(),
+                })
+              ),
+            })
+            .optional(),
+        })
+        .optional(),
     })
     .optional(),
   totalPrice: PriceSchema.optional(),
