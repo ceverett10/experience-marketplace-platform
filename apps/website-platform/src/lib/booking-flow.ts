@@ -437,6 +437,56 @@ export async function configureAvailability(
 }
 
 /**
+ * Check if an error indicates an expired Holibob booking session.
+ */
+export function isSessionExpiredError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const msg = error.message.toLowerCase();
+  return msg.includes('expired') || msg.includes('booking window');
+}
+
+/**
+ * Recover an expired booking by creating a fresh one and re-submitting answers.
+ * Used when commitBooking() fails because the Holibob session timed out.
+ *
+ * @param availabilityId - The availability slot ID from the original booking
+ * @param guestData - The guest answers to re-submit (preserved from the original form)
+ * @returns New booking ID and commit readiness
+ */
+export async function recoverExpiredBooking(
+  availabilityId: string,
+  guestData: {
+    customerEmail?: string;
+    customerPhone?: string;
+    guests: Array<{
+      firstName: string;
+      lastName: string;
+      email?: string;
+      phone?: string;
+      isLeadGuest?: boolean;
+    }>;
+    termsAccepted?: boolean;
+    availabilityAnswers?: Array<{ questionId: string; value: string }>;
+    questionAnswers?: Array<{ questionId: string; value: string }>;
+  }
+): Promise<{ bookingId: string; canCommit: boolean; booking: Booking }> {
+  // Step 1: Create a fresh booking
+  const newBooking = await createBooking();
+
+  // Step 2: Add the same availability slot
+  await addAvailabilityToBooking(newBooking.id, availabilityId);
+
+  // Step 3: Re-submit guest answers
+  const result = await answerBookingQuestions(newBooking.id, guestData);
+
+  return {
+    bookingId: newBooking.id,
+    canCommit: result.canCommit,
+    booking: result.booking,
+  };
+}
+
+/**
  * Create booking and add availability in one flow
  * Returns booking ID ready for checkout
  */
