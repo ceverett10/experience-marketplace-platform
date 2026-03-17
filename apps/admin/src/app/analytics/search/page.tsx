@@ -86,7 +86,10 @@ export default function SearchPage() {
         endDate: dates.endDate,
       });
       const response = await fetch(`${basePath}/api/analytics/search?${params}`);
-      if (!response.ok) throw new Error('Failed to fetch search data');
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.detail || body.error || `HTTP ${response.status}`);
+      }
       const result = await response.json();
       setData(result);
       setError(null);
