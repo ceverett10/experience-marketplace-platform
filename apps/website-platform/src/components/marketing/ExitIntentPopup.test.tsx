@@ -106,7 +106,7 @@ describe('ExitIntentPopup', () => {
     expect(document.body.textContent).not.toContain('Still deciding?');
   });
 
-  it('shows on homepage for PPC visitors', () => {
+  it('shows feedback survey on homepage for PPC visitors', () => {
     mockPathname.mockReturnValue('/');
     Object.defineProperty(document, 'cookie', {
       writable: true,
@@ -117,11 +117,12 @@ describe('ExitIntentPopup', () => {
     vi.advanceTimersByTime(6000);
     fireEvent.mouseLeave(document, { clientY: 5 });
 
-    expect(document.body.textContent).toContain('Wait — check out these experiences!');
-    expect(document.body.textContent).toContain('Browse Experiences');
+    expect(document.body.textContent).toContain('Quick question before you go');
+    expect(document.body.textContent).toContain('What stopped you from booking today?');
+    expect(document.body.textContent).toContain('Submit feedback');
   });
 
-  it('does not show on /experiences page (list, not detail)', () => {
+  it('does not show on /experiences page for organic visitors', () => {
     mockPathname.mockReturnValue('/experiences');
 
     render(<ExitIntentPopup />);
@@ -129,6 +130,21 @@ describe('ExitIntentPopup', () => {
     fireEvent.mouseLeave(document, { clientY: 5 });
 
     expect(document.body.textContent).not.toContain('Still deciding?');
+    expect(document.body.textContent).not.toContain('Quick question before you go');
+  });
+
+  it('shows feedback survey on /experiences page for PPC visitors', () => {
+    mockPathname.mockReturnValue('/experiences');
+    Object.defineProperty(document, 'cookie', {
+      writable: true,
+      value: `utm_params=${encodeURIComponent(JSON.stringify({ medium: 'cpc' }))}`,
+    });
+
+    render(<ExitIntentPopup />);
+    vi.advanceTimersByTime(6000);
+    fireEvent.mouseLeave(document, { clientY: 5 });
+
+    expect(document.body.textContent).toContain('Quick question before you go');
   });
 
   it('renders trust signals (free cancellation, best price)', () => {
