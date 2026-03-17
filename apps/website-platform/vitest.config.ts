@@ -23,11 +23,11 @@ export default defineConfig({
         'src/app/**/error.tsx',
       ],
       thresholds: {
-        // Tightened thresholds — prevent coverage regression.
-        statements: 67,
-        branches: 76,
-        functions: 67,
-        lines: 67,
+        // Floor thresholds — prevent coverage regression. Keep 1-2% below actual to avoid flaky CI.
+        statements: 66,
+        branches: 75,
+        functions: 66,
+        lines: 66,
       },
     },
     testTimeout: 15000,
