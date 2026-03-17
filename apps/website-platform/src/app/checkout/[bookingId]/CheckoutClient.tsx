@@ -12,6 +12,8 @@ import {
   getBookingQuestions,
   answerBookingQuestions,
   commitBooking,
+  recoverExpiredBooking,
+  isSessionExpiredError,
   formatDate,
   type Booking,
   type BookingQuestion,
@@ -58,6 +60,9 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
   const [bookingNotFound, setBookingNotFound] = useState(false);
   const [sessionStart] = useState(() => new Date());
   const [sessionExpired, setSessionExpired] = useState(false);
+  const [recoveryInProgress, setRecoveryInProgress] = useState(false);
+  const [hasAttemptedRecovery, setHasAttemptedRecovery] = useState(false);
+  const lastGuestDataRef = useRef<GuestData | null>(null);
   const paymentSectionRef = useRef<HTMLDivElement>(null);
   const reviewSectionRef = useRef<HTMLDivElement>(null);
 
@@ -109,6 +114,9 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
   const handleQuestionsSubmit = async (data: GuestData) => {
     setIsSubmitting(true);
     setError(null);
+
+    // Preserve guest data for session recovery if booking expires later
+    lastGuestDataRef.current = data;
 
     try {
       const result = await answerBookingQuestions(bookingId, data);
@@ -170,6 +178,31 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
         }
       }
     } catch (err) {
+      // If session expired while answering questions, try recovery
+      const availabilityId = booking?.availabilityList?.nodes?.[0]?.id;
+      if (
+        isSessionExpiredError(err) &&
+        !hasAttemptedRecovery &&
+        lastGuestDataRef.current &&
+        availabilityId
+      ) {
+        console.warn('[Checkout] Session expired during questions, attempting recovery...');
+        setHasAttemptedRecovery(true);
+        try {
+          const recovered = await recoverExpiredBooking(availabilityId, lastGuestDataRef.current);
+          if (recovered.canCommit) {
+            // Recovery worked — redirect to new booking's checkout (payment step)
+            console.info(`[Checkout] Questions recovery successful: ${recovered.bookingId}`);
+            router.push(`/checkout/${recovered.bookingId}`);
+            return;
+          }
+          // canCommit false — redirect to show new questions
+          router.push(`/checkout/${recovered.bookingId}`);
+          return;
+        } catch (recoveryErr) {
+          console.error('[Checkout] Questions recovery failed:', recoveryErr);
+        }
+      }
       setError(err instanceof Error ? err.message : 'Failed to save guest information');
     } finally {
       setIsSubmitting(false);
@@ -255,8 +288,67 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
         router.push(`/booking/confirmation/${bookingId}?pending=true`);
       }
     } catch (err) {
-      // Still fire Google Ads conversion with gross value if commit fails
-      // (payment already succeeded, better to have inaccurate value than no conversion)
+      // If the booking session expired, silently recover by creating a new booking
+      // and re-submitting the guest answers, then retry the commit
+      const availabilityId = firstAvail?.id;
+      if (
+        isSessionExpiredError(err) &&
+        !hasAttemptedRecovery &&
+        lastGuestDataRef.current &&
+        availabilityId
+      ) {
+        console.warn('[Checkout] Booking session expired, attempting silent recovery...');
+        setHasAttemptedRecovery(true);
+        setRecoveryInProgress(true);
+        setError(null);
+
+        try {
+          const recovered = await recoverExpiredBooking(availabilityId, lastGuestDataRef.current);
+
+          if (recovered.canCommit) {
+            const productId = firstAvail?.product?.id;
+            const result = await commitBooking(recovered.bookingId, true, productId);
+
+            // Fire conversion tracking with recovered booking
+            const conversionLabel =
+              site.seoConfig?.googleAdsConversionLabel ?? site.seoConfig?.googleAdsConversionAction;
+            if (conversionLabel) {
+              const conversionValue =
+                result.commissionAmount != null ? result.commissionAmount : purchaseData.value;
+              trackGoogleAdsConversion(conversionLabel, {
+                id: recovered.bookingId,
+                value: conversionValue,
+                currency: result.commissionCurrency ?? purchaseData.currency,
+              });
+            }
+
+            console.info(
+              `[Checkout] Session recovery successful, new booking: ${recovered.bookingId}`
+            );
+            const confirmPath = result.isConfirmed
+              ? `/booking/confirmation/${recovered.bookingId}`
+              : `/booking/confirmation/${recovered.bookingId}?pending=true`;
+            router.push(confirmPath);
+            return;
+          }
+
+          // canCommit is false — new conditional questions may have appeared
+          // Redirect to the new booking's checkout to show the questions
+          console.warn('[Checkout] Recovery created booking but canCommit=false, redirecting');
+          router.push(`/checkout/${recovered.bookingId}`);
+          return;
+        } catch (recoveryErr) {
+          console.error('[Checkout] Session recovery failed:', recoveryErr);
+          setRecoveryInProgress(false);
+          setError(
+            'Your booking session expired and we couldn\u2019t recover it automatically. Please start a new booking.'
+          );
+          setIsCommitting(false);
+          return;
+        }
+      }
+
+      // Non-expired error or recovery not possible — fire conversion and show error
       const fallbackLabel =
         site.seoConfig?.googleAdsConversionLabel ?? site.seoConfig?.googleAdsConversionAction;
       if (fallbackLabel) {
@@ -869,7 +961,7 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
                 </>
               )}
 
-              {/* Confirming indicator */}
+              {/* Confirming / Recovery indicator */}
               {isCommitting && (
                 <div className="mt-6 flex items-center justify-center gap-2 text-gray-600">
                   <svg className="h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -887,7 +979,11 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
                       d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                     />
                   </svg>
-                  <span>Confirming your booking...</span>
+                  <span>
+                    {recoveryInProgress
+                      ? 'Refreshing your booking \u2014 this will just take a moment...'
+                      : 'Confirming your booking...'}
+                  </span>
                 </div>
               )}
 

@@ -23,11 +23,17 @@ const mockGetBooking = vi.fn();
 const mockGetBookingQuestions = vi.fn();
 const mockAnswerBookingQuestions = vi.fn();
 const mockCommitBooking = vi.fn();
+const mockRecoverExpiredBooking = vi.fn();
 vi.mock('@/lib/booking-flow', () => ({
   getBooking: (...args: any[]) => mockGetBooking(...args),
   getBookingQuestions: (...args: any[]) => mockGetBookingQuestions(...args),
   answerBookingQuestions: (...args: any[]) => mockAnswerBookingQuestions(...args),
   commitBooking: (...args: any[]) => mockCommitBooking(...args),
+  recoverExpiredBooking: (...args: any[]) => mockRecoverExpiredBooking(...args),
+  isSessionExpiredError: (err: unknown) =>
+    err instanceof Error &&
+    (err.message.toLowerCase().includes('expired') ||
+      err.message.toLowerCase().includes('booking window')),
   formatDate: (d: string) => `Formatted: ${d}`,
 }));
 
