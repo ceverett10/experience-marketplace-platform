@@ -170,7 +170,7 @@ describe('Middleware', () => {
       expect(mockCookiesSet).toHaveBeenCalledWith(
         'utm_params',
         expect.stringContaining('google'),
-        expect.objectContaining({ maxAge: 1800 })
+        expect.objectContaining({ maxAge: 86400 })
       );
     });
 

@@ -64,7 +64,7 @@ export function middleware(request: NextRequest) {
       secure: process.env['NODE_ENV'] === 'production',
       sameSite: 'lax',
       path: '/',
-      maxAge: 60 * 30, // 30-minute attribution window
+      maxAge: 60 * 60 * 24, // 24-hour attribution window (booking flow can take time)
     });
   }
 
