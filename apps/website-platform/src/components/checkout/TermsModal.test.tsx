@@ -83,6 +83,22 @@ describe('TermsModal', () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
+  it('renders important information banner about Holibob', () => {
+    render(<TermsModal {...defaultProps} />);
+    expect(screen.getByText('Important Information About Your Booking')).toBeDefined();
+    expect(document.body.textContent).toContain('powered by');
+    expect(document.body.textContent).toContain('Holibob');
+    expect(document.body.textContent).toContain('charge on your bank or credit card statement');
+    expect(document.body.textContent).toContain('support@holibob.tech');
+  });
+
+  it('renders Holibob website link', () => {
+    render(<TermsModal {...defaultProps} />);
+    const link = document.querySelector('a[href="https://www.holibob.tech"]');
+    expect(link).toBeTruthy();
+    expect(link?.getAttribute('target')).toBe('_blank');
+  });
+
   it('renders company registration details', () => {
     render(<TermsModal {...defaultProps} />);
     expect(document.body.textContent).toContain('SC631937');

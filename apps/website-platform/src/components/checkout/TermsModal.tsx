@@ -60,6 +60,41 @@ export function TermsModal({ isOpen, onClose, primaryColor = '#0d9488' }: TermsM
         {/* Content */}
         <div className="max-h-[calc(90vh-140px)] overflow-y-auto px-6 py-6">
           <div className="prose prose-sm max-w-none text-gray-700">
+            {/* Important Information Banner */}
+            <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-4">
+              <h3 className="mt-0 text-base font-semibold text-blue-900">
+                Important Information About Your Booking
+              </h3>
+              <p className="mb-2 text-sm text-blue-800">
+                This website is powered by{' '}
+                <a
+                  href="https://www.holibob.tech"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-blue-700 underline hover:text-blue-900"
+                >
+                  Holibob
+                </a>
+                , the technology provider that supports the operation of this site, including the
+                booking and payment processing for all experiences and tours.
+              </p>
+              <p className="mb-2 text-sm text-blue-800">
+                <strong>Please note:</strong> When you make a purchase, the charge on your bank or
+                credit card statement will appear as <strong>Holibob</strong> or{' '}
+                <strong>Holibob Limited</strong>, not the name of this website.
+              </p>
+              <p className="mb-0 text-sm text-blue-800">
+                If you have any questions, please contact Holibob support at{' '}
+                <a
+                  href="mailto:support@holibob.tech"
+                  className="font-medium text-blue-700 underline hover:text-blue-900"
+                >
+                  support@holibob.tech
+                </a>
+                .
+              </p>
+            </div>
+
             <p className="text-gray-600">
               Except where otherwise specified, we, Holibob Limited, a company registered in
               Scotland with company number SC631937 and registered office address of 20 Braid Mount,
