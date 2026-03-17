@@ -149,6 +149,16 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         {brandCSS && <style dangerouslySetInnerHTML={{ __html: brandCSS }} />}
+        {/* Google Tag Manager */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-52GB7SVS');`,
+          }}
+        />
         {/* Google tag (gtag.js) - raw script tags for Google tag verification
              Next.js <Script> renders as <link rel="preload"> which crawlers ignore */}
         {(site.seoConfig?.gaMeasurementId || site.seoConfig?.googleAdsId) && (
@@ -166,6 +176,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         )}
       </head>
       <body className="min-h-screen bg-white font-sans antialiased">
+        {/* Google Tag Manager (noscript) */}
+        <noscript>
+          <iframe
+            src="https://www.googletagmanager.com/ns.html?id=GTM-52GB7SVS"
+            height="0"
+            width="0"
+            style={{ display: 'none', visibility: 'hidden' }}
+          />
+        </noscript>
         <SiteProvider site={site}>
           <div className="flex min-h-screen flex-col">
             <Header />
