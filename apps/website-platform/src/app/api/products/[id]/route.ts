@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { createHolibobClient } from '@experience-marketplace/holibob-api';
+import { currencyToLocale } from '@/lib/currency';
 
 /**
  * GET /api/products/[id]
@@ -99,7 +100,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 }
 
 function formatPrice(amount: number, currency: string): string {
-  return new Intl.NumberFormat('en-GB', {
+  return new Intl.NumberFormat(currencyToLocale(currency), {
     style: 'currency',
     currency,
   }).format(amount);

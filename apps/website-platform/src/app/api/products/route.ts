@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { createHolibobClient } from '@experience-marketplace/holibob-api';
 import { prisma } from '../../../lib/prisma';
+import { currencyToLocale } from '@/lib/currency';
 
 /**
  * GET /api/products
@@ -229,7 +230,7 @@ async function fetchFromHolibob(options: {
 }
 
 function formatPrice(amount: number, currency: string): string {
-  return new Intl.NumberFormat('en-GB', {
+  return new Intl.NumberFormat(currencyToLocale(currency), {
     style: 'currency',
     currency,
   }).format(amount);

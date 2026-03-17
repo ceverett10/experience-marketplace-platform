@@ -20,6 +20,7 @@ import type { FilterCounts } from '@/hooks/useMarketplaceExperiences';
 import { isTickittoSite } from '@/lib/supplier';
 import { getTickittoClient, mapTickittoEventToExperienceListItem } from '@/lib/tickitto';
 import { TrackFunnelEvent } from '@/components/analytics/TrackFunnelEvent';
+import { currencyToLocale } from '@/lib/currency';
 
 interface SearchParams {
   [key: string]: string | undefined;
@@ -579,9 +580,10 @@ async function getExperiencesFromHolibobAPI(
       const priceFormatted =
         priceAmount > 0
           ? (product.guidePriceFormattedText ??
-            new Intl.NumberFormat('en-GB', { style: 'currency', currency: priceCurrency }).format(
-              priceAmount
-            ))
+            new Intl.NumberFormat(currencyToLocale(priceCurrency), {
+              style: 'currency',
+              currency: priceCurrency,
+            }).format(priceAmount))
           : 'Check price';
 
       // Parse ISO 8601 duration
@@ -1083,7 +1085,7 @@ async function getFilterOptionsFromAPI(
 }
 
 function formatPrice(amount: number, currency: string): string {
-  return new Intl.NumberFormat('en-GB', {
+  return new Intl.NumberFormat(currencyToLocale(currency), {
     style: 'currency',
     currency,
   }).format(amount);

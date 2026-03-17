@@ -5,6 +5,7 @@
 
 import { createHolibobClient, type HolibobClient } from '@experience-marketplace/holibob-api';
 import type { SiteConfig } from './tenant';
+import { currencyToLocale } from './currency';
 
 // Cache clients per partner ID
 const clientCache = new Map<string, HolibobClient>();
@@ -554,7 +555,7 @@ export function mapProductToExperience(product: {
  * Format price for display
  */
 export function formatPrice(amount: number, currency: string): string {
-  return new Intl.NumberFormat('en-GB', {
+  return new Intl.NumberFormat(currencyToLocale(currency), {
     style: 'currency',
     currency,
   }).format(amount); // guidePrice and priceFrom are in major units (e.g., 43 = £43)

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useSite, useBrand } from '@/lib/site-context';
+import { CurrencySelector } from '@/components/ui/CurrencySelector';
 
 export function Header() {
   const site = useSite();
@@ -172,7 +173,8 @@ export function Header() {
         </div>
 
         {/* Desktop CTA */}
-        <div className="hidden lg:flex lg:flex-1 lg:justify-end">
+        <div className="hidden lg:flex lg:flex-1 lg:items-center lg:justify-end lg:gap-3">
+          <CurrencySelector />
           <Link
             href={isParentDomainSite ? '/#our-brands' : '/experiences'}
             className="rounded-md px-4 py-2 text-sm font-semibold text-white shadow-sm"
@@ -207,6 +209,10 @@ export function Header() {
             >
               {isParentDomainSite ? 'Explore Brands' : 'Book Now'}
             </Link>
+            <div className="mt-3 flex items-center gap-2 px-3">
+              <span className="text-sm text-gray-500">Currency:</span>
+              <CurrencySelector />
+            </div>
           </div>
         </div>
       )}

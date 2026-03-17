@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useBrand } from '@/lib/site-context';
+import { currencyToLocale } from '@/lib/currency';
 
 export interface TimeSlot {
   id: string;
@@ -176,7 +177,7 @@ export function AvailabilityCalendar({
 
   // Format price
   const formatPrice = (amount: number, currency: string): string => {
-    return new Intl.NumberFormat('en-GB', {
+    return new Intl.NumberFormat(currencyToLocale(currency), {
       style: 'currency',
       currency,
     }).format(amount / 100);

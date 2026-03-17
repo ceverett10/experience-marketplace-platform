@@ -5,6 +5,7 @@
 
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { CURRENCY_COOKIE, countryToCurrency } from '@/lib/currency';
 
 // Cookie name for site configuration
 const SITE_CONFIG_COOKIE = 'x-site-id';
@@ -78,6 +79,21 @@ export function middleware(request: NextRequest) {
     path: '/',
     maxAge: 60 * 30,
   });
+
+  // Geo-based currency detection — set preferred currency from Cloudflare CF-IPCountry
+  // Only auto-detect if user hasn't already chosen a currency
+  const existingCurrency = request.cookies.get(CURRENCY_COOKIE)?.value;
+  if (!existingCurrency) {
+    const countryCode = request.headers.get('cf-ipcountry');
+    const detectedCurrency = countryToCurrency(countryCode);
+    response.cookies.set(CURRENCY_COOKIE, detectedCurrency, {
+      httpOnly: false, // Client-side currency selector needs to read it
+      secure: process.env['NODE_ENV'] === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 365, // 1 year
+    });
+  }
 
   // Track AI referral sources — set a cookie when traffic comes from an LLM platform
   // so GA4 and analytics can attribute the session to an AI source
