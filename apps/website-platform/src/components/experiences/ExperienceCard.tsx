@@ -6,6 +6,7 @@ import { useBrand } from '@/lib/site-context';
 import { BLUR_PLACEHOLDER } from '@/lib/image-utils';
 import { PriceDisplay, DiscountBadge } from '@/components/ui/PriceDisplay';
 import { getProductPricingConfig } from '@/lib/pricing';
+import { currencyToLocale } from '@/lib/currency';
 import type { ExperienceListItem } from '@/lib/holibob';
 
 interface ExperienceCardProps {
@@ -107,7 +108,7 @@ export function ExperienceCard({
                   {(() => {
                     const rrp =
                       experience.price.amount * (1 + pricingConfig.markupPercentage / 100);
-                    return new Intl.NumberFormat('en-GB', {
+                    return new Intl.NumberFormat(currencyToLocale(experience.price.currency), {
                       style: 'currency',
                       currency: experience.price.currency,
                     }).format(Math.ceil(rrp) - 0.01);

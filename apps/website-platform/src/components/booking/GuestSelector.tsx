@@ -1,6 +1,7 @@
 'use client';
 
 import { useBrand } from '@/lib/site-context';
+import { currencyToLocale } from '@/lib/currency';
 
 export interface GuestType {
   id: string;
@@ -96,7 +97,7 @@ export function GuestSelector({
   // Format price for display
   const formatPrice = (amount: number, currency: string): string => {
     if (amount === 0) return 'Included';
-    return new Intl.NumberFormat('en-GB', {
+    return new Intl.NumberFormat(currencyToLocale(currency), {
       style: 'currency',
       currency,
     }).format(amount / 100);

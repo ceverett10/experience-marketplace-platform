@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { getSiteFromHostname } from '@/lib/tenant';
 import { getHolibobClient, parseIsoDuration, optimizeHolibobImageWithPreset } from '@/lib/holibob';
+import { currencyToLocale } from '@/lib/currency';
 
 const ITEMS_PER_PAGE = 12;
 
@@ -33,7 +34,7 @@ function cleanExpiredCache(): void {
 }
 
 function formatPrice(amount: number, currency: string): string {
-  return new Intl.NumberFormat('en-GB', {
+  return new Intl.NumberFormat(currencyToLocale(currency), {
     style: 'currency',
     currency,
   }).format(amount);

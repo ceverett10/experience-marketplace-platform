@@ -33,6 +33,7 @@ import { TourOperatorSchema, WebSiteSchema } from '@/components/seo/StructuredDa
 import type { SiteConfig } from '@/lib/tenant';
 import { getBestCategory } from '@experience-marketplace/shared';
 import { TrackFunnelEvent } from '@/components/analytics/TrackFunnelEvent';
+import { currencyToLocale } from '@/lib/currency';
 
 // Revalidate every 5 minutes for fresh content
 export const revalidate = 300;
@@ -92,7 +93,7 @@ async function getFeaturedExperiences(
           const priceFormatted =
             priceAmount > 0
               ? (product.guidePriceFormattedText ??
-                new Intl.NumberFormat('en-GB', {
+                new Intl.NumberFormat(currencyToLocale(priceCurrency), {
                   style: 'currency',
                   currency: priceCurrency,
                 }).format(priceAmount))
@@ -289,7 +290,7 @@ async function getFeaturedExperiences(
 }
 
 function formatPrice(amount: number, currency: string): string {
-  return new Intl.NumberFormat('en-GB', {
+  return new Intl.NumberFormat(currencyToLocale(currency), {
     style: 'currency',
     currency,
   }).format(amount);

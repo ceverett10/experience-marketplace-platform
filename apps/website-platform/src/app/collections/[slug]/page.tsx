@@ -4,6 +4,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getSiteFromHostname } from '@/lib/tenant';
 import { prisma } from '@/lib/prisma';
+import { currencyToLocale } from '@/lib/currency';
 import { TrackFunnelEvent } from '@/components/analytics/TrackFunnelEvent';
 
 interface Props {
@@ -99,7 +100,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  */
 function formatPrice(amount: number | null, currency: string): string {
   if (!amount) return 'Price varies';
-  return new Intl.NumberFormat('en-GB', {
+  return new Intl.NumberFormat(currencyToLocale(currency || 'GBP'), {
     style: 'currency',
     currency: currency || 'GBP',
     minimumFractionDigits: 0,

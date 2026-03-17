@@ -62,7 +62,7 @@ describe('holibob utilities', () => {
     });
 
     it('should format USD correctly (major units)', () => {
-      expect(formatPrice(25, 'USD')).toBe('US$25.00');
+      expect(formatPrice(25, 'USD')).toBe('$25.00');
     });
 
     it('should handle decimal amounts (major units)', () => {
