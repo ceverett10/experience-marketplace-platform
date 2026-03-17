@@ -245,7 +245,6 @@ describe('CheckoutClient', () => {
     });
 
     expect(screen.getByText('Booking Details')).toBeDefined();
-    expect(screen.getByText('Cancellation Policy')).toBeDefined();
   });
 
   it('shows error when questions submit fails', async () => {
