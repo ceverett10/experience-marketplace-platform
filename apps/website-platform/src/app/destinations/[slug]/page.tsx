@@ -7,6 +7,7 @@ import { getHolibobClient, parseIsoDuration, type ExperienceListItem } from '@/l
 import { prisma } from '@/lib/prisma';
 import { DestinationPageTemplate } from '@/components/content/DestinationPageTemplate';
 import { TrackFunnelEvent } from '@/components/analytics/TrackFunnelEvent';
+import { currencyToLocale } from '@/lib/currency';
 
 /** Detect paid traffic from URL search params */
 function isPaidTraffic(searchParams: Record<string, string | string[] | undefined>): boolean {
@@ -160,7 +161,9 @@ async function getDestinationPage(siteId: string, slug: string) {
 }
 
 function formatPrice(amount: number, currency: string): string {
-  return new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(amount);
+  return new Intl.NumberFormat(currencyToLocale(currency), { style: 'currency', currency }).format(
+    amount
+  );
 }
 
 function formatDuration(value: number, unit: string): string {

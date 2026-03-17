@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { cookies, headers } from 'next/headers';
 import { Inter, Playfair_Display } from 'next/font/google';
 import { getSiteFromHostname, generateBrandCSSVariables } from '@/lib/tenant';
+import { CURRENCY_COOKIE, getEffectiveCurrency } from '@/lib/currency';
 import { getRelatedMicrosites } from '@/lib/microsite-experiences';
 import { prisma } from '@/lib/prisma';
 import { SiteProvider } from '@/lib/site-context';
@@ -92,6 +93,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // On Heroku/Cloudflare, use x-forwarded-host to get the actual external domain
   const hostname = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
   const site = await getSiteFromHostname(hostname);
+
+  // Resolve user's preferred currency from geo-detection cookie
+  const cookieStore = await cookies();
+  const currencyCookie = cookieStore.get(CURRENCY_COOKIE)?.value;
+  site.primaryCurrency = getEffectiveCurrency(site.primaryCurrency, currencyCookie);
+
   const brandCSS = generateBrandCSSVariables(site.brand);
 
   // Fetch related microsites for footer cross-linking (only for microsites)

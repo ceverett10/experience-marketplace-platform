@@ -8,6 +8,8 @@
  * The displayed "discount" is always relative to this calculated RRP.
  */
 
+import { currencyToLocale } from './currency';
+
 export interface PricingConfig {
   /** Markup percentage to calculate RRP (e.g., 5 means 5%) */
   markupPercentage: number;
@@ -105,14 +107,14 @@ export function calculatePromoPrice(
   const rrpRounded = Math.ceil(rrpAmount) - 0.01;
 
   // Format the RRP
-  const rrpFormatted = new Intl.NumberFormat('en-GB', {
+  const rrpFormatted = new Intl.NumberFormat(currencyToLocale(currency), {
     style: 'currency',
     currency,
   }).format(rrpRounded);
 
   // Calculate actual savings (between rounded RRP and actual price)
   const savings = rrpRounded - actualPriceAmount;
-  const savingsFormatted = new Intl.NumberFormat('en-GB', {
+  const savingsFormatted = new Intl.NumberFormat(currencyToLocale(currency), {
     style: 'currency',
     currency,
   }).format(savings);

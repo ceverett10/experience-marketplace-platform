@@ -36,6 +36,7 @@ import { LocalTips } from '@/components/experiences/LocalTips';
 import { RecentlyViewed } from '@/components/experiences/RecentlyViewed';
 import { RecentlyViewedTracker } from '@/components/experiences/RecentlyViewedTracker';
 import { getProductBookingStats } from '@/lib/booking-analytics';
+import { currencyToLocale } from '@/lib/currency';
 
 /** Deterministic "viewers" count from product ID (3-18 range) */
 function getViewerCount(productId: string): number {
@@ -144,7 +145,7 @@ async function getRelatedExperiences(
           const priceFormatted =
             priceAmount > 0
               ? (product.guidePriceFormattedText ??
-                new Intl.NumberFormat('en-GB', {
+                new Intl.NumberFormat(currencyToLocale(priceCurrency), {
                   style: 'currency',
                   currency: priceCurrency,
                 }).format(priceAmount))
@@ -234,9 +235,10 @@ async function getRelatedExperiences(
           priceAmount > 0
             ? (product.guidePriceFormattedText ??
               product.priceFromFormatted ??
-              new Intl.NumberFormat('en-GB', { style: 'currency', currency: priceCurrency }).format(
-                priceAmount
-              ))
+              new Intl.NumberFormat(currencyToLocale(priceCurrency), {
+                style: 'currency',
+                currency: priceCurrency,
+              }).format(priceAmount))
             : 'Check price';
 
         return {

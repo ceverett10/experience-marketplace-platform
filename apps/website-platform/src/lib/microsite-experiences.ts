@@ -5,6 +5,7 @@
  */
 
 import { prisma } from '@/lib/prisma';
+import { currencyToLocale } from '@/lib/currency';
 import type { MicrositeContext } from '@/lib/tenant';
 
 /**
@@ -380,7 +381,7 @@ export function localProductToExperienceListItem(product: LocalProduct) {
 }
 
 function formatPrice(amount: number, currency: string): string {
-  return new Intl.NumberFormat('en-GB', {
+  return new Intl.NumberFormat(currencyToLocale(currency), {
     style: 'currency',
     currency,
   }).format(amount); // priceFrom is stored in major units (e.g., 43 = £43)

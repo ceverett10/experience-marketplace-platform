@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { createHolibobClient } from '@experience-marketplace/holibob-api';
 import { optimizeHolibobImageWithPreset, parseIsoDuration } from '@/lib/holibob';
+import { currencyToLocale } from '@/lib/currency';
 import { DURATION_RANGES, parseDurationToMinutes, classifyDuration } from '@/lib/duration-utils';
 
 const DEFAULT_PAGE_SIZE = 20;
@@ -25,7 +26,7 @@ function formatDuration(value: number, unit: string): string {
 }
 
 function formatPrice(amount: number, currency: string): string {
-  return new Intl.NumberFormat('en-GB', {
+  return new Intl.NumberFormat(currencyToLocale(currency), {
     style: 'currency',
     currency,
   }).format(amount);

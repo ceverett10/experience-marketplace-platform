@@ -4,6 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useSite, useBrand, useHomepageConfig } from '@/lib/site-context';
+import { CurrencySelector } from '@/components/ui/CurrencySelector';
 
 // Default social links — shown on all sites unless brand has its own
 const DEFAULT_SOCIAL_LINKS: Record<string, string> = {
@@ -183,7 +184,7 @@ export function Footer() {
         <PaymentLogos />
 
         {/* Bottom section */}
-        <div className="mt-8 border-t border-white/10 pt-8">
+        <div className="mt-8 border-t border-white/10 pt-8 sm:flex sm:items-center sm:justify-between">
           <p className="text-xs leading-5 text-gray-400">
             &copy; {new Date().getFullYear()} Holibob. All rights reserved.
             {site.micrositeContext && !isPaid && (
@@ -197,6 +198,9 @@ export function Footer() {
               </>
             )}
           </p>
+          <div className="mt-4 sm:mt-0">
+            <CurrencySelector className="border-gray-700 bg-gray-800 text-gray-300 hover:border-gray-600" />
+          </div>
         </div>
       </div>
     </footer>
@@ -417,10 +421,13 @@ function ParentDomainFooter() {
         <PaymentLogos />
 
         {/* Bottom section */}
-        <div className="mt-8 border-t border-white/10 pt-8">
+        <div className="mt-8 border-t border-white/10 pt-8 sm:flex sm:items-center sm:justify-between">
           <p className="text-xs leading-5 text-gray-400">
             &copy; {new Date().getFullYear()} Holibob. All rights reserved.
           </p>
+          <div className="mt-4 sm:mt-0">
+            <CurrencySelector className="border-gray-700 bg-gray-800 text-gray-300 hover:border-gray-600" />
+          </div>
         </div>
       </div>
     </footer>

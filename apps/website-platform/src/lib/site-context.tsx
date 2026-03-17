@@ -48,6 +48,15 @@ export function useSEO() {
 }
 
 /**
+ * Hook to access the user's effective display currency.
+ * In layout.tsx, site.primaryCurrency is overridden with the geo-detected/user-chosen currency.
+ */
+export function useCurrency(): string {
+  const site = useSite();
+  return site.primaryCurrency ?? 'GBP';
+}
+
+/**
  * Hook to access homepage configuration
  */
 export function useHomepageConfig() {

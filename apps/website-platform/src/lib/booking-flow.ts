@@ -5,6 +5,8 @@
  * Handles availability discovery, option configuration, and booking creation.
  */
 
+import { currencyToLocale } from './currency';
+
 // Types for availability flow
 export interface AvailabilitySlot {
   id: string;
@@ -520,7 +522,7 @@ export function formatDate(dateString: string): string {
  * Format price for display
  */
 export function formatPrice(amount: number, currency: string): string {
-  return new Intl.NumberFormat('en-GB', {
+  return new Intl.NumberFormat(currencyToLocale(currency), {
     style: 'currency',
     currency,
   }).format(amount / 100);

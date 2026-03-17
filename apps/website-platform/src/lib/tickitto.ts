@@ -10,6 +10,7 @@ import {
   type TickittoEvent,
 } from '@experience-marketplace/tickitto-api';
 import type { Experience, ExperienceListItem } from './holibob';
+import { currencyToLocale } from './currency';
 
 // Cache client instance
 let cachedClient: TickittoClient | null = null;
@@ -43,7 +44,7 @@ export function mapTickittoEventToExperience(event: TickittoEvent): Experience {
   // Tickitto prices are in major units (e.g., 194.35 GBP)
   const priceAmount = Math.round(event.from_price.amount * 100); // Convert to cents for consistency
   const currency = event.from_price.currency;
-  const priceFormatted = new Intl.NumberFormat('en-GB', {
+  const priceFormatted = new Intl.NumberFormat(currencyToLocale(currency), {
     style: 'currency',
     currency,
   }).format(event.from_price.amount);
@@ -105,7 +106,7 @@ export function mapTickittoEventToExperienceListItem(event: TickittoEvent): Expe
   // Tickitto prices are in major units (e.g., 194.35 GBP)
   const priceAmount = Math.round(event.from_price.amount * 100);
   const currency = event.from_price.currency;
-  const priceFormatted = new Intl.NumberFormat('en-GB', {
+  const priceFormatted = new Intl.NumberFormat(currencyToLocale(currency), {
     style: 'currency',
     currency,
   }).format(event.from_price.amount);

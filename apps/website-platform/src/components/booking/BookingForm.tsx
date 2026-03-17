@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useBrand } from '@/lib/site-context';
+import { currencyToLocale } from '@/lib/currency';
 import type { Experience } from '@/lib/holibob';
 import { AvailabilityCalendar, type TimeSlot } from './AvailabilityCalendar';
 import {
@@ -51,9 +52,10 @@ export function BookingForm({ experience, onBookingCreated }: BookingFormProps) 
     return experience.price.amount * totalGuests;
   }, [selectedTimeSlot, experience.price.amount, totalGuests]);
 
-  const formattedTotalPrice = new Intl.NumberFormat('en-GB', {
+  const priceCurrency = selectedTimeSlot?.currency ?? experience.price.currency;
+  const formattedTotalPrice = new Intl.NumberFormat(currencyToLocale(priceCurrency), {
     style: 'currency',
-    currency: selectedTimeSlot?.currency ?? experience.price.currency,
+    currency: priceCurrency,
   }).format(totalPrice / 100);
 
   // Update guest count
@@ -436,7 +438,7 @@ export function BookingForm({ experience, onBookingCreated }: BookingFormProps) 
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-600">
                   {selectedTimeSlot
-                    ? new Intl.NumberFormat('en-GB', {
+                    ? new Intl.NumberFormat(currencyToLocale(selectedTimeSlot.currency), {
                         style: 'currency',
                         currency: selectedTimeSlot.currency,
                       }).format(selectedTimeSlot.price / 100)
