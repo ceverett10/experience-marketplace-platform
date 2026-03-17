@@ -342,6 +342,14 @@ export function QuestionsForm({
     availabilityQuestionSections.length > 0 ||
     personQuestionSections.length > 0;
 
+  /** Check if all required questions for a person section are answered */
+  const isPersonSectionComplete = (questions: BookingQuestion[]): boolean =>
+    questions.every((q) => {
+      if (!q.isRequired) return true;
+      const answer = dynamicAnswers[q.id];
+      return answer !== undefined && answer.trim() !== '';
+    });
+
   // Gather all dynamic questions for validation
   const allDynamicQuestions = [
     ...additionalBookingQuestions,
@@ -379,6 +387,24 @@ export function QuestionsForm({
     if (!termsAccepted) newErrors['terms'] = 'You must accept the terms and conditions';
 
     setErrors(newErrors);
+
+    // Auto-expand any collapsed person sections that have errors
+    const errorQuestionIds = new Set(
+      Object.keys(newErrors)
+        .filter((k) => k.startsWith('q_'))
+        .map((k) => k.slice(2))
+    );
+    if (errorQuestionIds.size > 0) {
+      const expandUpdates: Record<string, boolean> = {};
+      for (const section of personQuestionSections) {
+        if (section.questions.some((q) => errorQuestionIds.has(q.id))) {
+          expandUpdates[section.person.id] = true;
+        }
+      }
+      if (Object.keys(expandUpdates).length > 0) {
+        setExpandedPersons((prev) => ({ ...prev, ...expandUpdates }));
+      }
+    }
 
     const errorKeys = Object.keys(newErrors);
     if (errorKeys.length > 0) {
@@ -586,18 +612,27 @@ export function QuestionsForm({
       {/* Per-Person Questions */}
       {personQuestionSections.length > 0 && (
         <div className="rounded-xl bg-white p-6 shadow-lg">
-          <h2 className="mb-4 text-lg font-semibold" style={{ color: primaryColor }}>
-            Guest Details
-          </h2>
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold" style={{ color: primaryColor }}>
+              Guest Details
+            </h2>
+            {personQuestionSections.length > 1 && (
+              <span className="text-xs text-gray-500">
+                {personQuestionSections.filter((s) => isPersonSectionComplete(s.questions)).length}/
+                {personQuestionSections.length} complete
+              </span>
+            )}
+          </div>
           <div className="space-y-3">
             {personQuestionSections.map(({ person, guestIndex, questions }) => {
-              const isExpanded = expandedPersons[person.id] ?? true; // default open
+              const isExpanded = expandedPersons[person.id] ?? guestIndex === 0; // only lead guest open by default
               const label = person.pricingCategoryLabel ?? `Guest ${guestIndex + 1}`;
+              const isComplete = isPersonSectionComplete(questions);
 
               return (
                 <div
                   key={person.id}
-                  className="rounded-lg border border-gray-200"
+                  className={`rounded-lg border ${isComplete && !isExpanded ? 'border-green-200 bg-green-50/50' : 'border-gray-200'}`}
                   data-testid={`person-section-${person.id}`}
                 >
                   <button
@@ -605,10 +640,25 @@ export function QuestionsForm({
                     onClick={() => togglePerson(person.id)}
                     className="flex w-full items-center justify-between px-4 py-3 text-left"
                   >
-                    <span className="text-sm font-medium text-gray-900">
+                    <span className="flex items-center gap-2 text-sm font-medium text-gray-900">
                       {label}
                       {guestIndex === 0 && (
-                        <span className="ml-2 text-xs text-gray-500">(Lead guest)</span>
+                        <span className="text-xs text-gray-500">(Lead guest)</span>
+                      )}
+                      {isComplete && !isExpanded && (
+                        <svg
+                          className="h-4 w-4 text-green-500"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth="2"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                          />
+                        </svg>
                       )}
                     </span>
                     <svg

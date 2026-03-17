@@ -14,7 +14,7 @@
  * - Step 5: Get pricing categories
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { getSiteFromHostname } from '@/lib/tenant';
 import { getHolibobClient } from '@/lib/holibob';
@@ -76,14 +76,52 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'dateTo must be after dateFrom' }, { status: 400 });
       }
 
-      // Use discoverAvailability helper
-      console.log('[Availability API] Calling discoverAvailability:', {
-        productId,
-        dateFrom,
-        dateTo,
-      });
-      const availability = await client.discoverAvailability(productId, dateFrom, dateTo);
-      console.log(
+      // Holibob enforces a 40-day max per availability request.
+      // If the user's date range exceeds 40 days, split into chunks and merge results.
+      const MAX_DAYS_PER_CHUNK = 40;
+      const daysDiff = Math.ceil((toDate.getTime() - fromDate.getTime()) / (1000 * 60 * 60 * 24));
+
+      let availability;
+      if (daysDiff <= MAX_DAYS_PER_CHUNK) {
+        console.info('[Availability API] Calling discoverAvailability:', {
+          productId,
+          dateFrom,
+          dateTo,
+        });
+        availability = await client.discoverAvailability(productId, dateFrom, dateTo);
+      } else {
+        // Split into 40-day chunks and fetch in parallel
+        const chunks: Array<{ from: string; to: string }> = [];
+        let chunkStart = new Date(fromDate);
+        while (chunkStart < toDate) {
+          const chunkEnd = new Date(chunkStart);
+          chunkEnd.setDate(chunkEnd.getDate() + MAX_DAYS_PER_CHUNK);
+          const effectiveEnd = chunkEnd > toDate ? toDate : chunkEnd;
+          chunks.push({
+            from: chunkStart.toISOString().split('T')[0]!,
+            to: effectiveEnd.toISOString().split('T')[0]!,
+          });
+          chunkStart = new Date(effectiveEnd);
+        }
+
+        console.info(
+          `[Availability API] Splitting ${daysDiff}-day range into ${chunks.length} chunks for ${productId}`
+        );
+
+        const results = await Promise.all(
+          chunks.map((chunk) => client.discoverAvailability(productId!, chunk.from, chunk.to))
+        );
+
+        // Merge all chunk results into a single response
+        const allNodes = results.flatMap((r) => r.nodes ?? []);
+        availability = {
+          ...results[0],
+          nodes: allNodes,
+          totalCount: allNodes.length,
+        };
+      }
+
+      console.info(
         '[Availability API] Got response:',
         JSON.stringify(availability).substring(0, 200)
       );
