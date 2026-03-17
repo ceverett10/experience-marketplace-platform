@@ -382,7 +382,6 @@ describe('CheckoutClient', () => {
       });
 
       expect(screen.getByText('Booking Details')).toBeDefined();
-      expect(screen.getByText('Cancellation Policy')).toBeDefined();
     });
 
     it('shows StripePaymentForm directly after questions are answered', async () => {

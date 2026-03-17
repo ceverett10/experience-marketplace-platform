@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import type { SiteConfig } from '@/lib/tenant';
-import { QuestionsForm, type GuestData } from './QuestionsForm';
+import { QuestionsForm, type GuestData, type PersistedFormData } from './QuestionsForm';
 import { StripePaymentForm } from './StripePaymentForm';
 import {
   getBooking,
@@ -65,6 +65,29 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
   const lastGuestDataRef = useRef<GuestData | null>(null);
   const paymentSectionRef = useRef<HTMLDivElement>(null);
   const reviewSectionRef = useRef<HTMLDivElement>(null);
+
+  // Guest data persistence via sessionStorage
+  const storageKey = `checkout-guest-${bookingId}`;
+  const [savedFormData] = useState<PersistedFormData | null>(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const stored = sessionStorage.getItem(storageKey);
+      return stored ? (JSON.parse(stored) as PersistedFormData) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const handleFormDataChange = useCallback(
+    (data: PersistedFormData) => {
+      try {
+        sessionStorage.setItem(storageKey, JSON.stringify(data));
+      } catch {
+        // sessionStorage full or unavailable — silently ignore
+      }
+    },
+    [storageKey]
+  );
 
   // Fetch booking and questions on mount (client-side for E2E testability)
   useEffect(() => {
@@ -281,6 +304,13 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
         });
       }
 
+      // Clear persisted guest data on successful booking
+      try {
+        sessionStorage.removeItem(storageKey);
+      } catch {
+        // ignore
+      }
+
       if (result.isConfirmed) {
         router.push(`/booking/confirmation/${bookingId}`);
       } else {
@@ -372,6 +402,15 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
     (sum, avail) => sum + (avail.personList?.nodes.length ?? 0),
     0
   );
+
+  // Cancellation policy — extracted for reuse in sidebar + mobile banner
+  const policyNodes = firstAvailability?.product?.cancellationPolicy?.penaltyList?.nodes;
+  const policyText = policyNodes
+    ?.map((n) => n.formattedText)
+    .filter(Boolean)
+    .join(' ');
+  const hasFreeCancellation =
+    policyText?.toLowerCase().includes('free') || policyText?.toLowerCase().includes('full refund');
 
   // Loading state
   if (isLoading) {
@@ -604,6 +643,42 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
               </div>
             )}
 
+            {/* Cancellation Policy Banner — mobile only, visible during guest entry */}
+            {!questionsAnswered && policyText && (
+              <div className="mb-4 flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm lg:hidden">
+                {hasFreeCancellation ? (
+                  <svg
+                    className="h-5 w-5 flex-shrink-0 text-green-500"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth="2"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                ) : (
+                  <svg
+                    className="h-5 w-5 flex-shrink-0 text-gray-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth="2"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"
+                    />
+                  </svg>
+                )}
+                <span className="text-gray-700">{policyText}</span>
+              </div>
+            )}
+
             {/* Questions Form (if not completed) */}
             {!questionsAnswered && (
               <div data-testid="checkout-questions-step">
@@ -617,6 +692,8 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
                   totalPrice={booking.totalPrice?.grossFormattedText}
                   isResubmission={submitAttempts > 0}
                   siteName={site.name}
+                  initialData={savedFormData}
+                  onDataChange={handleFormDataChange}
                 />
               </div>
             )}
@@ -722,65 +799,41 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
                   )}
                 </div>
 
-                {/* Cancellation Policy */}
-                <div className="rounded-xl bg-white p-6 shadow-lg">
-                  <h2 className="mb-4 text-lg font-semibold text-gray-900">Cancellation Policy</h2>
-                  {(() => {
-                    const policyNodes =
-                      firstAvailability?.product?.cancellationPolicy?.penaltyList?.nodes;
-                    const policyText = policyNodes
-                      ?.map((n) => n.formattedText)
-                      .filter(Boolean)
-                      .join(' ');
-                    const hasFreeCancellation =
-                      policyText?.toLowerCase().includes('free') ||
-                      policyText?.toLowerCase().includes('full refund');
-
-                    return (
-                      <div className="flex items-start gap-3 text-sm text-gray-600">
-                        {hasFreeCancellation ? (
-                          <svg
-                            className="mt-0.5 h-5 w-5 flex-shrink-0 text-green-500"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            strokeWidth="2"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                            />
-                          </svg>
-                        ) : (
-                          <svg
-                            className="mt-0.5 h-5 w-5 flex-shrink-0 text-gray-400"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            strokeWidth="2"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"
-                            />
-                          </svg>
-                        )}
-                        <div>
-                          <p className="font-medium text-gray-900">
-                            {policyText || 'Cancellation terms apply'}
-                          </p>
-                          {!policyText && (
-                            <p className="mt-1">
-                              Check the experience page for full cancellation terms and conditions.
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </div>
+                {/* Cancellation Policy — mobile only in review step (desktop shows in sidebar) */}
+                {policyText && (
+                  <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm lg:hidden">
+                    {hasFreeCancellation ? (
+                      <svg
+                        className="h-5 w-5 flex-shrink-0 text-green-500"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth="2"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                    ) : (
+                      <svg
+                        className="h-5 w-5 flex-shrink-0 text-gray-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth="2"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"
+                        />
+                      </svg>
+                    )}
+                    <span className="text-gray-700">{policyText}</span>
+                  </div>
+                )}
 
                 {/* Proceed to Payment - mobile only (desktop button is in sidebar) */}
                 {!showPayment && canCommit && (
@@ -942,6 +995,42 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
                   </div>
                 </div>
               </div>
+
+              {/* Cancellation Policy — always visible in desktop sidebar */}
+              {policyText && (
+                <div className="mt-4 flex items-start gap-2 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5 text-xs">
+                  {hasFreeCancellation ? (
+                    <svg
+                      className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-500"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth="2"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                  ) : (
+                    <svg
+                      className="mt-0.5 h-4 w-4 flex-shrink-0 text-gray-400"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth="2"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"
+                      />
+                    </svg>
+                  )}
+                  <span className="text-gray-600">{policyText}</span>
+                </div>
+              )}
 
               {/* Proceed to Payment Button (only show when questions answered and not in payment mode) */}
               {questionsAnswered && canCommit && !showPayment && (
