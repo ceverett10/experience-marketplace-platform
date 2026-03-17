@@ -873,6 +873,96 @@ function calculatePaidScore(volume: number, cpc: number, difficulty: number): nu
   return Math.round(volumeScore + cpcScore + competitionScore + 10);
 }
 
+// ---------------------------------------------------------------------------
+// Inventory validation — reject keywords with zero matching products
+// ---------------------------------------------------------------------------
+const _inventoryCache = new Map<string, number>();
+let _inventoryCacheTime = 0;
+const INVENTORY_CACHE_TTL = 3600000; // 1 hour
+let _inventorySkipCount = 0;
+
+const KEYWORD_STOP_WORDS = new Set([
+  'the',
+  'and',
+  'for',
+  'with',
+  'book',
+  'near',
+  'best',
+  'top',
+  'cheap',
+  'free',
+  'tour',
+  'tours',
+  'trip',
+  'trips',
+  'class',
+  'classes',
+  'experience',
+  'experiences',
+  'in',
+  'of',
+  'a',
+  'to',
+  'at',
+  'on',
+  'by',
+  'from',
+  'things',
+  'do',
+]);
+
+/**
+ * Check whether we have products matching a keyword's activity + city.
+ * Returns the product count (0 = no inventory).
+ */
+async function hasInventoryForKeyword(keyword: string, city: string): Promise<number> {
+  // Reset cache after TTL
+  if (Date.now() - _inventoryCacheTime > INVENTORY_CACHE_TTL) {
+    _inventoryCache.clear();
+    _inventoryCacheTime = Date.now();
+  }
+
+  const cityLower = city.toLowerCase();
+  const cityWords = new Set(cityLower.split(/\s+/));
+
+  // Extract activity words (strip city name, stop words)
+  const activityWords = keyword
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((w) => w.length > 2 && !KEYWORD_STOP_WORDS.has(w) && !cityWords.has(w));
+
+  if (activityWords.length === 0) return 1; // Generic keyword, allow through
+
+  const cacheKey = `${activityWords.sort().join('+')}|${cityLower}`;
+  const cached = _inventoryCache.get(cacheKey);
+  if (cached !== undefined) return cached;
+
+  // Strategy 1: All activity words in product title
+  const titleConditions = activityWords.map((w) => ({
+    title: { contains: w, mode: 'insensitive' as const },
+  }));
+  let count = await prisma.product.count({ where: { AND: titleConditions } });
+
+  // Strategy 2: Best activity word + city match
+  if (count === 0) {
+    const bestWord = activityWords.sort((a, b) => b.length - a.length)[0];
+    if (bestWord) {
+      count = await prisma.product.count({
+        where: {
+          AND: [
+            { title: { contains: bestWord, mode: 'insensitive' } },
+            { city: { contains: city, mode: 'insensitive' } },
+          ],
+        },
+      });
+    }
+  }
+
+  _inventoryCache.set(cacheKey, count);
+  return count;
+}
+
 /**
  * Upsert a keyword opportunity into the database.
  * Uses the unique [keyword, location] constraint for dedup.
@@ -880,6 +970,9 @@ function calculatePaidScore(volume: number, cpc: number, difficulty: number): nu
  * Task 1.3: Location is now extracted from the keyword's destination city
  * instead of defaulting to empty string. This ensures consistent location
  * values across all keyword sources.
+ *
+ * Inventory validation: Keywords with zero matching products for the
+ * detected activity + city combination are rejected before upsert.
  */
 async function upsertOpportunity(data: {
   keyword: string;
@@ -898,6 +991,20 @@ async function upsertOpportunity(data: {
 
   // Task 1.3: Extract destination city from keyword for consistent location
   const location = data.location || (await extractDestinationFromKeyword(data.keyword));
+
+  // Inventory validation: reject keywords with zero matching products
+  if (location) {
+    const productCount = await hasInventoryForKeyword(data.keyword, location);
+    if (productCount === 0) {
+      _inventorySkipCount++;
+      if (_inventorySkipCount <= 20 || _inventorySkipCount % 50 === 0) {
+        console.warn(
+          `[PaidKeywordScan] Skipping "${data.keyword}" — zero matching products for activity in ${location} (${_inventorySkipCount} total skipped)`
+        );
+      }
+      return;
+    }
+  }
 
   try {
     await prisma.sEOOpportunity.upsert({
