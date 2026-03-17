@@ -217,7 +217,8 @@ export interface SiteConfig {
     keywords: string[];
     gaMeasurementId?: string | null; // Google Analytics 4 measurement ID
     googleAdsId?: string | null; // Google Ads conversion tracking ID (AW-XXXXXXXXX)
-    googleAdsConversionAction?: string | null; // Google Ads conversion action for client-side gtag (AW-XXX/label)
+    googleAdsConversionAction?: string | null; // Google Ads conversion action resource name (for server-side CAPI)
+    googleAdsConversionLabel?: string | null; // Client-side gtag send_to label (e.g. "AW-XXX/LABEL")
     metaPixelId?: string | null; // Meta/Facebook Pixel ID
   } | null;
 
@@ -430,6 +431,7 @@ export async function getSiteFromHostname(hostname: string): Promise<SiteConfig>
         keywords: DEFAULT_SITE_CONFIG.seoConfig!.keywords,
         googleAdsId: process.env['GOOGLE_ADS_ID'] || null,
         googleAdsConversionAction: process.env['GOOGLE_ADS_CONVERSION_ACTION'] || null,
+        googleAdsConversionLabel: process.env['GOOGLE_ADS_CONVERSION_LABEL'] || null,
       },
     };
   }
@@ -664,6 +666,7 @@ function mapMicrositeToSiteConfig(microsite: MicrositeConfigWithEntity): SiteCon
     gaMeasurementId?: string | null;
     googleAdsId?: string | null;
     googleAdsConversionAction?: string | null;
+    googleAdsConversionLabel?: string | null;
     metaPixelId?: string | null;
   } | null;
 
@@ -706,6 +709,7 @@ function mapMicrositeToSiteConfig(microsite: MicrositeConfigWithEntity): SiteCon
           gaMeasurementId: seoConfig.gaMeasurementId ?? null,
           googleAdsId: seoConfig.googleAdsId ?? null,
           googleAdsConversionAction: seoConfig.googleAdsConversionAction ?? null,
+          googleAdsConversionLabel: seoConfig.googleAdsConversionLabel ?? null,
           metaPixelId: seoConfig.metaPixelId ?? null,
         }
       : {
@@ -715,6 +719,7 @@ function mapMicrositeToSiteConfig(microsite: MicrositeConfigWithEntity): SiteCon
           gaMeasurementId: null,
           googleAdsId: null,
           googleAdsConversionAction: null,
+          googleAdsConversionLabel: null,
           metaPixelId: null,
         },
     homepageConfig: homepageConfig,
@@ -760,6 +765,7 @@ function mapSiteToConfig(site: Site & { brand: Brand | null }): SiteConfig {
     gaMeasurementId?: string | null;
     googleAdsId?: string | null;
     googleAdsConversionAction?: string | null;
+    googleAdsConversionLabel?: string | null;
     metaPixelId?: string | null;
   } | null;
 
@@ -800,6 +806,7 @@ function mapSiteToConfig(site: Site & { brand: Brand | null }): SiteConfig {
           gaMeasurementId: seoConfig.gaMeasurementId ?? null,
           googleAdsId: seoConfig.googleAdsId ?? null,
           googleAdsConversionAction: seoConfig.googleAdsConversionAction ?? null,
+          googleAdsConversionLabel: seoConfig.googleAdsConversionLabel ?? null,
           metaPixelId: seoConfig.metaPixelId ?? null,
         }
       : {
@@ -809,6 +816,7 @@ function mapSiteToConfig(site: Site & { brand: Brand | null }): SiteConfig {
           gaMeasurementId: null,
           googleAdsId: null,
           googleAdsConversionAction: null,
+          googleAdsConversionLabel: null,
           metaPixelId: null,
         },
     homepageConfig: homepageConfig,

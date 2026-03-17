@@ -19,6 +19,8 @@ interface FetchedAdPlatformIds {
   googleAdsConversionActionId: string | null;
   googleAdsConversionActionName: string | null;
   googleAdsId: string | null;
+  /** Client-side gtag label for send_to (e.g. "AW-XXXXXXXXX/YYYYYY") */
+  gtagConversionLabel: string | null;
 }
 
 interface PropagationResult {
@@ -95,17 +97,29 @@ async function fetchGoogleConversionActionId(): Promise<{
   conversionActionResourceName: string | null;
   conversionActionName: string | null;
   googleAdsId: string | null;
+  /** Client-side gtag label for send_to (e.g. "AW-XXXXXXXXX/YYYYYY") */
+  gtagConversionLabel: string | null;
 }> {
   if (!isGoogleAdsConfigured()) {
     console.log('[AdPlatformIds] Google Ads not configured, skipping conversion action fetch');
-    return { conversionActionResourceName: null, conversionActionName: null, googleAdsId: null };
+    return {
+      conversionActionResourceName: null,
+      conversionActionName: null,
+      googleAdsId: null,
+      gtagConversionLabel: null,
+    };
   }
 
   const actions = await listConversionActions();
 
   if (actions.length === 0) {
     console.log('[AdPlatformIds] No conversion actions found');
-    return { conversionActionResourceName: null, conversionActionName: null, googleAdsId: null };
+    return {
+      conversionActionResourceName: null,
+      conversionActionName: null,
+      googleAdsId: null,
+      gtagConversionLabel: null,
+    };
   }
 
   // Prefer UPLOAD_CLICKS or WEBPAGE types (most relevant for booking conversions)
@@ -119,12 +133,13 @@ async function fetchGoogleConversionActionId(): Promise<{
   const googleAdsId = customerId ? `AW-${customerId}` : null;
 
   console.log(
-    `[AdPlatformIds] Selected Google Ads conversion action: ${chosen.resourceName} ("${chosen.name}")`
+    `[AdPlatformIds] Selected Google Ads conversion action: ${chosen.resourceName} ("${chosen.name}")${chosen.gtagLabel ? `, gtag label: ${chosen.gtagLabel}` : ' (no gtag label found)'}`
   );
   return {
     conversionActionResourceName: chosen.resourceName,
     conversionActionName: chosen.name,
     googleAdsId,
+    gtagConversionLabel: chosen.gtagLabel,
   };
 }
 
@@ -142,6 +157,7 @@ export async function fetchAdPlatformIds(): Promise<FetchedAdPlatformIds> {
     googleAdsConversionActionId: google.conversionActionResourceName,
     googleAdsConversionActionName: google.conversionActionName,
     googleAdsId: google.googleAdsId,
+    gtagConversionLabel: google.gtagConversionLabel,
   };
 }
 
@@ -153,6 +169,8 @@ export async function propagateAdPlatformIds(ids: {
   metaPixelId: string | null;
   googleAdsId: string | null;
   googleAdsConversionAction?: string | null;
+  /** Client-side gtag label for send_to (e.g. "AW-XXXXXXXXX/YYYYYY") */
+  googleAdsConversionLabel?: string | null;
 }): Promise<PropagationResult> {
   console.log('[AdPlatformIds] Propagating to all active sites and microsites...');
 
@@ -173,6 +191,8 @@ export async function propagateAdPlatformIds(ids: {
   if (ids.googleAdsId) adFields['googleAdsId'] = ids.googleAdsId;
   if (ids.googleAdsConversionAction)
     adFields['googleAdsConversionAction'] = ids.googleAdsConversionAction;
+  if (ids.googleAdsConversionLabel)
+    adFields['googleAdsConversionLabel'] = ids.googleAdsConversionLabel;
 
   // --- Propagate to Sites ---
   const sites = await prisma.site.findMany({
@@ -277,6 +297,7 @@ export async function fetchAndPropagateAdPlatformIds(): Promise<
     metaPixelId: fetchedIds.metaPixelId,
     googleAdsId: fetchedIds.googleAdsId,
     googleAdsConversionAction: fetchedIds.googleAdsConversionActionId,
+    googleAdsConversionLabel: fetchedIds.gtagConversionLabel,
   });
 
   return { fetchedIds, ...propagationResult };

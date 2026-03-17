@@ -572,6 +572,8 @@ export async function listConversionActions(): Promise<
     name: string;
     type: string;
     status: string;
+    /** Client-side gtag label extracted from tag_snippets (e.g. "AW-XXXXXXXXX/YYYYYY") */
+    gtagLabel: string | null;
   }>
 > {
   const config = getConfig();
@@ -584,7 +586,8 @@ export async function listConversionActions(): Promise<
         conversion_action.resource_name,
         conversion_action.name,
         conversion_action.type,
-        conversion_action.status
+        conversion_action.status,
+        conversion_action.tag_snippets
       FROM conversion_action
       WHERE conversion_action.status != 'REMOVED'
     `.trim();
@@ -597,6 +600,10 @@ export async function listConversionActions(): Promise<
         name: string;
         type: string;
         status: string;
+        tagSnippets?: Array<{
+          type: string;
+          eventSnippet?: string;
+        }>;
       };
     }>(raw);
 
@@ -606,6 +613,7 @@ export async function listConversionActions(): Promise<
       name: row.conversionAction.name,
       type: row.conversionAction.type,
       status: row.conversionAction.status,
+      gtagLabel: extractGtagLabel(row.conversionAction.tagSnippets),
     }));
 
     console.log(`[GoogleAds] Found ${actions.length} conversion actions`);
@@ -614,6 +622,27 @@ export async function listConversionActions(): Promise<
     console.error('[GoogleAds] List conversion actions failed:', error);
     return [];
   }
+}
+
+/**
+ * Extract the gtag send_to label (e.g. "AW-XXXXXXXXX/YYYYYY") from tag_snippets.
+ * The event snippet contains: gtag('event', 'conversion', {'send_to': 'AW-XXX/LABEL'});
+ */
+function extractGtagLabel(
+  tagSnippets?: Array<{ type: string; eventSnippet?: string }>
+): string | null {
+  if (!tagSnippets?.length) return null;
+
+  // Prefer WEBPAGE type snippet, fall back to first with an event snippet
+  const snippet =
+    tagSnippets.find((s) => s.type === 'TRACKING_CODE_TYPE_WEBPAGE' && s.eventSnippet) ??
+    tagSnippets.find((s) => s.eventSnippet);
+
+  if (!snippet?.eventSnippet) return null;
+
+  // Parse send_to value from: gtag('event', 'conversion', {'send_to': 'AW-XXX/LABEL'});
+  const match = snippet.eventSnippet.match(/['"]send_to['"]\s*:\s*['"]([^'"]+)['"]/);
+  return match?.[1] ?? null;
 }
 
 /**

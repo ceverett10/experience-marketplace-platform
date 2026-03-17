@@ -30,6 +30,7 @@ import {
   DEFAULT_PRICING_CONFIG,
 } from '@/lib/pricing';
 import { MobileOrderSummary } from '@/components/checkout/MobileOrderSummary';
+import { SessionTimer } from '@/components/booking/SessionTimer';
 
 interface CheckoutClientProps {
   bookingId: string;
@@ -55,6 +56,8 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
   const [isCommitting, setIsCommitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [bookingNotFound, setBookingNotFound] = useState(false);
+  const [sessionStart] = useState(() => new Date());
+  const [sessionExpired, setSessionExpired] = useState(false);
   const paymentSectionRef = useRef<HTMLDivElement>(null);
   const reviewSectionRef = useRef<HTMLDivElement>(null);
 
@@ -231,11 +234,14 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
 
       // Google Ads conversion — fire AFTER commit so we can send commission (actual revenue)
       // for accurate ROAS calculation. Falls back to gross if commission unavailable.
-      const conversionAction = site.seoConfig?.googleAdsConversionAction;
-      if (conversionAction) {
+      // Uses googleAdsConversionLabel (gtag send_to format: "AW-XXX/LABEL") for client-side tracking.
+      // Falls back to googleAdsConversionAction (resource name) for backwards compatibility.
+      const conversionLabel =
+        site.seoConfig?.googleAdsConversionLabel ?? site.seoConfig?.googleAdsConversionAction;
+      if (conversionLabel) {
         const conversionValue =
           result.commissionAmount != null ? result.commissionAmount : purchaseData.value;
-        trackGoogleAdsConversion(conversionAction, {
+        trackGoogleAdsConversion(conversionLabel, {
           id: bookingId,
           value: conversionValue,
           currency: result.commissionCurrency ?? purchaseData.currency,
@@ -251,9 +257,10 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
     } catch (err) {
       // Still fire Google Ads conversion with gross value if commit fails
       // (payment already succeeded, better to have inaccurate value than no conversion)
-      const conversionAction = site.seoConfig?.googleAdsConversionAction;
-      if (conversionAction) {
-        trackGoogleAdsConversion(conversionAction, purchaseData);
+      const fallbackLabel =
+        site.seoConfig?.googleAdsConversionLabel ?? site.seoConfig?.googleAdsConversionAction;
+      if (fallbackLabel) {
+        trackGoogleAdsConversion(fallbackLabel, purchaseData);
       }
       setError(err instanceof Error ? err.message : 'Failed to complete booking');
       setIsCommitting(false);
@@ -357,9 +364,27 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
     );
   }
 
+  // Handle session expiry — warn user but don't block (booking may still work)
+  const handleSessionExpire = () => {
+    setSessionExpired(true);
+    setError(
+      'Your booking session may have expired. You can still try to complete your booking, but if you encounter errors, please start a new booking.'
+    );
+  };
+
   return (
-    <main className="min-h-screen bg-gray-50 py-8">
-      <div className="mx-auto max-w-4xl px-4">
+    <main className="min-h-screen bg-gray-50">
+      {/* Session timer banner — shows countdown across the top */}
+      {!isCommitting && !paymentComplete && (
+        <SessionTimer
+          startTime={sessionStart}
+          durationMinutes={15}
+          onExpire={handleSessionExpire}
+          variant="banner"
+        />
+      )}
+
+      <div className="mx-auto max-w-4xl px-4 py-8">
         {/* Header */}
         <div className="mb-8">
           <Link
