@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { TermsModal } from '@/components/checkout/TermsModal';
 
 interface BookingQuestion {
@@ -38,6 +38,16 @@ interface BookingAvailability {
   };
 }
 
+/** Partial form state that can be persisted/restored */
+export interface PersistedFormData {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phoneCountryCode?: string;
+  phone?: string;
+  dynamicAnswers?: Record<string, string>;
+}
+
 interface QuestionsFormProps {
   bookingId: string;
   bookingQuestions: BookingQuestion[];
@@ -48,6 +58,8 @@ interface QuestionsFormProps {
   totalPrice?: string;
   isResubmission?: boolean;
   siteName?: string;
+  initialData?: PersistedFormData | null;
+  onDataChange?: (data: PersistedFormData) => void;
 }
 
 export interface GuestData {
@@ -279,22 +291,43 @@ export function QuestionsForm({
   primaryColor = '#0d9488',
   totalPrice,
   isResubmission = false,
+  initialData,
+  onDataChange,
 }: QuestionsFormProps) {
   const totalGuests = availabilities.reduce(
     (sum, avail) => sum + (avail.personList?.nodes.length ?? 0),
     0
   );
 
-  // Lead person details
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phoneCountryCode, setPhoneCountryCode] = useState('+44');
-  const [phone, setPhone] = useState('');
+  // Lead person details — pre-fill from initialData if available
+  const [firstName, setFirstName] = useState(initialData?.firstName ?? '');
+  const [lastName, setLastName] = useState(initialData?.lastName ?? '');
+  const [email, setEmail] = useState(initialData?.email ?? '');
+  const [phoneCountryCode, setPhoneCountryCode] = useState(initialData?.phoneCountryCode ?? '+44');
+  const [phone, setPhone] = useState(initialData?.phone ?? '');
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   // Dynamic question answers (keyed by question ID)
-  const [dynamicAnswers, setDynamicAnswers] = useState<Record<string, string>>({});
+  const [dynamicAnswers, setDynamicAnswers] = useState<Record<string, string>>(
+    initialData?.dynamicAnswers ?? {}
+  );
+
+  // Debounced persistence callback
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const notifyDataChange = useCallback(() => {
+    if (!onDataChange) return;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      onDataChange({ firstName, lastName, email, phoneCountryCode, phone, dynamicAnswers });
+    }, 500);
+  }, [onDataChange, firstName, lastName, email, phoneCountryCode, phone, dynamicAnswers]);
+
+  useEffect(() => {
+    notifyDataChange();
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [notifyDataChange]);
 
   // Collapsible person sections
   const [expandedPersons, setExpandedPersons] = useState<Record<string, boolean>>({});
