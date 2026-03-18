@@ -57,7 +57,7 @@ async function getRelatedExperiences(
   if (!categoryId) return [];
 
   try {
-    const client = getHolibobClient(site);
+    const client = await getHolibobClient(site);
     // Product Discovery API requires where.freeText — use site's default destination
     const freeText =
       site.homepageConfig?.popularExperiences?.destination ||

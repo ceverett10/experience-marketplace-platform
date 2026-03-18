@@ -9,7 +9,7 @@
  * - Step 5: Get and set pricing categories
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { z } from 'zod';
 import { getSiteFromHostname } from '@/lib/tenant';
@@ -56,7 +56,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const site = await getSiteFromHostname(host);
 
     // Get Holibob client
-    const client = getHolibobClient(site);
+    const client = await getHolibobClient(site);
 
     // Fetch availability details
     let availability;
@@ -123,7 +123,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const site = await getSiteFromHostname(host);
 
     // Get Holibob client
-    const client = getHolibobClient(site);
+    const client = await getHolibobClient(site);
 
     let availability;
 

@@ -7,7 +7,7 @@
  * - Add availability (configured with options and pricing) to booking
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { z } from 'zod';
 import { getSiteFromHostname } from '@/lib/tenant';
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const site = await getSiteFromHostname(host);
 
     // Get Holibob client
-    const client = getHolibobClient(site);
+    const client = await getHolibobClient(site);
 
     // Add availability to booking
     // Holibob API expects: bookingSelector (to identify booking) + id (availability ID)

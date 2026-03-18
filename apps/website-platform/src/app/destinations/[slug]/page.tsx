@@ -209,7 +209,7 @@ async function getTopExperiences(
   );
 
   try {
-    const client = getHolibobClient(site);
+    const client = await getHolibobClient(site);
     let response = await client.discoverProducts(filter, { pageSize });
 
     console.info(

@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
     const headersList = await headers();
     const hostname = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
     const site = await getSiteFromHostname(hostname);
-    const client = getHolibobClient(site);
+    const client = await getHolibobClient(site);
 
     const searchParams = request.nextUrl.searchParams;
     const where = searchParams.get('where') || '';

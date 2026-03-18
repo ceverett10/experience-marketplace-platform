@@ -3,7 +3,7 @@
  * GET /api/debug/schema - Returns schema information for key types
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { getSiteFromHostname } from '@/lib/tenant';
 import { getHolibobClient } from '@/lib/holibob';
@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     const site = await getSiteFromHostname(host);
 
     // Get Holibob client
-    const client = getHolibobClient(site);
+    const client = await getHolibobClient(site);
 
     // Introspect multiple types
     const introspectionQuery = `

@@ -8,7 +8,7 @@
  * - Create booking with autoFillQuestions = true (recommended)
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { z } from 'zod';
 import { getSiteFromHostname } from '@/lib/tenant';
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
     const site = await getSiteFromHostname(host);
 
     // Get Holibob client
-    const client = getHolibobClient(site);
+    const client = await getHolibobClient(site);
 
     // Fetch booking
     let booking;
@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
     const site = await getSiteFromHostname(host);
 
     // Get Holibob client
-    const client = getHolibobClient(site);
+    const client = await getHolibobClient(site);
 
     // Create booking with recommended settings
     // Note: BookingCreateInput only accepts autoFillQuestions

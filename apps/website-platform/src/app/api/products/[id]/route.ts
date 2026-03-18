@@ -1,8 +1,8 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { cookies, headers } from 'next/headers';
+import { headers } from 'next/headers';
 import { getSiteFromHostname } from '@/lib/tenant';
 import { getHolibobClient } from '@/lib/holibob';
-import { CURRENCY_COOKIE, currencyToLocale, getEffectiveCurrency } from '@/lib/currency';
+import { currencyToLocale } from '@/lib/currency';
 
 /**
  * GET /api/products/[id]
@@ -22,10 +22,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const headersList = await headers();
     const hostname = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
     const site = await getSiteFromHostname(hostname);
-    const cookieStore = await cookies();
-    const currencyCookie = cookieStore.get(CURRENCY_COOKIE)?.value;
-    site.primaryCurrency = getEffectiveCurrency(site.primaryCurrency, currencyCookie);
-    const client = getHolibobClient(site);
+    const client = await getHolibobClient(site);
     const currency = site.primaryCurrency ?? 'GBP';
 
     // Fetch product from Holibob

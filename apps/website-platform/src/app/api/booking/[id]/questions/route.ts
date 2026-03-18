@@ -12,7 +12,7 @@
  * We only need to collect lead person details (name, email, phone).
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { z } from 'zod';
 import { getSiteFromHostname } from '@/lib/tenant';
@@ -104,7 +104,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     const site = await getSiteFromHostname(host);
 
     // Get Holibob client
-    const client = getHolibobClient(site);
+    const client = await getHolibobClient(site);
 
     // Fetch booking with questions
     const booking = await client.getBookingQuestions(bookingId);
@@ -219,7 +219,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const site = await getSiteFromHostname(host);
 
     // Get Holibob client
-    const client = getHolibobClient(site);
+    const client = await getHolibobClient(site);
 
     // Get the current booking state with questions
     let booking = await client.getBookingQuestions(bookingId);

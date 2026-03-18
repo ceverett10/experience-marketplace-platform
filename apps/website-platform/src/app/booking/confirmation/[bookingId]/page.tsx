@@ -30,7 +30,7 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
   const primaryColor = site.brand?.primaryColor ?? '#0d9488';
 
   // Get Holibob client
-  const client = getHolibobClient(site);
+  const client = await getHolibobClient(site);
 
   // Fetch booking
   let booking;
