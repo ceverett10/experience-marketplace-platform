@@ -1,10 +1,14 @@
 /**
  * Daily Blog Generator Service
- * Generates 1 blog post per day for active sites to build SEO authority
+ * Generates blog posts for supplier microsites to build SEO authority
  * Runs on a schedule and can also be triggered manually
  *
- * For microsites, uses the scalable microsite-blog-generator service
- * which implements rotating daily processing (5% per day) and batch parallelization
+ * Blog generation is focused on SUPPLIER microsites only — main sites and
+ * opportunity/product microsites are excluded. This ensures AI-generated content
+ * is tightly relevant to each supplier's actual product inventory.
+ *
+ * Uses the scalable microsite-blog-generator service which implements
+ * rotating daily processing and batch parallelization.
  */
 
 import { prisma, PageType, PageStatus } from '@experience-marketplace/database';
@@ -206,31 +210,32 @@ export async function generateDailyBlogPostsForAllSites(): Promise<DailyBlogGene
 }
 
 /**
- * Generate daily blog posts for both traditional sites AND microsites
+ * Generate daily blog posts for supplier microsites only
  * This is the main entry point for the scheduler
  *
- * Traditional sites: Process all daily
- * Microsites: Process 5% per day (rotating), batched for scalability
+ * Main sites are excluded — blog generation is focused on supplier microsites
+ * where product context enables tightly relevant content.
+ *
+ * Supplier microsites: Process a rotating % per day, batched for scalability
  */
 export async function generateDailyBlogPostsForAllSitesAndMicrosites(): Promise<{
   sites: DailyBlogGenerationResult[];
   microsites: MicrositeBlogGenerationSummary;
 }> {
-  console.log('[Daily Blog] Starting daily blog generation for all sites and microsites...');
+  console.info('[Daily Blog] Starting daily blog generation (supplier microsites only)...');
 
-  // Process traditional sites first
-  const siteResults = await generateDailyBlogPostsForAllSites();
+  // Skip traditional sites — blog content is now focused on supplier microsites
+  // where we have rich product context for relevant topic generation.
+  // Main sites can still get blogs via manual generateDailyBlogPostForSite() calls.
+  const siteResults: DailyBlogGenerationResult[] = [];
 
-  // Then process microsites with scalable rotating/batching
+  // Process supplier microsites with scalable rotating/batching
   const micrositeResults = await generateDailyBlogPostsForMicrosites();
 
-  // Log combined summary
-  const totalQueued = siteResults.filter((r) => r.postQueued).length + micrositeResults.postsQueued;
-  console.log(
-    `[Daily Blog] All complete. ` +
-      `Traditional sites: ${siteResults.filter((r) => r.postQueued).length} posts, ` +
-      `Microsites: ${micrositeResults.postsQueued} posts (${micrositeResults.processedCount}/${micrositeResults.totalMicrosites} processed), ` +
-      `Total: ${totalQueued} posts queued`
+  console.info(
+    `[Daily Blog] Complete. ` +
+      `Supplier microsites: ${micrositeResults.postsQueued} posts ` +
+      `(${micrositeResults.processedCount}/${micrositeResults.totalMicrosites} processed)`
   );
 
   return {

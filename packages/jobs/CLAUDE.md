@@ -115,7 +115,7 @@ Uses `@experience-marketplace/content-engine` (Claude Haiku model).
 
 | Type                | Strategy                                                                | Schedule        |
 | ------------------- | ----------------------------------------------------------------------- | --------------- |
-| Blog                | Site keywords/destinations, rotate topics                               | Daily 4 AM      |
+| Blog                | Supplier microsites only, product-grounded topics, 5% daily rotation    | Daily 4 AM      |
 | Destination Landing | Top SEO opportunities by location + site config destinations            | Daily 5:30 AM   |
 | FAQ Hub             | GSC question queries (30-day) + existing H3 headers + AI fallback       | Mondays 1:30 AM |
 | Comparison          | Deterministic pairing: category vs category, destination vs destination | Daily 6 AM      |
@@ -136,8 +136,16 @@ microsite `discoveryConfig` (keyword, destination, niche).
 ### Microsite Content
 
 - **Opportunity microsites**: Full content set (homepage, about, blog, FAQ, experiences, contact, privacy, terms)
-- **Supplier/Product microsites**: Minimal (homepage, about, experiences)
-- Opportunity microsites get content refreshed every ~20 days (5% daily rotation across all microsites)
+- **Supplier microsites**: Homepage, about, experiences + **daily blog generation** (5% rotation = ~20-day refresh)
+- **Product microsites**: Minimal (homepage, about, experiences) — no blog generation
+
+### Blog Generation Targeting
+
+- **Main sites**: Excluded from daily blog fanout (no product context for relevant topics)
+- **Supplier microsites only**: Daily rotating blog generation with rich product/category/city context
+- **PRODUCT/OPPORTUNITY microsites**: Excluded — products lack varied context, opportunities use daily-content-generator
+- Suppliers with no linked products are skipped (would produce generic, irrelevant content)
+- Topic niche and location are derived from actual product data, not just supplier metadata
 
 ## Testing Pattern
 
