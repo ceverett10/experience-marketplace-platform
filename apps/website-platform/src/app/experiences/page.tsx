@@ -248,7 +248,7 @@ async function getExperiences(
 
   // For main site, use Holibob Product Discovery API
   try {
-    const client = getHolibobClient(site);
+    const client = await getHolibobClient(site);
 
     // Product Discovery API requires where.freeText — always provide a location.
     // Fall back through search params → site config → site name.
@@ -544,7 +544,7 @@ async function getExperiencesFromHolibobAPI(
   isApproximate?: boolean;
 }> {
   try {
-    const client = getHolibobClient(site);
+    const client = await getHolibobClient(site);
     const hasFilters =
       options.filters &&
       ((options.filters.categories && options.filters.categories.length > 0) ||
@@ -936,7 +936,7 @@ async function getFilterOptionsFromAPI(
   cachedProductCount?: number
 ): Promise<FilterOptions & { isApproximate?: boolean }> {
   try {
-    const client = getHolibobClient(site);
+    const client = await getHolibobClient(site);
     // Fetch a sample of 200 products for filter options (prevents timeout for large catalogs)
     const response = await client.getProductsByProvider(holibobSupplierId, {
       pageSize: 200,

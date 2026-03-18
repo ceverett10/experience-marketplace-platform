@@ -22,24 +22,24 @@ describe('holibob utilities', () => {
   });
 
   describe('getHolibobClient', () => {
-    it('should create a client for a site', () => {
-      const client = getHolibobClient(DEFAULT_SITE_CONFIG);
+    it('should create a client for a site', async () => {
+      const client = await getHolibobClient(DEFAULT_SITE_CONFIG);
       expect(client).toBeDefined();
       expect(client.discoverProducts).toBeDefined();
     });
 
-    it('should cache clients by partner ID', () => {
-      const client1 = getHolibobClient(DEFAULT_SITE_CONFIG);
-      const client2 = getHolibobClient(DEFAULT_SITE_CONFIG);
+    it('should cache clients by partner ID', async () => {
+      const client1 = await getHolibobClient(DEFAULT_SITE_CONFIG);
+      const client2 = await getHolibobClient(DEFAULT_SITE_CONFIG);
       expect(client1).toBe(client2);
     });
 
-    it('should create different clients for different partner IDs', () => {
+    it('should create different clients for different partner IDs', async () => {
       const site1 = { ...DEFAULT_SITE_CONFIG, holibobPartnerId: 'partner-1' };
       const site2 = { ...DEFAULT_SITE_CONFIG, holibobPartnerId: 'partner-2' };
 
-      const client1 = getHolibobClient(site1);
-      const client2 = getHolibobClient(site2);
+      const client1 = await getHolibobClient(site1);
+      const client2 = await getHolibobClient(site2);
 
       // They should be different instances (though mocked)
       expect(client1).toBeDefined();

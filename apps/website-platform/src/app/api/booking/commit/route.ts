@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     const site = await getSiteFromHostname(host);
 
     // Get Holibob client
-    const client = getHolibobClient(site);
+    const client = await getHolibobClient(site);
 
     // First verify the booking exists and canCommit
     const existingBooking = await client.getBooking(bookingId ?? bookingCode!);

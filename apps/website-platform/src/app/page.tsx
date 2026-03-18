@@ -650,7 +650,7 @@ export default async function HomePage() {
       // Fetch the single product from Holibob API
       if (site.micrositeContext.holibobProductId) {
         try {
-          const client = getHolibobClient(site);
+          const client = await getHolibobClient(site);
           const product = await client.getProduct(site.micrositeContext.holibobProductId);
           if (product) {
             const experience = mapProductToExperience(product);
@@ -743,7 +743,7 @@ export default async function HomePage() {
           .slice(0, 3);
 
         if (topRated.length > 0) {
-          const client = getHolibobClient(site);
+          const client = await getHolibobClient(site);
           const productDetails = await Promise.all(
             topRated.map((e) => client.getProduct(e.id).catch(() => null))
           );

@@ -7,7 +7,7 @@
  * where paymentType is REQUIRED (consumer payment collection).
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { getSiteFromHostname } from '@/lib/tenant';
 import { getHolibobClient } from '@/lib/holibob';
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const site = await getSiteFromHostname(host);
 
     // Get Holibob client
-    const client = getHolibobClient(site);
+    const client = await getHolibobClient(site);
 
     // Fetch booking to verify it exists and is ready for payment
     const booking = await client.getBookingQuestions(bookingId);

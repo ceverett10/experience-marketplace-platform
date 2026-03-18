@@ -3,7 +3,7 @@
  * POST /api/payment/create-session - Create a Stripe checkout session
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { z } from 'zod';
 import Stripe from 'stripe';
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     const baseUrl = `${protocol}://${host}`;
 
     // Get Holibob client
-    const client = getHolibobClient(site);
+    const client = await getHolibobClient(site);
 
     // Fetch booking to get details
     const booking = await client.getBooking(bookingId);

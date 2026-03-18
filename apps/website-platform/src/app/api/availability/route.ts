@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
     const site = await getSiteFromHostname(host);
 
     // Get Holibob client
-    const client = getHolibobClient(site);
+    const client = await getHolibobClient(site);
 
     // If dates provided and no sessionId, use the helper method
     if (dateFrom && dateTo && !sessionId && !optionList) {

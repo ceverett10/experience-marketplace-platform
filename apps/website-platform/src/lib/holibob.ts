@@ -3,9 +3,10 @@
  * Server-side helpers for interacting with Holibob API
  */
 
+import { cookies } from 'next/headers';
 import { createHolibobClient, type HolibobClient } from '@experience-marketplace/holibob-api';
 import type { SiteConfig } from './tenant';
-import { currencyToLocale } from './currency';
+import { CURRENCY_COOKIE, currencyToLocale, getEffectiveCurrency } from './currency';
 
 // Cache clients per partner ID
 const clientCache = new Map<string, HolibobClient>();
@@ -32,11 +33,21 @@ export const IMAGE_PRESETS = {
 } as const;
 
 /**
- * Get or create Holibob client for a site
+ * Get or create Holibob client for a site.
+ * Reads the preferred_currency cookie so all callers automatically
+ * get a client configured with the user's chosen currency.
  */
-export function getHolibobClient(site: SiteConfig): HolibobClient {
+export async function getHolibobClient(site: SiteConfig): Promise<HolibobClient> {
+  let currency = site.primaryCurrency ?? 'GBP';
+  try {
+    const cookieStore = await cookies();
+    const currencyCookie = cookieStore.get(CURRENCY_COOKIE)?.value;
+    currency = getEffectiveCurrency(currency, currencyCookie);
+  } catch {
+    // cookies() throws outside request context (e.g. build time)
+  }
+
   const partnerId = site.holibobPartnerId;
-  const currency = site.primaryCurrency ?? 'GBP';
   const cacheKey = `${partnerId}:${currency}`;
 
   // Check cache first (keyed by partnerId + currency)

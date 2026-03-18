@@ -75,7 +75,7 @@ async function getExperience(
     }
 
     // Holibob products: existing flow
-    const client = getHolibobClient(site);
+    const client = await getHolibobClient(site);
     const product = await client.getProduct(slug);
 
     if (!product) {
@@ -124,7 +124,7 @@ async function getRelatedExperiences(
         .map(mapTickittoEventToExperienceListItem);
     }
 
-    const client = getHolibobClient(site);
+    const client = await getHolibobClient(site);
 
     // === MICROSITE: Show other products from the SAME provider ===
     if (isMicrosite(site.micrositeContext) && site.micrositeContext.holibobSupplierId) {

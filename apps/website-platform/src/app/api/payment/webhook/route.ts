@@ -3,7 +3,7 @@
  * POST /api/payment/webhook - Handle Stripe webhook events
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import Stripe from 'stripe';
 import { getSiteFromHostname, DEFAULT_SITE_CONFIG } from '@/lib/tenant';
@@ -88,7 +88,7 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
   const site = DEFAULT_SITE_CONFIG;
 
   // Get Holibob client
-  const client = getHolibobClient(site);
+  const client = await getHolibobClient(site);
 
   try {
     // Get current booking status
