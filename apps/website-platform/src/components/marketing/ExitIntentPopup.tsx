@@ -3,8 +3,11 @@
 /**
  * Exit-Intent Popup
  *
- * Detects when the user moves their mouse toward the browser's address bar
- * (leaving the page) and shows either:
+ * Triggers:
+ * - Desktop: mouse leaves viewport toward browser chrome (after 5s delay)
+ * - Mobile: 30-second idle timer (no mouseleave event on touch devices)
+ *
+ * Shows either:
  * - A quick feedback survey (PPC visitors on /experiences or experience detail pages)
  * - Trust signals + CTA (organic visitors on experience detail pages)
  *
@@ -90,26 +93,40 @@ export function ExitIntentPopup() {
   // PPC visitors get the feedback survey; organic visitors get trust signals
   const showFeedbackSurvey = isPpc;
 
-  const handleMouseLeave = useCallback((e: MouseEvent) => {
-    if (e.clientY > 10) return;
+  const showPopup = useCallback(() => {
     if (sessionStorage.getItem(EXIT_SHOWN_KEY)) return;
-
     sessionStorage.setItem(EXIT_SHOWN_KEY, 'true');
     setIsOpen(true);
   }, []);
 
+  const handleMouseLeave = useCallback(
+    (e: MouseEvent) => {
+      if (e.clientY > 10) return;
+      showPopup();
+    },
+    [showPopup]
+  );
+
   useEffect(() => {
     if (!mounted || !shouldShowPopup) return;
 
-    const timer = setTimeout(() => {
+    // Desktop: mouse exit intent after 5s delay
+    // Mobile: 30s timer (mouseleave doesn't fire on touch devices)
+    // Both run simultaneously — whichever triggers first wins
+    const desktopTimer = setTimeout(() => {
       document.addEventListener('mouseleave', handleMouseLeave);
     }, 5000);
 
+    const mobileTimer = setTimeout(() => {
+      showPopup();
+    }, 30000);
+
     return () => {
-      clearTimeout(timer);
+      clearTimeout(desktopTimer);
+      clearTimeout(mobileTimer);
       document.removeEventListener('mouseleave', handleMouseLeave);
     };
-  }, [mounted, shouldShowPopup, handleMouseLeave]);
+  }, [mounted, shouldShowPopup, handleMouseLeave, showPopup]);
 
   const handleClose = () => {
     setIsOpen(false);
