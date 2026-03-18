@@ -27,11 +27,11 @@ import { addJob } from '../queues/index.js';
 const SUPPLIER_ENTITY_TYPE = MicrositeEntityType.SUPPLIER;
 
 // Configuration
-// Keep rotation at 2% to avoid OOM on 1GB Heroku Standard-2X dynos.
-// With ~3,900 supplier microsites, 5% = 196 microsites = too many concurrent
-// DB+AI calls. 2% = ~78 microsites = safe for memory.
-const DAILY_PERCENTAGE = 0.02; // Process 2% of supplier microsites per day (~50-day rotation)
-const BATCH_SIZE = 5; // Process 5 microsites concurrently (reduced from 10 for memory safety)
+// With ~39K supplier microsites, percentage-based rotation produces too many
+// items per day. Use a hard cap instead to keep within 1GB Heroku memory.
+const DAILY_PERCENTAGE = 0.002; // 0.2% = ~78 microsites/day from 39K pool
+const MAX_DAILY_MICROSITES = 80; // Hard cap regardless of pool size
+const BATCH_SIZE = 5; // Process 5 microsites concurrently (memory-safe for 1GB dyno)
 const DELAY_BETWEEN_BATCHES_MS = 5000; // 5 seconds between batches
 const DELAY_BETWEEN_ITEMS_MS = 500; // 0.5 seconds between items in a batch
 
@@ -272,8 +272,11 @@ export async function generateDailyBlogPostsForMicrosites(): Promise<MicrositeBl
     };
   }
 
-  // Calculate how many to process (5% per day, minimum 1)
-  const processCount = Math.max(1, Math.floor(totalActive * DAILY_PERCENTAGE));
+  // Calculate how many to process, with hard cap to prevent OOM on 1GB dynos
+  const processCount = Math.min(
+    MAX_DAILY_MICROSITES,
+    Math.max(1, Math.floor(totalActive * DAILY_PERCENTAGE))
+  );
 
   console.info(
     `[Microsite Blog] Processing ${processCount} of ${totalActive} active supplier microsites (${(DAILY_PERCENTAGE * 100).toFixed(0)}% daily rotation)`
