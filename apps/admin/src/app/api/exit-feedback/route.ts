@@ -21,7 +21,7 @@ const REASON_LABELS: Record<string, string> = {
  */
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
-    const searchParams = request.nextUrl.searchParams;
+    const { searchParams } = new URL(request.url);
     const siteId = searchParams.get('siteId');
     const reason = searchParams.get('reason');
     const page = parseInt(searchParams.get('page') || '1', 10);
