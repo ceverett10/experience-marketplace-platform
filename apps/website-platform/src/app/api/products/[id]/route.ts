@@ -1,5 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { createHolibobClient } from '@experience-marketplace/holibob-api';
+import { headers } from 'next/headers';
+import { getSiteFromHostname } from '@/lib/tenant';
+import { getHolibobClient } from '@/lib/holibob';
 import { currencyToLocale } from '@/lib/currency';
 
 /**
@@ -17,15 +19,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       );
     }
 
-    // Create Holibob client with environment credentials
-    const client = createHolibobClient({
-      apiUrl: process.env['HOLIBOB_API_URL'] ?? 'https://api.production.holibob.tech/graphql',
-      apiKey: process.env['HOLIBOB_API_KEY'] ?? '',
-      apiSecret: process.env['HOLIBOB_API_SECRET'],
-      partnerId: process.env['HOLIBOB_PARTNER_ID'] ?? 'holibob',
-      timeout: 30000,
-      retries: 3,
-    });
+    const headersList = await headers();
+    const hostname = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
+    const site = await getSiteFromHostname(hostname);
+    const client = getHolibobClient(site);
+    const currency = site.primaryCurrency ?? 'GBP';
 
     // Fetch product from Holibob
     const product = await client.getProduct(id);
@@ -45,9 +43,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       images: product.images?.map((img: { url?: string }) => img.url).filter(Boolean) ?? [],
       price: {
         amount: product.priceFrom ?? 0,
-        currency: product.currency ?? 'GBP',
+        currency: product.currency ?? currency,
         formatted: product.priceFrom
-          ? formatPrice(product.priceFrom, product.currency ?? 'GBP')
+          ? formatPrice(product.priceFrom, product.currency ?? currency)
           : 'Check price',
       },
       duration: {
