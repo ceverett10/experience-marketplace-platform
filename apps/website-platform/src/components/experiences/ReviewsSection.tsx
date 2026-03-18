@@ -62,10 +62,16 @@ export function ReviewsSection({ reviews, rating }: ReviewsSectionProps) {
   const [expandedReviews, setExpandedReviews] = useState<Set<string>>(new Set());
 
   const ratingBreakdown = useMemo(() => {
-    const counts = [0, 0, 0, 0, 0];
+    const counts = new Map<number, number>([
+      [1, 0],
+      [2, 0],
+      [3, 0],
+      [4, 0],
+      [5, 0],
+    ]);
     for (const review of reviews) {
       const star = Math.min(5, Math.max(1, Math.round(review.rating)));
-      counts[star - 1]++;
+      counts.set(star, (counts.get(star) ?? 0) + 1);
     }
     return counts;
   }, [reviews]);
@@ -139,7 +145,7 @@ export function ReviewsSection({ reviews, rating }: ReviewsSectionProps) {
           {/* Rating Bars */}
           <div className="flex-1">
             {[5, 4, 3, 2, 1].map((star) => {
-              const count = ratingBreakdown[star - 1];
+              const count = ratingBreakdown.get(star) ?? 0;
               const percentage = reviews.length > 0 ? (count / reviews.length) * 100 : 0;
               const isActive = filterRating === star;
 
