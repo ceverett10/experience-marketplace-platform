@@ -813,10 +813,10 @@ export async function handleMicrositeContentGenerate(
         experiences: 'category',
         homepage: 'destination',
         destination_landing: 'destination',
-        privacy: 'blog', // Legal pages use blog-style content generation
-        terms: 'blog',
-        contact: 'blog',
-        faq: 'blog',
+        privacy: 'about', // Legal pages use about-style generation (factual, no links)
+        terms: 'about',
+        contact: 'about', // Contact pages need factual generation, not blog-style
+        faq: 'faq',
       };
       type ContentType = 'destination' | 'experience' | 'category' | 'blog' | 'about' | 'faq';
       const mappedContentType = (contentTypeMap[contentType] || contentType) as ContentType;
