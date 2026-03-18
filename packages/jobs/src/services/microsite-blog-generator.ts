@@ -27,8 +27,11 @@ import { addJob } from '../queues/index.js';
 const SUPPLIER_ENTITY_TYPE = MicrositeEntityType.SUPPLIER;
 
 // Configuration
-const DAILY_PERCENTAGE = 0.05; // Process 5% of supplier microsites per day (~20-day rotation)
-const BATCH_SIZE = 10; // Process 10 microsites concurrently
+// Keep rotation at 2% to avoid OOM on 1GB Heroku Standard-2X dynos.
+// With ~3,900 supplier microsites, 5% = 196 microsites = too many concurrent
+// DB+AI calls. 2% = ~78 microsites = safe for memory.
+const DAILY_PERCENTAGE = 0.02; // Process 2% of supplier microsites per day (~50-day rotation)
+const BATCH_SIZE = 5; // Process 5 microsites concurrently (reduced from 10 for memory safety)
 const DELAY_BETWEEN_BATCHES_MS = 5000; // 5 seconds between batches
 const DELAY_BETWEEN_ITEMS_MS = 500; // 0.5 seconds between items in a batch
 
