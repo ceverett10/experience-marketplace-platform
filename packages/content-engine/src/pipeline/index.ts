@@ -190,10 +190,14 @@ ${brandSection}
 ${coreGuidelines}`;
     }
 
-    // Limit maxTokens based on target word count to help enforce word limits
-    // Approximately 1.5 tokens per word for English text with markdown formatting
+    // Set maxTokens based on target word count with headroom for markdown formatting.
+    // ~1.5 tokens per word for English + markdown. Previous 2500 cap caused truncation
+    // mid-sentence on ~40% of blog posts. Use 4096 as floor for blogs to ensure
+    // complete articles, with headroom up to 6000 for longer-form content.
     const targetMaxTokens =
-      brief.type === 'blog' ? Math.min(2500, Math.ceil(brief.targetLength.max * 1.7)) : 4096;
+      brief.type === 'blog'
+        ? Math.max(4096, Math.min(6000, Math.ceil(brief.targetLength.max * 1.7)))
+        : 4096;
 
     const response = await this.client.generate({
       model,
@@ -540,9 +544,9 @@ ${aboutInstructions}${blogInstructions}
 - KEYWORD PLACEMENT: Include primary keyword in H1, first 100 words, at least one H2, and conclusion
 - E-E-A-T SIGNALS: Demonstrate Experience (practical insights), Expertise (specific knowledge), Authoritativeness (confident recommendations), Trustworthiness (accurate information)
 - ENTITY OPTIMIZATION: Mention related entities (places, activities, concepts) that search engines associate with the topic
-${brief.type !== 'about' ? `- INTERNAL LINKING CONTEXT: When mentioning related topics, use specific anchor text that could link to other pages (destinations, categories, experiences)` : '- DO NOT include any markdown links - internal links are added automatically by the platform'}
+- DO NOT include any markdown links [text](url) in the content — internal links are added automatically by the platform after publishing. Never fabricate URLs or link to pages you don't know exist.
 - USER INTENT: Address the search intent - what would someone searching "${brief.targetKeyword}" want to know?
-- EXPERIENCE CROSS-LINKING: Naturally mention bookable experiences, tours, and activities related to the topic. Use phrases like "things to do in [destination]", "[activity type] experiences", or "[category] in [destination]" — these become anchor text for internal links to experience listing pages
+- NATURAL MENTIONS: Naturally mention bookable experiences, tours, and activities related to the topic using plain text (not links). The platform will automatically convert relevant mentions into internal links
 
 ## AI CITATION OPTIMIZATION (LLM/GEO)
 These guidelines help AI assistants (ChatGPT, Perplexity, Claude) accurately cite and recommend this content:
@@ -559,7 +563,8 @@ These guidelines help AI assistants (ChatGPT, Perplexity, Claude) accurately cit
 - Use H2 and H3 subheadings for structure - these help both readers and search engines
 - Naturally incorporate keywords without stuffing (aim for 1-2% keyword density)
 - CRITICAL: Write in the brand voice specified above - this is essential for brand consistency
-${brief.type === 'about' ? '- DO NOT include any markdown links [text](url) - links are managed by the platform' : `- Include compelling calls-to-action${brandName ? ` for ${brandName}` : ''}`}
+- DO NOT include any markdown links [text](url) in the output — links are managed by the platform
+${brief.type !== 'about' ? `- Include compelling calls-to-action${brandName ? ` for ${brandName}` : ''}` : ''}
 - Make content scannable with bullet points where appropriate
 ${brief.type !== 'about' ? '- REQUIRED: Include a "## Frequently Asked Questions" section with 3-5 Q&As using "### Question?" format - this generates FAQPage schema for rich results in Google. Questions should be phrased as real conversational queries people would ask an AI assistant (e.g. "What are the best food tours in Barcelona?" not "What is a food tour?")' : '- Keep all claims factual and verifiable - do not fabricate statistics, dates, names, or partnerships'}
 - QUICK FACTS BOX: Near the top of the content, include a "## At a Glance" or "## Quick Facts" section with bullet points summarizing key details (location, typical price range, duration, best time to visit, etc.) — this helps AI systems extract and cite key information quickly
