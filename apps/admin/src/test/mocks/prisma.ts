@@ -50,6 +50,8 @@ export const mockPrisma = {
   linkableAsset: createMockModel(),
   adminUser: createMockModel(),
   adminAuditLog: createMockModel(),
+  bookingFunnelEvent: createMockModel(),
+  subscriber: createMockModel(),
   $transaction: vi.fn(),
   $connect: vi.fn(),
   $disconnect: vi.fn(),
