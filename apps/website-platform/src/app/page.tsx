@@ -68,7 +68,7 @@ async function getFeaturedExperiences(
     // For SUPPLIER microsites, use Product List filtered by Provider ID
     if (micrositeContext.entityType === 'SUPPLIER' && micrositeContext.holibobSupplierId) {
       try {
-        const client = getHolibobClient(siteConfig);
+        const client = await getHolibobClient(siteConfig);
 
         console.log(
           `[Homepage] Microsite SUPPLIER mode: Fetching products via Product List for provider`,
@@ -166,7 +166,7 @@ async function getFeaturedExperiences(
   // === END MICROSITE HANDLING ===
 
   try {
-    const client = getHolibobClient(siteConfig);
+    const client = await getHolibobClient(siteConfig);
 
     // Build search terms by combining categoryPath keywords + searchTerms
     const searchTermParts: string[] = [];
