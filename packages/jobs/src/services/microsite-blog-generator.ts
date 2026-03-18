@@ -1,20 +1,33 @@
 /**
  * Microsite Blog Generator Service
- * Scalable blog generation for thousands of microsites
+ * Scalable blog generation for SUPPLIER microsites only
  *
  * Key features:
- * - Rotating daily processing (5% of microsites per day = each site refreshed every ~20 days)
+ * - SUPPLIER entity type filtering — only supplier microsites get blogs
+ * - Rotating daily processing (5% per day = each supplier refreshed every ~20 days)
  * - Batch parallel processing (10 concurrent jobs)
  * - Priority-based queuing (high-traffic microsites first)
  * - Graceful rate limiting for AI API
+ *
+ * PRODUCT and OPPORTUNITY microsites are excluded because:
+ * - PRODUCT microsites are single-product pages with insufficient context for varied blog topics
+ * - OPPORTUNITY microsites are SEO-driven and get content via the daily-content-generator instead
  */
 
-import { prisma, PageType, PageStatus } from '@experience-marketplace/database';
+import {
+  prisma,
+  PageType,
+  PageStatus,
+  MicrositeEntityType,
+} from '@experience-marketplace/database';
 import { generateDailyBlogTopic, type BlogTopicContext } from './blog-topics.js';
 import { addJob } from '../queues/index.js';
 
+// Only generate blogs for supplier microsites — they have rich product context
+const SUPPLIER_ENTITY_TYPE = MicrositeEntityType.SUPPLIER;
+
 // Configuration
-const DAILY_PERCENTAGE = 0.02; // Process 2% of microsites per day (~50-day rotation)
+const DAILY_PERCENTAGE = 0.05; // Process 5% of supplier microsites per day (~20-day rotation)
 const BATCH_SIZE = 10; // Process 10 microsites concurrently
 const DELAY_BETWEEN_BATCHES_MS = 5000; // 5 seconds between batches
 const DELAY_BETWEEN_ITEMS_MS = 500; // 0.5 seconds between items in a batch
@@ -69,6 +82,36 @@ export async function generateBlogPostForMicrosite(
     };
   }
 
+  // Supplier microsites without a linked supplier can't produce relevant content
+  if (!microsite.supplier?.id) {
+    return {
+      micrositeId,
+      micrositeName: microsite.siteName,
+      topicGenerated: false,
+      postQueued: false,
+      skippedReason: 'No linked supplier',
+    };
+  }
+
+  // Fetch supplier's top experiences for topic relevance
+  const topProducts = await prisma.product.findMany({
+    where: { supplierId: microsite.supplier.id },
+    select: { title: true, shortDescription: true, city: true, categories: true },
+    orderBy: [{ rating: 'desc' }, { reviewCount: 'desc' }],
+    take: 15,
+  });
+
+  // Skip suppliers with no products — blogs would be generic and irrelevant
+  if (topProducts.length === 0) {
+    return {
+      micrositeId,
+      micrositeName: microsite.siteName,
+      topicGenerated: false,
+      postQueued: false,
+      skippedReason: 'Supplier has no products',
+    };
+  }
+
   // Get existing blog posts to avoid duplicates
   const existingPosts = await prisma.page.findMany({
     where: {
@@ -80,31 +123,40 @@ export async function generateBlogPostForMicrosite(
 
   const existingTopics = existingPosts.map((p) => p.title);
 
-  // Fetch supplier's top experiences for topic relevance
-  const topProducts = microsite.supplier?.id
-    ? await prisma.product.findMany({
-        where: { supplierId: microsite.supplier.id },
-        select: { title: true, shortDescription: true, city: true, categories: true },
-        orderBy: [{ rating: 'desc' }, { reviewCount: 'desc' }],
-        take: 15,
-      })
-    : [];
+  // Build context from supplier data — use product-derived info for accuracy
+  const cities = microsite.supplier.cities || [];
+  const categories = microsite.supplier.categories || [];
 
-  // Build context from microsite data
-  const supplierName = microsite.supplier?.name || microsite.siteName;
-  const cities = microsite.supplier?.cities || [];
-  const categories = microsite.supplier?.categories || [];
-  const niche = categories[0] || 'travel experiences';
-  const location = cities[0] || undefined;
+  // Derive niche from actual product categories, not just supplier metadata
+  const productCategories = topProducts
+    .flatMap((p) => (p.categories as string[]) || [])
+    .filter(Boolean);
+  const uniqueProductCategories = [...new Set(productCategories)];
+  const niche = uniqueProductCategories[0] || (categories as string[])[0] || 'travel experiences';
+
+  // Derive location from actual product cities for accuracy
+  const productCities = topProducts.map((p) => p.city).filter(Boolean) as string[];
+  const uniqueProductCities = [...new Set(productCities)];
+  const location = uniqueProductCities[0] || (cities as string[])[0] || undefined;
 
   const context: BlogTopicContext = {
     siteName: microsite.siteName,
     niche,
     location,
     existingTopics,
-    supplierDescription: microsite.supplier?.description || undefined,
-    allCities: (cities as string[]).length > 0 ? (cities as string[]) : undefined,
-    allCategories: (categories as string[]).length > 0 ? (categories as string[]) : undefined,
+    supplierDescription: microsite.supplier.description || undefined,
+    allCities:
+      uniqueProductCities.length > 0
+        ? uniqueProductCities
+        : (cities as string[]).length > 0
+          ? (cities as string[])
+          : undefined,
+    allCategories:
+      uniqueProductCategories.length > 0
+        ? uniqueProductCategories
+        : (categories as string[]).length > 0
+          ? (categories as string[])
+          : undefined,
     topExperiences: topProducts.map((p) => ({
       title: p.title,
       description: p.shortDescription || undefined,
@@ -191,20 +243,22 @@ export async function generateBlogPostForMicrosite(
 }
 
 /**
- * Generate blog posts for a rotating subset of active microsites
- * Processes 5% of microsites per day, prioritized by traffic
+ * Generate blog posts for a rotating subset of active supplier microsites
+ * Processes 5% of supplier microsites per day, prioritized by traffic
  */
 export async function generateDailyBlogPostsForMicrosites(): Promise<MicrositeBlogGenerationSummary> {
   const startTime = Date.now();
-  console.log('[Microsite Blog] Starting daily blog generation for microsites...');
+  console.info('[Microsite Blog] Starting daily blog generation for supplier microsites...');
 
-  // Get total count of active microsites
+  const supplierFilter = { status: 'ACTIVE' as const, entityType: SUPPLIER_ENTITY_TYPE };
+
+  // Get total count of active supplier microsites
   const totalActive = await prisma.micrositeConfig.count({
-    where: { status: 'ACTIVE' },
+    where: supplierFilter,
   });
 
   if (totalActive === 0) {
-    console.log('[Microsite Blog] No active microsites found');
+    console.info('[Microsite Blog] No active supplier microsites found');
     return {
       totalMicrosites: 0,
       processedCount: 0,
@@ -218,15 +272,15 @@ export async function generateDailyBlogPostsForMicrosites(): Promise<MicrositeBl
   // Calculate how many to process (5% per day, minimum 1)
   const processCount = Math.max(1, Math.floor(totalActive * DAILY_PERCENTAGE));
 
-  console.log(
-    `[Microsite Blog] Processing ${processCount} of ${totalActive} active microsites (${(DAILY_PERCENTAGE * 100).toFixed(0)}% daily rotation)`
+  console.info(
+    `[Microsite Blog] Processing ${processCount} of ${totalActive} active supplier microsites (${(DAILY_PERCENTAGE * 100).toFixed(0)}% daily rotation)`
   );
 
-  // Get microsites to process, prioritized by:
+  // Get supplier microsites to process, prioritized by:
   // 1. Page views (high-traffic first)
   // 2. Last content update (oldest first)
   const micrositesToProcess = await prisma.micrositeConfig.findMany({
-    where: { status: 'ACTIVE' },
+    where: supplierFilter,
     orderBy: [
       { pageViews: 'desc' }, // High-traffic first
       { lastContentUpdate: 'asc' }, // Then oldest content
@@ -239,7 +293,9 @@ export async function generateDailyBlogPostsForMicrosites(): Promise<MicrositeBl
     },
   });
 
-  console.log(`[Microsite Blog] Selected ${micrositesToProcess.length} microsites for processing`);
+  console.info(
+    `[Microsite Blog] Selected ${micrositesToProcess.length} supplier microsites for processing`
+  );
 
   // Process in batches
   const results: MicrositeBlogGenerationResult[] = [];
@@ -249,7 +305,7 @@ export async function generateDailyBlogPostsForMicrosites(): Promise<MicrositeBl
     const batchNumber = Math.floor(i / BATCH_SIZE) + 1;
     const totalBatches = Math.ceil(micrositesToProcess.length / BATCH_SIZE);
 
-    console.log(
+    console.info(
       `[Microsite Blog] Processing batch ${batchNumber}/${totalBatches} (${batch.length} microsites)`
     );
 
@@ -266,7 +322,7 @@ export async function generateDailyBlogPostsForMicrosites(): Promise<MicrositeBl
     // Log batch progress
     const batchQueued = batchResults.filter((r) => r.postQueued).length;
     const batchErrors = batchResults.filter((r) => r.error).length;
-    console.log(
+    console.info(
       `[Microsite Blog] Batch ${batchNumber} complete: ${batchQueued} queued, ${batchErrors} errors`
     );
 
@@ -282,7 +338,7 @@ export async function generateDailyBlogPostsForMicrosites(): Promise<MicrositeBl
   const errors = results.filter((r) => r.error).length;
   const durationMs = Date.now() - startTime;
 
-  console.log(
+  console.info(
     `[Microsite Blog] Complete. ` +
       `Processed: ${results.length}, ` +
       `Posts queued: ${postsQueued}, ` +
@@ -302,17 +358,18 @@ export async function generateDailyBlogPostsForMicrosites(): Promise<MicrositeBl
 }
 
 /**
- * Generate blog posts for microsites that have never had content
- * One-time bootstrap for new microsites
+ * Generate blog posts for supplier microsites that have never had content
+ * One-time bootstrap for new supplier microsites
  */
 export async function bootstrapBlogPostsForNewMicrosites(): Promise<MicrositeBlogGenerationSummary> {
   const startTime = Date.now();
-  console.log('[Microsite Blog] Bootstrapping blog posts for new microsites...');
+  console.info('[Microsite Blog] Bootstrapping blog posts for new supplier microsites...');
 
-  // Find active microsites with no blog posts
+  // Find active supplier microsites with no blog posts
   const micrositesWithoutBlogs = await prisma.micrositeConfig.findMany({
     where: {
       status: 'ACTIVE',
+      entityType: SUPPLIER_ENTITY_TYPE,
       // No blog posts exist for this microsite
       NOT: {
         id: {
@@ -332,7 +389,7 @@ export async function bootstrapBlogPostsForNewMicrosites(): Promise<MicrositeBlo
   });
 
   if (micrositesWithoutBlogs.length === 0) {
-    console.log('[Microsite Blog] No new microsites need bootstrapping');
+    console.info('[Microsite Blog] No new supplier microsites need bootstrapping');
     return {
       totalMicrosites: 0,
       processedCount: 0,
@@ -343,8 +400,8 @@ export async function bootstrapBlogPostsForNewMicrosites(): Promise<MicrositeBlo
     };
   }
 
-  console.log(
-    `[Microsite Blog] Found ${micrositesWithoutBlogs.length} microsites needing bootstrap`
+  console.info(
+    `[Microsite Blog] Found ${micrositesWithoutBlogs.length} supplier microsites needing bootstrap`
   );
 
   // Process using the same batch logic
@@ -371,7 +428,7 @@ export async function bootstrapBlogPostsForNewMicrosites(): Promise<MicrositeBlo
   const errors = results.filter((r) => r.error).length;
   const durationMs = Date.now() - startTime;
 
-  console.log(
+  console.info(
     `[Microsite Blog] Bootstrap complete. ` +
       `Posts queued: ${postsQueued}, ` +
       `Errors: ${errors}, ` +
