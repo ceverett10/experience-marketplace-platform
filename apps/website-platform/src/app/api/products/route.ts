@@ -1,9 +1,9 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { headers } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { createHolibobClient } from '@experience-marketplace/holibob-api';
 import { prisma } from '../../../lib/prisma';
 import { getSiteFromHostname } from '@/lib/tenant';
-import { currencyToLocale } from '@/lib/currency';
+import { CURRENCY_COOKIE, currencyToLocale, getEffectiveCurrency } from '@/lib/currency';
 
 /**
  * GET /api/products
@@ -36,6 +36,9 @@ export async function GET(request: NextRequest) {
     const headersList = await headers();
     const hostname = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
     const site = await getSiteFromHostname(hostname);
+    const cookieStore = await cookies();
+    const currencyCookie = cookieStore.get(CURRENCY_COOKIE)?.value;
+    site.primaryCurrency = getEffectiveCurrency(site.primaryCurrency, currencyCookie);
     const currency = site.primaryCurrency ?? 'GBP';
     return await fetchFromHolibob({ first, category, placeId, currency });
   } catch (error) {
