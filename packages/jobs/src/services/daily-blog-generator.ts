@@ -229,8 +229,21 @@ export async function generateDailyBlogPostsForAllSitesAndMicrosites(): Promise<
   // Main sites can still get blogs via manual generateDailyBlogPostForSite() calls.
   const siteResults: DailyBlogGenerationResult[] = [];
 
-  // Process supplier microsites with scalable rotating/batching
-  const micrositeResults = await generateDailyBlogPostsForMicrosites();
+  // TEMPORARY: Skip microsite blog fanout while content regeneration backlog clears.
+  // The fanout processes 80 microsites with AI calls which, combined with other queue
+  // workers (sync, ads, analytics), exceeds the 1GB worker dyno memory limit.
+  // Re-enable once the 1,400+ content regeneration jobs complete.
+  // TODO: Re-enable by removing this block and uncommenting the line below
+  const micrositeResults: MicrositeBlogGenerationSummary = {
+    totalMicrosites: 0,
+    processedCount: 0,
+    postsQueued: 0,
+    skipped: 0,
+    errors: 0,
+    durationMs: 0,
+  };
+  console.info('[Daily Blog] Microsite blog fanout temporarily paused for backlog processing');
+  // const micrositeResults = await generateDailyBlogPostsForMicrosites();
 
   console.info(
     `[Daily Blog] Complete. ` +
