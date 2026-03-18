@@ -199,15 +199,23 @@ Score 0-100 and list issues. Return ONLY valid JSON:
   console.info('--- RESULTS ---');
   console.info(`Reviewed:     ${reviews.length}`);
   console.info(`Avg score:    ${avgScore.toFixed(1)}/100`);
-  console.info(`Publish-ok:   ${publishOk.length} (${((publishOk.length / reviews.length) * 100).toFixed(0)}%)`);
-  console.info(`Need rewrite: ${toRewrite.length} (${((toRewrite.length / reviews.length) * 100).toFixed(0)}%)`);
-  console.info(`Should delete:${toDelete.length} (${((toDelete.length / reviews.length) * 100).toFixed(0)}%)`);
+  console.info(
+    `Publish-ok:   ${publishOk.length} (${((publishOk.length / reviews.length) * 100).toFixed(0)}%)`
+  );
+  console.info(
+    `Need rewrite: ${toRewrite.length} (${((toRewrite.length / reviews.length) * 100).toFixed(0)}%)`
+  );
+  console.info(
+    `Should delete:${toDelete.length} (${((toDelete.length / reviews.length) * 100).toFixed(0)}%)`
+  );
   console.info('');
 
   if (toDelete.length > 0) {
     console.info('--- ARTICLES TO UNPUBLISH ---');
     for (const article of toDelete.slice(0, 20)) {
-      console.info(`  ${String(article.overallScore).padStart(3)}/100 | ${article.title.substring(0, 60)}`);
+      console.info(
+        `  ${String(article.overallScore).padStart(3)}/100 | ${article.title.substring(0, 60)}`
+      );
       if (article.issues.length > 0) {
         console.info(`         ${article.issues[0]}`);
       }
