@@ -1,8 +1,8 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { headers } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { getSiteFromHostname } from '@/lib/tenant';
 import { getHolibobClient, parseIsoDuration, optimizeHolibobImageWithPreset } from '@/lib/holibob';
-import { currencyToLocale } from '@/lib/currency';
+import { CURRENCY_COOKIE, currencyToLocale, getEffectiveCurrency } from '@/lib/currency';
 
 const ITEMS_PER_PAGE = 12;
 
@@ -65,6 +65,9 @@ export async function GET(request: NextRequest) {
     const headersList = await headers();
     const hostname = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
     const site = await getSiteFromHostname(hostname);
+    const cookieStore = await cookies();
+    const currencyCookie = cookieStore.get(CURRENCY_COOKIE)?.value;
+    site.primaryCurrency = getEffectiveCurrency(site.primaryCurrency, currencyCookie);
     const client = getHolibobClient(site);
 
     const searchParams = request.nextUrl.searchParams;
