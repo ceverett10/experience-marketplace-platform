@@ -9,7 +9,8 @@ import { prisma } from '@/lib/prisma';
  * Optimised to run within Heroku's 30s HTTP timeout by:
  * - Using aggregate() instead of findMany() for position stats
  * - Adding orderBy + take limits to expensive groupBy queries
- * - Running independent queries in parallel
+ * - Running queries in sequential batches of 2-4 to avoid connection pool exhaustion
+ *   (Prisma pool = 4 connections, so max 4 concurrent queries)
  */
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
@@ -57,50 +58,41 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     const dateFilter = { gte: start, lte: end };
 
-    // Run all aggregations in parallel
-    const [
-      siteTotals,
-      micrositeTotals,
-      sitePositionAgg,
-      micrositePositionAgg,
-      bySiteMetrics,
-      byMicrositeMetrics,
-      siteQueryMetrics,
-      micrositeQueryMetrics,
-      sitePageMetrics,
-      micrositePageMetrics,
-    ] = await Promise.all([
-      // Totals
+    const emptySum = { _sum: { clicks: null, impressions: null } };
+    const emptyPosAgg = { _avg: { position: null }, _sum: { impressions: null } };
+
+    // Batch 1: Totals + position aggregates (4 lightweight queries)
+    const [siteTotals, micrositeTotals, sitePositionAgg, micrositePositionAgg] = await Promise.all([
       siteIds.length > 0
         ? prisma.performanceMetric.aggregate({
             where: { date: dateFilter, siteId: { in: siteIds } },
             _sum: { clicks: true, impressions: true },
           })
-        : { _sum: { clicks: null, impressions: null } },
+        : emptySum,
       micrositeIds.length > 0
         ? prisma.micrositePerformanceMetric.aggregate({
             where: { date: dateFilter, micrositeId: { in: micrositeIds } },
             _sum: { clicks: true, impressions: true },
           })
-        : { _sum: { clicks: null, impressions: null } },
-
-      // Weighted average position — use aggregate instead of fetching all rows
+        : emptySum,
       siteIds.length > 0
         ? prisma.performanceMetric.aggregate({
             where: { date: dateFilter, siteId: { in: siteIds }, impressions: { gt: 0 } },
             _avg: { position: true },
             _sum: { impressions: true },
           })
-        : { _avg: { position: null }, _sum: { impressions: null } },
+        : emptyPosAgg,
       micrositeIds.length > 0
         ? prisma.micrositePerformanceMetric.aggregate({
             where: { date: dateFilter, micrositeId: { in: micrositeIds }, impressions: { gt: 0 } },
             _avg: { position: true },
             _sum: { impressions: true },
           })
-        : { _avg: { position: null }, _sum: { impressions: null } },
+        : emptyPosAgg,
+    ]);
 
-      // By site
+    // Batch 2: Per-site groupBy (2 queries)
+    const [bySiteMetrics, byMicrositeMetrics] = await Promise.all([
       siteIds.length > 0
         ? prisma.performanceMetric.groupBy({
             by: ['siteId'],
@@ -117,8 +109,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
             _avg: { position: true },
           })
         : [],
+    ]);
 
-      // Top queries — order by clicks descending, limit to top 200 per table
+    // Batch 3: Top queries (2 heavy groupBy queries)
+    const [siteQueryMetrics, micrositeQueryMetrics] = await Promise.all([
       siteIds.length > 0
         ? prisma.performanceMetric.groupBy({
             by: ['query', 'siteId'],
@@ -126,7 +120,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
             _sum: { clicks: true, impressions: true },
             _avg: { position: true },
             orderBy: { _sum: { clicks: 'desc' } },
-            take: 200,
+            take: 100,
           })
         : [],
       micrositeIds.length > 0
@@ -140,11 +134,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
             _sum: { clicks: true, impressions: true },
             _avg: { position: true },
             orderBy: { _sum: { clicks: 'desc' } },
-            take: 200,
+            take: 100,
           })
         : [],
+    ]);
 
-      // Top pages — order by impressions descending, limit to top 200 per table
+    // Batch 4: Top pages (2 heavy groupBy queries)
+    const [sitePageMetrics, micrositePageMetrics] = await Promise.all([
       siteIds.length > 0
         ? prisma.performanceMetric.groupBy({
             by: ['pageUrl', 'siteId'],
@@ -152,7 +148,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
             _sum: { clicks: true, impressions: true },
             _avg: { position: true },
             orderBy: { _sum: { impressions: 'desc' } },
-            take: 200,
+            take: 100,
           })
         : [],
       micrositeIds.length > 0
@@ -166,7 +162,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
             _sum: { clicks: true, impressions: true },
             _avg: { position: true },
             orderBy: { _sum: { impressions: 'desc' } },
-            take: 200,
+            take: 100,
           })
         : [],
     ]);
@@ -330,8 +326,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       dateRange: { startDate, endDate },
     });
   } catch (error) {
-    console.error('[Analytics Search API] Error:', error);
-    return NextResponse.json({ error: 'Failed to fetch search analytics' }, { status: 500 });
+    const message = error instanceof Error ? error.message : String(error);
+    const stack = error instanceof Error ? error.stack : undefined;
+    console.error('[Analytics Search API] Error:', message);
+    if (stack) console.error('[Analytics Search API] Stack:', stack);
+    return NextResponse.json(
+      { error: 'Failed to fetch search analytics', detail: message },
+      { status: 500 }
+    );
   }
 }
 
