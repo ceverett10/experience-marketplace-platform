@@ -1,16 +1,45 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
+
+/**
+ * Relational filters that push filtering into SQL subqueries instead of
+ * passing thousands of IDs as bind variables (Postgres limit: 32,767).
+ */
+const ACTIVE_STATUSES: ('ACTIVE' | 'REVIEW')[] = ['ACTIVE', 'REVIEW'];
+
+function siteMetricWhere(
+  dateFilter: { gte: Date; lte: Date },
+  extra?: Prisma.PerformanceMetricWhereInput
+): Prisma.PerformanceMetricWhereInput {
+  return {
+    date: dateFilter,
+    site: { status: { in: ACTIVE_STATUSES }, gscVerified: true },
+    ...extra,
+  };
+}
+
+function micrositeMetricWhere(
+  dateFilter: { gte: Date; lte: Date },
+  extra?: Prisma.MicrositePerformanceMetricWhereInput
+): Prisma.MicrositePerformanceMetricWhereInput {
+  return {
+    date: dateFilter,
+    microsite: { status: { in: ACTIVE_STATUSES } },
+    ...extra,
+  };
+}
 
 /**
  * GET /api/analytics/search
  * Returns GSC search performance aggregated across all sites and microsites.
  *
  * Optimised to run within Heroku's 30s HTTP timeout by:
+ * - Using relational where filters (SQL subquery) instead of { in: [...ids] }
  * - Using aggregate() instead of findMany() for position stats
  * - Adding orderBy + take limits to expensive groupBy queries
- * - Running queries in sequential batches of 2-4 to avoid connection pool exhaustion
- *   (Prisma pool = 4 connections, so max 4 concurrent queries)
+ * - Running queries in sequential batches to avoid connection pool exhaustion
  */
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
@@ -20,71 +49,55 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     const start = new Date(startDate);
     const end = new Date(endDate);
+    const dateFilter = { gte: start, lte: end };
 
-    // Fetch sites + microsites in parallel
+    // Fetch sites + microsites for name resolution (lightweight, small result sets)
     const [sites, microsites] = await Promise.all([
       prisma.site.findMany({
-        where: {
-          status: { in: ['ACTIVE', 'REVIEW'] },
-          gscVerified: true,
-        },
+        where: { status: { in: ['ACTIVE', 'REVIEW'] }, gscVerified: true },
         select: {
           id: true,
           name: true,
           primaryDomain: true,
-          domains: {
-            where: { status: 'ACTIVE' },
-            take: 1,
-            select: { domain: true },
-          },
+          domains: { where: { status: 'ACTIVE' }, take: 1, select: { domain: true } },
         },
       }),
       prisma.micrositeConfig.findMany({
-        where: {
-          status: { in: ['ACTIVE', 'REVIEW'] },
-        },
-        select: {
-          id: true,
-          siteName: true,
-          fullDomain: true,
-        },
+        where: { status: { in: ['ACTIVE', 'REVIEW'] } },
+        select: { id: true, siteName: true, fullDomain: true },
       }),
     ]);
 
     const siteMap = new Map(sites.map((s) => [s.id, s]));
     const micrositeMap = new Map(microsites.map((m) => [m.id, m]));
-    const siteIds = sites.map((s) => s.id);
-    const micrositeIds = microsites.map((m) => m.id);
-
-    const dateFilter = { gte: start, lte: end };
 
     const emptySum = { _sum: { clicks: null, impressions: null } };
     const emptyPosAgg = { _avg: { position: null }, _sum: { impressions: null } };
 
     // Batch 1: Totals + position aggregates (4 lightweight queries)
     const [siteTotals, micrositeTotals, sitePositionAgg, micrositePositionAgg] = await Promise.all([
-      siteIds.length > 0
+      sites.length > 0
         ? prisma.performanceMetric.aggregate({
-            where: { date: dateFilter, siteId: { in: siteIds } },
+            where: siteMetricWhere(dateFilter),
             _sum: { clicks: true, impressions: true },
           })
         : emptySum,
-      micrositeIds.length > 0
+      microsites.length > 0
         ? prisma.micrositePerformanceMetric.aggregate({
-            where: { date: dateFilter, micrositeId: { in: micrositeIds } },
+            where: micrositeMetricWhere(dateFilter),
             _sum: { clicks: true, impressions: true },
           })
         : emptySum,
-      siteIds.length > 0
+      sites.length > 0
         ? prisma.performanceMetric.aggregate({
-            where: { date: dateFilter, siteId: { in: siteIds }, impressions: { gt: 0 } },
+            where: siteMetricWhere(dateFilter, { impressions: { gt: 0 } }),
             _avg: { position: true },
             _sum: { impressions: true },
           })
         : emptyPosAgg,
-      micrositeIds.length > 0
+      microsites.length > 0
         ? prisma.micrositePerformanceMetric.aggregate({
-            where: { date: dateFilter, micrositeId: { in: micrositeIds }, impressions: { gt: 0 } },
+            where: micrositeMetricWhere(dateFilter, { impressions: { gt: 0 } }),
             _avg: { position: true },
             _sum: { impressions: true },
           })
@@ -93,18 +106,18 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     // Batch 2: Per-site groupBy (2 queries)
     const [bySiteMetrics, byMicrositeMetrics] = await Promise.all([
-      siteIds.length > 0
+      sites.length > 0
         ? prisma.performanceMetric.groupBy({
             by: ['siteId'],
-            where: { date: dateFilter, siteId: { in: siteIds } },
+            where: siteMetricWhere(dateFilter),
             _sum: { clicks: true, impressions: true },
             _avg: { position: true },
           })
         : [],
-      micrositeIds.length > 0
+      microsites.length > 0
         ? prisma.micrositePerformanceMetric.groupBy({
             by: ['micrositeId'],
-            where: { date: dateFilter, micrositeId: { in: micrositeIds } },
+            where: micrositeMetricWhere(dateFilter),
             _sum: { clicks: true, impressions: true },
             _avg: { position: true },
           })
@@ -113,24 +126,20 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     // Batch 3: Top queries (2 heavy groupBy queries)
     const [siteQueryMetrics, micrositeQueryMetrics] = await Promise.all([
-      siteIds.length > 0
+      sites.length > 0
         ? prisma.performanceMetric.groupBy({
             by: ['query', 'siteId'],
-            where: { date: dateFilter, siteId: { in: siteIds }, query: { not: null } },
+            where: siteMetricWhere(dateFilter, { query: { not: null } }),
             _sum: { clicks: true, impressions: true },
             _avg: { position: true },
             orderBy: { _sum: { clicks: 'desc' } },
             take: 100,
           })
         : [],
-      micrositeIds.length > 0
+      microsites.length > 0
         ? prisma.micrositePerformanceMetric.groupBy({
             by: ['query', 'micrositeId'],
-            where: {
-              date: dateFilter,
-              micrositeId: { in: micrositeIds },
-              query: { not: null },
-            },
+            where: micrositeMetricWhere(dateFilter, { query: { not: null } }),
             _sum: { clicks: true, impressions: true },
             _avg: { position: true },
             orderBy: { _sum: { clicks: 'desc' } },
@@ -141,24 +150,20 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     // Batch 4: Top pages (2 heavy groupBy queries)
     const [sitePageMetrics, micrositePageMetrics] = await Promise.all([
-      siteIds.length > 0
+      sites.length > 0
         ? prisma.performanceMetric.groupBy({
             by: ['pageUrl', 'siteId'],
-            where: { date: dateFilter, siteId: { in: siteIds }, pageUrl: { not: null } },
+            where: siteMetricWhere(dateFilter, { pageUrl: { not: null } }),
             _sum: { clicks: true, impressions: true },
             _avg: { position: true },
             orderBy: { _sum: { impressions: 'desc' } },
             take: 100,
           })
         : [],
-      micrositeIds.length > 0
+      microsites.length > 0
         ? prisma.micrositePerformanceMetric.groupBy({
             by: ['pageUrl', 'micrositeId'],
-            where: {
-              date: dateFilter,
-              micrositeId: { in: micrositeIds },
-              pageUrl: { not: null },
-            },
+            where: micrositeMetricWhere(dateFilter, { pageUrl: { not: null } }),
             _sum: { clicks: true, impressions: true },
             _avg: { position: true },
             orderBy: { _sum: { impressions: 'desc' } },
@@ -168,9 +173,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     ]);
 
     // Totals
-    const totalClicks = (siteTotals._sum.clicks || 0) + (micrositeTotals._sum.clicks || 0);
+    const totalClicks = (siteTotals._sum?.clicks || 0) + (micrositeTotals._sum?.clicks || 0);
     const totalImpressions =
-      (siteTotals._sum.impressions || 0) + (micrositeTotals._sum.impressions || 0);
+      (siteTotals._sum?.impressions || 0) + (micrositeTotals._sum?.impressions || 0);
 
     // Weighted average position from aggregates
     const siteAvgPos = sitePositionAgg._avg?.position || 0;
@@ -194,8 +199,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         .map((m) => {
           const site = siteMap.get(m.siteId);
           if (!site) return null;
-          const clicks = m._sum.clicks || 0;
-          const impressions = m._sum.impressions || 0;
+          const clicks = m._sum?.clicks || 0;
+          const impressions = m._sum?.impressions || 0;
           return {
             siteId: m.siteId,
             siteName: site.name,
@@ -203,7 +208,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
             clicks,
             impressions,
             ctr: impressions > 0 ? (clicks / impressions) * 100 : 0,
-            position: m._avg.position || 0,
+            position: m._avg?.position || 0,
           };
         })
         .filter(Boolean),
@@ -211,8 +216,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         .map((m) => {
           const ms = micrositeMap.get(m.micrositeId);
           if (!ms) return null;
-          const clicks = m._sum.clicks || 0;
-          const impressions = m._sum.impressions || 0;
+          const clicks = m._sum?.clicks || 0;
+          const impressions = m._sum?.impressions || 0;
           return {
             siteId: m.micrositeId,
             siteName: ms.siteName,
@@ -220,7 +225,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
             clicks,
             impressions,
             ctr: impressions > 0 ? (clicks / impressions) * 100 : 0,
-            position: m._avg.position || 0,
+            position: m._avg?.position || 0,
           };
         })
         .filter(Boolean),
@@ -240,10 +245,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         positionSum: 0,
         count: 0,
       };
-      existing.clicks += m._sum.clicks || 0;
-      existing.impressions += m._sum.impressions || 0;
-      existing.positionSum += (m._avg.position || 0) * (m._sum.impressions || 1);
-      existing.count += m._sum.impressions || 1;
+      existing.clicks += m._sum?.clicks || 0;
+      existing.impressions += m._sum?.impressions || 0;
+      existing.positionSum += (m._avg?.position || 0) * (m._sum?.impressions || 1);
+      existing.count += m._sum?.impressions || 1;
       queryMap.set(m.query, existing);
     }
 
@@ -255,10 +260,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         positionSum: 0,
         count: 0,
       };
-      existing.clicks += m._sum.clicks || 0;
-      existing.impressions += m._sum.impressions || 0;
-      existing.positionSum += (m._avg.position || 0) * (m._sum.impressions || 1);
-      existing.count += m._sum.impressions || 1;
+      existing.clicks += m._sum?.clicks || 0;
+      existing.impressions += m._sum?.impressions || 0;
+      existing.positionSum += (m._avg?.position || 0) * (m._sum?.impressions || 1);
+      existing.count += m._sum?.impressions || 1;
       queryMap.set(m.query, existing);
     }
 
@@ -277,27 +282,27 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     // Top pages
     const allPageEntries = [
       ...sitePageMetrics.map((m) => {
-        const clicks = m._sum.clicks || 0;
-        const impressions = m._sum.impressions || 0;
+        const clicks = m._sum?.clicks || 0;
+        const impressions = m._sum?.impressions || 0;
         return {
           pageUrl: m.pageUrl,
           site: siteMap.get(m.siteId)?.name || 'Unknown',
           clicks,
           impressions,
           ctr: impressions > 0 ? (clicks / impressions) * 100 : 0,
-          position: m._avg.position || 0,
+          position: m._avg?.position || 0,
         };
       }),
       ...micrositePageMetrics.map((m) => {
-        const clicks = m._sum.clicks || 0;
-        const impressions = m._sum.impressions || 0;
+        const clicks = m._sum?.clicks || 0;
+        const impressions = m._sum?.impressions || 0;
         return {
           pageUrl: m.pageUrl,
           site: micrositeMap.get(m.micrositeId)?.siteName || 'Unknown',
           clicks,
           impressions,
           ctr: impressions > 0 ? (clicks / impressions) * 100 : 0,
-          position: m._avg.position || 0,
+          position: m._avg?.position || 0,
         };
       }),
     ];
