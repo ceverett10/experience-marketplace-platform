@@ -134,6 +134,20 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     } catch (err) {
       console.warn('[Layout] Failed to check blog posts:', err);
     }
+  } else if (site.id && !site.isParentDomain) {
+    // Check if main site has published blog posts (for conditional Blog nav link)
+    try {
+      const blogCount = await prisma.page.count({
+        where: {
+          siteId: site.id,
+          type: 'BLOG',
+          status: 'PUBLISHED',
+        },
+      });
+      site.hasBlogPosts = blogCount > 0;
+    } catch (err) {
+      console.warn('[Layout] Failed to check blog posts for main site:', err);
+    }
   }
 
   return (
