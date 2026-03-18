@@ -3,14 +3,21 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
 /**
+ * Relational filters that push filtering into SQL subqueries instead of
+ * passing thousands of IDs as bind variables (Postgres limit: 32,767).
+ */
+const SITE_FILTER = { site: { status: { in: ['ACTIVE', 'REVIEW'] }, gscVerified: true } };
+const MICROSITE_FILTER = { microsite: { status: { in: ['ACTIVE', 'REVIEW'] } } };
+
+/**
  * GET /api/analytics/search
  * Returns GSC search performance aggregated across all sites and microsites.
  *
  * Optimised to run within Heroku's 30s HTTP timeout by:
+ * - Using relational where filters (SQL subquery) instead of { in: [...ids] }
  * - Using aggregate() instead of findMany() for position stats
  * - Adding orderBy + take limits to expensive groupBy queries
- * - Running queries in sequential batches of 2-4 to avoid connection pool exhaustion
- *   (Prisma pool = 4 connections, so max 4 concurrent queries)
+ * - Running queries in sequential batches to avoid connection pool exhaustion
  */
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
@@ -20,71 +27,55 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     const start = new Date(startDate);
     const end = new Date(endDate);
+    const dateFilter = { gte: start, lte: end };
 
-    // Fetch sites + microsites in parallel
+    // Fetch sites + microsites for name resolution (lightweight, small result sets)
     const [sites, microsites] = await Promise.all([
       prisma.site.findMany({
-        where: {
-          status: { in: ['ACTIVE', 'REVIEW'] },
-          gscVerified: true,
-        },
+        where: { status: { in: ['ACTIVE', 'REVIEW'] }, gscVerified: true },
         select: {
           id: true,
           name: true,
           primaryDomain: true,
-          domains: {
-            where: { status: 'ACTIVE' },
-            take: 1,
-            select: { domain: true },
-          },
+          domains: { where: { status: 'ACTIVE' }, take: 1, select: { domain: true } },
         },
       }),
       prisma.micrositeConfig.findMany({
-        where: {
-          status: { in: ['ACTIVE', 'REVIEW'] },
-        },
-        select: {
-          id: true,
-          siteName: true,
-          fullDomain: true,
-        },
+        where: { status: { in: ['ACTIVE', 'REVIEW'] } },
+        select: { id: true, siteName: true, fullDomain: true },
       }),
     ]);
 
     const siteMap = new Map(sites.map((s) => [s.id, s]));
     const micrositeMap = new Map(microsites.map((m) => [m.id, m]));
-    const siteIds = sites.map((s) => s.id);
-    const micrositeIds = microsites.map((m) => m.id);
-
-    const dateFilter = { gte: start, lte: end };
 
     const emptySum = { _sum: { clicks: null, impressions: null } };
     const emptyPosAgg = { _avg: { position: null }, _sum: { impressions: null } };
 
     // Batch 1: Totals + position aggregates (4 lightweight queries)
     const [siteTotals, micrositeTotals, sitePositionAgg, micrositePositionAgg] = await Promise.all([
-      siteIds.length > 0
+      sites.length > 0
         ? prisma.performanceMetric.aggregate({
-            where: { date: dateFilter, siteId: { in: siteIds } },
+            where: { date: dateFilter, ...SITE_FILTER },
             _sum: { clicks: true, impressions: true },
           })
         : emptySum,
-      micrositeIds.length > 0
+      microsites.length > 0
         ? prisma.micrositePerformanceMetric.aggregate({
-            where: { date: dateFilter, micrositeId: { in: micrositeIds } },
+            where: { date: dateFilter, ...MICROSITE_FILTER },
             _sum: { clicks: true, impressions: true },
           })
         : emptySum,
-      siteIds.length > 0
+      sites.length > 0
         ? prisma.performanceMetric.aggregate({
-            where: { date: dateFilter, siteId: { in: siteIds }, impressions: { gt: 0 } },
+            where: { date: dateFilter, ...SITE_FILTER, impressions: { gt: 0 } },
             _avg: { position: true },
             _sum: { impressions: true },
           })
         : emptyPosAgg,
-      micrositeIds.length > 0
+      microsites.length > 0
         ? prisma.micrositePerformanceMetric.aggregate({
-            where: { date: dateFilter, micrositeId: { in: micrositeIds }, impressions: { gt: 0 } },
+            where: { date: dateFilter, ...MICROSITE_FILTER, impressions: { gt: 0 } },
             _avg: { position: true },
             _sum: { impressions: true },
           })
@@ -93,18 +84,18 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     // Batch 2: Per-site groupBy (2 queries)
     const [bySiteMetrics, byMicrositeMetrics] = await Promise.all([
-      siteIds.length > 0
+      sites.length > 0
         ? prisma.performanceMetric.groupBy({
             by: ['siteId'],
-            where: { date: dateFilter, siteId: { in: siteIds } },
+            where: { date: dateFilter, ...SITE_FILTER },
             _sum: { clicks: true, impressions: true },
             _avg: { position: true },
           })
         : [],
-      micrositeIds.length > 0
+      microsites.length > 0
         ? prisma.micrositePerformanceMetric.groupBy({
             by: ['micrositeId'],
-            where: { date: dateFilter, micrositeId: { in: micrositeIds } },
+            where: { date: dateFilter, ...MICROSITE_FILTER },
             _sum: { clicks: true, impressions: true },
             _avg: { position: true },
           })
@@ -113,24 +104,20 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     // Batch 3: Top queries (2 heavy groupBy queries)
     const [siteQueryMetrics, micrositeQueryMetrics] = await Promise.all([
-      siteIds.length > 0
+      sites.length > 0
         ? prisma.performanceMetric.groupBy({
             by: ['query', 'siteId'],
-            where: { date: dateFilter, siteId: { in: siteIds }, query: { not: null } },
+            where: { date: dateFilter, ...SITE_FILTER, query: { not: null } },
             _sum: { clicks: true, impressions: true },
             _avg: { position: true },
             orderBy: { _sum: { clicks: 'desc' } },
             take: 100,
           })
         : [],
-      micrositeIds.length > 0
+      microsites.length > 0
         ? prisma.micrositePerformanceMetric.groupBy({
             by: ['query', 'micrositeId'],
-            where: {
-              date: dateFilter,
-              micrositeId: { in: micrositeIds },
-              query: { not: null },
-            },
+            where: { date: dateFilter, ...MICROSITE_FILTER, query: { not: null } },
             _sum: { clicks: true, impressions: true },
             _avg: { position: true },
             orderBy: { _sum: { clicks: 'desc' } },
@@ -141,24 +128,20 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     // Batch 4: Top pages (2 heavy groupBy queries)
     const [sitePageMetrics, micrositePageMetrics] = await Promise.all([
-      siteIds.length > 0
+      sites.length > 0
         ? prisma.performanceMetric.groupBy({
             by: ['pageUrl', 'siteId'],
-            where: { date: dateFilter, siteId: { in: siteIds }, pageUrl: { not: null } },
+            where: { date: dateFilter, ...SITE_FILTER, pageUrl: { not: null } },
             _sum: { clicks: true, impressions: true },
             _avg: { position: true },
             orderBy: { _sum: { impressions: 'desc' } },
             take: 100,
           })
         : [],
-      micrositeIds.length > 0
+      microsites.length > 0
         ? prisma.micrositePerformanceMetric.groupBy({
             by: ['pageUrl', 'micrositeId'],
-            where: {
-              date: dateFilter,
-              micrositeId: { in: micrositeIds },
-              pageUrl: { not: null },
-            },
+            where: { date: dateFilter, ...MICROSITE_FILTER, pageUrl: { not: null } },
             _sum: { clicks: true, impressions: true },
             _avg: { position: true },
             orderBy: { _sum: { impressions: 'desc' } },
