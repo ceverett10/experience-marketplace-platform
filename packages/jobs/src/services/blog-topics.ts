@@ -217,18 +217,21 @@ export async function generateDailyBlogTopic(
     const currentMonth = new Date().toLocaleString('en-US', { month: 'long' });
     const currentSeason = getSeason();
 
-    // Build experience context if available
+    // Build experience context if available — this is what grounds the AI in reality
     const experienceContext = context.topExperiences?.length
       ? `\nBOOKABLE EXPERIENCES ON THIS SITE (use these to pick a relevant topic):
 ${context.topExperiences.map((e) => `- ${e.title}${e.city ? ` (${e.city})` : ''}${e.categories?.length ? ` [${e.categories.join(', ')}]` : ''}`).join('\n')}
 
 ALL LOCATIONS SERVED: ${context.allCities?.join(', ') || context.location || 'General'}
 ALL EXPERIENCE CATEGORIES: ${context.allCategories?.join(', ') || context.niche}
-${context.supplierDescription ? `ABOUT THIS OPERATOR: ${context.supplierDescription.substring(0, 300)}` : ''}
+${context.supplierDescription ? `ABOUT THIS OPERATOR: ${context.supplierDescription.substring(0, 500)}` : ''}
 
-IMPORTANT: The blog topic MUST be directly relevant to the experiences listed above.
-Write about destinations, activities, or themes that match what this site actually offers.
-Do NOT write about experience types or destinations not covered by this operator.`
+CRITICAL RELEVANCE RULES:
+1. The blog topic MUST be directly relevant to the experiences listed above
+2. Write about destinations, activities, or themes that match what this site actually offers
+3. Do NOT write about experience types or destinations not covered by this operator
+4. Reference specific experiences, locations, or categories from the list above when possible
+5. The blog should help potential customers discover and book these specific experiences`
       : '';
 
     const prompt = `Generate 1 highly relevant SEO-optimized blog post idea for today.

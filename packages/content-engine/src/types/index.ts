@@ -280,16 +280,19 @@ export const PipelineConfigSchema = z.object({
 });
 
 // Default configuration
+// Sonnet for drafts/rewrites produces substantially higher quality content.
+// Haiku self-assessment was inflating scores by ~45 points vs Sonnet review,
+// so quality assessment also uses Sonnet for accurate gating.
 export const DEFAULT_PIPELINE_CONFIG: PipelineConfig = {
-  draftModel: 'haiku',
-  qualityModel: 'haiku', // Changed from 'sonnet' for ~75% cost reduction
-  rewriteModel: 'haiku',
+  draftModel: 'sonnet',
+  qualityModel: 'sonnet',
+  rewriteModel: 'sonnet',
   qualityThreshold: 75,
   autoPublishThreshold: 90,
   maxRewrites: 3,
   rewriteScoreImprovement: 5,
-  maxCostPerContent: 0.5, // 50 cents max per content
-  dailyCostLimit: 50.0, // $50 daily limit
+  maxCostPerContent: 2.0, // $2 max per content (Sonnet ~4x Haiku cost)
+  dailyCostLimit: 100.0, // $100 daily limit (Sonnet produces fewer rewrites, offsetting cost)
   requestsPerMinute: 50,
   maxConcurrentRequests: 5,
 };

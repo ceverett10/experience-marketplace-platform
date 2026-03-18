@@ -829,12 +829,10 @@ async function handleMicrositePageContentGenerate(params: {
     });
 
     const result = await anthropicBreaker.execute(async () => {
+      // Uses default Sonnet models from pipeline config — do not override to Haiku
       const pipeline = createPipeline({
         qualityThreshold: 80,
         maxRewrites: 3,
-        draftModel: 'haiku',
-        qualityModel: 'sonnet',
-        rewriteModel: 'haiku',
       });
       return await pipeline.generate(brief);
     });
@@ -1093,12 +1091,10 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
     });
 
     const result = await anthropicBreaker.execute(async () => {
+      // Uses default Sonnet models from pipeline config — do not override to Haiku
       const pipeline = createPipeline({
         qualityThreshold: 80,
         maxRewrites: 3,
-        draftModel: 'haiku',
-        qualityModel: 'sonnet',
-        rewriteModel: 'haiku',
       });
 
       return await pipeline.generate(brief);
