@@ -20,8 +20,9 @@ function getCacheKey(params: {
   startDate?: string | null;
   endDate?: string | null;
   seenProductIds?: string | null;
+  currency?: string | null;
 }): string {
-  return `${params.destination || ''}|${params.searchTerm || ''}|${params.adults || ''}|${params.children || ''}|${params.startDate || ''}|${params.endDate || ''}|${params.seenProductIds || ''}`;
+  return `${params.destination || ''}|${params.searchTerm || ''}|${params.adults || ''}|${params.children || ''}|${params.startDate || ''}|${params.endDate || ''}|${params.seenProductIds || ''}|${params.currency || ''}`;
 }
 
 function cleanExpiredCache(): void {
@@ -76,6 +77,8 @@ export async function GET(request: NextRequest) {
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
 
+    const currency = site.primaryCurrency ?? 'GBP';
+
     // Get seen product IDs for "Load More" pagination
     // Holibob doesn't support traditional pagination - instead we pass IDs of products
     // we've already shown so the API returns new recommendations
@@ -99,6 +102,7 @@ export async function GET(request: NextRequest) {
       startDate,
       endDate,
       seenProductIds,
+      currency,
     });
 
     // Clean expired cache entries periodically
@@ -129,7 +133,7 @@ export async function GET(request: NextRequest) {
 
     const response = await client.discoverProducts(
       {
-        currency: 'GBP',
+        currency,
         freeText,
         searchTerm: searchTerm || undefined,
         adults: adults ? parseInt(adults, 10) : 2,

@@ -1,6 +1,8 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { headers } from 'next/headers';
 import { createHolibobClient } from '@experience-marketplace/holibob-api';
 import { prisma } from '../../../lib/prisma';
+import { getSiteFromHostname } from '@/lib/tenant';
 import { currencyToLocale } from '@/lib/currency';
 
 /**
@@ -31,7 +33,11 @@ export async function GET(request: NextRequest) {
     }
 
     // Otherwise, fetch from Holibob API (for main site)
-    return await fetchFromHolibob({ first, category, placeId });
+    const headersList = await headers();
+    const hostname = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
+    const site = await getSiteFromHostname(hostname);
+    const currency = site.primaryCurrency ?? 'GBP';
+    return await fetchFromHolibob({ first, category, placeId, currency });
   } catch (error) {
     console.error('Error fetching products:', error);
 
@@ -145,8 +151,9 @@ async function fetchFromHolibob(options: {
   first: number;
   category?: string | null;
   placeId?: string | null;
+  currency?: string;
 }) {
-  const { first, category, placeId } = options;
+  const { first, category, placeId, currency = 'GBP' } = options;
 
   // Product Discovery API REQUIRES where.freeText — reject calls without a location
   if (!placeId) {
@@ -176,7 +183,7 @@ async function fetchFromHolibob(options: {
     categoryIds?: string[];
     placeIds: string[];
   } = {
-    currency: 'GBP',
+    currency,
     adults: 2,
     placeIds: [placeId],
   };
