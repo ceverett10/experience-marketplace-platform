@@ -60,6 +60,7 @@ export function Header() {
             { name: 'Experiences', href: '/experiences' },
             { name: 'Destinations', href: '/destinations' },
             { name: 'Categories', href: '/categories' },
+            ...(site.hasBlogPosts ? [{ name: 'Blog', href: '/blog' }] : []),
             { name: 'About', href: '/about' },
           ];
 
