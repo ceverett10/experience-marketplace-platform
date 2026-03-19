@@ -112,10 +112,10 @@ describe('Internal Linking URL Generation', () => {
       }
     });
 
-    it('should generate destination URLs with /destinations/ prefix', async () => {
+    it('should generate destination URLs without double-prefix', async () => {
       const mockDestination = {
         id: 'dest-1',
-        slug: 'london',
+        slug: 'destinations/london', // LANDING slugs stored with prefix per convention
         title: 'London',
       };
 
@@ -133,8 +133,9 @@ describe('Internal Linking URL Generation', () => {
       const destLink = result.find((l) => l.pageType === 'destination');
 
       if (destLink) {
-        // Destination slugs don't have prefix, so URL adds it
+        // Slug already contains 'destinations/' prefix, so URL is /${slug}
         expect(destLink.url).toBe('/destinations/london');
+        expect(destLink.url).not.toBe('/destinations/destinations/london');
       }
     });
   });
