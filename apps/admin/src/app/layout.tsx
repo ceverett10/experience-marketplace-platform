@@ -32,6 +32,7 @@ const navItems: NavItem[] = [
       { href: '/analytics/traffic', label: 'Traffic', icon: '👥' },
       { href: '/analytics/search', label: 'Search', icon: '🔍' },
       { href: '/analytics/blockers', label: 'Blockers', icon: '🚧' },
+      { href: '/analytics/demand-discovery', label: 'Demand Discovery', icon: '🗺️' },
     ],
   },
   {
