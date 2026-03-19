@@ -55,6 +55,7 @@ export function FeaturedExperiences({
                     variant="featured"
                     badges={['staffPick']}
                     priority={index < 3}
+                    openInNewTab
                   />
                 ) : (
                   <ExperienceCard
@@ -62,6 +63,7 @@ export function FeaturedExperiences({
                     experience={experience}
                     variant="featured"
                     priority={index < 3}
+                    openInNewTab
                   />
                 )
               )}
@@ -77,6 +79,7 @@ export function FeaturedExperiences({
                     experience={experience}
                     badges={['staffPick']}
                     priority={index < 4}
+                    openInNewTab
                   />
                 ) : (
                   <ExperienceCard
@@ -84,6 +87,7 @@ export function FeaturedExperiences({
                     experience={experience}
                     variant="default"
                     priority={index < 4}
+                    openInNewTab
                   />
                 )
               )}

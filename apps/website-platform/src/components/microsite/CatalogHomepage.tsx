@@ -636,6 +636,8 @@ function CatalogExperienceCard({
   return (
     <Link
       href={`/experiences/${experience.slug}`}
+      target="_blank"
+      rel="noopener"
       className="group flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition-all hover:shadow-md"
     >
       {/* Image */}

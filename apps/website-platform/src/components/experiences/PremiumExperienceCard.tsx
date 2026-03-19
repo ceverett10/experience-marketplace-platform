@@ -28,6 +28,8 @@ interface PremiumExperienceCardProps {
   rank?: number;
   className?: string;
   priority?: boolean;
+  /** Open product page in a new tab (listing pages only, like Viator/GYG) */
+  openInNewTab?: boolean;
 }
 
 const BADGE_STYLES: Record<BadgeType, { bg: string; text: string; icon?: string; label: string }> =
@@ -140,7 +142,9 @@ export function PremiumExperienceCard({
   rank,
   className = '',
   priority = false,
+  openInNewTab = false,
 }: PremiumExperienceCardProps) {
+  const linkProps = openInNewTab ? { target: '_blank' as const, rel: 'noopener' } : {};
   const brand = useBrand();
   const primaryColor = brand?.primaryColor ?? '#0F766E';
   const pricingConfig = getProductPricingConfig(experience.id);
@@ -164,6 +168,7 @@ export function PremiumExperienceCard({
       <Link
         href={`/experiences/${experience.slug}`}
         onClick={trackClick}
+        {...linkProps}
         className={`group relative flex h-[280px] sm:h-[380px] lg:h-[500px] flex-col justify-end overflow-hidden rounded-3xl bg-gray-200 ${className}`}
       >
         {/* Background Image */}
@@ -292,6 +297,7 @@ export function PremiumExperienceCard({
       <Link
         href={`/experiences/${experience.slug}`}
         onClick={trackClick}
+        {...linkProps}
         className={`group relative flex h-96 flex-col justify-end overflow-hidden rounded-2xl bg-gray-200 ${className}`}
       >
         {/* Background Image */}
@@ -372,6 +378,7 @@ export function PremiumExperienceCard({
       <Link
         href={`/experiences/${experience.slug}`}
         onClick={trackClick}
+        {...linkProps}
         className={`group flex gap-4 overflow-hidden rounded-xl border border-gray-100 bg-white transition-all hover:border-gray-200 hover:shadow-lg ${className}`}
       >
         {/* Image */}
@@ -439,6 +446,7 @@ export function PremiumExperienceCard({
     <Link
       href={`/experiences/${experience.slug}`}
       onClick={trackClick}
+      {...linkProps}
       className={`group flex flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white transition-all duration-300 hover:border-gray-200 hover:shadow-xl hover:-translate-y-1 ${className}`}
     >
       {/* Image Container - 4:3 aspect ratio like competitors */}

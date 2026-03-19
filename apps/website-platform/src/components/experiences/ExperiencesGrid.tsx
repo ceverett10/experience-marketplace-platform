@@ -145,6 +145,7 @@ export function ExperiencesGrid({
             experience={experience}
             badges={assignBadges(experience)}
             priority={index < 4}
+            openInNewTab
           />
         ))}
       </div>
