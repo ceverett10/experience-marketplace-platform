@@ -5,6 +5,28 @@ import { getSiteFromHostname, generateBrandCSSVariables } from '@/lib/tenant';
 import { CURRENCY_COOKIE, getEffectiveCurrency } from '@/lib/currency';
 import { getRelatedMicrosites } from '@/lib/microsite-experiences';
 import { prisma } from '@/lib/prisma';
+
+// Cache blog post checks per site/microsite to avoid querying DB on every render.
+// TTL: 5 minutes — matches page revalidation period.
+const blogCheckCache = new Map<string, { hasPosts: boolean; expiresAt: number }>();
+const BLOG_CACHE_TTL = 5 * 60 * 1000;
+
+async function hasBlogPosts(key: string, where: Record<string, unknown>): Promise<boolean> {
+  const cached = blogCheckCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return cached.hasPosts;
+  try {
+    const count = await prisma.page.count({
+      where: { ...where, type: 'BLOG', status: 'PUBLISHED' },
+    });
+    const result = count > 0;
+    blogCheckCache.set(key, { hasPosts: result, expiresAt: Date.now() + BLOG_CACHE_TTL });
+    return result;
+  } catch {
+    // DB unavailable (e.g. E2E with dummy URL) — default to false, cache briefly to avoid retries
+    blogCheckCache.set(key, { hasPosts: false, expiresAt: Date.now() + BLOG_CACHE_TTL });
+    return false;
+  }
+}
 import { SiteProvider } from '@/lib/site-context';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
@@ -121,33 +143,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       console.warn('[Layout] Failed to fetch related microsites:', err);
     }
 
-    // Check if microsite has published blog posts (for conditional Blog nav link)
-    try {
-      const blogCount = await prisma.page.count({
-        where: {
-          micrositeId: site.micrositeContext.micrositeId,
-          type: 'BLOG',
-          status: 'PUBLISHED',
-        },
-      });
-      site.hasBlogPosts = blogCount > 0;
-    } catch (err) {
-      console.warn('[Layout] Failed to check blog posts:', err);
-    }
+    // Check if microsite has published blog posts (cached, silent on DB failure)
+    site.hasBlogPosts = await hasBlogPosts(`ms:${site.micrositeContext.micrositeId}`, {
+      micrositeId: site.micrositeContext.micrositeId,
+    });
   } else if (site.id && !site.isParentDomain) {
-    // Check if main site has published blog posts (for conditional Blog nav link)
-    try {
-      const blogCount = await prisma.page.count({
-        where: {
-          siteId: site.id,
-          type: 'BLOG',
-          status: 'PUBLISHED',
-        },
-      });
-      site.hasBlogPosts = blogCount > 0;
-    } catch (err) {
-      console.warn('[Layout] Failed to check blog posts for main site:', err);
-    }
+    // Check if main site has published blog posts (cached, silent on DB failure)
+    site.hasBlogPosts = await hasBlogPosts(`site:${site.id}`, { siteId: site.id });
   }
 
   return (
