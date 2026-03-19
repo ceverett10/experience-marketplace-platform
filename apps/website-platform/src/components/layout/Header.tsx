@@ -14,11 +14,24 @@ export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Detect paid traffic — simplify navigation to reduce distraction
-  const isPaid = !!(
+  // Check URL params first, then fall back to utm_params cookie (persisted by middleware)
+  // so paid visitors keep simplified nav when navigating to new tabs/pages
+  let isPaid = !!(
     searchParams.get('gclid') ||
     searchParams.get('fbclid') ||
     searchParams.get('utm_medium') === 'cpc'
   );
+  if (!isPaid && typeof document !== 'undefined') {
+    try {
+      const utmCookie = document.cookie.split('; ').find((c) => c.startsWith('utm_params='));
+      if (utmCookie) {
+        const utm = JSON.parse(decodeURIComponent(utmCookie.split('=').slice(1).join('=')));
+        isPaid = !!(utm.gclid || utm.fbclid || utm.medium === 'cpc');
+      }
+    } catch {
+      // Invalid cookie — ignore
+    }
+  }
 
   // Paid visitors see "Free Cancellation" and "Best Price Guarantee" first
   const trustItems = isPaid
