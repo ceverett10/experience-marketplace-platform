@@ -13,13 +13,17 @@ interface ExperienceCardProps {
   experience: ExperienceListItem;
   variant?: 'default' | 'compact' | 'featured';
   priority?: boolean;
+  /** Open product page in a new tab (listing pages only, like Viator/GYG) */
+  openInNewTab?: boolean;
 }
 
 export function ExperienceCard({
   experience,
   variant = 'default',
   priority = false,
+  openInNewTab = false,
 }: ExperienceCardProps) {
+  const linkProps = openInNewTab ? { target: '_blank' as const, rel: 'noopener' } : {};
   const brand = useBrand();
   const pricingConfig = getProductPricingConfig(experience.id);
 
@@ -28,6 +32,7 @@ export function ExperienceCard({
       <Link
         href={`/experiences/${experience.slug}`}
         className="group flex gap-4 rounded-lg border border-gray-200 p-3 transition-shadow hover:shadow-md"
+        {...linkProps}
       >
         <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg bg-gray-200">
           <Image
@@ -68,6 +73,7 @@ export function ExperienceCard({
       <Link
         href={`/experiences/${experience.slug}`}
         className="group relative flex h-80 flex-col justify-end overflow-hidden rounded-2xl bg-gray-200"
+        {...linkProps}
       >
         {/* Image */}
         <Image
@@ -131,6 +137,7 @@ export function ExperienceCard({
     <Link
       href={`/experiences/${experience.slug}`}
       className="group flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white transition-shadow hover:shadow-lg"
+      {...linkProps}
     >
       {/* Image */}
       <div className="relative aspect-[16/9] overflow-hidden sm:aspect-[4/3] bg-gray-200">

@@ -308,6 +308,7 @@ export function MarketplaceExperiencesPage({
                         experience={experience}
                         badges={[]}
                         priority={index < 6}
+                        openInNewTab
                       />
                     ))}
                   </div>

@@ -204,6 +204,7 @@ function ExperienceGrid({ experiences }: { experiences: ExperienceListItem[] }) 
           experience={experience}
           rank={index < 3 ? index + 1 : undefined}
           badges={index < 3 ? [BADGE_ROTATION[index % BADGE_ROTATION.length]!] : undefined}
+          openInNewTab
         />
       ))}
     </div>
