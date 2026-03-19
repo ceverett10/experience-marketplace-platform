@@ -103,10 +103,26 @@ export async function POST(request: NextRequest) {
     // Get Holibob client
     const client = await getHolibobClient(site);
 
+    // Read partner tracking code from cookie (set by middleware from ?ref= URL param)
+    let partnerExternalReference = input.partnerExternalReference;
+    if (!partnerExternalReference) {
+      const utmCookie = request.cookies.get('utm_params')?.value;
+      if (utmCookie) {
+        try {
+          const utm = JSON.parse(utmCookie);
+          if (utm.ref) {
+            partnerExternalReference = utm.ref;
+          }
+        } catch {
+          // Invalid cookie JSON — ignore
+        }
+      }
+    }
+
     // Create booking with recommended settings
-    // Note: BookingCreateInput only accepts autoFillQuestions
     const booking = await client.createBooking({
       autoFillQuestions: input.autoFillQuestions ?? true,
+      ...(partnerExternalReference ? { partnerExternalReference } : {}),
     });
 
     trackFunnelEvent({
