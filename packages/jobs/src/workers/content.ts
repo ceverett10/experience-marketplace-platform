@@ -732,6 +732,7 @@ async function handleMicrositePageContentGenerate(params: {
               : metaDescription,
           status: 'PUBLISHED',
           publishedAt: new Date(),
+          noIndex: false, // Clear audit-set noIndex flag when re-publishing
         },
       });
 
@@ -944,6 +945,7 @@ async function handleMicrositePageContentGenerate(params: {
         priority: sitemapPriority,
         status: 'PUBLISHED',
         publishedAt: new Date(),
+        noIndex: false, // Clear audit-set noIndex flag when re-publishing
       },
     });
 
@@ -1250,6 +1252,7 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
           metaDescription: optimizedMetaDescription,
           priority: sitemapPriority,
           status: newStatus as any,
+          noIndex: false, // Clear audit-set noIndex flag when re-publishing
         },
       });
       console.log(`[Content Generate] Updated existing page ${pageId} with content`);
