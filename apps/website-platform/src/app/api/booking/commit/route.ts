@@ -135,6 +135,7 @@ export async function POST(request: NextRequest) {
       let landingPage: string | undefined;
       let gclid: string | undefined;
       let fbclid: string | undefined;
+      let partnerExternalReference: string | undefined;
       const utmCookie = request.cookies.get('utm_params')?.value;
       if (utmCookie) {
         try {
@@ -145,6 +146,7 @@ export async function POST(request: NextRequest) {
           landingPage = utm.landingPage || undefined;
           gclid = utm.gclid || undefined;
           fbclid = utm.fbclid || undefined;
+          partnerExternalReference = utm.ref || undefined;
         } catch {
           // Invalid cookie JSON — ignore
         }
@@ -179,6 +181,7 @@ export async function POST(request: NextRequest) {
           landingPage,
           gclid: gclid ?? null,
           fbclid: fbclid ?? null,
+          partnerExternalReference: partnerExternalReference ?? null,
           commissionAmount: commissionAmount ?? null,
           commissionRate: commissionRate ?? null,
         },
@@ -189,6 +192,7 @@ export async function POST(request: NextRequest) {
           ...(utmSource ? { utmSource } : {}),
           ...(gclid ? { gclid } : {}),
           ...(fbclid ? { fbclid } : {}),
+          ...(partnerExternalReference ? { partnerExternalReference } : {}),
           ...(commissionAmount != null ? { commissionAmount, commissionRate } : {}),
         },
       });

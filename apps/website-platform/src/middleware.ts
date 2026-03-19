@@ -49,16 +49,35 @@ export function middleware(request: NextRequest) {
   const utmSource = request.nextUrl.searchParams.get('utm_source');
   const gclid = request.nextUrl.searchParams.get('gclid');
   const fbclid = request.nextUrl.searchParams.get('fbclid');
-  if (utmSource || gclid || fbclid) {
+  const partnerRef = request.nextUrl.searchParams.get('ref');
+  if (utmSource || gclid || fbclid || partnerRef) {
+    // Preserve existing UTM data if only ref is new (don't overwrite attribution)
+    let existingUtm: Record<string, string> = {};
+    if (partnerRef && !utmSource && !gclid && !fbclid) {
+      const existingCookie = request.cookies.get('utm_params')?.value;
+      if (existingCookie) {
+        try {
+          existingUtm = JSON.parse(existingCookie);
+        } catch {
+          // Invalid cookie — ignore
+        }
+      }
+    }
     const utmData = JSON.stringify({
-      source: utmSource || (gclid ? 'google' : 'facebook'),
-      medium: request.nextUrl.searchParams.get('utm_medium') || (gclid || fbclid ? 'cpc' : ''),
-      campaign: request.nextUrl.searchParams.get('utm_campaign') || '',
-      term: request.nextUrl.searchParams.get('utm_term') || '',
-      content: request.nextUrl.searchParams.get('utm_content') || '',
-      landingPage: request.nextUrl.pathname,
-      gclid: gclid || '',
-      fbclid: fbclid || '',
+      source:
+        utmSource || (gclid ? 'google' : fbclid ? 'facebook' : '') || existingUtm['source'] || '',
+      medium:
+        request.nextUrl.searchParams.get('utm_medium') ||
+        (gclid || fbclid ? 'cpc' : '') ||
+        existingUtm['medium'] ||
+        '',
+      campaign: request.nextUrl.searchParams.get('utm_campaign') || existingUtm['campaign'] || '',
+      term: request.nextUrl.searchParams.get('utm_term') || existingUtm['term'] || '',
+      content: request.nextUrl.searchParams.get('utm_content') || existingUtm['content'] || '',
+      landingPage: existingUtm['landingPage'] || request.nextUrl.pathname,
+      gclid: gclid || existingUtm['gclid'] || '',
+      fbclid: fbclid || existingUtm['fbclid'] || '',
+      ref: partnerRef || existingUtm['ref'] || '',
     });
     response.cookies.set('utm_params', utmData, {
       httpOnly: false, // Readable by booking checkout for attribution
