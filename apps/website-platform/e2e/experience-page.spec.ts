@@ -14,7 +14,7 @@ test.describe('Experience/Product Page', () => {
     await expect(page.locator('footer').first()).toBeVisible();
   });
 
-  test('experience cards are clickable and link to product pages', async ({ page }) => {
+  test('experience cards are clickable and link to product pages', async ({ page, context }) => {
     await page.goto('/experiences');
 
     // Look for experience card links (to /experiences/{id})
@@ -27,10 +27,14 @@ test.describe('Experience/Product Page', () => {
       expect(href).toBeTruthy();
       expect(href).toMatch(/^\/experiences\/.+/);
 
-      // Click and verify navigation
-      await experienceLinks.first().click();
-      await page.waitForURL('**/experiences/**');
-      expect(page.url()).toContain('/experiences/');
+      // Cards open in new tab (target="_blank") — listen for popup
+      const [newPage] = await Promise.all([
+        context.waitForEvent('page'),
+        experienceLinks.first().click(),
+      ]);
+      await newPage.waitForLoadState('domcontentloaded');
+      expect(newPage.url()).toContain('/experiences/');
+      await newPage.close();
     }
   });
 
