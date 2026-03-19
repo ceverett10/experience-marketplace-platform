@@ -23,6 +23,7 @@ import { ExperienceGallery } from '@/components/experiences/ExperienceGallery';
 import { BookingWidget } from '@/components/experiences/BookingWidget';
 import { TickittoBookingWidget } from '@/components/experiences/TickittoBookingWidget';
 import { ReviewsCarousel } from '@/components/experiences/ReviewsCarousel';
+import { ReviewsSection } from '@/components/experiences/ReviewsSection';
 import { AboutActivity } from '@/components/experiences/AboutActivity';
 import { MobileBookingCTA } from '@/components/experiences/MobileBookingCTA';
 import { RelatedExperiences } from '@/components/experiences/RelatedExperiences';
@@ -1102,7 +1103,7 @@ export default async function ExperienceDetailPage({ params }: Props) {
                 </section>
               )}
 
-              {/* Reviews section consolidated - ReviewsCarousel above handles the display */}
+              {/* Full reviews section rendered below the two-column grid */}
             </div>
 
             {/* Right Column - Booking Widget (Sticky) */}
@@ -1117,6 +1118,11 @@ export default async function ExperienceDetailPage({ params }: Props) {
             </div>
           </div>
         </div>
+
+        {/* Full Reviews Section */}
+        {experience.reviews && experience.reviews.length > 0 && (
+          <ReviewsSection reviews={experience.reviews} rating={experience.rating} />
+        )}
 
         {/* FAQ Section */}
         <section className="mx-auto max-w-7xl px-4 pb-8 sm:px-6 lg:px-8">

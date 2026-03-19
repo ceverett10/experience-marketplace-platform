@@ -56,7 +56,14 @@ export function ReviewsCarousel({ reviews, rating }: ReviewsCarouselProps) {
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-xl font-semibold text-gray-900">What travelers are saying</h2>
         {rating && (
-          <a href="#reviews" className="text-sm font-medium text-teal-600 hover:text-teal-700">
+          <a
+            href="#reviews"
+            onClick={(e) => {
+              e.preventDefault();
+              document.getElementById('reviews')?.scrollIntoView({ behavior: 'smooth' });
+            }}
+            className="text-sm font-medium text-teal-600 hover:text-teal-700"
+          >
             See all {rating.count.toLocaleString()} reviews
           </a>
         )}
