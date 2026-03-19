@@ -120,7 +120,7 @@ export async function findRelatedPages(params: {
 
       if (destinationPage) {
         relatedLinks.push({
-          url: `/destinations/${destinationPage.slug}`,
+          url: `/${destinationPage.slug}`, // slug already contains 'destinations/' prefix per convention
           anchorText: destinationPage.title,
           title: `Explore ${destinationPage.title}`,
           relevanceScore: 0.9,
@@ -191,10 +191,12 @@ export async function findRelatedPages(params: {
       if (relatedLinks.some((l) => l.url.includes(page.slug))) continue;
 
       const pageType = (page.type || 'blog').toLowerCase() as InternalLink['pageType'];
-      // Slugs are stored with their path prefix (e.g., 'blog/my-post'), so use '/' for blog
+      // Slugs are stored with their path prefix per convention:
+      // LANDING → 'destinations/city', BLOG → 'blog/post', CATEGORY → 'food-tours' (no prefix)
+      // So LANDING and BLOG use '/' only; CATEGORY and EXPERIENCE need their prefix prepended
       const urlPrefix =
         pageType === 'destination'
-          ? '/destinations/'
+          ? '/' // slug already contains 'destinations/' prefix
           : pageType === 'category'
             ? '/categories/'
             : pageType === 'experience'
