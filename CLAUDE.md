@@ -77,8 +77,20 @@ gh pr merge --auto --squash && git fetch origin main && git rebase origin/main &
 - `--auto` queues the merge — GitHub merges automatically once CI passes
 - `--squash` keeps `main` history clean (one commit per PR)
 - `--force-with-lease` is safe — it refuses to push if someone else pushed to your branch
-- After enabling auto-merge, you do NOT need to wait for CI — move on to the next task
 - If CI fails after rebase, fix the issue, push again, and auto-merge stays queued
+
+### PR Review Until Merge (MANDATORY)
+
+**Do not stop working on a PR until it has merged.** After creating a PR with auto-merge:
+
+1. Monitor CI checks until all pass (poll `gh pr view` every 60-90s)
+2. If any check fails, investigate immediately — read `gh run view --log-failed`, fix the issue, push
+3. If the branch is BEHIND main, update it (`gh api .../update-branch` or rebase + push)
+4. Once all checks pass and the PR is still not merged (e.g., branch protection), update the branch
+5. Only move on to the next task after confirming `"state": "MERGED"` in `gh pr view`
+
+This prevents stale PRs, undetected CI failures, and merge conflicts from piling up.
+The cost of watching a PR merge (~5 minutes) is far less than debugging a stale branch later.
 
 ## Commit Messages
 
