@@ -711,6 +711,9 @@ model Booking {
   gclid  String? // Google Ads click ID
   fbclid String? // Meta/Facebook click ID
 
+  // Partner tracking — passed to Holibob as partnerExternalReference for reconciliation
+  partnerExternalReference String?
+
   // Relationships — a booking belongs to either a Site or a MicrositeConfig
   site          Site?            @relation(fields: [siteId], references: [id])
   siteId        String?

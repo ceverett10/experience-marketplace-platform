@@ -104,11 +104,12 @@ export class ContentPipeline {
 CRITICAL GUIDELINES - You MUST follow these:
 1. NEVER make up or fabricate any information, facts, statistics, or details
 2. NEVER invent contact details (phone numbers, email addresses, physical addresses)
-3. This is a marketplace of travel experiences powered by Holibob - the content must reflect this
-4. Focus on the type of experience and destination, not specific operational details you don't know
-5. Use general calls-to-action like "Book now" or "Explore our experiences" rather than specific contact methods
-6. If you don't know something, describe the experience category generally rather than inventing specifics
-7. LEGAL JURISDICTION: The legal jurisdiction is always the United Kingdom. Any legal references, consumer rights, regulations, or compliance mentions must be based on UK law`;
+3. This is a travel experience marketplace — focus on the type of experience and destination, not specific operational details you don't know
+4. Use general calls-to-action like "Book now" or "Explore our experiences" rather than specific contact methods
+5. If you don't know something, describe the experience category generally rather than inventing specifics
+6. LEGAL JURISDICTION: The legal jurisdiction is always the United Kingdom. Any legal references, consumer rights, regulations, or compliance mentions must be based on UK law
+7. NEVER mention the name of any underlying technology, API provider, or platform powering the site (e.g. do not write "powered by Holibob" or reference any supplier platform by name in your output)
+8. NEVER invent certifications, accreditations, or industry affiliations — only reference credentials explicitly provided in the brand context above`;
 
     // Build comprehensive brand context section
     const buildBrandSection = () => {
@@ -443,7 +444,7 @@ This is an About Us page. You MUST follow these rules absolutely:
 
 ### STRUCTURE (follow this exactly):
 1. **H1: About ${brandName || 'Us'}**
-2. **Welcome paragraph** - What the site is (a curated marketplace for travel experiences powered by Holibob) and what type of experiences it focuses on
+2. **Welcome paragraph** - What the site is (a curated marketplace for travel experiences) and what type of experiences it focuses on
 3. **Our Mission** - Use ONLY the brand mission from the brand context above. If no mission is provided, write a general mission about connecting travelers with quality experiences
 4. **What We Offer** - Describe the TYPE of experiences available (use the category/destination info). Do NOT claim specific numbers
 5. **Our Approach** - How experiences are curated: browsing quality options, verified reviews from real travelers, transparent pricing. Do NOT claim to "personally vet" or have a "team of experts" unless this is true
@@ -499,7 +500,18 @@ ${brief.sourceData?.['questions'] ? `Use these real user questions from search d
 - Use H3 (###) for all questions - this enables FAQPage schema extraction
 - Keep answers concise but complete - 50-150 words each
 - Include relevant keywords naturally in both questions and answers
-- Link to relevant pages where appropriate (destinations, experiences)
+- DO NOT include any markdown links [text](url) — no links anywhere in the content
+
+### CRITICAL: NEVER FABRICATE
+- Certifications, accreditations, or industry affiliations (e.g. IATA, ISO 9001, SHRM, GSTC)
+- Statistics, percentages, or ratings (e.g. "98% satisfaction", "150+ destinations")
+- Specific pricing (e.g. "from £49", "£800-£1,500 per person")
+- Contact details: phone numbers, email addresses, physical addresses
+- Support hours or response-time SLAs (e.g. "24/7 support", "response within 4 hours")
+- Named guarantee products or price-match commitments
+- Proprietary tools, platforms, dashboards, or community features
+- Staff counts, facilitator networks, or team sizes
+- The name of the underlying platform or technology powering the site
 
 ### TOPIC ORGANIZATION EXAMPLE
 ## Booking & Pricing
@@ -536,7 +548,7 @@ IMPORTANT: Reference these actual experiences naturally in the content. Mention 
     : ''
 }
 ${brandSection}
-${aboutInstructions}${blogInstructions}
+${aboutInstructions}${blogInstructions}${faqInstructions}
 ## SEO OPTIMIZATION GUIDELINES
 - H1 TITLE: Create an engaging, click-worthy title (50-60 chars) with keyword near the start
 - META DESCRIPTION: The first paragraph should work as a meta description (150-160 chars) - compelling, includes keyword, has a clear value proposition
