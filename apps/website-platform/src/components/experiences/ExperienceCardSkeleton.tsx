@@ -7,8 +7,8 @@
 export function ExperienceCardSkeleton() {
   return (
     <div className="animate-pulse rounded-2xl border border-gray-100 bg-white">
-      {/* Image area — 4:3 aspect ratio */}
-      <div className="aspect-[4/3] rounded-t-2xl bg-gray-200" />
+      {/* Image area — 3:2 on mobile, 4:3 on desktop */}
+      <div className="aspect-[3/2] sm:aspect-[4/3] rounded-t-2xl bg-gray-200" />
 
       {/* Content */}
       <div className="flex flex-col p-4">
@@ -46,7 +46,7 @@ export function ExperienceCardSkeleton() {
 /** Grid of skeleton cards for loading state */
 export function ExperienceGridSkeleton({ count = 12 }: { count?: number }) {
   return (
-    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-3">
       {Array.from({ length: count }, (_, i) => (
         <ExperienceCardSkeleton key={i} />
       ))}

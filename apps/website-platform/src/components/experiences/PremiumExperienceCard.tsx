@@ -449,13 +449,13 @@ export function PremiumExperienceCard({
       {...linkProps}
       className={`group flex flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white transition-all duration-300 hover:border-gray-200 hover:shadow-xl hover:-translate-y-1 ${className}`}
     >
-      {/* Image Container - 4:3 aspect ratio like competitors */}
-      <div className="relative aspect-[4/3] overflow-hidden bg-gray-200">
+      {/* Image Container - 3:2 on mobile for compactness, 4:3 on desktop */}
+      <div className="relative aspect-[3/2] sm:aspect-[4/3] overflow-hidden bg-gray-200">
         <Image
           src={experience.imageUrl || '/placeholder-experience.jpg'}
           alt={experience.title}
           fill
-          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 50vw, 33vw"
           {...(priority ? { priority: true } : { loading: 'lazy' as const })}
           className="object-cover transition-transform duration-500 group-hover:scale-105"
           placeholder="blur"
@@ -493,9 +493,9 @@ export function PremiumExperienceCard({
       </div>
 
       {/* Content */}
-      <div className="flex flex-1 flex-col p-4">
+      <div className="flex flex-1 flex-col p-3 sm:p-4">
         {/* Title - Most prominent */}
-        <h3 className="text-[15px] font-semibold leading-snug text-gray-900 line-clamp-2 group-hover:text-teal-700">
+        <h3 className="text-[13px] sm:text-[15px] font-semibold leading-snug text-gray-900 line-clamp-2 group-hover:text-teal-700">
           {experience.title}
         </h3>
 
@@ -562,8 +562,8 @@ export function PremiumExperienceCard({
             showFrom={false}
           />
         </div>
-        {/* Trust Signals */}
-        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-500">
+        {/* Trust Signals - hidden on mobile for compactness */}
+        <div className="mt-2 hidden sm:flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-500">
           <span className="flex items-center gap-1">
             <svg className="h-3 w-3 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
               <path

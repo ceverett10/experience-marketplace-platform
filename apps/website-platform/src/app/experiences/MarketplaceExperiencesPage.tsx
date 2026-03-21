@@ -301,7 +301,7 @@ export function MarketplaceExperiencesPage({
                   </div>
 
                   {/* Grid */}
-                  <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+                  <div className="grid grid-cols-2 gap-3 sm:gap-6 xl:grid-cols-3">
                     {experiences.map((experience, index) => (
                       <PremiumExperienceCard
                         key={experience.id}
