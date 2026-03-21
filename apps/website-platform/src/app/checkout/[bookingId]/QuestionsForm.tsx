@@ -125,7 +125,7 @@ function DynamicQuestionField({
   onChange: (value: string) => void;
   error?: string;
 }) {
-  const inputClass = `w-full rounded-lg border px-4 py-3 text-sm transition-colors focus:outline-none focus:ring-2 ${
+  const inputClass = `w-full rounded-lg border px-4 py-3 text-base sm:text-sm transition-colors focus:outline-none focus:ring-2 ${
     error
       ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
       : 'border-gray-300 focus:border-teal-500 focus:ring-teal-500'
