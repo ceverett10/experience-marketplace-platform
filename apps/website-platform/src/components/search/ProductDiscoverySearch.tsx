@@ -627,7 +627,7 @@ export function ProductDiscoverySearch({
           value={value}
           onChange={(e) => setter(e.target.value)}
           placeholder={config.placeholder}
-          className="mb-3 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:border-transparent focus:outline-none focus:ring-2"
+          className="mb-3 w-full rounded-xl border border-gray-200 px-4 py-3 text-base sm:text-sm focus:border-transparent focus:outline-none focus:ring-2"
           style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
           autoFocus
           onKeyDown={(e) => handleKeyDown(e, section)}
