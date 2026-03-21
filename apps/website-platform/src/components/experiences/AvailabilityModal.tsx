@@ -444,7 +444,7 @@ export function AvailabilityModal({
                         key={slot.id}
                         onClick={() => setSelectedSlot(slot)}
                         data-testid={`date-slot-${slot.id}`}
-                        className={`flex items-center justify-between gap-2 rounded-xl border-2 p-4 text-left transition-all ${
+                        className={`flex items-center justify-between gap-2 rounded-lg border p-3 sm:rounded-xl sm:border-2 sm:p-4 text-left transition-all ${
                           selectedSlot?.id === slot.id
                             ? 'border-teal-500 bg-teal-50'
                             : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
@@ -456,7 +456,9 @@ export function AvailabilityModal({
                         }
                       >
                         <div className="min-w-0">
-                          <p className="font-medium text-gray-900">{formatDate(slot.date)}</p>
+                          <p className="text-sm sm:text-base font-medium text-gray-900">
+                            {formatDate(slot.date)}
+                          </p>
                         </div>
                         {slot.guidePriceFormattedText &&
                           !/^\s*[^\d]*\s*0[.,]00\s*$/.test(slot.guidePriceFormattedText) && (
