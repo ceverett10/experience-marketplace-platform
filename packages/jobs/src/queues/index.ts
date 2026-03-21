@@ -36,8 +36,10 @@ const DAILY_BUDGET: Record<QueueName, number> = {
  */
 const QUEUE_CONFIG: Record<QueueName, { timeout: number; attempts: number; backoffDelay: number }> =
   {
-    // Content: AI generation via Anthropic — can be slow, needs generous timeout
-    [QUEUE_NAMES.CONTENT]: { timeout: 300_000, attempts: 3, backoffDelay: 10_000 },
+    // Content: AI generation via Anthropic — up to 5 Sonnet calls (draft+assess+3 rewrites).
+    // Timeout must exceed worst-case pipeline duration including rate-limit backoff.
+    // lockDuration = timeout + 60s (see worker-common makeWorkerOptions).
+    [QUEUE_NAMES.CONTENT]: { timeout: 900_000, attempts: 3, backoffDelay: 10_000 },
     // SEO: Mix of DB queries and external API calls
     [QUEUE_NAMES.SEO]: { timeout: 180_000, attempts: 5, backoffDelay: 15_000 },
     // GSC: Google API calls — moderate timeout, retry for transient auth issues

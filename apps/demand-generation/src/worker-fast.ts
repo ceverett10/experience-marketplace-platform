@@ -3,7 +3,7 @@
  *
  * Handles: Content, SEO, Analytics, A/B Test, Social, Microsite
  * Dyno: Standard-2X (1GB)
- * Total concurrency: ~20
+ * Total concurrency: ~16
  */
 
 import { Worker, type Job } from 'bullmq';
@@ -74,7 +74,9 @@ import {
 
 const connection = createConnection();
 
-// ── Content Worker (concurrency 5) ──────────────────────────────────────
+// ── Content Worker (concurrency 1) ──────────────────────────────────────
+// Concurrency kept at 1: multiple concurrent Sonnet calls trigger Anthropic rate limits,
+// causing each job to wait longer and eventually stall (exceed lockDuration).
 const contentWorker = new Worker(
   QUEUE_NAMES.CONTENT,
   async (job: Job) => {
@@ -116,7 +118,7 @@ const contentWorker = new Worker(
         throw new Error(`Unknown job type: ${job.name}`);
     }
   },
-  makeWorkerOptions(connection, QUEUE_NAMES.CONTENT, 5)
+  makeWorkerOptions(connection, QUEUE_NAMES.CONTENT, 1)
 );
 
 // ── SEO Worker (concurrency 3) ─────────────────────────────────────────
@@ -281,7 +283,7 @@ startMemoryMonitoring(connection);
 setupGracefulShutdown(workers, connection);
 
 logBanner('Worker Fast Process', [
-  'Content (concurrency 5)',
+  'Content (concurrency 1)',
   'SEO (concurrency 3)',
   'Analytics (concurrency 3)',
   'A/B Test (concurrency 5)',
