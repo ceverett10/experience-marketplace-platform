@@ -1,6 +1,6 @@
-import { Job } from 'bullmq';
+import { type Job } from 'bullmq';
 import { prisma, PageType, PageStatus } from '@experience-marketplace/database';
-import { createClaudeClient } from '@experience-marketplace/content-engine';
+import { getSharedClaudeClient } from '@experience-marketplace/content-engine';
 import type {
   SiteCreatePayload,
   SiteDeployPayload,
@@ -911,9 +911,7 @@ async function generateBrandIdentity(
 
   // Generate brand with AI
   try {
-    const client = createClaudeClient({
-      apiKey: process.env['ANTHROPIC_API_KEY'] || process.env['CLAUDE_API_KEY'] || '',
-    });
+    const client = getSharedClaudeClient();
 
     const prompt = `Generate a brand identity for a travel experience marketplace focusing on:
 - Location: ${opportunity.location}

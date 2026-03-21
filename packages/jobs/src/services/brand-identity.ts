@@ -8,7 +8,7 @@
  * - Brand story and positioning
  */
 
-import { createClaudeClient } from '@experience-marketplace/content-engine';
+import { getSharedClaudeClient } from '@experience-marketplace/content-engine';
 import { prisma } from '@experience-marketplace/database';
 import { enrichHomepageConfigWithImages } from './unsplash-images.js';
 
@@ -78,9 +78,7 @@ export async function generateComprehensiveBrandIdentity(
   providedConfig?: Partial<ComprehensiveBrandIdentity>
 ): Promise<ComprehensiveBrandIdentity> {
   try {
-    const client = createClaudeClient({
-      apiKey: process.env['ANTHROPIC_API_KEY'] || process.env['CLAUDE_API_KEY'] || '',
-    });
+    const client = getSharedClaudeClient();
 
     const entityName = opportunity.entityName || opportunity.keyword;
     const prompt = `You are a brand strategist creating a brand identity for a travel experience website.
@@ -222,9 +220,7 @@ export async function generateLightweightBrandIdentity(
   opportunity: OpportunityContext
 ): Promise<ComprehensiveBrandIdentity> {
   try {
-    const client = createClaudeClient({
-      apiKey: process.env['ANTHROPIC_API_KEY'] || process.env['CLAUDE_API_KEY'] || '',
-    });
+    const client = getSharedClaudeClient();
 
     const entityName = opportunity.entityName || opportunity.keyword;
     const location = opportunity.location || '';
@@ -636,9 +632,7 @@ export async function generateHomepageConfig(
   brandIdentity: ComprehensiveBrandIdentity
 ): Promise<HomepageConfig> {
   try {
-    const client = createClaudeClient({
-      apiKey: process.env['ANTHROPIC_API_KEY'] || process.env['CLAUDE_API_KEY'] || '',
-    });
+    const client = getSharedClaudeClient();
 
     const prompt = `You are configuring a homepage for a travel experience marketplace website.
 

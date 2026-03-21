@@ -1,6 +1,6 @@
-import { Job } from 'bullmq';
+import { type Job } from 'bullmq';
 import { prisma } from '@experience-marketplace/database';
-import { createClaudeClient } from '@experience-marketplace/content-engine';
+import { getSharedClaudeClient } from '@experience-marketplace/content-engine';
 import type {
   MetricsAggregatePayload,
   PerformanceReportPayload,
@@ -771,9 +771,7 @@ async function generateInsights(
   kpis: any,
   reportType: string
 ): Promise<{ insights: string[]; recommendations: string[] }> {
-  const client = createClaudeClient({
-    apiKey: process.env['ANTHROPIC_API_KEY'] || process.env['CLAUDE_API_KEY'] || '',
-  });
+  const client = getSharedClaudeClient();
 
   const prompt = `Analyze this ${reportType} SEO performance data and provide insights:
 
