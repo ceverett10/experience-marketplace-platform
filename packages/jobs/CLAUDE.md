@@ -58,6 +58,7 @@ Key schedules (UTC):
 - Queue cleanup: hourly
 - Pipeline health check: 9 AM daily
 - Meta title maintenance: Sundays 8 AM
+- Booking status sync: every 15 minutes (no-ops if no pending bookings)
 
 ## Paid Traffic / Bidding Engine
 

@@ -304,6 +304,7 @@ async function validateTaskArtifacts(
     PAID_KEYWORD_SCAN: { valid: true },
     BIDDING_ENGINE_RUN: { valid: true },
     KEYWORD_ENRICHMENT: { valid: true },
+    BOOKING_STATUS_SYNC: { valid: true },
   };
 }
 
@@ -596,6 +597,10 @@ export const TASK_DESCRIPTIONS: Record<JobType, { label: string; description: st
   KEYWORD_ENRICHMENT: {
     label: 'Keyword Enrichment',
     description: 'Extract keyword seeds from product data and validate via DataForSEO',
+  },
+  BOOKING_STATUS_SYNC: {
+    label: 'Booking Status Sync',
+    description: 'Check pending bookings against Holibob and update their status',
   },
 };
 

@@ -17,6 +17,7 @@ import {
   handleBulkProductSync,
   handleKeywordEnrichment,
   handleSupplierEnrich,
+  handleBookingStatusSync,
   // Paid traffic handlers
   handlePaidKeywordScan,
   handleAdCampaignSync,
@@ -63,6 +64,8 @@ const syncWorker = new Worker(
         return await handleKeywordEnrichment(job);
       case 'SUPPLIER_ENRICH':
         return await handleSupplierEnrich(job);
+      case 'BOOKING_STATUS_SYNC':
+        return await handleBookingStatusSync(job);
       default:
         throw new Error(`Unknown job type: ${job.name}`);
     }

@@ -441,6 +441,13 @@ export interface KeywordEnrichmentPayload {
   location?: string;
 }
 
+export interface BookingStatusSyncPayload {
+  /** Specific booking IDs to check. If omitted, checks all PENDING bookings. */
+  bookingIds?: string[];
+  /** Max age in hours — only check bookings created within this window. Default: 48 */
+  maxAgeHours?: number;
+}
+
 /**
  * Union type of all job payloads
  */
@@ -494,7 +501,8 @@ export type JobPayload =
   | AdBudgetOptimizerPayload
   | PaidKeywordScanPayload
   | BiddingEngineRunPayload
-  | KeywordEnrichmentPayload;
+  | KeywordEnrichmentPayload
+  | BookingStatusSyncPayload;
 
 /**
  * Job configuration options
@@ -608,6 +616,9 @@ export const JOB_TYPE_TO_QUEUE: Record<string, QueueName> & Record<JobType, Queu
   PRODUCT_SYNC_INCREMENTAL: QUEUE_NAMES.SYNC,
   BULK_PRODUCT_SYNC: QUEUE_NAMES.SYNC,
   SUPPLIER_ENRICH: QUEUE_NAMES.SYNC,
+
+  // Booking
+  BOOKING_STATUS_SYNC: QUEUE_NAMES.SYNC,
 
   // Analytics (scheduled jobs)
   GA4_DAILY_SYNC: QUEUE_NAMES.ANALYTICS,

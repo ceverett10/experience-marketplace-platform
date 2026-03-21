@@ -168,6 +168,7 @@ class QueueRegistry {
       'AD_PLATFORM_IDS_SYNC', // Fetches pixel/conversion IDs from ad platforms, no single siteId
       'AD_CREATIVE_REFRESH', // Refreshes ad creatives across all deployed campaigns, no single siteId
       'SEO_AUTO_OPTIMIZE', // Can be triggered for microsites with micrositeId instead of siteId
+      'BOOKING_STATUS_SYNC', // Checks all pending bookings across sites, no single siteId
     ];
     if (!siteId && rawSiteId !== 'all' && !siteOptionalTypes.includes(jobType)) {
       const hasDomainId = !!(payload as { domainId?: string }).domainId;

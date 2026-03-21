@@ -6,7 +6,12 @@
 
 import { type Job } from 'bullmq';
 import { prisma } from '@experience-marketplace/database';
-import type { JobResult, SupplierSyncPayload, ProductSyncPayload } from '../types/index.js';
+import type {
+  JobResult,
+  SupplierSyncPayload,
+  ProductSyncPayload,
+  BookingStatusSyncPayload,
+} from '../types/index.js';
 import { syncSuppliersFromHolibob } from '../services/supplier-sync.js';
 import {
   syncProductsFromHolibob,
@@ -17,6 +22,7 @@ import { enrichSupplierLocations } from '../services/supplier-enrichment.js';
 import type { SupplierEnrichmentOptions } from '../services/supplier-enrichment.js';
 import { canExecuteAutonomousOperation } from '../services/pause-control.js';
 import { addJob } from '../queues/index.js';
+import { syncPendingBookingStatuses } from '../services/booking-status-sync.js';
 
 // Microsite creation thresholds
 const PARENT_DOMAIN = 'experiencess.com';
@@ -299,6 +305,45 @@ export async function handleSupplierEnrich(
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error during supplier enrichment',
+      timestamp: new Date(),
+    };
+  }
+}
+
+/**
+ * Booking Status Sync Worker
+ * Checks PENDING bookings against Holibob and updates their status.
+ * No-ops when there are no pending bookings.
+ */
+export async function handleBookingStatusSync(
+  job: Job<BookingStatusSyncPayload>
+): Promise<JobResult> {
+  try {
+    console.info('[Booking Sync Worker] Starting booking status sync...');
+
+    const result = await syncPendingBookingStatuses({
+      bookingIds: job.data.bookingIds,
+      maxAgeHours: job.data.maxAgeHours,
+    });
+
+    return {
+      success: true,
+      message: `Booking sync: ${result.checked} checked, ${result.confirmed} confirmed, ${result.cancelled} cancelled, ${result.stillPending} still pending`,
+      data: {
+        checked: result.checked,
+        confirmed: result.confirmed,
+        cancelled: result.cancelled,
+        stillPending: result.stillPending,
+        errors: result.errors,
+      },
+      timestamp: new Date(),
+    };
+  } catch (error) {
+    console.error('[Booking Sync Worker] Fatal error:', error);
+
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error during booking status sync',
       timestamp: new Date(),
     };
   }
