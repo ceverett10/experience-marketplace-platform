@@ -100,6 +100,18 @@ interface MicrositeConfig {
 const micrositeCache = new Map<string, { config: unknown | null; expiresAt: number }>();
 const MICROSITE_CACHE_TTL_MS = 60 * 1000; // 1 minute in-memory cache
 
+// Evict expired entries every 2 minutes so the map doesn't grow unboundedly.
+// Without this, entries expire logically but remain allocated in memory forever.
+setInterval(
+  () => {
+    const now = Date.now();
+    for (const [key, entry] of micrositeCache.entries()) {
+      if (entry.expiresAt <= now) micrositeCache.delete(key);
+    }
+  },
+  2 * 60 * 1000
+);
+
 // Homepage configuration for site-specific customization
 export interface HomepageConfig {
   hero?: {

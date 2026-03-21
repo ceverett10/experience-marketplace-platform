@@ -11,6 +11,17 @@ import { prisma } from '@/lib/prisma';
 const blogCheckCache = new Map<string, { hasPosts: boolean; expiresAt: number }>();
 const BLOG_CACHE_TTL = 5 * 60 * 1000;
 
+// Evict expired entries every 10 minutes so the map doesn't accumulate stale site entries.
+setInterval(
+  () => {
+    const now = Date.now();
+    for (const [key, entry] of blogCheckCache.entries()) {
+      if (entry.expiresAt <= now) blogCheckCache.delete(key);
+    }
+  },
+  10 * 60 * 1000
+);
+
 async function hasBlogPosts(key: string, where: Record<string, unknown>): Promise<boolean> {
   const cached = blogCheckCache.get(key);
   if (cached && cached.expiresAt > Date.now()) return cached.hasPosts;

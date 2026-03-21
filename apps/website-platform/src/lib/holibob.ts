@@ -8,7 +8,10 @@ import { createHolibobClient, type HolibobClient } from '@experience-marketplace
 import type { SiteConfig } from './tenant';
 import { CURRENCY_COOKIE, currencyToLocale, getEffectiveCurrency } from './currency';
 
-// Cache clients per partner ID
+// Cache clients per partner+currency combination.
+// Max 50 entries — covers all realistic partnerId × currency combinations.
+// If exceeded (e.g. unusual currencies), clear and rebuild from scratch.
+const CLIENT_CACHE_MAX = 50;
 const clientCache = new Map<string, HolibobClient>();
 
 /**
@@ -67,7 +70,8 @@ export async function getHolibobClient(site: SiteConfig): Promise<HolibobClient>
     retries: 3,
   });
 
-  // Cache it
+  // Cache it — clear all if cap exceeded to keep memory bounded
+  if (clientCache.size >= CLIENT_CACHE_MAX) clientCache.clear();
   clientCache.set(cacheKey, client);
 
   return client;
