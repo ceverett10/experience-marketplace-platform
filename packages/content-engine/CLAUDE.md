@@ -4,12 +4,12 @@ Claude API-powered content generation pipeline. Used by `jobs` package for auton
 
 ## Pipeline
 
-Draft → Quality Assess (0-100 score) → Rewrite (max 3 iterations) → Publish
+Draft → Quality Assess (0-100 score) → Rewrite (max 1 iteration) → Publish
 
 - **Auto-publish**: Score >= 90
 - **Pass threshold**: Score >= 75
 - **Min improvement**: 5 points per rewrite to continue iterating
-- **Max rewrites**: 3
+- **Max rewrites**: 1 (Sonnet produces high-quality drafts; extra rewrites add latency without meaningful gain)
 
 ## Models
 
