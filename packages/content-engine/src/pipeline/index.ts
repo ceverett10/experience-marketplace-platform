@@ -171,12 +171,12 @@ ${cg.contentPillars?.length ? `- Content Pillars: ${cg.contentPillars.join(', ')
     const brandSection = buildBrandSection();
     const brandName = brief.brandContext?.siteName || 'the brand';
 
-    let systemPrompt = `You are an expert travel content writer creating SEO-optimized, engaging content for ${brandName}, a travel experience marketplace powered by Holibob.
+    let systemPrompt = `You are an expert travel content writer creating SEO-optimized, engaging content for ${brandName}, a curated travel experience marketplace.
 ${coreGuidelines}`;
 
     if (brief.brandContext?.toneOfVoice) {
       const { personality, writingStyle } = brief.brandContext.toneOfVoice;
-      systemPrompt = `You are an expert travel content writer creating SEO-optimized content for ${brandName}, a travel experience marketplace powered by Holibob.
+      systemPrompt = `You are an expert travel content writer creating SEO-optimized content for ${brandName}, a curated travel experience marketplace.
 
 Your writing style is: ${writingStyle || 'clear, authoritative, and trustworthy'}
 Your personality traits are: ${personality?.join(', ') || 'professional, knowledgeable, helpful'}
@@ -186,7 +186,7 @@ Every piece of content should feel authentic, expert-driven, and aligned with th
 ${brandSection}
 ${coreGuidelines}`;
     } else if (brandSection) {
-      systemPrompt = `You are an expert travel content writer creating SEO-optimized, engaging content for ${brandName}, a travel experience marketplace powered by Holibob.
+      systemPrompt = `You are an expert travel content writer creating SEO-optimized, engaging content for ${brandName}, a curated travel experience marketplace.
 ${brandSection}
 ${coreGuidelines}`;
     }

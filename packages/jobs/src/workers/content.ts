@@ -160,12 +160,11 @@ function sanitizeContentLinks(
     // Strip the anchor portion for path validation
     const pathWithoutAnchor = path.split('#')[0] || path;
 
-    // Check if internal link matches a valid route prefix
+    // Check if internal link matches a valid route prefix.
+    // Query-string-only links like /experiences?q=... are NOT valid — they are AI-fabricated
+    // search links, not real pages. Only allow exact path matches or path-prefixed links.
     const isValidPrefix = VALID_ROUTE_PREFIXES.some(
-      (prefix) =>
-        pathWithoutAnchor === prefix ||
-        pathWithoutAnchor.startsWith(prefix + '?') ||
-        pathWithoutAnchor.startsWith(prefix + '/')
+      (prefix) => pathWithoutAnchor === prefix || pathWithoutAnchor.startsWith(prefix + '/')
     );
 
     if (isValidPrefix) {
