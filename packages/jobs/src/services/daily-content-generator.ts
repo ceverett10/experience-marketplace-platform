@@ -334,6 +334,9 @@ export async function generateFAQHubForSite(
     },
   });
 
+  // Fetch real Holibob experiences to ground FAQ answers in actual pricing/duration data
+  const faqExperiences = await fetchExperiencesForFAQ(site.niche, site.location);
+
   await addJob(
     'CONTENT_GENERATE',
     {
@@ -341,7 +344,11 @@ export async function generateFAQHubForSite(
       pageId: faqPage.id,
       contentType: 'faq',
       targetKeyword: `${site.niche} FAQ`,
-      sourceData: { questions: allQuestions.slice(0, 15), contentSubtype: 'faq_hub' },
+      sourceData: {
+        questions: allQuestions.slice(0, 15),
+        contentSubtype: 'faq_hub',
+        ...(faqExperiences.length > 0 ? { experiences: faqExperiences } : {}),
+      },
     },
     staggerDelayMs ? { delay: staggerDelayMs } : undefined
   );
@@ -974,6 +981,39 @@ async function filterEligibleSites(
     default:
       // For comparison, content_refresh, local_guide — keep all sites
       return sites;
+  }
+}
+
+/**
+ * Fetch a sample of real Holibob experiences to ground FAQ answers in actual
+ * pricing and duration data, preventing fabricated numbers.
+ */
+async function fetchExperiencesForFAQ(
+  niche: string,
+  location?: string
+): Promise<Array<{ title: string; city?: string; duration?: string; priceFrom?: number }>> {
+  const apiUrl = process.env['HOLIBOB_API_URL'];
+  const partnerId = process.env['HOLIBOB_PARTNER_ID'];
+  const apiKey = process.env['HOLIBOB_API_KEY'];
+  const apiSecret = process.env['HOLIBOB_API_SECRET'];
+
+  if (!apiUrl || !partnerId || !apiKey) return [];
+
+  try {
+    const client = createHolibobClient({ apiUrl, partnerId, apiKey, apiSecret });
+    const query = location ? `${niche} ${location}` : niche;
+    const response = await client.discoverProducts(
+      { freeText: query, currency: 'GBP' },
+      { pageSize: 8 }
+    );
+    return response.products.map((p) => ({
+      title: p.name,
+      city: p.place?.cityName ?? undefined,
+      duration: p.durationText ?? undefined,
+      priceFrom: p.priceFrom ?? undefined,
+    }));
+  } catch {
+    return [];
   }
 }
 

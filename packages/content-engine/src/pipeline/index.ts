@@ -458,6 +458,9 @@ Target: ${brief.targetLength.min}-${brief.targetLength.max} words.
         : '';
 
     // Blog-specific instructions for focused, concise content
+    const isComparison = brief.sourceData?.['contentSubtype'] === 'comparison';
+    const comparedItems = brief.sourceData?.['comparedItems'] as [string, string] | undefined;
+
     const blogInstructions =
       brief.type === 'blog'
         ? `
@@ -468,11 +471,35 @@ Target: ${brief.targetLength.min}-${brief.targetLength.max} words total.
 
 ## BLOG POST STRUCTURE
 1. Engaging H1 title (include primary keyword)
-2. Brief intro paragraph (2-3 sentences)
-3. 3-5 main sections with H2 headings
-4. Practical tips or actionable advice
-5. MANDATORY FAQ SECTION: Include a "## Frequently Asked Questions" section with 3-5 questions formatted as "### Question?" headings followed by paragraph answers. Questions should target real search queries related to "${brief.targetKeyword}".
-6. Clear conclusion with call-to-action${brandName ? ` for ${brandName}` : ''}
+2. Brief intro paragraph (2-3 sentences max)
+3. **## TL;DR** section immediately after the intro — 4-6 bullet points summarising the key takeaways for readers who want the short version. This is essential for AI citation (ChatGPT, Perplexity, Google AI Overviews extract this). Example format:
+   - Walking tours typically last 2–3 hours and cost £15–£40 per person
+   - Best time to visit: spring and autumn for smaller crowds
+   - Free cancellation available on most experiences
+   - Suitable for all fitness levels
+${
+  isComparison && comparedItems
+    ? `
+## COMPARISON TABLE REQUIRED
+This is a comparison article. Include a structured markdown comparison table in the first main section after TL;DR:
+
+| Feature | ${comparedItems[0]} | ${comparedItems[1]} |
+|---------|---------|---------|
+| Price range | ... | ... |
+| Duration | ... | ... |
+| Best for | ... | ... |
+| Group size | ... | ... |
+| Highlights | ... | ... |
+| Book in advance? | ... | ... |
+
+Fill in realistic values based on the experiences available on this site. This table is critical for AI citation.
+`
+    : ''
+}
+4. 3-5 main sections with H2 headings
+5. Practical tips or actionable advice
+6. MANDATORY FAQ SECTION: Include a "## Frequently Asked Questions" section with 3-5 questions formatted as "### Question?" headings followed by paragraph answers. Questions should target real search queries related to "${brief.targetKeyword}".
+7. Clear conclusion with call-to-action${brandName ? ` for ${brandName}` : ''}
 
 `
         : '';
@@ -502,10 +529,17 @@ ${brief.sourceData?.['questions'] ? `Use these real user questions from search d
 - Include relevant keywords naturally in both questions and answers
 - DO NOT include any markdown links [text](url) — no links anywhere in the content
 
+### PRICING & DURATION DATA
+${
+  brief.sourceData?.['experiences']
+    ? `Real experience data is provided in this brief (SITE EXPERIENCES section). You MUST use these actual prices and durations in your answers. For example, if the data shows experiences priced from £35, you should answer "How much does it cost?" with "Prices start from £35 per person" — this is real data, not fabricated.`
+    : `Do not invent specific prices or durations — use ranges like "typically £20–£60 per person" or "most tours last 2–3 hours" based on general knowledge of the activity type.`
+}
+
 ### CRITICAL: NEVER FABRICATE
 - Certifications, accreditations, or industry affiliations (e.g. IATA, ISO 9001, SHRM, GSTC)
 - Statistics, percentages, or ratings (e.g. "98% satisfaction", "150+ destinations")
-- Specific pricing (e.g. "from £49", "£800-£1,500 per person")
+- Specific pricing UNLESS it comes from the SITE EXPERIENCES data provided in this brief
 - Contact details: phone numbers, email addresses, physical addresses
 - Support hours or response-time SLAs (e.g. "24/7 support", "response within 4 hours")
 - Named guarantee products or price-match commitments
