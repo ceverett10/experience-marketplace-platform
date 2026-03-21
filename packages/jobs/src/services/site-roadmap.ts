@@ -600,7 +600,7 @@ export const TASK_DESCRIPTIONS: Record<JobType, { label: string; description: st
   },
   BOOKING_STATUS_SYNC: {
     label: 'Booking Status Sync',
-    description: 'Sync pending booking statuses from Holibob',
+    description: 'Check pending bookings against Holibob and update their status',
   },
 };
 
