@@ -213,6 +213,51 @@ async function getExistingPageSlugsByMicrosite(micrositeId: string): Promise<Set
 }
 
 /**
+ * Strip AI-generated placeholder text that was never filled in.
+ *
+ * Covers two categories:
+ * 1. [Your actual phone number] / [Your email address] — contact detail placeholders
+ *    the AI leaves when it doesn't know real business info.
+ * 2. [INSERT ...] / [PLACEHOLDER] / {{variable}} — template-style instructions
+ *    the AI mistakenly includes in output.
+ *
+ * Section headings formatted as [Your Rights] / [Your Consumer Protections] are
+ * converted to plain text (brackets stripped) rather than deleted, since they
+ * are valid heading text just wrapped incorrectly.
+ */
+function sanitizePlaceholders(content: string): { sanitized: string; removedCount: number } {
+  let removedCount = 0;
+  let sanitized = content;
+
+  // Remove lines containing contact-detail placeholders (entire line — never valid)
+  sanitized = sanitized.replace(
+    /^[^\n]*\[Your (?:actual )?(?:phone|email|address|website|URL|operating hours|service coverage|name|company)[^\]]*\][^\n]*$/gim,
+    () => {
+      removedCount++;
+      return '';
+    }
+  );
+
+  // Remove template-style placeholders: [INSERT ...], [PLACEHOLDER ...], {{...}}, YOUR_VARIABLE
+  sanitized = sanitized.replace(
+    /\[INSERT[^\]]*\]|\[PLACEHOLDER[^\]]*\]|\{\{[^}]+\}\}|YOUR_[A-Z_]{3,}/gi,
+    () => {
+      removedCount++;
+      return '';
+    }
+  );
+
+  // Convert section-heading placeholders like [Your Rights] → plain text (brackets stripped)
+  sanitized = sanitized.replace(/\[Your ([A-Z][^\]]{2,40})\]/g, (_match, inner) => {
+    removedCount++;
+    return inner;
+  });
+
+  sanitized = sanitized.replace(/\n{3,}/g, '\n\n').trim();
+  return { sanitized, removedCount };
+}
+
+/**
  * Sanitize About Us content to remove AI-fabricated claims.
  * The AI tends to fabricate credentials, certifications, and partnership claims
  * that could be misleading to users or create legal liability.
@@ -875,8 +920,16 @@ async function handleMicrositePageContentGenerate(params: {
       console.log(`[Content Generate - Microsite] Removed ${removedCount} invalid links`);
     }
 
+    const { sanitized: placeholderSanitized, removedCount: placeholderCount } =
+      sanitizePlaceholders(sanitizedContent);
+    if (placeholderCount > 0) {
+      console.info(
+        `[Content Generate - Microsite] Removed ${placeholderCount} placeholder tokens from content`
+      );
+    }
+
     // Inject cross-site links to related microsites for SEO
-    let finalMicrositeContent = sanitizedContent;
+    let finalMicrositeContent = placeholderSanitized;
     try {
       const crossSiteResult = await suggestCrossSiteLinks({
         micrositeId,
@@ -1151,10 +1204,17 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
       );
     }
 
+    // Strip any placeholder tokens the AI left unfilled
+    const { sanitized: phSanitized, removedCount: phCount } =
+      sanitizePlaceholders(sanitizedContent);
+    if (phCount > 0) {
+      console.info(`[Content Generate] Removed ${phCount} placeholder tokens from content`);
+    }
+
     // For about pages, also sanitize fabricated credential/partnership claims
-    let postSanitized = sanitizedContent;
+    let postSanitized = phSanitized;
     if (contentType === 'about') {
-      const { sanitized: claimSanitized, claimsRemoved } = sanitizeAboutContent(sanitizedContent);
+      const { sanitized: claimSanitized, claimsRemoved } = sanitizeAboutContent(phSanitized);
       if (claimsRemoved > 0) {
         console.log(
           `[Content Generate] Removed ${claimsRemoved} fabricated claims from about page content`
@@ -1434,8 +1494,16 @@ async function handleContentOptimizeBatch(siteId: string): Promise<JobResult> {
         );
       }
 
+      const { sanitized: placeholderClean, removedCount: phOptCount } =
+        sanitizePlaceholders(sanitizedBody);
+      if (phOptCount > 0) {
+        console.info(
+          `[Content Optimize] Page "${page.slug}": removed ${phOptCount} placeholder tokens`
+        );
+      }
+
       // Enhance internal links now that all pages exist for the site
-      let enhancedBody = sanitizedBody;
+      let enhancedBody = placeholderClean;
       if (contentType !== 'about') {
         const linkSuggestion = await suggestInternalLinks({
           siteId,

@@ -244,6 +244,11 @@ export async function initializeScheduledJobs(): Promise<void> {
   // MICROSITE SYSTEM
   // =========================================================================
 
+  await scheduleJob('BOOKING_STATUS_SYNC' as any, {} as any, '*/15 * * * *');
+  console.info(
+    '[Scheduler] ✓ Booking Status Sync - Every 15 minutes (no-ops if no pending bookings)'
+  );
+
   await scheduleJob('SUPPLIER_SYNC' as any, { forceSync: false }, '0 2 * * *');
   console.info('[Scheduler] ✓ Supplier Sync - Daily at 2 AM');
 
