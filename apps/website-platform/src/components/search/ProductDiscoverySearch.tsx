@@ -675,21 +675,85 @@ export function ProductDiscoverySearch({
     );
   };
 
-  // Mobile bottom sheet dropdown
+  // Mobile full-screen search overlay — keeps input visible above keyboard
   const renderMobileBottomSheet = () => {
     if (!activeSection) return null;
 
+    const config = sectionConfig[activeSection];
+    const { value, setter } = sectionValues[activeSection];
+    const suggestions = getSuggestionsForSection(activeSection);
+    const showLoading =
+      isLoadingSuggestions && (activeSection === 'where' || activeSection === 'what');
+    const Icon = config.icon;
+
     return (
-      <div className="fixed inset-0 z-[100] md:hidden">
-        {/* Backdrop */}
-        <div className="absolute inset-0 bg-black/40" onClick={() => setActiveSection(null)} />
-        {/* Sheet */}
-        <div className="search-sheet-enter absolute inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-2xl bg-white px-5 pb-8 pt-3 shadow-2xl">
-          {/* Drag handle */}
-          <div className="mb-4 flex justify-center">
-            <div className="h-1.5 w-10 rounded-full bg-gray-300" />
+      <div className="fixed inset-0 z-[100] flex flex-col bg-white md:hidden">
+        {/* Fixed header with close + input */}
+        <div className="flex-shrink-0 border-b border-gray-100 px-4 pb-4 pt-3">
+          <div className="mb-3 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm font-medium text-gray-900">
+              <Icon className="h-4 w-4 text-gray-500" />
+              <span>{config.label}</span>
+              <span className="font-normal text-gray-500">{config.subtitle}</span>
+            </div>
+            <button
+              onClick={() => setActiveSection(null)}
+              className="rounded-full p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              aria-label="Close"
+            >
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
-          {renderDropdownContent(activeSection)}
+          <input
+            type="text"
+            value={value}
+            onChange={(e) => setter(e.target.value)}
+            placeholder={config.placeholder}
+            className="w-full rounded-xl border border-gray-200 px-4 py-3 text-base focus:border-transparent focus:outline-none focus:ring-2"
+            style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
+            autoFocus
+            onKeyDown={(e) => handleKeyDown(e, activeSection)}
+          />
+        </div>
+
+        {/* Scrollable suggestions */}
+        <div className="flex-1 overflow-y-auto px-4 py-4">
+          <div className="flex flex-wrap gap-2">
+            {showLoading && (
+              <div className="flex items-center gap-2 text-sm text-gray-500">
+                <div
+                  className="h-4 w-4 animate-spin rounded-full border-2 border-t-transparent"
+                  style={{
+                    borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}`,
+                  }}
+                />
+                Loading suggestions...
+              </div>
+            )}
+            {suggestions.map((sug) => (
+              <button
+                key={sug.id}
+                type="button"
+                onClick={() => selectSuggestion(activeSection, sug.label)}
+                className="rounded-full px-4 py-2.5 text-sm font-medium transition-all"
+                style={{
+                  backgroundColor:
+                    value.toLowerCase() === sug.label.toLowerCase() ? primaryColor : '#f3f4f6',
+                  color: value.toLowerCase() === sug.label.toLowerCase() ? 'white' : '#374151',
+                }}
+              >
+                {sug.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     );
