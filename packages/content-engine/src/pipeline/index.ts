@@ -638,8 +638,18 @@ ${brief.type !== 'about' ? '- REQUIRED: Include a "## Frequently Asked Questions
   }
 }
 
+// Singleton client — the Anthropic SDK allocates a native HTTP connection pool per instance.
+// Creating a new client per job causes RSS to grow unboundedly (pool is never destroyed).
+let _sharedClient: ClaudeClient | null = null;
+
+function getSharedClient(): ClaudeClient {
+  if (!_sharedClient) {
+    const apiKey = process.env['ANTHROPIC_API_KEY'] || process.env['CLAUDE_API_KEY'] || '';
+    _sharedClient = new ClaudeClient({ apiKey });
+  }
+  return _sharedClient;
+}
+
 export function createPipeline(config?: Partial<PipelineConfig>): ContentPipeline {
-  const apiKey = process.env['ANTHROPIC_API_KEY'] || process.env['CLAUDE_API_KEY'] || '';
-  const client = new ClaudeClient({ apiKey });
-  return new ContentPipeline(client, config);
+  return new ContentPipeline(getSharedClient(), config);
 }

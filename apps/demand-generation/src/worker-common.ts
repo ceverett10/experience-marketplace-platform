@@ -212,11 +212,13 @@ export function startMemoryMonitoring(connection: Redis) {
     const usage = process.memoryUsage();
     const heapMB = Math.round(usage.heapUsed / 1024 / 1024);
     const rssMB = Math.round(usage.rss / 1024 / 1024);
-    const level = heapMB > 800 ? 'CRITICAL' : heapMB > 600 ? 'WARN' : 'INFO';
+    // Check RSS not heap — native HTTP buffers (Anthropic SDK) live outside the V8 heap.
+    // Heroku kills at ~2x the dyno's 1GB limit, so 800MB RSS is the real warning threshold.
+    const level = rssMB > 800 ? 'CRITICAL' : rssMB > 600 ? 'WARN' : 'INFO';
     console.log(`[MEMORY ${level}] heap=${heapMB}MB rss=${rssMB}MB`);
 
     // At critical levels, attempt garbage collection if available
-    if (heapMB > 800) {
+    if (rssMB > 800) {
       console.log(
         JSON.stringify({
           event: 'memory_critical',
@@ -226,10 +228,12 @@ export function startMemoryMonitoring(connection: Redis) {
         })
       );
       if (typeof global.gc === 'function') {
-        console.log(`[MEMORY] Triggering garbage collection at ${heapMB}MB...`);
+        console.log(`[MEMORY] Triggering garbage collection at rss=${rssMB}MB...`);
         global.gc();
-        const after = Math.round(process.memoryUsage().heapUsed / 1024 / 1024);
-        console.log(`[MEMORY] Post-GC heap=${after}MB (freed ${heapMB - after}MB)`);
+        const after = process.memoryUsage();
+        console.log(
+          `[MEMORY] Post-GC heap=${Math.round(after.heapUsed / 1024 / 1024)}MB rss=${Math.round(after.rss / 1024 / 1024)}MB`
+        );
       }
     }
   }, 60_000);
