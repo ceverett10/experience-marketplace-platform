@@ -71,10 +71,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Slugs to exclude from sitemap (noindex pages with identical content across all sites)
   const excludedSlugs = new Set(['privacy', 'terms', 'prize-draw-terms', 'unsubscribed']);
 
-  // Query database for all published pages for this site
+  // Query database for all published pages for this site/microsite
+  // Microsite pages are stored with micrositeId (not siteId), so we must branch here
+  const pageWhereClause =
+    isMicrositePage && site.micrositeContext?.micrositeId
+      ? { micrositeId: site.micrositeContext.micrositeId }
+      : { siteId: site.id };
+
   const dbPages = await prisma.page.findMany({
     where: {
-      siteId: site.id,
+      ...pageWhereClause,
       status: 'PUBLISHED',
       noIndex: false, // Exclude pages marked as noIndex
       slug: { notIn: [...excludedSlugs] },
