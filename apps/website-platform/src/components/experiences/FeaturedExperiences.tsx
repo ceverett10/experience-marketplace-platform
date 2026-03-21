@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { ExperienceCard } from './ExperienceCard';
 import { PremiumExperienceCard } from './PremiumExperienceCard';
 import type { ExperienceListItem } from '@/lib/holibob';
 
@@ -45,52 +44,27 @@ export function FeaturedExperiences({
         {/* Experiences Grid */}
         {variant === 'featured' ? (
           <div className="mt-8 grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-3">
-            {experiences
-              .slice(0, 6)
-              .map((experience, index) =>
-                index < staffPickCount ? (
-                  <PremiumExperienceCard
-                    key={experience.id}
-                    experience={experience}
-                    variant="featured"
-                    badges={['staffPick']}
-                    priority={index < 3}
-                    openInNewTab
-                  />
-                ) : (
-                  <ExperienceCard
-                    key={experience.id}
-                    experience={experience}
-                    variant="featured"
-                    priority={index < 3}
-                    openInNewTab
-                  />
-                )
-              )}
+            {experiences.slice(0, 6).map((experience, index) => (
+              <PremiumExperienceCard
+                key={experience.id}
+                experience={experience}
+                badges={index < staffPickCount ? ['staffPick'] : []}
+                priority={index < 3}
+                openInNewTab
+              />
+            ))}
           </div>
         ) : (
           <div className="mt-8 grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-4">
-            {experiences
-              .slice(0, 8)
-              .map((experience, index) =>
-                index < staffPickCount ? (
-                  <PremiumExperienceCard
-                    key={experience.id}
-                    experience={experience}
-                    badges={['staffPick']}
-                    priority={index < 4}
-                    openInNewTab
-                  />
-                ) : (
-                  <ExperienceCard
-                    key={experience.id}
-                    experience={experience}
-                    variant="default"
-                    priority={index < 4}
-                    openInNewTab
-                  />
-                )
-              )}
+            {experiences.slice(0, 8).map((experience, index) => (
+              <PremiumExperienceCard
+                key={experience.id}
+                experience={experience}
+                badges={index < staffPickCount ? ['staffPick'] : []}
+                priority={index < 4}
+                openInNewTab
+              />
+            ))}
           </div>
         )}
 
