@@ -333,7 +333,7 @@ export function GuestDetailsForm({
                   value={detail.firstName}
                   onChange={(e) => updateGuestDetail(index, 'firstName', e.target.value)}
                   required
-                  className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-3 text-sm focus:border-transparent focus:outline-none focus:ring-2"
+                  className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-3 text-base sm:text-sm focus:border-transparent focus:outline-none focus:ring-2"
                   style={
                     { '--tw-ring-color': brand?.primaryColor ?? '#6366f1' } as React.CSSProperties
                   }
@@ -353,7 +353,7 @@ export function GuestDetailsForm({
                   value={detail.lastName}
                   onChange={(e) => updateGuestDetail(index, 'lastName', e.target.value)}
                   required
-                  className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-3 text-sm focus:border-transparent focus:outline-none focus:ring-2"
+                  className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-3 text-base sm:text-sm focus:border-transparent focus:outline-none focus:ring-2"
                   style={
                     { '--tw-ring-color': brand?.primaryColor ?? '#6366f1' } as React.CSSProperties
                   }
@@ -374,7 +374,7 @@ export function GuestDetailsForm({
                     value={detail.email ?? ''}
                     onChange={(e) => updateGuestDetail(index, 'email', e.target.value)}
                     required={isFirstAdult}
-                    className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-3 text-sm focus:border-transparent focus:outline-none focus:ring-2"
+                    className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-3 text-base sm:text-sm focus:border-transparent focus:outline-none focus:ring-2"
                     style={
                       { '--tw-ring-color': brand?.primaryColor ?? '#6366f1' } as React.CSSProperties
                     }
@@ -395,7 +395,7 @@ export function GuestDetailsForm({
                     id={`guest-${index}-phone`}
                     value={detail.phone ?? ''}
                     onChange={(e) => updateGuestDetail(index, 'phone', e.target.value)}
-                    className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-3 text-sm focus:border-transparent focus:outline-none focus:ring-2"
+                    className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-3 text-base sm:text-sm focus:border-transparent focus:outline-none focus:ring-2"
                     style={
                       { '--tw-ring-color': brand?.primaryColor ?? '#6366f1' } as React.CSSProperties
                     }
