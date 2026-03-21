@@ -289,7 +289,7 @@ export const DEFAULT_PIPELINE_CONFIG: PipelineConfig = {
   rewriteModel: 'sonnet',
   qualityThreshold: 75,
   autoPublishThreshold: 90,
-  maxRewrites: 3,
+  maxRewrites: 1,
   rewriteScoreImprovement: 5,
   maxCostPerContent: 2.0, // $2 max per content (Sonnet ~4x Haiku cost)
   dailyCostLimit: 100.0, // $100 daily limit (Sonnet produces fewer rewrites, offsetting cost)
