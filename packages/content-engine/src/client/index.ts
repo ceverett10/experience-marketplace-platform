@@ -56,3 +56,18 @@ export class ClaudeClient {
 export function createClaudeClient(options: ClaudeClientOptions): ClaudeClient {
   return new ClaudeClient(options);
 }
+
+let _sharedJobClient: ClaudeClient | null = null;
+
+/**
+ * Returns a shared singleton ClaudeClient for background job workers.
+ * Avoids allocating a new native HTTP connection pool per job call.
+ * The API key is read once on first use from ANTHROPIC_API_KEY / CLAUDE_API_KEY.
+ */
+export function getSharedClaudeClient(): ClaudeClient {
+  if (!_sharedJobClient) {
+    const apiKey = process.env['ANTHROPIC_API_KEY'] || process.env['CLAUDE_API_KEY'] || '';
+    _sharedJobClient = new ClaudeClient({ apiKey });
+  }
+  return _sharedJobClient;
+}

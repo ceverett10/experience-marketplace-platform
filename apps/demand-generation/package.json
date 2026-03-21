@@ -9,7 +9,7 @@
     "build": "tsc",
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
-    "start:fast": "node dist/worker-fast.js",
+    "start:fast": "node --expose-gc --max-old-space-size=512 dist/worker-fast.js",
     "start:heavy": "node dist/worker-heavy.js",
     "start:infra": "node dist/worker-infra.js",
     "start:generic": "node dist/worker-generic.js",

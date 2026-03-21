@@ -4,7 +4,7 @@
  * Used for initial site creation and ongoing content strategy
  */
 
-import { createClaudeClient } from '@experience-marketplace/content-engine';
+import { getSharedClaudeClient } from '@experience-marketplace/content-engine';
 
 export interface BlogTopicSuggestion {
   title: string;
@@ -48,9 +48,7 @@ export async function generateBlogTopics(
   );
 
   try {
-    const client = createClaudeClient({
-      apiKey: process.env['ANTHROPIC_API_KEY'] || process.env['CLAUDE_API_KEY'] || '',
-    });
+    const client = getSharedClaudeClient();
 
     const existingTopicsNote = context.existingTopics?.length
       ? `\n\nAVOID THESE EXISTING TOPICS (already covered):\n${context.existingTopics.map((t) => `- ${t}`).join('\n')}`
@@ -210,9 +208,7 @@ export async function generateDailyBlogTopic(
   console.log(`[Blog Topics] Generating daily topic with focus: ${dailyFocus}`);
 
   try {
-    const client = createClaudeClient({
-      apiKey: process.env['ANTHROPIC_API_KEY'] || process.env['CLAUDE_API_KEY'] || '',
-    });
+    const client = getSharedClaudeClient();
 
     const currentMonth = new Date().toLocaleString('en-US', { month: 'long' });
     const currentSeason = getSeason();
@@ -310,9 +306,7 @@ export async function generateWeeklyBlogTopics(
   console.log(`[Blog Topics] Generating weekly topics with focus: ${weeklyFocus}`);
 
   try {
-    const client = createClaudeClient({
-      apiKey: process.env['ANTHROPIC_API_KEY'] || process.env['CLAUDE_API_KEY'] || '',
-    });
+    const client = getSharedClaudeClient();
 
     const currentMonth = new Date().toLocaleString('en-US', { month: 'long' });
     const currentSeason = getSeason();

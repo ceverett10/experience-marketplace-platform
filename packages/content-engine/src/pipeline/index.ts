@@ -171,12 +171,12 @@ ${cg.contentPillars?.length ? `- Content Pillars: ${cg.contentPillars.join(', ')
     const brandSection = buildBrandSection();
     const brandName = brief.brandContext?.siteName || 'the brand';
 
-    let systemPrompt = `You are an expert travel content writer creating SEO-optimized, engaging content for ${brandName}, a travel experience marketplace powered by Holibob.
+    let systemPrompt = `You are an expert travel content writer creating SEO-optimized, engaging content for ${brandName}, a curated travel experience marketplace.
 ${coreGuidelines}`;
 
     if (brief.brandContext?.toneOfVoice) {
       const { personality, writingStyle } = brief.brandContext.toneOfVoice;
-      systemPrompt = `You are an expert travel content writer creating SEO-optimized content for ${brandName}, a travel experience marketplace powered by Holibob.
+      systemPrompt = `You are an expert travel content writer creating SEO-optimized content for ${brandName}, a curated travel experience marketplace.
 
 Your writing style is: ${writingStyle || 'clear, authoritative, and trustworthy'}
 Your personality traits are: ${personality?.join(', ') || 'professional, knowledgeable, helpful'}
@@ -186,7 +186,7 @@ Every piece of content should feel authentic, expert-driven, and aligned with th
 ${brandSection}
 ${coreGuidelines}`;
     } else if (brandSection) {
-      systemPrompt = `You are an expert travel content writer creating SEO-optimized, engaging content for ${brandName}, a travel experience marketplace powered by Holibob.
+      systemPrompt = `You are an expert travel content writer creating SEO-optimized, engaging content for ${brandName}, a curated travel experience marketplace.
 ${brandSection}
 ${coreGuidelines}`;
     }
@@ -638,8 +638,18 @@ ${brief.type !== 'about' ? '- REQUIRED: Include a "## Frequently Asked Questions
   }
 }
 
+// Singleton client — the Anthropic SDK allocates a native HTTP connection pool per instance.
+// Creating a new client per job causes RSS to grow unboundedly (pool is never destroyed).
+let _sharedClient: ClaudeClient | null = null;
+
+function getSharedClient(): ClaudeClient {
+  if (!_sharedClient) {
+    const apiKey = process.env['ANTHROPIC_API_KEY'] || process.env['CLAUDE_API_KEY'] || '';
+    _sharedClient = new ClaudeClient({ apiKey });
+  }
+  return _sharedClient;
+}
+
 export function createPipeline(config?: Partial<PipelineConfig>): ContentPipeline {
-  const apiKey = process.env['ANTHROPIC_API_KEY'] || process.env['CLAUDE_API_KEY'] || '';
-  const client = new ClaudeClient({ apiKey });
-  return new ContentPipeline(client, config);
+  return new ContentPipeline(getSharedClient(), config);
 }

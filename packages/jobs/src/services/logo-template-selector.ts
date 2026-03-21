@@ -6,7 +6,7 @@
  * selector if AI is unavailable.
  */
 
-import { createClaudeClient } from '@experience-marketplace/content-engine';
+import { getSharedClaudeClient } from '@experience-marketplace/content-engine';
 import {
   getTemplateDescriptions,
   getAllTemplateIds,
@@ -24,15 +24,13 @@ export interface TemplateSelectionResult {
  * Cost: ~$0.0005 per call (~200 input tokens, ~100 output tokens).
  */
 export async function selectTemplate(params: LogoTemplateParams): Promise<TemplateSelectionResult> {
-  const apiKey = process.env['ANTHROPIC_API_KEY'] || process.env['CLAUDE_API_KEY'];
-
-  if (!apiKey) {
+  if (!process.env['ANTHROPIC_API_KEY'] && !process.env['CLAUDE_API_KEY']) {
     console.info('[Template Selector] No API key, using hash-based selection');
     return selectTemplateByHash(params);
   }
 
   try {
-    const client = createClaudeClient({ apiKey });
+    const client = getSharedClaudeClient();
     const templateDescriptions = getTemplateDescriptions();
     const wordCount = params.brandName.trim().split(/\s+/).length;
 
