@@ -462,8 +462,8 @@ export function PremiumExperienceCard({
           blurDataURL={BLUR_PLACEHOLDER}
         />
 
-        {/* Badges - Top Left */}
-        <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
+        {/* Badges - Top Left (hidden on mobile to avoid overlapping discount badge) */}
+        <div className="absolute left-3 top-3 hidden sm:flex flex-wrap gap-1.5">
           {rank && rank <= 3 && (
             <span className="flex h-6 w-6 items-center justify-center rounded-full bg-yellow-400 text-xs font-bold text-gray-900 shadow-sm">
               #{rank}
