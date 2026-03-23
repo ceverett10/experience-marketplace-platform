@@ -21,6 +21,9 @@ const nextConfig = {
   ],
   experimental: {
     serverComponentsExternalPackages: ['@prisma/client'],
+    // Cap ISR in-memory page cache — without this, 100k+ pages across microsites
+    // accumulate in RAM indefinitely and push web.1 past 1GB (R14/R15 OOM kills)
+    isrMemoryCacheSize: 50,
   },
 
   // Image Optimization
