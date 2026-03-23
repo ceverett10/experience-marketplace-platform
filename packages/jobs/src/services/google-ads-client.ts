@@ -1386,3 +1386,170 @@ export async function getKeywordHistoricalMetrics(
 
   return allMetrics;
 }
+
+// --- Ads Review Agent Methods ------------------------------------------------
+
+export interface GoogleCampaignSummary {
+  campaignId: string;
+  name: string;
+  status: string;
+  biddingStrategy: string;
+  dailyBudgetMicros: number;
+  spendMicros: number;
+  clicks: number;
+  impressions: number;
+  conversions: number;
+  avgCpcMicros: number;
+  ctr: number;
+  searchImpressionShare: string | null;
+}
+
+/**
+ * Lists all non-removed campaigns with 30-day performance.
+ * Used by the ads review agent to get a complete account picture.
+ */
+export async function listCampaigns(config: GoogleAdsConfig): Promise<GoogleCampaignSummary[]> {
+  const query = `
+    SELECT
+      campaign.id,
+      campaign.name,
+      campaign.status,
+      campaign.bidding_strategy_type,
+      campaign_budget.amount_micros,
+      metrics.cost_micros,
+      metrics.clicks,
+      metrics.impressions,
+      metrics.conversions,
+      metrics.average_cpc,
+      metrics.ctr,
+      metrics.search_impression_share
+    FROM campaign
+    WHERE segments.date DURING LAST_30_DAYS
+      AND campaign.status != 'REMOVED'
+    ORDER BY metrics.cost_micros DESC
+  `;
+
+  const response = await apiRequest(config, 'POST', '/googleAds:searchStream', { query });
+
+  type CampaignRow = {
+    campaign: { id: string; name: string; status: string; biddingStrategyType: string };
+    campaignBudget: { amountMicros: string };
+    metrics: {
+      costMicros: string;
+      clicks: string;
+      impressions: string;
+      conversions: string;
+      averageCpc: string;
+      ctr: string;
+      searchImpressionShare: string | null;
+    };
+  };
+
+  return flattenStreamResults<CampaignRow>(response).map((row) => ({
+    campaignId: row.campaign.id,
+    name: row.campaign.name,
+    status: row.campaign.status,
+    biddingStrategy: row.campaign.biddingStrategyType,
+    dailyBudgetMicros: parseInt(row.campaignBudget?.amountMicros || '0', 10),
+    spendMicros: parseInt(row.metrics.costMicros || '0', 10),
+    clicks: parseInt(row.metrics.clicks || '0', 10),
+    impressions: parseInt(row.metrics.impressions || '0', 10),
+    conversions: parseFloat(row.metrics.conversions || '0'),
+    avgCpcMicros: parseInt(row.metrics.averageCpc || '0', 10),
+    ctr: parseFloat(row.metrics.ctr || '0'),
+    searchImpressionShare: row.metrics.searchImpressionShare ?? null,
+  }));
+}
+
+export interface GoogleKeywordDetail {
+  adGroupId: string;
+  adGroupName: string;
+  adGroupStatus: string;
+  keywordText: string;
+  matchType: string;
+  bidMicros: number;
+  qualityScore: number | null;
+  creativeQuality: string | null;
+  postClickQuality: string | null;
+  expectedCtr: string | null;
+  finalUrls: string[];
+  clicks: number;
+  impressions: number;
+  conversions: number;
+  spendMicros: number;
+}
+
+/**
+ * Gets all keywords (with quality scores and final URLs) for a specific campaign.
+ * Used by the ads review agent to evaluate keyword relevance and landing page fit.
+ */
+export async function getKeywordsForCampaign(
+  config: GoogleAdsConfig,
+  campaignId: string
+): Promise<GoogleKeywordDetail[]> {
+  const query = `
+    SELECT
+      ad_group.id,
+      ad_group.name,
+      ad_group.status,
+      ad_group_criterion.keyword.text,
+      ad_group_criterion.keyword.match_type,
+      ad_group_criterion.cpc_bid_micros,
+      ad_group_criterion.quality_info.quality_score,
+      ad_group_criterion.quality_info.creative_quality_score,
+      ad_group_criterion.quality_info.post_click_quality_score,
+      ad_group_criterion.quality_info.search_predicted_ctr,
+      ad_group_criterion.final_urls,
+      metrics.clicks,
+      metrics.impressions,
+      metrics.conversions,
+      metrics.cost_micros
+    FROM ad_group_criterion
+    WHERE campaign.id = '${campaignId}'
+      AND ad_group_criterion.type = 'KEYWORD'
+      AND ad_group_criterion.status != 'REMOVED'
+      AND ad_group.status != 'REMOVED'
+      AND segments.date DURING LAST_30_DAYS
+  `;
+
+  const response = await apiRequest(config, 'POST', '/googleAds:searchStream', { query });
+
+  type KeywordRow = {
+    adGroup: { id: string; name: string; status: string };
+    adGroupCriterion: {
+      keyword: { text: string; matchType: string };
+      cpcBidMicros: string;
+      qualityInfo?: {
+        qualityScore?: number;
+        creativeQualityScore?: string;
+        postClickQualityScore?: string;
+        searchPredictedCtr?: string;
+      };
+      finalUrls?: string[];
+    };
+    metrics: {
+      clicks: string;
+      impressions: string;
+      conversions: string;
+      costMicros: string;
+    };
+  };
+
+  return flattenStreamResults<KeywordRow>(response).map((row) => ({
+    adGroupId: row.adGroup.id,
+    adGroupName: row.adGroup.name,
+    adGroupStatus: row.adGroup.status,
+    keywordText: row.adGroupCriterion.keyword.text,
+    matchType: row.adGroupCriterion.keyword.matchType,
+    bidMicros: parseInt(row.adGroupCriterion.cpcBidMicros || '0', 10),
+    qualityScore: row.adGroupCriterion.qualityInfo?.qualityScore ?? null,
+    creativeQuality: row.adGroupCriterion.qualityInfo?.creativeQualityScore ?? null,
+    postClickQuality: row.adGroupCriterion.qualityInfo?.postClickQualityScore ?? null,
+    expectedCtr: row.adGroupCriterion.qualityInfo?.searchPredictedCtr ?? null,
+    finalUrls: row.adGroupCriterion.finalUrls ?? [],
+    clicks: parseInt(row.metrics.clicks || '0', 10),
+    impressions: parseInt(row.metrics.impressions || '0', 10),
+    conversions: parseFloat(row.metrics.conversions || '0'),
+    spendMicros: parseInt(row.metrics.costMicros || '0', 10),
+  }));
+}

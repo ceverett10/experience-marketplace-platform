@@ -305,6 +305,7 @@ async function validateTaskArtifacts(
     BIDDING_ENGINE_RUN: { valid: true },
     KEYWORD_ENRICHMENT: { valid: true },
     BOOKING_STATUS_SYNC: { valid: true },
+    ADS_REVIEW_AGENT: { valid: true },
   };
 }
 
@@ -601,6 +602,10 @@ export const TASK_DESCRIPTIONS: Record<JobType, { label: string; description: st
   BOOKING_STATUS_SYNC: {
     label: 'Booking Status Sync',
     description: 'Check pending bookings against Holibob and update their status',
+  },
+  ADS_REVIEW_AGENT: {
+    label: 'Ads Review Agent',
+    description: 'AI-powered audit of Google Ads and Meta Ads account structure and performance',
   },
 };
 

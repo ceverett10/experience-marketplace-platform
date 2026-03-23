@@ -1506,4 +1506,100 @@ export class MetaAdsClient {
       );
     }
   }
+
+  /**
+   * Get full campaign structure for the ads review agent.
+   * Returns ad sets with targeting details and 30-day insights.
+   */
+  async getCampaignStructure(campaignId: string): Promise<{
+    adSets: Array<{
+      id: string;
+      name: string;
+      status: string;
+      bidAmount: number;
+      targeting: {
+        geoLocations?: { countries?: string[]; cities?: Array<{ name: string }> };
+        interests?: Array<{ id: string; name: string }>;
+        ageMin?: number;
+        ageMax?: number;
+      };
+      insights?: {
+        spend: number;
+        clicks: number;
+        impressions: number;
+        actions: number;
+        cpc: number;
+      };
+    }>;
+  }> {
+    try {
+      await this.enforceRateLimit();
+
+      // Fetch ad sets with targeting
+      const params = new URLSearchParams({
+        fields: 'id,name,status,bid_amount,targeting',
+        access_token: this.accessToken,
+        limit: '50',
+      });
+
+      const response = await fetch(`${META_API_BASE}/${campaignId}/adsets?${params}`);
+
+      if (!response.ok) {
+        const error = await response.text();
+        console.error(
+          `[MetaAds] getCampaignStructure error (${response.status}): ${error.substring(0, 200)}`
+        );
+        return { adSets: [] };
+      }
+
+      const data = (await response.json()) as {
+        data?: Array<{
+          id: string;
+          name: string;
+          status: string;
+          bid_amount?: string;
+          targeting?: {
+            geo_locations?: { countries?: string[]; cities?: Array<{ name: string }> };
+            flexible_spec?: Array<{ interests?: Array<{ id: string; name: string }> }>;
+            age_min?: number;
+            age_max?: number;
+          };
+        }>;
+      };
+
+      const adSets = await Promise.all(
+        (data.data ?? []).map(async (adSet) => {
+          const insights = await this.getAdSetInsights(adSet.id).catch(() => null);
+          const interests = adSet.targeting?.flexible_spec?.[0]?.interests ?? [];
+
+          return {
+            id: adSet.id,
+            name: adSet.name,
+            status: adSet.status,
+            bidAmount: parseInt(adSet.bid_amount ?? '0', 10) / 100,
+            targeting: {
+              geoLocations: adSet.targeting?.geo_locations,
+              interests,
+              ageMin: adSet.targeting?.age_min,
+              ageMax: adSet.targeting?.age_max,
+            },
+            insights: insights
+              ? {
+                  spend: insights.spend,
+                  clicks: insights.clicks,
+                  impressions: insights.impressions,
+                  actions: insights.actions,
+                  cpc: insights.cpc,
+                }
+              : undefined,
+          };
+        })
+      );
+
+      return { adSets };
+    } catch (error) {
+      console.error('[MetaAds] getCampaignStructure failed:', error);
+      return { adSets: [] };
+    }
+  }
 }

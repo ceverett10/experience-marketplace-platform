@@ -1080,6 +1080,7 @@ enum JobType {
   PAID_KEYWORD_SCAN
   BIDDING_ENGINE_RUN
   KEYWORD_ENRICHMENT
+  ADS_REVIEW_AGENT
 }
 
 enum JobStatus {
@@ -1324,6 +1325,32 @@ model AdAlert {
   @@index([type, acknowledged])
   @@index([createdAt])
   @@map("ad_alerts")
+}
+
+model AdReviewReport {
+  id                 String    @id @default(cuid())
+  status             String    @default("RUNNING") // RUNNING, COMPLETED, FAILED
+  createdAt          DateTime  @default(now())
+  completedAt        DateTime?
+
+  platformsReviewed  String[]  // ["GOOGLE_SEARCH", "FACEBOOK"]
+  campaignsReviewed  Int       @default(0)
+  totalSpendReviewed Decimal?  @db.Decimal(10, 2)
+
+  executiveSummary   String?
+  overallHealthScore Int?
+  topPriorities      String[]
+
+  findings           Json?     // AdsReviewFinding[]
+  actionsTaken       Json?     // Array<{ campaignId, action, reason }>
+
+  criticalCount      Int       @default(0)
+  warningCount       Int       @default(0)
+  infoCount          Int       @default(0)
+
+  @@index([status])
+  @@index([createdAt])
+  @@map("ad_review_reports")
 }
 
 // ============================================================================

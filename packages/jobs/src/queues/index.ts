@@ -167,6 +167,8 @@ class QueueRegistry {
       'AD_CONVERSION_UPLOAD', // Uploads conversions to Meta/Google CAPI, no single siteId
       'AD_PLATFORM_IDS_SYNC', // Fetches pixel/conversion IDs from ad platforms, no single siteId
       'AD_CREATIVE_REFRESH', // Refreshes ad creatives across all deployed campaigns, no single siteId
+      'AD_SEARCH_TERM_HARVEST', // Cross-campaign search term analysis, no single siteId
+      'ADS_REVIEW_AGENT', // Full account audit across all platforms, no single siteId
       'SEO_AUTO_OPTIMIZE', // Can be triggered for microsites with micrositeId instead of siteId
       'BOOKING_STATUS_SYNC', // Checks all pending bookings across sites, no single siteId
     ];
