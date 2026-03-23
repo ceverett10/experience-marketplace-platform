@@ -1,5 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Standalone output — traces only required files into .next/standalone/
+  // Dramatically reduces memory footprint (from ~700MB to ~250MB per process)
+  output: 'standalone',
+
   // URL normalization - enforce no trailing slashes for consistent canonicals
   trailingSlash: false,
 

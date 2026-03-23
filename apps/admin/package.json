@@ -4,9 +4,9 @@
   "private": true,
   "description": "Admin dashboard for managing storefronts, content, and analytics",
   "scripts": {
-    "build": "next build",
+    "build": "next build && cp -r .next/static .next/standalone/apps/admin/.next/static",
     "dev": "next dev -p 3001",
-    "start": "next start -p 3001",
+    "start": "PORT=3001 node .next/standalone/apps/admin/server.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
