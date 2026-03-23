@@ -6,7 +6,7 @@
   "scripts": {
     "build": "next build && cp -r public .next/standalone/apps/website-platform/public && cp -r .next/static .next/standalone/apps/website-platform/.next/static",
     "dev": "next dev",
-    "start": "PORT=3000 node .next/standalone/apps/website-platform/server.js",
+    "start": "PORT=3000 NODE_OPTIONS='--unhandled-rejections=warn' node .next/standalone/apps/website-platform/server.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
