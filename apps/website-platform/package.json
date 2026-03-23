@@ -4,9 +4,9 @@
   "private": true,
   "description": "Multi-tenant consumer storefront with SSR/SEO optimization",
   "scripts": {
-    "build": "next build",
+    "build": "next build && cp -r public .next/standalone/apps/website-platform/public && cp -r .next/static .next/standalone/apps/website-platform/.next/static",
     "dev": "next dev",
-    "start": "next start -p 3000",
+    "start": "PORT=3000 node .next/standalone/apps/website-platform/server.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",

@@ -2,6 +2,9 @@
 const basePath = process.env.NODE_ENV === 'production' ? '/admin' : '';
 
 const nextConfig = {
+  // Standalone output — traces only required files into .next/standalone/
+  output: 'standalone',
+
   // Set basePath for production when served through proxy at /admin
   // In development, runs standalone on port 3001 without basePath
   basePath,
