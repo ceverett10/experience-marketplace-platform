@@ -10,7 +10,14 @@ const ITEMS_PER_PAGE = 12;
 // Cache key: "destination|searchTerm|adults|children|startDate|endDate|seenIds"
 // Cache expires after 10 minutes
 const apiCache = new Map<string, { data: unknown; expiresAt: number }>();
-const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+// Hard cap: if exceeded, wipe the cache. Each unique seenProductIds value creates a new
+// key, so without a cap this grows proportionally to pagination depth × number of sites.
+const API_CACHE_MAX = 200;
+
+// Proactive eviction every 2 minutes — cleanExpiredCache() is also called per-request
+// but only removes expired entries reactively, leaving the map unbounded under load.
+setInterval(cleanExpiredCache, 2 * 60 * 1000);
 
 function getCacheKey(params: {
   destination?: string | null;
@@ -232,7 +239,8 @@ export async function GET(request: NextRequest) {
       totalCount: response.totalCount ?? experiences.length,
     };
 
-    // Store in cache
+    // Store in cache — wipe on overflow to prevent unbounded growth from pagination keys
+    if (apiCache.size >= API_CACHE_MAX) apiCache.clear();
     apiCache.set(cacheKey, {
       data: responseData,
       expiresAt: Date.now() + CACHE_TTL_MS,
