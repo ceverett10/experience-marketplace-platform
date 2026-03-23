@@ -3,7 +3,7 @@
  *
  * Handles: Content, SEO, Analytics, A/B Test, Social, Microsite
  * Dyno: Standard-2X (1GB)
- * Total concurrency: ~16
+ * Total concurrency: 6 (all queues at 1 to prevent R15 OOM on 1GB dyno)
  */
 
 import { Worker, type Job } from 'bullmq';
@@ -121,7 +121,7 @@ const contentWorker = new Worker(
   makeWorkerOptions(connection, QUEUE_NAMES.CONTENT, 1)
 );
 
-// ── SEO Worker (concurrency 3) ─────────────────────────────────────────
+// ── SEO Worker (concurrency 1) ─────────────────────────────────────────
 const seoWorker = new Worker(
   QUEUE_NAMES.SEO,
   async (job: Job) => {
@@ -165,10 +165,10 @@ const seoWorker = new Worker(
         throw new Error(`Unknown job type: ${job.name}`);
     }
   },
-  makeWorkerOptions(connection, QUEUE_NAMES.SEO, 3)
+  makeWorkerOptions(connection, QUEUE_NAMES.SEO, 1)
 );
 
-// ── Analytics Worker (concurrency 3) ────────────────────────────────────
+// ── Analytics Worker (concurrency 1) ────────────────────────────────────
 const analyticsWorker = new Worker(
   QUEUE_NAMES.ANALYTICS,
   async (job: Job) => {
@@ -196,10 +196,10 @@ const analyticsWorker = new Worker(
         throw new Error(`Unknown job type: ${job.name}`);
     }
   },
-  makeWorkerOptions(connection, QUEUE_NAMES.ANALYTICS, 3)
+  makeWorkerOptions(connection, QUEUE_NAMES.ANALYTICS, 1)
 );
 
-// ── A/B Test Worker (concurrency 5) ─────────────────────────────────────
+// ── A/B Test Worker (concurrency 1) ─────────────────────────────────────
 const abtestWorker = new Worker(
   QUEUE_NAMES.ABTEST,
   async (job: Job) => {
@@ -215,10 +215,10 @@ const abtestWorker = new Worker(
         throw new Error(`Unknown job type: ${job.name}`);
     }
   },
-  makeWorkerOptions(connection, QUEUE_NAMES.ABTEST, 5)
+  makeWorkerOptions(connection, QUEUE_NAMES.ABTEST, 1)
 );
 
-// ── Social Worker (concurrency 2) ───────────────────────────────────────
+// ── Social Worker (concurrency 1) ───────────────────────────────────────
 const socialWorker = new Worker(
   QUEUE_NAMES.SOCIAL,
   async (job: Job) => {
@@ -236,10 +236,10 @@ const socialWorker = new Worker(
         throw new Error(`Unknown job type: ${job.name}`);
     }
   },
-  makeWorkerOptions(connection, QUEUE_NAMES.SOCIAL, 2)
+  makeWorkerOptions(connection, QUEUE_NAMES.SOCIAL, 1)
 );
 
-// ── Microsite Worker (concurrency 2) ────────────────────────────────────
+// ── Microsite Worker (concurrency 1) ────────────────────────────────────
 const micrositeWorker = new Worker(
   QUEUE_NAMES.MICROSITE,
   async (job: Job) => {
@@ -265,7 +265,7 @@ const micrositeWorker = new Worker(
         throw new Error(`Unknown job type: ${job.name}`);
     }
   },
-  makeWorkerOptions(connection, QUEUE_NAMES.MICROSITE, 2)
+  makeWorkerOptions(connection, QUEUE_NAMES.MICROSITE, 1)
 );
 
 // ── Setup ───────────────────────────────────────────────────────────────
@@ -284,11 +284,11 @@ setupGracefulShutdown(workers, connection);
 
 logBanner('Worker Fast Process', [
   'Content (concurrency 1)',
-  'SEO (concurrency 3)',
-  'Analytics (concurrency 3)',
-  'A/B Test (concurrency 5)',
-  'Social (concurrency 2)',
-  'Microsite (concurrency 2)',
+  'SEO (concurrency 1)',
+  'Analytics (concurrency 1)',
+  'A/B Test (concurrency 1)',
+  'Social (concurrency 1)',
+  'Microsite (concurrency 1)',
 ]);
 
 console.log('🎯 Worker Fast is running and ready to process jobs\n');
