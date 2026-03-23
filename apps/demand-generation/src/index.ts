@@ -97,6 +97,7 @@ import {
   handleAdPlatformIdsSync,
   handleAdCreativeRefresh,
   handleAdSearchTermHarvest,
+  handleAdsReviewAgent,
 } from '@experience-marketplace/jobs';
 import { prisma, type JobStatus } from '@experience-marketplace/database';
 import type { JobType } from '@experience-marketplace/database';
@@ -595,6 +596,8 @@ const adsWorker = new Worker(
         return await handleAdCreativeRefresh(job);
       case 'AD_SEARCH_TERM_HARVEST':
         return await handleAdSearchTermHarvest(job);
+      case 'ADS_REVIEW_AGENT':
+        return await handleAdsReviewAgent(job);
       default:
         throw new Error(`Unknown job type: ${job.name}`);
     }

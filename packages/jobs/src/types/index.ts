@@ -432,6 +432,11 @@ export interface BiddingEngineRunPayload {
   maxDailyBudget?: number; // Default: £200/day
 }
 
+export interface AdsReviewAgentPayload {
+  /** If true, agent may pause campaigns it deems critically wasteful. Default: false (report only). */
+  autoAction?: boolean;
+}
+
 export interface KeywordEnrichmentPayload {
   supplierIds?: string[];
   maxSuppliersPerRun?: number;
@@ -502,7 +507,8 @@ export type JobPayload =
   | PaidKeywordScanPayload
   | BiddingEngineRunPayload
   | KeywordEnrichmentPayload
-  | BookingStatusSyncPayload;
+  | BookingStatusSyncPayload
+  | AdsReviewAgentPayload;
 
 /**
  * Job configuration options
@@ -660,5 +666,6 @@ export const JOB_TYPE_TO_QUEUE: Record<string, QueueName> & Record<JobType, Queu
   AD_SEARCH_TERM_HARVEST: QUEUE_NAMES.ADS,
   PAID_KEYWORD_SCAN: QUEUE_NAMES.ADS,
   BIDDING_ENGINE_RUN: QUEUE_NAMES.ADS,
+  ADS_REVIEW_AGENT: QUEUE_NAMES.ADS,
   KEYWORD_ENRICHMENT: QUEUE_NAMES.SYNC, // Long-running: uses SYNC queue (4hr timeout)
 };

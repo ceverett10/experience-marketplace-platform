@@ -18,10 +18,12 @@ import type {
   AdCampaignSyncPayload,
   AdPerformanceReportPayload,
   AdBudgetOptimizerPayload,
+  AdsReviewAgentPayload,
 } from '../types';
 import { prisma } from '@experience-marketplace/database';
 import { runPaidKeywordScan } from '../services/paid-keyword-scanner';
 import { runBiddingEngine } from '../services/bidding-engine';
+import { runAdsReviewAgent } from '../services/ads-review-agent';
 import { runBulkEnrichment, type EnrichmentResult } from '../services/keyword-enrichment';
 import { uploadMetaConversion, uploadGoogleConversion } from '../services/conversions-api';
 import { runAlertChecks, createSyncFailureAlert } from '../services/ad-alerting';
@@ -3610,6 +3612,48 @@ export async function handleAdSearchTermHarvest(_job: Job): Promise<JobResult> {
     success: true,
     message,
     data: { campaignsProcessed, totalTermsAnalyzed, totalNegativesAdded, totalPositivesAdded },
+    timestamp: new Date(),
+  };
+}
+
+// --- ADS_REVIEW_AGENT --------------------------------------------------------
+
+/**
+ * Runs the AI-powered ads review agent.
+ * Audits the full Google Ads and Meta Ads account structure, identifies issues,
+ * and produces a structured report with findings and recommendations.
+ */
+export async function handleAdsReviewAgent(job: Job): Promise<JobResult> {
+  const payload = job.data as AdsReviewAgentPayload;
+  console.info('[Ads Worker] Starting ads review agent');
+
+  const metaClient = await getMetaAdsClient();
+
+  const result = await runAdsReviewAgent({
+    autoAction: payload.autoAction ?? false,
+    metaClient,
+  });
+
+  const summaryMessage =
+    `Ads review complete: ${result.campaignsReviewed} campaigns reviewed, ` +
+    `${result.findings.length} findings (${result.criticalCount} critical, ` +
+    `${result.warningCount} warnings), ` +
+    `health score ${result.overallHealthScore}/100`;
+
+  console.info(`[Ads Worker] ${summaryMessage}`);
+
+  return {
+    success: result.status === 'COMPLETED',
+    message: summaryMessage,
+    data: {
+      reportId: result.reportId,
+      overallHealthScore: result.overallHealthScore,
+      criticalCount: result.criticalCount,
+      warningCount: result.warningCount,
+      infoCount: result.infoCount,
+      campaignsReviewed: result.campaignsReviewed,
+      actionsTaken: result.actionsTaken.length,
+    },
     timestamp: new Date(),
   };
 }
