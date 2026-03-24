@@ -30,10 +30,14 @@ const SUPPLIER_ENTITY_TYPE = MicrositeEntityType.SUPPLIER;
 // With ~39K supplier microsites, percentage-based rotation produces too many
 // items per day. Use a hard cap instead to keep within 1GB Heroku memory.
 const DAILY_PERCENTAGE = 0.002; // 0.2% = ~78 microsites/day from 39K pool
-const MAX_DAILY_MICROSITES = 80; // Hard cap regardless of pool size
+const MAX_DAILY_MICROSITES = 200; // Hard cap regardless of pool size
 const BATCH_SIZE = 5; // Process 5 microsites concurrently (memory-safe for 1GB dyno)
 const DELAY_BETWEEN_BATCHES_MS = 5000; // 5 seconds between batches
 const DELAY_BETWEEN_ITEMS_MS = 500; // 0.5 seconds between items in a batch
+
+// Only process microsites that haven't had a blog post in at least this many days.
+// Prioritizes stale microsites and prevents re-processing recently-updated ones.
+const RECENCY_GATE_DAYS = 14;
 
 export interface MicrositeBlogGenerationResult {
   micrositeId: string;
@@ -55,9 +59,12 @@ export interface MicrositeBlogGenerationSummary {
 
 /**
  * Generate blog post for a single microsite
+ * @param micrositeId - Microsite to generate blog for
+ * @param staggerDelayMs - Optional BullMQ delay to spread CONTENT_GENERATE jobs across the day
  */
 export async function generateBlogPostForMicrosite(
-  micrositeId: string
+  micrositeId: string,
+  staggerDelayMs?: number
 ): Promise<MicrositeBlogGenerationResult> {
   const microsite = await prisma.micrositeConfig.findUnique({
     where: { id: micrositeId },
@@ -212,14 +219,21 @@ export async function generateBlogPostForMicrosite(
       },
     });
 
-    // Queue content generation
-    await addJob('CONTENT_GENERATE', {
-      micrositeId,
-      pageId: blogPage.id,
-      contentType: 'blog',
-      targetKeyword: topic.targetKeyword,
-      secondaryKeywords: topic.secondaryKeywords,
-    });
+    // Queue content generation — shorter posts for microsites (400-600 words) to
+    // reduce cost and generation time while still providing SEO value.
+    // Stagger delay spreads jobs across the day to avoid Anthropic API bursts.
+    await addJob(
+      'CONTENT_GENERATE',
+      {
+        micrositeId,
+        pageId: blogPage.id,
+        contentType: 'blog',
+        targetKeyword: topic.targetKeyword,
+        secondaryKeywords: topic.secondaryKeywords,
+        targetLength: { min: 400, max: 600 },
+      },
+      staggerDelayMs ? { delay: staggerDelayMs } : undefined
+    );
 
     // Update lastContentUpdate timestamp
     await prisma.micrositeConfig.update({
@@ -253,7 +267,15 @@ export async function generateDailyBlogPostsForMicrosites(): Promise<MicrositeBl
   const startTime = Date.now();
   console.info('[Microsite Blog] Starting daily blog generation for supplier microsites...');
 
-  const supplierFilter = { status: 'ACTIVE' as const, entityType: SUPPLIER_ENTITY_TYPE };
+  // Recency gate: only process microsites that haven't been updated in 14+ days.
+  // This ensures the daily cap (80) is spent on stale microsites rather than
+  // re-processing recently-updated ones while others have never been touched.
+  const recencyCutoff = new Date(Date.now() - RECENCY_GATE_DAYS * 24 * 60 * 60 * 1000);
+  const supplierFilter = {
+    status: 'ACTIVE' as const,
+    entityType: SUPPLIER_ENTITY_TYPE,
+    OR: [{ lastContentUpdate: null }, { lastContentUpdate: { lt: recencyCutoff } }],
+  };
 
   // Get total count of active supplier microsites
   const totalActive = await prisma.micrositeConfig.count({
@@ -315,11 +337,13 @@ export async function generateDailyBlogPostsForMicrosites(): Promise<MicrositeBl
       `[Microsite Blog] Processing batch ${batchNumber}/${totalBatches} (${batch.length} microsites)`
     );
 
-    // Process batch concurrently
+    // Process batch concurrently — stagger CONTENT_GENERATE jobs by 30s each
+    // so 200 jobs spread across ~100 minutes rather than all landing at 4 AM.
     const batchPromises = batch.map(async (ms, idx) => {
-      // Small stagger within batch to avoid API burst
+      // Small in-batch stagger for topic generation API calls
       await sleep(idx * DELAY_BETWEEN_ITEMS_MS);
-      return generateBlogPostForMicrosite(ms.id);
+      const globalIdx = i + idx;
+      return generateBlogPostForMicrosite(ms.id, globalIdx * 30_000);
     });
 
     const batchResults = await Promise.all(batchPromises);

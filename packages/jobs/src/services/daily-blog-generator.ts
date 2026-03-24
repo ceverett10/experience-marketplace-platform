@@ -61,7 +61,34 @@ export async function generateDailyBlogPostForSite(
     };
   }
 
-  console.log(`[Daily Blog] Generating post for ${site.name}...`);
+  // Recency gate: skip if a blog was published within the last 14 days.
+  // This caps main sites at ~2 posts/month regardless of daily run frequency.
+  const recencyCutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+  const recentBlog = await prisma.page.findFirst({
+    where: {
+      siteId,
+      type: PageType.BLOG,
+      status: 'PUBLISHED' as const,
+      updatedAt: { gte: recencyCutoff },
+    },
+    select: { id: true, updatedAt: true },
+    orderBy: { updatedAt: 'desc' },
+  });
+
+  if (recentBlog) {
+    console.info(
+      `[Daily Blog] Skipping ${site.name} — blog published ${Math.floor((Date.now() - recentBlog.updatedAt.getTime()) / (1000 * 60 * 60 * 24))}d ago (< 14d recency gate)`
+    );
+    return {
+      siteId: site.id,
+      siteName: site.name,
+      topicGenerated: false,
+      postQueued: false,
+      error: 'Recent blog exists (14-day gate)',
+    };
+  }
+
+  console.info(`[Daily Blog] Generating post for ${site.name}...`);
 
   try {
     // Build context from site data
@@ -85,7 +112,7 @@ export async function generateDailyBlogPostForSite(
     const topic = await generateDailyBlogTopic(context, dayOfYear);
 
     if (!topic) {
-      console.log(`[Daily Blog] No topic generated for ${site.name}`);
+      console.info(`[Daily Blog] No topic generated for ${site.name}`);
       return {
         siteId: site.id,
         siteName: site.name,
@@ -95,7 +122,7 @@ export async function generateDailyBlogPostForSite(
       };
     }
 
-    console.log(`[Daily Blog] Generated topic for ${site.name}: ${topic.title}`);
+    console.info(`[Daily Blog] Generated topic for ${site.name}: ${topic.title}`);
 
     // Check if slug already exists
     const existingPage = await prisma.page.findFirst({
@@ -106,7 +133,7 @@ export async function generateDailyBlogPostForSite(
     });
 
     if (existingPage) {
-      console.log(`[Daily Blog] Skipping existing slug: blog/${topic.slug}`);
+      console.info(`[Daily Blog] Skipping existing slug: blog/${topic.slug}`);
       return {
         siteId: site.id,
         siteName: site.name,
@@ -140,7 +167,7 @@ export async function generateDailyBlogPostForSite(
       staggerDelayMs ? { delay: staggerDelayMs } : undefined
     );
 
-    console.log(`[Daily Blog] Queued: "${topic.title}"`);
+    console.info(`[Daily Blog] Queued: "${topic.title}"`);
 
     return {
       siteId: site.id,
@@ -161,94 +188,69 @@ export async function generateDailyBlogPostForSite(
 }
 
 /**
- * Generate daily blog posts for all active sites (traditional sites only)
- * For microsites, use generateDailyBlogPostsForMicrosites() instead
- * Called by the scheduler
+ * Generate blog posts for all active main sites, respecting the 14-day recency gate.
+ * Each site generates at most 1 post every 14 days.
  */
 export async function generateDailyBlogPostsForAllSites(): Promise<DailyBlogGenerationResult[]> {
-  console.log('[Daily Blog] Starting daily blog generation for all active sites...');
+  console.info('[Daily Blog] Starting blog generation for active main sites...');
 
-  // Find all active sites (traditional sites, not microsites)
   const activeSites = await prisma.site.findMany({
-    where: {
-      status: 'ACTIVE',
-    },
-    select: {
-      id: true,
-      name: true,
-    },
+    where: { status: 'ACTIVE' },
+    select: { id: true, name: true },
   });
 
-  console.log(`[Daily Blog] Found ${activeSites.length} active traditional sites`);
+  console.info(`[Daily Blog] Found ${activeSites.length} active main sites`);
 
   const results: DailyBlogGenerationResult[] = [];
 
-  // Stagger content generation jobs by 15s per site to prevent queue flooding.
-  // Topic generation + page creation happen inline; the AI-heavy CONTENT_GENERATE
-  // job is delayed in BullMQ so they don't all start at once.
+  // Stagger CONTENT_GENERATE jobs by 15s per site to prevent queue flooding.
+  // Topic generation + page creation happen inline; the AI-heavy work is delayed.
   const STAGGER_MS = 15_000;
 
-  // Process sites sequentially to avoid overwhelming the AI API
   for (let i = 0; i < activeSites.length; i++) {
     const site = activeSites[i]!;
     const result = await generateDailyBlogPostForSite(site.id, i * STAGGER_MS);
     results.push(result);
 
-    // Small delay between sites to avoid rate limiting on topic generation
+    // Small delay to avoid rate limiting on topic generation
     await new Promise((resolve) => setTimeout(resolve, 2000));
   }
 
-  // Log summary for traditional sites
   const postsQueued = results.filter((r) => r.postQueued).length;
   const errors = results.filter((r) => r.error).length;
 
-  console.log(
-    `[Daily Blog] Traditional sites complete. Sites: ${results.length}, Posts queued: ${postsQueued}, Errors: ${errors}`
+  console.info(
+    `[Daily Blog] Main sites complete. Sites: ${results.length}, Posts queued: ${postsQueued}, Errors: ${errors}`
   );
 
   return results;
 }
 
 /**
- * Generate daily blog posts for supplier microsites only
- * This is the main entry point for the scheduler
+ * Generate blog posts for main sites and supplier microsites.
+ * This is the main entry point called by the scheduler (daily at 4 AM UTC).
  *
- * Main sites are excluded — blog generation is focused on supplier microsites
- * where product context enables tightly relevant content.
- *
- * Supplier microsites: Process a rotating % per day, batched for scalability
+ * - Main sites: up to 1 post per site per 14 days (14-day recency gate enforced in generateDailyBlogPostForSite)
+ * - Supplier microsites: up to 80 per day, prioritised by oldest lastContentUpdate,
+ *   with a 14-day recency gate in generateDailyBlogPostsForMicrosites
  */
 export async function generateDailyBlogPostsForAllSitesAndMicrosites(): Promise<{
   sites: DailyBlogGenerationResult[];
   microsites: MicrositeBlogGenerationSummary;
 }> {
-  console.info('[Daily Blog] Starting daily blog generation (supplier microsites only)...');
+  console.info('[Daily Blog] Starting daily blog generation (main sites + supplier microsites)...');
 
-  // Skip traditional sites — blog content is now focused on supplier microsites
-  // where we have rich product context for relevant topic generation.
-  // Main sites can still get blogs via manual generateDailyBlogPostForSite() calls.
-  const siteResults: DailyBlogGenerationResult[] = [];
+  // Main sites — 14-day recency gate means most runs are no-ops; posts queue ~twice/month
+  const siteResults = await generateDailyBlogPostsForAllSites();
 
-  // TEMPORARY: Skip microsite blog fanout while content regeneration backlog clears.
-  // The fanout processes 80 microsites with AI calls which, combined with other queue
-  // workers (sync, ads, analytics), exceeds the 1GB worker dyno memory limit.
-  // Re-enable once the 1,400+ content regeneration jobs complete.
-  // TODO: Re-enable by removing this block and uncommenting the line below
-  const micrositeResults: MicrositeBlogGenerationSummary = {
-    totalMicrosites: 0,
-    processedCount: 0,
-    postsQueued: 0,
-    skipped: 0,
-    errors: 0,
-    durationMs: 0,
-  };
-  console.info('[Daily Blog] Microsite blog fanout temporarily paused for backlog processing');
-  // const micrositeResults = await generateDailyBlogPostsForMicrosites();
+  // Supplier microsites — 80/day hard cap, oldest-first ordering, 14-day recency gate
+  const micrositeResults = await generateDailyBlogPostsForMicrosites();
 
   console.info(
     `[Daily Blog] Complete. ` +
+      `Main sites: ${siteResults.filter((r) => r.postQueued).length}/${siteResults.length} queued. ` +
       `Supplier microsites: ${micrositeResults.postsQueued} posts ` +
-      `(${micrositeResults.processedCount}/${micrositeResults.totalMicrosites} processed)`
+      `(${micrositeResults.processedCount}/${micrositeResults.totalMicrosites} eligible processed)`
   );
 
   return {
