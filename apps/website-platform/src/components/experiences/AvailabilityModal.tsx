@@ -299,6 +299,50 @@ export function AvailabilityModal({
     return label;
   };
 
+  // Derive a human-readable validation hint from API constraints when isValid = false
+  const validationHint: string | null = (() => {
+    if (isValid || isLoading || totalGuests === 0) return null;
+
+    // Total participant bounds (at availability level)
+    const minTotal = availabilityDetail?.minParticipants;
+    const maxTotal = availabilityDetail?.maxParticipants;
+    if (minTotal && totalGuests < minTotal) {
+      return `Minimum ${minTotal} guest${minTotal !== 1 ? 's' : ''} required for this date`;
+    }
+    if (maxTotal && totalGuests > maxTotal) {
+      return `Maximum ${maxTotal} guest${maxTotal !== 1 ? 's' : ''} allowed for this date`;
+    }
+
+    // Per-category minimum (applies only when the category is in use)
+    for (const cat of pricingCategories) {
+      const units = categoryUnits[cat.id] ?? 0;
+      if (units > 0 && cat.minParticipants > 0 && units < cat.minParticipants) {
+        return `Minimum ${cat.minParticipants} ${formatLabel(cat.label).toLowerCase()} required`;
+      }
+    }
+
+    // Cross-category dependency (e.g. children cannot exceed adults)
+    for (const cat of pricingCategories) {
+      const units = categoryUnits[cat.id] ?? 0;
+      if (units > 0 && cat.maxParticipantsDepends) {
+        const dep = cat.maxParticipantsDepends;
+        const dependsCat = pricingCategories.find((c) => c.id === dep.pricingCategoryId);
+        if (dependsCat) {
+          const dependsUnits = categoryUnits[dependsCat.id] ?? 0;
+          const maxAllowed = Math.floor(dependsUnits * dep.multiplier);
+          if (units > maxAllowed) {
+            return (
+              dep.explanation ||
+              `Number of ${formatLabel(cat.label).toLowerCase()} cannot exceed ${formatLabel(dependsCat.label).toLowerCase()}`
+            );
+          }
+        }
+      }
+    }
+
+    return 'Please adjust your guest selection to continue';
+  })();
+
   // Don't render until mounted (client-side) and isOpen
   if (!mounted || !isOpen) return null;
 
@@ -600,10 +644,8 @@ export function AvailabilityModal({
                   </p>
                 </div>
               )}
-              {step === 'pricing' && !isValid && !isLoading && totalGuests > 0 && (
-                <p className="text-xs text-amber-600">
-                  Please adjust your guest selection to continue.
-                </p>
+              {step === 'pricing' && validationHint && (
+                <p className="text-xs text-amber-600">{validationHint}</p>
               )}
               {step === 'dates' && selectedSlot && (
                 <p className="text-sm text-gray-600">{formatDate(selectedSlot.date)}</p>
