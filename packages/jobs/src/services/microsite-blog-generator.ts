@@ -35,6 +35,10 @@ const BATCH_SIZE = 5; // Process 5 microsites concurrently (memory-safe for 1GB 
 const DELAY_BETWEEN_BATCHES_MS = 5000; // 5 seconds between batches
 const DELAY_BETWEEN_ITEMS_MS = 500; // 0.5 seconds between items in a batch
 
+// Only process microsites that haven't had a blog post in at least this many days.
+// Prioritizes stale microsites and prevents re-processing recently-updated ones.
+const RECENCY_GATE_DAYS = 14;
+
 export interface MicrositeBlogGenerationResult {
   micrositeId: string;
   micrositeName: string;
@@ -212,13 +216,15 @@ export async function generateBlogPostForMicrosite(
       },
     });
 
-    // Queue content generation
+    // Queue content generation — shorter posts for microsites (400-600 words) to
+    // reduce cost and generation time while still providing SEO value
     await addJob('CONTENT_GENERATE', {
       micrositeId,
       pageId: blogPage.id,
       contentType: 'blog',
       targetKeyword: topic.targetKeyword,
       secondaryKeywords: topic.secondaryKeywords,
+      targetLength: { min: 400, max: 600 },
     });
 
     // Update lastContentUpdate timestamp
@@ -253,7 +259,15 @@ export async function generateDailyBlogPostsForMicrosites(): Promise<MicrositeBl
   const startTime = Date.now();
   console.info('[Microsite Blog] Starting daily blog generation for supplier microsites...');
 
-  const supplierFilter = { status: 'ACTIVE' as const, entityType: SUPPLIER_ENTITY_TYPE };
+  // Recency gate: only process microsites that haven't been updated in 14+ days.
+  // This ensures the daily cap (80) is spent on stale microsites rather than
+  // re-processing recently-updated ones while others have never been touched.
+  const recencyCutoff = new Date(Date.now() - RECENCY_GATE_DAYS * 24 * 60 * 60 * 1000);
+  const supplierFilter = {
+    status: 'ACTIVE' as const,
+    entityType: SUPPLIER_ENTITY_TYPE,
+    OR: [{ lastContentUpdate: null }, { lastContentUpdate: { lt: recencyCutoff } }],
+  };
 
   // Get total count of active supplier microsites
   const totalActive = await prisma.micrositeConfig.count({
