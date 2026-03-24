@@ -171,6 +171,7 @@ export async function handleMicrositeCreate(job: Job<MicrositeCreatePayload>): P
     let cities: string[] = [];
     let description: string | null = null;
     let productCount = 0; // For determining layout type
+    let entityHeroImageUrl: string | null = null; // Best product/supplier image for hero
     let opportunityData: {
       id: string;
       keyword: string;
@@ -204,6 +205,9 @@ export async function handleMicrositeCreate(job: Job<MicrositeCreatePayload>): P
       cities = supplier.cities || [];
       description = supplier.description;
       productCount = supplier.productCount;
+      // Prefer the supplier's own hero image (set by product sync from real tour photos)
+      // These are far more relevant than a generic Unsplash search
+      entityHeroImageUrl = supplier.heroImageUrl ?? null;
     } else if (productId) {
       const product = await prisma.product.findUnique({
         where: { id: productId },
@@ -232,6 +236,7 @@ export async function handleMicrositeCreate(job: Job<MicrositeCreatePayload>): P
       cities = product.city ? [product.city] : [];
       description = product.shortDescription || product.description;
       productCount = 1; // Single product microsite = PRODUCT_SPOTLIGHT
+      entityHeroImageUrl = product.primaryImageUrl ?? null;
     } else if (opportunityId) {
       // OPPORTUNITY entity type — discovery-based microsite
       const opportunity = await prisma.sEOOpportunity.findUnique({ where: { id: opportunityId } });
@@ -402,31 +407,46 @@ export async function handleMicrositeCreate(job: Job<MicrositeCreatePayload>): P
 
     console.log(`[Microsite Create] Created microsite ${microsite.id} at ${fullDomain}`);
 
-    // For non-OPPORTUNITY microsites, enrich hero with Unsplash image (non-critical)
+    // For non-OPPORTUNITY microsites, set hero image (non-critical)
     // OPPORTUNITY microsites already have images from generateHomepageConfig()
     if (entityType !== 'OPPORTUNITY') {
       try {
-        const enrichedConfig = await enrichHomepageConfigWithImages(
-          { hero: { title: brandIdentity.name, subtitle: brandIdentity.tagline } },
-          { niche: categories[0] || 'travel experiences', location: cities[0] || undefined }
-        );
-        if (enrichedConfig.hero?.backgroundImage) {
+        let heroBackgroundImage: string | null = null;
+
+        if (entityHeroImageUrl) {
+          // Prefer actual product/supplier photos — far more relevant than stock images
+          heroBackgroundImage = entityHeroImageUrl;
+          console.log(`[Microsite Create] Hero image set from supplier/product data`);
+        } else {
+          // Fall back to Unsplash when no product images exist
+          const enrichedConfig = await enrichHomepageConfigWithImages(
+            { hero: { title: brandIdentity.name, subtitle: brandIdentity.tagline } },
+            { niche: categories[0] || 'travel experiences', location: cities[0] || undefined }
+          );
+          heroBackgroundImage = enrichedConfig.hero?.backgroundImage ?? null;
+          if (heroBackgroundImage) {
+            console.log(`[Microsite Create] Hero image set from Unsplash`);
+          }
+        }
+
+        if (heroBackgroundImage) {
           await prisma.micrositeConfig.update({
             where: { id: microsite.id },
             data: {
               homepageConfig: {
-                ...homepageConfig,
-                hero: enrichedConfig.hero,
+                ...(homepageConfig as Record<string, unknown>),
+                hero: {
+                  ...((homepageConfig as Record<string, unknown>)['hero'] as
+                    | Record<string, unknown>
+                    | undefined),
+                  backgroundImage: heroBackgroundImage,
+                },
               } as unknown as Prisma.InputJsonValue,
             },
           });
-          console.log(`[Microsite Create] Hero image set from Unsplash`);
         }
-      } catch (unsplashError) {
-        console.warn(
-          '[Microsite Create] Unsplash hero image failed (non-critical):',
-          unsplashError
-        );
+      } catch (heroError) {
+        console.warn('[Microsite Create] Hero image selection failed (non-critical):', heroError);
       }
     }
 

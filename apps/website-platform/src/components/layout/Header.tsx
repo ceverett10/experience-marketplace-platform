@@ -7,6 +7,30 @@ import { useSearchParams } from 'next/navigation';
 import { useSite, useBrand } from '@/lib/site-context';
 import { CurrencySelector } from '@/components/ui/CurrencySelector';
 
+/**
+ * Returns a logo text color that is guaranteed to be readable on a white header background.
+ * If the brand's primary color is too light (relative luminance > 0.4), falls back to a
+ * dark navy so the text-logo doesn't disappear against the white nav bar.
+ */
+function getLogoTextColor(primaryColor: string | undefined | null): string {
+  const fallback = '#1a2744';
+  if (!primaryColor) return fallback;
+  try {
+    const hex = primaryColor.replace('#', '');
+    if (hex.length !== 6) return primaryColor;
+    const r = parseInt(hex.slice(0, 2), 16) / 255;
+    const g = parseInt(hex.slice(2, 4), 16) / 255;
+    const b = parseInt(hex.slice(4, 6), 16) / 255;
+    const toLinear = (c: number) => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+    const luminance = 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
+    // Contrast ratio against white (luminance 1.0): (1 + 0.05) / (luminance + 0.05)
+    // WCAG AA requires 4.5:1 for normal text. Threshold luminance ≈ 0.18.
+    return luminance > 0.18 ? fallback : primaryColor;
+  } catch {
+    return primaryColor;
+  }
+}
+
 export function Header() {
   const site = useSite();
   const brand = useBrand();
@@ -136,7 +160,7 @@ export function Header() {
               ) : (
                 <span
                   className="text-xl font-bold"
-                  style={{ color: brand?.primaryColor ?? '#6366f1' }}
+                  style={{ color: getLogoTextColor(brand?.primaryColor) }}
                 >
                   {site.name}
                 </span>
