@@ -80,6 +80,7 @@ export { runMetaTitleMaintenance } from './services/meta-title-maintenance';
 export { refreshAllCollections } from './services/collection-generator';
 export { resubmitMicrositeSitemapsToGSC } from './services/microsite-sitemap-resubmit';
 export { runPipelineHealthCheck } from './scripts/pipeline-health-check';
+export { runSEOHealthCheck } from './scripts/seo-health-check';
 
 // Holibob Sync Services
 export { syncSuppliersFromHolibob, getSupplierSyncStatus } from './services/supplier-sync';

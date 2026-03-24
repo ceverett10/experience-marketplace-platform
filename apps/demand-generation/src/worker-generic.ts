@@ -102,6 +102,7 @@ import {
   detectStuckTasks,
   cleanAllQueues,
   runPipelineHealthCheck,
+  runSEOHealthCheck,
 } from '@experience-marketplace/jobs';
 import type { JobType } from '@experience-marketplace/database';
 import {
@@ -152,6 +153,7 @@ const QUEUE_PROCESSORS: Record<string, Record<string, JobProcessor>> = {
     LINK_COMPETITOR_DISCOVERY: (job) => handleLinkCompetitorDiscovery(job),
     LINK_BROKEN_LINK_SCAN: (job) => handleLinkBrokenLinkScan(job),
     LINK_CONTENT_GAP_ANALYSIS: (job) => handleLinkContentGapAnalysis(job),
+    SEO_HEALTH_CHECK: () => runSEOHealthCheck(),
   },
   [QUEUE_NAMES.ANALYTICS]: {
     METRICS_AGGREGATE: (job) => handleMetricsAggregate(job),

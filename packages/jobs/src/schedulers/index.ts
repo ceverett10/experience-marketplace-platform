@@ -327,6 +327,9 @@ export async function initializeScheduledJobs(): Promise<void> {
   await scheduleJob('PIPELINE_HEALTH_CHECK' as any, {} as any, '0 9 * * *');
   console.info('[Scheduler] ✓ Pipeline Health Check - Daily at 9 AM');
 
+  await scheduleJob('SEO_HEALTH_CHECK' as any, {} as any, '30 9 * * *');
+  console.info('[Scheduler] ✓ SEO Health Check - Daily at 9:30 AM');
+
   await scheduleJob('REDIS_QUEUE_CLEANUP' as any, {} as any, '0 * * * *');
   console.info('[Scheduler] ✓ Redis Queue Cleanup - Hourly');
 
@@ -629,6 +632,11 @@ export function getScheduledJobs(): Array<{
       jobType: 'PIPELINE_HEALTH_CHECK',
       schedule: '0 9 * * *',
       description: 'Verify integrity of campaign pipeline phases',
+    },
+    {
+      jobType: 'SEO_HEALTH_CHECK',
+      schedule: '30 9 * * *',
+      description: 'Check for noIndex orphans, stale sitemaps, blog freshness, GSC sync',
     },
     {
       jobType: 'REDIS_QUEUE_CLEANUP',
