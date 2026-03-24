@@ -68,12 +68,35 @@ describe('Header', () => {
     expect(navLinks.length).toBeGreaterThan(0);
   });
 
-  it('should apply brand color to site name', () => {
+  it('should apply brand color to site name when color has sufficient contrast', () => {
+    const siteConfig = createMockSiteConfig({
+      brand: {
+        logoUrl: null,
+        logoDarkUrl: null,
+        name: 'Test Brand',
+        tagline: null,
+        primaryColor: '#0d1b2a', // dark color, luminance well below 0.18 threshold
+        secondaryColor: '#8b5cf6',
+        accentColor: '#f59e0b',
+        headingFont: 'Inter',
+        bodyFont: 'Inter',
+        faviconUrl: null,
+        ogImageUrl: null,
+        socialLinks: null,
+      },
+    });
+    renderWithProviders(<Header />, { siteConfig });
+
+    const siteName = screen.getByText('Experience Marketplace');
+    expect(siteName).toHaveStyle({ color: '#0d1b2a' });
+  });
+
+  it('should fall back to dark navy when brand color is too light for contrast', () => {
+    // #6366f1 (indigo) has luminance ~0.205 > 0.18 threshold — fails 4.5:1 against white
     renderWithProviders(<Header />);
 
     const siteName = screen.getByText('Experience Marketplace');
-    // Default brand primaryColor is #6366f1
-    expect(siteName).toHaveStyle({ color: '#6366f1' });
+    expect(siteName).toHaveStyle({ color: '#1a2744' });
   });
 
   it('should render sticky header with white background', () => {
