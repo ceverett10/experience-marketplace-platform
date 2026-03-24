@@ -70,6 +70,7 @@ export interface AvailabilityDetail {
   maxParticipants?: number;
   minParticipants?: number;
   isValid?: boolean;
+  soldOut?: boolean;
   totalPrice?: {
     grossFormattedText: string;
     netFormattedText: string;

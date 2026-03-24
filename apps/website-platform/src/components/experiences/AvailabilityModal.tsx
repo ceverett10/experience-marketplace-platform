@@ -298,6 +298,12 @@ export function AvailabilityModal({
   const validationHint: string | null = (() => {
     if (isValid || isLoading || totalGuests === 0) return null;
 
+    // Sold out takes priority — Holibob sets this when the chosen configuration
+    // exceeds remaining capacity for the slot
+    if (availabilityDetail?.soldOut) {
+      return 'The selected options are currently sold out. Try selecting different options';
+    }
+
     // Total participant bounds (at availability level)
     const minTotal = availabilityDetail?.minParticipants;
     const maxTotal = availabilityDetail?.maxParticipants;
