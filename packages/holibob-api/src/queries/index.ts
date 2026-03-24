@@ -299,6 +299,7 @@ export const AVAILABILITY_PRICING_QUERY = gql`
       maxParticipants
       minParticipants
       isValid
+      soldOut
       totalPrice {
         grossFormattedText
         netFormattedText
@@ -344,6 +345,7 @@ export const AVAILABILITY_SET_PRICING_QUERY = gql`
     availability(id: $id, input: $input) {
       id
       isValid
+      soldOut
       minParticipants
       maxParticipants
       totalPrice {

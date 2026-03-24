@@ -447,6 +447,7 @@ export const AvailabilityDetailSchema = z.object({
   minParticipants: z.number().optional(),
   maxParticipants: z.number().optional(),
   isValid: z.boolean().optional(),
+  soldOut: z.boolean().optional(),
   totalPrice: PriceSchema.optional(),
   pricingCategoryList: z
     .object({
