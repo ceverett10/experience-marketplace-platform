@@ -528,7 +528,7 @@ export function AvailabilityModal({
                       const config = getProductPricingConfig(productId);
                       const promo = calculatePromoPrice(
                         category.unitPrice.grossFormattedText,
-                        category.unitPrice.gross,
+                        category.unitPrice.gross / 100, // booking API returns minor units (pence/cents)
                         category.unitPrice.currency ?? 'GBP',
                         config
                       );
@@ -616,7 +616,7 @@ export function AvailabilityModal({
                   const config = getProductPricingConfig(productId);
                   const promo = calculatePromoPrice(
                     totalPrice.formatted,
-                    totalPrice.amount,
+                    totalPrice.amount / 100, // booking API returns minor units (pence/cents)
                     totalPrice.currency,
                     config
                   );
