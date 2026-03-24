@@ -344,6 +344,8 @@ export const AVAILABILITY_SET_PRICING_QUERY = gql`
     availability(id: $id, input: $input) {
       id
       isValid
+      minParticipants
+      maxParticipants
       totalPrice {
         grossFormattedText
         gross
@@ -354,6 +356,13 @@ export const AVAILABILITY_SET_PRICING_QUERY = gql`
           id
           label
           units
+          minParticipants
+          maxParticipants
+          maxParticipantsDepends {
+            pricingCategoryId
+            multiplier
+            explanation
+          }
           unitPrice {
             grossFormattedText
             gross
