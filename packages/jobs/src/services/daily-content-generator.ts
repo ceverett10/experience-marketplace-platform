@@ -1045,7 +1045,12 @@ async function getSiteWithContext(siteId: string): Promise<SiteContext | null> {
   return {
     id: site.id,
     name: site.name,
-    niche: opportunity?.niche || seoConfig?.primaryKeywords?.[0] || 'travel experiences',
+    // Filter out internal snake_case identifiers (e.g. "paid_traffic") that leak from
+    // seoConfig.primaryKeywords — these are ad pipeline tags, not human-readable niches.
+    niche:
+      opportunity?.niche ||
+      (seoConfig?.primaryKeywords?.[0]?.includes('_') ? null : seoConfig?.primaryKeywords?.[0]) ||
+      'travel experiences',
     location: opportunity?.location || seoConfig?.destination,
     categories: categoryNames,
     destinations: destinationNames,
