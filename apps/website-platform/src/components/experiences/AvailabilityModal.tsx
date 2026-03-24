@@ -64,6 +64,9 @@ export function AvailabilityModal({
     currency: string;
   } | null>(null);
   const [isValid, setIsValid] = useState(false);
+  // True once the first setPricingCategories response has come back — prevents
+  // the validation hint from flashing during the initial 300ms debounce window
+  const [hasPricingResult, setHasPricingResult] = useState(false);
 
   // Loading and error states
   const [isLoading, setIsLoading] = useState(false);
@@ -227,6 +230,7 @@ export function AvailabilityModal({
         const result = await setPricingCategories(selectedSlot.id, categories);
         setAvailabilityDetail(result);
         setIsValid(result.isValid ?? false);
+        setHasPricingResult(true);
 
         if (result.totalPrice) {
           setTotalPrice({
@@ -276,6 +280,7 @@ export function AvailabilityModal({
       setCategoryUnits({});
       setTotalPrice(null);
       setIsValid(false);
+      setHasPricingResult(false);
       setError(null);
     }
   }, [isOpen]);
@@ -296,7 +301,7 @@ export function AvailabilityModal({
 
   // Derive a human-readable validation hint from API constraints when isValid = false
   const validationHint: string | null = (() => {
-    if (isValid || isLoading || totalGuests === 0) return null;
+    if (isValid || isLoading || totalGuests === 0 || !hasPricingResult) return null;
 
     // Sold out takes priority — Holibob sets this when the chosen configuration
     // exceeds remaining capacity for the slot
