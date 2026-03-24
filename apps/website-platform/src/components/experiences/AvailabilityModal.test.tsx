@@ -431,7 +431,7 @@ describe('AvailabilityModal', () => {
     expect(continueBtn?.hasAttribute('disabled')).toBe(false);
   });
 
-  it('defaults guest count to 2 for Adult category', async () => {
+  it('defaults guest count to minParticipants (or 1) for Adult category', async () => {
     mockGetAvailabilityDetails.mockResolvedValue({
       id: 'slot-1',
       optionList: { isComplete: true, nodes: [] },
@@ -473,9 +473,9 @@ describe('AvailabilityModal', () => {
       expect(document.body.textContent).toContain('Select guests');
     });
 
-    // Adult category should default to 2
+    // Adult category should default to minParticipants (0) || 1 = 1
     const adultCategory = document.body.querySelector('[data-testid="guest-category-adult"]');
-    expect(adultCategory?.textContent).toContain('2');
+    expect(adultCategory?.textContent).toContain('1');
 
     // Child category should stay at 0
     const childCategory = document.body.querySelector('[data-testid="guest-category-child"]');
