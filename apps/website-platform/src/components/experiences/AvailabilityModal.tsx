@@ -64,6 +64,9 @@ export function AvailabilityModal({
     currency: string;
   } | null>(null);
   const [isValid, setIsValid] = useState(false);
+  // True once the first setPricingCategories response has come back — prevents
+  // the validation hint from flashing during the initial 300ms debounce window
+  const [hasPricingResult, setHasPricingResult] = useState(false);
 
   // Loading and error states
   const [isLoading, setIsLoading] = useState(false);
@@ -112,12 +115,10 @@ export function AvailabilityModal({
     categories.forEach((cat) => {
       const isAdultCategory = /adult/i.test(cat.label);
       if (!defaultApplied && (isAdultCategory || categories.length === 1)) {
-        // Default to 2 guests (within min/max bounds)
-        const defaultCount = Math.max(
-          cat.minParticipants || 0,
-          Math.min(2, cat.maxParticipants || 99)
-        );
-        initialUnits[cat.id] = defaultCount;
+        // Default to minParticipants (the guaranteed valid minimum).
+        // Defaulting higher (e.g. 2) risks an immediately-invalid state for
+        // products where the API only accepts exactly the minimum count.
+        initialUnits[cat.id] = cat.minParticipants || 1;
         defaultApplied = true;
       } else {
         // Non-primary categories (children, infants) always start at 0.
@@ -125,13 +126,10 @@ export function AvailabilityModal({
         initialUnits[cat.id] = 0;
       }
     });
-    // If no adult category found, default first category to 2
+    // If no adult category found, default first category to its minimum
     if (!defaultApplied && categories.length > 0) {
       const first = categories[0]!;
-      initialUnits[first.id] = Math.max(
-        first.minParticipants || 0,
-        Math.min(2, first.maxParticipants || 99)
-      );
+      initialUnits[first.id] = first.minParticipants || 1;
     }
     return initialUnits;
   };
@@ -232,6 +230,7 @@ export function AvailabilityModal({
         const result = await setPricingCategories(selectedSlot.id, categories);
         setAvailabilityDetail(result);
         setIsValid(result.isValid ?? false);
+        setHasPricingResult(true);
 
         if (result.totalPrice) {
           setTotalPrice({
@@ -281,6 +280,7 @@ export function AvailabilityModal({
       setCategoryUnits({});
       setTotalPrice(null);
       setIsValid(false);
+      setHasPricingResult(false);
       setError(null);
     }
   }, [isOpen]);
@@ -301,7 +301,13 @@ export function AvailabilityModal({
 
   // Derive a human-readable validation hint from API constraints when isValid = false
   const validationHint: string | null = (() => {
-    if (isValid || isLoading || totalGuests === 0) return null;
+    if (isValid || isLoading || totalGuests === 0 || !hasPricingResult) return null;
+
+    // Sold out takes priority — Holibob sets this when the chosen configuration
+    // exceeds remaining capacity for the slot
+    if (availabilityDetail?.soldOut) {
+      return 'The selected options are currently sold out. Try selecting different options';
+    }
 
     // Total participant bounds (at availability level)
     const minTotal = availabilityDetail?.minParticipants;
