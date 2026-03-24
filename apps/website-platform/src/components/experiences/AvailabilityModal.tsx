@@ -14,7 +14,6 @@ import {
   type PricingCategory,
   type AvailabilityDetail,
 } from '@/lib/booking-flow';
-import { getProductPricingConfig, calculatePromoPrice } from '@/lib/pricing';
 
 interface AvailabilityModalProps {
   isOpen: boolean;
@@ -121,7 +120,9 @@ export function AvailabilityModal({
         initialUnits[cat.id] = defaultCount;
         defaultApplied = true;
       } else {
-        initialUnits[cat.id] = cat.minParticipants || 0;
+        // Non-primary categories (children, infants) always start at 0.
+        // minParticipants is the minimum IF the category is used, not a required default.
+        initialUnits[cat.id] = 0;
       }
     });
     // If no adult category found, default first category to 2
@@ -524,30 +525,9 @@ export function AvailabilityModal({
                 >
                   <div className="min-w-0 pt-1">
                     <p className="font-medium text-gray-900">{formatLabel(category.label)}</p>
-                    {(() => {
-                      const config = getProductPricingConfig(productId);
-                      const promo = calculatePromoPrice(
-                        category.unitPrice.grossFormattedText,
-                        category.unitPrice.gross / 100, // booking API returns minor units (pence/cents)
-                        category.unitPrice.currency ?? 'GBP',
-                        config
-                      );
-                      return promo.hasPromo ? (
-                        <p className="text-sm text-gray-500">
-                          <span className="text-gray-400 line-through">
-                            {promo.originalFormatted}
-                          </span>{' '}
-                          <span className="font-medium text-gray-700">
-                            {category.unitPrice.grossFormattedText}
-                          </span>{' '}
-                          per person
-                        </p>
-                      ) : (
-                        <p className="text-sm text-gray-500">
-                          {category.unitPrice.grossFormattedText} per person
-                        </p>
-                      );
-                    })()}
+                    <p className="text-sm text-gray-500">
+                      {category.unitPrice.grossFormattedText} per person
+                    </p>
                     {category.minParticipants > 0 && (
                       <p className="text-xs text-gray-400">Min: {category.minParticipants}</p>
                     )}
@@ -610,32 +590,21 @@ export function AvailabilityModal({
           {/* Total and action buttons */}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              {step === 'pricing' &&
-                totalPrice &&
-                (() => {
-                  const config = getProductPricingConfig(productId);
-                  const promo = calculatePromoPrice(
-                    totalPrice.formatted,
-                    totalPrice.amount / 100, // booking API returns minor units (pence/cents)
-                    totalPrice.currency,
-                    config
-                  );
-                  return (
-                    <div>
-                      <p className="text-sm text-gray-500">
-                        {totalGuests} {totalGuests === 1 ? 'guest' : 'guests'}
-                      </p>
-                      {promo.hasPromo && (
-                        <p className="text-xs text-gray-400 line-through">
-                          {promo.originalFormatted}
-                        </p>
-                      )}
-                      <p className="text-lg font-bold" style={{ color: primaryColor }}>
-                        {totalPrice.formatted}
-                      </p>
-                    </div>
-                  );
-                })()}
+              {step === 'pricing' && totalPrice && (
+                <div>
+                  <p className="text-sm text-gray-500">
+                    {totalGuests} {totalGuests === 1 ? 'guest' : 'guests'}
+                  </p>
+                  <p className="text-lg font-bold" style={{ color: primaryColor }}>
+                    {totalPrice.formatted}
+                  </p>
+                </div>
+              )}
+              {step === 'pricing' && !isValid && !isLoading && totalGuests > 0 && (
+                <p className="text-xs text-amber-600">
+                  Please adjust your guest selection to continue.
+                </p>
+              )}
               {step === 'dates' && selectedSlot && (
                 <p className="text-sm text-gray-600">{formatDate(selectedSlot.date)}</p>
               )}
