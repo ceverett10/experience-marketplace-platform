@@ -658,6 +658,67 @@ export async function handleAdBudgetOptimizer(job: Job): Promise<JobResult> {
   const payload = job.data as AdBudgetOptimizerPayload;
   console.log('[Ads Worker] Starting budget optimizer');
 
+  // --- Focused Strategy Circuit Breaker ---
+  // Check portfolio-level ROAS for focused campaigns; emergency-pause all if too low
+  const focusedConfig = PAID_TRAFFIC_CONFIG.focusedStrategy;
+  if (focusedConfig.enabled) {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const focusedCampaigns = await prisma.adCampaign.findMany({
+      where: {
+        status: 'ACTIVE',
+        proposalData: { path: ['focusedStrategy'], equals: true },
+      },
+      include: {
+        dailyMetrics: { where: { date: { gte: sevenDaysAgo } } },
+      },
+    });
+
+    if (focusedCampaigns.length > 0) {
+      let totalFocusedSpend = 0;
+      let totalFocusedRevenue = 0;
+      for (const fc of focusedCampaigns) {
+        for (const m of fc.dailyMetrics) {
+          totalFocusedSpend += Number(m.spend);
+          totalFocusedRevenue += Number(m.revenue);
+        }
+      }
+      const focusedPortfolioRoas =
+        totalFocusedSpend > 0 ? totalFocusedRevenue / totalFocusedSpend : 0;
+
+      if (
+        totalFocusedSpend > focusedConfig.circuitBreakerMinSpend &&
+        focusedPortfolioRoas < focusedConfig.circuitBreakerRoas
+      ) {
+        console.error(
+          `[Ads Worker] CIRCUIT BREAKER: Focused strategy portfolio ROAS ${focusedPortfolioRoas.toFixed(2)} < ${focusedConfig.circuitBreakerRoas} (spend: £${totalFocusedSpend.toFixed(2)}). Pausing all focused campaigns.`
+        );
+        for (const fc of focusedCampaigns) {
+          await prisma.adCampaign.update({
+            where: { id: fc.id },
+            data: {
+              status: 'PAUSED',
+              proposalData: {
+                ...(typeof (fc as Record<string, unknown>).proposalData === 'object'
+                  ? ((fc as Record<string, unknown>).proposalData as Record<string, unknown>)
+                  : {}),
+                pauseReason: 'FOCUSED_STRATEGY_CIRCUIT_BREAKER',
+                pausedAt: new Date().toISOString(),
+              },
+            },
+          });
+        }
+        await prisma.adAlert.create({
+          data: {
+            type: 'FOCUSED_STRATEGY_CIRCUIT_BREAKER',
+            severity: 'CRITICAL',
+            message: `Focused strategy paused: portfolio ROAS ${focusedPortfolioRoas.toFixed(2)} below ${focusedConfig.circuitBreakerRoas} threshold (£${totalFocusedSpend.toFixed(2)} spent)`,
+          },
+        });
+      }
+    }
+  }
+
   const maxBudget = PAID_TRAFFIC_CONFIG.maxDailyBudget;
   const lookback = new Date();
   lookback.setDate(lookback.getDate() - PAID_TRAFFIC_CONFIG.observationDays);
@@ -2649,7 +2710,7 @@ export async function deployDraftCampaigns(
  */
 export async function handleBiddingEngineRun(job: Job): Promise<JobResult> {
   const { mode, maxDailyBudget } = job.data as {
-    mode?: 'full' | 'deploy_only' | 'optimize_only' | 'report_only';
+    mode?: 'full' | 'deploy_only' | 'optimize_only' | 'report_only' | 'focused';
     maxDailyBudget?: number;
   };
 
@@ -2772,11 +2833,15 @@ export async function handleBiddingEngineRun(job: Job): Promise<JobResult> {
 
       // STAG: use campaign group name for Google campaigns
       const platformLabel = group.platform === 'GOOGLE_SEARCH' ? 'Google' : 'Meta';
-      const campaignName = group.campaignGroup
-        ? `${group.campaignGroup} - ${platformLabel}`
-        : group.isMicrosite
-          ? `${group.siteName} - ${platformLabel}`
-          : `${group.siteName} - ${group.primaryKeyword} - ${platformLabel}`;
+      const focusedCity = mode === 'focused' ? group.candidates[0]?.location : null;
+      const campaignName =
+        focusedCity && group.campaignGroup
+          ? `Focused: ${group.campaignGroup} in ${focusedCity} - ${platformLabel}`
+          : group.campaignGroup
+            ? `${group.campaignGroup} - ${platformLabel}`
+            : group.isMicrosite
+              ? `${group.siteName} - ${platformLabel}`
+              : `${group.siteName} - ${group.primaryKeyword} - ${platformLabel}`;
 
       const clampedBudget = Math.min(
         Math.max(group.totalExpectedDailyCost, minDailyBudget),
@@ -2815,6 +2880,15 @@ export async function handleBiddingEngineRun(job: Job): Promise<JobResult> {
               group.totalExpectedDailyCost > 0
                 ? group.totalExpectedDailyRevenue / group.totalExpectedDailyCost
                 : 0,
+            // Focused strategy tags (when mode === 'focused')
+            ...(mode === 'focused' && group.candidates[0]?.location
+              ? {
+                  focusedStrategy: true,
+                  focusedCity: group.candidates[0].location,
+                  focusedCategory: group.campaignGroup || '',
+                  focusedComboId: `${group.candidates[0].location}|||${group.campaignGroup || ''}`,
+                }
+              : {}),
             keywords: group.candidates.map((c) => ({
               keyword: c.keyword,
               opportunityId: c.opportunityId,

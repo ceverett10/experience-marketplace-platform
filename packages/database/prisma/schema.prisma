@@ -1327,6 +1327,35 @@ model AdAlert {
   @@map("ad_alerts")
 }
 
+model FocusedStrategyConfig {
+  id       String  @id @default(cuid())
+  isActive Boolean @default(false)
+
+  // The 25 combinations: [{city, category, status, targetRoas, dailyBudget}]
+  combinations Json
+
+  // Budget controls
+  totalDailyBudget  Decimal @db.Decimal(10, 2)
+  perComboBudgetMax Decimal @default(25.00) @db.Decimal(10, 2)
+
+  // ROAS controls
+  targetRoas     Float @default(1.0)
+  hardFloorRoas  Float @default(0.7) // Reject keywords below this predicted ROAS
+  pauseRoas      Float @default(0.4) // Auto-pause combos below this
+  pauseAfterDays Int   @default(5) // Faster than general 7-day observation
+  scaleRoas      Float @default(1.5) // Lower than general 2.0 — grow winners faster
+  scaleIncrement Float @default(0.10) // 10% budget increase per cycle
+
+  // Progressive ramp
+  rampPhase  Int @default(1) // 1=top 5, 2=+10, 3=all 25
+  rampWeekOf DateTime? // When current ramp phase started
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("focused_strategy_configs")
+}
+
 model AdReviewReport {
   id                 String    @id @default(cuid())
   status             String    @default("RUNNING") // RUNNING, COMPLETED, FAILED
