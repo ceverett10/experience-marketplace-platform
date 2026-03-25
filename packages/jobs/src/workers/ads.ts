@@ -699,8 +699,8 @@ export async function handleAdBudgetOptimizer(job: Job): Promise<JobResult> {
             data: {
               status: 'PAUSED',
               proposalData: {
-                ...(typeof (fc as Record<string, unknown>).proposalData === 'object'
-                  ? ((fc as Record<string, unknown>).proposalData as Record<string, unknown>)
+                ...(typeof (fc as Record<string, unknown>)['proposalData'] === 'object'
+                  ? ((fc as Record<string, unknown>)['proposalData'] as Record<string, unknown>)
                   : {}),
                 pauseReason: 'FOCUSED_STRATEGY_CIRCUIT_BREAKER',
                 pausedAt: new Date().toISOString(),

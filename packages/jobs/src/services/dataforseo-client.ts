@@ -816,22 +816,22 @@ export class DataForSEOClient {
         if (!taskResult) continue;
 
         const interestOverTime = (taskResult.items || [])
-          .filter((item: Record<string, unknown>) => item.type === 'google_trends_graph')
+          .filter((item: Record<string, unknown>) => item['type'] === 'google_trends_graph')
           .flatMap((item: Record<string, unknown>) => {
-            const data = (item.data as Record<string, unknown>[]) || [];
+            const data = (item['data'] as Record<string, unknown>[]) || [];
             return data.map((d: Record<string, unknown>) => ({
-              date: d.date_from as string,
-              values: (d.values as number[]) || [],
+              date: d['date_from'] as string,
+              values: (d['values'] as number[]) || [],
             }));
           });
 
         const interestByRegion = (taskResult.items || [])
-          .filter((item: Record<string, unknown>) => item.type === 'google_trends_map')
+          .filter((item: Record<string, unknown>) => item['type'] === 'google_trends_map')
           .flatMap((item: Record<string, unknown>) => {
-            const data = (item.data as Record<string, unknown>[]) || [];
+            const data = (item['data'] as Record<string, unknown>[]) || [];
             return data.map((d: Record<string, unknown>) => ({
-              region: (d.geo_name as string) || '',
-              values: (d.values as number[]) || [],
+              region: (d['geo_name'] as string) || '',
+              values: (d['values'] as number[]) || [],
             }));
           });
 
@@ -887,7 +887,7 @@ export class DataForSEOClient {
               searchVolume: item.search_volume || 0,
               trendData: item.trend_data || [],
               relatedQueries: (item.related_queries || []).map(
-                (q: Record<string, unknown>) => q.query as string
+                (q: Record<string, unknown>) => q['query'] as string
               ),
               category: item.categories?.[0] || null,
             });
