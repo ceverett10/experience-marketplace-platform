@@ -30,7 +30,7 @@ const SUPPLIER_ENTITY_TYPE = MicrositeEntityType.SUPPLIER;
 // With ~39K supplier microsites, percentage-based rotation produces too many
 // items per day. Use a hard cap instead to keep within 1GB Heroku memory.
 const DAILY_PERCENTAGE = 0.002; // 0.2% = ~78 microsites/day from 39K pool
-const MAX_DAILY_MICROSITES = 200; // Hard cap regardless of pool size
+const MAX_DAILY_MICROSITES = 500; // Hard cap regardless of pool size
 const BATCH_SIZE = 5; // Process 5 microsites concurrently (memory-safe for 1GB dyno)
 const DELAY_BETWEEN_BATCHES_MS = 5000; // 5 seconds between batches
 const DELAY_BETWEEN_ITEMS_MS = 500; // 0.5 seconds between items in a batch
