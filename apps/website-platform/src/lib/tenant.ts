@@ -100,13 +100,22 @@ interface MicrositeConfig {
 const micrositeCache = new Map<string, { config: unknown | null; expiresAt: number }>();
 const MICROSITE_CACHE_TTL_MS = 60 * 1000; // 1 minute in-memory cache
 
-// Evict expired entries every 2 minutes so the map doesn't grow unboundedly.
+// Cache for main site domain → SiteConfig lookups.
+// Domain records change rarely; 5-minute TTL prevents DB connection pressure under
+// crawl load while staying fresh enough for any config updates.
+const siteConfigCache = new Map<string, { config: SiteConfig; expiresAt: number }>();
+const SITE_CONFIG_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+// Evict expired entries every 2 minutes so the maps don't grow unboundedly.
 // Without this, entries expire logically but remain allocated in memory forever.
 setInterval(
   () => {
     const now = Date.now();
     for (const [key, entry] of micrositeCache.entries()) {
       if (entry.expiresAt <= now) micrositeCache.delete(key);
+    }
+    for (const [key, entry] of siteConfigCache.entries()) {
+      if (entry.expiresAt <= now) siteConfigCache.delete(key);
     }
   },
   2 * 60 * 1000
@@ -448,6 +457,14 @@ export async function getSiteFromHostname(hostname: string): Promise<SiteConfig>
     return DEFAULT_SITE_CONFIG;
   }
 
+  // Check site config cache before hitting the database.
+  // Main site domain records rarely change — 5 min TTL avoids repeated DB hits
+  // under crawl load and prevents unbranded ISR renders when connections are busy.
+  const cachedSiteConfig = siteConfigCache.get(cleanHostname);
+  if (cachedSiteConfig && cachedSiteConfig.expiresAt > Date.now()) {
+    return cachedSiteConfig.config;
+  }
+
   // In production, query the database for site by domain
   try {
     const { prisma } = await import('@experience-marketplace/database');
@@ -465,7 +482,12 @@ export async function getSiteFromHostname(hostname: string): Promise<SiteConfig>
     });
 
     if (domain?.site) {
-      return mapSiteToConfig(domain.site as Site & { brand: Brand | null });
+      const config = mapSiteToConfig(domain.site as Site & { brand: Brand | null });
+      siteConfigCache.set(cleanHostname, {
+        config,
+        expiresAt: Date.now() + SITE_CONFIG_CACHE_TTL_MS,
+      });
+      return config;
     }
 
     // Fallback: try to find site by slug matching subdomain
@@ -477,11 +499,20 @@ export async function getSiteFromHostname(hostname: string): Promise<SiteConfig>
       });
 
       if (site) {
-        return mapSiteToConfig(site as Site & { brand: Brand | null });
+        const config = mapSiteToConfig(site as Site & { brand: Brand | null });
+        siteConfigCache.set(cleanHostname, {
+          config,
+          expiresAt: Date.now() + SITE_CONFIG_CACHE_TTL_MS,
+        });
+        return config;
       }
     }
   } catch (error) {
     console.error('Error fetching site from database:', error);
+    // On DB error, serve stale cache if available rather than falling back to unbranded defaults
+    if (cachedSiteConfig) {
+      return cachedSiteConfig.config;
+    }
   }
 
   return DEFAULT_SITE_CONFIG;
