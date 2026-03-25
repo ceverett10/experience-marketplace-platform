@@ -227,10 +227,12 @@ export async function generateDailyBlogPostsForAllSites(): Promise<DailyBlogGene
 }
 
 /**
- * Generate blog posts for main sites and supplier microsites.
+ * Generate daily blog posts for supplier microsites only.
  * This is the main entry point called by the scheduler (daily at 4 AM UTC).
  *
- * - Main sites: up to 1 post per site per 14 days (14-day recency gate enforced in generateDailyBlogPostForSite)
+ * Main sites are excluded — the strategy is to build up microsite SEO authority first.
+ * Main sites can still receive blogs via manual generateDailyBlogPostForSite() calls.
+ *
  * - Supplier microsites: up to 80 per day, prioritised by oldest lastContentUpdate,
  *   with a 14-day recency gate in generateDailyBlogPostsForMicrosites
  */
@@ -238,17 +240,17 @@ export async function generateDailyBlogPostsForAllSitesAndMicrosites(): Promise<
   sites: DailyBlogGenerationResult[];
   microsites: MicrositeBlogGenerationSummary;
 }> {
-  console.info('[Daily Blog] Starting daily blog generation (main sites + supplier microsites)...');
+  console.info('[Daily Blog] Starting daily blog generation (supplier microsites only)...');
 
-  // Main sites — 14-day recency gate means most runs are no-ops; posts queue ~twice/month
-  const siteResults = await generateDailyBlogPostsForAllSites();
+  // Main sites excluded — focusing on supplier microsites to build SEO authority
+  // at scale before turning attention back to main sites.
+  const siteResults: DailyBlogGenerationResult[] = [];
 
   // Supplier microsites — 80/day hard cap, oldest-first ordering, 14-day recency gate
   const micrositeResults = await generateDailyBlogPostsForMicrosites();
 
   console.info(
     `[Daily Blog] Complete. ` +
-      `Main sites: ${siteResults.filter((r) => r.postQueued).length}/${siteResults.length} queued. ` +
       `Supplier microsites: ${micrositeResults.postsQueued} posts ` +
       `(${micrositeResults.processedCount}/${micrositeResults.totalMicrosites} eligible processed)`
   );

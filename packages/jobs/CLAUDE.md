@@ -142,7 +142,7 @@ microsite `discoveryConfig` (keyword, destination, niche).
 
 ### Blog Generation Targeting
 
-- **Main sites**: Excluded from daily blog fanout (no product context for relevant topics)
+- **Main sites**: Excluded from daily blog fanout — strategy is to build microsite SEO authority first; main sites get blogs later via manual calls
 - **Supplier microsites only**: Daily rotating blog generation with rich product/category/city context
 - **PRODUCT/OPPORTUNITY microsites**: Excluded — products lack varied context, opportunities use daily-content-generator
 - Suppliers with no linked products are skipped (would produce generic, irrelevant content)
