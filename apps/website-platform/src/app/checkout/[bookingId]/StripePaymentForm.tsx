@@ -33,8 +33,8 @@ function PaymentForm({
     setErrorMessage(null);
 
     try {
-      console.log('[StripePayment] Confirming payment...');
-      console.log('[StripePayment] Elements ready:', !!elements);
+      console.info('[StripePayment] Confirming payment...');
+      console.info('[StripePayment] Elements ready:', !!elements);
 
       // Submit the form to get the payment method first
       const { error: submitError } = await elements.submit();
@@ -45,7 +45,7 @@ function PaymentForm({
         return;
       }
 
-      console.log('[StripePayment] Form submitted, confirming payment...');
+      console.info('[StripePayment] Form submitted, confirming payment...');
       const { error, paymentIntent } = await stripe.confirmPayment({
         elements,
         confirmParams: {
@@ -54,7 +54,7 @@ function PaymentForm({
         redirect: 'if_required',
       });
 
-      console.log('[StripePayment] Confirmation result:', {
+      console.info('[StripePayment] Confirmation result:', {
         error: error ? { type: error.type, code: error.code, message: error.message } : null,
         paymentIntent: paymentIntent
           ? { id: paymentIntent.id, status: paymentIntent.status, amount: paymentIntent.amount }
@@ -66,46 +66,46 @@ function PaymentForm({
         setErrorMessage(error.message ?? 'Payment failed');
         onError(error.message ?? 'Payment failed');
       } else if (paymentIntent) {
-        console.log('[StripePayment] Payment intent status:', paymentIntent.status);
+        console.info('[StripePayment] Payment intent status:', paymentIntent.status);
 
         // Handle various successful/pending states
         switch (paymentIntent.status) {
           case 'succeeded':
-            console.log('[StripePayment] Payment succeeded!');
+            console.info('[StripePayment] Payment succeeded!');
             onSuccess();
             break;
           case 'processing':
             // Payment is processing - treat as success for now, webhook will confirm
-            console.log('[StripePayment] Payment processing...');
+            console.info('[StripePayment] Payment processing...');
             onSuccess();
             break;
           case 'requires_capture':
             // Payment authorized but needs capture - common for marketplaces
-            console.log('[StripePayment] Payment authorized (requires capture)');
+            console.info('[StripePayment] Payment authorized (requires capture)');
             onSuccess();
             break;
           case 'requires_action':
             // 3D Secure or other action required - Stripe handles this automatically
-            console.log('[StripePayment] Requires action');
+            console.info('[StripePayment] Requires action');
             setErrorMessage('Additional verification required. Please complete the verification.');
             break;
           case 'requires_payment_method':
-            console.log('[StripePayment] Requires payment method - card was declined');
+            console.info('[StripePayment] Requires payment method - card was declined');
             setErrorMessage('Your card was declined. Please try a different payment method.');
             onError('Card declined');
             break;
           case 'requires_confirmation':
-            console.log('[StripePayment] Requires confirmation - retrying...');
+            console.info('[StripePayment] Requires confirmation - retrying...');
             // This shouldn't happen after confirmPayment, but handle it
             setErrorMessage('Please try again');
             break;
           default:
-            console.log('[StripePayment] Unexpected status:', paymentIntent.status);
+            console.info('[StripePayment] Unexpected status:', paymentIntent.status);
             setErrorMessage(`Payment status: ${paymentIntent.status}. Please try again.`);
             onError(`Unexpected payment status: ${paymentIntent.status}`);
         }
       } else {
-        console.log('[StripePayment] No payment intent returned');
+        console.info('[StripePayment] No payment intent returned');
         setErrorMessage('Payment could not be processed. Please try again.');
         onError('No payment intent returned');
       }
@@ -235,15 +235,15 @@ export function StripePaymentForm({
   useEffect(() => {
     const fetchPaymentIntent = async () => {
       try {
-        console.log('[StripePayment] Fetching payment intent for booking:', bookingId);
+        console.info('[StripePayment] Fetching payment intent for booking:', bookingId);
         const response = await fetch(`/api/booking/${bookingId}/payment-intent`);
         const result = await response.json();
-        console.log('[StripePayment] Payment intent response:', result);
+        console.info('[StripePayment] Payment intent response:', result);
 
         if (!response.ok) {
           if (result.skipPayment) {
             // Payment not required - commit directly
-            console.log('[StripePayment] Payment not required, committing directly');
+            console.info('[StripePayment] Payment not required, committing directly');
             onSuccess();
             return;
           }
@@ -254,11 +254,11 @@ export function StripePaymentForm({
         const stripeKey = result.data.apiKey;
         const clientSecretValue = result.data.clientSecret;
 
-        console.log(
+        console.info(
           '[StripePayment] Initializing Stripe with key:',
           stripeKey?.substring(0, 20) + '...'
         );
-        console.log('[StripePayment] Client secret present:', !!clientSecretValue);
+        console.info('[StripePayment] Client secret present:', !!clientSecretValue);
 
         if (!stripeKey || !clientSecretValue) {
           throw new Error('Missing Stripe API key or client secret from Holibob');

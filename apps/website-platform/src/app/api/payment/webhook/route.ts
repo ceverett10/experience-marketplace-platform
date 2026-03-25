@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
       }
 
       default:
-        console.log(`Unhandled event type: ${event.type}`);
+        console.info(`Unhandled event type: ${event.type}`);
     }
 
     return NextResponse.json({ received: true });
@@ -81,7 +81,7 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
     return;
   }
 
-  console.log(`Processing successful payment for booking ${bookingId}`);
+  console.info(`Processing successful payment for booking ${bookingId}`);
 
   // Get site configuration
   // In production, we'd look up the site by ID
@@ -101,16 +101,16 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
 
     // If booking is already confirmed, skip
     if (booking.status === 'CONFIRMED' || booking.status === 'COMPLETED') {
-      console.log(`Booking ${bookingId} already confirmed`);
+      console.info(`Booking ${bookingId} already confirmed`);
       return;
     }
 
     // Update booking status via Holibob API
     // Note: This would typically involve a specific API call to mark payment complete
     // For now, we log the success
-    console.log(`Payment successful for booking ${bookingId}`);
-    console.log(`Payment intent: ${session.payment_intent}`);
-    console.log(`Amount: ${session.amount_total} ${session.currency}`);
+    console.info(`Payment successful for booking ${bookingId}`);
+    console.info(`Payment intent: ${session.payment_intent}`);
+    console.info(`Amount: ${session.amount_total} ${session.currency}`);
 
     // In production, you would:
     // 1. Update booking status in Holibob
@@ -132,7 +132,7 @@ async function handleCheckoutExpired(session: Stripe.Checkout.Session) {
     return;
   }
 
-  console.log(`Checkout expired for booking ${bookingId}`);
+  console.info(`Checkout expired for booking ${bookingId}`);
 
   // In production, you might want to:
   // 1. Cancel or expire the booking
@@ -150,8 +150,8 @@ async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent) {
     return;
   }
 
-  console.log(`Payment failed for booking ${bookingId}`);
-  console.log(`Failure reason: ${paymentIntent.last_payment_error?.message}`);
+  console.info(`Payment failed for booking ${bookingId}`);
+  console.info(`Failure reason: ${paymentIntent.last_payment_error?.message}`);
 
   // In production, you would:
   // 1. Update booking status to reflect payment failure

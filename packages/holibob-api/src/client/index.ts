@@ -294,7 +294,7 @@ export class HolibobClient {
       variables['what'] = { freeText: '' };
     }
 
-    console.log('[HolibobClient] getSuggestions variables:', JSON.stringify(variables, null, 2));
+    console.info('[HolibobClient] getSuggestions variables:', JSON.stringify(variables, null, 2));
 
     try {
       const response = await this.executeQuery<{
@@ -306,7 +306,7 @@ export class HolibobClient {
         };
       }>(SUGGESTIONS_QUERY, variables);
 
-      console.log('[HolibobClient] getSuggestions response:', JSON.stringify(response, null, 2));
+      console.info('[HolibobClient] getSuggestions response:', JSON.stringify(response, null, 2));
 
       return {
         destination: response.productDiscovery.selectedDestination ?? null,
@@ -335,7 +335,7 @@ export class HolibobClient {
    * Uses the productDetail query endpoint (not product)
    */
   async getProduct(productId: string): Promise<Product | null> {
-    console.log('[HolibobClient] getProduct called with ID:', productId);
+    console.info('[HolibobClient] getProduct called with ID:', productId);
     try {
       const response = await this.executeQuery<{ productDetail: Product | null }>(
         PRODUCT_DETAIL_QUERY,
@@ -346,7 +346,7 @@ export class HolibobClient {
 
       if (response.productDetail) {
         const product = response.productDetail as Record<string, unknown>;
-        console.log('[HolibobClient] getProduct success:', {
+        console.info('[HolibobClient] getProduct success:', {
           id: response.productDetail.id,
           name: response.productDetail.name,
           hasImages: !!response.productDetail.imageList,
@@ -362,13 +362,13 @@ export class HolibobClient {
         });
         // Log full reviewList if present for debugging
         if (product['reviewList']) {
-          console.log(
+          console.info(
             '[HolibobClient] reviewList data:',
             JSON.stringify(product['reviewList'], null, 2)
           );
         }
       } else {
-        console.log('[HolibobClient] getProduct returned null for ID:', productId);
+        console.info('[HolibobClient] getProduct returned null for ID:', productId);
       }
 
       return response.productDetail;
@@ -773,7 +773,7 @@ export class HolibobClient {
    * to get full data including product counts.
    */
   async discoverProvidersFromProducts(): Promise<Provider[]> {
-    console.log('[HolibobClient] Discovering providers using providerTree...');
+    console.info('[HolibobClient] Discovering providers using providerTree...');
 
     const providersWithCounts = await this.getAllProvidersWithCounts();
 
@@ -783,7 +783,7 @@ export class HolibobClient {
       name: p.name,
     }));
 
-    console.log(`[HolibobClient] Discovered ${providers.length} unique providers`);
+    console.info(`[HolibobClient] Discovered ${providers.length} unique providers`);
 
     return providers;
   }
@@ -795,7 +795,7 @@ export class HolibobClient {
    * Returns providers sorted by product count (descending).
    */
   async getAllProvidersWithCounts(): Promise<ProviderWithCount[]> {
-    console.log('[HolibobClient] Fetching all providers with product counts...');
+    console.info('[HolibobClient] Fetching all providers with product counts...');
 
     const response = await this.executeQuery<{
       productList: {
@@ -816,7 +816,7 @@ export class HolibobClient {
     // Sort by product count descending
     providers.sort((a, b) => b.productCount - a.productCount);
 
-    console.log(
+    console.info(
       `[HolibobClient] Found ${providers.length} providers across ${response.productList.recordCount} total products`
     );
 
@@ -912,7 +912,7 @@ export class HolibobClient {
       }
     }
 
-    console.log(
+    console.info(
       `[HolibobClient] getAllProductsByProvider(${providerId}): fetched ${allProducts.length} products`
     );
     return allProducts;
@@ -940,7 +940,7 @@ export class HolibobClient {
       hasMore = result.nextPage != null && result.nextPage > page;
       page++;
 
-      console.log(
+      console.info(
         `[HolibobClient] getAllProducts: page ${page - 1} — ${allNodes.length}/${recordCount} products fetched`
       );
 
