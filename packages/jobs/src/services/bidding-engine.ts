@@ -873,7 +873,8 @@ export function classifyKeywordToCampaignGroup(
  * (better relevance → higher Quality Score → lower actual CPC).
  */
 export async function scoreCampaignOpportunities(
-  profiles: SiteProfitability[]
+  profiles: SiteProfitability[],
+  focusedCombos?: Set<string> | null
 ): Promise<CampaignCandidate[]> {
   // Per-group keyword selection: fetch top keywords from each campaign group
   // to ensure every group gets representation (not just globally top-scored keywords).
@@ -946,6 +947,29 @@ export async function scoreCampaignOpportunities(
   if (reviewFiltered > 0) {
     console.log(
       `[BiddingEngine] AI gate: ${opportunities.length} BID/unevaluated, ${reviewFiltered} REVIEW keywords excluded`
+    );
+  }
+
+  // Focused strategy filter: only keep keywords matching the selected city × category combos
+  let focusedFiltered = opportunities;
+  if (focusedCombos && focusedCombos.size > 0) {
+    focusedFiltered = opportunities.filter((opp) => {
+      const loc = (opp.location || '').toLowerCase();
+      // Match keyword niche/category against focused combos
+      const sd = opp.sourceData as { campaignGroup?: string; niche?: string } | null;
+      const niche = (sd?.niche || '').toLowerCase();
+      // Check if any focused combo matches this keyword's location + niche
+      for (const combo of focusedCombos) {
+        const [city, category] = combo.split('|||');
+        if (!city || !category) continue;
+        const cityMatch = loc.includes(city) || opp.keyword.toLowerCase().includes(city);
+        const catMatch = niche.includes(category) || opp.keyword.toLowerCase().includes(category);
+        if (cityMatch && catMatch) return true;
+      }
+      return false;
+    });
+    console.info(
+      `[BiddingEngine] Focused filter: ${focusedFiltered.length}/${opportunities.length} keywords match focused combos`
     );
   }
 
@@ -1142,7 +1166,11 @@ export async function scoreCampaignOpportunities(
   const candidates: CampaignCandidate[] = [];
   let destCandidatesCreated = 0;
 
-  for (const opp of opportunities) {
+  // Use focused-filtered list when in focused mode, otherwise full list
+  const scoringOpportunities =
+    focusedCombos && focusedCombos.size > 0 ? focusedFiltered : opportunities;
+
+  for (const opp of scoringOpportunities) {
     // Find matching site profile
     const siteId = opp.siteId;
     if (!siteId) continue;
@@ -1673,14 +1701,21 @@ export async function scoreCampaignOpportunities(
  * Previously grouped by (microsite|site)+platform only, which bundled Paris,
  * Cartagena, Cannes keywords into one campaign with a single arbitrary targetUrl.
  */
-export function groupCandidatesIntoCampaigns(candidates: CampaignCandidate[]): CampaignGroup[] {
+export function groupCandidatesIntoCampaigns(
+  candidates: CampaignCandidate[],
+  focusedMode: boolean = false
+): CampaignGroup[] {
   // Build map keyed by grouping strategy:
+  //   - Focused mode: group by city + campaign category (1 campaign per destination-experience combo)
   //   - Both platforms: group by campaign category (STAG structure)
   //   - Fallback: per landing page for candidates without a campaign group
   const groupMap = new Map<string, CampaignCandidate[]>();
   for (const c of candidates) {
     let key: string;
-    if (c.campaignGroup) {
+    if (focusedMode && c.campaignGroup && c.location) {
+      // FOCUSED: separate campaign per destination × category × platform
+      key = `focused|${c.location}|${c.campaignGroup}|${c.platform}`;
+    } else if (c.campaignGroup) {
       // STAG: group by campaign category for both Meta and Google
       key = `${c.campaignGroup}|${c.platform}`;
     } else {
@@ -1903,8 +1938,12 @@ export function selectCampaignCandidates(
   const selected: CampaignCandidate[] = [];
   let budgetAllocated = 0;
 
-  // Task 4.7: Reserve 15% of budget for exploration (lower-scoring campaigns)
-  const explorationPct = 0.15;
+  // Reserve budget for exploration (lower-scoring campaigns)
+  // Focused mode uses tighter 5% exploration vs general 15%
+  const explorationPct =
+    maxBudget === PAID_TRAFFIC_CONFIG.focusedStrategy.maxDailyBudget
+      ? PAID_TRAFFIC_CONFIG.focusedStrategy.explorationPct
+      : 0.15;
   const primaryBudget = maxBudget * (1 - explorationPct);
   const explorationBudget = maxBudget * explorationPct;
 
@@ -1949,13 +1988,17 @@ export function selectCampaignCandidates(
  * Does NOT create campaigns — that's handled by the campaign creation step.
  */
 export async function runBiddingEngine(options?: {
-  mode?: 'full' | 'optimize_only' | 'report_only';
+  mode?: 'full' | 'optimize_only' | 'report_only' | 'focused';
   maxDailyBudget?: number;
 }): Promise<BiddingEngineResult> {
   const mode = options?.mode || 'full';
-  const maxBudget = options?.maxDailyBudget || PAID_TRAFFIC_CONFIG.maxDailyBudget;
+  const isFocused = mode === 'focused';
+  const focusedConfig = isFocused ? PAID_TRAFFIC_CONFIG.focusedStrategy : null;
+  const maxBudget = isFocused
+    ? (focusedConfig?.maxDailyBudget ?? 150)
+    : options?.maxDailyBudget || PAID_TRAFFIC_CONFIG.maxDailyBudget;
 
-  console.log(`[BiddingEngine] Starting in ${mode} mode (budget cap: £${maxBudget}/day)`);
+  console.info(`[BiddingEngine] Starting in ${mode} mode (budget cap: £${maxBudget}/day)`);
 
   // Step 0a: Archive low-intent keywords (e.g. "free")
   await archiveLowIntentKeywords();
@@ -2010,8 +2053,36 @@ export async function runBiddingEngine(options?: {
   if (typeof global.gc === 'function') global.gc();
 
   // Step 2: Score keyword opportunities (uses all profiles including microsites)
-  const allCandidates = await scoreCampaignOpportunities(allProfiles);
-  console.log(`[BiddingEngine] Scored ${allCandidates.length} campaign candidates`);
+  // In focused mode, load the active FocusedStrategyConfig to pre-filter keywords
+  let focusedCombos: Set<string> | null = null;
+  if (isFocused) {
+    const fsConfig = await prisma.focusedStrategyConfig.findFirst({
+      where: { isActive: true },
+    });
+    if (fsConfig) {
+      const combos = fsConfig.combinations as Array<{
+        city: string;
+        category: string;
+        status: string;
+      }>;
+      // Only include ACTIVE or PENDING combos based on ramp phase
+      const rampLimit =
+        focusedConfig?.rampPhaseSizes?.[
+          Math.min((fsConfig.rampPhase || 1) - 1, (focusedConfig?.rampPhaseSizes?.length ?? 1) - 1)
+        ] ?? 25;
+      focusedCombos = new Set(
+        combos
+          .slice(0, rampLimit)
+          .filter((c) => c.status !== 'PAUSED')
+          .map((c) => `${c.city.toLowerCase()}|||${c.category.toLowerCase()}`)
+      );
+      console.info(
+        `[BiddingEngine] Focused mode: ${focusedCombos.size} active combos (ramp phase ${fsConfig.rampPhase})`
+      );
+    }
+  }
+  const allCandidates = await scoreCampaignOpportunities(allProfiles, focusedCombos);
+  console.info(`[BiddingEngine] Scored ${allCandidates.length} campaign candidates`);
 
   // Step 3: Select within budget
   const { selected, budgetAllocated, budgetRemaining } = selectCampaignCandidates(
@@ -2023,7 +2094,7 @@ export async function runBiddingEngine(options?: {
   );
 
   // Step 3.5: Group selected candidates into per-microsite campaigns
-  const allGroups = groupCandidatesIntoCampaigns(selected);
+  const allGroups = groupCandidatesIntoCampaigns(selected, isFocused);
 
   // Step 3.6: Drop thin campaigns (too few keywords or too little budget to be effective)
   const MIN_KEYWORDS_PER_CAMPAIGN = 3;
