@@ -50,9 +50,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     // Get the Stripe payment intent from Holibob
-    console.log('[Payment Intent API] Fetching Stripe payment intent for booking:', bookingId);
+    console.info('[Payment Intent API] Fetching Stripe payment intent for booking:', bookingId);
     const paymentIntent = await client.getStripePaymentIntent({ id: bookingId });
-    console.log('[Payment Intent API] Got payment intent:', {
+    console.info('[Payment Intent API] Got payment intent:', {
       id: paymentIntent.id,
       amount: paymentIntent.amount,
       hasClientSecret: !!paymentIntent.clientSecret,

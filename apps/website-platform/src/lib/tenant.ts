@@ -400,29 +400,19 @@ export async function getSiteFromHostname(hostname: string): Promise<SiteConfig>
   // Remove port and www prefix for matching
   const cleanHostname = hostname.split(':')[0]?.replace(/^www\./, '') ?? hostname;
 
-  console.log('[Tenant] Looking up site for hostname:', hostname, 'cleaned:', cleanHostname);
-
   // === MICROSITE CHECK (EARLY EXIT) ===
   // Check if this is a microsite subdomain (e.g., adventure-co.experiencess.com)
   // This must happen BEFORE the development/preview check to allow testing microsites locally
   const micrositeInfo = parseMicrositeHostname(cleanHostname);
   if (micrositeInfo.isMicrositeSubdomain && micrositeInfo.subdomain && micrositeInfo.parentDomain) {
-    console.log(
-      '[Tenant] Detected microsite subdomain:',
-      micrositeInfo.subdomain,
-      'on',
-      micrositeInfo.parentDomain
-    );
     const micrositeConfig = await checkMicrositeSubdomain(
       micrositeInfo.subdomain,
       micrositeInfo.parentDomain
     );
     if (micrositeConfig) {
-      console.log('[Tenant] Found microsite config for:', micrositeInfo.subdomain);
       return micrositeConfig;
     }
     // If microsite not found in DB, fall through to default config
-    console.log('[Tenant] Microsite subdomain not found in database, returning default config');
     return DEFAULT_SITE_CONFIG;
   }
   // === END MICROSITE CHECK ===
@@ -430,7 +420,6 @@ export async function getSiteFromHostname(hostname: string): Promise<SiteConfig>
   // === PARENT DOMAIN CHECK ===
   // For experiencess.com (the marketplace root), return parent domain config
   if (isParentDomain(cleanHostname)) {
-    console.log('[Tenant] Parent domain detected:', cleanHostname);
     return {
       ...DEFAULT_SITE_CONFIG,
       name: 'Experiencess',
@@ -456,13 +445,11 @@ export async function getSiteFromHostname(hostname: string): Promise<SiteConfig>
     cleanHostname.includes('.vercel.app') ||
     cleanHostname.includes('.herokuapp.com')
   ) {
-    console.log('[Tenant] Returning default config for development/preview hostname');
     return DEFAULT_SITE_CONFIG;
   }
 
   // In production, query the database for site by domain
   try {
-    console.log('[Tenant] Attempting database lookup for domain:', cleanHostname);
     const { prisma } = await import('@experience-marketplace/database');
 
     // Find domain and its associated site
@@ -477,13 +464,7 @@ export async function getSiteFromHostname(hostname: string): Promise<SiteConfig>
       },
     });
 
-    console.log(
-      '[Tenant] Domain lookup result:',
-      domain ? { id: domain.id, domain: domain.domain, hasSite: !!domain.site } : 'not found'
-    );
-
     if (domain?.site) {
-      console.log('[Tenant] Found site:', domain.site.name, domain.site.slug);
       return mapSiteToConfig(domain.site as Site & { brand: Brand | null });
     }
 
@@ -557,12 +538,8 @@ async function getMicrositeConfig(
   // Check in-memory cache
   const cached = micrositeCache.get(cacheKey);
   if (cached && cached.expiresAt > now) {
-    console.log('[Tenant] Microsite cache hit for:', cacheKey);
     return cached.config as MicrositeConfigWithEntity | null;
   }
-
-  // Cache miss or expired - fetch from database
-  console.log('[Tenant] Microsite cache miss, fetching from DB:', cacheKey);
 
   try {
     // Use dynamic import with type assertion for proper model access

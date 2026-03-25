@@ -70,7 +70,7 @@ async function getFeaturedExperiences(
       try {
         const client = await getHolibobClient(siteConfig);
 
-        console.log(
+        console.info(
           `[Homepage] Microsite SUPPLIER mode: Fetching products via Product List for provider`,
           micrositeContext.holibobSupplierId
         );
@@ -128,7 +128,7 @@ async function getFeaturedExperiences(
           };
         });
 
-        console.log(
+        console.info(
           `[Homepage] Microsite: Found ${supplierProducts.length} products for provider`,
           micrositeContext.holibobSupplierId
         );
@@ -153,7 +153,9 @@ async function getFeaturedExperiences(
     try {
       const localProducts = await getMicrositeHomepageProducts(siteConfig.micrositeContext, 8);
       if (localProducts.length > 0) {
-        console.log(`[Homepage] Microsite fallback: Using ${localProducts.length} cached products`);
+        console.info(
+          `[Homepage] Microsite fallback: Using ${localProducts.length} cached products`
+        );
         return {
           experiences: localProducts.map(localProductToExperienceListItem),
           totalCount: localProducts.length, // Local cache doesn't have separate total
@@ -205,7 +207,7 @@ async function getFeaturedExperiences(
       filter.searchTerm = searchTermParts.join(' ');
     }
 
-    console.log('[Homepage] Fetching featured experiences with filter:', JSON.stringify(filter));
+    console.info('[Homepage] Fetching featured experiences with filter:', JSON.stringify(filter));
 
     // Get featured/popular experiences from Holibob Product Discovery API
     const response = await client.discoverProducts(filter, { pageSize: 8 });
@@ -610,7 +612,7 @@ export default async function HomePage() {
   // === PARENT DOMAIN HANDLING ===
   // For experiencess.com (the marketplace root), render the directory/homepage
   if (isParentDomain(hostname)) {
-    console.log('[Homepage] Parent domain detected:', hostname);
+    console.info('[Homepage] Parent domain detected:', hostname);
     const [suppliers, categories, cities, stats, sites] = await Promise.all([
       getFeaturedSuppliers(12),
       getSupplierCategories(),
@@ -636,7 +638,7 @@ export default async function HomePage() {
   // === MICROSITE LAYOUT ROUTING ===
   if (isMicrosite(site.micrositeContext)) {
     const layoutConfig = site.micrositeContext.layoutConfig;
-    console.log(
+    console.info(
       '[Homepage] Microsite detected with layout:',
       layoutConfig.resolvedType,
       'entityType:',
@@ -693,7 +695,7 @@ export default async function HomePage() {
       site.homepageConfig?.destinations?.length;
 
     if (hasRichConfig) {
-      console.log(
+      console.info(
         '[Homepage] OPPORTUNITY microsite with rich config — using full Site-style homepage'
       );
       // Fall through to the Site-style homepage rendering below

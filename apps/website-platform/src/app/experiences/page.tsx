@@ -233,7 +233,7 @@ async function getExperiences(
     // Fallback to Holibob API when no local products exist
     // This is common for suppliers whose products haven't been synced yet
     if (site.micrositeContext.holibobSupplierId) {
-      console.log(
+      console.info(
         `[Experiences] No local products for supplier ${site.micrositeContext.supplierId}, using Holibob API`
       );
       return getExperiencesFromHolibobAPI(site, site.micrositeContext.holibobSupplierId, {
