@@ -499,6 +499,42 @@ export const PAID_TRAFFIC_CONFIG = {
   >,
 
   // ---------------------------------------------------------------------------
+  // Focused strategy (Top N destinations × M experiences)
+  // ---------------------------------------------------------------------------
+  focusedStrategy: {
+    /** Master toggle. Env: FOCUSED_STRATEGY_ENABLED */
+    enabled: process.env['FOCUSED_STRATEGY_ENABLED'] === 'true',
+    /** Dedicated daily budget for focused campaigns. Env: FOCUSED_STRATEGY_BUDGET */
+    maxDailyBudget: parseFloat(process.env['FOCUSED_STRATEGY_BUDGET'] || '150'),
+    /** Only 5% exploration (vs general 15%) — most budget goes to proven combos */
+    explorationPct: 0.05,
+    /** Faster feedback loop — pause underperformers after 5 days (vs general 7) */
+    pauseAfterDays: 5,
+    /** Tighter pause threshold (vs general 0.5) */
+    pauseRoas: 0.4,
+    /** Lower scale threshold — grow winners sooner (vs general 2.0) */
+    scaleRoas: 1.5,
+    /** Conservative scaling — 10% budget increase per cycle */
+    scaleIncrement: 0.1,
+    /** Min products per (city, category) combo to be eligible */
+    minProductsPerCombo: 3,
+    /** Min monthly search volume per combo to be eligible */
+    minVolumePerCombo: 50,
+    /** Start equal, then shift budget from losers to winners */
+    allocationMode: 'equal_start' as const,
+    /** Pct of total budget shifted from losers to winners each rebalance */
+    winnerBoostPct: 0.2,
+    /** Portfolio circuit breaker — pause ALL focused campaigns if total ROAS < this */
+    circuitBreakerRoas: 0.5,
+    /** Min total spend before circuit breaker activates */
+    circuitBreakerMinSpend: 50,
+    /** Progressive ramp: how many combos to launch per phase */
+    rampPhaseSizes: [5, 15, 25],
+    /** Min avg ROAS to advance to next ramp phase */
+    rampAdvanceRoas: 0.8,
+  },
+
+  // ---------------------------------------------------------------------------
   // Default negative keywords (applied to every new Google campaign)
   // ---------------------------------------------------------------------------
   defaultNegativeKeywords: [

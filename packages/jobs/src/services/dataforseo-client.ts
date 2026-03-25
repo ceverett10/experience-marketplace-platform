@@ -776,4 +776,145 @@ export class DataForSEOClient {
       throw error;
     }
   }
+
+  // ---------------------------------------------------------------------------
+  // Google Trends endpoints
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Get Google Trends "explore" data for keywords — interest over time + by region.
+   *
+   * Uses: Keywords Data > Google Trends > Explore
+   * Cost: ~$0.01 per request (up to 5 keywords per request)
+   * Docs: https://docs.dataforseo.com/v3/keywords_data/google_trends/explore/live/
+   */
+  async getGoogleTrendsExplore(
+    keywords: string[],
+    location: string = 'United States',
+    timeRange: string = 'past_12_months'
+  ): Promise<GoogleTrendsExploreResult[]> {
+    try {
+      const locationCode = await this.getLocationCode(location);
+
+      const response = await this.makeRequest('/keywords_data/google_trends/explore/live', {
+        method: 'POST',
+        body: JSON.stringify([
+          {
+            keywords: keywords.slice(0, 5),
+            location_code: locationCode,
+            language_code: 'en',
+            time_range: timeRange,
+            type: 'web',
+          },
+        ]),
+      });
+
+      const results: GoogleTrendsExploreResult[] = [];
+      const tasks = response.tasks || [];
+      for (const task of tasks) {
+        const taskResult = task.result?.[0];
+        if (!taskResult) continue;
+
+        const interestOverTime = (taskResult.items || [])
+          .filter((item: Record<string, unknown>) => item['type'] === 'google_trends_graph')
+          .flatMap((item: Record<string, unknown>) => {
+            const data = (item['data'] as Record<string, unknown>[]) || [];
+            return data.map((d: Record<string, unknown>) => ({
+              date: d['date_from'] as string,
+              values: (d['values'] as number[]) || [],
+            }));
+          });
+
+        const interestByRegion = (taskResult.items || [])
+          .filter((item: Record<string, unknown>) => item['type'] === 'google_trends_map')
+          .flatMap((item: Record<string, unknown>) => {
+            const data = (item['data'] as Record<string, unknown>[]) || [];
+            return data.map((d: Record<string, unknown>) => ({
+              region: (d['geo_name'] as string) || '',
+              values: (d['values'] as number[]) || [],
+            }));
+          });
+
+        results.push({
+          keywords,
+          interestOverTime,
+          interestByRegion,
+        });
+      }
+
+      return results;
+    } catch (error) {
+      console.error('[DataForSEO] Error getting Google Trends explore:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get daily trending searches from Google Trends for a location.
+   *
+   * Uses: Keywords Data > Google Trends > Trending Searches
+   * Cost: ~$0.01 per request
+   * Docs: https://docs.dataforseo.com/v3/keywords_data/google_trends/trending_searches/live/
+   */
+  async getTrendingSearches(
+    location: string = 'United States',
+    language: string = 'English'
+  ): Promise<TrendingSearchResult[]> {
+    try {
+      const locationCode = await this.getLocationCode(location);
+      const languageCode = await this.getLanguageCode(language);
+
+      const response = await this.makeRequest(
+        '/keywords_data/google_trends/trending_searches/live',
+        {
+          method: 'POST',
+          body: JSON.stringify([
+            {
+              location_code: locationCode,
+              language_code: languageCode,
+            },
+          ]),
+        }
+      );
+
+      const results: TrendingSearchResult[] = [];
+      const tasks = response.tasks || [];
+      for (const task of tasks) {
+        for (const result of task.result || []) {
+          for (const item of result.items || []) {
+            results.push({
+              keyword: item.title || item.keyword || '',
+              searchVolume: item.search_volume || 0,
+              trendData: item.trend_data || [],
+              relatedQueries: (item.related_queries || []).map(
+                (q: Record<string, unknown>) => q['query'] as string
+              ),
+              category: item.categories?.[0] || null,
+            });
+          }
+        }
+      }
+
+      return results;
+    } catch (error) {
+      console.error('[DataForSEO] Error getting trending searches:', error);
+      throw error;
+    }
+  }
+}
+
+// --- Google Trends Types ---
+
+export interface GoogleTrendsExploreResult {
+  keywords: string[];
+  interestOverTime: Array<{ date: string; values: number[] }>;
+  interestByRegion: Array<{ region: string; values: number[] }>;
+}
+
+export interface TrendingSearchResult {
+  keyword: string;
+  searchVolume: number;
+  trendData: number[];
+  relatedQueries: string[];
+  category: string | null;
 }
