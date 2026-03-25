@@ -9,6 +9,8 @@ export interface AuthenticatedPartner {
   partnerName: string;
   holibobPartnerId: string;
   paymentModel: string;
+  /** Base URL of the partner's active site (e.g. "https://london-tours.com") for building experience links */
+  siteUrl: string | null;
   client: HolibobClient;
 }
 
@@ -31,6 +33,29 @@ export async function authenticateApiKey(apiKey: string): Promise<AuthenticatedP
 
   if (partner.status !== 'ACTIVE') {
     return null;
+  }
+
+  // Resolve the partner's site URL for building experience booking links.
+  // Partner ↔ Site are linked by holibobPartnerId (no direct FK).
+  // Prefer the site's primaryDomain; fall back to first ACTIVE domain.
+  let siteUrl: string | null = null;
+  try {
+    const site = await prisma.site.findFirst({
+      where: { holibobPartnerId: partner.holibobPartnerId, status: 'ACTIVE' },
+      select: {
+        primaryDomain: true,
+        domains: {
+          where: { status: 'ACTIVE' },
+          select: { domain: true },
+          take: 1,
+          orderBy: { verifiedAt: 'desc' },
+        },
+      },
+    });
+    const domain = site?.primaryDomain ?? site?.domains[0]?.domain ?? null;
+    if (domain) siteUrl = `https://${domain}`;
+  } catch {
+    // Non-critical — experience links will be omitted if lookup fails
   }
 
   // Update lastUsedAt
@@ -61,6 +86,7 @@ export async function authenticateApiKey(apiKey: string): Promise<AuthenticatedP
     partnerName: partner.name,
     holibobPartnerId: partner.holibobPartnerId,
     paymentModel: partner.paymentModel,
+    siteUrl,
     client,
   };
 }
