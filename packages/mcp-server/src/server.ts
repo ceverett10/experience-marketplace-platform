@@ -30,6 +30,8 @@ export interface ServerContext {
   mcpApiKey: string;
   /** The public base URL of the MCP server (for image proxy and checkout URLs) */
   publicUrl: string;
+  /** Base URL of the partner's site (e.g. "https://london-tours.com") — used to build experience booking links */
+  siteUrl?: string;
 }
 
 export function createServer(client: HolibobClient, context?: ServerContext): McpServer {

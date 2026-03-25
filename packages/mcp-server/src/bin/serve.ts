@@ -199,7 +199,11 @@ async function startHttp(port: number): Promise<void> {
       if (!auth) return null;
       const mcpApiKey = resolveMcpApiKey(token);
       return {
-        server: createServer(auth.client, { mcpApiKey, publicUrl: publicBaseUrl }),
+        server: createServer(auth.client, {
+          mcpApiKey,
+          publicUrl: publicBaseUrl,
+          siteUrl: auth.siteUrl ?? undefined,
+        }),
         partnerName: auth.partnerName,
       };
     }
@@ -619,7 +623,11 @@ async function startHttp(port: number): Promise<void> {
           return;
         }
         const mcpApiKey = resolveMcpApiKey(token);
-        server = createServer(auth.client, { mcpApiKey, publicUrl: publicBaseUrl });
+        server = createServer(auth.client, {
+          mcpApiKey,
+          publicUrl: publicBaseUrl,
+          siteUrl: auth.siteUrl ?? undefined,
+        });
         partnerName = auth.partnerName;
         console.error(
           `[MCP] Partner "${partnerName}" connected (holibob: ${auth.holibobPartnerId})`
