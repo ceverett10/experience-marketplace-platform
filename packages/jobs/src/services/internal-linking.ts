@@ -120,7 +120,9 @@ export async function findRelatedPages(params: {
 
       if (destinationPage) {
         relatedLinks.push({
-          url: `/destinations/${destinationPage.slug}`,
+          // LANDING slugs are stored with prefix (e.g. 'destinations/london')
+          // so URL is just `/${slug}` — do NOT add '/destinations/' again
+          url: `/${destinationPage.slug}`,
           anchorText: destinationPage.title,
           title: `Explore ${destinationPage.title}`,
           relevanceScore: 0.9,
@@ -828,8 +830,8 @@ export async function autoFixClusterLinks(siteId: string): Promise<{
           // Generate contextual link to hub
           const hubUrl =
             hubPage.type === PageType.CATEGORY
-              ? `/categories/${hubPage.slug}`
-              : `/destinations/${hubPage.slug}`;
+              ? `/categories/${hubPage.slug}` // CATEGORY slug has no prefix (e.g. 'food-tours')
+              : `/${hubPage.slug}`; // LANDING slug already has prefix (e.g. 'destinations/london')
 
           // Add link at the end of the second-to-last paragraph
           const updatedContent = insertHubLink(spokeContent, hubPage.title, hubUrl);
