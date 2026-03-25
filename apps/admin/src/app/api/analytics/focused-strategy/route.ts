@@ -22,7 +22,7 @@ export async function GET(): Promise<NextResponse> {
       return NextResponse.json({ active: false, config: null, combinations: [] });
     }
 
-    const combinations = (config.combinations as FocusedCombo[]) || [];
+    const combinations = (config.combinations as unknown as FocusedCombo[]) || [];
 
     // Get all focused-strategy campaigns
     const campaigns = await prisma.adCampaign.findMany({
@@ -65,7 +65,7 @@ export async function GET(): Promise<NextResponse> {
       const comboId = `${combo.city}|||${combo.category}`;
       const comboCampaigns = campaigns.filter((c) => {
         const pd = c.proposalData as Record<string, unknown> | null;
-        return pd?.focusedComboId === comboId;
+        return pd?.['focusedComboId'] === comboId;
       });
 
       // Aggregate 7-day metrics
