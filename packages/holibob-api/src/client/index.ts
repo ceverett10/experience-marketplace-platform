@@ -294,8 +294,6 @@ export class HolibobClient {
       variables['what'] = { freeText: '' };
     }
 
-    console.log('[HolibobClient] getSuggestions variables:', JSON.stringify(variables, null, 2));
-
     try {
       const response = await this.executeQuery<{
         productDiscovery: {
@@ -305,8 +303,6 @@ export class HolibobClient {
           recommendedSearchTermList?: { nodes: Array<{ searchTerm: string }> };
         };
       }>(SUGGESTIONS_QUERY, variables);
-
-      console.log('[HolibobClient] getSuggestions response:', JSON.stringify(response, null, 2));
 
       return {
         destination: response.productDiscovery.selectedDestination ?? null,
@@ -335,7 +331,6 @@ export class HolibobClient {
    * Uses the productDetail query endpoint (not product)
    */
   async getProduct(productId: string): Promise<Product | null> {
-    console.log('[HolibobClient] getProduct called with ID:', productId);
     try {
       const response = await this.executeQuery<{ productDetail: Product | null }>(
         PRODUCT_DETAIL_QUERY,
@@ -343,33 +338,6 @@ export class HolibobClient {
           id: productId,
         }
       );
-
-      if (response.productDetail) {
-        const product = response.productDetail as Record<string, unknown>;
-        console.log('[HolibobClient] getProduct success:', {
-          id: response.productDetail.id,
-          name: response.productDetail.name,
-          hasImages: !!response.productDetail.imageList,
-          hasGuidePrice: !!response.productDetail.guidePrice,
-          reviewRating: response.productDetail.reviewRating,
-          reviewCount: response.productDetail.reviewCount,
-          hasProvider: !!response.productDetail.provider,
-          providerId: response.productDetail.provider?.id,
-          providerName: response.productDetail.provider?.name,
-          hasReviewList: !!product['reviewList'],
-          reviewListRecordCount: (product['reviewList'] as { recordCount?: number })?.recordCount,
-          reviewListNodes: (product['reviewList'] as { nodes?: unknown[] })?.nodes?.length ?? 0,
-        });
-        // Log full reviewList if present for debugging
-        if (product['reviewList']) {
-          console.log(
-            '[HolibobClient] reviewList data:',
-            JSON.stringify(product['reviewList'], null, 2)
-          );
-        }
-      } else {
-        console.log('[HolibobClient] getProduct returned null for ID:', productId);
-      }
 
       return response.productDetail;
     } catch (error) {
