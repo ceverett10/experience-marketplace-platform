@@ -58,9 +58,15 @@ export interface MicrositeBlogGenerationSummary {
 }
 
 /**
- * Generate blog post for a single microsite
+ * Queue a blog post content job for a single microsite.
+ *
+ * The page record is NOT created here — it is created atomically by the
+ * CONTENT_GENERATE worker once content has been successfully generated and
+ * passes quality checks. This prevents orphaned DRAFT stubs when content
+ * generation fails.
+ *
  * @param micrositeId - Microsite to generate blog for
- * @param staggerDelayMs - Optional BullMQ delay to spread CONTENT_GENERATE jobs across the day
+ * @param staggerDelayMs - Optional BullMQ delay to spread jobs across the day
  */
 export async function generateBlogPostForMicrosite(
   micrositeId: string,
@@ -69,7 +75,6 @@ export async function generateBlogPostForMicrosite(
   const microsite = await prisma.micrositeConfig.findUnique({
     where: { id: micrositeId },
     include: {
-      brand: true,
       supplier: {
         select: {
           id: true,
@@ -122,29 +127,21 @@ export async function generateBlogPostForMicrosite(
     };
   }
 
-  // Get existing blog posts to avoid duplicates
+  // Get existing published blog titles to avoid topic duplication
   const existingPosts = await prisma.page.findMany({
-    where: {
-      micrositeId,
-      type: PageType.BLOG,
-    },
+    where: { micrositeId, type: PageType.BLOG, status: 'PUBLISHED' },
     select: { title: true },
   });
-
   const existingTopics = existingPosts.map((p) => p.title);
 
-  // Build context from supplier data — use product-derived info for accuracy
+  // Build topic context from supplier/product data
   const cities = microsite.supplier.cities || [];
   const categories = microsite.supplier.categories || [];
-
-  // Derive niche from actual product categories, not just supplier metadata
   const productCategories = topProducts
     .flatMap((p) => (p.categories as string[]) || [])
     .filter(Boolean);
   const uniqueProductCategories = [...new Set(productCategories)];
   const niche = uniqueProductCategories[0] || (categories as string[])[0] || 'travel experiences';
-
-  // Derive location from actual product cities for accuracy
   const productCities = topProducts.map((p) => p.city).filter(Boolean) as string[];
   const uniqueProductCities = [...new Set(productCities)];
   const location = uniqueProductCities[0] || (cities as string[])[0] || undefined;
@@ -176,8 +173,7 @@ export async function generateBlogPostForMicrosite(
   };
 
   try {
-    const dayOfYear = getDayOfYear();
-    const topic = await generateDailyBlogTopic(context, dayOfYear);
+    const topic = await generateDailyBlogTopic(context, getDayOfYear());
 
     if (!topic) {
       return {
@@ -189,44 +185,12 @@ export async function generateBlogPostForMicrosite(
       };
     }
 
-    // Check if slug already exists
-    const existingPage = await prisma.page.findFirst({
-      where: {
-        micrositeId,
-        slug: `blog/${topic.slug}`,
-      },
-    });
-
-    if (existingPage) {
-      return {
-        micrositeId,
-        micrositeName: microsite.siteName,
-        topicGenerated: true,
-        postQueued: false,
-        skippedReason: 'Slug already exists',
-      };
-    }
-
-    // Create the blog page
-    const blogPage = await prisma.page.create({
-      data: {
-        micrositeId,
-        title: topic.title,
-        slug: `blog/${topic.slug}`,
-        type: PageType.BLOG,
-        status: PageStatus.DRAFT,
-        metaDescription: `${topic.targetKeyword} - ${microsite.siteName}`,
-      },
-    });
-
-    // Queue content generation — shorter posts for microsites (400-600 words) to
-    // reduce cost and generation time while still providing SEO value.
-    // Stagger delay spreads jobs across the day to avoid Anthropic API bursts.
+    // Queue content generation — no pageId, the worker creates the page atomically
+    // on success. Stagger delay spreads jobs across the day.
     await addJob(
       'CONTENT_GENERATE',
       {
         micrositeId,
-        pageId: blogPage.id,
         contentType: 'blog',
         targetKeyword: topic.targetKeyword,
         secondaryKeywords: topic.secondaryKeywords,
@@ -235,7 +199,7 @@ export async function generateBlogPostForMicrosite(
       staggerDelayMs ? { delay: staggerDelayMs } : undefined
     );
 
-    // Update lastContentUpdate timestamp
+    // Mark microsite as processed so the recency gate skips it for 14 days
     await prisma.micrositeConfig.update({
       where: { id: micrositeId },
       data: { lastContentUpdate: new Date() },
