@@ -35,6 +35,31 @@ describe('Header', () => {
     expect(logoImg).toHaveAttribute('src', 'https://example.com/logo.png');
   });
 
+  it('should use logoDarkUrl on the white header when available', () => {
+    const siteConfig = createMockSiteConfig({
+      name: 'Test Site',
+      brand: {
+        logoUrl: 'https://example.com/logo-light.png',
+        logoDarkUrl: 'https://example.com/logo-dark.png',
+        name: 'Test Brand',
+        tagline: null,
+        primaryColor: '#1B4965',
+        secondaryColor: '#8b5cf6',
+        accentColor: '#f59e0b',
+        headingFont: 'Inter',
+        bodyFont: 'Inter',
+        faviconUrl: null,
+        ogImageUrl: null,
+        socialLinks: null,
+      },
+    });
+
+    renderWithProviders(<Header />, { siteConfig });
+
+    const logoImg = screen.getByRole('img', { name: 'Test Site' });
+    expect(logoImg).toHaveAttribute('src', 'https://example.com/logo-dark.png');
+  });
+
   it('should render navigation links', () => {
     renderWithProviders(<Header />);
 
