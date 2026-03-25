@@ -94,7 +94,7 @@ export async function GET(request: NextRequest) {
       ? seenProductIds.split(',').filter(Boolean)
       : undefined;
 
-    console.log('[API /experiences] Request params:', {
+    console.info('[API /experiences] Request params:', {
       destination,
       searchTerm,
       seenProductIdCount: seenProductIdList?.length ?? 0,
@@ -118,7 +118,7 @@ export async function GET(request: NextRequest) {
     // Check if we have cached data
     const cached = apiCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) {
-      console.log('[API /experiences] Returning cached data');
+      console.info('[API /experiences] Returning cached data');
       const cachedResponse = cached.data as {
         experiences: unknown[];
         hasMore: boolean;
@@ -226,7 +226,7 @@ export async function GET(request: NextRequest) {
     // hasMore is determined by whether we got a full page of results
     const hasMoreResults = response.pageInfo?.hasNextPage ?? experiences.length >= ITEMS_PER_PAGE;
 
-    console.log(
+    console.info(
       '[API /experiences] Returning',
       experiences.length,
       'experiences, hasMore:',

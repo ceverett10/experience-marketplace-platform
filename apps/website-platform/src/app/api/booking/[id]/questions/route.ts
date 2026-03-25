@@ -228,12 +228,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
     }
 
-    console.log('[Questions API] Initial canCommit:', booking.canCommit);
+    console.info('[Questions API] Initial canCommit:', booking.canCommit);
 
     // If canCommit is false, we need to answer the person-level questions
     // Build question answers from the guest data
     if (!booking.canCommit && input.guests && input.guests.length > 0) {
-      console.log('[Questions API] Attempting to answer person questions...');
+      console.info('[Questions API] Attempting to answer person questions...');
 
       // Build answer list for all questions (booking, availability, and person levels)
       // Per Holibob docs: answerList uses { questionId, value } format
@@ -327,8 +327,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       const leadGuest = guests[0];
       const leadPassengerName = leadGuest ? `${leadGuest.firstName} ${leadGuest.lastName}` : '';
 
-      console.log('[Questions API] Lead passenger:', leadPassengerName);
-      console.log('[Questions API] Answer list:', JSON.stringify(answerList, null, 2));
+      console.info('[Questions API] Lead passenger:', leadPassengerName);
+      console.info('[Questions API] Answer list:', JSON.stringify(answerList, null, 2));
 
       // Submit answers to Holibob
       if (answerList.length > 0 || leadPassengerName) {
@@ -337,19 +337,19 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             leadPassengerName,
             answerList,
           });
-          console.log('[Questions API] Holibob response canCommit:', answeredBooking.canCommit);
+          console.info('[Questions API] Holibob response canCommit:', answeredBooking.canCommit);
           booking = answeredBooking;
 
           // Log remaining unanswered questions
           if (!answeredBooking.canCommit) {
-            console.log('[Questions API] === REMAINING UNANSWERED QUESTIONS ===');
+            console.info('[Questions API] === REMAINING UNANSWERED QUESTIONS ===');
 
             // Booking-level - show ALL unanswered
             const unansweredBooking = (answeredBooking.questionList?.nodes ?? []).filter(
               (q: { answerValue?: string | null }) => !q.answerValue
             );
             if (unansweredBooking.length > 0) {
-              console.log(
+              console.info(
                 '[Questions API] Booking-level:',
                 JSON.stringify(unansweredBooking, null, 2)
               );
@@ -361,7 +361,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
                 (q: { answerValue?: string | null }) => !q.answerValue
               );
               if (unansweredAvail.length > 0) {
-                console.log(
+                console.info(
                   `[Questions API] Availability ${avail.id}:`,
                   JSON.stringify(unansweredAvail, null, 2)
                 );
@@ -369,7 +369,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
               for (const person of avail.personList?.nodes ?? []) {
                 // Check isQuestionsComplete flag
-                console.log(
+                console.info(
                   `[Questions API] Person ${person.id} (${person.pricingCategoryLabel}) isQuestionsComplete:`,
                   person.isQuestionsComplete
                 );
@@ -377,14 +377,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
                   (q: { answerValue?: string | null }) => !q.answerValue
                 );
                 if (unansweredPerson.length > 0) {
-                  console.log(
+                  console.info(
                     `[Questions API] Person ${person.id} unanswered:`,
                     JSON.stringify(unansweredPerson, null, 2)
                   );
                 }
               }
             }
-            console.log('[Questions API] === END UNANSWERED QUESTIONS ===');
+            console.info('[Questions API] === END UNANSWERED QUESTIONS ===');
           }
         } catch (answerError) {
           console.error('[Questions API] Error submitting answers:', answerError);
@@ -393,7 +393,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         }
       }
 
-      console.log('[Questions API] Final canCommit:', booking.canCommit);
+      console.info('[Questions API] Final canCommit:', booking.canCommit);
     }
 
     trackFunnelEvent({

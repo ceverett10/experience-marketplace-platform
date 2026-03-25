@@ -193,7 +193,7 @@ export async function GET(request: NextRequest) {
       filters.placeName = city;
     }
 
-    console.log('[API /microsite-experiences] Request:', {
+    console.info('[API /microsite-experiences] Request:', {
       holibobSupplierId,
       page,
       pageSize,
@@ -318,7 +318,7 @@ export async function GET(request: NextRequest) {
       filterCounts,
     };
 
-    console.log('[API /microsite-experiences] Response:', {
+    console.info('[API /microsite-experiences] Response:', {
       experienceCount: paginatedExperiences.length,
       page,
       totalCount: responseData.totalCount,

@@ -741,7 +741,7 @@ export class HolibobClient {
    * to get full data including product counts.
    */
   async discoverProvidersFromProducts(): Promise<Provider[]> {
-    console.log('[HolibobClient] Discovering providers using providerTree...');
+    console.info('[HolibobClient] Discovering providers using providerTree...');
 
     const providersWithCounts = await this.getAllProvidersWithCounts();
 
@@ -751,7 +751,7 @@ export class HolibobClient {
       name: p.name,
     }));
 
-    console.log(`[HolibobClient] Discovered ${providers.length} unique providers`);
+    console.info(`[HolibobClient] Discovered ${providers.length} unique providers`);
 
     return providers;
   }
@@ -763,7 +763,7 @@ export class HolibobClient {
    * Returns providers sorted by product count (descending).
    */
   async getAllProvidersWithCounts(): Promise<ProviderWithCount[]> {
-    console.log('[HolibobClient] Fetching all providers with product counts...');
+    console.info('[HolibobClient] Fetching all providers with product counts...');
 
     const response = await this.executeQuery<{
       productList: {
@@ -784,7 +784,7 @@ export class HolibobClient {
     // Sort by product count descending
     providers.sort((a, b) => b.productCount - a.productCount);
 
-    console.log(
+    console.info(
       `[HolibobClient] Found ${providers.length} providers across ${response.productList.recordCount} total products`
     );
 
@@ -880,7 +880,7 @@ export class HolibobClient {
       }
     }
 
-    console.log(
+    console.info(
       `[HolibobClient] getAllProductsByProvider(${providerId}): fetched ${allProducts.length} products`
     );
     return allProducts;
@@ -908,7 +908,7 @@ export class HolibobClient {
       hasMore = result.nextPage != null && result.nextPage > page;
       page++;
 
-      console.log(
+      console.info(
         `[HolibobClient] getAllProducts: page ${page - 1} — ${allNodes.length}/${recordCount} products fetched`
       );
 
