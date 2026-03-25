@@ -44,6 +44,7 @@ export interface LandingPageContext {
   discoveryConfig?: { keyword?: string; destination?: string; searchTerms?: string[] };
   sitePages: PageCacheEntry[];
   collections: CollectionCacheEntry[];
+  focusedCombos?: Set<string>; // Focused strategy city|||category pairs
 }
 
 export interface PageCacheEntry {
@@ -762,6 +763,34 @@ export function buildLandingPageUrl(
   // --- SUPPLIER MICROSITES (Product List API) ---
   if (context.siteType === 'SUPPLIER_MICROSITE') {
     return buildSupplierMicrositeLandingPage(domain, keyword, location, context);
+  }
+
+  // --- FOCUSED STRATEGY: Enforce DESTINATION pages for focused combos ---
+  if (context.focusedCombos && context.focusedCombos.size > 0 && location) {
+    const kwLower = keyword.toLowerCase();
+    for (const combo of context.focusedCombos) {
+      const [city, _category] = combo.split('|||');
+      if (city && (kwLower.includes(city) || (location && location.toLowerCase().includes(city)))) {
+        // This is a focused combo keyword — require DESTINATION page
+        const destPage = context.sitePages.find(
+          (p) =>
+            p.type === 'LANDING' &&
+            p.slug.startsWith('destinations/') &&
+            p.slug.toLowerCase().includes(city.replace(/\s+/g, '-'))
+        );
+        if (destPage) {
+          return {
+            url: `https://${domain}/${destPage.slug}`,
+            path: `/${destPage.slug}`,
+            type: 'DESTINATION',
+            validated: true,
+          };
+        }
+        // No destination page yet — skip this candidate (return null-like fallthrough)
+        // to prevent launching on weak generic pages
+        break;
+      }
+    }
   }
 
   // --- MAIN SITES & OPPORTUNITY MICROSITES (Product Discovery API) ---
