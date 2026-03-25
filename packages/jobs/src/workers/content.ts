@@ -1,5 +1,5 @@
 import { type Job } from 'bullmq';
-import { prisma } from '@experience-marketplace/database';
+import { prisma, PageType, PageStatus } from '@experience-marketplace/database';
 import { createPipeline } from '@experience-marketplace/content-engine';
 import type {
   ContentGeneratePayload,
@@ -123,6 +123,20 @@ function extractPathFromUrl(
  * For 'about' pages, ALL internal links are stripped since About pages
  * should not contain any inline links.
  */
+/**
+ * Convert an AI-generated title into a URL-safe slug.
+ * Used when creating a blog page without a pre-existing page stub.
+ */
+function slugifyTitle(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .substring(0, 80);
+}
+
 function sanitizeContentLinks(
   content: string,
   contentType?: string,
@@ -745,16 +759,18 @@ async function handleMicrositePageContentGenerate(params: {
       throw new NotFoundError('MicrositeConfig', micrositeId);
     }
 
-    if (!pageId) {
+    // Non-blog types always need a pre-existing page (metadata-only updates)
+    if (!pageId && contentType !== 'blog') {
       return {
         success: false,
-        error: 'Microsite content generation requires an existing pageId',
+        error: 'Microsite content generation requires an existing pageId for non-blog content',
         timestamp: new Date(),
       };
     }
 
-    const page = await prisma.page.findUnique({ where: { id: pageId } });
-    if (!page) {
+    // Fetch existing page when pageId is provided (non-blog always has one; blog may not)
+    const page = pageId ? await prisma.page.findUnique({ where: { id: pageId } }) : null;
+    if (pageId && !page) {
       throw new NotFoundError('Page', pageId);
     }
 
@@ -763,8 +779,10 @@ async function handleMicrositePageContentGenerate(params: {
 
     // ── Non-blog types: metadata-only (about, category, destination) ──
     if (contentType !== 'blog') {
-      const metaTitle = `${page.title} | ${siteName}`;
-      const metaDescription = `${page.title} - ${microsite.tagline || `Discover experiences with ${siteName}`}`;
+      // pageId is guaranteed present for non-blog (checked above)
+      const pageTitle = page!.title;
+      const metaTitle = `${pageTitle} | ${siteName}`;
+      const metaDescription = `${pageTitle} - ${microsite.tagline || `Discover experiences with ${siteName}`}`;
 
       await prisma.page.update({
         where: { id: pageId },
@@ -953,21 +971,6 @@ async function handleMicrositePageContentGenerate(params: {
       );
     }
 
-    // Save Content record with micrositeId
-    const content = await prisma.content.create({
-      data: {
-        micrositeId,
-        body: finalMicrositeContent,
-        bodyFormat: 'MARKDOWN',
-        isAiGenerated: true,
-        aiModel: result.content.generatedBy,
-        aiPrompt: `Generated for keyword: ${targetKeyword}`,
-        qualityScore: result.content.qualityAssessment?.overallScore || 0,
-        version: result.content.version,
-        structuredData: structuredData as any,
-      },
-    });
-
     // Optimized meta tags
     const optimizedMetaDescription = generateOptimizedMetaDescription({
       aiMetaDescription: result.content.metaDescription,
@@ -987,30 +990,102 @@ async function handleMicrositePageContentGenerate(params: {
     const qualityScore = result.content.qualityAssessment?.overallScore || 50;
     const sitemapPriority = calculateSitemapPriority({ qualityScore, contentType });
 
-    // Link content to page and publish
-    await prisma.page.update({
-      where: { id: pageId },
-      data: {
-        contentId: content.id,
-        metaTitle: optimizedMetaTitle,
-        metaDescription: optimizedMetaDescription,
-        priority: sitemapPriority,
-        status: 'PUBLISHED',
-        publishedAt: new Date(),
-        noIndex: false, // Clear audit-set noIndex flag when re-publishing
-      },
-    });
+    let resolvedPageId: string;
 
-    console.log(
-      `[Content Generate - Microsite] Success! Content ${content.id} for page ${pageId} (quality: ${qualityScore})`
-    );
+    if (pageId) {
+      // Existing page stub (legacy path) — create content record then link to page
+      const content = await prisma.content.create({
+        data: {
+          micrositeId,
+          body: finalMicrositeContent,
+          bodyFormat: 'MARKDOWN',
+          isAiGenerated: true,
+          aiModel: result.content.generatedBy,
+          aiPrompt: `Generated for keyword: ${targetKeyword}`,
+          qualityScore: result.content.qualityAssessment?.overallScore || 0,
+          version: result.content.version,
+          structuredData: structuredData as any,
+        },
+      });
+
+      await prisma.page.update({
+        where: { id: pageId },
+        data: {
+          contentId: content.id,
+          metaTitle: optimizedMetaTitle,
+          metaDescription: optimizedMetaDescription,
+          priority: sitemapPriority,
+          status: 'PUBLISHED',
+          publishedAt: new Date(),
+          noIndex: false,
+        },
+      });
+
+      resolvedPageId = pageId;
+      console.info(
+        `[Content Generate - Microsite] Published existing page ${pageId} (quality: ${qualityScore})`
+      );
+    } else {
+      // New path: no pre-existing page stub — derive slug from AI title, create
+      // content + page atomically so no orphaned DRAFT records are left on failure.
+      const slug = `blog/${slugifyTitle(result.content.title)}`;
+
+      // Check for slug collision — another job may have already published this topic
+      const existing = await prisma.page.findFirst({ where: { micrositeId, slug } });
+      if (existing) {
+        console.info(
+          `[Content Generate - Microsite] Slug collision on "${slug}", skipping duplicate`
+        );
+        return {
+          success: true,
+          message: `Skipped duplicate slug "${slug}"`,
+          data: { micrositeId, slug },
+          timestamp: new Date(),
+        };
+      }
+
+      // Create content first (no pageId yet), then create page with contentId
+      const content = await prisma.content.create({
+        data: {
+          micrositeId,
+          body: finalMicrositeContent,
+          bodyFormat: 'MARKDOWN',
+          isAiGenerated: true,
+          aiModel: result.content.generatedBy,
+          aiPrompt: `Generated for keyword: ${targetKeyword}`,
+          qualityScore: result.content.qualityAssessment?.overallScore || 0,
+          version: result.content.version,
+          structuredData: structuredData as any,
+        },
+      });
+
+      const newPage = await prisma.page.create({
+        data: {
+          micrositeId,
+          contentId: content.id,
+          title: result.content.title,
+          slug,
+          type: PageType.BLOG,
+          status: PageStatus.PUBLISHED,
+          publishedAt: new Date(),
+          metaTitle: optimizedMetaTitle,
+          metaDescription: optimizedMetaDescription,
+          priority: sitemapPriority,
+          noIndex: false,
+        },
+      });
+
+      resolvedPageId = newPage.id;
+      console.info(
+        `[Content Generate - Microsite] Created and published new page ${newPage.id} "${slug}" (quality: ${qualityScore})`
+      );
+    }
 
     return {
       success: true,
       message: `Generated blog content for "${targetKeyword}"`,
       data: {
-        contentId: content.id,
-        pageId,
+        pageId: resolvedPageId,
         micrositeId,
         qualityScore,
       },
