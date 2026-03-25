@@ -1327,6 +1327,37 @@ model AdAlert {
   @@map("ad_alerts")
 }
 
+// Daily snapshot of global tour/experience demand from Google Trends + DataForSEO
+model TrendSnapshot {
+  id   String   @id @default(cuid())
+  date DateTime @db.Date
+
+  // What was scanned
+  location String // Country/region name (e.g., "United States", "United Kingdom")
+  category String // Tour/experience category (e.g., "food tours", "walking tours")
+
+  // Google Trends data
+  trendScore     Int     @default(0) // Google Trends interest (0-100)
+  trendDirection String  @default("stable") // rising, stable, declining, breakout
+  searchVolume   Int     @default(0) // Monthly search volume from DataForSEO
+  cpc            Decimal @default(0) @db.Decimal(10, 2)
+
+  // Top related queries
+  relatedQueries Json? // string[] of related rising queries
+  topCities      Json? // [{city, score}] — where demand is strongest
+
+  // Combined demand score (0-100)
+  demandScore Int @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@unique([date, location, category])
+  @@index([date])
+  @@index([demandScore])
+  @@index([category])
+  @@map("trend_snapshots")
+}
+
 model FocusedStrategyConfig {
   id       String  @id @default(cuid())
   isActive Boolean @default(false)

@@ -10,7 +10,7 @@ import { TrendIndicator } from '../components/TrendIndicator';
 // Types
 // ============================================================================
 
-type Tab = 'cities' | 'categories' | 'opportunities' | 'trending' | 'research';
+type Tab = 'global' | 'cities' | 'categories' | 'opportunities' | 'trending' | 'research';
 
 interface CityDemandItem {
   city: string;
@@ -154,6 +154,43 @@ interface ResearchResponse {
   products: ResearchProduct[];
   campaigns: ResearchCampaign[];
   suggestedSearchTerms: string[];
+}
+
+interface GlobalDemandCategory {
+  category: string;
+  totalSearchVolume: number;
+  keywordCount: number;
+  avgCpc: number;
+  avgDifficulty: number;
+  topLocations: Array<{ location: string; volume: number }>;
+  topKeywords: Array<{ keyword: string; volume: number; cpc: number }>;
+}
+
+interface GlobalDemandLocation {
+  location: string;
+  totalSearchVolume: number;
+  categoryCount: number;
+  topCategories: string[];
+}
+
+interface GlobalRisingQuery {
+  query: string;
+  currentImpressions: number;
+  priorImpressions: number;
+  growth: number;
+  clicks: number;
+}
+
+interface GlobalDemandResponse {
+  categories: GlobalDemandCategory[];
+  topLocations: GlobalDemandLocation[];
+  risingQueries: GlobalRisingQuery[];
+  totals: {
+    totalCategories: number;
+    totalSearchVolume: number;
+    totalKeywords: number;
+    risingQueryCount: number;
+  };
 }
 
 type SortDirection = 'asc' | 'desc';
@@ -325,6 +362,7 @@ function useSort<T>(
 // ============================================================================
 
 const TABS: { id: Tab; label: string }[] = [
+  { id: 'global', label: 'Global Demand' },
   { id: 'cities', label: 'City Demand' },
   { id: 'categories', label: 'Categories' },
   { id: 'opportunities', label: 'Opportunities' },
@@ -333,7 +371,7 @@ const TABS: { id: Tab; label: string }[] = [
 ];
 
 export default function DemandDiscoveryPage() {
-  const [activeTab, setActiveTab] = useState<Tab>('cities');
+  const [activeTab, setActiveTab] = useState<Tab>('global');
   const [loading, setLoading] = useState(false);
 
   // Data states
@@ -342,6 +380,7 @@ export default function DemandDiscoveryPage() {
   const [opportunityData, setOpportunityData] = useState<OpportunityResponse | null>(null);
   const [trendingData, setTrendingData] = useState<TrendingResponse | null>(null);
   const [researchData, setResearchData] = useState<ResearchResponse | null>(null);
+  const [globalData, setGlobalData] = useState<GlobalDemandResponse | null>(null);
 
   // Research form
   const [researchCity, setResearchCity] = useState('');
@@ -359,6 +398,13 @@ export default function DemandDiscoveryPage() {
       setLoading(true);
       try {
         switch (tab) {
+          case 'global': {
+            const res = await fetch(
+              `${basePath}/api/analytics/demand-discovery/global-demand?days=30`
+            );
+            if (res.ok) setGlobalData(await res.json());
+            break;
+          }
           case 'cities': {
             const res = await fetch(
               `${basePath}/api/analytics/demand-discovery/city-demand?days=30`
@@ -462,10 +508,266 @@ export default function DemandDiscoveryPage() {
       </div>
 
       {/* Loading */}
-      {loading && !cityData && !categoryData && !opportunityData && !trendingData ? (
+      {loading && !globalData && !cityData && !categoryData && !opportunityData && !trendingData ? (
         <LoadingSkeleton />
       ) : (
         <>
+          {/* ================================================================ */}
+          {/* GLOBAL DEMAND TAB */}
+          {/* ================================================================ */}
+          {activeTab === 'global' && (
+            <>
+              {globalData && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <MetricCard
+                    title="Categories Tracked"
+                    value={globalData.totals.totalCategories}
+                  />
+                  <MetricCard
+                    title="Total Search Volume"
+                    value={globalData.totals.totalSearchVolume}
+                  />
+                  <MetricCard title="Keywords Indexed" value={globalData.totals.totalKeywords} />
+                  <MetricCard title="Rising Queries" value={globalData.totals.risingQueryCount} />
+                </div>
+              )}
+
+              {/* Top Categories by Global Search Volume */}
+              <Card>
+                <div className="p-4 border-b border-slate-200">
+                  <h2 className="font-semibold text-slate-900">
+                    Global Experience Demand by Category
+                  </h2>
+                  <p className="text-sm text-slate-500 mt-1">
+                    What types of tours and experiences are people searching for most worldwide
+                  </p>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-slate-50">
+                      <tr>
+                        <th className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
+                          Category
+                        </th>
+                        <th className="text-right text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
+                          Search Volume
+                        </th>
+                        <th className="text-right text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
+                          Keywords
+                        </th>
+                        <th className="text-right text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
+                          Avg CPC
+                        </th>
+                        <th className="text-right text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
+                          Difficulty
+                        </th>
+                        <th className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
+                          Top Destinations
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {(globalData?.categories || []).slice(0, 30).map((cat) => (
+                        <tr key={cat.category} className="hover:bg-slate-50">
+                          <td className="px-4 py-3">
+                            <span className="text-sm font-medium text-slate-900">
+                              {cat.category}
+                            </span>
+                            <p className="text-xs text-slate-400 mt-0.5">
+                              Top:{' '}
+                              {cat.topKeywords
+                                .slice(0, 2)
+                                .map((k) => k.keyword)
+                                .join(', ')}
+                            </p>
+                          </td>
+                          <td className="px-4 py-3 text-right text-sm font-medium text-slate-900">
+                            {cat.totalSearchVolume.toLocaleString()}
+                          </td>
+                          <td className="px-4 py-3 text-right text-sm text-slate-700">
+                            {cat.keywordCount}
+                          </td>
+                          <td className="px-4 py-3 text-right text-sm text-slate-700">
+                            {cat.avgCpc > 0 ? `£${cat.avgCpc.toFixed(2)}` : '-'}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <span
+                              className={`px-2 py-0.5 rounded text-xs font-medium ${
+                                cat.avgDifficulty >= 70
+                                  ? 'bg-red-100 text-red-700'
+                                  : cat.avgDifficulty >= 40
+                                    ? 'bg-yellow-100 text-yellow-700'
+                                    : 'bg-green-100 text-green-700'
+                              }`}
+                            >
+                              {cat.avgDifficulty}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-slate-600">
+                            {cat.topLocations
+                              .slice(0, 3)
+                              .map((l) => l.location)
+                              .join(', ')}
+                          </td>
+                        </tr>
+                      ))}
+                      {(!globalData?.categories || globalData.categories.length === 0) && (
+                        <tr>
+                          <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
+                            No demand data available. Run keyword enrichment to populate.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+
+              {/* Top Destinations by Search Volume */}
+              <Card>
+                <div className="p-4 border-b border-slate-200">
+                  <h2 className="font-semibold text-slate-900">Where Is Demand Strongest?</h2>
+                  <p className="text-sm text-slate-500 mt-1">
+                    Destinations ranked by total experience search volume
+                  </p>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-slate-50">
+                      <tr>
+                        <th className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
+                          Destination
+                        </th>
+                        <th className="text-right text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
+                          Search Volume
+                        </th>
+                        <th className="text-right text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
+                          Categories
+                        </th>
+                        <th className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
+                          Top Experience Types
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {(globalData?.topLocations || []).map((loc) => (
+                        <tr key={loc.location} className="hover:bg-slate-50">
+                          <td className="px-4 py-3 text-sm font-medium text-slate-900">
+                            {loc.location}
+                          </td>
+                          <td className="px-4 py-3 text-right text-sm font-medium text-slate-900">
+                            {loc.totalSearchVolume.toLocaleString()}
+                          </td>
+                          <td className="px-4 py-3 text-right text-sm text-slate-700">
+                            {loc.categoryCount}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-slate-600">
+                            {loc.topCategories.slice(0, 4).join(', ')}
+                          </td>
+                        </tr>
+                      ))}
+                      {(!globalData?.topLocations || globalData.topLocations.length === 0) && (
+                        <tr>
+                          <td colSpan={4} className="px-4 py-8 text-center text-slate-500">
+                            No location data available.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+
+              {/* Rising Experience Queries */}
+              {globalData && globalData.risingQueries.length > 0 && (
+                <Card>
+                  <div className="p-4 border-b border-slate-200">
+                    <h2 className="font-semibold text-slate-900">Rising Experience Searches</h2>
+                    <p className="text-sm text-slate-500 mt-1">
+                      Tour and experience queries growing in search visibility (30d vs prior 30d)
+                    </p>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-slate-50">
+                        <tr>
+                          <th className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
+                            Query
+                          </th>
+                          <th className="text-right text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
+                            Impressions
+                          </th>
+                          <th className="text-right text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
+                            Growth
+                          </th>
+                          <th className="text-right text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
+                            Clicks
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {globalData.risingQueries.map((q, i) => (
+                          <tr key={i} className="hover:bg-slate-50">
+                            <td className="px-4 py-3 text-sm text-slate-900">{q.query}</td>
+                            <td className="px-4 py-3 text-right text-sm text-slate-700">
+                              {q.currentImpressions.toLocaleString()}
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <TrendIndicator value={q.growth} />
+                            </td>
+                            <td className="px-4 py-3 text-right text-sm text-slate-700">
+                              {q.clicks.toLocaleString()}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+              )}
+
+              {/* Top Keywords per Category (expandable) */}
+              {globalData &&
+                globalData.categories.slice(0, 5).map((cat) => (
+                  <Card key={cat.category}>
+                    <div className="p-4 border-b border-slate-200">
+                      <h2 className="font-semibold text-slate-900">Top Keywords: {cat.category}</h2>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead className="bg-slate-50">
+                          <tr>
+                            <th className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
+                              Keyword
+                            </th>
+                            <th className="text-right text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
+                              Monthly Volume
+                            </th>
+                            <th className="text-right text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
+                              CPC
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {cat.topKeywords.map((kw, i) => (
+                            <tr key={i} className="hover:bg-slate-50">
+                              <td className="px-4 py-3 text-sm text-slate-900">{kw.keyword}</td>
+                              <td className="px-4 py-3 text-right text-sm font-medium text-slate-900">
+                                {kw.volume.toLocaleString()}
+                              </td>
+                              <td className="px-4 py-3 text-right text-sm text-slate-700">
+                                £{kw.cpc.toFixed(2)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </Card>
+                ))}
+            </>
+          )}
+
           {/* ================================================================ */}
           {/* CITIES TAB */}
           {/* ================================================================ */}
