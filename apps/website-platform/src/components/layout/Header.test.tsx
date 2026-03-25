@@ -35,7 +35,7 @@ describe('Header', () => {
     expect(logoImg).toHaveAttribute('src', 'https://example.com/logo.png');
   });
 
-  it('should use logoDarkUrl on the white header when available', () => {
+  it('should use logoUrl (light variant, dark text) on the white header', () => {
     const siteConfig = createMockSiteConfig({
       name: 'Test Site',
       brand: {
@@ -56,8 +56,10 @@ describe('Header', () => {
 
     renderWithProviders(<Header />, { siteConfig });
 
+    // logoUrl = light variant (dark text, transparent bg) — correct for white header
+    // logoDarkUrl = dark variant (white text, transparent bg) — for dark/hero backgrounds only
     const logoImg = screen.getByRole('img', { name: 'Test Site' });
-    expect(logoImg).toHaveAttribute('src', 'https://example.com/logo-dark.png');
+    expect(logoImg).toHaveAttribute('src', 'https://example.com/logo-light.png');
   });
 
   it('should render navigation links', () => {

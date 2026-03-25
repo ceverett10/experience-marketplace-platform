@@ -150,7 +150,7 @@ export function Header() {
             <Link href="/" className="-m-1.5 p-1.5">
               {brand?.logoUrl ? (
                 <Image
-                  src={brand.logoDarkUrl ?? brand.logoUrl}
+                  src={brand.logoUrl}
                   alt={site.name}
                   width={600}
                   height={400}
