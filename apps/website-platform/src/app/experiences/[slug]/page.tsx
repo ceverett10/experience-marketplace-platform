@@ -672,8 +672,8 @@ export default async function ExperienceDetailPage({ params }: Props) {
                           {experience.rating.average.toFixed(1)}
                         </span>
                       </div>
-                      <span className="text-gray-600">
-                        ({experience.rating.count.toLocaleString()} reviews)
+                      <span className="font-semibold text-gray-800">
+                        {experience.rating.count.toLocaleString()} reviews
                       </span>
                     </div>
                   )}
@@ -743,6 +743,31 @@ export default async function ExperienceDetailPage({ params }: Props) {
                         />
                       </svg>
                       <span className="font-medium">Free cancellation</span>
+                    </div>
+                  )}
+
+                  {/* Operator */}
+                  {experience.provider?.name && (
+                    <div className="flex items-center gap-1.5 text-gray-600">
+                      <svg
+                        className="h-5 w-5 flex-shrink-0"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth="1.5"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"
+                        />
+                      </svg>
+                      <span>
+                        Operated by{' '}
+                        <span className="font-medium text-gray-900">
+                          {experience.provider.name}
+                        </span>
+                      </span>
                     </div>
                   )}
                 </div>
