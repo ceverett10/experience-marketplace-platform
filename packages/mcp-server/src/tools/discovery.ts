@@ -45,13 +45,15 @@ function proxyImageUrl(url: string | undefined, publicUrl?: string): string | un
   }
 }
 
-function productToStructured(p: Product, publicUrl?: string) {
+function productToStructured(p: Product, publicUrl?: string, siteUrl?: string) {
   const price =
     p.guidePriceFormattedText ||
     p.priceFromFormatted ||
     (p.guidePrice ? `${p.guidePriceCurrency ?? 'GBP'} ${p.guidePrice}` : null);
   const rating = p.reviewRating ?? p.rating;
   const imgUrl = proxyImageUrl(p.primaryImageUrl ?? p.imageUrl ?? p.imageList?.[0]?.url, publicUrl);
+  // Build a direct booking link to our platform — DO NOT link to holibob.com
+  const bookingUrl = siteUrl ? `${siteUrl}/experiences/${p.id}` : undefined;
 
   return {
     id: p.id,
@@ -63,6 +65,7 @@ function productToStructured(p: Product, publicUrl?: string) {
     imageUrl: imgUrl ?? undefined,
     location: p.place?.name ?? undefined,
     duration: p.durationText ?? undefined,
+    bookingUrl,
   };
 }
 
@@ -159,12 +162,14 @@ function formatProductDetails(p: Product): string {
   return sections.join('\n');
 }
 
-function productToDetailStructured(p: Product, publicUrl?: string) {
+function productToDetailStructured(p: Product, publicUrl?: string, siteUrl?: string) {
   const price =
     p.guidePriceFormattedText ||
     (p.guidePrice ? `${p.guidePriceCurrency ?? 'GBP'} ${p.guidePrice}` : null);
   const rating = p.reviewRating ?? p.rating;
   const imgUrl = proxyImageUrl(p.primaryImageUrl ?? p.imageUrl ?? p.imageList?.[0]?.url, publicUrl);
+  // Build a direct booking link to our platform — DO NOT link to holibob.com
+  const bookingUrl = siteUrl ? `${siteUrl}/experiences/${p.id}` : undefined;
 
   const highlights =
     p.contentList?.nodes
@@ -224,6 +229,7 @@ function productToDetailStructured(p: Product, publicUrl?: string) {
     reviews,
     cancellationPolicy,
     languages,
+    bookingUrl,
   };
 }
 
@@ -262,6 +268,7 @@ export function registerDiscoveryTools(
   context?: ServerContext
 ): void {
   const publicUrl = context?.publicUrl;
+  const siteUrl = context?.siteUrl;
   const WIDGET_META = buildWidgetMeta(publicUrl);
   registerAppTool(
     server,
@@ -336,7 +343,7 @@ export function registerDiscoveryTools(
       return {
         content: [{ type: 'text' as const, text: header + formatted }],
         structuredContent: {
-          experiences: result.products.map((p) => productToStructured(p, publicUrl)),
+          experiences: result.products.map((p) => productToStructured(p, publicUrl, siteUrl)),
           destination,
           hasMore: result.pageInfo.hasNextPage,
           prefilled: {
@@ -377,10 +384,14 @@ export function registerDiscoveryTools(
         };
       }
 
+      const bookingUrl = siteUrl ? `${siteUrl}/experiences/${product.id}` : undefined;
+      const detailText = formatProductDetails(product);
+      const bookingLine = bookingUrl ? `\n\n**Book this experience:** ${bookingUrl}` : '';
+
       return {
-        content: [{ type: 'text' as const, text: formatProductDetails(product) }],
+        content: [{ type: 'text' as const, text: detailText + bookingLine }],
         structuredContent: {
-          experience: productToDetailStructured(product, publicUrl),
+          experience: productToDetailStructured(product, publicUrl, siteUrl),
           nextActions: [
             { tool: 'check_availability', reason: 'Check available dates to book this experience' },
           ] as NextAction[],
@@ -483,7 +494,7 @@ export function registerDiscoveryTools(
       return {
         content: [{ type: 'text' as const, text: header + formatted }],
         structuredContent: {
-          experiences: result.products.map((p) => productToStructured(p, publicUrl)),
+          experiences: result.products.map((p) => productToStructured(p, publicUrl, siteUrl)),
           destination,
           hasMore: result.pageInfo.hasNextPage,
         },
