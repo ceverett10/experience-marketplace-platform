@@ -209,3 +209,4 @@ Singleton record with ID `'platform_settings_singleton'`. Workers check `isProce
 7. New page type? Update sitemap.ts slug handling AND this CLAUDE.md
 8. Stripe webhook body must not be pre-parsed — use `request.text()` for raw body
 9. No `global-error.tsx` — errors in root layout (e.g., brand CSS injection) are uncaught
+10. **Booking commit DB write is fail-open** — if Postgres is at connection limit, `/api/booking/commit` returns 200 but the `Booking` record is never saved. A `BookingFunnelEvent` with `errorCode: DB_SAVE_FAILED` is the only trace. Cross-reference Holibob bookings against our DB if revenue doesn't reconcile.

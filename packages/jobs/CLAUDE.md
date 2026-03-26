@@ -42,6 +42,24 @@ Key files: `workers/content.ts`, `workers/ads.ts`, `workers/domain.ts`, `workers
 - Circuit breaker: Redis-persisted (CLOSED → OPEN → HALF_OPEN), prevents cascading failures
 - Error tracking: logs to `ErrorLog` table with jobType, category, severity
 
+### Retry vs Dead-Letter Behaviour
+
+| Category       | Retried? | Notes                                                              |
+| -------------- | -------- | ------------------------------------------------------------------ |
+| EXTERNAL_API   | ✅ Yes   | Up to queue max retries; Holibob 5xx, Cloudflare failures          |
+| NETWORK        | ✅ Yes   | Same as EXTERNAL_API                                               |
+| RATE_LIMIT     | ✅ Yes   | Delays next attempt using `Retry-After` header if present          |
+| DATABASE       | ✅ Yes   | Transient connection errors; permanent schema errors → dead-letter |
+| TEMPORARY      | ✅ Yes   | Explicitly classified as transient — always retry                  |
+| RECOVERABLE    | ✅ Yes   | May resolve on retry; e.g., stale cache, partial data              |
+| BUSINESS_LOGIC | ❌ No    | Dead-lettered immediately — retrying won't change the outcome      |
+| NOT_FOUND      | ❌ No    | Dead-lettered — resource doesn't exist, retry is pointless         |
+| CONFIGURATION  | ❌ No    | Dead-lettered — missing env vars, bad config won't self-heal       |
+| AUTH           | ❌ No    | Dead-lettered — invalid credentials won't self-heal                |
+| PERMANENT      | ❌ No    | Explicitly classified as unrecoverable                             |
+| CRITICAL       | ❌ No    | Dead-lettered + circuit breaker opens to prevent cascade           |
+| UNKNOWN        | ✅ Yes   | Retried up to max; fails open to avoid silently dropping work      |
+
 ## Scheduler Conventions
 
 All schedules use BullMQ repeatable jobs (Redis-persisted cron, NOT setInterval).
@@ -142,9 +160,15 @@ microsite `discoveryConfig` (keyword, destination, niche).
 
 ### Blog Generation Targeting
 
-- **Main sites**: Excluded from daily blog fanout — strategy is to build microsite SEO authority first; main sites get blogs later via manual calls
-- **Supplier microsites only**: Daily rotating blog generation with rich product/category/city context
-- **PRODUCT/OPPORTUNITY microsites**: Excluded — products lack varied context, opportunities use daily-content-generator
+> **CHANGED**: Blog generation was previously applied to all microsites. It was refocused to supplier microsites only (see `fix/refocus-blog-generation-supplier-microsites`). Do not revert this.
+
+| Site/Microsite type    | Daily blog generation | Reason                                                                           |
+| ---------------------- | --------------------- | -------------------------------------------------------------------------------- |
+| Main sites             | ❌ No                 | Build microsite SEO authority first; main sites get blogs later via manual calls |
+| Supplier microsites    | ✅ Yes (5% rotation)  | Rich product/category/city context from linked products                          |
+| Product microsites     | ❌ No                 | Single product — lacks varied context for ongoing blog topics                    |
+| Opportunity microsites | ❌ No                 | Handled by `daily-content-generator.ts`, not microsite fanout                    |
+
 - Suppliers with no linked products are skipped (would produce generic, irrelevant content)
 - Topic niche and location are derived from actual product data, not just supplier metadata
 
