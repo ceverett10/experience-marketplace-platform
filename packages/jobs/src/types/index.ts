@@ -669,4 +669,5 @@ export const JOB_TYPE_TO_QUEUE: Record<string, QueueName> & Record<JobType, Queu
   BIDDING_ENGINE_RUN: QUEUE_NAMES.ADS,
   ADS_REVIEW_AGENT: QUEUE_NAMES.ADS,
   KEYWORD_ENRICHMENT: QUEUE_NAMES.SYNC, // Long-running: uses SYNC queue (4hr timeout)
+  TREND_DATA_COLLECT: QUEUE_NAMES.ANALYTICS,
 };

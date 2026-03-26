@@ -43,6 +43,7 @@ import {
   handleMicrositeGscSync,
   handleMicrositeAnalyticsSync,
   handleMicrositeGA4Sync,
+  handleTrendDataCollect,
   // A/B Test handlers
   handleABTestAnalyze,
   handleABTestRebalance,
@@ -164,6 +165,7 @@ const QUEUE_PROCESSORS: Record<string, Record<string, JobProcessor>> = {
     MICROSITE_GSC_SYNC: (job) => handleMicrositeGscSync(job),
     MICROSITE_ANALYTICS_SYNC: (job) => handleMicrositeAnalyticsSync(job),
     MICROSITE_GA4_SYNC: (job) => handleMicrositeGA4Sync(job),
+    TREND_DATA_COLLECT: (job) => handleTrendDataCollect(job),
   },
   [QUEUE_NAMES.ABTEST]: {
     ABTEST_ANALYZE: (job) => handleABTestAnalyze(job),
