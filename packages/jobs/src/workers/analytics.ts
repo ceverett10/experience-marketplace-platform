@@ -1652,7 +1652,7 @@ export async function handleTrendDataCollect(_job: Job): Promise<JobResult> {
     return {
       success: true,
       message: `Trend collection: ${result.snapshotsCreated} created, ${result.snapshotsUpdated} updated (~$${result.costEstimate.toFixed(2)})`,
-      data: result,
+      data: result as unknown as Record<string, unknown>,
       timestamp: new Date(),
     };
   } catch (error) {
