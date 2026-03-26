@@ -9,6 +9,7 @@ const PUBLIC_PATHS = [
   '/api/auth/login',
   '/api/auth/logout',
   '/api/social/callback', // OAuth callbacks from external platforms (Pinterest, Facebook, Twitter)
+  '/api/webhooks/trigger-blog-fanout', // Bearer-token auth (not session), used by CLI automation
 ];
 
 /**
