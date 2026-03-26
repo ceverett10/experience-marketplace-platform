@@ -2,42 +2,33 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // ── Mocks (hoisted before imports) ────────────────────────────────────────────
 
-const { mockPrisma, mockAddJob, mockGenerateDailyBlogTopic } = vi.hoisted(() => {
+const { mockPrisma, mockAddJob } = vi.hoisted(() => {
   const mockPrisma = {
     micrositeConfig: {
       findUnique: vi.fn(),
-      update: vi.fn(),
-    },
-    product: {
+      count: vi.fn(),
       findMany: vi.fn(),
-    },
-    page: {
-      findMany: vi.fn(),
-      findFirst: vi.fn(),
-      create: vi.fn(),
     },
   };
 
   const mockAddJob = vi.fn();
-  const mockGenerateDailyBlogTopic = vi.fn();
 
-  return { mockPrisma, mockAddJob, mockGenerateDailyBlogTopic };
+  return { mockPrisma, mockAddJob };
 });
 
 vi.mock('@experience-marketplace/database', () => ({
   prisma: mockPrisma,
-  PageType: { BLOG: 'BLOG' },
-  PageStatus: { DRAFT: 'DRAFT', PUBLISHED: 'PUBLISHED' },
   MicrositeEntityType: { SUPPLIER: 'SUPPLIER' },
 }));
 
 vi.mock('../queues/index.js', () => ({ addJob: mockAddJob }));
 
-vi.mock('./blog-topics.js', () => ({ generateDailyBlogTopic: mockGenerateDailyBlogTopic }));
-
 // ── Import under test ─────────────────────────────────────────────────────────
 
-import { generateBlogPostForMicrosite } from './microsite-blog-generator';
+import {
+  generateBlogPostForMicrosite,
+  generateDailyBlogPostsForMicrosites,
+} from './microsite-blog-generator';
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -46,96 +37,43 @@ const MICROSITE_ID = 'ms-test-001';
 const mockMicrosite = {
   id: MICROSITE_ID,
   siteName: 'Test Tours',
-  fullDomain: 'test-tours.experiencess.com',
-  supplier: {
-    id: 'sup-001',
-    name: 'Test Supplier',
-    description: 'A test supplier',
-    cities: ['London'],
-    categories: ['Food Tours'],
-  },
+  supplierId: 'sup-001',
 };
 
-const mockProducts = [
-  {
-    title: 'London Food Tour',
-    shortDescription: 'A delicious tour',
-    city: 'London',
-    categories: ['Food Tours'],
-  },
-];
-
-const mockTopic = {
-  title: 'Best Food Tours in London 2025',
-  slug: 'best-food-tours-london-2025',
-  targetKeyword: 'food tours london',
-  secondaryKeywords: ['london food experiences', 'guided food tours'],
-  contentType: 'guide' as const,
-  estimatedSearchVolume: 'high' as const,
-  intent: 'commercial' as const,
+const mockMicrositeNoSupplier = {
+  id: MICROSITE_ID,
+  siteName: 'Test Tours',
+  supplierId: null,
 };
 
-// ── Tests ─────────────────────────────────────────────────────────────────────
+// ── generateBlogPostForMicrosite ──────────────────────────────────────────────
 
-beforeEach(() => {
-  vi.clearAllMocks();
-  mockAddJob.mockResolvedValue('job-id-123');
-  mockPrisma.micrositeConfig.update.mockResolvedValue({});
-});
+describe('generateBlogPostForMicrosite', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockAddJob.mockResolvedValue('job-id-123');
+  });
 
-describe('generateBlogPostForMicrosite — new fanout flow', () => {
-  it('queues CONTENT_GENERATE without a pageId', async () => {
+  it('queues CONTENT_GENERATE with micrositeId and contentType only — no topic in payload', async () => {
     mockPrisma.micrositeConfig.findUnique.mockResolvedValue(mockMicrosite);
-    mockPrisma.product.findMany.mockResolvedValue(mockProducts);
-    mockPrisma.page.findMany.mockResolvedValue([]);
-    mockGenerateDailyBlogTopic.mockResolvedValue(mockTopic);
 
     const result = await generateBlogPostForMicrosite(MICROSITE_ID);
 
     expect(result.postQueued).toBe(true);
-    expect(result.topicGenerated).toBe(true);
+    expect(result.error).toBeUndefined();
 
-    // CRITICAL: no pageId in the job payload
     const [jobType, payload] = mockAddJob.mock.calls[0]!;
     expect(jobType).toBe('CONTENT_GENERATE');
-    expect(payload.pageId).toBeUndefined();
     expect(payload.micrositeId).toBe(MICROSITE_ID);
     expect(payload.contentType).toBe('blog');
-    expect(payload.targetKeyword).toBe('food tours london');
+    // targetKeyword must NOT be in the payload — worker generates it
+    expect(payload.targetKeyword).toBeUndefined();
+    // pageId must NOT be in the payload — worker creates the page
+    expect(payload.pageId).toBeUndefined();
   });
 
-  it('does NOT create a page stub in the DB', async () => {
+  it('applies stagger delay when provided', async () => {
     mockPrisma.micrositeConfig.findUnique.mockResolvedValue(mockMicrosite);
-    mockPrisma.product.findMany.mockResolvedValue(mockProducts);
-    mockPrisma.page.findMany.mockResolvedValue([]);
-    mockGenerateDailyBlogTopic.mockResolvedValue(mockTopic);
-
-    await generateBlogPostForMicrosite(MICROSITE_ID);
-
-    // page.create must never be called — stubs are gone
-    expect(mockPrisma.page.create).not.toHaveBeenCalled();
-    expect(mockPrisma.page.findFirst).not.toHaveBeenCalled();
-  });
-
-  it('updates lastContentUpdate after queuing', async () => {
-    mockPrisma.micrositeConfig.findUnique.mockResolvedValue(mockMicrosite);
-    mockPrisma.product.findMany.mockResolvedValue(mockProducts);
-    mockPrisma.page.findMany.mockResolvedValue([]);
-    mockGenerateDailyBlogTopic.mockResolvedValue(mockTopic);
-
-    await generateBlogPostForMicrosite(MICROSITE_ID);
-
-    expect(mockPrisma.micrositeConfig.update).toHaveBeenCalledWith({
-      where: { id: MICROSITE_ID },
-      data: { lastContentUpdate: expect.any(Date) },
-    });
-  });
-
-  it('applies stagger delay to the queued job', async () => {
-    mockPrisma.micrositeConfig.findUnique.mockResolvedValue(mockMicrosite);
-    mockPrisma.product.findMany.mockResolvedValue(mockProducts);
-    mockPrisma.page.findMany.mockResolvedValue([]);
-    mockGenerateDailyBlogTopic.mockResolvedValue(mockTopic);
 
     await generateBlogPostForMicrosite(MICROSITE_ID, 30_000);
 
@@ -143,11 +81,17 @@ describe('generateBlogPostForMicrosite — new fanout flow', () => {
     expect(options).toEqual({ delay: 30_000 });
   });
 
-  it('skips microsite with no supplier', async () => {
-    mockPrisma.micrositeConfig.findUnique.mockResolvedValue({
-      ...mockMicrosite,
-      supplier: null,
-    });
+  it('omits delay options when no stagger provided', async () => {
+    mockPrisma.micrositeConfig.findUnique.mockResolvedValue(mockMicrosite);
+
+    await generateBlogPostForMicrosite(MICROSITE_ID);
+
+    const [, , options] = mockAddJob.mock.calls[0]!;
+    expect(options).toBeUndefined();
+  });
+
+  it('skips microsite with no linked supplier', async () => {
+    mockPrisma.micrositeConfig.findUnique.mockResolvedValue(mockMicrositeNoSupplier);
 
     const result = await generateBlogPostForMicrosite(MICROSITE_ID);
 
@@ -156,42 +100,125 @@ describe('generateBlogPostForMicrosite — new fanout flow', () => {
     expect(mockAddJob).not.toHaveBeenCalled();
   });
 
-  it('skips microsite with no products', async () => {
-    mockPrisma.micrositeConfig.findUnique.mockResolvedValue(mockMicrosite);
-    mockPrisma.product.findMany.mockResolvedValue([]);
+  it('skips when microsite not found', async () => {
+    mockPrisma.micrositeConfig.findUnique.mockResolvedValue(null);
 
     const result = await generateBlogPostForMicrosite(MICROSITE_ID);
 
     expect(result.postQueued).toBe(false);
-    expect(result.skippedReason).toBe('Supplier has no products');
+    expect(result.error).toBe('Microsite not found');
     expect(mockAddJob).not.toHaveBeenCalled();
   });
 
-  it('skips when topic generation returns null', async () => {
+  it('returns error when addJob throws', async () => {
     mockPrisma.micrositeConfig.findUnique.mockResolvedValue(mockMicrosite);
-    mockPrisma.product.findMany.mockResolvedValue(mockProducts);
-    mockPrisma.page.findMany.mockResolvedValue([]);
-    mockGenerateDailyBlogTopic.mockResolvedValue(null);
+    mockAddJob.mockRejectedValue(new Error('Redis unavailable'));
 
     const result = await generateBlogPostForMicrosite(MICROSITE_ID);
 
     expect(result.postQueued).toBe(false);
-    expect(result.skippedReason).toBe('No topic generated');
-    expect(mockAddJob).not.toHaveBeenCalled();
+    expect(result.error).toBe('Redis unavailable');
   });
 
-  it('only reads PUBLISHED pages for existing topics (ignores old DRAFTs)', async () => {
+  it('returns error when addJob times out (8s)', async () => {
+    vi.useFakeTimers();
     mockPrisma.micrositeConfig.findUnique.mockResolvedValue(mockMicrosite);
-    mockPrisma.product.findMany.mockResolvedValue(mockProducts);
-    mockPrisma.page.findMany.mockResolvedValue([]);
-    mockGenerateDailyBlogTopic.mockResolvedValue(mockTopic);
+    // addJob never resolves — simulates Redis hang
+    mockAddJob.mockReturnValue(new Promise(() => {}));
+
+    const resultPromise = generateBlogPostForMicrosite(MICROSITE_ID);
+    // Advance past 8s timeout and flush promise microtasks
+    await vi.advanceTimersByTimeAsync(9_000);
+    const result = await resultPromise;
+
+    expect(result.postQueued).toBe(false);
+    expect(result.error).toMatch(/timed out/);
+    vi.useRealTimers();
+  }, 30_000);
+
+  it("does NOT update lastContentUpdate — that is the worker's responsibility", async () => {
+    mockPrisma.micrositeConfig.findUnique.mockResolvedValue(mockMicrosite);
+    mockAddJob.mockResolvedValue('job-id-123');
 
     await generateBlogPostForMicrosite(MICROSITE_ID);
 
-    expect(mockPrisma.page.findMany).toHaveBeenCalledWith(
+    // No update call on the fanout side
+    expect(mockPrisma.micrositeConfig.count).not.toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ status: 'PUBLISHED' }),
+        data: expect.objectContaining({ lastContentUpdate: expect.anything() }),
       })
     );
+  });
+});
+
+// ── generateDailyBlogPostsForMicrosites ──────────────────────────────────────
+
+describe('generateDailyBlogPostsForMicrosites', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockAddJob.mockResolvedValue('job-id-123');
+  });
+
+  it('returns zero summary when no eligible microsites', async () => {
+    mockPrisma.micrositeConfig.count.mockResolvedValue(0);
+
+    const summary = await generateDailyBlogPostsForMicrosites();
+
+    expect(summary.totalMicrosites).toBe(0);
+    expect(summary.postsQueued).toBe(0);
+    expect(mockAddJob).not.toHaveBeenCalled();
+  });
+
+  it('queues 0.2% of eligible microsites up to MAX_DAILY_MICROSITES', async () => {
+    // 1000 eligible → 0.2% = 2 microsites
+    mockPrisma.micrositeConfig.count.mockResolvedValue(1000);
+    mockPrisma.micrositeConfig.findMany.mockResolvedValue([
+      { id: 'ms-1', siteName: 'Site 1' },
+      { id: 'ms-2', siteName: 'Site 2' },
+    ]);
+    mockPrisma.micrositeConfig.findUnique
+      .mockResolvedValueOnce({ id: 'ms-1', siteName: 'Site 1', supplierId: 'sup-1' })
+      .mockResolvedValueOnce({ id: 'ms-2', siteName: 'Site 2', supplierId: 'sup-2' });
+
+    const summary = await generateDailyBlogPostsForMicrosites();
+
+    expect(summary.postsQueued).toBe(2);
+    expect(mockAddJob).toHaveBeenCalledTimes(2);
+  });
+
+  it('applies staggered 30s delays so jobs spread across the day', async () => {
+    mockPrisma.micrositeConfig.count.mockResolvedValue(1000);
+    mockPrisma.micrositeConfig.findMany.mockResolvedValue([
+      { id: 'ms-1', siteName: 'Site 1' },
+      { id: 'ms-2', siteName: 'Site 2' },
+    ]);
+    mockPrisma.micrositeConfig.findUnique
+      .mockResolvedValueOnce({ id: 'ms-1', siteName: 'Site 1', supplierId: 'sup-1' })
+      .mockResolvedValueOnce({ id: 'ms-2', siteName: 'Site 2', supplierId: 'sup-2' });
+
+    await generateDailyBlogPostsForMicrosites();
+
+    const firstDelay = mockAddJob.mock.calls[0]![2]?.delay;
+    const secondDelay = mockAddJob.mock.calls[1]![2]?.delay;
+    // First job: 0ms stagger → no delay option passed (queued immediately)
+    expect(firstDelay).toBeUndefined();
+    expect(secondDelay).toBe(30_000);
+  });
+
+  it('counts skipped and errored microsites in summary', async () => {
+    mockPrisma.micrositeConfig.count.mockResolvedValue(1000);
+    mockPrisma.micrositeConfig.findMany.mockResolvedValue([
+      { id: 'ms-no-supplier', siteName: 'No Supplier' },
+      { id: 'ms-good', siteName: 'Good Site' },
+    ]);
+    // First has no supplier (skip), second is good
+    mockPrisma.micrositeConfig.findUnique
+      .mockResolvedValueOnce({ id: 'ms-no-supplier', siteName: 'No Supplier', supplierId: null })
+      .mockResolvedValueOnce({ id: 'ms-good', siteName: 'Good Site', supplierId: 'sup-1' });
+
+    const summary = await generateDailyBlogPostsForMicrosites();
+
+    expect(summary.skipped).toBe(1);
+    expect(summary.postsQueued).toBe(1);
   });
 });

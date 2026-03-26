@@ -12,7 +12,7 @@
 // For local development, run: set -a && source .env.local && npx tsx ...
 import { prisma, PageType } from '@experience-marketplace/database';
 import { addJob } from '../queues/index.js';
-import { bootstrapBlogPostsForNewMicrosites } from '../services/microsite-blog-generator.js';
+import { generateDailyBlogPostsForMicrosites } from '../services/microsite-blog-generator.js';
 
 async function main() {
   console.log('=== Microsite Blog Bootstrap ===\n');
@@ -52,7 +52,7 @@ async function main() {
 
   // Step 2: Bootstrap new blog pages for microsites that have none
   console.log('\n--- Bootstrapping new microsites ---\n');
-  const result = await bootstrapBlogPostsForNewMicrosites();
+  const result = await generateDailyBlogPostsForMicrosites();
 
   console.log('\n=== Summary ===');
   console.log(`DRAFT pages re-queued: ${draftBlogs.length}`);
