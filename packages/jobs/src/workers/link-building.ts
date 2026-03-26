@@ -8,7 +8,7 @@
  * - Linkable asset content generation
  */
 
-import { Job } from 'bullmq';
+import { type Job } from 'bullmq';
 import { prisma } from '@experience-marketplace/database';
 import type {
   LinkOpportunityScanPayload,
@@ -36,6 +36,7 @@ import { runContentGapAnalysis } from '../services/content-gap-analysis';
 import { circuitBreakers } from '../errors/circuit-breaker';
 import { toJobError } from '../errors';
 import { errorTracking } from '../errors/tracking';
+import { addJob } from '../queues';
 
 /**
  * Handle LINK_OPPORTUNITY_SCAN jobs
@@ -46,7 +47,38 @@ export async function handleLinkOpportunityScan(
 ): Promise<JobResult> {
   const { siteId, competitorDomains = [], maxOpportunities } = job.data;
 
-  console.log(`[Link Building] Starting opportunity scan for site ${siteId}`);
+  // Fan-out: when siteId='all', enqueue per-site jobs for all sites with domains
+  if (siteId === 'all') {
+    const sites = await prisma.site.findMany({
+      where: { status: 'ACTIVE', primaryDomain: { not: null } },
+      select: { id: true, name: true },
+    });
+
+    let queued = 0;
+    for (const s of sites) {
+      try {
+        await addJob(
+          'LINK_OPPORTUNITY_SCAN' as any,
+          { siteId: s.id, competitorDomains, maxOpportunities },
+          { delay: queued * 30_000 }
+        );
+        queued++;
+      } catch (_err) {
+        console.warn(
+          `[Link Building] Skipping opportunity scan for ${s.name} (may already be queued)`
+        );
+      }
+    }
+
+    return {
+      success: true,
+      message: `Queued LINK_OPPORTUNITY_SCAN for ${queued} of ${sites.length} sites with domains`,
+      data: { queued, total: sites.length },
+      timestamp: new Date(),
+    };
+  }
+
+  console.info(`[Link Building] Starting opportunity scan for site ${siteId}`);
 
   try {
     // Get our site's domain
@@ -177,7 +209,38 @@ export async function handleLinkBacklinkMonitor(
 ): Promise<JobResult> {
   const { siteId, checkExisting = true, discoverNew: shouldDiscoverNew = true } = job.data;
 
-  console.log(`[Link Building] Starting backlink monitor for site ${siteId}`);
+  // Fan-out: when siteId='all', enqueue per-site jobs for all sites with domains
+  if (siteId === 'all') {
+    const sites = await prisma.site.findMany({
+      where: { status: 'ACTIVE', primaryDomain: { not: null } },
+      select: { id: true, name: true },
+    });
+
+    let queued = 0;
+    for (const s of sites) {
+      try {
+        await addJob(
+          'LINK_BACKLINK_MONITOR' as any,
+          { siteId: s.id, checkExisting, discoverNew: shouldDiscoverNew },
+          { delay: queued * 30_000 }
+        );
+        queued++;
+      } catch (_err) {
+        console.warn(
+          `[Link Building] Skipping backlink monitor for ${s.name} (may already be queued)`
+        );
+      }
+    }
+
+    return {
+      success: true,
+      message: `Queued LINK_BACKLINK_MONITOR for ${queued} of ${sites.length} sites with domains`,
+      data: { queued, total: sites.length },
+      timestamp: new Date(),
+    };
+  }
+
+  console.info(`[Link Building] Starting backlink monitor for site ${siteId}`);
 
   try {
     let checked = 0;
