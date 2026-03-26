@@ -90,7 +90,10 @@ export default function BookingsPage() {
       params.set('page', page.toString());
 
       const response = await fetch(`${basePath}/api/bookings?${params.toString()}`);
-      if (!response.ok) throw new Error('Failed to fetch bookings');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.detail || `API returned ${response.status}`);
+      }
 
       const data = await response.json();
       setBookings(data.bookings);
@@ -98,8 +101,9 @@ export default function BookingsPage() {
       setSourceSummary(data.sourceSummary || []);
       if (data.filters) setFilters(data.filters);
     } catch (err) {
-      console.error('Error fetching bookings:', err);
-      setError('Failed to load bookings. Please try again.');
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      console.error('Error fetching bookings:', msg);
+      setError(`Failed to load bookings: ${msg}`);
     } finally {
       setIsLoading(false);
     }
