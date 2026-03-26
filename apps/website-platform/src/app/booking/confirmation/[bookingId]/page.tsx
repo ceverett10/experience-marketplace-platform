@@ -76,8 +76,10 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
     cancellationPolicyText?.toLowerCase().includes('free') ||
     cancellationPolicyText?.toLowerCase().includes('full refund');
 
-  const isPending = pending === 'true' || booking.state === 'PENDING';
-  const isConfirmed = booking.state === 'CONFIRMED';
+  // Holibob state is authoritative — if the booking is now confirmed, show confirmed
+  // regardless of the ?pending=true query param set at redirect time.
+  const isConfirmed = booking.state === 'CONFIRMED' || booking.state === 'COMPLETED';
+  const isPending = !isConfirmed && (pending === 'true' || booking.state === 'PENDING');
 
   // Tracking data for client-side analytics
   const gross = booking.totalPrice?.gross ?? 0;
