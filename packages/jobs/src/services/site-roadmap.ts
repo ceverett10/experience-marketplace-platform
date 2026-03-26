@@ -306,6 +306,7 @@ async function validateTaskArtifacts(
     KEYWORD_ENRICHMENT: { valid: true },
     BOOKING_STATUS_SYNC: { valid: true },
     ADS_REVIEW_AGENT: { valid: true },
+    TREND_DATA_COLLECT: { valid: true },
   };
 }
 
@@ -606,6 +607,10 @@ export const TASK_DESCRIPTIONS: Record<JobType, { label: string; description: st
   ADS_REVIEW_AGENT: {
     label: 'Ads Review Agent',
     description: 'AI-powered audit of Google Ads and Meta Ads account structure and performance',
+  },
+  TREND_DATA_COLLECT: {
+    label: 'Trend Data Collection',
+    description: 'Collect Google Trends data for tour/experience categories via DataForSEO',
   },
 };
 
