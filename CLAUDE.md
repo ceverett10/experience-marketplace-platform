@@ -35,6 +35,19 @@ Or run all tests: `npm run test`
 - Keep branches short-lived. One concern per branch.
 - Rebase on `main` before pushing if your branch is behind.
 
+### Cleanup After Merging (MANDATORY)
+
+After your PR is merged, clean up:
+
+1. **Delete your local feature branch**: `git checkout main && git branch -d feat/my-fix`
+2. **Never leave temp scripts** with hardcoded credentials (DB URLs, Redis URLs, API keys).
+   Delete any throwaway scripts before ending your session.
+3. **Prune stale branches periodically**: If you notice >20 local branches, run:
+   ```bash
+   git fetch origin --prune
+   git branch --merged origin/main | grep -v '^\*' | grep -v 'main' | xargs git branch -d
+   ```
+
 ### Pre-Push Coordination (MANDATORY)
 
 Before pushing a branch or creating a PR, check for other open PRs that may conflict:
@@ -387,3 +400,5 @@ npm run lint && npm run typecheck && npm run format:check && npm run test
 - Do not increase worker concurrency above 1 (R15 OOM risk)
 - Do not set `ENABLE_SCHEDULER=true` on more than one dyno
 - Do not re-enable the autonomous roadmap processor
+- Do not leave temp scripts with hardcoded credentials (DB URLs, Redis URLs, API keys) — delete before ending session
+- Do not accumulate local branches — delete your feature branch after PR merge
