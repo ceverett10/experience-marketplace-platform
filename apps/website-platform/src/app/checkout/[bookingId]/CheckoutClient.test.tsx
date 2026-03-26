@@ -520,7 +520,7 @@ describe('CheckoutClient', () => {
       });
     });
 
-    it('fires GA4 purchase and Meta Pixel events on payment success', async () => {
+    it('does not fire purchase tracking during checkout (events fire on confirmation page)', async () => {
       mockCommitBooking.mockResolvedValue({
         booking: { ...mockBooking, status: 'CONFIRMED' },
         isConfirmed: true,
@@ -528,54 +528,15 @@ describe('CheckoutClient', () => {
       });
 
       await advanceToPayment();
-
       fireEvent.click(screen.getByTestId('pay-success'));
 
       await waitFor(() => {
-        expect(mockTrackPurchase).toHaveBeenCalledWith({
-          id: 'booking-1',
-          value: 7000,
-          currency: 'GBP',
-          itemName: 'Walking Tour',
-        });
-        expect(mockTrackMetaPurchase).toHaveBeenCalledWith({
-          id: 'booking-1',
-          value: 7000,
-          currency: 'GBP',
-        });
-      });
-    });
-
-    it('fires Google Ads conversion with commission amount when available', async () => {
-      mockCommitBooking.mockResolvedValue({
-        booking: { ...mockBooking, status: 'CONFIRMED' },
-        isConfirmed: true,
-        commissionAmount: 1260,
-        commissionCurrency: 'GBP',
+        expect(mockPush).toHaveBeenCalledWith('/booking/confirmation/booking-1');
       });
 
-      mockAnswerBookingQuestions.mockResolvedValue({
-        booking: mockBooking,
-        canCommit: true,
-      });
-
-      await renderAndWaitForLoad('booking-1', mockSiteWithConversionLabel);
-
-      fireEvent.click(screen.getByTestId('submit-questions'));
-      await screen.findByTestId('stripe-payment-form');
-
-      fireEvent.click(screen.getByTestId('pay-success'));
-
-      await waitFor(() => {
-        expect(mockTrackGoogleAdsConversion).toHaveBeenCalledWith(
-          'AW-123456789/abcDEFghiJKL',
-          expect.objectContaining({
-            id: 'booking-1',
-            value: 1260,
-            currency: 'GBP',
-          })
-        );
-      });
+      expect(mockTrackPurchase).not.toHaveBeenCalled();
+      expect(mockTrackMetaPurchase).not.toHaveBeenCalled();
+      expect(mockTrackGoogleAdsConversion).not.toHaveBeenCalled();
     });
 
     it('fires begin_checkout and add_payment_info analytics at correct steps', async () => {
@@ -779,7 +740,7 @@ describe('CheckoutClient', () => {
       expect(mockRecoverExpiredBooking).not.toHaveBeenCalled();
     });
 
-    it('fires Google Ads conversion on recovered booking', async () => {
+    it('redirects to confirmation page on recovered booking (purchase tracking fires there)', async () => {
       mockCommitBooking
         .mockRejectedValueOnce(new Error('Booking session expired'))
         .mockResolvedValueOnce({
@@ -808,15 +769,10 @@ describe('CheckoutClient', () => {
       fireEvent.click(screen.getByTestId('pay-success'));
 
       await waitFor(() => {
-        expect(mockTrackGoogleAdsConversion).toHaveBeenCalledWith(
-          'AW-123456789/abcDEFghiJKL',
-          expect.objectContaining({
-            id: 'recovered-1',
-            value: 900,
-            currency: 'GBP',
-          })
-        );
+        expect(mockPush).toHaveBeenCalledWith('/booking/confirmation/recovered-1');
       });
+
+      expect(mockTrackGoogleAdsConversion).not.toHaveBeenCalled();
     });
 
     it('redirects with ?pending=true when recovered booking is not confirmed', async () => {
