@@ -90,6 +90,17 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const currentGa4Map = new Map(currentGa4Metrics.map((m) => [m.siteId, m]));
     const previousGa4Map = new Map(previousGa4Metrics.map((m) => [m.siteId, m]));
 
+    // Fallback: use BookingFunnelEvent for traffic when GA4 isn't configured
+    // LANDING_PAGE_VIEW = unique page visits tracked by our own middleware
+    const [funnelVisitors, prevFunnelVisitors] = await Promise.all([
+      prisma.bookingFunnelEvent.count({
+        where: { step: 'LANDING_PAGE_VIEW', createdAt: { gte: start, lte: end } },
+      }),
+      prisma.bookingFunnelEvent.count({
+        where: { step: 'LANDING_PAGE_VIEW', createdAt: { gte: prevStart, lte: prevEnd } },
+      }),
+    ]);
+
     // Fetch actual booking data from Booking table (ground truth, not GA4 estimates)
     // Includes both site bookings (siteId) and microsite bookings (micrositeId)
     const [bookingsByStatus, bookingRevenue] = await Promise.all([
@@ -204,6 +215,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           missingGSC: !hasGSC,
         });
       }
+    }
+
+    // If GA4 data is empty, fall back to BookingFunnelEvent for visitor counts
+    if (totalUsers === 0 && funnelVisitors > 0) {
+      totalUsers = funnelVisitors;
+      totalSessions = funnelVisitors;
+      prevUsers = prevFunnelVisitors;
+      prevSessions = prevFunnelVisitors;
     }
 
     // Sort sites by users (descending)
