@@ -169,9 +169,9 @@ describe('generateDailyBlogPostsForMicrosites', () => {
     expect(mockAddJob).not.toHaveBeenCalled();
   });
 
-  it('queues 0.2% of eligible microsites up to MAX_DAILY_MICROSITES', async () => {
-    // 1000 eligible → 0.2% = 2 microsites
-    mockPrisma.micrositeConfig.count.mockResolvedValue(1000);
+  it('queues up to MAX_DAILY_MICROSITES (500) from the eligible pool', async () => {
+    // 2 eligible (pool smaller than cap) → queues all 2
+    mockPrisma.micrositeConfig.count.mockResolvedValue(2);
     mockPrisma.micrositeConfig.findMany.mockResolvedValue([
       { id: 'ms-1', siteName: 'Site 1' },
       { id: 'ms-2', siteName: 'Site 2' },
@@ -187,7 +187,7 @@ describe('generateDailyBlogPostsForMicrosites', () => {
   });
 
   it('applies staggered 30s delays so jobs spread across the day', async () => {
-    mockPrisma.micrositeConfig.count.mockResolvedValue(1000);
+    mockPrisma.micrositeConfig.count.mockResolvedValue(2);
     mockPrisma.micrositeConfig.findMany.mockResolvedValue([
       { id: 'ms-1', siteName: 'Site 1' },
       { id: 'ms-2', siteName: 'Site 2' },
@@ -206,7 +206,7 @@ describe('generateDailyBlogPostsForMicrosites', () => {
   });
 
   it('counts skipped and errored microsites in summary', async () => {
-    mockPrisma.micrositeConfig.count.mockResolvedValue(1000);
+    mockPrisma.micrositeConfig.count.mockResolvedValue(2);
     mockPrisma.micrositeConfig.findMany.mockResolvedValue([
       { id: 'ms-no-supplier', siteName: 'No Supplier' },
       { id: 'ms-good', siteName: 'Good Site' },
