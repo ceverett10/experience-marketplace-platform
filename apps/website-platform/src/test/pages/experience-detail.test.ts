@@ -140,7 +140,7 @@ describe('Experience detail generateMetadata', () => {
     expect(meta.robots).toEqual({ index: true, follow: true });
   });
 
-  it('sets robots index=false for Viator products (contractual)', async () => {
+  it('indexes all product pages regardless of provider', async () => {
     mockGetProduct.mockResolvedValue({
       id: 'prod-viator',
       name: 'Viator Walking Tour',
@@ -149,19 +149,7 @@ describe('Experience detail generateMetadata', () => {
     });
     const { generateMetadata } = await import('@/app/experiences/[slug]/page');
     const meta = await generateMetadata({ params: Promise.resolve({ slug: 'prod-viator' }) });
-    expect(meta.robots).toEqual({ index: false, follow: true });
-  });
-
-  it('detects Viator by case-insensitive provider name', async () => {
-    mockGetProduct.mockResolvedValue({
-      id: 'prod-v2',
-      name: 'Viator Day Trip',
-      shortDescription: 'A day trip',
-      provider: { name: 'VIATOR TOURS' },
-    });
-    const { generateMetadata } = await import('@/app/experiences/[slug]/page');
-    const meta = await generateMetadata({ params: Promise.resolve({ slug: 'prod-v2' }) });
-    expect(meta.robots).toEqual({ index: false, follow: true });
+    expect(meta.robots).toEqual({ index: true, follow: true });
   });
 
   it('includes openGraph with site name suffix', async () => {
