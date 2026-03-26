@@ -275,10 +275,86 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       .sort((a, b) => b.date.localeCompare(a.date))
       .slice(0, 30);
 
+    // 7. Aggregate TrendSnapshot data by category (Google Trends scores)
+    const latestSnapshots = await prisma.trendSnapshot.findMany({
+      where: {
+        date: {
+          gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // Last 7 days
+        },
+      },
+      orderBy: [{ date: 'desc' }, { demandScore: 'desc' }],
+    });
+
+    // Group by category for the trends view
+    const trendsByCategory = new Map<
+      string,
+      {
+        trendScore: number;
+        searchVolume: number;
+        cpc: number;
+        direction: string;
+        demandScore: number;
+        locations: Array<{ location: string; trendScore: number; searchVolume: number }>;
+        count: number;
+      }
+    >();
+
+    for (const snap of latestSnapshots) {
+      const existing = trendsByCategory.get(snap.category) || {
+        trendScore: 0,
+        searchVolume: 0,
+        cpc: 0,
+        direction: 'stable',
+        demandScore: 0,
+        locations: [],
+        count: 0,
+      };
+      existing.trendScore += snap.trendScore;
+      existing.searchVolume += snap.searchVolume;
+      existing.cpc += Number(snap.cpc);
+      existing.demandScore += snap.demandScore;
+      existing.count++;
+      existing.locations.push({
+        location: snap.location,
+        trendScore: snap.trendScore,
+        searchVolume: snap.searchVolume,
+      });
+      // Use the most dramatic direction
+      if (
+        snap.trendDirection === 'breakout' ||
+        (snap.trendDirection === 'rising' && existing.direction !== 'breakout')
+      ) {
+        existing.direction = snap.trendDirection;
+      }
+      trendsByCategory.set(snap.category, existing);
+    }
+
+    const googleTrends = Array.from(trendsByCategory.entries())
+      .map(([category, data]) => ({
+        category,
+        avgTrendScore: Math.round(data.trendScore / Math.max(data.count, 1)),
+        totalSearchVolume: data.searchVolume,
+        avgCpc: Math.round((data.cpc / Math.max(data.count, 1)) * 100) / 100,
+        direction: data.direction,
+        demandScore: Math.round(data.demandScore / Math.max(data.count, 1)),
+        locationCount: data.locations.length,
+        topLocations: data.locations
+          .sort((a, b) => b.trendScore - a.trendScore)
+          .slice(0, 5)
+          .map((l) => ({ location: l.location, trendScore: l.trendScore })),
+      }))
+      .sort((a, b) => b.demandScore - a.demandScore);
+
+    const lastCollected =
+      latestSnapshots.length > 0
+        ? new Date(latestSnapshots[0]!.date).toISOString().split('T')[0]
+        : null;
+
     return NextResponse.json({
       categories,
       topLocations,
       risingQueries: risingExperienceQueries,
+      googleTrends,
       trendTimeline,
       trackedCategories: TRACKED_CATEGORIES,
       trackedLocations: TRACKED_LOCATIONS,
@@ -288,10 +364,30 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         totalKeywords: opportunities.length,
         risingQueryCount: risingExperienceQueries.length,
         snapshotDays: snapshotsByDate.size,
+        googleTrendsCategories: googleTrends.length,
+        lastTrendCollection: lastCollected,
       },
     });
   } catch (error) {
     console.error('[Global Demand API] Error:', error);
     return NextResponse.json({ error: 'Failed to fetch global demand data' }, { status: 500 });
+  }
+}
+
+/**
+ * POST /api/analytics/demand-discovery/global-demand
+ * Triggers a manual trend data collection run
+ */
+export async function POST(): Promise<NextResponse> {
+  try {
+    // Import addJob dynamically to avoid circular deps
+    const { addJob } = await import('@experience-marketplace/jobs');
+    await addJob('TREND_DATA_COLLECT' as never, {});
+    return NextResponse.json({
+      message: 'Trend data collection job queued. Data will appear in ~5 minutes.',
+    });
+  } catch (error) {
+    console.error('[Global Demand API] Failed to queue trend collection:', error);
+    return NextResponse.json({ error: 'Failed to queue trend collection' }, { status: 500 });
   }
 }

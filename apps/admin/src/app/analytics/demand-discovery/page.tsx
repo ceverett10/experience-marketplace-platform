@@ -181,15 +181,29 @@ interface GlobalRisingQuery {
   clicks: number;
 }
 
+interface GoogleTrendItem {
+  category: string;
+  avgTrendScore: number;
+  totalSearchVolume: number;
+  avgCpc: number;
+  direction: string;
+  demandScore: number;
+  locationCount: number;
+  topLocations: Array<{ location: string; trendScore: number }>;
+}
+
 interface GlobalDemandResponse {
   categories: GlobalDemandCategory[];
   topLocations: GlobalDemandLocation[];
   risingQueries: GlobalRisingQuery[];
+  googleTrends: GoogleTrendItem[];
   totals: {
     totalCategories: number;
     totalSearchVolume: number;
     totalKeywords: number;
     risingQueryCount: number;
+    googleTrendsCategories: number;
+    lastTrendCollection: string | null;
   };
 }
 
@@ -468,6 +482,34 @@ export default function DemandDiscoveryPage() {
     }
   }, [basePath, researchCity, researchCategory]);
 
+  const [collecting, setCollecting] = useState(false);
+  const [collectMsg, setCollectMsg] = useState<string | null>(null);
+
+  const handleCollectTrends = useCallback(async () => {
+    setCollecting(true);
+    setCollectMsg(null);
+    try {
+      const res = await fetch(`${basePath}/api/analytics/demand-discovery/global-demand`, {
+        method: 'POST',
+      });
+      const result = await res.json();
+      setCollectMsg(result.message || result.error);
+      // Refresh the tab data after a short delay
+      setTimeout(() => {
+        setLoadedTabs((prev) => {
+          const next = new Set(prev);
+          next.delete('global');
+          return next;
+        });
+        fetchTabData('global');
+      }, 5000);
+    } catch {
+      setCollectMsg('Failed to trigger collection');
+    } finally {
+      setCollecting(false);
+    }
+  }, [basePath, fetchTabData]);
+
   // Sorting
   const citySort = useSort(cityData?.cities || null, 'demandScore');
   const categorySort = useSort(categoryData?.categories || null, 'searchVolume');
@@ -517,6 +559,34 @@ export default function DemandDiscoveryPage() {
           {/* ================================================================ */}
           {activeTab === 'global' && (
             <>
+              {/* Collect Trends button + status */}
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="font-semibold text-slate-900">Google Trends Data</h2>
+                      <p className="text-sm text-slate-500 mt-0.5">
+                        {globalData?.totals.lastTrendCollection
+                          ? `Last collected: ${globalData.totals.lastTrendCollection}`
+                          : 'No trend data collected yet. Click to fetch from Google Trends via DataForSEO.'}
+                      </p>
+                    </div>
+                    <button
+                      onClick={handleCollectTrends}
+                      disabled={collecting}
+                      className="px-4 py-2 bg-sky-600 text-white rounded-lg text-sm font-medium hover:bg-sky-700 disabled:opacity-50"
+                    >
+                      {collecting ? 'Collecting...' : 'Collect Trends Now'}
+                    </button>
+                  </div>
+                  {collectMsg && (
+                    <p className="mt-2 text-sm text-sky-700 bg-sky-50 rounded px-3 py-2">
+                      {collectMsg}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+
               {globalData && (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   <MetricCard
@@ -527,9 +597,104 @@ export default function DemandDiscoveryPage() {
                     title="Total Search Volume"
                     value={globalData.totals.totalSearchVolume}
                   />
-                  <MetricCard title="Keywords Indexed" value={globalData.totals.totalKeywords} />
+                  <MetricCard
+                    title="Google Trends Categories"
+                    value={globalData.totals.googleTrendsCategories}
+                  />
                   <MetricCard title="Rising Queries" value={globalData.totals.risingQueryCount} />
                 </div>
+              )}
+
+              {/* Google Trends Data (from TrendSnapshot) */}
+              {globalData && globalData.googleTrends.length > 0 && (
+                <Card>
+                  <div className="p-4 border-b border-slate-200">
+                    <h2 className="font-semibold text-slate-900">
+                      Google Trends: Experience Category Interest
+                    </h2>
+                    <p className="text-sm text-slate-500 mt-1">
+                      Real-time trend scores from Google Trends (0-100) across 10 tourism markets
+                    </p>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-slate-50">
+                        <tr>
+                          <th className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
+                            Category
+                          </th>
+                          <th className="text-right text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
+                            Trend Score
+                          </th>
+                          <th className="text-right text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
+                            Direction
+                          </th>
+                          <th className="text-right text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
+                            Search Volume
+                          </th>
+                          <th className="text-right text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
+                            CPC
+                          </th>
+                          <th className="text-right text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
+                            Demand Score
+                          </th>
+                          <th className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
+                            Top Markets
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {globalData.googleTrends.map((t) => (
+                          <tr key={t.category} className="hover:bg-slate-50">
+                            <td className="px-4 py-3 text-sm font-medium text-slate-900">
+                              {t.category}
+                            </td>
+                            <td className="px-4 py-3 text-right text-sm font-medium text-slate-900">
+                              {t.avgTrendScore}
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <span
+                                className={`px-2 py-0.5 rounded text-xs font-medium ${
+                                  t.direction === 'breakout'
+                                    ? 'bg-purple-100 text-purple-700'
+                                    : t.direction === 'rising'
+                                      ? 'bg-green-100 text-green-700'
+                                      : t.direction === 'declining'
+                                        ? 'bg-red-100 text-red-700'
+                                        : 'bg-slate-100 text-slate-600'
+                                }`}
+                              >
+                                {t.direction.toUpperCase()}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-right text-sm text-slate-700">
+                              {t.totalSearchVolume.toLocaleString()}
+                            </td>
+                            <td className="px-4 py-3 text-right text-sm text-slate-700">
+                              {t.avgCpc > 0 ? `£${t.avgCpc.toFixed(2)}` : '-'}
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <span
+                                className={`px-2 py-0.5 rounded text-xs font-medium ${
+                                  t.demandScore >= 70
+                                    ? 'bg-green-100 text-green-700'
+                                    : t.demandScore >= 40
+                                      ? 'bg-yellow-100 text-yellow-700'
+                                      : 'bg-slate-100 text-slate-600'
+                                }`}
+                              >
+                                {t.demandScore}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-sm text-slate-600">
+                              {t.topLocations.map((l) => l.location).join(', ')}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
               )}
 
               {/* Top Categories by Global Search Volume */}

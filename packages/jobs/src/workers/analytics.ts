@@ -1642,3 +1642,29 @@ export async function handleMicrositeGA4Sync(
     };
   }
 }
+
+// --- TREND_DATA_COLLECT -------------------------------------------------------
+
+/**
+ * Collect Google Trends data for tour/experience categories across top markets.
+ * Stores daily snapshots in TrendSnapshot table via DataForSEO Google Trends API.
+ */
+export async function handleTrendDataCollect(_job: Job): Promise<JobResult> {
+  try {
+    const { collectTrendData } = await import('../services/trend-collector.js');
+    const result = await collectTrendData();
+    return {
+      success: true,
+      message: `Trend collection: ${result.snapshotsCreated} created, ${result.snapshotsUpdated} updated (~$${result.costEstimate.toFixed(2)})`,
+      data: result,
+      timestamp: new Date(),
+    };
+  } catch (error) {
+    console.error('[Analytics Worker] Trend data collection failed:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      timestamp: new Date(),
+    };
+  }
+}
