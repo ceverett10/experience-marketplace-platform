@@ -42,6 +42,24 @@ Key files: `workers/content.ts`, `workers/ads.ts`, `workers/domain.ts`, `workers
 - Circuit breaker: Redis-persisted (CLOSED → OPEN → HALF_OPEN), prevents cascading failures
 - Error tracking: logs to `ErrorLog` table with jobType, category, severity
 
+### Retry vs Dead-Letter Behaviour
+
+| Category       | Retried? | Notes                                                              |
+| -------------- | -------- | ------------------------------------------------------------------ |
+| EXTERNAL_API   | ✅ Yes   | Up to queue max retries; Holibob 5xx, Cloudflare failures          |
+| NETWORK        | ✅ Yes   | Same as EXTERNAL_API                                               |
+| RATE_LIMIT     | ✅ Yes   | Delays next attempt using `Retry-After` header if present          |
+| DATABASE       | ✅ Yes   | Transient connection errors; permanent schema errors → dead-letter |
+| TEMPORARY      | ✅ Yes   | Explicitly classified as transient — always retry                  |
+| RECOVERABLE    | ✅ Yes   | May resolve on retry; e.g., stale cache, partial data              |
+| BUSINESS_LOGIC | ❌ No    | Dead-lettered immediately — retrying won't change the outcome      |
+| NOT_FOUND      | ❌ No    | Dead-lettered — resource doesn't exist, retry is pointless         |
+| CONFIGURATION  | ❌ No    | Dead-lettered — missing env vars, bad config won't self-heal       |
+| AUTH           | ❌ No    | Dead-lettered — invalid credentials won't self-heal                |
+| PERMANENT      | ❌ No    | Explicitly classified as unrecoverable                             |
+| CRITICAL       | ❌ No    | Dead-lettered + circuit breaker opens to prevent cascade           |
+| UNKNOWN        | ✅ Yes   | Retried up to max; fails open to avoid silently dropping work      |
+
 ## Scheduler Conventions
 
 All schedules use BullMQ repeatable jobs (Redis-persisted cron, NOT setInterval).
@@ -142,11 +160,34 @@ microsite `discoveryConfig` (keyword, destination, niche).
 
 ### Blog Generation Targeting
 
-- **Main sites**: Excluded from daily blog fanout — strategy is to build microsite SEO authority first; main sites get blogs later via manual calls
-- **Supplier microsites only**: Daily rotating blog generation with rich product/category/city context
-- **PRODUCT/OPPORTUNITY microsites**: Excluded — products lack varied context, opportunities use daily-content-generator
+> **CHANGED**: Blog generation was previously applied to all microsites. It was refocused to supplier microsites only (see `fix/refocus-blog-generation-supplier-microsites`). Do not revert this.
+
+| Site/Microsite type    | Daily blog generation | Reason                                                                           |
+| ---------------------- | --------------------- | -------------------------------------------------------------------------------- |
+| Main sites             | ❌ No                 | Build microsite SEO authority first; main sites get blogs later via manual calls |
+| Supplier microsites    | ✅ Yes (5% rotation)  | Rich product/category/city context from linked products                          |
+| Product microsites     | ❌ No                 | Single product — lacks varied context for ongoing blog topics                    |
+| Opportunity microsites | ❌ No                 | Handled by `daily-content-generator.ts`, not microsite fanout                    |
+
 - Suppliers with no linked products are skipped (would produce generic, irrelevant content)
 - Topic niche and location are derived from actual product data, not just supplier metadata
+
+### Blog Fanout Architecture (IMPORTANT — do not revert)
+
+The `CONTENT_BLOG_FANOUT` job (`microsite-blog-generator.ts`) is intentionally **dumb and fast**:
+it only queries the DB and calls `addJob`. It does **not** call Claude API or generate topics.
+
+**Why**: The old fanout called `generateDailyBlogTopic` (Claude API) inside `Promise.all` batches.
+A Redis TLS hang caused `addJob` to never resolve, blocking the batch. BullMQ's 15-minute timeout
+killed the fanout before any jobs were queued → 0 blogs published.
+
+**Current flow**:
+
+1. `CONTENT_BLOG_FANOUT` (4 AM daily): queries supplier microsites → `addJob('CONTENT_GENERATE', { micrositeId, contentType: 'blog' })` per microsite, staggered 30s apart, with 8s timeout per addJob call
+2. `CONTENT_GENERATE` worker: loads products → generates blog topic (Claude API) → creates page → generates content → publishes → sets `lastContentUpdate`
+
+This means topic generation is independently retryable per microsite via BullMQ's retry logic.
+`lastContentUpdate` is set at publish time (not queue time) so failed jobs don't burn the 14-day gate.
 
 ## Testing Pattern
 

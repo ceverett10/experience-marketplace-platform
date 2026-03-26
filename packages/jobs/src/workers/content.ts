@@ -31,6 +31,7 @@ import {
 import { suggestInternalLinks } from '../services/internal-linking';
 import { suggestCrossSiteLinks } from '../services/cross-site-linking';
 import { resolveSEOIssue } from '../services/seo-issues';
+import { generateDailyBlogTopic, type BlogTopicContext } from '../services/blog-topics.js';
 
 /**
  * Valid internal routes that exist on every site.
@@ -725,7 +726,7 @@ async function handleMicrositePageContentGenerate(params: {
   micrositeId: string;
   pageId?: string;
   contentType: string;
-  targetKeyword: string;
+  targetKeyword?: string; // Optional — generated from microsite context when omitted (blog type only)
   secondaryKeywords?: string[];
   destination?: string;
   category?: string;
@@ -736,13 +737,14 @@ async function handleMicrositePageContentGenerate(params: {
     micrositeId,
     pageId,
     contentType,
-    targetKeyword,
-    secondaryKeywords,
+    secondaryKeywords: initialSecondaryKeywords,
     destination,
     category,
     targetLength,
     sourceData,
   } = params;
+  let targetKeyword = params.targetKeyword;
+  let secondaryKeywords = initialSecondaryKeywords;
 
   try {
     const microsite = await prisma.micrositeConfig.findUnique({
@@ -850,6 +852,66 @@ async function handleMicrositePageContentGenerate(params: {
     // Build content brief
     const supplierCities = (microsite.supplier?.cities as string[]) || [];
     const supplierCategories = (microsite.supplier?.categories as string[]) || [];
+
+    // If no targetKeyword was provided (fanout-queued microsite blog), generate the topic here.
+    // This keeps the fanout fast (no AI calls) while giving each job independent retry on failure.
+    if (contentType === 'blog' && !targetKeyword) {
+      const existingTitles = await prisma.page
+        .findMany({
+          where: { micrositeId, type: 'BLOG' as any, status: 'PUBLISHED' as any },
+          select: { title: true },
+        })
+        .then((pages) => pages.map((p) => p.title));
+
+      const topicContext: BlogTopicContext = {
+        siteName,
+        niche:
+          topProducts
+            .flatMap((p) => (p.categories as string[]) || [])
+            .filter(Boolean)
+            .find(Boolean) ||
+          supplierCategories[0] ||
+          'travel experiences',
+        location: topProducts.map((p) => p.city).find(Boolean) || supplierCities[0] || undefined,
+        existingTopics: existingTitles,
+        supplierDescription: microsite.supplier?.description || undefined,
+        allCities: topProducts.map((p) => p.city).filter(Boolean) as string[],
+        allCategories: [
+          ...new Set(topProducts.flatMap((p) => (p.categories as string[]) || [])),
+        ].filter(Boolean),
+        topExperiences: topProducts.map((p) => ({
+          title: p.title,
+          description: p.shortDescription || undefined,
+          city: p.city || undefined,
+          categories: (p.categories as string[]) || undefined,
+        })),
+      };
+
+      const dayOfYear = Math.floor(
+        (Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000
+      );
+      const topic = await generateDailyBlogTopic(topicContext, dayOfYear);
+
+      if (!topic) {
+        // Throw so BullMQ retries this job — topic generation is occasionally flaky
+        throw new Error(`Could not generate blog topic for microsite ${micrositeId}`);
+      }
+
+      targetKeyword = topic.targetKeyword;
+      secondaryKeywords = topic.secondaryKeywords;
+      console.info(
+        `[Content Generate - Microsite] Generated topic for ${siteName}: "${targetKeyword}"`
+      );
+    }
+
+    if (!targetKeyword) {
+      return {
+        success: false,
+        error: 'targetKeyword is required for non-blog microsite content',
+        timestamp: new Date(),
+      };
+    }
+
     const contentSubtype = sourceData?.contentSubtype;
     const formatHints = getContentFormatHints(contentSubtype, sourceData);
 
@@ -1081,6 +1143,13 @@ async function handleMicrositePageContentGenerate(params: {
       );
     }
 
+    // Mark microsite as recently updated so the recency gate skips it for 14 days.
+    // Done here (after publish) so failed jobs don't waste a recency slot.
+    await prisma.micrositeConfig.update({
+      where: { id: micrositeId },
+      data: { lastContentUpdate: new Date() },
+    });
+
     return {
       success: true,
       message: `Generated blog content for "${targetKeyword}"`,
@@ -1142,6 +1211,15 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
         targetLength,
         sourceData,
       });
+    }
+
+    // targetKeyword is required for site (non-microsite) content generation
+    if (!targetKeyword) {
+      return {
+        success: false,
+        error: 'targetKeyword is required for site content generation',
+        timestamp: new Date(),
+      };
     }
 
     // Check if autonomous content generation is allowed

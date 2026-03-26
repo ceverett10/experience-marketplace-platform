@@ -11,7 +11,7 @@ export interface ContentGeneratePayload {
   pageId?: string; // If provided, update existing page instead of creating new one
   opportunityId?: string;
   contentType: 'destination' | 'experience' | 'category' | 'blog' | 'about' | 'faq';
-  targetKeyword: string;
+  targetKeyword?: string; // Optional for microsite blog jobs — worker generates topic if omitted
   secondaryKeywords?: string[];
   destination?: string;
   category?: string;
