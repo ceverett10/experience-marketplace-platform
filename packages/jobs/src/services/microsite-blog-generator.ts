@@ -4,8 +4,7 @@
  *
  * Key features:
  * - SUPPLIER entity type filtering — only supplier microsites get blogs
- * - Rotating daily processing (0.2% per day = each supplier refreshed every ~500 days,
- *   capped at 500/day max)
+ * - Fixed daily target of 500/day (each supplier refreshed every ~68 days from a 34K pool)
  * - Batch parallel processing with stagger delays
  * - Priority-based queuing (high-traffic microsites first)
  *
@@ -25,10 +24,10 @@ import { addJob } from '../queues/index.js';
 const SUPPLIER_ENTITY_TYPE = MicrositeEntityType.SUPPLIER;
 
 // Configuration
-// With ~39K supplier microsites, percentage-based rotation produces too many
-// items per day. Use a hard cap instead to keep within 1GB Heroku memory.
-const DAILY_PERCENTAGE = 0.002; // 0.2% = ~78 microsites/day from 39K pool
-const MAX_DAILY_MICROSITES = 500; // Hard cap regardless of pool size
+// Target 500 supplier microsites per day. With ~34K in the pool, each supplier
+// gets refreshed roughly every 68 days. Increase MAX_DAILY_MICROSITES to scale up
+// if Heroku memory allows (monitor worker-fast dyno on deploy before raising further).
+const MAX_DAILY_MICROSITES = 500;
 const BATCH_SIZE = 10; // Process 10 microsites concurrently (addJob is fast, no AI calls)
 const DELAY_BETWEEN_BATCHES_MS = 500; // 0.5 seconds between batches (no API calls, can be fast)
 const STAGGER_DELAY_PER_JOB_MS = 30_000; // 30s BullMQ delay per job so content is spread across day
@@ -148,10 +147,7 @@ export async function generateDailyBlogPostsForMicrosites(): Promise<MicrositeBl
     };
   }
 
-  const processCount = Math.min(
-    MAX_DAILY_MICROSITES,
-    Math.max(1, Math.floor(totalActive * DAILY_PERCENTAGE))
-  );
+  const processCount = Math.min(MAX_DAILY_MICROSITES, totalActive);
 
   console.info(
     `[Microsite Blog] Queuing ${processCount} of ${totalActive} eligible supplier microsites`
