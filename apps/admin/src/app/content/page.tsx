@@ -60,6 +60,7 @@ export default function AdminContentPage() {
   const [editContent, setEditContent] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isTriggeringBlogFanout, setIsTriggeringBlogFanout] = useState(false);
   const [regeneratingIds, setRegeneratingIds] = useState<Set<string>>(new Set());
 
   // Debounce search input
@@ -251,6 +252,30 @@ export default function AdminContentPage() {
       alert('Failed to queue content generation. Please try again.');
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const triggerBlogFanout = async () => {
+    try {
+      setIsTriggeringBlogFanout(true);
+      const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
+      const response = await fetch(`${basePath}/api/content`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'trigger-blog-fanout' }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to trigger blog fanout');
+      }
+
+      const result = await response.json();
+      alert(`${result.message}\n\nJob ID: ${result.jobId}`);
+    } catch (err) {
+      console.error('Error triggering blog fanout:', err);
+      alert('Failed to trigger blog fanout. Please try again.');
+    } finally {
+      setIsTriggeringBlogFanout(false);
     }
   };
 
@@ -513,13 +538,22 @@ export default function AdminContentPage() {
           <h1 className="text-2xl font-bold text-slate-900">Content Management</h1>
           <p className="text-slate-500 mt-1">Review and manage AI-generated content</p>
         </div>
-        <Button
-          onClick={generateMissingContent}
-          disabled={isGenerating}
-          className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-lg font-medium disabled:opacity-50"
-        >
-          {isGenerating ? 'Queuing...' : 'Generate Missing Content'}
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            onClick={triggerBlogFanout}
+            disabled={isTriggeringBlogFanout}
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium disabled:opacity-50"
+          >
+            {isTriggeringBlogFanout ? 'Queuing...' : 'Run Microsite Blog Generation'}
+          </Button>
+          <Button
+            onClick={generateMissingContent}
+            disabled={isGenerating}
+            className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-lg font-medium disabled:opacity-50"
+          >
+            {isGenerating ? 'Queuing...' : 'Generate Missing Content'}
+          </Button>
+        </div>
       </div>
 
       {/* Stats cards */}
