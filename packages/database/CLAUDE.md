@@ -83,7 +83,12 @@ When modifying `prisma/schema.prisma`:
 3. Run `npm run typecheck` (full monorepo — schema changes cascade everywhere)
 4. If adding a **new enum value**:
    - `JobType` → also update `packages/jobs/src/types/index.ts` (JOB_TYPE_TO_QUEUE + payload)
-   - `PageType` → also update 17+ files that filter on page type (sitemap, content generators, admin API)
+   - `PageType` → update ALL of the following files (they switch/filter on page type):
+     - **jobs/src/workers**: `site.ts`, `microsite.ts`, `content.ts`, `ads.ts`
+     - **jobs/src/services**: `daily-content-generator.ts`, `daily-blog-generator.ts`, `content-optimizer.ts`, `seo-health.ts`, `seo-optimizer.ts`, `meta-title-maintenance.ts`, `landing-page-routing.ts`, `internal-linking.ts`, `linkable-assets.ts`, `ad-creative-generator.ts`, `bidding-engine.ts`, `microsite-blog-generator.ts`
+     - **admin**: `api/content/route.ts`, `api/analytics/ads/route.ts`, `api/analytics/bidding/route.ts`, `api/analytics/funnel/route.ts`, `operations/bidding/page.tsx`
+     - **database**: `src/index.ts` (type helpers)
+     - **scripts**: any scripts in `scripts/` that query by page type
    - `SiteStatus` → check `daily-content-generator.ts`, `meta-title-maintenance.ts`, `site-roadmap.ts`
 5. If adding a **new model** → verify no N+1 queries in consuming code
 6. Create migration: `npm run db:migrate --workspace=@experience-marketplace/database`

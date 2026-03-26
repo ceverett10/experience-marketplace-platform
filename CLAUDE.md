@@ -82,15 +82,48 @@ babysitting CI after every rebase, **always use auto-merge**:
 ```bash
 # After creating the PR, enable auto-merge immediately:
 gh pr merge --auto --squash
-
-# If the branch is behind main, update it:
-gh pr merge --auto --squash && git fetch origin main && git rebase origin/main && git push --force-with-lease
 ```
 
 - `--auto` queues the merge — GitHub merges automatically once CI passes
 - `--squash` keeps `main` history clean (one commit per PR)
-- `--force-with-lease` is safe — it refuses to push if someone else pushed to your branch
-- If CI fails after rebase, fix the issue, push again, and auto-merge stays queued
+- If CI fails after a push, fix the issue and push again — auto-merge stays queued
+
+### Keeping a Branch Up-To-Date With main
+
+**Prefer the GitHub API update over a local rebase** — it creates a merge commit without a force push, and auto-merge handles it cleanly:
+
+```bash
+# Option 1 (preferred): GitHub creates a merge commit — no force push needed
+gh api repos/ceverett10/experience-marketplace-platform/pulls/<PR_NUMBER>/update-branch -X PUT
+
+# Option 2 (use only if merge conflicts require manual resolution):
+git fetch origin main && git rebase origin/main
+# Resolve any conflicts (see below), then:
+git push --force-with-lease
+```
+
+Use Option 2 only when Option 1 fails due to conflicts that need manual resolution.
+
+### Resolving Rebase Conflicts
+
+**Lockfile conflicts** (`package-lock.json`) — do not manually merge these:
+
+```bash
+git checkout --theirs package-lock.json   # take main's version
+npm install                                # regenerate from package.json
+git add package-lock.json
+git rebase --continue
+```
+
+**Prisma migration conflicts** (`packages/database/prisma/migrations/`) — high risk:
+
+- Never delete or rename an existing migration file — it will break `prisma migrate deploy` in production
+- If two branches added migrations: keep BOTH migration files, ensure they have unique timestamps
+- Rename your branch's migration directory to have a later timestamp than main's latest if needed
+- Run `npm run db:generate --workspace=@experience-marketplace/database` after resolving
+- Test locally with `npm run db:migrate` before pushing
+
+**Source code conflicts** — standard resolution: read both changes, merge intent not just text, run `npm run typecheck` after.
 
 ### PR Review Until Merge (MANDATORY)
 
@@ -206,16 +239,23 @@ When changing a package, check downstream consumers for breakage.
 
 ### Keeping CLAUDE.md Files Current
 
-When you make changes that affect patterns, conventions, or architecture documented in any
-CLAUDE.md file, **update the relevant CLAUDE.md in the same PR**. Examples:
+**MANDATORY**: Update the relevant CLAUDE.md **in the same PR as your code change**. Do not defer
+this to a follow-up. Stale docs are the primary cause of agents repeating past mistakes.
 
-- Add a new queue → update `packages/jobs/CLAUDE.md`
-- Add a new page type → update `packages/database/CLAUDE.md` and `apps/website-platform/CLAUDE.md`
-- Change URL routing → update `apps/website-platform/CLAUDE.md`
-- Add a new API route → update `apps/admin/CLAUDE.md`
-- Hit a new bug or gotcha → add to "Common Pitfalls" in the relevant file
+CLAUDE.md updates are required when you:
 
-This is not optional — stale docs cause agents to repeat past mistakes.
+- Add a new queue, job type, or worker → update `packages/jobs/CLAUDE.md`
+- Add or rename a PageType → update `packages/database/CLAUDE.md` (the explicit file list) and `packages/jobs/CLAUDE.md`
+- Change URL routing or slug conventions → update `apps/website-platform/CLAUDE.md`
+- Add or change an admin API route → update `apps/admin/CLAUDE.md` (HTTP method, params, response shape)
+- Change which microsites get content generated → update `packages/jobs/CLAUDE.md` blog generation table
+- Hit a new bug, gotcha, or silent failure → add to "Common Pitfalls" in the relevant file
+- Change an architectural pattern → update both the package CLAUDE.md and the root CLAUDE.md if referenced there
+- Discover that existing docs are wrong — fix them in the same PR, don't leave known-incorrect docs
+
+**Do not** require agents to review CLAUDE.md after every deployment — that produces superficial
+updates. The rule is: the engineer (or agent) who makes the change owns the doc update, at the
+time of the change, not after deployment.
 
 ## Business Model & Strategy
 
@@ -358,7 +398,7 @@ npm run lint && npm run typecheck && npm run format:check && npm run test
 ## Heroku Runtime Constraints
 
 - **Memory**: Standard-2X dynos (1GB). All worker concurrency reduced to 1 to prevent R15 OOM kills. Do not increase without memory profiling.
-- **Postgres**: Heroku essential-1, 20 total connections. Prisma pool capped at 4/process (auto-appended to DATABASE_URL). With multiple dynos, connections fill fast.
+- **Postgres**: Heroku essential-1, 25 total connections. Prisma pool capped at 4/process (auto-appended to DATABASE_URL). With multiple dynos, connections fill fast. Connection exhaustion blocks release phase (`prisma migrate deploy`) and any one-off `heroku run` dynos — fix with `heroku ps:restart` to free connections.
 - **HTTP timeout**: 30 seconds — long Holibob API calls can cascade to 503s
 - **Scheduler**: `ENABLE_SCHEDULER=true` on `worker-infra` dyno ONLY. Multiple dynos running scheduler = duplicate cron jobs.
 - **Autonomous roadmap processor**: Permanently disabled (commented out in `demand-generation/src/index.ts`). Do not re-enable without memory profiling.
@@ -388,6 +428,15 @@ npm run lint && npm run typecheck && npm run format:check && npm run test
 - Dedup hit → silently dropped with warning log only
 - `isProcessingAllowed()` → fails open on DB error (allows work through)
 - Server component try/catch → `return null` for non-critical sections (renders nothing)
+- **Booking DB write** (`/api/booking/commit`) → DB upsert is wrapped in try/catch; if Postgres is at connection limit, the booking commits in Holibob and Stripe charges the customer, but the record is never saved to our DB. The API still returns 200. A `BookingFunnelEvent` with `errorCode: DB_SAVE_FAILED` is logged but there is no active alert on it. **TODO**: build an alert on `DB_SAVE_FAILED` funnel events and a reconciliation job to auto-backfill missing bookings from Holibob.
+
+### Database Backups
+
+- **Automated daily backups**: scheduled at 02:00 UTC, 7-day retention (`heroku pg:backups:schedules`)
+- **Continuous protection**: Heroku also maintains physical WAL-based backups (point-in-time recovery via Heroku support)
+- **Manual capture**: `heroku pg:backups:capture --app holibob-experiences-demand-gen`
+- **Restore**: `heroku pg:backups:restore <backup-id> DATABASE_URL --app holibob-experiences-demand-gen`
+- If a deploy fails with "too many connections", run `heroku ps:restart` first to free connections, then `heroku releases:retry`
 
 ## What NOT To Do
 
