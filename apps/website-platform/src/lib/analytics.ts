@@ -76,12 +76,23 @@ export function trackPurchase(booking: {
   value?: number;
   currency?: string;
   itemName?: string;
+  itemId?: string;
 }) {
   sendEvent('purchase', {
     transaction_id: booking.id,
     value: booking.value,
     currency: booking.currency ?? 'GBP',
-    items: booking.itemName ? [{ item_name: booking.itemName }] : [],
+    items:
+      booking.itemName || booking.itemId
+        ? [
+            {
+              item_id: booking.itemId,
+              item_name: booking.itemName,
+              price: booking.value,
+              quantity: 1,
+            },
+          ]
+        : [],
   });
 }
 

@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getSiteFromHostname } from '@/lib/tenant';
 import { getHolibobClient } from '@/lib/holibob';
+import { ConfirmationTracking } from './ConfirmationTracking';
 
 interface ConfirmationPageProps {
   params: Promise<{ bookingId: string }>;
@@ -78,8 +79,27 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
   const isPending = pending === 'true' || booking.state === 'PENDING';
   const isConfirmed = booking.state === 'CONFIRMED';
 
+  // Tracking data for client-side analytics
+  const gross = booking.totalPrice?.gross ?? 0;
+  const net = booking.totalPrice?.net;
+  const commissionAmount = net != null && gross > 0 ? gross - net : undefined;
+  const currency = booking.totalPrice?.currency ?? 'GBP';
+  const transactionId = booking.code ?? bookingId;
+  const productId = (firstAvailability as any)?.product?.id as string | undefined;
+  const productName = (firstAvailability as any)?.product?.name as string | undefined;
+
   return (
     <main className="min-h-screen bg-gray-50 py-12">
+      <ConfirmationTracking
+        bookingId={bookingId}
+        transactionId={transactionId}
+        value={gross}
+        currency={currency}
+        itemName={productName}
+        itemId={productId}
+        commissionAmount={commissionAmount}
+        googleAdsConversionLabel={site.seoConfig?.googleAdsConversionLabel}
+      />
       <div className="mx-auto max-w-2xl px-4">
         {/* Success/Pending Header */}
         <div className="rounded-xl bg-white p-8 text-center shadow-lg">
