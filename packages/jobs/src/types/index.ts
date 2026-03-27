@@ -11,7 +11,7 @@ export interface ContentGeneratePayload {
   pageId?: string; // If provided, update existing page instead of creating new one
   opportunityId?: string;
   contentType: 'destination' | 'experience' | 'category' | 'blog' | 'about' | 'faq';
-  targetKeyword: string;
+  targetKeyword?: string; // Optional for microsite blog jobs — worker generates topic if omitted
   secondaryKeywords?: string[];
   destination?: string;
   category?: string;
@@ -669,4 +669,5 @@ export const JOB_TYPE_TO_QUEUE: Record<string, QueueName> & Record<JobType, Queu
   BIDDING_ENGINE_RUN: QUEUE_NAMES.ADS,
   ADS_REVIEW_AGENT: QUEUE_NAMES.ADS,
   KEYWORD_ENRICHMENT: QUEUE_NAMES.SYNC, // Long-running: uses SYNC queue (4hr timeout)
+  TREND_DATA_COLLECT: QUEUE_NAMES.ANALYTICS,
 };

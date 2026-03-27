@@ -19,13 +19,7 @@ import {
   type BookingQuestion,
   type BookingAvailability,
 } from '@/lib/booking-flow';
-import {
-  trackBeginCheckout,
-  trackAddPaymentInfo,
-  trackPurchase,
-  trackGoogleAdsConversion,
-} from '@/lib/analytics';
-import { trackMetaPurchase } from '@/components/analytics/MetaPixel';
+import { trackBeginCheckout, trackAddPaymentInfo } from '@/lib/analytics';
 import {
   getProductPricingConfig,
   calculatePromoPrice,
@@ -277,32 +271,11 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
       currency: booking.totalPrice?.currency ?? 'GBP',
     };
 
-    // GA4 purchase event (gross value for general analytics)
-    trackPurchase({ ...purchaseData, itemName: firstAvail?.product?.name });
-
-    // Meta Pixel purchase (client-side dedup with server CAPI via event_id = bookingId)
-    trackMetaPurchase(purchaseData);
-
     try {
       // Pass productId for booking analytics (urgency messaging)
       const productId = firstAvail?.product?.id;
       const result = await commitBooking(bookingId, true, productId);
-
-      // Google Ads conversion — fire AFTER commit so we can send commission (actual revenue)
-      // for accurate ROAS calculation. Falls back to gross if commission unavailable.
-      // Uses googleAdsConversionLabel (gtag send_to format: "AW-XXX/LABEL") for client-side tracking.
-      // Falls back to googleAdsConversionAction (resource name) for backwards compatibility.
-      const conversionLabel =
-        site.seoConfig?.googleAdsConversionLabel ?? site.seoConfig?.googleAdsConversionAction;
-      if (conversionLabel) {
-        const conversionValue =
-          result.commissionAmount != null ? result.commissionAmount : purchaseData.value;
-        trackGoogleAdsConversion(conversionLabel, {
-          id: bookingId,
-          value: conversionValue,
-          currency: result.commissionCurrency ?? purchaseData.currency,
-        });
-      }
+      void result; // purchase + conversion events fire on the confirmation page
 
       // Clear persisted guest data on successful booking
       try {
@@ -339,19 +312,6 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
             const productId = firstAvail?.product?.id;
             const result = await commitBooking(recovered.bookingId, true, productId);
 
-            // Fire conversion tracking with recovered booking
-            const conversionLabel =
-              site.seoConfig?.googleAdsConversionLabel ?? site.seoConfig?.googleAdsConversionAction;
-            if (conversionLabel) {
-              const conversionValue =
-                result.commissionAmount != null ? result.commissionAmount : purchaseData.value;
-              trackGoogleAdsConversion(conversionLabel, {
-                id: recovered.bookingId,
-                value: conversionValue,
-                currency: result.commissionCurrency ?? purchaseData.currency,
-              });
-            }
-
             console.info(
               `[Checkout] Session recovery successful, new booking: ${recovered.bookingId}`
             );
@@ -378,12 +338,6 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
         }
       }
 
-      // Non-expired error or recovery not possible — fire conversion and show error
-      const fallbackLabel =
-        site.seoConfig?.googleAdsConversionLabel ?? site.seoConfig?.googleAdsConversionAction;
-      if (fallbackLabel) {
-        trackGoogleAdsConversion(fallbackLabel, purchaseData);
-      }
       setError(err instanceof Error ? err.message : 'Failed to complete booking');
       setIsCommitting(false);
     }

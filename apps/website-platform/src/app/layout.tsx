@@ -228,7 +228,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
           <EmailPopup />
           <SocialProofToast />
           <CookieConsent />
-          <ExitIntentPopup />
+          {/* <ExitIntentPopup /> — paused temporarily */}
         </SiteProvider>
         {/* Google Analytics + Ads Conversion Tracking - Dynamic per site */}
         <GoogleAnalytics

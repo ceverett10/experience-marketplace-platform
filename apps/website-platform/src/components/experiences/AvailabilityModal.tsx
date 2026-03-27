@@ -25,6 +25,13 @@ interface AvailabilityModalProps {
 
 type Step = 'dates' | 'options' | 'pricing' | 'review';
 
+/** Extract numeric price from formatted text like "£74.00" or "€ 120,50" */
+function parsePrice(formatted: string): number | null {
+  const cleaned = formatted.replace(/[^0-9.,]/g, '').replace(',', '.');
+  const value = parseFloat(cleaned);
+  return isNaN(value) ? null : value;
+}
+
 export function AvailabilityModal({
   isOpen,
   onClose,
@@ -628,6 +635,36 @@ export function AvailabilityModal({
                 </div>
               ))}
 
+              {/* Price discrepancy notice — guide price vs actual per-person pricing */}
+              {(() => {
+                const guidePrice = selectedSlot?.guidePriceFormattedText
+                  ? parsePrice(selectedSlot.guidePriceFormattedText)
+                  : null;
+                const unitPrices = pricingCategories
+                  .map((c) => c.unitPrice?.gross ?? 0)
+                  .filter((p) => p > 0);
+                const lowestUnit = unitPrices.length > 0 ? Math.min(...unitPrices) : null;
+                if (
+                  guidePrice == null ||
+                  guidePrice === 0 ||
+                  lowestUnit == null ||
+                  lowestUnit === 0
+                )
+                  return null;
+                const diff = Math.abs(lowestUnit - guidePrice) / guidePrice;
+                if (diff <= 0.3) return null;
+                return (
+                  <div className="rounded-lg bg-blue-50/70 border border-blue-100 px-3 py-2.5 text-xs text-blue-700">
+                    <p className="font-medium">Just a heads up on pricing!</p>
+                    <p className="mt-0.5 text-blue-500">
+                      We have noticed that the per-person pricing is slightly higher than what you
+                      saw before. Our apologies for this. However, this is completely normal,
+                      pricing varies by date, group size, and availability. All prices come directly
+                      from our incredible suppliers.
+                    </p>
+                  </div>
+                );
+              })()}
               {pricingCategories.length === 0 && (
                 <p className="py-4 text-center text-sm text-gray-500">Loading pricing options...</p>
               )}

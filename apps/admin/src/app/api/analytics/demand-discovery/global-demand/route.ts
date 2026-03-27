@@ -210,8 +210,18 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       .sort((a, b) => b.growth - a.growth)
       .slice(0, 50);
 
-    // 4. Build category demand response
+    // 4. Build category demand response (filter out non-tour categories)
+    const excludedCategories = new Set([
+      'paid_traffic',
+      'unknown',
+      '',
+      'general',
+      'other',
+      'transfers',
+      'transport',
+    ]);
     const categories = Array.from(categoryDemand.entries())
+      .filter(([category]) => !excludedCategories.has(category.toLowerCase()))
       .map(([category, data]) => ({
         category,
         totalSearchVolume: data.totalVolume,
@@ -275,10 +285,80 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       .sort((a, b) => b.date.localeCompare(a.date))
       .slice(0, 30);
 
+    // 7. Aggregate TrendSnapshot data by category (Google Trends scores)
+    const latestSnapshots = await prisma.trendSnapshot.findMany({
+      where: { date: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } },
+      orderBy: [{ date: 'desc' }, { demandScore: 'desc' }],
+    });
+
+    const trendsByCategory = new Map<
+      string,
+      {
+        trendScore: number;
+        searchVolume: number;
+        cpc: number;
+        direction: string;
+        demandScore: number;
+        locations: Array<{ location: string; trendScore: number; searchVolume: number }>;
+        count: number;
+      }
+    >();
+
+    for (const snap of latestSnapshots) {
+      const existing = trendsByCategory.get(snap.category) || {
+        trendScore: 0,
+        searchVolume: 0,
+        cpc: 0,
+        direction: 'stable',
+        demandScore: 0,
+        locations: [],
+        count: 0,
+      };
+      existing.trendScore += snap.trendScore;
+      existing.searchVolume += snap.searchVolume;
+      existing.cpc += Number(snap.cpc);
+      existing.demandScore += snap.demandScore;
+      existing.count++;
+      existing.locations.push({
+        location: snap.location,
+        trendScore: snap.trendScore,
+        searchVolume: snap.searchVolume,
+      });
+      if (
+        snap.trendDirection === 'breakout' ||
+        (snap.trendDirection === 'rising' && existing.direction !== 'breakout')
+      ) {
+        existing.direction = snap.trendDirection;
+      }
+      trendsByCategory.set(snap.category, existing);
+    }
+
+    const googleTrends = Array.from(trendsByCategory.entries())
+      .map(([category, data]) => ({
+        category,
+        avgTrendScore: Math.round(data.trendScore / Math.max(data.count, 1)),
+        totalSearchVolume: data.searchVolume,
+        avgCpc: Math.round((data.cpc / Math.max(data.count, 1)) * 100) / 100,
+        direction: data.direction,
+        demandScore: Math.round(data.demandScore / Math.max(data.count, 1)),
+        locationCount: data.locations.length,
+        topLocations: data.locations
+          .sort((a, b) => b.trendScore - a.trendScore)
+          .slice(0, 5)
+          .map((l) => ({ location: l.location, trendScore: l.trendScore })),
+      }))
+      .sort((a, b) => b.demandScore - a.demandScore);
+
+    const lastCollected =
+      latestSnapshots.length > 0
+        ? new Date(latestSnapshots[0]!.date).toISOString().split('T')[0]
+        : null;
+
     return NextResponse.json({
       categories,
       topLocations,
       risingQueries: risingExperienceQueries,
+      googleTrends,
       trendTimeline,
       trackedCategories: TRACKED_CATEGORIES,
       trackedLocations: TRACKED_LOCATIONS,
@@ -288,10 +368,206 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         totalKeywords: opportunities.length,
         risingQueryCount: risingExperienceQueries.length,
         snapshotDays: snapshotsByDate.size,
+        googleTrendsCategories: googleTrends.length,
+        lastTrendCollection: lastCollected,
       },
     });
   } catch (error) {
     console.error('[Global Demand API] Error:', error);
     return NextResponse.json({ error: 'Failed to fetch global demand data' }, { status: 500 });
+  }
+}
+
+// Categories for Google Trends collection (name + search terms)
+const TREND_CATEGORIES = [
+  { name: 'Food Tours', keywords: ['food tours', 'food tour', 'street food tour'] },
+  { name: 'Walking Tours', keywords: ['walking tours', 'walking tour', 'guided walk'] },
+  { name: 'Cooking Classes', keywords: ['cooking class', 'cooking classes'] },
+  { name: 'Wine Tasting', keywords: ['wine tasting', 'wine tour', 'vineyard tour'] },
+  { name: 'Boat Tours', keywords: ['boat tour', 'boat tours', 'boat trip'] },
+  { name: 'City Tours', keywords: ['city tour', 'city tours', 'sightseeing tour'] },
+  { name: 'Hiking Tours', keywords: ['hiking tour', 'hiking tours'] },
+  { name: 'Museum Tours', keywords: ['museum tour', 'museum tickets'] },
+  { name: 'Safari', keywords: ['safari tour', 'safari', 'wildlife safari'] },
+  { name: 'Cultural Tours', keywords: ['cultural tour', 'heritage tour'] },
+  { name: 'Adventure Tours', keywords: ['adventure tour', 'adventure activities'] },
+  { name: 'Day Trips', keywords: ['day trip', 'day tours', 'day excursion'] },
+  { name: 'Scuba Diving', keywords: ['scuba diving', 'diving tour'] },
+  { name: 'Cycling Tours', keywords: ['cycling tour', 'bike tour'] },
+  { name: 'Sunset Cruise', keywords: ['sunset cruise', 'sunset boat tour'] },
+];
+
+const TREND_LOCATIONS = ['United States', 'United Kingdom', 'Australia', 'Germany', 'France'];
+
+/**
+ * POST /api/analytics/demand-discovery/global-demand
+ * Runs Google Trends collection inline via DataForSEO (no BullMQ required)
+ */
+export async function POST(): Promise<NextResponse> {
+  const login = process.env['DATAFORSEO_API_LOGIN'];
+  const password = process.env['DATAFORSEO_API_PASSWORD'];
+
+  if (!login || !password) {
+    return NextResponse.json(
+      { error: 'DataForSEO credentials not configured (DATAFORSEO_API_LOGIN)' },
+      { status: 500 }
+    );
+  }
+
+  const auth = Buffer.from(`${login}:${password}`).toString('base64');
+  const baseUrl = 'https://api.dataforseo.com/v3';
+
+  // Location code cache
+  const locationCodes: Record<string, number> = {
+    'United States': 2840,
+    'United Kingdom': 2826,
+    Australia: 2036,
+    Germany: 2276,
+    France: 2250,
+  };
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  let created = 0;
+  let updated = 0;
+  let apiCalls = 0;
+  const errors: string[] = [];
+
+  try {
+    for (const location of TREND_LOCATIONS) {
+      const locCode = locationCodes[location];
+      if (!locCode) continue;
+
+      for (const category of TREND_CATEGORIES) {
+        try {
+          // Call Google Trends explore
+          const res = await fetch(`${baseUrl}/keywords_data/google_trends/explore/live`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Basic ${auth}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify([
+              {
+                keywords: category.keywords.slice(0, 5),
+                location_code: locCode,
+                language_code: 'en',
+                time_range: 'past_12_months',
+                type: 'web',
+              },
+            ]),
+          });
+          apiCalls++;
+
+          let trendScore = 0;
+          let trendDirection = 'stable';
+
+          if (res.ok) {
+            const data = await res.json();
+            const taskResult = data.tasks?.[0]?.result?.[0];
+            if (taskResult) {
+              const graphItems = (taskResult.items || []).filter(
+                (item: Record<string, unknown>) => item['type'] === 'google_trends_graph'
+              );
+              if (graphItems.length > 0) {
+                const points = (graphItems[0]['data'] as Array<Record<string, unknown>>) || [];
+                const recent = points.slice(-3);
+                const older = points.slice(-6, -3);
+                const recentAvg =
+                  recent.reduce(
+                    (s: number, p: Record<string, unknown>) =>
+                      s + ((p['values'] as number[])?.[0] || 0),
+                    0
+                  ) / Math.max(recent.length, 1);
+                const olderAvg =
+                  older.length > 0
+                    ? older.reduce(
+                        (s: number, p: Record<string, unknown>) =>
+                          s + ((p['values'] as number[])?.[0] || 0),
+                        0
+                      ) / Math.max(older.length, 1)
+                    : recentAvg;
+
+                trendScore = Math.round(recentAvg);
+                if (olderAvg > 0) {
+                  const change = ((recentAvg - olderAvg) / olderAvg) * 100;
+                  if (change > 50) trendDirection = 'breakout';
+                  else if (change > 15) trendDirection = 'rising';
+                  else if (change < -15) trendDirection = 'declining';
+                }
+              }
+            }
+          }
+
+          const demandScore = Math.round(
+            trendScore * 0.6 +
+              (trendDirection === 'breakout'
+                ? 40
+                : trendDirection === 'rising'
+                  ? 30
+                  : trendDirection === 'stable'
+                    ? 20
+                    : 10)
+          );
+
+          // Upsert snapshot
+          const existing = await prisma.trendSnapshot.findUnique({
+            where: {
+              date_location_category: { date: today, location, category: category.name },
+            },
+          });
+
+          if (existing) {
+            await prisma.trendSnapshot.update({
+              where: { id: existing.id },
+              data: {
+                trendScore,
+                trendDirection,
+                demandScore,
+                relatedQueries: category.keywords,
+              },
+            });
+            updated++;
+          } else {
+            await prisma.trendSnapshot.create({
+              data: {
+                date: today,
+                location,
+                category: category.name,
+                trendScore,
+                trendDirection,
+                demandScore,
+                relatedQueries: category.keywords,
+              },
+            });
+            created++;
+          }
+
+          // Small delay between API calls
+          await new Promise((resolve) => setTimeout(resolve, 300));
+        } catch (err) {
+          errors.push(
+            `${category.name}/${location}: ${err instanceof Error ? err.message : String(err)}`
+          );
+        }
+      }
+    }
+
+    return NextResponse.json({
+      message: `Collected ${created + updated} trend snapshots (${created} new, ${updated} updated). ${apiCalls} API calls. ${errors.length} errors.`,
+      created,
+      updated,
+      apiCalls,
+      errors: errors.slice(0, 5),
+    });
+  } catch (error) {
+    console.error('[Global Demand API] Trend collection failed:', error);
+    return NextResponse.json(
+      {
+        error: `Trend collection failed: ${error instanceof Error ? error.message : String(error)}`,
+      },
+      { status: 500 }
+    );
   }
 }

@@ -422,6 +422,17 @@ export async function POST(request: Request): Promise<NextResponse> {
       });
     }
 
+    if (action === 'trigger-blog-fanout') {
+      // Enqueues CONTENT_BLOG_FANOUT via the persistent worker dyno (stable Redis connection).
+      // Prefer this over heroku run one-off dynos, which have flaky TLS on Redis.
+      const jobId = await addJob('CONTENT_BLOG_FANOUT' as any, {} as any);
+      return NextResponse.json({
+        success: true,
+        message: 'Blog fanout job queued — worker-fast will process up to 500 supplier microsites',
+        jobId,
+      });
+    }
+
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
   } catch (error) {
     console.error('[API] Error in content POST:', error);

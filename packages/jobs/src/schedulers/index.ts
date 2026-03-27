@@ -299,6 +299,9 @@ export async function initializeScheduledJobs(): Promise<void> {
 
   console.info('[Scheduler] ⏸ Bidding Engine Run - PAUSED');
 
+  await scheduleJob('TREND_DATA_COLLECT' as any, {}, '0 5 * * *');
+  console.info('[Scheduler] ✓ Trend Data Collection - Daily at 5 AM');
+
   await scheduleJob('AD_CAMPAIGN_SYNC' as any, {}, '0 * * * *');
   console.info('[Scheduler] ✓ Ad Campaign Sync - Hourly');
 

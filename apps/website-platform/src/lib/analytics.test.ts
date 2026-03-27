@@ -118,7 +118,7 @@ describe('analytics', () => {
         transaction_id: 'book-1',
         value: 200,
         currency: 'USD',
-        items: [{ item_name: 'Boat Trip' }],
+        items: [{ item_id: undefined, item_name: 'Boat Trip', price: 200, quantity: 1 }],
       });
     });
 

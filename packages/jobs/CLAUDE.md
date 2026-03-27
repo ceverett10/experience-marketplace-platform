@@ -172,6 +172,23 @@ microsite `discoveryConfig` (keyword, destination, niche).
 - Suppliers with no linked products are skipped (would produce generic, irrelevant content)
 - Topic niche and location are derived from actual product data, not just supplier metadata
 
+### Blog Fanout Architecture (IMPORTANT — do not revert)
+
+The `CONTENT_BLOG_FANOUT` job (`microsite-blog-generator.ts`) is intentionally **dumb and fast**:
+it only queries the DB and calls `addJob`. It does **not** call Claude API or generate topics.
+
+**Why**: The old fanout called `generateDailyBlogTopic` (Claude API) inside `Promise.all` batches.
+A Redis TLS hang caused `addJob` to never resolve, blocking the batch. BullMQ's 15-minute timeout
+killed the fanout before any jobs were queued → 0 blogs published.
+
+**Current flow**:
+
+1. `CONTENT_BLOG_FANOUT` (4 AM daily): queries supplier microsites → `addJob('CONTENT_GENERATE', { micrositeId, contentType: 'blog' })` per microsite, staggered 30s apart, with 8s timeout per addJob call
+2. `CONTENT_GENERATE` worker: loads products → generates blog topic (Claude API) → creates page → generates content → publishes → sets `lastContentUpdate`
+
+This means topic generation is independently retryable per microsite via BullMQ's retry logic.
+`lastContentUpdate` is set at publish time (not queue time) so failed jobs don't burn the 14-day gate.
+
 ## Testing Pattern
 
 ```typescript
