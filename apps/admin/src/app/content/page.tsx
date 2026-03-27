@@ -16,6 +16,37 @@ interface ContentItem {
   generatedAt: string;
 }
 
+interface BlogDashboard {
+  pipeline: Record<string, number>;
+  activeJobs: Array<{
+    id: string;
+    status: string;
+    micrositeName: string;
+    micrositeId: string;
+    targetKeyword: string | null;
+    createdAt: string;
+    updatedAt: string;
+    attempts: number;
+  }>;
+  recentlyPublished: Array<{
+    id: string;
+    title: string;
+    slug: string;
+    micrositeName: string;
+    qualityScore: number;
+    publishedAt: string;
+  }>;
+  recentFailures: Array<{
+    id: string;
+    error: string;
+    micrositeName: string;
+    micrositeId: string;
+    updatedAt: string;
+    attempts: number;
+    maxAttempts: number;
+  }>;
+}
+
 interface PaginationInfo {
   page: number;
   pageSize: number;
@@ -62,6 +93,9 @@ export default function AdminContentPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isTriggeringBlogFanout, setIsTriggeringBlogFanout] = useState(false);
   const [regeneratingIds, setRegeneratingIds] = useState<Set<string>>(new Set());
+  const [blogDashboard, setBlogDashboard] = useState<BlogDashboard | null>(null);
+  const [blogDashboardOpen, setBlogDashboardOpen] = useState(true);
+  const [blogDashboardLastUpdate, setBlogDashboardLastUpdate] = useState<Date | null>(null);
 
   // Debounce search input
   const searchTimer = useRef<ReturnType<typeof setTimeout>>();
@@ -112,6 +146,27 @@ export default function AdminContentPage() {
   useEffect(() => {
     fetchContent();
   }, [fetchContent]);
+
+  // Blog dashboard: fetch and auto-refresh every 30s
+  const fetchBlogDashboard = useCallback(async () => {
+    try {
+      const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
+      const response = await fetch(`${basePath}/api/content/blog-dashboard`);
+      if (response.ok) {
+        const data = await response.json();
+        setBlogDashboard(data);
+        setBlogDashboardLastUpdate(new Date());
+      }
+    } catch {
+      // Silent fail — dashboard is supplementary
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchBlogDashboard();
+    const interval = setInterval(fetchBlogDashboard, 30_000);
+    return () => clearInterval(interval);
+  }, [fetchBlogDashboard]);
 
   const updateContentStatus = async (id: string, status: ContentItem['status']) => {
     try {
@@ -595,6 +650,205 @@ export default function AdminContentPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Blog Generation Dashboard */}
+      {blogDashboard && (
+        <Card>
+          <div
+            className="px-6 py-4 flex items-center justify-between cursor-pointer hover:bg-slate-50"
+            onClick={() => setBlogDashboardOpen(!blogDashboardOpen)}
+          >
+            <div className="flex items-center gap-3">
+              <h2 className="text-lg font-semibold text-slate-900">Blog Generation Pipeline</h2>
+              {(blogDashboard.pipeline['RUNNING'] || 0) > 0 && (
+                <span className="flex items-center gap-1 text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
+                  <span className="h-2 w-2 bg-amber-500 rounded-full animate-pulse" />
+                  {blogDashboard.pipeline['RUNNING']} running
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-3">
+              {blogDashboardLastUpdate && (
+                <span className="text-xs text-slate-400">Auto-refreshes every 30s</span>
+              )}
+              <span className="text-slate-400 text-sm">{blogDashboardOpen ? '▲' : '▼'}</span>
+            </div>
+          </div>
+
+          {blogDashboardOpen && (
+            <CardContent className="px-6 pb-6 pt-0 space-y-6">
+              {/* Pipeline status boxes */}
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+                {[
+                  { key: 'SCHEDULED', label: 'Scheduled', color: 'bg-blue-50 text-blue-700' },
+                  { key: 'PENDING', label: 'Pending', color: 'bg-slate-50 text-slate-700' },
+                  { key: 'RUNNING', label: 'Running', color: 'bg-amber-50 text-amber-700' },
+                  { key: 'RETRYING', label: 'Retrying', color: 'bg-orange-50 text-orange-700' },
+                  {
+                    key: 'COMPLETED',
+                    label: 'Completed (24h)',
+                    color: 'bg-green-50 text-green-700',
+                  },
+                  { key: 'FAILED', label: 'Failed (24h)', color: 'bg-red-50 text-red-700' },
+                ].map(({ key, label, color }) => (
+                  <div key={key} className={`rounded-lg p-3 ${color}`}>
+                    <p className="text-2xl font-bold">
+                      {(blogDashboard.pipeline[key] || 0).toLocaleString()}
+                    </p>
+                    <p className="text-xs font-medium opacity-75">{label}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Active jobs */}
+              <div>
+                <h3 className="text-sm font-semibold text-slate-700 mb-2">
+                  Active Jobs ({blogDashboard.activeJobs.length})
+                </h3>
+                {blogDashboard.activeJobs.length === 0 ? (
+                  <p className="text-sm text-slate-400 italic">No blog jobs currently running</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-slate-100">
+                          <th className="text-left py-2 pr-4 font-medium text-slate-500">Status</th>
+                          <th className="text-left py-2 pr-4 font-medium text-slate-500">
+                            Microsite
+                          </th>
+                          <th className="text-left py-2 pr-4 font-medium text-slate-500">Topic</th>
+                          <th className="text-left py-2 pr-4 font-medium text-slate-500">
+                            Started
+                          </th>
+                          <th className="text-left py-2 font-medium text-slate-500">Attempts</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {blogDashboard.activeJobs.map((job) => (
+                          <tr key={job.id} className="border-b border-slate-50">
+                            <td className="py-2 pr-4">
+                              <span
+                                className={`text-xs px-2 py-0.5 rounded ${
+                                  job.status === 'RUNNING'
+                                    ? 'bg-amber-100 text-amber-800'
+                                    : job.status === 'RETRYING'
+                                      ? 'bg-orange-100 text-orange-800'
+                                      : 'bg-slate-100 text-slate-600'
+                                }`}
+                              >
+                                {job.status}
+                              </span>
+                            </td>
+                            <td className="py-2 pr-4 font-medium text-slate-700">
+                              {job.micrositeName}
+                            </td>
+                            <td className="py-2 pr-4 text-slate-500 max-w-[200px] truncate">
+                              {job.targetKeyword || (
+                                <span className="italic text-slate-400">Generating topic...</span>
+                              )}
+                            </td>
+                            <td className="py-2 pr-4 text-slate-400">
+                              {new Date(job.createdAt).toLocaleTimeString()}
+                            </td>
+                            <td className="py-2 text-slate-400">{job.attempts}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* Recently published */}
+              <div>
+                <h3 className="text-sm font-semibold text-slate-700 mb-2">
+                  Recently Published ({blogDashboard.recentlyPublished.length})
+                </h3>
+                {blogDashboard.recentlyPublished.length === 0 ? (
+                  <p className="text-sm text-slate-400 italic">No blog posts published recently</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-slate-100">
+                          <th className="text-left py-2 pr-4 font-medium text-slate-500">Title</th>
+                          <th className="text-left py-2 pr-4 font-medium text-slate-500">
+                            Microsite
+                          </th>
+                          <th className="text-left py-2 pr-4 font-medium text-slate-500">
+                            Quality
+                          </th>
+                          <th className="text-left py-2 font-medium text-slate-500">Published</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {blogDashboard.recentlyPublished.map((post) => (
+                          <tr key={post.id} className="border-b border-slate-50">
+                            <td className="py-2 pr-4 font-medium text-slate-700 max-w-[300px] truncate">
+                              {post.title}
+                            </td>
+                            <td className="py-2 pr-4 text-slate-500">{post.micrositeName}</td>
+                            <td className="py-2 pr-4">
+                              <span
+                                className={`font-semibold ${
+                                  post.qualityScore >= 85
+                                    ? 'text-green-600'
+                                    : post.qualityScore >= 70
+                                      ? 'text-amber-600'
+                                      : 'text-red-600'
+                                }`}
+                              >
+                                {post.qualityScore}
+                              </span>
+                            </td>
+                            <td className="py-2 text-slate-400">
+                              {new Date(post.publishedAt).toLocaleString()}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* Recent failures */}
+              {blogDashboard.recentFailures.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-red-700 mb-2">
+                    Recent Failures ({blogDashboard.recentFailures.length})
+                  </h3>
+                  <div className="space-y-2">
+                    {blogDashboard.recentFailures.map((failure) => (
+                      <div
+                        key={failure.id}
+                        className="bg-red-50 border border-red-100 rounded-lg p-3"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-red-800">
+                              {failure.micrositeName}
+                            </p>
+                            <p className="text-xs text-red-600 mt-0.5 line-clamp-2">
+                              {failure.error}
+                            </p>
+                          </div>
+                          <div className="text-right text-xs text-red-400 whitespace-nowrap ml-4">
+                            <p>
+                              {failure.attempts}/{failure.maxAttempts} attempts
+                            </p>
+                            <p>{new Date(failure.updatedAt).toLocaleString()}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          )}
+        </Card>
+      )}
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-4">

@@ -84,8 +84,31 @@ beforeEach(() => {
           json: () => Promise.resolve({ success: true }),
         });
       }
-      // GET request for content list — simulate server-side filtering
+
       const parsedUrl = new URL(url, 'http://localhost');
+
+      // Blog dashboard endpoint
+      if (parsedUrl.pathname.endsWith('/blog-dashboard')) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              pipeline: {
+                PENDING: 0,
+                SCHEDULED: 0,
+                RUNNING: 0,
+                COMPLETED: 0,
+                FAILED: 0,
+                RETRYING: 0,
+              },
+              activeJobs: [],
+              recentlyPublished: [],
+              recentFailures: [],
+            }),
+        });
+      }
+
+      // GET request for content list — simulate server-side filtering
       const search = parsedUrl.searchParams.get('search') || '';
       const status = parsedUrl.searchParams.get('status') || '';
 
