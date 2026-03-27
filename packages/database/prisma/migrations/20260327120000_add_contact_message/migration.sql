@@ -32,7 +32,7 @@ CREATE INDEX "contact_messages_status_idx" ON "contact_messages"("status");
 CREATE INDEX "contact_messages_createdAt_idx" ON "contact_messages"("createdAt");
 
 -- AddForeignKey
-ALTER TABLE "contact_messages" ADD CONSTRAINT "contact_messages_siteId_fkey" FOREIGN KEY ("siteId") REFERENCES "sites"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "contact_messages" ADD CONSTRAINT "contact_messages_siteId_fkey" FOREIGN KEY ("siteId") REFERENCES "Site"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "contact_messages" ADD CONSTRAINT "contact_messages_micrositeId_fkey" FOREIGN KEY ("micrositeId") REFERENCES "microsite_configs"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "contact_messages" ADD CONSTRAINT "contact_messages_micrositeId_fkey" FOREIGN KEY ("micrositeId") REFERENCES "MicrositeConfig"("id") ON DELETE SET NULL ON UPDATE CASCADE;
