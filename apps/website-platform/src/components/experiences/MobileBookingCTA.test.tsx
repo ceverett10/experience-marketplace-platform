@@ -58,9 +58,15 @@ describe('MobileBookingCTA', () => {
       expect(priceDisplay).toHaveAttribute('data-variant', 'compact');
     });
 
-    it('renders free cancellation and best price guarantee text', () => {
+    it('renders best price guarantee text without free cancellation by default', () => {
       render(<MobileBookingCTA {...defaultProps} />);
-      // The paragraph contains both texts joined by a middot
+      const infoText = screen.getByText(/best price guarantee/i);
+      expect(infoText).toBeInTheDocument();
+      expect(infoText.textContent).not.toMatch(/free cancellation/i);
+    });
+
+    it('renders free cancellation when hasFreeCancellation is true', () => {
+      render(<MobileBookingCTA {...defaultProps} hasFreeCancellation />);
       const infoText = screen.getByText(/best price guarantee/i);
       expect(infoText).toBeInTheDocument();
       expect(infoText.textContent).toMatch(/free cancellation/i);

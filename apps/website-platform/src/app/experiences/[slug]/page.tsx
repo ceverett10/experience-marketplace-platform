@@ -1288,6 +1288,7 @@ export default async function ExperienceDetailPage({ params }: Props) {
             priceAmount={experience.price.amount}
             priceCurrency={experience.price.currency}
             bookingStats={bookingStats}
+            hasFreeCancellation={hasFreeCancellation}
           />
         )}
 
