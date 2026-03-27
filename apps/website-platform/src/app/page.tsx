@@ -850,11 +850,13 @@ export default async function HomePage() {
     },
     select: { slug: true },
   });
-  const destinationGuideByCity = new Map<string, string>();
+  const destinationGuideBySlug = new Map<string, string>();
   for (const page of destinationGuidePages) {
-    const cityPart = page.slug.replace('destinations/', '').split('-')[0];
-    if (cityPart) {
-      destinationGuideByCity.set(cityPart.toLowerCase(), `/${page.slug}`);
+    const suffix = page.slug.replace('destinations/', '');
+    destinationGuideBySlug.set(suffix.toLowerCase(), `/${page.slug}`);
+    const cityPart = suffix.split('-')[0];
+    if (cityPart && !destinationGuideBySlug.has(cityPart.toLowerCase())) {
+      destinationGuideBySlug.set(cityPart.toLowerCase(), `/${page.slug}`);
     }
   }
   const categories = homepageConfig?.categories ?? [];
@@ -1166,7 +1168,7 @@ export default async function HomePage() {
           <div className="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 lg:gap-6">
             {destinations.map((dest) => {
               // Link to destination guide page if available, otherwise filtered experiences
-              const guideHref = destinationGuideByCity.get(dest.slug.toLowerCase());
+              const guideHref = destinationGuideBySlug.get(dest.slug.toLowerCase());
               const fallbackParams = new URLSearchParams();
               fallbackParams.set('destination', dest.slug);
               if (searchTermForLinks) {
