@@ -838,6 +838,25 @@ export default async function HomePage() {
   const heroConfig = homepageConfig?.hero;
   const popularExperiencesConfig = homepageConfig?.popularExperiences;
   const destinations = homepageConfig?.destinations ?? DEFAULT_DESTINATIONS;
+
+  // Fetch published destination guide pages for linking
+  const destinationGuidePages = await prisma.page.findMany({
+    where: {
+      siteId: site.id,
+      type: 'LANDING',
+      status: 'PUBLISHED',
+      slug: { startsWith: 'destinations/' },
+      noIndex: false,
+    },
+    select: { slug: true },
+  });
+  const destinationGuideByCity = new Map<string, string>();
+  for (const page of destinationGuidePages) {
+    const cityPart = page.slug.replace('destinations/', '').split('-')[0];
+    if (cityPart) {
+      destinationGuideByCity.set(cityPart.toLowerCase(), `/${page.slug}`);
+    }
+  }
   const categories = homepageConfig?.categories ?? [];
   const testimonials = homepageConfig?.testimonials ?? [
     {
@@ -1146,16 +1165,18 @@ export default async function HomePage() {
           </div>
           <div className="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 lg:gap-6">
             {destinations.map((dest) => {
-              // Build URL with destination and niche-specific search term
-              const params = new URLSearchParams();
-              params.set('destination', dest.slug);
+              // Link to destination guide page if available, otherwise filtered experiences
+              const guideHref = destinationGuideByCity.get(dest.slug.toLowerCase());
+              const fallbackParams = new URLSearchParams();
+              fallbackParams.set('destination', dest.slug);
               if (searchTermForLinks) {
-                params.set('q', searchTermForLinks);
+                fallbackParams.set('q', searchTermForLinks);
               }
+              const href = guideHref ?? `/experiences?${fallbackParams.toString()}`;
               return (
                 <a
                   key={dest.slug}
-                  href={`/experiences?${params.toString()}`}
+                  href={href}
                   className="group flex flex-col items-center justify-center rounded-xl bg-white p-6 shadow-sm transition-all hover:shadow-md"
                 >
                   <span className="text-4xl">{dest.icon}</span>

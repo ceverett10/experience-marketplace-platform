@@ -58,8 +58,16 @@ export function Footer() {
     };
   });
 
+  // Build destination links from homepage config
+  const configDestinations = homepageConfig?.destinations ?? [];
+  const destinationLinks = configDestinations.slice(0, 5).map((dest) => ({
+    name: dest.name,
+    href: `/destinations`,
+  }));
+
   const footerNavigation = {
     experiences: experienceLinks,
+    destinations: destinationLinks.length > 0 ? destinationLinks : null,
     company: [
       { name: 'About Us', href: '/about' },
       { name: 'Contact', href: '/contact' },
@@ -133,6 +141,34 @@ export function Footer() {
                   ))}
                 </ul>
               </div>
+            </div>
+            <div className="md:grid md:grid-cols-2 md:gap-8">
+              {/* Destinations column */}
+              {footerNavigation.destinations && !site.micrositeContext && (
+                <div>
+                  <h3 className="text-sm font-semibold leading-6 text-white">Destinations</h3>
+                  <ul role="list" className="mt-6 space-y-4">
+                    {footerNavigation.destinations.map((item) => (
+                      <li key={item.name}>
+                        <Link
+                          href={item.href}
+                          className="text-sm leading-6 text-gray-300 hover:text-white"
+                        >
+                          {item.name}
+                        </Link>
+                      </li>
+                    ))}
+                    <li>
+                      <Link
+                        href="/destinations"
+                        className="text-sm leading-6 text-indigo-400 hover:text-indigo-300"
+                      >
+                        All destinations &rarr;
+                      </Link>
+                    </li>
+                  </ul>
+                </div>
+              )}
             </div>
             <div className="md:grid md:grid-cols-2 md:gap-8">
               <div>
