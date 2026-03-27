@@ -423,13 +423,13 @@ export default function DemandDiscoveryPage() {
         };
 
         const endpoint = endpoints[tab];
-        if (!endpoint) break;
+        if (!endpoint) return;
 
         const res = await fetch(`${basePath}${endpoint}`);
         if (!res.ok) {
           const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
           setTabError(err.error || `Failed to load ${tab} data (${res.status})`);
-          break;
+          return;
         }
 
         const data = await res.json();
@@ -773,7 +773,7 @@ export default function DemandDiscoveryPage() {
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {(globalData?.categories || []).slice(0, 40).map((cat) => {
-                        const c = cat as Record<string, unknown>;
+                        const c = cat as unknown as Record<string, unknown>;
                         return (
                           <tr key={cat.category} className="hover:bg-slate-50">
                             <td className="px-4 py-3">
@@ -858,7 +858,7 @@ export default function DemandDiscoveryPage() {
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {(globalData?.topLocations || []).map((loc) => {
-                        const l = loc as Record<string, unknown>;
+                        const l = loc as unknown as Record<string, unknown>;
                         return (
                           <tr key={loc.location} className="hover:bg-slate-50">
                             <td className="px-4 py-3 text-sm font-medium text-slate-900">
