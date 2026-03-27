@@ -133,13 +133,16 @@ export default async function DestinationsPage() {
     site.homepageConfig?.popularExperiences?.searchTerms?.[0] ??
     site.homepageConfig?.categories?.[0]?.name;
 
-  // Build a lookup of destination pages by city name (extracted from slug)
-  const pageByCity = new Map<string, (typeof destinationPages)[0]>();
+  // Build a lookup of destination pages — match full slug suffix first, then city-only
+  const pageBySlug = new Map<string, (typeof destinationPages)[0]>();
   for (const page of destinationPages) {
-    // slug format: "destinations/london-england" → extract city part
-    const cityPart = page.slug.replace('destinations/', '').split('-')[0];
-    if (cityPart) {
-      pageByCity.set(cityPart.toLowerCase(), page);
+    const suffix = page.slug.replace('destinations/', '');
+    // Full suffix match: "barcelona-spain" → page
+    pageBySlug.set(suffix.toLowerCase(), page);
+    // City-only fallback: "barcelona" → page (only if not already taken)
+    const cityPart = suffix.split('-')[0];
+    if (cityPart && !pageBySlug.has(cityPart.toLowerCase())) {
+      pageBySlug.set(cityPart.toLowerCase(), page);
     }
   }
 
@@ -299,7 +302,7 @@ export default async function DestinationsPage() {
           <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {configDestinations.map((destination) => {
               // Check if there's a published guide page for this destination
-              const guidePage = pageByCity.get(destination.slug.toLowerCase());
+              const guidePage = pageBySlug.get(destination.slug.toLowerCase());
               const href = guidePage
                 ? `/${guidePage.slug}`
                 : `/experiences?${new URLSearchParams({
