@@ -109,31 +109,52 @@ export async function GET(): Promise<NextResponse> {
       pipeline[row.status] = Number(row.count);
     }
 
-    // Resolve microsite names for active jobs and failures
+    // Resolve microsite and site names for active jobs and failures
     const micrositeIds = new Set<string>();
-    for (const job of activeJobs) {
-      const msId = (job.payload as Record<string, unknown>)?.['micrositeId'] as string | undefined;
+    const siteIds = new Set<string>();
+    for (const job of [...activeJobs, ...recentFailures]) {
+      const payload = job.payload as Record<string, unknown>;
+      const msId = payload?.['micrositeId'] as string | undefined;
+      const sId = payload?.['siteId'] as string | undefined;
       if (msId) micrositeIds.add(msId);
+      if (sId) siteIds.add(sId);
     }
-    for (const job of recentFailures) {
-      const msId = (job.payload as Record<string, unknown>)?.['micrositeId'] as string | undefined;
-      if (msId) micrositeIds.add(msId);
-    }
-    // Also resolve for published pages
     for (const page of recentlyPublished) {
       if (page.micrositeId) micrositeIds.add(page.micrositeId);
     }
 
+    const [microsites, sites] = await Promise.all([
+      micrositeIds.size > 0
+        ? prisma.micrositeConfig.findMany({
+            where: { id: { in: Array.from(micrositeIds) } },
+            select: { id: true, siteName: true },
+          })
+        : [],
+      siteIds.size > 0
+        ? prisma.site.findMany({
+            where: { id: { in: Array.from(siteIds) } },
+            select: { id: true, name: true },
+          })
+        : [],
+    ]);
+
     const micrositeMap = new Map<string, string>();
-    if (micrositeIds.size > 0) {
-      const microsites = await prisma.micrositeConfig.findMany({
-        where: { id: { in: Array.from(micrositeIds) } },
-        select: { id: true, siteName: true },
-      });
-      for (const ms of microsites) {
-        micrositeMap.set(ms.id, ms.siteName);
-      }
+    for (const ms of microsites) {
+      micrositeMap.set(ms.id, ms.siteName);
     }
+    const siteMap = new Map<string, string>();
+    for (const s of sites) {
+      siteMap.set(s.id, s.name);
+    }
+
+    // Resolve a display name from payload: try micrositeId first, then siteId
+    const resolveName = (payload: Record<string, unknown>): string => {
+      const msId = payload?.['micrositeId'] as string | undefined;
+      const sId = payload?.['siteId'] as string | undefined;
+      if (msId && micrositeMap.has(msId)) return micrositeMap.get(msId)!;
+      if (sId && siteMap.has(sId)) return siteMap.get(sId)!;
+      return 'Unknown';
+    };
 
     // Format active jobs
     const formattedActiveJobs = activeJobs.map((job) => {
@@ -142,7 +163,7 @@ export async function GET(): Promise<NextResponse> {
       return {
         id: job.id,
         status: job.status,
-        micrositeName: micrositeMap.get(micrositeId) || 'Unknown',
+        micrositeName: resolveName(payload),
         micrositeId,
         targetKeyword: (payload?.['targetKeyword'] as string) || null,
         createdAt: job.createdAt,
@@ -168,7 +189,7 @@ export async function GET(): Promise<NextResponse> {
       return {
         id: job.id,
         error: job.error || 'Unknown error',
-        micrositeName: micrositeMap.get(micrositeId) || 'Unknown',
+        micrositeName: resolveName(payload),
         micrositeId,
         updatedAt: job.updatedAt,
         attempts: job.attempts,
