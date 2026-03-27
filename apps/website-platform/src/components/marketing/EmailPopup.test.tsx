@@ -103,14 +103,14 @@ describe('EmailPopup', () => {
     vi.mocked(usePathname).mockReturnValue('/experiences');
   });
 
-  it('does not show for PPC visitors', () => {
+  it('shows for PPC visitors', () => {
     Object.defineProperty(document, 'cookie', {
       writable: true,
       value: `utm_params=${encodeURIComponent(JSON.stringify({ gclid: 'abc123' }))}`,
     });
 
     openPopup();
-    expect(document.body.textContent).not.toContain('Win £1,000');
+    expect(document.body.textContent).toContain('Win £1,000');
   });
 
   it('dismisses on close button click and persists to localStorage', () => {
