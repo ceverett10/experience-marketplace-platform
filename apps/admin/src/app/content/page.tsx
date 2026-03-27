@@ -713,9 +713,7 @@ export default function AdminContentPage() {
                       <thead>
                         <tr className="border-b border-slate-100">
                           <th className="text-left py-2 pr-4 font-medium text-slate-500">Status</th>
-                          <th className="text-left py-2 pr-4 font-medium text-slate-500">
-                            Microsite
-                          </th>
+                          <th className="text-left py-2 pr-4 font-medium text-slate-500">Site</th>
                           <th className="text-left py-2 pr-4 font-medium text-slate-500">Topic</th>
                           <th className="text-left py-2 pr-4 font-medium text-slate-500">
                             Started
@@ -772,9 +770,7 @@ export default function AdminContentPage() {
                       <thead>
                         <tr className="border-b border-slate-100">
                           <th className="text-left py-2 pr-4 font-medium text-slate-500">Title</th>
-                          <th className="text-left py-2 pr-4 font-medium text-slate-500">
-                            Microsite
-                          </th>
+                          <th className="text-left py-2 pr-4 font-medium text-slate-500">Site</th>
                           <th className="text-left py-2 pr-4 font-medium text-slate-500">
                             Quality
                           </th>
