@@ -181,7 +181,7 @@ export function PaymentInfoModal({
                   >
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                   </svg>
-                  Free cancellation based on the terms of the experience you are booking
+                  Cancellation terms vary by experience — review before booking
                 </li>
                 <li className="flex items-center gap-2 text-sm text-gray-600">
                   <svg
