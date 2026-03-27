@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { getSiteFromHostname } from '@/lib/tenant';
+import { prisma } from '@/lib/prisma';
 import { UnsplashAttribution } from '@/components/common/UnsplashAttribution';
 
 // Revalidate every 5 minutes
@@ -13,12 +14,11 @@ export async function generateMetadata(): Promise<Metadata> {
   const hostname = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
   const site = await getSiteFromHostname(hostname);
 
-  // OG image fallback chain
   const ogImage = site.brand?.ogImageUrl || site.homepageConfig?.hero?.backgroundImage;
 
   return {
     title: 'Destinations',
-    description: `Explore amazing destinations and discover unique experiences with ${site.name}. Browse our curated collection of destinations.`,
+    description: `Explore amazing destinations and discover unique experiences with ${site.name}. Browse our curated destination guides.`,
     openGraph: {
       title: `Destinations | ${site.name}`,
       description: `Explore amazing destinations and discover unique experiences with ${site.name}.`,
@@ -31,7 +31,7 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-// Default destinations fallback
+// Default destinations fallback (when no guide pages exist in DB)
 const DEFAULT_DESTINATIONS: Array<{
   name: string;
   slug: string;
@@ -90,34 +90,78 @@ const DEFAULT_DESTINATIONS: Array<{
   },
 ];
 
+/**
+ * Extract just the location from a destination page title.
+ * e.g., "Cultural Tours in Bangkok" on a site called "Cultural Tours" → "Bangkok"
+ * Falls back to the full title if no " in " pattern is found.
+ */
+function extractLocationFromTitle(title: string): string {
+  const inMatch = title.match(/\bin\s+(.+)$/i);
+  if (inMatch?.[1]) {
+    return inMatch[1].trim();
+  }
+  return title;
+}
+
 export default async function DestinationsPage() {
   const headersList = await headers();
   const hostname = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
   const site = await getSiteFromHostname(hostname);
 
-  const destinations = site.homepageConfig?.destinations ?? DEFAULT_DESTINATIONS;
+  // Fetch published destination guide pages from DB
+  const destinationPages = await prisma.page.findMany({
+    where: {
+      siteId: site.id,
+      type: 'LANDING',
+      status: 'PUBLISHED',
+      slug: { startsWith: 'destinations/' },
+      noIndex: false,
+    },
+    select: {
+      slug: true,
+      title: true,
+      metaDescription: true,
+    },
+    orderBy: { updatedAt: 'desc' },
+    take: 50,
+  });
 
-  // Get the site's default category/search term (e.g., "Food Tours" for london-food-tours.com)
+  const configDestinations = site.homepageConfig?.destinations ?? DEFAULT_DESTINATIONS;
+
+  // Get the site's default category/search term
   const siteCategory =
     site.homepageConfig?.popularExperiences?.searchTerms?.[0] ??
     site.homepageConfig?.categories?.[0]?.name;
 
-  // JSON-LD structured data for destinations list
+  // Build a lookup of destination pages by city name (extracted from slug)
+  const pageByCity = new Map<string, (typeof destinationPages)[0]>();
+  for (const page of destinationPages) {
+    // slug format: "destinations/london-england" → extract city part
+    const cityPart = page.slug.replace('destinations/', '').split('-')[0];
+    if (cityPart) {
+      pageByCity.set(cityPart.toLowerCase(), page);
+    }
+  }
+
+  // JSON-LD structured data
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'ItemList',
     name: `Destinations - ${site.name}`,
     description: `Explore destinations with ${site.name}`,
-    itemListElement: destinations.map((dest, index) => ({
-      '@type': 'ListItem',
-      position: index + 1,
-      item: {
-        '@type': 'TouristDestination',
-        name: dest.name,
-        description: dest.description,
-        url: `https://${site.primaryDomain || hostname}/experiences?destination=${encodeURIComponent(dest.name)}${siteCategory ? `&q=${encodeURIComponent(siteCategory)}` : ''}`,
-      },
-    })),
+    itemListElement: [
+      // Published guide pages first
+      ...destinationPages.map((page, index) => ({
+        '@type': 'ListItem',
+        position: index + 1,
+        item: {
+          '@type': 'TouristDestination',
+          name: extractLocationFromTitle(page.title),
+          description: page.metaDescription ?? '',
+          url: `https://${site.primaryDomain || hostname}/${page.slug}`,
+        },
+      })),
+    ],
   };
 
   return (
@@ -161,18 +205,107 @@ export default async function DestinationsPage() {
         </div>
       </div>
 
-      {/* Destinations Grid */}
-      <section className="py-12 sm:py-16">
+      {/* Destination Guide Pages (from DB) */}
+      {destinationPages.length > 0 && (
+        <section className="py-12 sm:py-16">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <h2 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
+              Destination Guides
+            </h2>
+            <p className="mt-2 text-base text-gray-600">
+              In-depth guides with curated experiences, local tips, and travel inspiration
+            </p>
+            <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {destinationPages.map((page) => (
+                <Link
+                  key={page.slug}
+                  href={`/${page.slug}`}
+                  className="group overflow-hidden rounded-2xl bg-white shadow-md transition-all hover:shadow-xl"
+                >
+                  {/* Image */}
+                  <div className="relative h-48 w-full overflow-hidden">
+                    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-indigo-500 to-purple-600">
+                      <svg
+                        className="h-12 w-12 text-white/80"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth="1.5"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"
+                        />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"
+                        />
+                      </svg>
+                    </div>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+                    {/* Guide badge */}
+                    <div className="absolute left-3 top-3 rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-indigo-700 backdrop-blur-sm">
+                      Destination Guide
+                    </div>
+                  </div>
+
+                  {/* Content */}
+                  <div className="p-5">
+                    <h3 className="text-lg font-bold text-gray-900 group-hover:text-indigo-600">
+                      {extractLocationFromTitle(page.title)}
+                    </h3>
+                    {page.metaDescription && (
+                      <p className="mt-2 line-clamp-2 text-sm text-gray-600">
+                        {page.metaDescription}
+                      </p>
+                    )}
+                    <div className="mt-4 flex items-center text-sm font-medium text-indigo-600 group-hover:text-indigo-700">
+                      <span>Read guide</span>
+                      <svg
+                        className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-1"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth="2"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"
+                        />
+                      </svg>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Browse by Destination (config-based, links to experience search) */}
+      <section
+        className={destinationPages.length > 0 ? 'bg-gray-50 py-12 sm:py-16' : 'py-12 sm:py-16'}
+      >
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {destinations.map((destination) => {
-              // Build URL with destination name and site's default category (if known)
-              const searchParams = new URLSearchParams();
-              searchParams.set('destination', destination.name);
-              if (siteCategory) {
-                searchParams.set('q', siteCategory);
-              }
-              const href = `/experiences?${searchParams.toString()}`;
+          <h2 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
+            {destinationPages.length > 0 ? 'Browse All Destinations' : 'Browse by Destination'}
+          </h2>
+          <p className="mt-2 text-base text-gray-600">
+            Find experiences in popular destinations worldwide
+          </p>
+          <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {configDestinations.map((destination) => {
+              // Check if there's a published guide page for this destination
+              const guidePage = pageByCity.get(destination.slug.toLowerCase());
+              const href = guidePage
+                ? `/${guidePage.slug}`
+                : `/experiences?${new URLSearchParams({
+                    destination: destination.name,
+                    ...(siteCategory ? { q: siteCategory } : {}),
+                  }).toString()}`;
 
               return (
                 <Link
@@ -203,7 +336,14 @@ export default async function DestinationsPage() {
                       {destination.icon}
                     </div>
 
-                    {/* Unsplash Attribution - REQUIRED by Unsplash API Guidelines */}
+                    {/* Guide available badge */}
+                    {guidePage && (
+                      <div className="absolute left-3 top-3 rounded-full bg-indigo-600 px-2.5 py-1 text-xs font-medium text-white">
+                        Guide available
+                      </div>
+                    )}
+
+                    {/* Unsplash Attribution */}
                     {destination.imageUrl && destination.imageAttribution && (
                       <UnsplashAttribution
                         photographerName={destination.imageAttribution.photographerName}
@@ -216,16 +356,16 @@ export default async function DestinationsPage() {
 
                   {/* Content */}
                   <div className="p-5">
-                    <h2 className="text-xl font-bold text-gray-900 group-hover:text-indigo-600">
+                    <h3 className="text-xl font-bold text-gray-900 group-hover:text-indigo-600">
                       {destination.name}
-                    </h2>
+                    </h3>
                     {destination.description && (
                       <p className="mt-2 line-clamp-3 text-sm text-gray-600">
                         {destination.description}
                       </p>
                     )}
                     <div className="mt-4 flex items-center text-sm font-medium text-indigo-600 group-hover:text-indigo-700">
-                      <span>Explore experiences</span>
+                      <span>{guidePage ? 'Read guide' : 'Explore experiences'}</span>
                       <svg
                         className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-1"
                         fill="none"
