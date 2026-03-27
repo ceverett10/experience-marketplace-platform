@@ -169,70 +169,156 @@ export async function generateDailyContent(
     await sleep(2000);
   }
 
-  // Also process OPPORTUNITY microsites (they have rich Site-like homepages)
-  // Uses 5% daily rotation to spread load — each microsite gets content every ~20 days
-  const micrositeContentTypes: ContentGenerationType[] = [
+  // Also process microsites for certain content types.
+  //
+  // OPPORTUNITY microsites: faq_hub, comparison, seasonal_event (NOT destination_landing —
+  // they already have destination-specific content from their discovery config).
+  //
+  // SUPPLIER microsites: destination_landing only — for suppliers operating in 2+ cities.
+  // Each job receives a specific city name/slug so the worker creates a properly named page
+  // (without city data the worker creates "destinations/unknown" pages).
+  //
+  const opportunityContentTypes: ContentGenerationType[] = [
     'faq_hub',
-    'destination_landing',
     'comparison',
     'seasonal_event',
   ];
-  if (micrositeContentTypes.includes(contentType)) {
+  const supplierContentTypes: ContentGenerationType[] = ['destination_landing'];
+
+  const shouldProcessOpportunity = opportunityContentTypes.includes(contentType);
+  const shouldProcessSupplier = supplierContentTypes.includes(contentType);
+
+  if (shouldProcessOpportunity || shouldProcessSupplier) {
     try {
-      const opportunityMicrosites = await prisma.micrositeConfig.findMany({
-        where: { entityType: 'OPPORTUNITY', status: 'ACTIVE' },
-        select: { id: true, siteName: true },
-        orderBy: { lastContentUpdate: 'asc' },
-      });
+      const micrositeContentTypeMap: Record<string, string> = {
+        faq_hub: 'faq',
+        comparison: 'blog',
+        seasonal_event: 'blog',
+      };
 
-      const rotationCount = Math.max(1, Math.floor(opportunityMicrosites.length * 0.02));
-      const toProcess = opportunityMicrosites.slice(0, rotationCount);
+      // OPPORTUNITY microsites (faq, comparison, seasonal — not destination)
+      if (shouldProcessOpportunity) {
+        const opportunityMicrosites = await prisma.micrositeConfig.findMany({
+          where: { entityType: 'OPPORTUNITY', status: 'ACTIVE' },
+          select: { id: true, siteName: true },
+          orderBy: { lastContentUpdate: 'asc' },
+        });
 
-      if (toProcess.length > 0) {
-        console.log(
-          `[Daily Content] Processing ${toProcess.length} of ${opportunityMicrosites.length} OPPORTUNITY microsites for ${contentType}`
-        );
+        const rotationCount = Math.max(1, Math.floor(opportunityMicrosites.length * 0.02));
+        const toProcess = opportunityMicrosites.slice(0, rotationCount);
 
-        // Map daily content types to microsite content types
-        const micrositeContentTypeMap: Record<string, string> = {
-          faq_hub: 'faq',
-          destination_landing: 'destination_landing',
-          comparison: 'blog', // Comparisons generated as blog posts for microsites
-          seasonal_event: 'blog', // Seasonal content as blog posts for microsites
-        };
-
-        for (let j = 0; j < toProcess.length; j++) {
-          const ms = toProcess[j]!;
-          const mappedType = (micrositeContentTypeMap[contentType] || 'blog') as
-            | 'blog'
-            | 'faq'
-            | 'destination_landing';
-          // Stagger microsite jobs after the main site jobs
-          const micrositeDelay = (activeSites.length + j) * STAGGER_MS;
-          await addJob(
-            'MICROSITE_CONTENT_GENERATE' as any,
-            {
-              micrositeId: ms.id,
-              contentTypes: [mappedType],
-              isRefresh: true,
-            },
-            { delay: micrositeDelay }
+        if (toProcess.length > 0) {
+          console.info(
+            `[Daily Content] Processing ${toProcess.length} of ${opportunityMicrosites.length} OPPORTUNITY microsites for ${contentType}`
           );
-          results.push({
-            siteId: ms.id,
-            siteName: ms.siteName,
-            contentType,
-            generated: true,
-            queued: true,
-          });
-          await sleep(1000);
+
+          for (let j = 0; j < toProcess.length; j++) {
+            const ms = toProcess[j]!;
+            const mappedType = (micrositeContentTypeMap[contentType] || 'blog') as 'blog' | 'faq';
+            const micrositeDelay = (activeSites.length + j) * STAGGER_MS;
+            await addJob(
+              'MICROSITE_CONTENT_GENERATE' as any,
+              {
+                micrositeId: ms.id,
+                contentTypes: [mappedType],
+                isRefresh: true,
+              },
+              { delay: micrositeDelay }
+            );
+            results.push({
+              siteId: ms.id,
+              siteName: ms.siteName,
+              contentType,
+              generated: true,
+              queued: true,
+            });
+            await sleep(1000);
+          }
+        }
+      }
+
+      // SUPPLIER microsites — destination pages for suppliers with 2+ cities.
+      // Queues one destination per microsite (the next uncovered city).
+      if (shouldProcessSupplier) {
+        const supplierMicrosites = await prisma.micrositeConfig.findMany({
+          where: {
+            entityType: 'SUPPLIER',
+            status: 'ACTIVE',
+            supplierId: { not: null },
+          },
+          select: {
+            id: true,
+            siteName: true,
+            supplier: { select: { cities: true } },
+            pages: {
+              where: { type: PageType.LANDING, slug: { startsWith: 'destinations/' } },
+              select: { slug: true },
+            },
+          },
+          orderBy: { lastContentUpdate: 'asc' },
+        });
+
+        // Filter to suppliers with 2+ cities and at least one uncovered city
+        const eligible: Array<{
+          id: string;
+          siteName: string;
+          cityName: string;
+          citySlug: string;
+        }> = [];
+
+        for (const ms of supplierMicrosites) {
+          const cities = (ms.supplier?.cities as string[]) || [];
+          if (cities.length < 2) continue;
+
+          const existingSlugs = new Set(ms.pages.map((p) => p.slug));
+          const nextCity = cities.find(
+            (city) => !existingSlugs.has(`destinations/${slugify(city)}`)
+          );
+          if (nextCity) {
+            eligible.push({
+              id: ms.id,
+              siteName: ms.siteName,
+              cityName: nextCity,
+              citySlug: slugify(nextCity),
+            });
+          }
+        }
+
+        // 2% daily rotation, capped at 200 to avoid queue flooding
+        const rotationCount = Math.min(200, Math.max(1, Math.floor(eligible.length * 0.02)));
+        const toProcess = eligible.slice(0, rotationCount);
+
+        if (toProcess.length > 0) {
+          console.info(
+            `[Daily Content] Processing ${toProcess.length} of ${eligible.length} SUPPLIER microsites for destination pages`
+          );
+
+          for (let j = 0; j < toProcess.length; j++) {
+            const ms = toProcess[j]!;
+            const micrositeDelay = (activeSites.length + j) * STAGGER_MS;
+            await addJob(
+              'MICROSITE_CONTENT_GENERATE' as any,
+              {
+                micrositeId: ms.id,
+                contentTypes: ['destination_landing'],
+                destinationName: ms.cityName,
+                destinationSlug: ms.citySlug,
+              },
+              { delay: micrositeDelay }
+            );
+            results.push({
+              siteId: ms.id,
+              siteName: ms.siteName,
+              contentType,
+              generated: true,
+              queued: true,
+            });
+            await sleep(1000);
+          }
         }
       }
     } catch (error) {
-      console.error(
-        `[Daily Content] Error processing OPPORTUNITY microsites for ${contentType}:`,
-        error
-      );
+      console.error(`[Daily Content] Error processing microsites for ${contentType}:`, error);
     }
   }
 
