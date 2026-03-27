@@ -104,7 +104,9 @@ export function BookingWidget({ experience, bookingStats }: BookingWidgetProps) 
         >
           Book Now
         </button>
-        <p className="mt-2 text-center text-xs text-emerald-600">Free cancellation available</p>
+        {hasFreeCancellation && (
+          <p className="mt-2 text-center text-xs text-emerald-600">Free cancellation available</p>
+        )}
 
         {/* Trust Signals */}
         <div className="mt-6 space-y-3">

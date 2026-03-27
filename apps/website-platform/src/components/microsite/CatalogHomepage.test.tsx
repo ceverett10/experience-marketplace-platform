@@ -177,10 +177,9 @@ describe('CatalogHomepage', () => {
     render(<CatalogHomepage {...defaultProps} isPpc />);
     // PPC: no Browse Experiences button
     expect(screen.queryByText(/Browse.*Experiences/)).toBeNull();
-    // PPC: compact trust strip with experience count + free cancellation
+    // PPC: compact trust strip with experience count
     const trustStrip = screen.getByText(/experiences available/i);
     expect(trustStrip).toBeDefined();
-    expect(trustStrip.textContent).toMatch(/free cancellation/i);
   });
 
   it('does not render hero trust badges when isPpc is true', () => {
@@ -191,10 +190,18 @@ describe('CatalogHomepage', () => {
     expect(verifiedBadges.length).toBe(1);
   });
 
-  it('renders Free Cancellation badge on cards when isPpc is true', () => {
-    render(<CatalogHomepage {...defaultProps} isPpc />);
+  it('renders Free Cancellation badge on cards only when Holibob confirms free cancellation', () => {
+    const experiencesWithFreeCancellation = [
+      { ...makeExperience('1'), cancellationPolicy: { type: 'FREE' } },
+      { ...makeExperience('2'), cancellationPolicy: { type: 'FREE' } },
+      { ...makeExperience('3') },
+    ];
+    render(
+      <CatalogHomepage {...defaultProps} experiences={experiencesWithFreeCancellation as any} />
+    );
     const badges = screen.getAllByText('Free Cancellation');
-    expect(badges.length).toBeGreaterThanOrEqual(1);
+    // Only 2 experiences have free cancellation, not all 3
+    expect(badges.length).toBe(2);
   });
 
   it('renders Book Now button on cards when isPpc is true', () => {

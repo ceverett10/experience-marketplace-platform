@@ -125,7 +125,7 @@ export function CategoryPageTemplate({
                       clipRule="evenodd"
                     />
                   </svg>
-                  Free cancellation
+                  Flexible cancellation options
                 </li>
                 <li className="flex items-start">
                   <svg

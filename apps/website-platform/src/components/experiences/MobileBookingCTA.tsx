@@ -15,6 +15,8 @@ interface MobileBookingCTAProps {
   priceCurrency?: string;
   /** Booking statistics for urgency messaging */
   bookingStats?: BookingStats;
+  /** Whether this experience offers free cancellation (from Holibob API) */
+  hasFreeCancellation?: boolean;
 }
 
 export function MobileBookingCTA({
@@ -24,6 +26,7 @@ export function MobileBookingCTA({
   priceAmount = 0,
   priceCurrency = 'GBP',
   bookingStats,
+  hasFreeCancellation = false,
 }: MobileBookingCTAProps) {
   const brand = useBrand();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -62,7 +65,7 @@ export function MobileBookingCTA({
               primaryColor={primaryColor}
             />
             <p className="mt-0.5 text-xs text-emerald-600">
-              Free cancellation &middot; Best price guarantee
+              {hasFreeCancellation ? 'Free cancellation \u00B7 ' : ''}Best price guarantee
             </p>
           </div>
           <button
