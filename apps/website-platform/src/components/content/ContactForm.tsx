@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import { useBrand } from '@/lib/site-context';
 
 interface FormData {
   name: string;
@@ -20,14 +19,15 @@ const INITIAL_FORM: FormData = {
   message: '',
 };
 
-export function ContactForm() {
+interface ContactFormProps {
+  primaryColor?: string;
+}
+
+export function ContactForm({ primaryColor = '#6366f1' }: ContactFormProps) {
   const [form, setForm] = useState<FormData>(INITIAL_FORM);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-
-  const brand = useBrand();
-  const primaryColor = brand?.primaryColor ?? '#6366f1';
 
   const handleChange = (field: keyof FormData, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));

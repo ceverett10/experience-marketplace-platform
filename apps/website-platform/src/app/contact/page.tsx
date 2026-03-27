@@ -146,7 +146,7 @@ export default async function ContactPage() {
           <p className="mb-6 text-sm text-gray-600">
             Fill in the form below and we&apos;ll get back to you within 24-48 hours.
           </p>
-          <ContactForm />
+          <ContactForm primaryColor={site.brand?.primaryColor ?? undefined} />
         </div>
       </section>
     </>
