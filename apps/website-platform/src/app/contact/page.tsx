@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { getSiteFromHostname } from '@/lib/tenant';
 import { prisma } from '@/lib/prisma';
 import { StaticPageTemplate } from '@/components/content/StaticPageTemplate';
+import { ContactForm } from '@/components/content/ContactForm';
 
 /**
  * Fetch Contact page from database
@@ -137,6 +138,17 @@ export default async function ContactPage() {
 
       {/* Page Content */}
       <StaticPageTemplate page={displayPage} siteName={site.name} pageType="contact" />
+
+      {/* Contact Form */}
+      <section className="mx-auto max-w-4xl px-4 pb-12">
+        <div className="rounded-lg border border-gray-200 bg-gray-50 p-6 sm:p-8">
+          <h2 className="mb-1 text-xl font-semibold text-gray-900">Send Us a Message</h2>
+          <p className="mb-6 text-sm text-gray-600">
+            Fill in the form below and we&apos;ll get back to you within 24-48 hours.
+          </p>
+          <ContactForm />
+        </div>
+      </section>
     </>
   );
 }

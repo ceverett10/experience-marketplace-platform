@@ -216,6 +216,7 @@ model Site {
   seoIssues          SEOIssue[]
   analyticsSnapshots SiteAnalyticsSnapshot[]
   subscribers        Subscriber[]
+  contactMessages    ContactMessage[]
   socialAccounts     SocialAccount[]
   socialPosts        SocialPost[]
   adCampaigns        AdCampaign[]
@@ -1742,6 +1743,7 @@ model MicrositeConfig {
   analyticsSnapshots MicrositeAnalyticsSnapshot[]
   performanceMetrics MicrositePerformanceMetric[]
   subscribers        Subscriber[]
+  contactMessages    ContactMessage[]
   adCampaigns        AdCampaign[]
   bookings           Booking[]
 
@@ -1995,6 +1997,43 @@ enum MarketingStatus {
   ACTIVE // Verified and receiving emails
   UNSUBSCRIBED // User opted out
   BOUNCED // Email bounced
+}
+
+model ContactMessage {
+  id String @id @default(cuid())
+
+  // Source tracking
+  siteId      String?
+  site        Site?            @relation(fields: [siteId], references: [id])
+  micrositeId String?
+  microsite   MicrositeConfig? @relation(fields: [micrositeId], references: [id])
+  domain      String // The exact domain the form was submitted from
+
+  // Contact details
+  name    String
+  email   String
+  phone   String?
+  subject String
+  message String @db.Text
+
+  // Status tracking
+  status ContactMessageStatus @default(NEW)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([siteId])
+  @@index([micrositeId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("contact_messages")
+}
+
+enum ContactMessageStatus {
+  NEW
+  READ
+  REPLIED
+  ARCHIVED
 }
 
 model PrizeDraw {

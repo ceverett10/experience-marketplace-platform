@@ -412,7 +412,7 @@ export async function handleSiteCreate(job: Job<SiteCreatePayload>): Promise<Job
       await addJob('CONTENT_GENERATE', {
         siteId: site.id,
         pageId: contactPage.id,
-        contentType: 'blog',
+        contentType: 'contact',
         targetKeyword: `Contact ${brandIdentity.name}`,
         secondaryKeywords: ['customer support', 'get in touch', 'help'],
       });
