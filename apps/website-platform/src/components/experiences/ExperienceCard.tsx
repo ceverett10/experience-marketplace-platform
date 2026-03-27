@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useBrand } from '@/lib/site-context';
@@ -8,6 +9,8 @@ import { PriceDisplay, DiscountBadge } from '@/components/ui/PriceDisplay';
 import { getProductPricingConfig } from '@/lib/pricing';
 import { currencyToLocale } from '@/lib/currency';
 import type { ExperienceListItem } from '@/lib/holibob';
+
+const PLACEHOLDER_IMAGE = '/placeholder-experience.jpg';
 
 interface ExperienceCardProps {
   experience: ExperienceListItem;
@@ -26,6 +29,8 @@ export function ExperienceCard({
   const linkProps = openInNewTab ? { target: '_blank' as const, rel: 'noopener' } : {};
   const brand = useBrand();
   const pricingConfig = getProductPricingConfig(experience.id);
+  const [imgSrc, setImgSrc] = useState(experience.imageUrl || PLACEHOLDER_IMAGE);
+  const handleImageError = useCallback(() => setImgSrc(PLACEHOLDER_IMAGE), []);
 
   if (variant === 'compact') {
     return (
@@ -36,7 +41,8 @@ export function ExperienceCard({
       >
         <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg bg-gray-200">
           <Image
-            src={experience.imageUrl || '/placeholder-experience.jpg'}
+            src={imgSrc}
+            onError={handleImageError}
             alt={experience.title}
             width={80}
             height={80}
@@ -77,7 +83,8 @@ export function ExperienceCard({
       >
         {/* Image */}
         <Image
-          src={experience.imageUrl || '/placeholder-experience.jpg'}
+          src={imgSrc}
+          onError={handleImageError}
           alt={experience.title}
           fill
           sizes="(max-width: 768px) 100vw, 50vw"
@@ -142,7 +149,8 @@ export function ExperienceCard({
       {/* Image */}
       <div className="relative aspect-[16/9] overflow-hidden sm:aspect-[4/3] bg-gray-200">
         <Image
-          src={experience.imageUrl || '/placeholder-experience.jpg'}
+          src={imgSrc}
+          onError={handleImageError}
           alt={experience.title}
           fill
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
