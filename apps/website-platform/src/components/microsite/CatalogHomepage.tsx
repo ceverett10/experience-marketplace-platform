@@ -236,8 +236,7 @@ export function CatalogHomepage({
             {/* PPC: Compact experience count strip */}
             {isPpc && (
               <p className="mt-3 text-sm text-white/80">
-                {displayCount.toLocaleString()} experiences available &middot; Free cancellation
-                &middot; Instant confirmation
+                {displayCount.toLocaleString()} experiences available &middot; Instant confirmation
               </p>
             )}
           </div>
@@ -264,7 +263,7 @@ export function CatalogHomepage({
             </h2>
             <p className="mx-auto mt-2 max-w-2xl text-base text-gray-600">
               {isPpc
-                ? 'Compare & book with free cancellation and best price guarantee'
+                ? 'Compare & book with best price guarantee'
                 : displayCount > experiences.length
                   ? `Showing ${experiences.length} of ${displayCount.toLocaleString()} experiences`
                   : `Browse our complete collection of ${displayCount.toLocaleString()} unique experiences`}
@@ -425,9 +424,9 @@ export function CatalogHomepage({
                   />
                 </svg>
               </div>
-              <h3 className="mt-4 text-base font-semibold text-gray-900">Free Cancellation</h3>
+              <h3 className="mt-4 text-base font-semibold text-gray-900">Flexible Cancellation</h3>
               <p className="mt-2 text-sm text-gray-600">
-                Change of plans? Cancel up to 24 hours before for a full refund. No questions asked.
+                Check each experience for cancellation terms and conditions.
               </p>
             </div>
             <div className="rounded-xl bg-white p-6 shadow-sm">
@@ -658,8 +657,8 @@ function CatalogExperienceCard({
             <DiscountBadge pricingConfig={pricingConfig} />
           </div>
         )}
-        {/* PPC: Free Cancellation badge */}
-        {isPpc && (
+        {/* Free Cancellation badge - only when Holibob confirms free cancellation */}
+        {experience.cancellationPolicy?.type === 'FREE' && (
           <div className="absolute right-3 top-3 rounded-full bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm">
             Free Cancellation
           </div>
@@ -728,16 +727,18 @@ function CatalogExperienceCard({
 
         {/* Trust Signals */}
         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-500">
-          <span className="flex items-center gap-1">
-            <svg className="h-3 w-3 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
-              <path
-                fillRule="evenodd"
-                d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z"
-                clipRule="evenodd"
-              />
-            </svg>
-            Free cancellation
-          </span>
+          {experience.cancellationPolicy?.type === 'FREE' && (
+            <span className="flex items-center gap-1">
+              <svg className="h-3 w-3 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
+                <path
+                  fillRule="evenodd"
+                  d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              Free cancellation
+            </span>
+          )}
           <span className="flex items-center gap-1">
             <svg className="h-3 w-3 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
               <path

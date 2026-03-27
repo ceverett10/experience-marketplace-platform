@@ -317,10 +317,10 @@ export function ExitIntentPopup() {
                   </svg>
                   <div>
                     <p className="text-sm font-semibold text-gray-900">
-                      Free cancellation available
+                      Flexible cancellation options
                     </p>
                     <p className="text-xs text-gray-500">
-                      Change of plans? Cancel for free up to 24 hours before
+                      Check each experience for cancellation terms
                     </p>
                   </div>
                 </div>

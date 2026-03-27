@@ -153,7 +153,7 @@ describe('ExitIntentPopup', () => {
     fireEvent.mouseLeave(document, { clientY: 5 });
 
     expect(document.body.textContent).toContain('Reserve now, pay nothing today');
-    expect(document.body.textContent).toContain('Free cancellation available');
+    expect(document.body.textContent).toContain('Flexible cancellation options');
     expect(document.body.textContent).toContain('Best price guarantee');
   });
 });

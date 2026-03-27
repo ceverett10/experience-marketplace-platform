@@ -143,7 +143,7 @@ function TrustSignalsBar() {
       <div className="mx-auto max-w-7xl flex items-center justify-center gap-6 px-4 py-2.5 overflow-x-auto">
         {[
           'Best Price Guarantee',
-          'Free Cancellation',
+          'Flexible Cancellation',
           'Instant Confirmation',
           'Secure Payments',
         ].map((text) => (
@@ -242,7 +242,7 @@ function PpcLayout({
             {priceRange ? ` — From ${priceRange.min}` : ''}
           </h1>
           <p className="text-base md:text-lg text-blue-100 mb-4">
-            Compare & book with free cancellation and best price guarantee
+            Compare & book with best price guarantee
           </p>
           <Link
             href="#experiences"

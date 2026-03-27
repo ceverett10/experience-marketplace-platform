@@ -56,7 +56,7 @@ describe('PaymentInfoModal', () => {
   it('renders protection list items', () => {
     render(<PaymentInfoModal {...defaultProps} />);
     expect(screen.getByText(/Secure payment via Stripe \(PCI DSS compliant\)/)).toBeInTheDocument();
-    expect(screen.getByText(/Free cancellation based on the terms/)).toBeInTheDocument();
+    expect(screen.getByText(/Cancellation terms vary by experience/)).toBeInTheDocument();
     expect(screen.getByText(/Full customer support from the Holibob team/)).toBeInTheDocument();
   });
 
