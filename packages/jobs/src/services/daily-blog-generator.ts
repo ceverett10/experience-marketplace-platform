@@ -120,11 +120,18 @@ export async function generateDailyBlogPostForSite(
     const existingTopics = site.pages.map((p) => p.title);
     const dayOfYear = getDayOfYear();
 
-    // Get niche and location from opportunity or seoConfig
+    // Get niche and location from opportunity, seoConfig, or homepageConfig destinations
     const opportunity = site.opportunities?.[0];
     const seoConfig = site.seoConfig as { primaryKeywords?: string[]; destination?: string } | null;
+    const homepageConfig = site.homepageConfig as {
+      destinations?: Array<{ name: string }>;
+    } | null;
     const niche = opportunity?.niche || seoConfig?.primaryKeywords?.[0] || 'travel experiences';
-    const location = opportunity?.location || seoConfig?.destination || undefined;
+    const homepageDestinations = homepageConfig?.destinations?.map((d) => d.name);
+    const location =
+      opportunity?.location ||
+      seoConfig?.destination ||
+      (homepageDestinations?.length ? homepageDestinations.join(', ') : undefined);
 
     const context: BlogTopicContext = {
       siteName: site.name,
