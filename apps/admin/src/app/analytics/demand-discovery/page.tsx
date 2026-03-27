@@ -405,52 +405,54 @@ export default function DemandDiscoveryPage() {
 
   const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
 
+  const [tabError, setTabError] = useState<string | null>(null);
+
   const fetchTabData = useCallback(
     async (tab: Tab) => {
       if (loadedTabs.has(tab) && tab !== 'research') return;
 
       setLoading(true);
+      setTabError(null);
       try {
+        const endpoints: Record<string, string> = {
+          global: '/api/analytics/demand-discovery/global-demand?days=30',
+          cities: '/api/analytics/demand-discovery/city-demand?days=30',
+          categories: '/api/analytics/demand-discovery/category-demand?days=30',
+          opportunities: '/api/analytics/demand-discovery/opportunities?limit=200',
+          trending: '/api/analytics/demand-discovery/trending',
+        };
+
+        const endpoint = endpoints[tab];
+        if (!endpoint) break;
+
+        const res = await fetch(`${basePath}${endpoint}`);
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+          setTabError(err.error || `Failed to load ${tab} data (${res.status})`);
+          break;
+        }
+
+        const data = await res.json();
         switch (tab) {
-          case 'global': {
-            const res = await fetch(
-              `${basePath}/api/analytics/demand-discovery/global-demand?days=30`
-            );
-            if (res.ok) setGlobalData(await res.json());
+          case 'global':
+            setGlobalData(data);
             break;
-          }
-          case 'cities': {
-            const res = await fetch(
-              `${basePath}/api/analytics/demand-discovery/city-demand?days=30`
-            );
-            if (res.ok) setCityData(await res.json());
+          case 'cities':
+            setCityData(data);
             break;
-          }
-          case 'categories': {
-            const res = await fetch(
-              `${basePath}/api/analytics/demand-discovery/category-demand?days=30`
-            );
-            if (res.ok) setCategoryData(await res.json());
+          case 'categories':
+            setCategoryData(data);
             break;
-          }
-          case 'opportunities': {
-            const res = await fetch(
-              `${basePath}/api/analytics/demand-discovery/opportunities?limit=200`
-            );
-            if (res.ok) setOpportunityData(await res.json());
+          case 'opportunities':
+            setOpportunityData(data);
             break;
-          }
-          case 'trending': {
-            const res = await fetch(`${basePath}/api/analytics/demand-discovery/trending`);
-            if (res.ok) setTrendingData(await res.json());
-            break;
-          }
-          default:
+          case 'trending':
+            setTrendingData(data);
             break;
         }
         setLoadedTabs((prev) => new Set([...prev, tab]));
-      } catch {
-        console.error(`Failed to fetch ${tab} data`);
+      } catch (err) {
+        setTabError(err instanceof Error ? err.message : `Failed to fetch ${tab} data`);
       } finally {
         setLoading(false);
       }
@@ -549,6 +551,28 @@ export default function DemandDiscoveryPage() {
       </div>
 
       {/* Loading */}
+      {/* Error display */}
+      {tabError && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <p className="text-sm text-red-800 font-medium">Error loading data</p>
+          <p className="text-sm text-red-600 mt-1">{tabError}</p>
+          <button
+            onClick={() => {
+              setTabError(null);
+              setLoadedTabs((prev) => {
+                const next = new Set(prev);
+                next.delete(activeTab);
+                return next;
+              });
+              fetchTabData(activeTab);
+            }}
+            className="mt-2 px-3 py-1 bg-red-100 text-red-700 rounded text-sm hover:bg-red-200"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {loading && !globalData && !cityData && !categoryData && !opportunityData && !trendingData ? (
         <LoadingSkeleton />
       ) : (
@@ -589,18 +613,32 @@ export default function DemandDiscoveryPage() {
               {globalData && (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   <MetricCard
-                    title="Categories Tracked"
+                    title="Experience Categories"
                     value={globalData.totals.totalCategories}
                   />
                   <MetricCard
-                    title="Total Search Volume"
-                    value={globalData.totals.totalSearchVolume}
+                    title="Products Available"
+                    value={
+                      ((globalData.totals as Record<string, unknown>)['totalProducts'] as number) ||
+                      0
+                    }
                   />
                   <MetricCard
-                    title="Google Trends Categories"
-                    value={globalData.totals.googleTrendsCategories}
+                    title="Destinations"
+                    value={
+                      ((globalData.totals as Record<string, unknown>)[
+                        'totalLocations'
+                      ] as number) || 0
+                    }
                   />
-                  <MetricCard title="Rising Queries" value={globalData.totals.risingQueryCount} />
+                  <MetricCard
+                    title="Search Volume Data"
+                    value={
+                      globalData.totals.totalSearchVolume > 0
+                        ? globalData.totals.totalSearchVolume
+                        : 'Pending'
+                    }
+                  />
                 </div>
               )}
 
@@ -696,14 +734,14 @@ export default function DemandDiscoveryPage() {
                 </Card>
               )}
 
-              {/* Top Categories by Global Search Volume */}
+              {/* Top Categories by Product Availability + Search Volume */}
               <Card>
                 <div className="p-4 border-b border-slate-200">
                   <h2 className="font-semibold text-slate-900">
                     Global Experience Demand by Category
                   </h2>
                   <p className="text-sm text-slate-500 mt-1">
-                    What types of tours and experiences are people searching for most worldwide
+                    Experience types ranked by product availability and search demand
                   </p>
                 </div>
                 <div className="overflow-x-auto">
@@ -714,16 +752,19 @@ export default function DemandDiscoveryPage() {
                           Category
                         </th>
                         <th className="text-right text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
-                          Search Volume
+                          Products
                         </th>
                         <th className="text-right text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
-                          Keywords
+                          Cities
                         </th>
                         <th className="text-right text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
-                          Avg CPC
+                          Avg Price
                         </th>
                         <th className="text-right text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
-                          Difficulty
+                          Search Vol
+                        </th>
+                        <th className="text-right text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
+                          CPC
                         </th>
                         <th className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
                           Top Destinations
@@ -731,54 +772,53 @@ export default function DemandDiscoveryPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {(globalData?.categories || []).slice(0, 30).map((cat) => (
-                        <tr key={cat.category} className="hover:bg-slate-50">
-                          <td className="px-4 py-3">
-                            <span className="text-sm font-medium text-slate-900">
-                              {cat.category}
-                            </span>
-                            <p className="text-xs text-slate-400 mt-0.5">
-                              Top:{' '}
-                              {cat.topKeywords
-                                .slice(0, 2)
-                                .map((k) => k.keyword)
-                                .join(', ')}
-                            </p>
-                          </td>
-                          <td className="px-4 py-3 text-right text-sm font-medium text-slate-900">
-                            {cat.totalSearchVolume.toLocaleString()}
-                          </td>
-                          <td className="px-4 py-3 text-right text-sm text-slate-700">
-                            {cat.keywordCount}
-                          </td>
-                          <td className="px-4 py-3 text-right text-sm text-slate-700">
-                            {cat.avgCpc > 0 ? `£${cat.avgCpc.toFixed(2)}` : '-'}
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            <span
-                              className={`px-2 py-0.5 rounded text-xs font-medium ${
-                                cat.avgDifficulty >= 70
-                                  ? 'bg-red-100 text-red-700'
-                                  : cat.avgDifficulty >= 40
-                                    ? 'bg-yellow-100 text-yellow-700'
-                                    : 'bg-green-100 text-green-700'
-                              }`}
-                            >
-                              {cat.avgDifficulty}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-sm text-slate-600">
-                            {cat.topLocations
-                              .slice(0, 3)
-                              .map((l) => l.location)
-                              .join(', ')}
-                          </td>
-                        </tr>
-                      ))}
+                      {(globalData?.categories || []).slice(0, 40).map((cat) => {
+                        const c = cat as Record<string, unknown>;
+                        return (
+                          <tr key={cat.category} className="hover:bg-slate-50">
+                            <td className="px-4 py-3">
+                              <span className="text-sm font-medium text-slate-900">
+                                {cat.category}
+                              </span>
+                              {cat.topKeywords.length > 0 && (
+                                <p className="text-xs text-slate-400 mt-0.5">
+                                  {cat.topKeywords
+                                    .slice(0, 2)
+                                    .map((k) => k.keyword)
+                                    .join(', ')}
+                                </p>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-right text-sm font-medium text-slate-900">
+                              {(c['productCount'] as number) || '-'}
+                            </td>
+                            <td className="px-4 py-3 text-right text-sm text-slate-700">
+                              {(c['cityCount'] as number) || '-'}
+                            </td>
+                            <td className="px-4 py-3 text-right text-sm text-slate-700">
+                              {(c['avgPrice'] as number) ? `£${c['avgPrice']}` : '-'}
+                            </td>
+                            <td className="px-4 py-3 text-right text-sm text-slate-700">
+                              {cat.totalSearchVolume > 0
+                                ? cat.totalSearchVolume.toLocaleString()
+                                : '-'}
+                            </td>
+                            <td className="px-4 py-3 text-right text-sm text-slate-700">
+                              {cat.avgCpc > 0 ? `£${cat.avgCpc.toFixed(2)}` : '-'}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-slate-600">
+                              {cat.topLocations
+                                .slice(0, 3)
+                                .map((l) => l.location)
+                                .join(', ') || '-'}
+                            </td>
+                          </tr>
+                        );
+                      })}
                       {(!globalData?.categories || globalData.categories.length === 0) && (
                         <tr>
-                          <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
-                            No demand data available. Run keyword enrichment to populate.
+                          <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
+                            No product data available. Ensure products are synced from Holibob.
                           </td>
                         </tr>
                       )}
@@ -787,12 +827,12 @@ export default function DemandDiscoveryPage() {
                 </div>
               </Card>
 
-              {/* Top Destinations by Search Volume */}
+              {/* Top Destinations */}
               <Card>
                 <div className="p-4 border-b border-slate-200">
                   <h2 className="font-semibold text-slate-900">Where Is Demand Strongest?</h2>
                   <p className="text-sm text-slate-500 mt-1">
-                    Destinations ranked by total experience search volume
+                    Destinations ranked by product availability and search demand
                   </p>
                 </div>
                 <div className="overflow-x-auto">
@@ -803,10 +843,13 @@ export default function DemandDiscoveryPage() {
                           Destination
                         </th>
                         <th className="text-right text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
-                          Search Volume
+                          Products
                         </th>
                         <th className="text-right text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
                           Categories
+                        </th>
+                        <th className="text-right text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
+                          Search Vol
                         </th>
                         <th className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
                           Top Experience Types
@@ -814,26 +857,35 @@ export default function DemandDiscoveryPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {(globalData?.topLocations || []).map((loc) => (
-                        <tr key={loc.location} className="hover:bg-slate-50">
-                          <td className="px-4 py-3 text-sm font-medium text-slate-900">
-                            {loc.location}
-                          </td>
-                          <td className="px-4 py-3 text-right text-sm font-medium text-slate-900">
-                            {loc.totalSearchVolume.toLocaleString()}
-                          </td>
-                          <td className="px-4 py-3 text-right text-sm text-slate-700">
-                            {loc.categoryCount}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-slate-600">
-                            {loc.topCategories.slice(0, 4).join(', ')}
-                          </td>
-                        </tr>
-                      ))}
+                      {(globalData?.topLocations || []).map((loc) => {
+                        const l = loc as Record<string, unknown>;
+                        return (
+                          <tr key={loc.location} className="hover:bg-slate-50">
+                            <td className="px-4 py-3 text-sm font-medium text-slate-900">
+                              {loc.location}
+                            </td>
+                            <td className="px-4 py-3 text-right text-sm font-medium text-slate-900">
+                              {(l['productCount'] as number) || '-'}
+                            </td>
+                            <td className="px-4 py-3 text-right text-sm text-slate-700">
+                              {loc.categoryCount}
+                            </td>
+                            <td className="px-4 py-3 text-right text-sm text-slate-700">
+                              {loc.totalSearchVolume > 0
+                                ? loc.totalSearchVolume.toLocaleString()
+                                : '-'}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-slate-600">
+                              {loc.topCategories.slice(0, 4).join(', ')}
+                            </td>
+                          </tr>
+                        );
+                      })}
                       {(!globalData?.topLocations || globalData.topLocations.length === 0) && (
                         <tr>
-                          <td colSpan={4} className="px-4 py-8 text-center text-slate-500">
-                            No location data available.
+                          <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
+                            No destination data. Ensure products are synced from Holibob with city
+                            data.
                           </td>
                         </tr>
                       )}

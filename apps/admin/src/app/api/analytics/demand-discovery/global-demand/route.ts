@@ -59,8 +59,69 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       take: 500,
     });
 
-    // 2. Get SEOOpportunity data as a demand proxy (always available, no API cost)
-    // Group by niche (category) to see what has most search volume globally
+    // 2. Get Product data as the PRIMARY source (always available from Holibob sync)
+    const products = await prisma.product.findMany({
+      select: {
+        city: true,
+        categories: true,
+        priceFrom: true,
+        rating: true,
+        bookingCount: true,
+      },
+    });
+
+    // Build product-based category and location maps (guaranteed to have data)
+    const productCategoryMap = new Map<
+      string,
+      {
+        productCount: number;
+        cities: Set<string>;
+        avgPrice: number;
+        totalPrice: number;
+        priceCount: number;
+        totalBookings: number;
+      }
+    >();
+    const productLocationMap = new Map<
+      string,
+      { productCount: number; categories: Set<string>; totalBookings: number }
+    >();
+
+    for (const p of products) {
+      // Categories
+      for (const cat of p.categories) {
+        const existing = productCategoryMap.get(cat) || {
+          productCount: 0,
+          cities: new Set<string>(),
+          avgPrice: 0,
+          totalPrice: 0,
+          priceCount: 0,
+          totalBookings: 0,
+        };
+        existing.productCount++;
+        if (p.city) existing.cities.add(p.city);
+        if (p.priceFrom) {
+          existing.totalPrice += Number(p.priceFrom);
+          existing.priceCount++;
+        }
+        existing.totalBookings += p.bookingCount;
+        productCategoryMap.set(cat, existing);
+      }
+      // Locations
+      if (p.city) {
+        const existing = productLocationMap.get(p.city) || {
+          productCount: 0,
+          categories: new Set<string>(),
+          totalBookings: 0,
+        };
+        existing.productCount++;
+        for (const cat of p.categories) existing.categories.add(cat);
+        existing.totalBookings += p.bookingCount;
+        productLocationMap.set(p.city, existing);
+      }
+    }
+
+    // 3. Get SEOOpportunity data to enrich with search volume (may be empty)
     const opportunities = await prisma.sEOOpportunity.findMany({
       where: {
         status: { in: ['PAID_CANDIDATE', 'IDENTIFIED', 'EVALUATED', 'PUBLISHED', 'MONITORING'] },
@@ -210,7 +271,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       .sort((a, b) => b.growth - a.growth)
       .slice(0, 50);
 
-    // 4. Build category demand response (filter out non-tour categories)
+    // 4. Build category demand — MERGE Product data (always available) + SEO data (enrichment)
     const excludedCategories = new Set([
       'paid_traffic',
       'unknown',
@@ -219,44 +280,91 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       'other',
       'transfers',
       'transport',
+      'airport transfers',
+      'private transfers',
+      'shuttle',
+      'taxi',
     ]);
-    const categories = Array.from(categoryDemand.entries())
-      .filter(([category]) => !excludedCategories.has(category.toLowerCase()))
-      .map(([category, data]) => ({
-        category,
-        totalSearchVolume: data.totalVolume,
-        keywordCount: data.keywords,
-        avgCpc: data.keywords > 0 ? Math.round((data.totalCpc / data.keywords) * 100) / 100 : 0,
-        avgDifficulty: data.keywords > 0 ? Math.round(data.totalDifficulty / data.keywords) : 0,
-        topLocations: Array.from(data.topLocations.entries())
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 10)
-          .map(([location, volume]) => ({ location, volume })),
-        topKeywords: data.topKeywords,
-      }))
-      .sort((a, b) => b.totalSearchVolume - a.totalSearchVolume);
 
-    // 5. Aggregate by location (city) demand
-    const locationDemand = new Map<string, { volume: number; categories: Set<string> }>();
-    for (const opp of opportunities) {
-      if (!opp.location) continue;
-      const existing = locationDemand.get(opp.location) || {
-        volume: 0,
-        categories: new Set<string>(),
-      };
-      existing.volume += opp.searchVolume;
-      if (opp.niche) existing.categories.add(opp.niche);
-      locationDemand.set(opp.location, existing);
-    }
+    // Start from Product categories (guaranteed data), enrich with SEO
+    const allCategoryNames = new Set([...productCategoryMap.keys(), ...categoryDemand.keys()]);
 
-    const topLocations = Array.from(locationDemand.entries())
-      .map(([location, data]) => ({
-        location,
-        totalSearchVolume: data.volume,
-        categoryCount: data.categories.size,
-        topCategories: Array.from(data.categories).slice(0, 5),
-      }))
-      .sort((a, b) => b.totalSearchVolume - a.totalSearchVolume)
+    const categories = Array.from(allCategoryNames)
+      .filter((cat) => !excludedCategories.has(cat.toLowerCase()))
+      .map((category) => {
+        const productData = productCategoryMap.get(category);
+        const seoData = categoryDemand.get(category);
+        const productCount = productData?.productCount || 0;
+        const cityCount = productData?.cities.size || 0;
+        const avgPrice =
+          productData && productData.priceCount > 0
+            ? Math.round(productData.totalPrice / productData.priceCount)
+            : 0;
+        const totalBookings = productData?.totalBookings || 0;
+
+        return {
+          category,
+          productCount,
+          cityCount,
+          avgPrice,
+          totalBookings,
+          totalSearchVolume: seoData?.totalVolume || 0,
+          keywordCount: seoData?.keywords || 0,
+          avgCpc:
+            seoData && seoData.keywords > 0
+              ? Math.round((seoData.totalCpc / seoData.keywords) * 100) / 100
+              : 0,
+          avgDifficulty:
+            seoData && seoData.keywords > 0
+              ? Math.round(seoData.totalDifficulty / seoData.keywords)
+              : 0,
+          topLocations: seoData
+            ? Array.from(seoData.topLocations.entries())
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 10)
+                .map(([location, volume]) => ({ location, volume }))
+            : productData
+              ? Array.from(productData.cities)
+                  .slice(0, 10)
+                  .map((c) => ({ location: c, volume: 0 }))
+              : [],
+          topKeywords: seoData?.topKeywords || [],
+        };
+      })
+      // Sort by: products first (always have data), then search volume as tiebreaker
+      .sort((a, b) => {
+        if (b.totalSearchVolume !== a.totalSearchVolume)
+          return b.totalSearchVolume - a.totalSearchVolume;
+        return b.productCount - a.productCount;
+      });
+
+    // 5. Aggregate by location — MERGE Product locations + SEO locations
+    const allLocationNames = new Set([
+      ...productLocationMap.keys(),
+      ...Array.from(categoryDemand.values()).flatMap((d) => Array.from(d.topLocations.keys())),
+    ]);
+
+    const topLocations = Array.from(allLocationNames)
+      .map((location) => {
+        const productLoc = productLocationMap.get(location);
+        // Sum SEO volume for this location
+        let seoVolume = 0;
+        for (const opp of opportunities) {
+          if (opp.location === location) seoVolume += opp.searchVolume;
+        }
+        return {
+          location,
+          productCount: productLoc?.productCount || 0,
+          totalSearchVolume: seoVolume,
+          categoryCount: productLoc?.categories.size || 0,
+          topCategories: productLoc ? Array.from(productLoc.categories).slice(0, 5) : [],
+          totalBookings: productLoc?.totalBookings || 0,
+        };
+      })
+      .sort((a, b) => {
+        if (b.productCount !== a.productCount) return b.productCount - a.productCount;
+        return b.totalSearchVolume - a.totalSearchVolume;
+      })
       .slice(0, 30);
 
     // 6. Get latest trend snapshots grouped by date
@@ -364,6 +472,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       trackedLocations: TRACKED_LOCATIONS,
       totals: {
         totalCategories: categories.length,
+        totalProducts: products.length,
+        totalLocations: topLocations.length,
         totalSearchVolume: categories.reduce((s, c) => s + c.totalSearchVolume, 0),
         totalKeywords: opportunities.length,
         risingQueryCount: risingExperienceQueries.length,
