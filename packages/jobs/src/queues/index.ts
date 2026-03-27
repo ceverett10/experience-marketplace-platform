@@ -75,6 +75,9 @@ export function createRedisConnection(): IORedis {
   return new IORedis(redisUrl, {
     maxRetriesPerRequest: null,
     enableReadyCheck: false,
+    connectTimeout: 20_000,
+    // Retry connection with exponential backoff up to 5s between attempts
+    retryStrategy: (times: number) => Math.min(times * 200, 5_000),
     // Heroku Redis requires TLS with self-signed certificate support
     tls: usesTls ? { rejectUnauthorized: false } : undefined,
   });
