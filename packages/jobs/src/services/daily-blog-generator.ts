@@ -18,6 +18,14 @@ import {
   generateDailyBlogPostsForMicrosites,
   type MicrositeBlogGenerationSummary,
 } from './microsite-blog-generator.js';
+import { findSimilarTitle } from './blog-dedup.js';
+
+/**
+ * Maximum number of PUBLISHED blog posts per site. Once reached, no new blogs
+ * are generated. This prevents narrow-niche sites from accumulating
+ * near-duplicate content indefinitely.
+ */
+const MAX_BLOGS_PER_SITE = 20;
 
 export interface DailyBlogGenerationResult {
   siteId: string;
@@ -88,6 +96,23 @@ export async function generateDailyBlogPostForSite(
     };
   }
 
+  // Blog cap: prevent narrow-niche sites from accumulating near-duplicate content
+  const blogCount = await prisma.page.count({
+    where: { siteId, type: PageType.BLOG, status: { in: ['PUBLISHED', 'DRAFT'] } },
+  });
+  if (blogCount >= MAX_BLOGS_PER_SITE) {
+    console.info(
+      `[Daily Blog] Skipping ${site.name} — already has ${blogCount} blogs (cap: ${MAX_BLOGS_PER_SITE})`
+    );
+    return {
+      siteId: site.id,
+      siteName: site.name,
+      topicGenerated: false,
+      postQueued: false,
+      error: `Blog cap reached (${blogCount}/${MAX_BLOGS_PER_SITE})`,
+    };
+  }
+
   console.info(`[Daily Blog] Generating post for ${site.name}...`);
 
   try {
@@ -140,6 +165,21 @@ export async function generateDailyBlogPostForSite(
         topicGenerated: true,
         postQueued: false,
         error: 'Slug already exists',
+      };
+    }
+
+    // Similarity check: reject topics that are too close to existing ones
+    const similarTo = findSimilarTitle(topic.title, existingTopics);
+    if (similarTo) {
+      console.info(
+        `[Daily Blog] Skipping "${topic.title}" — too similar to existing: "${similarTo}"`
+      );
+      return {
+        siteId: site.id,
+        siteName: site.name,
+        topicGenerated: true,
+        postQueued: false,
+        error: `Too similar to existing blog: "${similarTo}"`,
       };
     }
 

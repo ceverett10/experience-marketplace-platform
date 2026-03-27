@@ -43,7 +43,7 @@ export async function generateBlogTopics(
   context: BlogTopicContext,
   count: number = 5
 ): Promise<BlogTopicSuggestion[]> {
-  console.log(
+  console.info(
     `[Blog Topics] Generating ${count} topics for ${context.siteName} (${context.niche})`
   );
 
@@ -51,7 +51,7 @@ export async function generateBlogTopics(
     const client = getSharedClaudeClient();
 
     const existingTopicsNote = context.existingTopics?.length
-      ? `\n\nAVOID THESE EXISTING TOPICS (already covered):\n${context.existingTopics.map((t) => `- ${t}`).join('\n')}`
+      ? `\n\nAVOID THESE EXISTING TOPICS (already covered — each new topic must be CLEARLY distinct, not a rephrasing or repackaging):\n${context.existingTopics.map((t) => `- ${t}`).join('\n')}`
       : '';
 
     const prompt = `Generate ${count} SEO-optimized blog post ideas for a travel experience marketplace.
@@ -69,6 +69,7 @@ REQUIREMENTS:
 4. Focus on long-tail keywords specific to the niche and location
 5. Topics should be evergreen when possible
 6. Each topic should have clear search intent
+7. Each of the ${count} topics must be SUBSTANTIALLY different from every other topic in this batch — no two should cover the same core subject with different phrasing
 
 CONTENT TYPE DEFINITIONS:
 - guide: Comprehensive destination or activity guides (e.g., "Complete Guide to Food Tours in London")
@@ -97,7 +98,7 @@ Only return valid JSON, no other text.`;
       model: client.getModelId('haiku'), // Changed from 'sonnet' for cost reduction
       messages: [{ role: 'user', content: prompt }],
       maxTokens: 3000,
-      temperature: 0.8,
+      temperature: 0.7,
     });
 
     const content = response.content[0]?.type === 'text' ? response.content[0].text : '';
@@ -105,7 +106,7 @@ Only return valid JSON, no other text.`;
 
     if (jsonMatch) {
       const topics = JSON.parse(jsonMatch[0]) as BlogTopicSuggestion[];
-      console.log(`[Blog Topics] Generated ${topics.length} topics`);
+      console.info(`[Blog Topics] Generated ${topics.length} topics`);
       return topics;
     }
 
@@ -205,7 +206,7 @@ export async function generateDailyBlogTopic(
   // Rotate focus each day
   const dailyFocus = ['seasonal', 'trending', 'evergreen', 'local-insights'][(dayOfYear - 1) % 4];
 
-  console.log(`[Blog Topics] Generating daily topic with focus: ${dailyFocus}`);
+  console.info(`[Blog Topics] Generating daily topic with focus: ${dailyFocus}`);
 
   try {
     const client = getSharedClaudeClient();
@@ -241,9 +242,9 @@ SITE CONTEXT:
 - Today's Focus: ${dailyFocus}
 ${experienceContext}
 
-EXISTING TOPICS TO AVOID (already published — ensure your topic covers a DIFFERENT angle, destination, or theme):
+EXISTING TOPICS TO AVOID (already published — you MUST NOT generate a topic that overlaps significantly with any of these. Do NOT rephrase, reword, or repackage an existing topic. Each new topic must cover a genuinely DISTINCT subject, angle, or subtopic not already addressed):
 ${context.existingTopics?.map((t) => `- ${t}`).join('\n') || 'None yet'}
-
+${context.existingTopics && context.existingTopics.length >= 10 ? `\nIMPORTANT: This site already has ${context.existingTopics.length} blog posts. If you cannot think of a genuinely new topic that is CLEARLY different from all existing ones, return: {"skip": true}\n` : ''}
 FOCUS GUIDELINES:
 - seasonal: Topics relevant to current season/month (holidays, weather, events)
 - trending: Popular search topics, current travel trends
@@ -270,16 +271,20 @@ Only return valid JSON.`;
       model: client.getModelId('haiku'), // Use haiku for cost efficiency
       messages: [{ role: 'user', content: prompt }],
       maxTokens: 1000,
-      temperature: 0.9,
+      temperature: 0.7,
     });
 
     const content = response.content[0]?.type === 'text' ? response.content[0].text : '';
     const jsonMatch = content.match(/\{[\s\S]*\}/);
 
     if (jsonMatch) {
-      const topic = JSON.parse(jsonMatch[0]) as BlogTopicSuggestion;
-      console.log(`[Blog Topics] Generated daily topic: ${topic.title}`);
-      return topic;
+      const parsed = JSON.parse(jsonMatch[0]) as BlogTopicSuggestion & { skip?: boolean };
+      if (parsed.skip) {
+        console.info('[Blog Topics] AI indicated no distinct topic available — skipping');
+        return null;
+      }
+      console.info(`[Blog Topics] Generated daily topic: ${parsed.title}`);
+      return parsed;
     }
 
     // Fallback to first topic from fallback generator
@@ -303,7 +308,7 @@ export async function generateWeeklyBlogTopics(
   // For variety, rotate focus each week
   const weeklyFocus = ['seasonal', 'trending', 'evergreen', 'local-insights'][(weekNumber - 1) % 4];
 
-  console.log(`[Blog Topics] Generating weekly topics with focus: ${weeklyFocus}`);
+  console.info(`[Blog Topics] Generating weekly topics with focus: ${weeklyFocus}`);
 
   try {
     const client = getSharedClaudeClient();
@@ -360,7 +365,7 @@ Only return valid JSON.`;
 
     if (jsonMatch) {
       const topics = JSON.parse(jsonMatch[0]) as BlogTopicSuggestion[];
-      console.log(`[Blog Topics] Generated ${topics.length} weekly topics`);
+      console.info(`[Blog Topics] Generated ${topics.length} weekly topics`);
       return topics;
     }
 
