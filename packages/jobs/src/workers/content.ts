@@ -14,6 +14,7 @@ import {
   calculateRetryDelay,
   shouldMoveToDeadLetter,
 } from '../errors';
+import { findSimilarTitle } from '../services/blog-dedup.js';
 import { errorTracking } from '../errors/tracking';
 import { circuitBreakers } from '../errors/circuit-breaker';
 import { canExecuteAutonomousOperation } from '../services/pause-control';
@@ -1101,6 +1102,27 @@ async function handleMicrositePageContentGenerate(params: {
         return {
           success: true,
           message: `Skipped duplicate slug "${slug}"`,
+          data: { micrositeId, slug },
+          timestamp: new Date(),
+        };
+      }
+
+      // Similarity check: reject topics too close to existing published blogs
+      const existingBlogs = await prisma.page.findMany({
+        where: { micrositeId, type: PageType.BLOG, status: PageStatus.PUBLISHED },
+        select: { title: true },
+      });
+      const similarTo = findSimilarTitle(
+        result.content.title,
+        existingBlogs.map((p) => p.title)
+      );
+      if (similarTo) {
+        console.info(
+          `[Content Generate - Microsite] Skipping "${result.content.title}" — too similar to existing: "${similarTo}"`
+        );
+        return {
+          success: true,
+          message: `Skipped near-duplicate of "${similarTo}"`,
           data: { micrositeId, slug },
           timestamp: new Date(),
         };
