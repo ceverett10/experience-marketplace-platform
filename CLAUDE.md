@@ -125,18 +125,31 @@ git rebase --continue
 
 **Source code conflicts** — standard resolution: read both changes, merge intent not just text, run `npm run typecheck` after.
 
-### PR Review Until Merge (MANDATORY)
+### PR Review Until Production (MANDATORY — Do Not Abandon PRs)
 
-**Do not stop working on a PR until it has merged.** After creating a PR with auto-merge:
+**Do not stop working on a PR until it has merged AND deployed to production.** Abandoned PRs
+that fail CI silently are the #1 source of wasted time on this project. An agent that creates
+a PR and walks away without confirming it merged has not completed its task.
+
+After creating a PR with auto-merge:
 
 1. Monitor CI checks until all pass (poll `gh pr view` every 60-90s)
-2. If any check fails, investigate immediately — read `gh run view --log-failed`, fix the issue, push
+2. If any check fails, investigate **immediately** — read `gh run view --log-failed`, fix the
+   issue, push. Do NOT move on to other work while CI is red
 3. If the branch is BEHIND main, update it (`gh api .../update-branch` or rebase + push)
 4. Once all checks pass and the PR is still not merged (e.g., branch protection), update the branch
-5. Only move on to the next task after confirming `"state": "MERGED"` in `gh pr view`
+5. Confirm `"state": "MERGED"` in `gh pr view` — this is the minimum exit criteria
+6. After merge, verify the deploy succeeded: `heroku releases --app holibob-experiences-demand-gen`
+   — the latest release should show status `succeeded` and match your merge commit
+7. If the deploy fails (e.g., migration error, build failure), you own the fix — do not leave
+   a broken production deploy for someone else to discover
 
-This prevents stale PRs, undetected CI failures, and merge conflicts from piling up.
-The cost of watching a PR merge (~5 minutes) is far less than debugging a stale branch later.
+**The full lifecycle is: code → test locally → push → CI green → merge → deploy succeeds.**
+An agent that exits before step 7 has not finished the job.
+
+This prevents stale PRs, undetected CI failures, broken deploys, and merge conflicts from piling up.
+The cost of watching a PR through to production (~10 minutes) is far less than debugging a stale
+branch or broken deploy later.
 
 ## Commit Messages
 
@@ -147,12 +160,60 @@ The cost of watching a PR merge (~5 minutes) is far less than debugging a stale 
 
 ## Code Standards
 
-### TypeScript
+### Pre-Push Quality Gate (MANDATORY — Zero Tolerance)
+
+**Every agent and developer MUST pass all four checks locally before pushing.** CI failures
+waste time, block other PRs, and delay deploys. Treat a CI failure you caused as a P0 incident.
+
+```bash
+npm run lint          # ESLint — catches console.log, unused imports, type-only imports
+npm run typecheck     # TypeScript strict mode — catches type errors, missing properties
+npm run format:check  # Prettier — catches formatting drift
+npm run test          # Vitest — catches broken tests, missing mocks, undefined references
+```
+
+**If you skip these and CI fails, you own the fix immediately — do not move to other work.**
+
+### TypeScript (Strict Mode — No Exceptions)
 
 - Strict mode enabled (`strict: true`, `noUncheckedIndexedAccess: true`)
-- Prefer `type` imports: `import type { Foo } from './bar'`
+- **Every new file must compile cleanly** — zero `// @ts-ignore` or `// @ts-expect-error` without
+  an explanatory comment and a linked issue
+- Prefer `type` imports: `import type { Foo } from './bar'` — ESLint enforces this
 - Unused variables must be prefixed with `_`
 - No `console.log` — use `console.warn`, `console.error`, or `console.info`
+- No `as any` — type properly. The only acceptable use is Prisma enum casts (documented friction)
+- No `as unknown as SomeType` to bypass type safety — fix the actual type instead
+- When adding a property to an interface or schema, **search the codebase for all consumers** and
+  update them. Common culprits: Zod schemas, API route handlers, test mocks, component props
+- When adding an enum value (Prisma or TypeScript), update every `switch`/`if` chain that
+  handles that enum — search with `grep -r "EnumName" --include="*.ts"` before pushing
+
+### Type Safety Patterns
+
+```typescript
+// GOOD: Exhaustive switch with never check
+function handleStatus(status: BookingStatus): string {
+  switch (status) {
+    case 'PENDING':
+      return 'Waiting';
+    case 'CONFIRMED':
+      return 'Done';
+    case 'CANCELLED':
+      return 'Cancelled';
+    default: {
+      const _exhaustive: never = status;
+      throw new Error(`Unhandled status: ${_exhaustive}`);
+    }
+  }
+}
+
+// BAD: Partial handling that silently breaks when new values are added
+function handleStatus(status: BookingStatus): string {
+  if (status === 'PENDING') return 'Waiting';
+  return 'Unknown'; // Will silently swallow new statuses
+}
+```
 
 ### Formatting (Prettier)
 
@@ -162,7 +223,7 @@ The cost of watching a PR merge (~5 minutes) is far less than debugging a stale 
 - Trailing commas (ES5)
 - LF line endings
 
-### Testing
+### Testing (MANDATORY for Changed Code)
 
 - Framework: Vitest
 - Test files: `*.test.ts` / `*.test.tsx`
@@ -175,6 +236,37 @@ The cost of watching a PR merge (~5 minutes) is far less than debugging a stale 
   - Others: 20% (default)
 - When writing tests, match the workspace's configured threshold, not a blanket 80%
 
+**Testing rules that prevent CI failures:**
+
+1. **Run tests for every workspace you changed** before pushing:
+   ```bash
+   npm run test --workspace=@experience-marketplace/<workspace-name>
+   ```
+2. **If you add a new API route**, add a test file. Copy the pattern from adjacent route tests
+3. **If you modify an existing API route**, run its existing tests first — if they fail, fix them
+   as part of your PR, not in a follow-up
+4. **Mock boundaries, not internals** — mock Prisma, external APIs (Holibob, Stripe), Redis.
+   Do NOT mock internal functions unless absolutely necessary
+5. **When adding new enum values or types**, update all test mocks that reference those types.
+   Search for the type name in `*.test.ts` files
+6. **Admin component tests**: If your component reads from an API response, ensure the mock data
+   matches the actual API response shape. The most common admin test failure is `Cannot read
+properties of undefined` from stale mock data
+7. **Never push with a known test failure** — "it was already broken" is not acceptable. Either
+   fix the pre-existing failure or explicitly skip the test with `it.skip()` and a comment
+   explaining why
+
+### React / Next.js Patterns
+
+- Server Components by default — only add `'use client'` when you need hooks, event handlers,
+  or browser APIs
+- Use `import type` for types used only in type positions
+- API routes: always validate input with Zod, return typed responses
+- Error boundaries: server components use try/catch returning `null` for non-critical sections;
+  client components use React error boundaries
+- When referencing Prisma enums in React components, import from `@prisma/client` — do NOT
+  duplicate enum values as string literals
+
 ### Existing Code Debt (Do Not Replicate)
 
 The codebase has legacy `console.log` usage (~1700 occurrences) and `as any` casts (~400).
@@ -182,6 +274,7 @@ These exist as tech debt — **do not add new ones**. Follow the rules:
 
 - Use `console.info`/`console.warn`/`console.error` instead of `console.log`
 - Type properly instead of `as any` — only use when Prisma enum casts require it (documented friction point)
+- Do not copy patterns from legacy code without checking if they follow current standards
 
 ## Monorepo Structure
 
