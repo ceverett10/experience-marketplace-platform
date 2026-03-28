@@ -1,5 +1,180 @@
 # Experience Marketplace Platform
 
+## Local Development Setup
+
+### Prerequisites
+
+- **Node.js 20+** and **npm 10+**
+- **GitHub CLI** (`gh`) — required for the PR workflow
+- **Heroku CLI** — required for deploys, logs, and env vars
+- **Redis** — local instance or Heroku Redis URL for job queues
+- **PostgreSQL** — local instance or Heroku Postgres URL
+
+### First-Time Setup
+
+```bash
+# 1. Clone and install
+git clone https://github.com/ceverett10/experience-marketplace-platform.git
+cd experience-marketplace-platform
+npm install
+
+# 2. Authenticate CLIs
+gh auth login                    # GitHub — select HTTPS, authenticate via browser
+heroku login                     # Heroku — opens browser for auth
+
+# 3. Pull environment variables from Heroku
+#    Copy .env.example and fill with real values from Heroku:
+cp .env.example .env
+heroku config --app holibob-experiences-demand-gen --shell > .env.heroku
+#    Then copy the values you need from .env.heroku into .env
+#    IMPORTANT: Never commit .env files — they contain production secrets
+
+# 4. Or pull individual values:
+heroku config:get DATABASE_URL --app holibob-experiences-demand-gen
+heroku config:get REDIS_URL --app holibob-experiences-demand-gen
+heroku config:get ANTHROPIC_API_KEY --app holibob-experiences-demand-gen
+
+# 5. Generate Prisma client (required before first run)
+npm run db:generate --workspace=@experience-marketplace/database
+
+# 6. Build packages (apps depend on built package output)
+npm run build:packages
+
+# 7. Start development servers
+npm run dev                      # All workspaces concurrently
+```
+
+### Local Port Mapping
+
+| Service           | Port | Command                         |
+| ----------------- | ---- | ------------------------------- |
+| Website Platform  | 3000 | `npm run dev` (included)        |
+| Admin Dashboard   | 3001 | `npm run dev` (included)        |
+| MCP Server        | 3100 | `npm run dev` (included)        |
+| Proxy (prod only) | 8080 | Not used locally                |
+| Redis             | 6379 | Local Redis or Heroku Redis URL |
+| PostgreSQL        | 5432 | Local Postgres or Heroku DB URL |
+
+### Running Against Heroku Database Locally
+
+For scripts that need the production database (migrations, data fixes):
+
+```bash
+# Prefix any command with DATABASE_URL from Heroku:
+DATABASE_URL=$(heroku config:get DATABASE_URL --app holibob-experiences-demand-gen) \
+  npx tsx packages/jobs/src/scripts/your-script.ts
+
+# Run Prisma Studio against production (read-only inspection):
+DATABASE_URL=$(heroku config:get DATABASE_URL --app holibob-experiences-demand-gen) \
+  npx prisma studio --schema packages/database/prisma/schema.prisma
+```
+
+**Warning**: Scripts run against production DB affect live data. Always use `--dry-run` first
+when available.
+
+### Heroku App & CLI Reference
+
+The production app is **`holibob-experiences-demand-gen`** (EU region). Common commands:
+
+```bash
+# View recent deploys and their status
+heroku releases --app holibob-experiences-demand-gen
+
+# View release logs (e.g., migration output)
+heroku releases:output v1234 --app holibob-experiences-demand-gen
+
+# Stream live logs
+heroku logs --tail --app holibob-experiences-demand-gen
+
+# Filter logs by dyno
+heroku logs --tail --dyno worker-fast --app holibob-experiences-demand-gen
+
+# Restart dynos (fixes connection exhaustion)
+heroku ps:restart --app holibob-experiences-demand-gen
+
+# Retry a failed release (e.g., after fixing a migration)
+heroku releases:retry --app holibob-experiences-demand-gen
+
+# Run a one-off script on Heroku
+heroku run "npx tsx packages/jobs/src/scripts/your-script.ts" --app holibob-experiences-demand-gen
+
+# Get all config vars
+heroku config --app holibob-experiences-demand-gen
+```
+
+### GitHub CLI Reference
+
+The `gh` CLI is required for the PR workflow documented below. Common commands:
+
+```bash
+# List open PRs
+gh pr list --state open
+
+# Check PR status and CI results
+gh pr view <PR_NUMBER>
+
+# View failed CI logs
+gh run view --log-failed
+
+# Create PR with auto-merge
+gh pr create --title "..." --body "..."
+gh pr merge --auto --squash
+
+# Update a PR branch with main (no force push needed)
+gh api repos/ceverett10/experience-marketplace-platform/pulls/<PR_NUMBER>/update-branch -X PUT
+```
+
+### Writing Prisma Migrations
+
+Heroku Postgres essential plans do not support shadow databases, so `prisma migrate dev`
+will fail against the production DB. Instead, write migrations by hand:
+
+1. Create directory: `packages/database/prisma/migrations/<timestamp>_<name>/migration.sql`
+2. Write the SQL manually
+3. **Check `@@map` directives** on every model you reference — if a model has `@@map("table_name")`,
+   use `"table_name"` in SQL. If no `@@map`, Prisma uses the PascalCase model name (e.g., `"Site"`)
+4. The release phase runs `prisma migrate deploy` automatically on every Heroku deploy
+5. If a migration fails in production, mark it as rolled back before retrying:
+   ```bash
+   DATABASE_URL=$(heroku config:get DATABASE_URL --app holibob-experiences-demand-gen) \
+     npx prisma migrate resolve --rolled-back <migration_name> \
+     --schema packages/database/prisma/schema.prisma
+   ```
+
+**Current table name mapping** (models with `@@map`):
+
+| Model                      | Table Name                      |
+| -------------------------- | ------------------------------- |
+| PlatformSettings           | `platform_settings`             |
+| AdminUser                  | `admin_users`                   |
+| AdminAuditLog              | `admin_audit_logs`              |
+| Partner                    | `partners`                      |
+| McpApiKey                  | `mcp_api_keys`                  |
+| SiteAnalyticsSnapshot      | `site_analytics_snapshots`      |
+| ManualTask                 | `manual_tasks`                  |
+| AdCampaign                 | `ad_campaigns`                  |
+| AdDailyMetric              | `ad_daily_metrics`              |
+| BiddingProfile             | `bidding_profiles`              |
+| AdAlert                    | `ad_alerts`                     |
+| TrendSnapshot              | `trend_snapshots`               |
+| FocusedStrategyConfig      | `focused_strategy_configs`      |
+| AdReviewReport             | `ad_review_reports`             |
+| Supplier                   | `suppliers`                     |
+| Product                    | `products`                      |
+| MicrositeConfig            | `microsite_configs`             |
+| MicrositeAnalyticsSnapshot | `microsite_analytics_snapshots` |
+| MicrositePerformanceMetric | `microsite_performance_metrics` |
+| CuratedCollection          | `curated_collections`           |
+| ProductCollection          | `product_collections`           |
+| Subscriber                 | `subscribers`                   |
+| ContactMessage             | `contact_messages`              |
+| PrizeDraw                  | `prize_draws`                   |
+
+Models **without** `@@map` use PascalCase table names: `"Site"`, `"Brand"`, `"Domain"`, `"Page"`,
+`"Content"`, `"SEOOpportunity"`, `"Job"`, `"Booking"`, `"BookingFunnelEvent"`,
+`"PerformanceMetric"`, `"ABTest"`, `"ABTestVariant"`, `"ErrorLog"`, `"SocialAccount"`,
+`"SocialPost"`.
+
 ## Required Checks Before Committing
 
 **MANDATORY**: Run these before every commit. Do not skip or use `--no-verify`.
