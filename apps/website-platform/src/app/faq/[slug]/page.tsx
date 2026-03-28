@@ -17,9 +17,24 @@ interface Props {
  * Note: FAQ pages are stored with 'faq/' prefix in slug (e.g., 'faq/booking-questions')
  * The URL /faq/booking-questions maps to slug 'faq/booking-questions' in the database
  */
-async function getFAQPage(siteId: string, slug: string) {
-  // Slugs are stored with 'faq/' prefix, so prepend it for the query
+async function getFAQPage(siteId: string, slug: string, micrositeId?: string) {
   const fullSlug = `faq/${slug}`;
+
+  if (micrositeId) {
+    return await prisma.page.findUnique({
+      where: {
+        micrositeId_slug: {
+          micrositeId,
+          slug: fullSlug,
+        },
+        type: 'FAQ',
+        status: 'PUBLISHED',
+      },
+      include: {
+        content: true,
+      },
+    });
+  }
 
   return await prisma.page.findUnique({
     where: {
@@ -89,7 +104,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const hostname = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
   const site = await getSiteFromHostname(hostname);
 
-  const page = await getFAQPage(site.id, slug);
+  const page = await getFAQPage(site.id, slug, site.micrositeContext?.micrositeId);
 
   if (!page) {
     return {
@@ -137,7 +152,7 @@ export default async function FAQDetailPage({ params }: Props) {
   const hostname = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
   const site = await getSiteFromHostname(hostname);
 
-  const page = await getFAQPage(site.id, slug);
+  const page = await getFAQPage(site.id, slug, site.micrositeContext?.micrositeId);
 
   if (!page) {
     notFound();
