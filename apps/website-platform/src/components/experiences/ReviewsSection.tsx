@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import Image from 'next/image';
+import { inferTravelerType, TRAVELER_TYPE_CONFIG, type TravelerType } from '@/lib/review-tags';
 
 interface Review {
   id: string;
@@ -58,8 +59,28 @@ function formatDate(dateString: string) {
 export function ReviewsSection({ reviews, rating }: ReviewsSectionProps) {
   const [sortBy, setSortBy] = useState<SortOption>('newest');
   const [filterRating, setFilterRating] = useState<number | null>(null);
+  const [filterTravelerType, setFilterTravelerType] = useState<TravelerType | null>(null);
   const [visibleCount, setVisibleCount] = useState(REVIEWS_PER_PAGE);
   const [expandedReviews, setExpandedReviews] = useState<Set<string>>(new Set());
+
+  // Infer traveler types for all reviews
+  const reviewTravelerTypes = useMemo(() => {
+    const map = new Map<string, TravelerType>();
+    for (const review of reviews) {
+      const type = inferTravelerType(review.content);
+      if (type) map.set(review.id, type);
+    }
+    return map;
+  }, [reviews]);
+
+  // Count reviews by traveler type for filter chips
+  const travelerTypeCounts = useMemo(() => {
+    const counts = new Map<TravelerType, number>();
+    for (const type of reviewTravelerTypes.values()) {
+      counts.set(type, (counts.get(type) ?? 0) + 1);
+    }
+    return counts;
+  }, [reviewTravelerTypes]);
 
   const ratingBreakdown = useMemo(() => {
     const counts = new Map<number, number>([
@@ -81,6 +102,11 @@ export function ReviewsSection({ reviews, rating }: ReviewsSectionProps) {
       ? reviews.filter((r) => Math.round(r.rating) === filterRating)
       : reviews;
 
+    // Apply traveler type filter
+    if (filterTravelerType) {
+      result = result.filter((r) => reviewTravelerTypes.get(r.id) === filterTravelerType);
+    }
+
     result = [...result].sort((a, b) => {
       switch (sortBy) {
         case 'newest':
@@ -97,7 +123,7 @@ export function ReviewsSection({ reviews, rating }: ReviewsSectionProps) {
     });
 
     return result;
-  }, [reviews, sortBy, filterRating]);
+  }, [reviews, sortBy, filterRating, filterTravelerType, reviewTravelerTypes]);
 
   const visibleReviews = filteredAndSorted.slice(0, visibleCount);
   const hasMore = visibleCount < filteredAndSorted.length;
@@ -173,16 +199,53 @@ export function ReviewsSection({ reviews, rating }: ReviewsSectionProps) {
           </div>
         </div>
 
+        {/* Traveler Type Filter Chips */}
+        {travelerTypeCounts.size > 0 && (
+          <div className="mb-4 flex flex-wrap gap-2">
+            <span className="text-xs font-medium text-gray-500 self-center mr-1">
+              Filter by traveler:
+            </span>
+            {Array.from(travelerTypeCounts.entries())
+              .sort((a, b) => b[1] - a[1])
+              .map(([type, count]) => {
+                const config = TRAVELER_TYPE_CONFIG[type];
+                const isActive = filterTravelerType === type;
+                return (
+                  <button
+                    key={type}
+                    onClick={() => {
+                      setFilterTravelerType(isActive ? null : type);
+                      setVisibleCount(REVIEWS_PER_PAGE);
+                    }}
+                    className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                      isActive
+                        ? 'bg-teal-100 text-teal-800 ring-1 ring-teal-300'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    <span>{config.icon}</span>
+                    {config.label}
+                    <span className="text-[10px] opacity-70">({count})</span>
+                  </button>
+                );
+              })}
+          </div>
+        )}
+
         {/* Controls: Filter indicator + Sort */}
         <div className="mb-6 flex items-center justify-between border-t border-gray-100 pt-4">
           <div className="text-sm text-gray-600">
-            {filterRating ? (
+            {filterRating || filterTravelerType ? (
               <span>
-                Showing {filteredAndSorted.length} {filterRating}-star{' '}
+                Showing {filteredAndSorted.length} {filterRating ? `${filterRating}-star ` : ''}
+                {filterTravelerType
+                  ? `${TRAVELER_TYPE_CONFIG[filterTravelerType].label.toLowerCase()} `
+                  : ''}
                 {filteredAndSorted.length === 1 ? 'review' : 'reviews'}
                 <button
                   onClick={() => {
                     setFilterRating(null);
+                    setFilterTravelerType(null);
                     setVisibleCount(REVIEWS_PER_PAGE);
                   }}
                   className="ml-2 text-teal-600 hover:text-teal-700"
@@ -230,7 +293,15 @@ export function ReviewsSection({ reviews, rating }: ReviewsSectionProps) {
                       {review.authorName.charAt(0).toUpperCase()}
                     </div>
                     <div>
-                      <p className="font-medium text-gray-900">{review.authorName}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-gray-900">{review.authorName}</p>
+                        {reviewTravelerTypes.get(review.id) && (
+                          <span className="inline-flex items-center gap-0.5 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-600">
+                            {TRAVELER_TYPE_CONFIG[reviewTravelerTypes.get(review.id)!].icon}{' '}
+                            {TRAVELER_TYPE_CONFIG[reviewTravelerTypes.get(review.id)!].label}
+                          </span>
+                        )}
+                      </div>
                       <p className="flex items-center gap-1.5 text-xs text-gray-500">
                         {formatDate(review.publishedDate)}
                         <span className="text-emerald-600">• Verified booking</span>

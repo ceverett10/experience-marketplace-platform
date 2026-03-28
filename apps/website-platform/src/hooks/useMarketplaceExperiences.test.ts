@@ -22,6 +22,9 @@ const defaultFilters: FilterState = {
   duration: null,
   minRating: null,
   search: null,
+  timeOfDay: null,
+  accessibility: null,
+  perfectFor: null,
 };
 
 function makeExperience(id: string) {

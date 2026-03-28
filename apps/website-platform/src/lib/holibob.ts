@@ -167,6 +167,12 @@ export interface ExperienceListItem {
   cancellationPolicy?: {
     type?: string;
   };
+  /** Provider/operator name for trust display on cards */
+  providerName?: string;
+  /** Top 2-3 inclusions for "What's Included" preview on cards */
+  topInclusions?: string[];
+  /** Category names for occasion tag derivation */
+  categories?: string[];
 }
 
 /**

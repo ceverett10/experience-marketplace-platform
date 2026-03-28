@@ -249,6 +249,9 @@ export interface SiteConfig {
   // Whether this site/microsite has published blog posts (set in layout.tsx)
   hasBlogPosts?: boolean;
 
+  // Whether this site/microsite has published FAQ pages (set in layout.tsx)
+  hasFaqPages?: boolean;
+
   // Microsite context (only present for microsites on *.experiencess.com)
   micrositeContext?: MicrositeContext;
 

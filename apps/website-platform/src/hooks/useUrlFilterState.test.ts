@@ -47,6 +47,9 @@ describe('useUrlFilterState', () => {
       duration: null,
       minRating: null,
       search: null,
+      timeOfDay: null,
+      accessibility: null,
+      perfectFor: null,
     });
     expect(result.current.activeFilterCount).toBe(0);
     expect(result.current.filterKey).toBe('');
@@ -184,6 +187,9 @@ describe('useUrlFilterState', () => {
       duration: null,
       minRating: null,
       search: null,
+      timeOfDay: null,
+      accessibility: null,
+      perfectFor: null,
     });
     expect(result.current.activeFilterCount).toBe(0);
   });
