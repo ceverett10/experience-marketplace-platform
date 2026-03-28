@@ -147,6 +147,46 @@
   }
 }
 
+/* PPC "Refine Search" attention animation — gentle pulse + shimmer */
+@keyframes refineSearchPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(var(--refine-rgb, 15, 118, 110), 0.4);
+  }
+  50% {
+    transform: scale(1.03);
+    box-shadow: 0 0 0 8px rgba(var(--refine-rgb, 15, 118, 110), 0);
+  }
+}
+
+@keyframes refineSearchShimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+.ppc-refine-animate {
+  animation: refineSearchPulse 2s ease-in-out 3;
+  animation-delay: 1.5s;
+  animation-fill-mode: both;
+}
+
+.ppc-refine-shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.4) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: refineSearchShimmer 2s ease-in-out 3;
+  animation-delay: 1.5s;
+}
+
 /* Social proof toast slide up */
 @keyframes slideUp {
   from {
@@ -197,6 +237,13 @@
     opacity: 1;
   }
   .search-sheet-enter {
+    animation: none;
+  }
+  .ppc-refine-animate {
+    animation: none;
+    transform: none;
+  }
+  .ppc-refine-shimmer {
     animation: none;
   }
 }

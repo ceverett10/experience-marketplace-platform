@@ -6,35 +6,41 @@ import { CURRENCY_COOKIE, getEffectiveCurrency } from '@/lib/currency';
 import { getRelatedMicrosites } from '@/lib/microsite-experiences';
 import { prisma } from '@/lib/prisma';
 
-// Cache blog post checks per site/microsite to avoid querying DB on every render.
+// Cache page-type checks per site/microsite to avoid querying DB on every render.
 // TTL: 5 minutes — matches page revalidation period.
-const blogCheckCache = new Map<string, { hasPosts: boolean; expiresAt: number }>();
-const BLOG_CACHE_TTL = 5 * 60 * 1000;
+const pageCheckCache = new Map<string, { hasPages: boolean; expiresAt: number }>();
+const PAGE_CHECK_CACHE_TTL = 5 * 60 * 1000;
 
 // Evict expired entries every 10 minutes so the map doesn't accumulate stale site entries.
 setInterval(
   () => {
     const now = Date.now();
-    for (const [key, entry] of blogCheckCache.entries()) {
-      if (entry.expiresAt <= now) blogCheckCache.delete(key);
+    for (const [key, entry] of pageCheckCache.entries()) {
+      if (entry.expiresAt <= now) pageCheckCache.delete(key);
     }
   },
   10 * 60 * 1000
 );
 
-async function hasBlogPosts(key: string, where: Record<string, unknown>): Promise<boolean> {
-  const cached = blogCheckCache.get(key);
-  if (cached && cached.expiresAt > Date.now()) return cached.hasPosts;
+async function hasPublishedPages(
+  cacheKey: string,
+  where: Record<string, unknown>
+): Promise<boolean> {
+  const cached = pageCheckCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) return cached.hasPages;
   try {
     const count = await prisma.page.count({
-      where: { ...where, type: 'BLOG', status: 'PUBLISHED' },
+      where: { ...where, status: 'PUBLISHED' },
     });
     const result = count > 0;
-    blogCheckCache.set(key, { hasPosts: result, expiresAt: Date.now() + BLOG_CACHE_TTL });
+    pageCheckCache.set(cacheKey, {
+      hasPages: result,
+      expiresAt: Date.now() + PAGE_CHECK_CACHE_TTL,
+    });
     return result;
   } catch {
     // DB unavailable (e.g. E2E with dummy URL) — default to false, cache briefly to avoid retries
-    blogCheckCache.set(key, { hasPosts: false, expiresAt: Date.now() + BLOG_CACHE_TTL });
+    pageCheckCache.set(cacheKey, { hasPages: false, expiresAt: Date.now() + PAGE_CHECK_CACHE_TTL });
     return false;
   }
 }
@@ -154,13 +160,27 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       console.warn('[Layout] Failed to fetch related microsites:', err);
     }
 
-    // Check if microsite has published blog posts (cached, silent on DB failure)
-    site.hasBlogPosts = await hasBlogPosts(`ms:${site.micrositeContext.micrositeId}`, {
-      micrositeId: site.micrositeContext.micrositeId,
+    // Check if microsite has published blog/FAQ pages (cached, silent on DB failure)
+    const msWhere = { micrositeId: site.micrositeContext.micrositeId };
+    site.hasBlogPosts = await hasPublishedPages(`ms-blog:${site.micrositeContext.micrositeId}`, {
+      ...msWhere,
+      type: 'BLOG',
+    });
+    site.hasFaqPages = await hasPublishedPages(`ms-faq:${site.micrositeContext.micrositeId}`, {
+      ...msWhere,
+      type: 'FAQ',
     });
   } else if (site.id && !site.isParentDomain) {
-    // Check if main site has published blog posts (cached, silent on DB failure)
-    site.hasBlogPosts = await hasBlogPosts(`site:${site.id}`, { siteId: site.id });
+    // Check if main site has published blog/FAQ pages (cached, silent on DB failure)
+    const siteWhere = { siteId: site.id };
+    site.hasBlogPosts = await hasPublishedPages(`site-blog:${site.id}`, {
+      ...siteWhere,
+      type: 'BLOG',
+    });
+    site.hasFaqPages = await hasPublishedPages(`site-faq:${site.id}`, {
+      ...siteWhere,
+      type: 'FAQ',
+    });
   }
 
   return (
