@@ -49,6 +49,14 @@ vi.mock('./CuratedCollections', () => ({
   ),
 }));
 
+vi.mock('./SignatureExperience', () => ({
+  SignatureExperience: ({ experience }: any) => (
+    <div data-testid="signature-experience">{experience.title}</div>
+  ),
+  selectSignatureExperience: (experiences: any[]) =>
+    experiences.length > 0 ? experiences[0] : null,
+}));
+
 vi.mock('@/components/ui/PriceDisplay', () => ({
   PriceDisplay: ({ priceFormatted }: any) => <span data-testid="price">{priceFormatted}</span>,
   DiscountBadge: () => <span data-testid="discount-badge">Sale</span>,
@@ -176,10 +184,10 @@ describe('CatalogHomepage', () => {
 
   it('renders trust badges', () => {
     render(<CatalogHomepage {...defaultProps} />);
-    // Appears in both hero and about sections
-    expect(screen.getAllByText('Verified Operator').length).toBeGreaterThanOrEqual(2);
-    expect(screen.getAllByText('Instant Confirmation').length).toBeGreaterThanOrEqual(2);
-    expect(screen.getAllByText('Secure Booking').length).toBeGreaterThanOrEqual(2);
+    // Appears in about section (trust badges removed from hero)
+    expect(screen.getAllByText('Verified Operator').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Instant Confirmation').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Secure Booking').length).toBeGreaterThanOrEqual(1);
   });
 
   it('renders testimonials section', () => {

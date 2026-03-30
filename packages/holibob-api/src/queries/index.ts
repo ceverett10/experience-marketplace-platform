@@ -882,6 +882,8 @@ export const PRODUCT_LIST_BY_PROVIDER_QUERY = gql`
         imageList {
           id
           url
+          urlSmall
+          urlMedium
         }
         maxDuration
         reviewRating

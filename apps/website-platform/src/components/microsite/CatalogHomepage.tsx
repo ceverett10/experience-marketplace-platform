@@ -23,6 +23,7 @@ import { HomepageBlogSection } from './HomepageBlogSection';
 import { ReviewsCarousel } from '@/components/experiences/ReviewsCarousel';
 import { CuratedCollections } from './CuratedCollections';
 import { PremiumExperienceCard } from '@/components/experiences/PremiumExperienceCard';
+import { SignatureExperience, selectSignatureExperience } from './SignatureExperience';
 
 interface BlogPost {
   id: string;
@@ -72,11 +73,16 @@ interface CatalogHomepageProps {
     authorName: string;
     publishedDate: string;
     images: string[];
+    productTitle?: string;
   }>;
   relatedMicrosites?: RelatedMicrosite[];
   blogPosts?: BlogPost[];
   collections?: Collection[];
   isPpc?: boolean;
+  supplierStats?: {
+    totalReviews: number;
+    yearsActive: number;
+  };
 }
 
 export function CatalogHomepage({
@@ -91,6 +97,7 @@ export function CatalogHomepage({
   blogPosts,
   collections,
   isPpc,
+  supplierStats,
 }: CatalogHomepageProps) {
   const primaryColor = site.brand?.primaryColor ?? '#6366f1';
   const gridColumns = layoutConfig.gridColumns;
@@ -107,6 +114,16 @@ export function CatalogHomepage({
         )
       : null;
 
+  // Compute eyebrow text from supplier categories/cities
+  const eyebrow = site.micrositeContext?.supplierCities?.[0]
+    ? `${site.micrositeContext.supplierCategories?.[0] ?? 'Experiences'} in ${site.micrositeContext.supplierCities[0]}`
+    : null;
+
+  const signatureExperience = !isPpc ? selectSignatureExperience(experiences) : null;
+  const gridExperiences = signatureExperience
+    ? experiences.filter((e) => e.id !== signatureExperience.id)
+    : experiences;
+
   // Default testimonials if none provided
   const displayTestimonials = testimonials ?? [
     {
@@ -120,10 +137,10 @@ export function CatalogHomepage({
   return (
     <>
       {/* Compact Hero Section */}
-      <section className="relative">
+      <section className="relative overflow-hidden pb-8">
         {/* Background */}
         <div
-          className={`absolute inset-0 overflow-hidden ${isPpc ? 'h-[200px] sm:h-[240px]' : 'h-[300px] sm:h-[350px]'}`}
+          className="absolute inset-0 overflow-hidden"
         >
           {heroConfig?.backgroundImage ? (
             <Image
@@ -144,7 +161,7 @@ export function CatalogHomepage({
               }}
             />
           )}
-          <div className="absolute inset-0 bg-black/40" />
+          <div className="absolute inset-0" style={{ background: `linear-gradient(to bottom, ${primaryColor}40 0%, rgba(0,0,0,0.55) 100%)` }} />
         </div>
 
         {/* Content */}
@@ -154,6 +171,11 @@ export function CatalogHomepage({
           }`}
         >
           <div className="text-center">
+            {!isPpc && eyebrow && (
+              <p className="mb-3 text-sm font-medium uppercase tracking-widest text-white/70">
+                {eyebrow}
+              </p>
+            )}
             {/* Site Name */}
             <h1
               className={`font-bold text-white ${isPpc ? 'text-2xl sm:text-3xl' : 'text-3xl sm:text-4xl'}`}
@@ -193,42 +215,22 @@ export function CatalogHomepage({
                   )}
                 </div>
 
-                {/* Trust Badges - Compact inline indicators */}
-                <div className="mt-6 flex flex-wrap justify-center gap-4 text-xs text-white/90 sm:gap-6 sm:text-sm">
-                  <div className="flex items-center gap-1.5">
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                    <span>Verified Operator</span>
+                {supplierStats && supplierStats.totalReviews > 0 && (
+                  <div>
+                    <span className="text-2xl font-bold text-white">
+                      {supplierStats.totalReviews.toLocaleString()}
+                    </span>
+                    <span className="ml-2">Reviews</span>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                    <span>Instant Confirmation</span>
+                )}
+                {supplierStats && supplierStats.yearsActive > 0 && (
+                  <div>
+                    <span className="text-2xl font-bold text-white">
+                      {supplierStats.yearsActive}+
+                    </span>
+                    <span className="ml-2">Years</span>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"
-                      />
-                    </svg>
-                    <span>Secure Booking</span>
-                  </div>
-                </div>
+                )}
               </>
             )}
 
@@ -240,6 +242,13 @@ export function CatalogHomepage({
             )}
           </div>
         </div>
+        {!isPpc && (
+          <div className="absolute -bottom-1 left-0 right-0">
+            <svg viewBox="0 0 1440 80" fill="none" xmlns="http://www.w3.org/2000/svg" className="block w-full" preserveAspectRatio="none">
+              <path d="M0 40C240 70 480 80 720 60C960 40 1200 10 1440 30V80H0V40Z" fill="white" />
+            </svg>
+          </div>
+        )}
       </section>
 
       {/* Curated Collections */}
@@ -251,6 +260,10 @@ export function CatalogHomepage({
         />
       )}
 
+      {signatureExperience && (
+        <SignatureExperience experience={signatureExperience} primaryColor={primaryColor} />
+      )}
+
       {/* All Experiences Grid */}
       <section className="bg-white py-12 sm:py-16">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -258,7 +271,7 @@ export function CatalogHomepage({
             <h2 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
               {isPpc
                 ? `${displayCount.toLocaleString()} ${ppcDestination ? `${ppcDestination} ` : ''}Experiences${cheapestExperience ? ` — From ${cheapestExperience.price.formatted}` : ''}`
-                : 'Our Experiences'}
+                : signatureExperience ? 'More Experiences' : 'Our Experiences'}
             </h2>
             <p className="mx-auto mt-2 max-w-2xl text-base text-gray-600">
               {isPpc
@@ -277,7 +290,7 @@ export function CatalogHomepage({
                 : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
             }`}
           >
-            {experiences.map((experience, idx) => (
+            {gridExperiences.map((experience, idx) => (
               <PremiumExperienceCard
                 key={experience.id}
                 experience={experience}
