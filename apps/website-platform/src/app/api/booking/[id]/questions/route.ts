@@ -327,7 +327,25 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       const leadGuest = guests[0];
       const leadPassengerName = leadGuest ? `${leadGuest.firstName} ${leadGuest.lastName}` : '';
 
+      // Build partner external reference: site base URL + ref param (if present)
+      let partnerExternalReference: string | undefined;
+      const protocol = request.headers.get('x-forwarded-proto') || 'https';
+      const siteBaseUrl = `${protocol}://${host}`;
+      const utmCookie = request.cookies.get('utm_params')?.value;
+      if (utmCookie) {
+        try {
+          const utm = JSON.parse(utmCookie);
+          const ref = utm.ref || '';
+          partnerExternalReference = ref ? `${siteBaseUrl}?ref=${ref}` : siteBaseUrl;
+        } catch {
+          partnerExternalReference = siteBaseUrl;
+        }
+      } else {
+        partnerExternalReference = siteBaseUrl;
+      }
+
       console.info('[Questions API] Lead passenger:', leadPassengerName);
+      console.info('[Questions API] Partner external reference:', partnerExternalReference);
       console.info('[Questions API] Answer list:', JSON.stringify(answerList, null, 2));
 
       // Submit answers to Holibob
@@ -335,6 +353,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         try {
           const answeredBooking = await client.answerBookingQuestions(bookingId, {
             leadPassengerName,
+            reference: partnerExternalReference,
             answerList,
           });
           console.info('[Questions API] Holibob response canCommit:', answeredBooking.canCommit);
