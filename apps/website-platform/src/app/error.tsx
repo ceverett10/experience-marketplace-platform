@@ -1,12 +1,19 @@
 'use client';
 
+import { useEffect } from 'react';
+import { reportError } from '@/lib/error-reporting';
+
 export default function Error({
-  error: _error,
+  error,
   reset,
 }: {
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  useEffect(() => {
+    reportError(error, { boundary: 'root' });
+  }, [error]);
+
   return (
     <div className="flex min-h-[60vh] items-center justify-center px-4">
       <div className="text-center">

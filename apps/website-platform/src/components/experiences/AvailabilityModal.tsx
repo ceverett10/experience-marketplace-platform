@@ -14,6 +14,7 @@ import {
   type PricingCategory,
   type AvailabilityDetail,
 } from '@/lib/booking-flow';
+import { reportError } from '@/lib/error-reporting';
 
 interface AvailabilityModalProps {
   isOpen: boolean;
@@ -107,6 +108,8 @@ export function AvailabilityModal({
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load availability');
+        if (err instanceof Error)
+          reportError(err, { component: 'AvailabilityModal', action: 'loadAvailability' });
       } finally {
         setIsLoading(false);
       }
@@ -147,6 +150,10 @@ export function AvailabilityModal({
     setError(null);
     try {
       const detail = await getAvailabilityDetails(slotId);
+      if (!detail) {
+        setError('Availability details not found. Please select a different date.');
+        return;
+      }
       setAvailabilityDetail(detail);
 
       // Check if options are already complete
@@ -154,6 +161,10 @@ export function AvailabilityModal({
         setOptionsComplete(true);
         // Load pricing directly — skip options step entirely
         const pricingDetail = await getAvailabilityDetails(slotId, true);
+        if (!pricingDetail) {
+          setError('Failed to load pricing. Please try again.');
+          return;
+        }
         setAvailabilityDetail(pricingDetail);
         const cats = pricingDetail.pricingCategoryList?.nodes ?? [];
         setPricingCategoriesState(cats);
@@ -165,6 +176,8 @@ export function AvailabilityModal({
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load availability details');
+      if (err instanceof Error)
+        reportError(err, { component: 'AvailabilityModal', action: 'loadOptions' });
     } finally {
       setIsLoading(false);
     }
@@ -184,12 +197,20 @@ export function AvailabilityModal({
     try {
       const options = Object.entries(optionSelections).map(([id, value]) => ({ id, value }));
       const result = await setAvailabilityOptions(selectedSlot.id, options);
+      if (!result) {
+        setError('Failed to set options. Please try again.');
+        return;
+      }
       setAvailabilityDetail(result);
 
       if (result.optionList?.isComplete) {
         setOptionsComplete(true);
         // Load pricing
         const pricingDetail = await getAvailabilityDetails(selectedSlot.id, true);
+        if (!pricingDetail) {
+          setError('Failed to load pricing. Please try again.');
+          return;
+        }
         setAvailabilityDetail(pricingDetail);
         const cats = pricingDetail.pricingCategoryList?.nodes ?? [];
         setPricingCategoriesState(cats);
@@ -201,6 +222,8 @@ export function AvailabilityModal({
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to set options');
+      if (err instanceof Error)
+        reportError(err, { component: 'AvailabilityModal', action: 'submitOptions' });
     } finally {
       setIsLoading(false);
     }
@@ -253,6 +276,8 @@ export function AvailabilityModal({
         }
       } catch (err) {
         console.error('Pricing update error:', err);
+        if (err instanceof Error)
+          reportError(err, { component: 'AvailabilityModal', action: 'updatePricing' });
       }
     };
 
@@ -271,6 +296,8 @@ export function AvailabilityModal({
       router.push(`/checkout/${bookingId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create booking');
+      if (err instanceof Error)
+        reportError(err, { component: 'AvailabilityModal', action: 'startBooking' });
       setIsBooking(false);
     }
   };
@@ -540,7 +567,7 @@ export function AvailabilityModal({
           {/* Step 2: Options Selection */}
           {step === 'options' && !isLoading && availabilityDetail && (
             <div className="space-y-4">
-              {availabilityDetail.optionList?.nodes
+              {(availabilityDetail.optionList?.nodes ?? [])
                 .filter((opt) => opt.availableOptions && opt.availableOptions.length > 0)
                 .map((option) => (
                   <div key={option.id}>
@@ -563,7 +590,7 @@ export function AvailabilityModal({
                   </div>
                 ))}
 
-              {availabilityDetail.optionList?.nodes.filter(
+              {(availabilityDetail.optionList?.nodes ?? []).filter(
                 (opt) => opt.availableOptions && opt.availableOptions.length > 0
               ).length === 0 && (
                 <p className="py-4 text-center text-sm text-gray-500">No options to configure</p>
@@ -583,7 +610,7 @@ export function AvailabilityModal({
                   <div className="min-w-0 pt-1">
                     <p className="font-medium text-gray-900">{formatLabel(category.label)}</p>
                     <p className="text-sm text-gray-500">
-                      {category.unitPrice.grossFormattedText} per person
+                      {category.unitPrice?.grossFormattedText ?? '—'} per person
                     </p>
                     {category.minParticipants > 0 && (
                       <p className="text-xs text-gray-400">Min: {category.minParticipants}</p>
