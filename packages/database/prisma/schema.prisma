@@ -850,9 +850,9 @@ model Job {
 model ErrorLog {
   id String @id @default(cuid())
 
-  // Job reference
-  jobId   String
-  job     Job    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  // Job reference (optional — null for client-side errors)
+  jobId   String?
+  job     Job?    @relation(fields: [jobId], references: [id], onDelete: SetNull)
   jobType String
 
   // Site context
