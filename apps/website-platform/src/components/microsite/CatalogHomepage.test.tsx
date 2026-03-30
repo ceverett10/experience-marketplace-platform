@@ -54,6 +54,27 @@ vi.mock('@/components/ui/PriceDisplay', () => ({
   DiscountBadge: () => <span data-testid="discount-badge">Sale</span>,
 }));
 
+vi.mock('@/lib/site-context', () => ({
+  useBrand: () => ({ primaryColor: '#0d9488' }),
+  useSite: () => ({ id: 'site-1', name: 'Test Site' }),
+}));
+
+vi.mock('@/hooks/useWishlist', () => ({
+  useWishlist: () => ({
+    items: [],
+    count: 0,
+    isInWishlist: () => false,
+    toggleWishlist: vi.fn(),
+    removeFromWishlist: vi.fn(),
+    clearWishlist: vi.fn(),
+  }),
+}));
+
+vi.mock('@/lib/experience-tags', () => ({
+  getOccasionTags: () => [],
+  OCCASION_TAG_CONFIG: {},
+}));
+
 function makeSite(overrides: Record<string, any> = {}) {
   return {
     id: 'site-1',
@@ -199,15 +220,9 @@ describe('CatalogHomepage', () => {
     render(
       <CatalogHomepage {...defaultProps} experiences={experiencesWithFreeCancellation as any} />
     );
-    const badges = screen.getAllByText('Free Cancellation');
+    const badges = screen.getAllByText('Free cancellation');
     // Only 2 experiences have free cancellation, not all 3
     expect(badges.length).toBe(2);
-  });
-
-  it('renders Book Now button on cards when isPpc is true', () => {
-    render(<CatalogHomepage {...defaultProps} isPpc />);
-    const bookNowButtons = screen.getAllByText('Book Now');
-    expect(bookNowButtons.length).toBeGreaterThanOrEqual(1);
   });
 
   it('renders blog section when posts provided', () => {

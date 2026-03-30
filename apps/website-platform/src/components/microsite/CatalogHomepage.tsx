@@ -22,8 +22,7 @@ import type { RelatedMicrosite } from '@/lib/microsite-experiences';
 import { HomepageBlogSection } from './HomepageBlogSection';
 import { ReviewsCarousel } from '@/components/experiences/ReviewsCarousel';
 import { CuratedCollections } from './CuratedCollections';
-import { PriceDisplay, DiscountBadge } from '@/components/ui/PriceDisplay';
-import { getProductPricingConfig } from '@/lib/pricing';
+import { PremiumExperienceCard } from '@/components/experiences/PremiumExperienceCard';
 
 interface BlogPost {
   id: string;
@@ -279,12 +278,11 @@ export function CatalogHomepage({
             }`}
           >
             {experiences.map((experience, idx) => (
-              <CatalogExperienceCard
+              <PremiumExperienceCard
                 key={experience.id}
                 experience={experience}
-                primaryColor={primaryColor}
                 priority={idx < 6}
-                isPpc={isPpc}
+                openInNewTab
               />
             ))}
           </div>
@@ -613,154 +611,5 @@ export function CatalogHomepage({
         </section>
       ) : null}
     </>
-  );
-}
-
-/**
- * Experience card optimized for catalog view
- */
-function CatalogExperienceCard({
-  experience,
-  primaryColor,
-  priority,
-  isPpc,
-}: {
-  experience: ExperienceListItem;
-  primaryColor: string;
-  priority: boolean;
-  isPpc?: boolean;
-}) {
-  const pricingConfig = getProductPricingConfig(experience.id);
-
-  return (
-    <Link
-      href={`/experiences/${experience.slug}`}
-      target="_blank"
-      rel="noopener"
-      className="group flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition-all hover:shadow-md"
-    >
-      {/* Image */}
-      <div className="relative aspect-[4/3] overflow-hidden bg-gray-200">
-        <Image
-          src={experience.imageUrl || '/placeholder-experience.jpg'}
-          alt={experience.title}
-          fill
-          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-          className="object-cover transition-transform duration-300 group-hover:scale-105"
-          placeholder="blur"
-          blurDataURL={BLUR_PLACEHOLDER}
-          {...(priority ? { priority: true } : { loading: 'lazy' as const })}
-        />
-        {/* Discount Badge */}
-        {pricingConfig.showDiscountBadge && (
-          <div className="absolute left-3 top-3">
-            <DiscountBadge pricingConfig={pricingConfig} />
-          </div>
-        )}
-        {/* Free Cancellation badge - only when Holibob confirms free cancellation */}
-        {experience.cancellationPolicy?.type === 'FREE' && (
-          <div className="absolute right-3 top-3 rounded-full bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm">
-            Free Cancellation
-          </div>
-        )}
-      </div>
-
-      {/* Content */}
-      <div className="flex flex-1 flex-col p-4">
-        {/* Title */}
-        <h3 className="line-clamp-2 text-lg font-semibold text-gray-900 group-hover:text-gray-700">
-          {experience.title}
-        </h3>
-
-        {/* Location & Duration */}
-        <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-gray-500">
-          {experience.location.name && (
-            <span className="flex items-center gap-1">
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                />
-              </svg>
-              {experience.location.name}
-            </span>
-          )}
-          {experience.duration.formatted && (
-            <span className="flex items-center gap-1">
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              {experience.duration.formatted}
-            </span>
-          )}
-        </div>
-
-        {/* Rating */}
-        {experience.rating && experience.rating.count > 0 && (
-          <div className="mt-2 flex items-center gap-1">
-            <span className="text-yellow-400">★</span>
-            <span className="text-sm font-medium text-gray-900">
-              {experience.rating.average.toFixed(1)}
-            </span>
-            <span className="text-sm text-gray-500">({experience.rating.count})</span>
-          </div>
-        )}
-
-        {/* Price with discount */}
-        <div className="mt-auto pt-3">
-          <PriceDisplay
-            priceFormatted={experience.price.formatted}
-            priceAmount={experience.price.amount}
-            currency={experience.price.currency}
-            pricingConfig={pricingConfig}
-            variant="card"
-            primaryColor={primaryColor}
-          />
-        </div>
-
-        {/* Trust Signals */}
-        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-500">
-          {experience.cancellationPolicy?.type === 'FREE' && (
-            <span className="flex items-center gap-1">
-              <svg className="h-3 w-3 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
-                <path
-                  fillRule="evenodd"
-                  d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              Free cancellation
-            </span>
-          )}
-          <span className="flex items-center gap-1">
-            <svg className="h-3 w-3 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
-              <path
-                fillRule="evenodd"
-                d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z"
-                clipRule="evenodd"
-              />
-            </svg>
-            Best price guarantee
-          </span>
-        </div>
-
-        {/* PPC: Prominent Book Now button */}
-        {isPpc && (
-          <div
-            className="mt-3 rounded-lg py-2.5 text-center text-sm font-semibold text-white"
-            style={{ backgroundColor: primaryColor }}
-          >
-            Book Now
-          </div>
-        )}
-      </div>
-    </Link>
   );
 }
