@@ -246,7 +246,9 @@ export function Header() {
             href={isParentDomainSite ? '/#our-brands' : '/experiences'}
             className="rounded-md px-4 py-2 text-sm font-semibold text-white shadow-sm"
             style={{
-              backgroundColor: brand?.primaryColor ?? '#6366f1',
+              backgroundColor: isMicrosite
+                ? `var(--supplier-brand, ${brand?.primaryColor ?? '#6366f1'})`
+                : (brand?.primaryColor ?? '#6366f1'),
             }}
           >
             {isParentDomainSite ? 'Explore Brands' : 'Book Now'}
@@ -271,7 +273,11 @@ export function Header() {
             <Link
               href={isParentDomainSite ? '/#our-brands' : '/experiences'}
               className="mt-4 block rounded-md px-3 py-2.5 text-center text-base font-semibold text-white"
-              style={{ backgroundColor: brand?.primaryColor ?? '#6366f1' }}
+              style={{
+                backgroundColor: isMicrosite
+                  ? `var(--supplier-brand, ${brand?.primaryColor ?? '#6366f1'})`
+                  : (brand?.primaryColor ?? '#6366f1'),
+              }}
               onClick={() => setMobileMenuOpen(false)}
             >
               {isParentDomainSite ? 'Explore Brands' : 'Book Now'}

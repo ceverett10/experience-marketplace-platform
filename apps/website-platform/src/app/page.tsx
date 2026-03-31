@@ -34,6 +34,7 @@ import type { SiteConfig } from '@/lib/tenant';
 import { getBestCategory } from '@experience-marketplace/shared';
 import { TrackFunnelEvent } from '@/components/analytics/TrackFunnelEvent';
 import { currencyToLocale } from '@/lib/currency';
+import { generateSupplierBrandCSS } from '@/lib/supplier-brand';
 
 // Revalidate every 5 minutes for fresh content
 export const revalidate = 300;
@@ -83,9 +84,13 @@ async function getFeaturedExperiences(
         });
 
         const supplierProducts: ExperienceListItem[] = response.nodes.map((product) => {
-          // Map to ExperienceListItem format
+          // Map to ExperienceListItem format — prefer urlMedium for better quality
+          const firstImage = product.imageList?.[0];
           const primaryImage =
-            product.imageList?.[0]?.url ?? product.imageUrl ?? '/placeholder-experience.jpg';
+            firstImage?.urlMedium ??
+            firstImage?.url ??
+            product.imageUrl ??
+            '/placeholder-experience.jpg';
           // ProductList API returns guidePrice in MAJOR units (e.g., 71 EUR, not 7100 cents)
           const priceAmount = product.guidePrice ?? product.priceFrom ?? 0;
           const priceCurrency = product.guidePriceCurrency ?? product.priceCurrency ?? 'GBP';
@@ -340,6 +345,30 @@ const CATEGORY_LABELS: Record<string, string> = {
   'shows-and-events': 'Shows & Events',
   'wellness-and-spa': 'Wellness & Spa',
 };
+
+/**
+ * Fetch supplier-level stats for microsite hero (total reviews, years active)
+ */
+async function getSupplierStats(
+  supplierId: string | null
+): Promise<{ totalReviews: number; yearsActive: number }> {
+  if (!supplierId) return { totalReviews: 0, yearsActive: 0 };
+  try {
+    const supplier = await prisma.supplier.findUnique({
+      where: { id: supplierId },
+      select: { createdAt: true },
+    });
+    const yearsActive = supplier
+      ? Math.max(
+          1,
+          Math.floor((Date.now() - supplier.createdAt.getTime()) / (365.25 * 24 * 60 * 60 * 1000))
+        )
+      : 0;
+    return { totalReviews: 0, yearsActive };
+  } catch {
+    return { totalReviews: 0, yearsActive: 0 };
+  }
+}
 
 /**
  * Fetch curated collections for homepage
@@ -718,13 +747,14 @@ export default async function HomePage() {
         );
       }
 
-      // Fetch blog posts, collections, and PPC status for microsite
-      const [micrositeBlogPosts, micrositeCollections, isPpc] = await Promise.all([
+      // Fetch blog posts, collections, PPC status, and supplier stats for microsite
+      const [micrositeBlogPosts, micrositeCollections, isPpc, supplierStats] = await Promise.all([
         getLatestBlogPosts(site.id, site.micrositeContext.micrositeId),
         site.micrositeContext.micrositeId
           ? getHomepageCollections(site.micrositeContext.micrositeId)
           : Promise.resolve([]),
         detectPpcTraffic(),
+        getSupplierStats(site.micrositeContext.supplierId),
       ]);
 
       // Fetch real product reviews from top-rated experiences
@@ -736,6 +766,7 @@ export default async function HomePage() {
         authorName: string;
         publishedDate: string;
         images: string[];
+        productTitle?: string;
       };
       let micrositeReviews: ProductReview[] = [];
       try {
@@ -762,6 +793,7 @@ export default async function HomePage() {
                     publishedDate: review.publishedDate || '',
                     images:
                       review.imageList?.nodes?.map((img) => img.url || '').filter(Boolean) || [],
+                    productTitle: product.name || undefined,
                   });
                 }
               }
@@ -798,8 +830,22 @@ export default async function HomePage() {
           : undefined;
       const micrositeAreaServed = (site.micrositeContext.supplierCities || []).slice(0, 5);
 
+      // Generate supplier brand CSS custom properties
+      const supplierBrandCSS = generateSupplierBrandCSS(
+        site.brand?.primaryColor,
+        site.micrositeContext.supplierCategories || []
+      );
+
+      // Compute total reviews from fetched review data
+      const enrichedSupplierStats = {
+        ...supplierStats,
+        totalReviews: supplierStats.totalReviews || micrositeReviews.length,
+      };
+
       return (
         <>
+          {/* Inject supplier brand CSS custom properties */}
+          <style dangerouslySetInnerHTML={{ __html: supplierBrandCSS }} />
           <TourOperatorSchema
             name={site.name}
             url={micrositeSiteUrl}
@@ -826,6 +872,7 @@ export default async function HomePage() {
             blogPosts={micrositeBlogPosts}
             collections={micrositeCollections}
             isPpc={isPpc}
+            supplierStats={enrichedSupplierStats}
           />
         </>
       );

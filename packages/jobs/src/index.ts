@@ -79,6 +79,10 @@ export { uploadToR2, deleteFromR2, isR2Configured } from './services/image-stora
 export { runMetaTitleMaintenance } from './services/meta-title-maintenance';
 export { refreshAllCollections } from './services/collection-generator';
 export { resubmitMicrositeSitemapsToGSC } from './services/microsite-sitemap-resubmit';
+export {
+  generateFAQForMicrosite,
+  generateFAQsForMicrosites,
+} from './services/microsite-faq-generator';
 export { runPipelineHealthCheck } from './scripts/pipeline-health-check';
 export { runSEOHealthCheck } from './scripts/seo-health-check';
 
