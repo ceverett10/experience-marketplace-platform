@@ -8,17 +8,7 @@
 const CATEGORY_PALETTES: Array<{ keywords: string[]; colour: string }> = [
   { keywords: ['desert', 'safari', 'camel'], colour: '#B8860B' },
   {
-    keywords: [
-      'ocean',
-      'water',
-      'boat',
-      'cruise',
-      'diving',
-      'snorkel',
-      'surf',
-      'kayak',
-      'sailing',
-    ],
+    keywords: ['ocean', 'water', 'boat', 'cruise', 'diving', 'snorkel', 'surf', 'kayak', 'sailing'],
     colour: '#0077B6',
   },
   {
@@ -96,7 +86,7 @@ function hslToHex(h: number, s: number, l: number): string {
 
 export function generateSupplierBrandCSS(
   brandColour: string | undefined,
-  categories: string[] = [],
+  categories: string[] = []
 ): string {
   const colour = brandColour || getBrandColourFromCategories(categories);
   const { h, s, l } = hexToHsl(colour);

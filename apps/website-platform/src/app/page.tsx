@@ -87,7 +87,10 @@ async function getFeaturedExperiences(
           // Map to ExperienceListItem format — prefer urlMedium for better quality
           const firstImage = product.imageList?.[0];
           const primaryImage =
-            firstImage?.urlMedium ?? firstImage?.url ?? product.imageUrl ?? '/placeholder-experience.jpg';
+            firstImage?.urlMedium ??
+            firstImage?.url ??
+            product.imageUrl ??
+            '/placeholder-experience.jpg';
           // ProductList API returns guidePrice in MAJOR units (e.g., 71 EUR, not 7100 cents)
           const priceAmount = product.guidePrice ?? product.priceFrom ?? 0;
           const priceCurrency = product.guidePriceCurrency ?? product.priceCurrency ?? 'GBP';
@@ -347,7 +350,7 @@ const CATEGORY_LABELS: Record<string, string> = {
  * Fetch supplier-level stats for microsite hero (total reviews, years active)
  */
 async function getSupplierStats(
-  supplierId: string | null,
+  supplierId: string | null
 ): Promise<{ totalReviews: number; yearsActive: number }> {
   if (!supplierId) return { totalReviews: 0, yearsActive: 0 };
   try {
@@ -356,7 +359,10 @@ async function getSupplierStats(
       select: { createdAt: true },
     });
     const yearsActive = supplier
-      ? Math.max(1, Math.floor((Date.now() - supplier.createdAt.getTime()) / (365.25 * 24 * 60 * 60 * 1000)))
+      ? Math.max(
+          1,
+          Math.floor((Date.now() - supplier.createdAt.getTime()) / (365.25 * 24 * 60 * 60 * 1000))
+        )
       : 0;
     return { totalReviews: 0, yearsActive };
   } catch {
@@ -827,7 +833,7 @@ export default async function HomePage() {
       // Generate supplier brand CSS custom properties
       const supplierBrandCSS = generateSupplierBrandCSS(
         site.brand?.primaryColor,
-        site.micrositeContext.supplierCategories || [],
+        site.micrositeContext.supplierCategories || []
       );
 
       // Compute total reviews from fetched review data

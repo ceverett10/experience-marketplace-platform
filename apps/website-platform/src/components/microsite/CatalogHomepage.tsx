@@ -139,9 +139,7 @@ export function CatalogHomepage({
       {/* Compact Hero Section */}
       <section className="relative overflow-hidden pb-8">
         {/* Background */}
-        <div
-          className="absolute inset-0 overflow-hidden"
-        >
+        <div className="absolute inset-0 overflow-hidden">
           {heroConfig?.backgroundImage ? (
             <Image
               src={heroConfig.backgroundImage}
@@ -162,7 +160,12 @@ export function CatalogHomepage({
               }}
             />
           )}
-          <div className="absolute inset-0" style={{ background: `linear-gradient(to bottom, ${primaryColor}40 0%, rgba(0,0,0,0.55) 100%)` }} />
+          <div
+            className="absolute inset-0"
+            style={{
+              background: `linear-gradient(to bottom, ${primaryColor}40 0%, rgba(0,0,0,0.55) 100%)`,
+            }}
+          />
         </div>
 
         {/* Content */}
@@ -197,7 +200,9 @@ export function CatalogHomepage({
             {!isPpc && (
               <div className="mt-8 inline-flex flex-wrap justify-center gap-6 rounded-2xl bg-black/30 px-8 py-4 backdrop-blur-sm sm:gap-10">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-white">{displayCount.toLocaleString()}</div>
+                  <div className="text-2xl font-bold text-white">
+                    {displayCount.toLocaleString()}
+                  </div>
                   <div className="mt-1 text-xs font-medium text-white/70">Experiences</div>
                 </div>
                 {experiences.some((e) => e.rating) && (
@@ -221,7 +226,9 @@ export function CatalogHomepage({
                 )}
                 {supplierStats && supplierStats.yearsActive >= 2 && (
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-white">{supplierStats.yearsActive}+</div>
+                    <div className="text-2xl font-bold text-white">
+                      {supplierStats.yearsActive}+
+                    </div>
                     <div className="mt-1 text-xs font-medium text-white/70">Years</div>
                   </div>
                 )}
@@ -238,7 +245,13 @@ export function CatalogHomepage({
         </div>
         {!isPpc && (
           <div className="absolute -bottom-1 left-0 right-0">
-            <svg viewBox="0 0 1440 80" fill="none" xmlns="http://www.w3.org/2000/svg" className="block w-full" preserveAspectRatio="none">
+            <svg
+              viewBox="0 0 1440 80"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              className="block w-full"
+              preserveAspectRatio="none"
+            >
               <path d="M0 40C240 70 480 80 720 60C960 40 1200 10 1440 30V80H0V40Z" fill="white" />
             </svg>
           </div>
@@ -265,7 +278,9 @@ export function CatalogHomepage({
             <h2 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
               {isPpc
                 ? `${displayCount.toLocaleString()} ${ppcDestination ? `${ppcDestination} ` : ''}Experiences${cheapestExperience ? ` — From ${cheapestExperience.price.formatted}` : ''}`
-                : signatureExperience ? 'More Experiences' : 'Our Experiences'}
+                : signatureExperience
+                  ? 'More Experiences'
+                  : 'Our Experiences'}
             </h2>
             <p className="mx-auto mt-2 max-w-2xl text-base text-gray-600">
               {isPpc

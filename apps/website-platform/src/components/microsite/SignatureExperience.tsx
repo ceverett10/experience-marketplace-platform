@@ -72,12 +72,7 @@ export function SignatureExperience({ experience, primaryColor }: SignatureExper
               <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-gray-500">
                 {experience.duration.formatted && (
                   <span className="flex items-center gap-1.5">
-                    <svg
-                      className="h-4 w-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path
                         strokeLinecap="round"
                         strokeLinejoin="round"
@@ -90,12 +85,7 @@ export function SignatureExperience({ experience, primaryColor }: SignatureExper
                 )}
                 {experience.location.name && (
                   <span className="flex items-center gap-1.5">
-                    <svg
-                      className="h-4 w-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path
                         strokeLinecap="round"
                         strokeLinejoin="round"
@@ -155,12 +145,7 @@ export function SignatureExperience({ experience, primaryColor }: SignatureExper
                   style={{ backgroundColor: `var(--supplier-brand, ${primaryColor})` }}
                 >
                   Book This Experience
-                  <svg
-                    className="h-4 w-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -179,7 +164,7 @@ export function SignatureExperience({ experience, primaryColor }: SignatureExper
 }
 
 export function selectSignatureExperience(
-  experiences: ExperienceListItem[],
+  experiences: ExperienceListItem[]
 ): ExperienceListItem | null {
   if (experiences.length === 0) return null;
   const first = experiences[0]!;
