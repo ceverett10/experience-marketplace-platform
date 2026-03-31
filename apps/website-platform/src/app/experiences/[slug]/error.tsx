@@ -1,12 +1,19 @@
 'use client';
 
+import { useEffect } from 'react';
+import { reportError } from '@/lib/error-reporting';
+
 export default function ExperienceDetailError({
-  error: _error,
+  error,
   reset,
 }: {
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  useEffect(() => {
+    reportError(error, { boundary: 'experience-detail' });
+  }, [error]);
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="flex min-h-[60vh] items-center justify-center px-4">
