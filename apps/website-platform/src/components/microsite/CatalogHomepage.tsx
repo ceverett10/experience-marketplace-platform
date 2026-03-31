@@ -24,6 +24,7 @@ import { ReviewsCarousel } from '@/components/experiences/ReviewsCarousel';
 import { CuratedCollections } from './CuratedCollections';
 import { PremiumExperienceCard } from '@/components/experiences/PremiumExperienceCard';
 import { SignatureExperience, selectSignatureExperience } from './SignatureExperience';
+import { DestinationContext } from './DestinationContext';
 
 interface BlogPost {
   id: string;
@@ -83,6 +84,12 @@ interface CatalogHomepageProps {
     totalReviews: number;
     yearsActive: number;
   };
+  /** AI-enriched content fields */
+  enrichment?: {
+    heroHeadline?: string;
+    destinationBlurb?: string;
+    destinationTags?: string[];
+  };
 }
 
 export function CatalogHomepage({
@@ -98,14 +105,18 @@ export function CatalogHomepage({
   collections,
   isPpc,
   supplierStats,
+  enrichment,
 }: CatalogHomepageProps) {
   const primaryColor = site.brand?.primaryColor ?? '#6366f1';
   const gridColumns = layoutConfig.gridColumns;
   // Use actual total count if provided, otherwise fall back to displayed experiences length
   const displayCount = totalExperienceCount ?? experiences.length;
 
+  // Supplier location context
+  const topCity = site.micrositeContext?.supplierCities?.[0];
+
   // PPC: Compute destination and min price for search-intent H1
-  const ppcDestination = site.micrositeContext?.supplierCities?.[0];
+  const ppcDestination = topCity;
   const cheapestExperience =
     isPpc && experiences.length > 0
       ? experiences.reduce<ExperienceListItem | undefined>(
@@ -184,7 +195,7 @@ export function CatalogHomepage({
             <h1
               className={`font-bold text-white ${isPpc ? 'text-2xl sm:text-3xl' : 'text-3xl sm:text-4xl'}`}
             >
-              {site.name}
+              {enrichment?.heroHeadline ?? site.name}
             </h1>
 
             {/* Tagline */}
@@ -411,6 +422,16 @@ export function CatalogHomepage({
           </div>
         </div>
       </section>
+
+      {/* Destination Context (AI-enriched) */}
+      {enrichment?.destinationBlurb && topCity && (
+        <DestinationContext
+          city={topCity}
+          blurb={enrichment.destinationBlurb}
+          tags={enrichment.destinationTags}
+          primaryColor={primaryColor}
+        />
+      )}
 
       {/* Why Book With Us */}
       <section className="bg-gray-50 py-16 sm:py-20">
