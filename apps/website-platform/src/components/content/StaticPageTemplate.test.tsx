@@ -111,8 +111,9 @@ describe('StaticPageTemplate', () => {
     expect(renderer!.getAttribute('data-format')).toBe('html');
   });
 
-  it('does not render inline copyright (handled by site Footer)', () => {
+  it('renders footer with copyright', () => {
     render(<StaticPageTemplate page={makePage()} siteName="London Tours" />);
-    expect(document.body.textContent).not.toContain('All rights reserved');
+    expect(document.body.textContent).toContain('Holibob');
+    expect(document.body.textContent).toContain('All rights reserved');
   });
 });
