@@ -14,7 +14,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { BLUR_PLACEHOLDER } from '@/lib/image-utils';
+import { BLUR_PLACEHOLDER, shouldSkipOptimization } from '@/lib/image-utils';
 import type { SiteConfig, HomepageConfig } from '@/lib/tenant';
 import type { MicrositeLayoutConfig } from '@/lib/microsite-layout';
 import type { ExperienceListItem } from '@/lib/holibob';
@@ -152,6 +152,7 @@ export function CatalogHomepage({
               className="object-cover"
               placeholder="blur"
               blurDataURL={BLUR_PLACEHOLDER}
+              unoptimized={shouldSkipOptimization(heroConfig.backgroundImage)}
             />
           ) : (
             <div
@@ -192,46 +193,39 @@ export function CatalogHomepage({
               </p>
             )}
 
-            {/* Stats + Trust Badges (organic only — PPC uses header trust bar) */}
+            {/* Stat Strip (organic only) */}
             {!isPpc && (
-              <>
-                <div className="mt-6 flex justify-center gap-8 text-white/80">
-                  <div>
-                    <span className="text-2xl font-bold text-white">
-                      {displayCount.toLocaleString()}
-                    </span>
-                    <span className="ml-2">Experiences</span>
-                  </div>
-                  {experiences.some((e) => e.rating) && (
-                    <div>
-                      <span className="text-2xl font-bold text-white">
-                        {(
-                          experiences.reduce((sum, e) => sum + (e.rating?.average ?? 0), 0) /
-                          experiences.filter((e) => e.rating).length
-                        ).toFixed(1)}
-                      </span>
-                      <span className="ml-2">Avg Rating</span>
-                    </div>
-                  )}
+              <div className="mt-8 inline-flex flex-wrap justify-center gap-6 rounded-2xl bg-black/30 px-8 py-4 backdrop-blur-sm sm:gap-10">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-white">{displayCount.toLocaleString()}</div>
+                  <div className="mt-1 text-xs font-medium text-white/70">Experiences</div>
                 </div>
-
-                {supplierStats && supplierStats.totalReviews > 0 && (
-                  <div>
-                    <span className="text-2xl font-bold text-white">
+                {experiences.some((e) => e.rating) && (
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-white">
+                      {(
+                        experiences.reduce((sum, e) => sum + (e.rating?.average ?? 0), 0) /
+                        experiences.filter((e) => e.rating).length
+                      ).toFixed(1)}
+                    </div>
+                    <div className="mt-1 text-xs font-medium text-white/70">Avg Rating</div>
+                  </div>
+                )}
+                {supplierStats && supplierStats.totalReviews >= 10 && (
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-white">
                       {supplierStats.totalReviews.toLocaleString()}
-                    </span>
-                    <span className="ml-2">Reviews</span>
+                    </div>
+                    <div className="mt-1 text-xs font-medium text-white/70">Reviews</div>
                   </div>
                 )}
-                {supplierStats && supplierStats.yearsActive > 0 && (
-                  <div>
-                    <span className="text-2xl font-bold text-white">
-                      {supplierStats.yearsActive}+
-                    </span>
-                    <span className="ml-2">Years</span>
+                {supplierStats && supplierStats.yearsActive >= 2 && (
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-white">{supplierStats.yearsActive}+</div>
+                    <div className="mt-1 text-xs font-medium text-white/70">Years</div>
                   </div>
                 )}
-              </>
+              </div>
             )}
 
             {/* PPC: Compact experience count strip */}

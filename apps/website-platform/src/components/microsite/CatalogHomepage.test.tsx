@@ -50,11 +50,8 @@ vi.mock('./CuratedCollections', () => ({
 }));
 
 vi.mock('./SignatureExperience', () => ({
-  SignatureExperience: ({ experience }: any) => (
-    <div data-testid="signature-experience">{experience.title}</div>
-  ),
-  selectSignatureExperience: (experiences: any[]) =>
-    experiences.length > 0 ? experiences[0] : null,
+  SignatureExperience: () => <div data-testid="signature-experience">Signature</div>,
+  selectSignatureExperience: () => null,
 }));
 
 vi.mock('@/components/ui/PriceDisplay', () => ({

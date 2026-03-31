@@ -457,14 +457,6 @@ export async function getSiteFromHostname(hostname: string): Promise<SiteConfig>
     cleanHostname.includes('.vercel.app') ||
     cleanHostname.includes('.herokuapp.com')
   ) {
-    // DEV_MICROSITE_SUBDOMAIN: render localhost as a supplier microsite for local testing
-    const devSubdomain = process.env['DEV_MICROSITE_SUBDOMAIN'];
-    if (devSubdomain) {
-      const devMicrositeConfig = await getMicrositeConfig(devSubdomain, 'experiencess.com');
-      if (devMicrositeConfig) {
-        return mapMicrositeToSiteConfig(devMicrositeConfig);
-      }
-    }
     return DEFAULT_SITE_CONFIG;
   }
 

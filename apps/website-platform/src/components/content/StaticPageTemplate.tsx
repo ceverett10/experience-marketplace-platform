@@ -137,12 +137,6 @@ For the most up-to-date version of our legal documents, please check this page r
         <ContentRenderer content={contentBody} format={format} />
       </div>
 
-      {/* Footer */}
-      <footer className="mt-12 border-t border-gray-200 pt-8">
-        <p className="text-sm text-gray-500">
-          © {new Date().getFullYear()} Holibob. All rights reserved.
-        </p>
-      </footer>
     </article>
   );
 }
