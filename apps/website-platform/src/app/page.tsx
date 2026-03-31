@@ -347,6 +347,31 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 /**
+ * Fetch AI-enriched content for the microsite homepage.
+ */
+async function getMicrositeEnrichment(micrositeId: string | undefined): Promise<{
+  heroHeadline?: string;
+  destinationBlurb?: string;
+  destinationTags?: string[];
+} | null> {
+  if (!micrositeId) return null;
+  try {
+    const config = await prisma.micrositeConfig.findUnique({
+      where: { id: micrositeId },
+      select: { heroHeadline: true, destinationBlurb: true, destinationTags: true },
+    });
+    if (!config?.heroHeadline && !config?.destinationBlurb) return null;
+    return {
+      heroHeadline: config.heroHeadline ?? undefined,
+      destinationBlurb: config.destinationBlurb ?? undefined,
+      destinationTags: config.destinationTags.length > 0 ? config.destinationTags : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Fetch supplier-level stats for microsite hero (total reviews, years active)
  */
 async function getSupplierStats(
@@ -748,14 +773,16 @@ export default async function HomePage() {
       }
 
       // Fetch blog posts, collections, PPC status, and supplier stats for microsite
-      const [micrositeBlogPosts, micrositeCollections, isPpc, supplierStats] = await Promise.all([
-        getLatestBlogPosts(site.id, site.micrositeContext.micrositeId),
-        site.micrositeContext.micrositeId
-          ? getHomepageCollections(site.micrositeContext.micrositeId)
-          : Promise.resolve([]),
-        detectPpcTraffic(),
-        getSupplierStats(site.micrositeContext.supplierId),
-      ]);
+      const [micrositeBlogPosts, micrositeCollections, isPpc, supplierStats, enrichment] =
+        await Promise.all([
+          getLatestBlogPosts(site.id, site.micrositeContext.micrositeId),
+          site.micrositeContext.micrositeId
+            ? getHomepageCollections(site.micrositeContext.micrositeId)
+            : Promise.resolve([]),
+          detectPpcTraffic(),
+          getSupplierStats(site.micrositeContext.supplierId),
+          getMicrositeEnrichment(site.micrositeContext.micrositeId),
+        ]);
 
       // Fetch real product reviews from top-rated experiences
       type ProductReview = {
@@ -873,6 +900,7 @@ export default async function HomePage() {
             collections={micrositeCollections}
             isPpc={isPpc}
             supplierStats={enrichedSupplierStats}
+            enrichment={enrichment ?? undefined}
           />
         </>
       );
