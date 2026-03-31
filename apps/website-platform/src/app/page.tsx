@@ -839,7 +839,6 @@ export default async function HomePage() {
       return (
         <>
           {/* Inject supplier brand CSS custom properties */}
-          {/* eslint-disable-next-line react/no-danger */}
           <style dangerouslySetInnerHTML={{ __html: supplierBrandCSS }} />
           <TourOperatorSchema
             name={site.name}
