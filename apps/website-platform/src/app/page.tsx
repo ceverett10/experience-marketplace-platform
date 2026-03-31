@@ -349,9 +349,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 /**
  * Fetch AI-enriched content for the microsite homepage.
  */
-async function getMicrositeEnrichment(
-  micrositeId: string | undefined
-): Promise<{
+async function getMicrositeEnrichment(micrositeId: string | undefined): Promise<{
   heroHeadline?: string;
   destinationBlurb?: string;
   destinationTags?: string[];
