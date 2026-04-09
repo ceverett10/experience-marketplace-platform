@@ -94,7 +94,7 @@ describe('AvailabilityModal', () => {
     });
 
     expect(document.body.textContent).toContain('Formatted: 2025-06-15');
-    expect(document.body.textContent).toContain('from £35.00');
+    expect(document.body.textContent).not.toContain('from £35.00');
   });
 
   it('shows no availability message when no slots', async () => {

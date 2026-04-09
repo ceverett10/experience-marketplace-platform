@@ -547,15 +547,6 @@ export function AvailabilityModal({
                             {formatDate(slot.date)}
                           </p>
                         </div>
-                        {slot.guidePriceFormattedText &&
-                          !/^\s*[^\d]*\s*0[.,]00\s*$/.test(slot.guidePriceFormattedText) && (
-                            <p
-                              className="shrink-0 text-right text-sm font-semibold"
-                              style={{ color: primaryColor }}
-                            >
-                              from {slot.guidePriceFormattedText}
-                            </p>
-                          )}
                       </button>
                     ))}
                   </div>
