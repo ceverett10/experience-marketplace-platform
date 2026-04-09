@@ -1029,22 +1029,60 @@ export async function handleMicrositeArchive(
  * Microsite Health Check Handler
  * Checks microsites for issues (no content, supplier deleted, etc.)
  */
+/**
+ * Microsite Health Check Handler
+ *
+ * When called WITHOUT micrositeId: fans out by queuing one job per microsite
+ * (paginated to avoid loading all 39K+ records with their relations into memory).
+ *
+ * When called WITH micrositeId: checks a single microsite for issues.
+ */
 export async function handleMicrositeHealthCheck(
   job: Job<MicrositeHealthCheckPayload>
 ): Promise<JobResult> {
   const { micrositeId } = job.data;
 
   try {
-    console.log(
-      `[Microsite Health] Running health check${micrositeId ? ` for ${micrositeId}` : ' for all microsites'}`
-    );
+    // === FANOUT MODE: no micrositeId → queue one job per microsite ===
+    if (!micrositeId) {
+      const { addJob } = await import('../queues/index.js');
+      let queued = 0;
+      let cursor: string | undefined;
+      const PAGE_SIZE = 1000;
 
-    const whereClause = micrositeId
-      ? { id: micrositeId }
-      : { status: { in: ['ACTIVE', 'REVIEW', 'GENERATING'] as MicrositeStatus[] } };
+      let hasMore = true;
+      while (hasMore) {
+        const batch = await prisma.micrositeConfig.findMany({
+          where: { status: { in: ['ACTIVE', 'REVIEW', 'GENERATING'] as MicrositeStatus[] } },
+          select: { id: true },
+          take: PAGE_SIZE,
+          ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+          orderBy: { id: 'asc' },
+        });
 
-    const microsites = await prisma.micrositeConfig.findMany({
-      where: whereClause,
+        for (const ms of batch) {
+          await addJob('MICROSITE_HEALTH_CHECK' as any, { micrositeId: ms.id } as any);
+          queued++;
+        }
+
+        hasMore = batch.length === PAGE_SIZE;
+        if (hasMore) cursor = batch[batch.length - 1]!.id;
+      }
+
+      console.info(`[Microsite Health] Fanned out ${queued} per-microsite health check jobs`);
+      return {
+        success: true,
+        message: `Fanned out ${queued} health check jobs`,
+        data: { queued },
+        timestamp: new Date(),
+      };
+    }
+
+    // === SINGLE-MICROSITE MODE ===
+    console.info(`[Microsite Health] Checking ${micrositeId}`);
+
+    const ms = await prisma.micrositeConfig.findUnique({
+      where: { id: micrositeId },
       include: {
         pages: true,
         supplier: true,
@@ -1052,42 +1090,45 @@ export async function handleMicrositeHealthCheck(
       },
     });
 
-    const issues: Array<{ micrositeId: string; issue: string }> = [];
-
-    for (const ms of microsites) {
-      // Check: No pages
-      if (ms.pages.length === 0 && ms.status !== 'GENERATING') {
-        issues.push({ micrositeId: ms.id, issue: 'No content pages' });
-      }
-
-      // Check: Supplier deleted
-      if (ms.supplierId && !ms.supplier) {
-        issues.push({ micrositeId: ms.id, issue: 'Linked supplier not found' });
-      }
-
-      // Check: Product deleted
-      if (ms.productId && !ms.product) {
-        issues.push({ micrositeId: ms.id, issue: 'Linked product not found' });
-      }
-
-      // Check: Stale content (no update in 90 days)
-      const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
-      if (ms.lastContentUpdate && ms.lastContentUpdate < ninetyDaysAgo) {
-        issues.push({ micrositeId: ms.id, issue: 'Content not updated in 90+ days' });
-      }
+    if (!ms) {
+      return {
+        success: true,
+        message: `Microsite ${micrositeId} not found (may have been deleted)`,
+        timestamp: new Date(),
+      };
     }
 
-    console.log(
-      `[Microsite Health] Found ${issues.length} issues across ${microsites.length} microsites`
-    );
+    const issues: string[] = [];
+
+    // Check: No pages
+    if (ms.pages.length === 0 && ms.status !== 'GENERATING') {
+      issues.push('No content pages');
+    }
+
+    // Check: Supplier deleted
+    if (ms.supplierId && !ms.supplier) {
+      issues.push('Linked supplier not found');
+    }
+
+    // Check: Product deleted
+    if (ms.productId && !ms.product) {
+      issues.push('Linked product not found');
+    }
+
+    // Check: Stale content (no update in 90 days)
+    const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+    if (ms.lastContentUpdate && ms.lastContentUpdate < ninetyDaysAgo) {
+      issues.push('Content not updated in 90+ days');
+    }
+
+    if (issues.length > 0) {
+      console.info(`[Microsite Health] ${micrositeId}: ${issues.join(', ')}`);
+    }
 
     return {
       success: true,
-      message: `Health check complete: ${issues.length} issues found`,
-      data: {
-        checked: microsites.length,
-        issues,
-      },
+      message: issues.length > 0 ? `${issues.length} issue(s): ${issues.join(', ')}` : 'Healthy',
+      data: { micrositeId, issues },
       timestamp: new Date(),
     };
   } catch (error) {
