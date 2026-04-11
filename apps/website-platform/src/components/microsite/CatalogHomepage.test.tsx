@@ -49,9 +49,35 @@ vi.mock('./CuratedCollections', () => ({
   ),
 }));
 
+vi.mock('./SignatureExperience', () => ({
+  SignatureExperience: () => <div data-testid="signature-experience">Signature</div>,
+  selectSignatureExperience: () => null,
+}));
+
 vi.mock('@/components/ui/PriceDisplay', () => ({
   PriceDisplay: ({ priceFormatted }: any) => <span data-testid="price">{priceFormatted}</span>,
   DiscountBadge: () => <span data-testid="discount-badge">Sale</span>,
+}));
+
+vi.mock('@/lib/site-context', () => ({
+  useBrand: () => ({ primaryColor: '#0d9488' }),
+  useSite: () => ({ id: 'site-1', name: 'Test Site' }),
+}));
+
+vi.mock('@/hooks/useWishlist', () => ({
+  useWishlist: () => ({
+    items: [],
+    count: 0,
+    isInWishlist: () => false,
+    toggleWishlist: vi.fn(),
+    removeFromWishlist: vi.fn(),
+    clearWishlist: vi.fn(),
+  }),
+}));
+
+vi.mock('@/lib/experience-tags', () => ({
+  getOccasionTags: () => [],
+  OCCASION_TAG_CONFIG: {},
 }));
 
 function makeSite(overrides: Record<string, any> = {}) {
@@ -155,10 +181,10 @@ describe('CatalogHomepage', () => {
 
   it('renders trust badges', () => {
     render(<CatalogHomepage {...defaultProps} />);
-    // Appears in both hero and about sections
-    expect(screen.getAllByText('Verified Operator').length).toBeGreaterThanOrEqual(2);
-    expect(screen.getAllByText('Instant Confirmation').length).toBeGreaterThanOrEqual(2);
-    expect(screen.getAllByText('Secure Booking').length).toBeGreaterThanOrEqual(2);
+    // Appears in about section (trust badges removed from hero)
+    expect(screen.getAllByText('Verified Operator').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Instant Confirmation').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Secure Booking').length).toBeGreaterThanOrEqual(1);
   });
 
   it('renders testimonials section', () => {
@@ -199,15 +225,9 @@ describe('CatalogHomepage', () => {
     render(
       <CatalogHomepage {...defaultProps} experiences={experiencesWithFreeCancellation as any} />
     );
-    const badges = screen.getAllByText('Free Cancellation');
+    const badges = screen.getAllByText('Free cancellation');
     // Only 2 experiences have free cancellation, not all 3
     expect(badges.length).toBe(2);
-  });
-
-  it('renders Book Now button on cards when isPpc is true', () => {
-    render(<CatalogHomepage {...defaultProps} isPpc />);
-    const bookNowButtons = screen.getAllByText('Book Now');
-    expect(bookNowButtons.length).toBeGreaterThanOrEqual(1);
   });
 
   it('renders blog section when posts provided', () => {

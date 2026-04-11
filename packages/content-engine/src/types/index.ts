@@ -8,6 +8,7 @@ export type ContentType =
   | 'blog'
   | 'about'
   | 'faq'
+  | 'contact'
   | 'meta_description'
   | 'seo_title';
 

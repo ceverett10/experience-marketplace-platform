@@ -686,7 +686,7 @@ export default function AdminContentPage() {
                   { key: 'RETRYING', label: 'Retrying', color: 'bg-orange-50 text-orange-700' },
                   {
                     key: 'COMPLETED',
-                    label: 'Completed (24h)',
+                    label: 'Published (24h)',
                     color: 'bg-green-50 text-green-700',
                   },
                   { key: 'FAILED', label: 'Failed (24h)', color: 'bg-red-50 text-red-700' },

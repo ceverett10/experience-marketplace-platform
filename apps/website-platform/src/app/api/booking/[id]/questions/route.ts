@@ -331,6 +331,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       console.info('[Questions API] Answer list:', JSON.stringify(answerList, null, 2));
 
       // Submit answers to Holibob
+      // NOTE: partnerExternalReference is set at booking creation time (POST /api/booking),
+      // NOT here. The BookingInput.reference field is a different Holibob concept and must
+      // not be used for the site URL — it gets concatenated with the customer name.
       if (answerList.length > 0 || leadPassengerName) {
         try {
           const answeredBooking = await client.answerBookingQuestions(bookingId, {

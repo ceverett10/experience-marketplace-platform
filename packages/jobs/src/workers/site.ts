@@ -21,6 +21,7 @@ import { initializeSiteRoadmap } from '../services/site-roadmap.js';
 import { CloudflareRegistrarService } from '../services/cloudflare-registrar.js';
 import { CloudflareDNSService } from '../services/cloudflare-dns.js';
 import { generateBlogTopics } from '../services/blog-topics.js';
+import { findSimilarTitle } from '../services/blog-dedup.js';
 
 /**
  * Site Worker
@@ -411,7 +412,7 @@ export async function handleSiteCreate(job: Job<SiteCreatePayload>): Promise<Job
       await addJob('CONTENT_GENERATE', {
         siteId: site.id,
         pageId: contactPage.id,
-        contentType: 'blog',
+        contentType: 'contact',
         targetKeyword: `Contact ${brandIdentity.name}`,
         secondaryKeywords: ['customer support', 'get in touch', 'help'],
       });
@@ -460,27 +461,35 @@ export async function handleSiteCreate(job: Job<SiteCreatePayload>): Promise<Job
       console.log(`[Site Create] Generated ${blogTopics.length} blog topics`);
 
       // Create blog pages and queue content generation (idempotent: skip if page exists)
+      const createdTitles: string[] = [];
+      let queuedCount = 0;
       for (const topic of blogTopics) {
         const blogSlug = `blog/${topic.slug}`;
         const existingBlogPage = await prisma.page.findFirst({
           where: { siteId: site.id, slug: blogSlug },
         });
-        const blogPage =
-          existingBlogPage ||
-          (await prisma.page.create({
-            data: {
-              siteId: site.id,
-              title: topic.title,
-              slug: blogSlug,
-              type: PageType.BLOG,
-              status: PageStatus.DRAFT,
-              metaDescription: `${topic.targetKeyword} - ${brandIdentity.name}`,
-            },
-          }));
         if (existingBlogPage) {
-          console.log(`[Site Create] Blog page "${blogSlug}" already exists, skipping creation`);
-          continue; // Don't re-queue content generation for existing pages
+          console.info(`[Site Create] Blog page "${blogSlug}" already exists, skipping creation`);
+          continue;
         }
+
+        // Skip topics that are too similar to ones already created in this batch
+        const similarTo = findSimilarTitle(topic.title, createdTitles);
+        if (similarTo) {
+          console.info(`[Site Create] Skipping "${topic.title}" — too similar to: "${similarTo}"`);
+          continue;
+        }
+
+        const blogPage = await prisma.page.create({
+          data: {
+            siteId: site.id,
+            title: topic.title,
+            slug: blogSlug,
+            type: PageType.BLOG,
+            status: PageStatus.DRAFT,
+            metaDescription: `${topic.targetKeyword} - ${brandIdentity.name}`,
+          },
+        });
 
         // Queue content generation for each blog post
         await addJob('CONTENT_GENERATE', {
@@ -491,10 +500,12 @@ export async function handleSiteCreate(job: Job<SiteCreatePayload>): Promise<Job
           secondaryKeywords: topic.secondaryKeywords,
         });
 
-        console.log(`[Site Create] Queued blog post: "${topic.title}"`);
+        createdTitles.push(topic.title);
+        queuedCount++;
+        console.info(`[Site Create] Queued blog post: "${topic.title}"`);
       }
 
-      console.log(`[Site Create] Created and queued ${blogTopics.length} initial blog posts`);
+      console.info(`[Site Create] Created and queued ${queuedCount} initial blog posts`);
     } catch (blogError) {
       // Blog generation is non-critical, log and continue
       console.error('[Site Create] Failed to generate blog topics:', blogError);

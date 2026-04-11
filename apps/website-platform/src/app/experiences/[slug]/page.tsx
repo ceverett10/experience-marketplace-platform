@@ -32,6 +32,8 @@ import { RelatedMicrosites } from '@/components/microsites/RelatedMicrosites';
 import { TrackViewItem } from '@/components/analytics/TrackViewItem';
 import { TrackFunnelEvent } from '@/components/analytics/TrackFunnelEvent';
 import { LiveActivityIndicator } from '@/components/ui/TrustSignals';
+import { Breadcrumbs } from '@/components/ui/Breadcrumbs';
+import { ShareButton } from '@/components/ui/ShareButton';
 
 import { LocalTips } from '@/components/experiences/LocalTips';
 import { RecentlyViewed } from '@/components/experiences/RecentlyViewed';
@@ -598,37 +600,13 @@ export default async function ExperienceDetailPage({ params }: Props) {
 
       <div className="min-h-screen bg-gray-50">
         {/* Breadcrumb Bar */}
-        <div className="border-b border-gray-200 bg-white">
-          <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6 lg:px-8">
-            <nav className="flex items-center gap-2 text-sm text-gray-500">
-              <a href="/" className="hover:text-gray-700">
-                Home
-              </a>
-              <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                <path
-                  fillRule="evenodd"
-                  d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              <a href="/experiences" className="hover:text-gray-700">
-                Experiences
-              </a>
-              {experience.categories[0] && (
-                <>
-                  <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path
-                      fillRule="evenodd"
-                      d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                  <span className="text-gray-900">{experience.categories[0].name}</span>
-                </>
-              )}
-            </nav>
-          </div>
-        </div>
+        <Breadcrumbs
+          items={[
+            { label: 'Home', href: '/' },
+            { label: 'Experiences', href: '/experiences' },
+            ...(experience.categories[0] ? [{ label: experience.categories[0].name }] : []),
+          ]}
+        />
 
         {/* Image Gallery */}
         <div className="bg-white">
@@ -650,9 +628,17 @@ export default async function ExperienceDetailPage({ params }: Props) {
             <div className="lg:col-span-2">
               {/* Title & Quick Info */}
               <div className="mb-8">
-                <h1 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl lg:text-4xl">
-                  {experience.title}
-                </h1>
+                <div className="flex items-start justify-between gap-4">
+                  <h1 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl lg:text-4xl">
+                    {experience.title}
+                  </h1>
+                  <ShareButton
+                    title={experience.title}
+                    text={experience.shortDescription}
+                    variant="button"
+                    className="hidden sm:block flex-shrink-0"
+                  />
+                </div>
 
                 {/* Quick Stats Row */}
                 <div className="mt-4 flex flex-wrap items-center gap-4 text-sm">

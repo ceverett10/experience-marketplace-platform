@@ -14,6 +14,7 @@ import {
   calculateRetryDelay,
   shouldMoveToDeadLetter,
 } from '../errors';
+import { findSimilarTitle } from '../services/blog-dedup.js';
 import { errorTracking } from '../errors/tracking';
 import { circuitBreakers } from '../errors/circuit-breaker';
 import { canExecuteAutonomousOperation } from '../services/pause-control';
@@ -270,6 +271,99 @@ function sanitizePlaceholders(content: string): { sanitized: string; removedCoun
 
   sanitized = sanitized.replace(/\n{3,}/g, '\n\n').trim();
   return { sanitized, removedCount };
+}
+
+/**
+ * Sanitize Contact page content to remove AI-fabricated contact details.
+ *
+ * The AI frequently invents realistic-looking but completely fake contact
+ * information: email addresses, phone numbers, physical addresses, and
+ * operating hours. Unlike bracket-style placeholders (handled by
+ * sanitizePlaceholders), these look real and pass through other sanitizers.
+ *
+ * Strategy: remove entire lines/sections containing fabricated details,
+ * then strip any resulting empty headings or sections.
+ */
+function sanitizeContactContent(content: string): {
+  sanitized: string;
+  detailsRemoved: number;
+} {
+  let detailsRemoved = 0;
+  let sanitized = content;
+
+  // 1. Remove lines with email addresses (fabricated emails like info@site.com, support@site.com)
+  sanitized = sanitized.replace(
+    /^[^\n]*\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b[^\n]*$/gm,
+    () => {
+      detailsRemoved++;
+      return '';
+    }
+  );
+
+  // 2. Remove lines with phone numbers (international and local formats)
+  sanitized = sanitized.replace(
+    /^[^\n]*(?:\+\d[\d\s()./-]{7,20}|\(\d{2,5}\)\s*[\d\s/-]{6,15}|\b0\d{2,4}[\s-]?\d{3,4}[\s-]?\d{3,4}\b)[^\n]*$/gm,
+    () => {
+      detailsRemoved++;
+      return '';
+    }
+  );
+
+  // 3. Remove lines with physical/street addresses
+  sanitized = sanitized.replace(
+    /^[^\n]*\b\d{1,5}\s+(?:rue|avenue|boulevard|street|road|lane|drive|place|square|quai|corso|via|calle|plaza|platz|strasse|straße)\b[^\n]*$/gim,
+    () => {
+      detailsRemoved++;
+      return '';
+    }
+  );
+
+  // 4. Remove lines with postal/zip codes + street-type words
+  sanitized = sanitized.replace(
+    /^[^\n]*\b(?:[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}|\d{5}(?:-\d{4})?)\b[^\n]*\b(?:street|road|lane|avenue|rue|boulevard|floor|suite|unit)\b[^\n]*$/gim,
+    () => {
+      detailsRemoved++;
+      return '';
+    }
+  );
+
+  // 5. Remove fabricated operating hours lines
+  sanitized = sanitized.replace(
+    /^[^\n]*\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\s*[-–to]+\s*(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\b[^\n]*\b\d{1,2}[:.]\d{2}\b[^\n]*$/gim,
+    () => {
+      detailsRemoved++;
+      return '';
+    }
+  );
+
+  // 6. Remove lines with "Email:", "Phone:", "Tel:", "Address:", "Hours:" prefixed details
+  sanitized = sanitized.replace(
+    /^[^\n]*\*{0,2}(?:email|e-mail|phone|telephone|tel|fax|address|mailing address|office|location|hours|opening hours|business hours|operating hours)\s*:?\*{0,2}\s*[:–-].+$/gim,
+    () => {
+      detailsRemoved++;
+      return '';
+    }
+  );
+
+  // 7. Remove "mailto:" links in markdown
+  sanitized = sanitized.replace(/\[([^\]]*)\]\(mailto:[^)]+\)/g, (_match, text) => {
+    detailsRemoved++;
+    return text as string;
+  });
+
+  // 8. Remove "tel:" links in markdown
+  sanitized = sanitized.replace(/\[([^\]]*)\]\(tel:[^)]+\)/g, (_match, text) => {
+    detailsRemoved++;
+    return text as string;
+  });
+
+  // 9. Clean up empty sections — headings followed only by whitespace before next heading or EOF
+  sanitized = sanitized.replace(/^(#{1,6}\s+[^\n]+)\n+(?=#{1,6}\s|\s*$)/gm, '');
+
+  // 10. Clean up excessive blank lines
+  sanitized = sanitized.replace(/\n{3,}/g, '\n\n').trim();
+
+  return { sanitized, detailsRemoved };
 }
 
 /**
@@ -1106,6 +1200,27 @@ async function handleMicrositePageContentGenerate(params: {
         };
       }
 
+      // Similarity check: reject topics too close to existing published blogs
+      const existingBlogs = await prisma.page.findMany({
+        where: { micrositeId, type: PageType.BLOG, status: PageStatus.PUBLISHED },
+        select: { title: true },
+      });
+      const similarTo = findSimilarTitle(
+        result.content.title,
+        existingBlogs.map((p) => p.title)
+      );
+      if (similarTo) {
+        console.info(
+          `[Content Generate - Microsite] Skipping "${result.content.title}" — too similar to existing: "${similarTo}"`
+        );
+        return {
+          success: true,
+          message: `Skipped near-duplicate of "${similarTo}"`,
+          data: { micrositeId, slug },
+          timestamp: new Date(),
+        };
+      }
+
       // Create content first (no pageId yet), then create page with contentId
       const content = await prisma.content.create({
         data: {
@@ -1376,11 +1491,22 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
       }
     }
 
+    // For contact pages, sanitize fabricated contact details (emails, phones, addresses)
+    if (contentType === 'contact') {
+      const { sanitized: contactSanitized, detailsRemoved } = sanitizeContactContent(postSanitized);
+      if (detailsRemoved > 0) {
+        console.info(
+          `[Content Generate] Removed ${detailsRemoved} fabricated contact details from contact page`
+        );
+        postSanitized = contactSanitized;
+      }
+    }
+
     // Add internal links to improve SEO and user navigation
-    // Skip for about pages - they should not have inline internal links
+    // Skip for about/contact pages - they should not have inline internal links
     // Microsites: internal linking handled in handleMicrositePageContentGenerate
     let finalContent = postSanitized;
-    if (contentType !== 'about' && siteId) {
+    if (contentType !== 'about' && contentType !== 'contact' && siteId) {
       const linkSuggestion = await suggestInternalLinks({
         siteId,
         content: postSanitized,
@@ -1655,9 +1781,22 @@ async function handleContentOptimizeBatch(siteId: string): Promise<JobResult> {
         );
       }
 
+      // For contact pages, sanitize fabricated contact details (emails, phones, addresses)
+      let postOptSanitized = placeholderClean;
+      if (contentType === 'contact' || page.type === 'CONTACT') {
+        const { sanitized: contactSanitized, detailsRemoved } =
+          sanitizeContactContent(placeholderClean);
+        if (detailsRemoved > 0) {
+          console.info(
+            `[Content Optimize] Page "${page.slug}": removed ${detailsRemoved} fabricated contact details`
+          );
+          postOptSanitized = contactSanitized;
+        }
+      }
+
       // Enhance internal links now that all pages exist for the site
-      let enhancedBody = placeholderClean;
-      if (contentType !== 'about') {
+      let enhancedBody = postOptSanitized;
+      if (contentType !== 'about' && contentType !== 'contact') {
         const linkSuggestion = await suggestInternalLinks({
           siteId,
           content: content.body,

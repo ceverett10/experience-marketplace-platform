@@ -7,3 +7,4 @@
 
 export { ProductSpotlightHomepage } from './ProductSpotlightHomepage';
 export { CatalogHomepage } from './CatalogHomepage';
+export { SignatureExperience, selectSignatureExperience } from './SignatureExperience';

@@ -1075,28 +1075,33 @@ export async function handleMicrositeGscSync(
         return date.toISOString().split('T')[0]!;
       })();
 
-    // Get active microsites
-    const micrositeWhere: any = {
-      parentDomain: MICROSITE_PARENT_DOMAIN,
-      status: 'ACTIVE',
-    };
-    if (micrositeId) {
-      micrositeWhere.id = micrositeId;
+    // Build hostname -> microsite lookup map using cursor pagination
+    // to avoid loading all 39K+ records in one Prisma call
+    const micrositeMap = new Map<string, { id: string; fullDomain: string }>();
+    {
+      const PAGE_SIZE = 5000;
+      let cursor: string | undefined;
+      const where: any = { parentDomain: MICROSITE_PARENT_DOMAIN, status: 'ACTIVE' };
+      if (micrositeId) where.id = micrositeId;
+
+      let hasMore = true;
+      while (hasMore) {
+        const batch = await prisma.micrositeConfig.findMany({
+          where,
+          select: { id: true, fullDomain: true },
+          take: PAGE_SIZE,
+          ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+          orderBy: { id: 'asc' },
+        });
+        for (const m of batch) micrositeMap.set(m.fullDomain, m);
+        hasMore = batch.length === PAGE_SIZE;
+        if (hasMore) cursor = batch[batch.length - 1]!.id;
+      }
     }
 
-    const microsites = await prisma.micrositeConfig.findMany({
-      where: micrositeWhere,
-      select: {
-        id: true,
-        fullDomain: true,
-        subdomain: true,
-        siteName: true,
-      },
-    });
+    console.info(`[Microsite GSC Sync] Built lookup map for ${micrositeMap.size} microsites`);
 
-    console.log(`[Microsite GSC Sync] Found ${microsites.length} microsites to sync`);
-
-    if (microsites.length === 0) {
+    if (micrositeMap.size === 0) {
       return {
         success: true,
         message: 'No active microsites to sync',
@@ -1106,7 +1111,7 @@ export async function handleMicrositeGscSync(
 
     // Query GSC for all data from the domain property
     const gscClient = getGSCClient();
-    console.log(
+    console.info(
       `[Microsite GSC Sync] Querying ${MICROSITE_GSC_DOMAIN_PROPERTY} for ${start} to ${end}`
     );
 
@@ -1118,10 +1123,7 @@ export async function handleMicrositeGscSync(
       rowLimit: 25000,
     });
 
-    console.log(`[Microsite GSC Sync] Retrieved ${response.rows?.length || 0} rows from GSC`);
-
-    // Create a map of subdomain -> microsite for quick lookup
-    const micrositeMap = new Map(microsites.map((m) => [m.fullDomain, m]));
+    console.info(`[Microsite GSC Sync] Retrieved ${response.rows?.length || 0} rows from GSC`);
 
     // Group GSC data by microsite
     const micrositeMetrics = new Map<
@@ -1151,10 +1153,10 @@ export async function handleMicrositeGscSync(
         continue; // Skip invalid URLs
       }
 
-      const microsite = micrositeMap.get(domain);
-      if (!microsite) continue; // Not a microsite URL
+      const ms = micrositeMap.get(domain);
+      if (!ms) continue; // Not a microsite URL
 
-      const metrics = micrositeMetrics.get(microsite.id) || [];
+      const metrics = micrositeMetrics.get(ms.id) || [];
       metrics.push({
         date: new Date(start),
         query: row.keys?.[1] || undefined,
@@ -1166,7 +1168,7 @@ export async function handleMicrositeGscSync(
         ctr: row.ctr * 100,
         position: row.position,
       });
-      micrositeMetrics.set(microsite.id, metrics);
+      micrositeMetrics.set(ms.id, metrics);
     }
 
     console.log(`[Microsite GSC Sync] Matched data for ${micrositeMetrics.size} microsites`);
@@ -1249,7 +1251,12 @@ export async function handleMicrositeGscSync(
 
 /**
  * Microsite Analytics Sync Handler
- * Creates daily analytics snapshots for microsites (aggregates GSC data)
+ *
+ * When called WITHOUT micrositeId: fans out by queuing one job per microsite
+ * (paginated to avoid loading all 39K+ records into memory at once).
+ *
+ * When called WITH micrositeId: processes a single microsite (aggregate GSC
+ * metrics + upsert daily snapshot).
  */
 export async function handleMicrositeAnalyticsSync(
   job: Job<MicrositeAnalyticsSyncPayload>
@@ -1257,9 +1264,43 @@ export async function handleMicrositeAnalyticsSync(
   const { micrositeId, date } = job.data;
 
   try {
-    console.log(
-      `[Microsite Analytics Sync] Starting sync${micrositeId ? ` for ${micrositeId}` : ' for all microsites'}`
-    );
+    // === FANOUT MODE: no micrositeId → queue one job per microsite ===
+    if (!micrositeId) {
+      const { addJob } = await import('../queues/index.js');
+      let queued = 0;
+      let cursor: string | undefined;
+      const PAGE_SIZE = 1000;
+
+      let hasMore = true;
+      while (hasMore) {
+        const batch = await prisma.micrositeConfig.findMany({
+          where: { parentDomain: MICROSITE_PARENT_DOMAIN, status: 'ACTIVE' },
+          select: { id: true },
+          take: PAGE_SIZE,
+          ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+          orderBy: { id: 'asc' },
+        });
+
+        for (const ms of batch) {
+          await addJob('MICROSITE_ANALYTICS_SYNC' as any, { micrositeId: ms.id, date } as any);
+          queued++;
+        }
+
+        hasMore = batch.length === PAGE_SIZE;
+        if (hasMore) cursor = batch[batch.length - 1]!.id;
+      }
+
+      console.info(`[Microsite Analytics Sync] Fanned out ${queued} per-microsite jobs`);
+      return {
+        success: true,
+        message: `Fanned out ${queued} analytics sync jobs`,
+        data: { queued },
+        timestamp: new Date(),
+      };
+    }
+
+    // === SINGLE-MICROSITE MODE ===
+    console.info(`[Microsite Analytics Sync] Processing ${micrositeId}`);
 
     // Calculate target date (default: yesterday)
     const targetDate = date
@@ -1275,109 +1316,47 @@ export async function handleMicrositeAnalyticsSync(
     const endOfDay = new Date(dateStr);
     endOfDay.setHours(23, 59, 59, 999);
 
-    // Get active microsites
-    const micrositeWhere: any = {
-      parentDomain: MICROSITE_PARENT_DOMAIN,
-      status: 'ACTIVE',
-    };
-    if (micrositeId) {
-      micrositeWhere.id = micrositeId;
-    }
+    // Aggregate GSC metrics for this microsite and date
+    const gscMetrics = await prisma.micrositePerformanceMetric.aggregate({
+      where: {
+        micrositeId,
+        date: { gte: startOfDay, lte: endOfDay },
+      },
+      _sum: { clicks: true, impressions: true },
+      _avg: { ctr: true, position: true },
+    });
 
-    const microsites = await prisma.micrositeConfig.findMany({
-      where: micrositeWhere,
-      select: {
-        id: true,
-        fullDomain: true,
-        siteName: true,
+    const totalClicks = gscMetrics._sum.clicks || 0;
+    const totalImpressions = gscMetrics._sum.impressions || 0;
+    const avgCtr = gscMetrics._avg.ctr || 0;
+    const avgPosition = gscMetrics._avg.position || 0;
+
+    // Upsert the snapshot
+    await prisma.micrositeAnalyticsSnapshot.upsert({
+      where: { micrositeId_date: { micrositeId, date: startOfDay } },
+      update: {
+        totalClicks,
+        totalImpressions,
+        avgCtr,
+        avgPosition,
+        gscSynced: totalImpressions > 0,
+        updatedAt: new Date(),
+      },
+      create: {
+        micrositeId,
+        date: startOfDay,
+        totalClicks,
+        totalImpressions,
+        avgCtr,
+        avgPosition,
+        gscSynced: totalImpressions > 0,
       },
     });
 
-    console.log(
-      `[Microsite Analytics Sync] Creating snapshots for ${microsites.length} microsites for ${dateStr}`
-    );
-
-    let created = 0;
-    let updated = 0;
-    let errors = 0;
-
-    for (const microsite of microsites) {
-      try {
-        // Aggregate GSC metrics for this microsite and date
-        const gscMetrics = await prisma.micrositePerformanceMetric.aggregate({
-          where: {
-            micrositeId: microsite.id,
-            date: {
-              gte: startOfDay,
-              lte: endOfDay,
-            },
-          },
-          _sum: {
-            clicks: true,
-            impressions: true,
-          },
-          _avg: {
-            ctr: true,
-            position: true,
-          },
-        });
-
-        const totalClicks = gscMetrics._sum.clicks || 0;
-        const totalImpressions = gscMetrics._sum.impressions || 0;
-        const avgCtr = gscMetrics._avg.ctr || 0;
-        const avgPosition = gscMetrics._avg.position || 0;
-
-        // Upsert the snapshot
-        const result = await prisma.micrositeAnalyticsSnapshot.upsert({
-          where: {
-            micrositeId_date: {
-              micrositeId: microsite.id,
-              date: startOfDay,
-            },
-          },
-          update: {
-            totalClicks,
-            totalImpressions,
-            avgCtr,
-            avgPosition,
-            gscSynced: totalImpressions > 0,
-            updatedAt: new Date(),
-          },
-          create: {
-            micrositeId: microsite.id,
-            date: startOfDay,
-            totalClicks,
-            totalImpressions,
-            avgCtr,
-            avgPosition,
-            gscSynced: totalImpressions > 0,
-          },
-        });
-
-        if (result.createdAt.getTime() === result.updatedAt.getTime()) {
-          created++;
-        } else {
-          updated++;
-        }
-      } catch (error) {
-        console.error(`[Microsite Analytics Sync] Error for ${microsite.id}:`, error);
-        errors++;
-      }
-    }
-
-    console.log(
-      `[Microsite Analytics Sync] Created ${created}, updated ${updated}, errors ${errors}`
-    );
-
     return {
       success: true,
-      message: `Created/updated ${created + updated} microsite analytics snapshots`,
-      data: {
-        date: dateStr,
-        created,
-        updated,
-        errors,
-      },
+      message: `Analytics snapshot created for ${micrositeId}`,
+      data: { date: dateStr, totalClicks, totalImpressions },
       timestamp: new Date(),
     };
   } catch (error) {
@@ -1487,25 +1466,31 @@ export async function handleMicrositeGA4Sync(
     targetDate.setHours(0, 0, 0, 0);
     const dateStr = targetDate.toISOString().split('T')[0]!;
 
-    // Get active microsites
-    const micrositeWhere: any = {
-      parentDomain: MICROSITE_PARENT_DOMAIN,
-      status: 'ACTIVE',
-    };
-    if (micrositeId) {
-      micrositeWhere.id = micrositeId;
+    // Build hostname -> micrositeId lookup map using cursor pagination
+    // to avoid loading all 39K+ records in one Prisma call
+    const hostnameMap = new Map<string, string>();
+    {
+      const PAGE_SIZE = 5000;
+      let cursor: string | undefined;
+      const where: any = { parentDomain: MICROSITE_PARENT_DOMAIN, status: 'ACTIVE' };
+      if (micrositeId) where.id = micrositeId;
+
+      let hasMore = true;
+      while (hasMore) {
+        const batch = await prisma.micrositeConfig.findMany({
+          where,
+          select: { id: true, fullDomain: true },
+          take: PAGE_SIZE,
+          ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+          orderBy: { id: 'asc' },
+        });
+        for (const m of batch) hostnameMap.set(m.fullDomain, m.id);
+        hasMore = batch.length === PAGE_SIZE;
+        if (hasMore) cursor = batch[batch.length - 1]!.id;
+      }
     }
 
-    const microsites = await prisma.micrositeConfig.findMany({
-      where: micrositeWhere,
-      select: {
-        id: true,
-        fullDomain: true,
-        siteName: true,
-      },
-    });
-
-    if (microsites.length === 0) {
+    if (hostnameMap.size === 0) {
       return {
         success: true,
         message: 'No active microsites to sync',
@@ -1513,11 +1498,8 @@ export async function handleMicrositeGA4Sync(
       };
     }
 
-    // Build hostname -> micrositeId lookup map
-    const hostnameMap = new Map(microsites.map((m) => [m.fullDomain, m.id]));
-
-    console.log(
-      `[Microsite GA4 Sync] Querying GA4 property ${ga4PropertyId} for ${dateStr} across ${microsites.length} microsites`
+    console.info(
+      `[Microsite GA4 Sync] Querying GA4 property ${ga4PropertyId} for ${dateStr} across ${hostnameMap.size} microsites`
     );
 
     // Fetch all 3 reports in parallel (3 API calls total, not per-microsite)

@@ -103,19 +103,22 @@ export async function POST(request: NextRequest) {
     // Get Holibob client
     const client = await getHolibobClient(site);
 
-    // Read partner tracking code from cookie (set by middleware from ?ref= URL param)
+    // Build partner external reference: site base URL + ?ref= tracking code (if present)
     let partnerExternalReference = input.partnerExternalReference;
     if (!partnerExternalReference) {
+      const protocol = request.headers.get('x-forwarded-proto') || 'https';
+      const siteBaseUrl = `${protocol}://${host}`;
       const utmCookie = request.cookies.get('utm_params')?.value;
       if (utmCookie) {
         try {
           const utm = JSON.parse(utmCookie);
-          if (utm.ref) {
-            partnerExternalReference = utm.ref;
-          }
+          const ref = utm.ref || '';
+          partnerExternalReference = ref ? `${siteBaseUrl}?ref=${ref}` : siteBaseUrl;
         } catch {
-          // Invalid cookie JSON — ignore
+          partnerExternalReference = siteBaseUrl;
         }
+      } else {
+        partnerExternalReference = siteBaseUrl;
       }
     }
 
