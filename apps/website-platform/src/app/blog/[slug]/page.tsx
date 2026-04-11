@@ -9,6 +9,13 @@ import { BlogPostTemplate } from '@/components/content/BlogPostTemplate';
 import { RelatedMicrosites } from '@/components/microsites/RelatedMicrosites';
 import { NetworkRelatedPosts } from '@/components/microsites/NetworkRelatedPosts';
 import { TrackFunnelEvent } from '@/components/analytics/TrackFunnelEvent';
+import { RelatedExperiences } from '@/components/experiences/RelatedExperiences';
+import { RelatedArticles } from '@/components/experiences/RelatedArticles';
+import {
+  extractContentKeywords,
+  getRelatedPagesByKeywords,
+  getRelatedExperiencesForContent,
+} from '@/lib/related-content';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -271,6 +278,9 @@ export default async function BlogPostPage({ params }: Props) {
       {/* Blog Post Content */}
       <BlogPostTemplate post={post} siteName={site.name} />
 
+      {/* Topic cluster: related experiences and blog posts */}
+      <BlogRelatedContent site={site} post={post} />
+
       {/* Network cross-linking (microsites only) */}
       {site.micrositeContext?.micrositeId && (
         <NetworkRelatedPostsSection
@@ -312,6 +322,115 @@ async function NetworkRelatedPostsSection({
   try {
     const posts = await getNetworkRelatedBlogPosts(micrositeId, cities, categories, 4);
     return <NetworkRelatedPosts posts={posts} />;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Topic cluster internal linking for blog posts.
+ * Shows related experiences (money pages) and related blog posts (sibling spokes).
+ */
+async function BlogRelatedContent({
+  site,
+  post,
+}: {
+  site: SiteConfig;
+  post: { id: string; title: string; metaDescription: string | null };
+}) {
+  try {
+    const keywords = extractContentKeywords(post.title, post.metaDescription);
+    if (keywords.length === 0) return null;
+
+    const isMicrosite = !!site.micrositeContext?.micrositeId;
+
+    const [relatedExperiences, relatedPosts, destinationPage] = await Promise.all([
+      getRelatedExperiencesForContent(site, keywords, 4),
+      getRelatedPagesByKeywords({
+        siteId: site.id,
+        micrositeId: isMicrosite ? site.micrositeContext?.micrositeId : undefined,
+        pageType: 'BLOG',
+        keywords,
+        excludePageId: post.id,
+        limit: 3,
+      }),
+      getRelatedPagesByKeywords({
+        siteId: site.id,
+        micrositeId: isMicrosite ? site.micrositeContext?.micrositeId : undefined,
+        pageType: 'LANDING',
+        keywords,
+        limit: 1,
+      }),
+    ]);
+
+    const locationKeyword = keywords[0] ?? '';
+
+    return (
+      <>
+        {relatedExperiences.length > 0 && (
+          <RelatedExperiences
+            experiences={relatedExperiences}
+            title={`Book ${locationKeyword ? locationKeyword.charAt(0).toUpperCase() + locationKeyword.slice(1) + ' ' : ''}Experiences`}
+          />
+        )}
+        {relatedPosts.length > 0 && (
+          <RelatedArticles
+            posts={relatedPosts.map((p) => ({
+              id: p.id,
+              slug: p.slug,
+              title: p.title,
+              metaDescription: p.metaDescription,
+              createdAt: p.publishedAt ?? new Date(),
+              content: p.content,
+            }))}
+            experienceTitle={post.title}
+            locationName={locationKeyword || undefined}
+          />
+        )}
+        {destinationPage.length > 0 && destinationPage[0] && (
+          <section className="mx-auto max-w-7xl px-4 pb-8 sm:px-6 lg:px-8">
+            <a
+              href={`/${destinationPage[0].slug}`}
+              className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-5 transition-all hover:border-gray-300 hover:shadow-sm"
+            >
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-teal-50">
+                <svg
+                  className="h-5 w-5 text-teal-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth="2"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"
+                  />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-gray-900">{destinationPage[0].title}</p>
+                <p className="text-xs text-gray-500">Explore our full destination guide</p>
+              </div>
+              <svg
+                className="ml-auto h-5 w-5 flex-shrink-0 text-gray-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth="2"
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+              </svg>
+            </a>
+          </section>
+        )}
+      </>
+    );
   } catch {
     return null;
   }

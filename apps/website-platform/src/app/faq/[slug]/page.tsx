@@ -7,6 +7,8 @@ import { prisma } from '@/lib/prisma';
 import { cleanPlainText, generateFaqJsonLd } from '@/lib/seo';
 import { FAQPageTemplate } from '@/components/content/FAQPageTemplate';
 import { TrackFunnelEvent } from '@/components/analytics/TrackFunnelEvent';
+import { RelatedArticles } from '@/components/experiences/RelatedArticles';
+import { extractContentKeywords, getRelatedPagesByKeywords } from '@/lib/related-content';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -235,9 +237,50 @@ export default async function FAQDetailPage({ params }: Props) {
 
       {/* FAQ Content */}
       <FAQPageTemplate page={page} siteName={site.name} faqs={faqs} />
+      <FaqRelatedContent site={site} faqTitle={page.title} faqId={page.id} />
       <TrackFunnelEvent step="LANDING_PAGE_VIEW" />
     </>
   );
+}
+
+async function FaqRelatedContent({
+  site,
+  faqTitle,
+  faqId,
+}: {
+  site: Awaited<ReturnType<typeof getSiteFromHostname>>;
+  faqTitle: string;
+  faqId: string;
+}) {
+  try {
+    const keywords = extractContentKeywords(faqTitle);
+    if (keywords.length === 0) return null;
+    const isMicrosite = !!site.micrositeContext?.micrositeId;
+    const relatedBlogs = await getRelatedPagesByKeywords({
+      siteId: site.id,
+      micrositeId: isMicrosite ? site.micrositeContext?.micrositeId : undefined,
+      pageType: 'BLOG',
+      keywords,
+      excludePageId: faqId,
+      limit: 2,
+    });
+    if (relatedBlogs.length === 0) return null;
+    return (
+      <RelatedArticles
+        posts={relatedBlogs.map((p) => ({
+          id: p.id,
+          slug: p.slug,
+          title: p.title,
+          metaDescription: p.metaDescription,
+          createdAt: p.publishedAt ?? new Date(),
+          content: p.content,
+        }))}
+        experienceTitle={faqTitle}
+      />
+    );
+  } catch {
+    return null;
+  }
 }
 
 // Dynamic rendering - pages generated on-demand

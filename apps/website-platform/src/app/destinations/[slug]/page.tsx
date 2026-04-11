@@ -7,6 +7,9 @@ import { getHolibobClient, parseIsoDuration, type ExperienceListItem } from '@/l
 import { prisma } from '@/lib/prisma';
 import { DestinationPageTemplate } from '@/components/content/DestinationPageTemplate';
 import { TrackFunnelEvent } from '@/components/analytics/TrackFunnelEvent';
+import { RelatedArticles } from '@/components/experiences/RelatedArticles';
+import { RelatedCategories } from '@/components/content/RelatedCategories';
+import { extractContentKeywords, getRelatedPagesByKeywords } from '@/lib/related-content';
 import { currencyToLocale } from '@/lib/currency';
 
 /** Detect paid traffic from URL search params */
@@ -532,9 +535,77 @@ export default async function DestinationPage({ params, searchParams }: Props) {
         priceRange={priceRange}
         searchTerm={searchTerm}
       />
+      <DestinationRelatedContent site={site} destinationName={extractCityFromSlug(slug)} />
       <TrackFunnelEvent step="LANDING_PAGE_VIEW" />
     </>
   );
+}
+
+/**
+ * Topic cluster internal linking for destination pages (pillar pages).
+ */
+async function DestinationRelatedContent({
+  site,
+  destinationName,
+}: {
+  site: Awaited<ReturnType<typeof getSiteFromHostname>>;
+  destinationName: string;
+}) {
+  try {
+    const keywords = extractContentKeywords(destinationName);
+    if (keywords.length === 0) return null;
+
+    const isMicrosite = !!site.micrositeContext?.micrositeId;
+
+    const [relatedBlogs, relatedCategories] = await Promise.all([
+      getRelatedPagesByKeywords({
+        siteId: site.id,
+        micrositeId: isMicrosite ? site.micrositeContext?.micrositeId : undefined,
+        pageType: 'BLOG',
+        keywords,
+        limit: 4,
+      }),
+      getRelatedPagesByKeywords({
+        siteId: site.id,
+        micrositeId: isMicrosite ? site.micrositeContext?.micrositeId : undefined,
+        pageType: 'CATEGORY',
+        keywords,
+        limit: 4,
+      }),
+    ]);
+
+    return (
+      <>
+        {relatedBlogs.length > 0 && (
+          <RelatedArticles
+            posts={relatedBlogs.map((p) => ({
+              id: p.id,
+              slug: p.slug,
+              title: p.title,
+              metaDescription: p.metaDescription,
+              createdAt: p.publishedAt ?? new Date(),
+              content: p.content,
+            }))}
+            experienceTitle={destinationName}
+            locationName={destinationName}
+          />
+        )}
+        {relatedCategories.length > 0 && (
+          <RelatedCategories
+            categories={relatedCategories.map((p) => ({
+              slug: p.slug,
+              title: p.title,
+              metaDescription: p.metaDescription,
+            }))}
+            heading={`Browse ${destinationName} by Category`}
+            primaryColor={site.brand?.primaryColor ?? undefined}
+          />
+        )}
+      </>
+    );
+  } catch {
+    return null;
+  }
 }
 
 /**

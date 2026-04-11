@@ -7,6 +7,8 @@ import { getHolibobClient } from '@/lib/holibob';
 import { prisma } from '@/lib/prisma';
 import { CategoryPageTemplate } from '@/components/content/CategoryPageTemplate';
 import { TrackFunnelEvent } from '@/components/analytics/TrackFunnelEvent';
+import { RelatedArticles } from '@/components/experiences/RelatedArticles';
+import { extractContentKeywords, getRelatedPagesByKeywords } from '@/lib/related-content';
 
 /**
  * Get a default image for structured data from site configuration
@@ -265,9 +267,51 @@ export default async function CategoryPage({ params }: Props) {
         relatedExperiences={relatedExperiences}
         siteName={site.name}
       />
+      <CategoryRelatedContent site={site} categoryTitle={category.title} categoryId={category.id} />
       <TrackFunnelEvent step="LANDING_PAGE_VIEW" />
     </>
   );
+}
+
+async function CategoryRelatedContent({
+  site,
+  categoryTitle,
+  categoryId,
+}: {
+  site: Awaited<ReturnType<typeof getSiteFromHostname>>;
+  categoryTitle: string;
+  categoryId: string;
+}) {
+  try {
+    const keywords = extractContentKeywords(categoryTitle);
+    if (keywords.length === 0) return null;
+    const isMicrosite = !!site.micrositeContext?.micrositeId;
+    const relatedBlogs = await getRelatedPagesByKeywords({
+      siteId: site.id,
+      micrositeId: isMicrosite ? site.micrositeContext?.micrositeId : undefined,
+      pageType: 'BLOG',
+      keywords,
+      excludePageId: categoryId,
+      limit: 3,
+    });
+    if (relatedBlogs.length === 0) return null;
+    return (
+      <RelatedArticles
+        posts={relatedBlogs.map((p) => ({
+          id: p.id,
+          slug: p.slug,
+          title: p.title,
+          metaDescription: p.metaDescription,
+          createdAt: p.publishedAt ?? new Date(),
+          content: p.content,
+        }))}
+        experienceTitle={categoryTitle}
+        categoryName={categoryTitle}
+      />
+    );
+  } catch {
+    return null;
+  }
 }
 
 /**
