@@ -88,6 +88,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   try {
     const { id } = await params;
 
+    // Parse optional themeGuidance from request body
+    let themeGuidance: Record<string, unknown> | undefined;
+    try {
+      const body = await request.json();
+      themeGuidance = body?.themeGuidance;
+    } catch {
+      // No body is fine — themeGuidance is optional
+    }
+
     // Fetch site with brand, seoConfig, and opportunity info
     const site = await prisma.site.findUnique({
       where: { id },
@@ -109,12 +118,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     // Prepare opportunity context (use site data if no opportunity)
     const opportunity = site.opportunities[0];
+    // Use themeGuidance from request, or fall back to stored seoConfig.themeGuidance
+    const seoConfigRaw = site.seoConfig as Record<string, unknown> | null;
+    const effectiveThemeGuidance = themeGuidance || seoConfigRaw?.['themeGuidance'] || undefined;
+
     const opportunityContext = {
       keyword: opportunity?.keyword || site.name,
       location: opportunity?.location || undefined,
       niche: opportunity?.niche || 'tours',
       searchVolume: opportunity?.searchVolume || 0,
       intent: opportunity?.intent || 'COMMERCIAL',
+      themeGuidance: effectiveThemeGuidance as any,
     };
 
     // Get seoConfig (contains brand identity details like tone of voice, etc.)

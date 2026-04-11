@@ -136,6 +136,7 @@ export async function handleMicrositeCreate(job: Job<MicrositeCreatePayload>): P
     subdomain: preGeneratedSubdomain,
     entityType: payloadEntityType,
     discoveryConfig,
+    themeGuidance,
   } = job.data;
 
   try {
@@ -304,6 +305,7 @@ export async function handleMicrositeCreate(job: Job<MicrositeCreatePayload>): P
       intent: 'TRANSACTIONAL',
       entityName,
       entityDescription: description || undefined,
+      themeGuidance,
     };
     const brandIdentity = useFullBrand
       ? await generateComprehensiveBrandIdentity(brandContext)
@@ -355,6 +357,7 @@ export async function handleMicrositeCreate(job: Job<MicrositeCreatePayload>): P
           niche: categories[0] || 'travel experiences',
           searchVolume: opportunityData?.searchVolume || 100,
           intent: 'TRANSACTIONAL',
+          themeGuidance,
         },
         brandIdentity
       );
@@ -538,7 +541,7 @@ export async function handleMicrositeCreate(job: Job<MicrositeCreatePayload>): P
 export async function handleMicrositeBrandGenerate(
   job: Job<MicrositeBrandGeneratePayload>
 ): Promise<JobResult> {
-  const { micrositeId } = job.data;
+  const { micrositeId, themeGuidance } = job.data;
 
   try {
     console.log(`[Microsite Brand] Regenerating brand for microsite ${micrositeId}`);
@@ -572,6 +575,7 @@ export async function handleMicrositeBrandGenerate(
       intent: 'TRANSACTIONAL',
       entityName,
       entityDescription,
+      themeGuidance,
     });
 
     // Update brand
