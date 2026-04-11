@@ -118,7 +118,7 @@ export default function SitesPage() {
       const basePath = process.env['NEXT_PUBLIC_BASE_PATH'] || '';
       const payload: Record<string, unknown> = { siteIds: [siteId] };
       if (themeGuidance && Object.keys(themeGuidance).length > 0) {
-        payload.themeGuidance = themeGuidance;
+        payload['themeGuidance'] = themeGuidance;
       }
       const response = await fetch(`${basePath}/api/sites/brand-identity`, {
         method: 'POST',
