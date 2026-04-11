@@ -1,5 +1,34 @@
-import { describe, it, expect } from 'vitest';
-import { extractContentKeywords, getPageUrl } from './related-content';
+import { describe, it, expect, vi } from 'vitest';
+import { extractContentKeywords, getPageUrl, getRelatedPagesByKeywords } from './related-content';
+
+vi.mock('./prisma', () => ({
+  prisma: {
+    page: {
+      findMany: vi.fn(async () => [
+        {
+          id: 'p1',
+          title: 'Best Food Tours in London',
+          slug: 'blog/best-food-tours-london',
+          metaDescription: 'Discover the best food tours',
+          noIndex: false,
+          publishedAt: new Date(),
+          createdAt: new Date(),
+          content: { body: 'Great tours...', qualityScore: 85 },
+        },
+        {
+          id: 'p2',
+          title: 'Walking Tours Guide',
+          slug: 'blog/walking-tours-guide',
+          metaDescription: 'A guide to walking tours',
+          noIndex: false,
+          publishedAt: new Date(),
+          createdAt: new Date(),
+          content: { body: 'Nice walks...', qualityScore: 70 },
+        },
+      ]),
+    },
+  },
+}));
 
 describe('related-content', () => {
   describe('extractContentKeywords', () => {
@@ -62,6 +91,49 @@ describe('related-content', () => {
 
     it('returns /categories/{slug} for CATEGORY pages', () => {
       expect(getPageUrl('food-tours', 'CATEGORY')).toBe('/categories/food-tours');
+    });
+  });
+
+  describe('getRelatedPagesByKeywords', () => {
+    it('returns empty array when no keywords provided', async () => {
+      const result = await getRelatedPagesByKeywords({
+        siteId: 'site-1',
+        pageType: 'BLOG',
+        keywords: [],
+      });
+      expect(result).toEqual([]);
+    });
+
+    it('returns scored pages matching keywords', async () => {
+      const result = await getRelatedPagesByKeywords({
+        siteId: 'site-1',
+        pageType: 'BLOG',
+        keywords: ['food', 'london'],
+        limit: 3,
+      });
+      expect(result.length).toBeGreaterThan(0);
+      expect(result[0]?.title).toContain('Food');
+    });
+
+    it('excludes page by ID when excludePageId is set', async () => {
+      const result = await getRelatedPagesByKeywords({
+        siteId: 'site-1',
+        pageType: 'BLOG',
+        keywords: ['food'],
+        excludePageId: 'p1',
+        limit: 3,
+      });
+      expect(result.every((p) => p.id !== 'p1')).toBe(true);
+    });
+
+    it('respects limit parameter', async () => {
+      const result = await getRelatedPagesByKeywords({
+        siteId: 'site-1',
+        pageType: 'BLOG',
+        keywords: ['tours'],
+        limit: 1,
+      });
+      expect(result.length).toBeLessThanOrEqual(1);
     });
   });
 });
