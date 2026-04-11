@@ -10,6 +10,7 @@
 
 import { getSharedClaudeClient } from '@experience-marketplace/content-engine';
 import { prisma } from '@experience-marketplace/database';
+import type { ThemeGuidance } from '../types/index.js';
 import { enrichHomepageConfigWithImages } from './unsplash-images.js';
 
 interface OpportunityContext {
@@ -22,6 +23,8 @@ interface OpportunityContext {
   entityName?: string;
   /** Brief description of the entity for richer brand context */
   entityDescription?: string;
+  /** Optional user-provided creative direction for AI generation */
+  themeGuidance?: ThemeGuidance;
 }
 
 interface ComprehensiveBrandIdentity {
@@ -71,6 +74,27 @@ interface ComprehensiveBrandIdentity {
 }
 
 /**
+ * Build the "USER CREATIVE DIRECTION" section for AI prompts.
+ * Returns an empty string when no guidance is provided so prompts are unchanged.
+ */
+function buildThemeGuidancePromptSection(guidance?: ThemeGuidance): string {
+  if (!guidance) return '';
+
+  const lines: string[] = [];
+  if (guidance.description) lines.push(`- Theme: ${guidance.description}`);
+  if (guidance.personality?.length)
+    lines.push(`- Desired personality: ${guidance.personality.join(', ')}`);
+  if (guidance.targetAudience) lines.push(`- Target audience: ${guidance.targetAudience}`);
+  if (guidance.colorDirection) lines.push(`- Color direction: ${guidance.colorDirection}`);
+  if (guidance.moodKeywords?.length)
+    lines.push(`- Mood/style: ${guidance.moodKeywords.join(', ')}`);
+
+  if (lines.length === 0) return '';
+
+  return `\nUSER CREATIVE DIRECTION (follow these closely — they override default assumptions):\n${lines.join('\n')}\n`;
+}
+
+/**
  * Generate comprehensive brand identity using AI
  */
 export async function generateComprehensiveBrandIdentity(
@@ -88,7 +112,7 @@ Context:
 - Target Market: ${opportunity.location || 'Multiple locations'}
 - Niche: ${opportunity.niche}
 - Primary Keyword: ${opportunity.keyword}${opportunity.entityDescription ? `\n- Business Description: ${opportunity.entityDescription}` : ''}
-
+${buildThemeGuidancePromptSection(opportunity.themeGuidance)}
 CRITICAL RULES FOR THE BRAND NAME:
 1. The brand name MUST be based on the actual business name "${entityName}"
 2. You may clean up the business name (remove "Pty Ltd", "LLC", "Ltd", "Inc", "S.A.S", "GmbH", "S.R.L", etc.) but keep the core identity
@@ -226,6 +250,8 @@ export async function generateLightweightBrandIdentity(
     const location = opportunity.location || '';
     const niche = opportunity.niche;
 
+    const themeSection = buildThemeGuidancePromptSection(opportunity.themeGuidance);
+
     const prompt =
       'You are a brand strategist. Create a minimal brand identity for a travel experience website.\n\n' +
       'Business: ' +
@@ -234,7 +260,8 @@ export async function generateLightweightBrandIdentity(
       (location ? 'Location: ' + location + '\n' : '') +
       'Niche: ' +
       niche +
-      '\n\n' +
+      '\n' +
+      (themeSection ? themeSection + '\n' : '') +
       'RULES:\n' +
       '1. Brand name MUST be based on "' +
       entityName +
@@ -641,7 +668,7 @@ Tagline: ${brandIdentity.tagline}
 Location: ${opportunity.location || 'Multiple locations'}
 Niche: ${opportunity.niche}
 Primary Keyword: ${opportunity.keyword}
-
+${buildThemeGuidancePromptSection(opportunity.themeGuidance)}
 Generate a homepage configuration that will make this site highly relevant and personalized for this brand.
 
 I need:
