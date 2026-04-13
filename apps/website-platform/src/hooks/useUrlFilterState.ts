@@ -12,6 +12,9 @@ const FILTER_KEYS = [
   'duration',
   'minRating',
   'search',
+  'timeOfDay',
+  'accessibility',
+  'perfectFor',
 ] as const;
 type FilterKey = (typeof FILTER_KEYS)[number];
 
@@ -23,6 +26,12 @@ export interface FilterState {
   duration: string | null;
   minRating: string | null;
   search: string | null;
+  /** Time-of-day filter: morning, afternoon, evening */
+  timeOfDay: string | null;
+  /** Accessibility filter: wheelchair, hearing, visual */
+  accessibility: string | null;
+  /** Perfect-for occasion filter: couples, families, solo, groups, etc. */
+  perfectFor: string | null;
 }
 
 function parseFiltersFromParams(params: URLSearchParams): FilterState {
@@ -34,6 +43,9 @@ function parseFiltersFromParams(params: URLSearchParams): FilterState {
     duration: params.get('duration'),
     minRating: params.get('minRating'),
     search: params.get('search'),
+    timeOfDay: params.get('timeOfDay'),
+    accessibility: params.get('accessibility'),
+    perfectFor: params.get('perfectFor'),
   };
 }
 
@@ -46,6 +58,9 @@ function filtersToKey(f: FilterState): string {
   if (f.duration) parts.push(`duration=${f.duration}`);
   if (f.minRating) parts.push(`minRating=${f.minRating}`);
   if (f.search) parts.push(`search=${f.search}`);
+  if (f.timeOfDay) parts.push(`timeOfDay=${f.timeOfDay}`);
+  if (f.accessibility) parts.push(`accessibility=${f.accessibility}`);
+  if (f.perfectFor) parts.push(`perfectFor=${f.perfectFor}`);
   return parts.join('&');
 }
 
@@ -57,6 +72,9 @@ function countActiveFilters(f: FilterState): number {
   if (f.duration) count++;
   if (f.minRating) count++;
   if (f.search) count++;
+  if (f.timeOfDay) count++;
+  if (f.accessibility) count++;
+  if (f.perfectFor) count++;
   return count;
 }
 
@@ -93,6 +111,9 @@ export function useUrlFilterState() {
     if (newFilters.duration) params.set('duration', newFilters.duration);
     if (newFilters.minRating) params.set('minRating', newFilters.minRating);
     if (newFilters.search) params.set('search', newFilters.search);
+    if (newFilters.timeOfDay) params.set('timeOfDay', newFilters.timeOfDay);
+    if (newFilters.accessibility) params.set('accessibility', newFilters.accessibility);
+    if (newFilters.perfectFor) params.set('perfectFor', newFilters.perfectFor);
 
     const qs = params.toString();
     const newUrl = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
@@ -152,6 +173,9 @@ export function useUrlFilterState() {
       duration: null,
       minRating: null,
       search: null,
+      timeOfDay: null,
+      accessibility: null,
+      perfectFor: null,
     };
     setFiltersState(cleared);
     syncToUrl(cleared);

@@ -9,6 +9,7 @@ import { prisma } from '@/lib/prisma';
 import { StaticPageTemplate } from '@/components/content/StaticPageTemplate';
 import { getRelatedMicrosites } from '@/lib/microsite-experiences';
 import { RelatedMicrosites } from '@/components/microsites/RelatedMicrosites';
+import { AboutFaqSection } from '@/components/content/AboutFaqSection';
 
 /**
  * Fetch About page from database
@@ -24,6 +25,29 @@ async function getAboutPage(siteId: string) {
       content: true,
     },
   });
+}
+
+/**
+ * Fetch published FAQ pages for display on the About page
+ */
+async function getFaqPages(where: Record<string, unknown>) {
+  try {
+    const faqs = await prisma.page.findMany({
+      where: { ...where, type: 'FAQ', status: 'PUBLISHED' },
+      include: { content: true },
+      orderBy: { createdAt: 'asc' },
+      take: 10,
+    });
+    return faqs
+      .filter((faq) => faq.content?.body)
+      .map((faq) => ({
+        title: faq.title,
+        body: (faq.content as { body: string }).body,
+        slug: faq.slug,
+      }));
+  } catch {
+    return [];
+  }
 }
 
 /**
@@ -113,6 +137,12 @@ export default async function AboutPage() {
     }
   }
 
+  // Fetch FAQ pages for this site/microsite
+  const faqWhere = isMicrosite
+    ? { micrositeId: site.micrositeContext?.micrositeId }
+    : { siteId: site.id };
+  const faqPages = await getFaqPages(faqWhere);
+
   // Generate JSON-LD structured data
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -178,6 +208,8 @@ export default async function AboutPage() {
 
         <MicrositeAbout siteName={site.name} />
 
+        {faqPages.length > 0 && <AboutFaqSection faqs={faqPages} />}
+
         {relatedMicrosites.length > 0 && <RelatedMicrosites microsites={relatedMicrosites} />}
       </>
     );
@@ -226,6 +258,9 @@ export default async function AboutPage() {
 
       {/* Page Content */}
       <StaticPageTemplate page={displayPage} siteName={site.name} pageType="about" />
+
+      {/* FAQ Section */}
+      {faqPages.length > 0 && <AboutFaqSection faqs={faqPages} />}
 
       {/* Related microsites cross-linking */}
       {isMicrosite && relatedMicrosites.length > 0 && (

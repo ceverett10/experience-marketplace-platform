@@ -850,9 +850,9 @@ model Job {
 model ErrorLog {
   id String @id @default(cuid())
 
-  // Job reference
-  jobId   String
-  job     Job    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  // Job reference (optional — null for client-side errors)
+  jobId   String?
+  job     Job?    @relation(fields: [jobId], references: [id], onDelete: SetNull)
   jobType String
 
   // Site context
@@ -1738,6 +1738,13 @@ model MicrositeConfig {
 
   // GSC tracking (uses parent domain property sc-domain:experiencess.com)
   gscLastSyncedAt DateTime? // Last successful GSC data sync
+
+  // AI enrichment fields (Phase 2 homepage redesign)
+  heroHeadline     String? // Emotive supplier-specific headline (≤12 words)
+  destinationBlurb String? // Why this destination is special (≤80 words)
+  destinationTags  String[] @default([]) // Up to 5 contextual tags
+  enrichedAt       DateTime? // When AI enrichment last ran
+  enrichmentSource String? // e.g. "claude-sonnet-4-20250514"
 
   // Relations
   analyticsSnapshots MicrositeAnalyticsSnapshot[]

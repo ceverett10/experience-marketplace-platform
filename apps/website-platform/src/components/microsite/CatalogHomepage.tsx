@@ -14,7 +14,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { BLUR_PLACEHOLDER } from '@/lib/image-utils';
+import { BLUR_PLACEHOLDER, shouldSkipOptimization } from '@/lib/image-utils';
 import type { SiteConfig, HomepageConfig } from '@/lib/tenant';
 import type { MicrositeLayoutConfig } from '@/lib/microsite-layout';
 import type { ExperienceListItem } from '@/lib/holibob';
@@ -22,8 +22,9 @@ import type { RelatedMicrosite } from '@/lib/microsite-experiences';
 import { HomepageBlogSection } from './HomepageBlogSection';
 import { ReviewsCarousel } from '@/components/experiences/ReviewsCarousel';
 import { CuratedCollections } from './CuratedCollections';
-import { PriceDisplay, DiscountBadge } from '@/components/ui/PriceDisplay';
-import { getProductPricingConfig } from '@/lib/pricing';
+import { PremiumExperienceCard } from '@/components/experiences/PremiumExperienceCard';
+import { SignatureExperience, selectSignatureExperience } from './SignatureExperience';
+import { DestinationContext } from './DestinationContext';
 
 interface BlogPost {
   id: string;
@@ -73,11 +74,22 @@ interface CatalogHomepageProps {
     authorName: string;
     publishedDate: string;
     images: string[];
+    productTitle?: string;
   }>;
   relatedMicrosites?: RelatedMicrosite[];
   blogPosts?: BlogPost[];
   collections?: Collection[];
   isPpc?: boolean;
+  supplierStats?: {
+    totalReviews: number;
+    yearsActive: number;
+  };
+  /** AI-enriched content fields */
+  enrichment?: {
+    heroHeadline?: string;
+    destinationBlurb?: string;
+    destinationTags?: string[];
+  };
 }
 
 export function CatalogHomepage({
@@ -92,14 +104,19 @@ export function CatalogHomepage({
   blogPosts,
   collections,
   isPpc,
+  supplierStats,
+  enrichment,
 }: CatalogHomepageProps) {
   const primaryColor = site.brand?.primaryColor ?? '#6366f1';
   const gridColumns = layoutConfig.gridColumns;
   // Use actual total count if provided, otherwise fall back to displayed experiences length
   const displayCount = totalExperienceCount ?? experiences.length;
 
+  // Supplier location context
+  const topCity = site.micrositeContext?.supplierCities?.[0];
+
   // PPC: Compute destination and min price for search-intent H1
-  const ppcDestination = site.micrositeContext?.supplierCities?.[0];
+  const ppcDestination = topCity;
   const cheapestExperience =
     isPpc && experiences.length > 0
       ? experiences.reduce<ExperienceListItem | undefined>(
@@ -107,6 +124,16 @@ export function CatalogHomepage({
           undefined
         )
       : null;
+
+  // Compute eyebrow text from supplier categories/cities
+  const eyebrow = site.micrositeContext?.supplierCities?.[0]
+    ? `${site.micrositeContext.supplierCategories?.[0] ?? 'Experiences'} in ${site.micrositeContext.supplierCities[0]}`
+    : null;
+
+  const signatureExperience = !isPpc ? selectSignatureExperience(experiences) : null;
+  const gridExperiences = signatureExperience
+    ? experiences.filter((e) => e.id !== signatureExperience.id)
+    : experiences;
 
   // Default testimonials if none provided
   const displayTestimonials = testimonials ?? [
@@ -121,11 +148,9 @@ export function CatalogHomepage({
   return (
     <>
       {/* Compact Hero Section */}
-      <section className="relative">
+      <section className="relative overflow-hidden pb-8">
         {/* Background */}
-        <div
-          className={`absolute inset-0 overflow-hidden ${isPpc ? 'h-[200px] sm:h-[240px]' : 'h-[300px] sm:h-[350px]'}`}
-        >
+        <div className="absolute inset-0 overflow-hidden">
           {heroConfig?.backgroundImage ? (
             <Image
               src={heroConfig.backgroundImage}
@@ -136,6 +161,7 @@ export function CatalogHomepage({
               className="object-cover"
               placeholder="blur"
               blurDataURL={BLUR_PLACEHOLDER}
+              unoptimized={shouldSkipOptimization(heroConfig.backgroundImage)}
             />
           ) : (
             <div
@@ -145,7 +171,12 @@ export function CatalogHomepage({
               }}
             />
           )}
-          <div className="absolute inset-0 bg-black/40" />
+          <div
+            className="absolute inset-0"
+            style={{
+              background: `linear-gradient(to bottom, ${primaryColor}40 0%, rgba(0,0,0,0.55) 100%)`,
+            }}
+          />
         </div>
 
         {/* Content */}
@@ -155,11 +186,16 @@ export function CatalogHomepage({
           }`}
         >
           <div className="text-center">
+            {!isPpc && eyebrow && (
+              <p className="mb-3 text-sm font-medium uppercase tracking-widest text-white/70">
+                {eyebrow}
+              </p>
+            )}
             {/* Site Name */}
             <h1
               className={`font-bold text-white ${isPpc ? 'text-2xl sm:text-3xl' : 'text-3xl sm:text-4xl'}`}
             >
-              {site.name}
+              {enrichment?.heroHeadline ?? site.name}
             </h1>
 
             {/* Tagline */}
@@ -171,66 +207,43 @@ export function CatalogHomepage({
               </p>
             )}
 
-            {/* Stats + Trust Badges (organic only — PPC uses header trust bar) */}
+            {/* Stat Strip (organic only) */}
             {!isPpc && (
-              <>
-                <div className="mt-6 flex justify-center gap-8 text-white/80">
-                  <div>
-                    <span className="text-2xl font-bold text-white">
-                      {displayCount.toLocaleString()}
-                    </span>
-                    <span className="ml-2">Experiences</span>
+              <div className="mt-8 inline-flex flex-wrap justify-center gap-6 rounded-2xl bg-black/30 px-8 py-4 backdrop-blur-sm sm:gap-10">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-white">
+                    {displayCount.toLocaleString()}
                   </div>
-                  {experiences.some((e) => e.rating) && (
-                    <div>
-                      <span className="text-2xl font-bold text-white">
-                        {(
-                          experiences.reduce((sum, e) => sum + (e.rating?.average ?? 0), 0) /
-                          experiences.filter((e) => e.rating).length
-                        ).toFixed(1)}
-                      </span>
-                      <span className="ml-2">Avg Rating</span>
+                  <div className="mt-1 text-xs font-medium text-white/70">Experiences</div>
+                </div>
+                {experiences.some((e) => e.rating) && (
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-white">
+                      {(
+                        experiences.reduce((sum, e) => sum + (e.rating?.average ?? 0), 0) /
+                        experiences.filter((e) => e.rating).length
+                      ).toFixed(1)}
                     </div>
-                  )}
-                </div>
-
-                {/* Trust Badges - Compact inline indicators */}
-                <div className="mt-6 flex flex-wrap justify-center gap-4 text-xs text-white/90 sm:gap-6 sm:text-sm">
-                  <div className="flex items-center gap-1.5">
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                    <span>Verified Operator</span>
+                    <div className="mt-1 text-xs font-medium text-white/70">Avg Rating</div>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                    <span>Instant Confirmation</span>
+                )}
+                {supplierStats && supplierStats.totalReviews >= 10 && (
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-white">
+                      {supplierStats.totalReviews.toLocaleString()}
+                    </div>
+                    <div className="mt-1 text-xs font-medium text-white/70">Reviews</div>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"
-                      />
-                    </svg>
-                    <span>Secure Booking</span>
+                )}
+                {supplierStats && supplierStats.yearsActive >= 2 && (
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-white">
+                      {supplierStats.yearsActive}+
+                    </div>
+                    <div className="mt-1 text-xs font-medium text-white/70">Years</div>
                   </div>
-                </div>
-              </>
+                )}
+              </div>
             )}
 
             {/* PPC: Compact experience count strip */}
@@ -241,6 +254,19 @@ export function CatalogHomepage({
             )}
           </div>
         </div>
+        {!isPpc && (
+          <div className="absolute -bottom-1 left-0 right-0">
+            <svg
+              viewBox="0 0 1440 80"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              className="block w-full"
+              preserveAspectRatio="none"
+            >
+              <path d="M0 40C240 70 480 80 720 60C960 40 1200 10 1440 30V80H0V40Z" fill="white" />
+            </svg>
+          </div>
+        )}
       </section>
 
       {/* Curated Collections */}
@@ -252,6 +278,10 @@ export function CatalogHomepage({
         />
       )}
 
+      {signatureExperience && (
+        <SignatureExperience experience={signatureExperience} primaryColor={primaryColor} />
+      )}
+
       {/* All Experiences Grid */}
       <section className="bg-white py-12 sm:py-16">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -259,7 +289,9 @@ export function CatalogHomepage({
             <h2 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
               {isPpc
                 ? `${displayCount.toLocaleString()} ${ppcDestination ? `${ppcDestination} ` : ''}Experiences${cheapestExperience ? ` — From ${cheapestExperience.price.formatted}` : ''}`
-                : 'Our Experiences'}
+                : signatureExperience
+                  ? 'More Experiences'
+                  : 'Our Experiences'}
             </h2>
             <p className="mx-auto mt-2 max-w-2xl text-base text-gray-600">
               {isPpc
@@ -278,13 +310,12 @@ export function CatalogHomepage({
                 : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
             }`}
           >
-            {experiences.map((experience, idx) => (
-              <CatalogExperienceCard
+            {gridExperiences.map((experience, idx) => (
+              <PremiumExperienceCard
                 key={experience.id}
                 experience={experience}
-                primaryColor={primaryColor}
                 priority={idx < 6}
-                isPpc={isPpc}
+                openInNewTab
               />
             ))}
           </div>
@@ -391,6 +422,16 @@ export function CatalogHomepage({
           </div>
         </div>
       </section>
+
+      {/* Destination Context (AI-enriched) */}
+      {enrichment?.destinationBlurb && topCity && (
+        <DestinationContext
+          city={topCity}
+          blurb={enrichment.destinationBlurb}
+          tags={enrichment.destinationTags}
+          primaryColor={primaryColor}
+        />
+      )}
 
       {/* Why Book With Us */}
       <section className="bg-gray-50 py-16 sm:py-20">
@@ -613,154 +654,5 @@ export function CatalogHomepage({
         </section>
       ) : null}
     </>
-  );
-}
-
-/**
- * Experience card optimized for catalog view
- */
-function CatalogExperienceCard({
-  experience,
-  primaryColor,
-  priority,
-  isPpc,
-}: {
-  experience: ExperienceListItem;
-  primaryColor: string;
-  priority: boolean;
-  isPpc?: boolean;
-}) {
-  const pricingConfig = getProductPricingConfig(experience.id);
-
-  return (
-    <Link
-      href={`/experiences/${experience.slug}`}
-      target="_blank"
-      rel="noopener"
-      className="group flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition-all hover:shadow-md"
-    >
-      {/* Image */}
-      <div className="relative aspect-[4/3] overflow-hidden bg-gray-200">
-        <Image
-          src={experience.imageUrl || '/placeholder-experience.jpg'}
-          alt={experience.title}
-          fill
-          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-          className="object-cover transition-transform duration-300 group-hover:scale-105"
-          placeholder="blur"
-          blurDataURL={BLUR_PLACEHOLDER}
-          {...(priority ? { priority: true } : { loading: 'lazy' as const })}
-        />
-        {/* Discount Badge */}
-        {pricingConfig.showDiscountBadge && (
-          <div className="absolute left-3 top-3">
-            <DiscountBadge pricingConfig={pricingConfig} />
-          </div>
-        )}
-        {/* Free Cancellation badge - only when Holibob confirms free cancellation */}
-        {experience.cancellationPolicy?.type === 'FREE' && (
-          <div className="absolute right-3 top-3 rounded-full bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm">
-            Free Cancellation
-          </div>
-        )}
-      </div>
-
-      {/* Content */}
-      <div className="flex flex-1 flex-col p-4">
-        {/* Title */}
-        <h3 className="line-clamp-2 text-lg font-semibold text-gray-900 group-hover:text-gray-700">
-          {experience.title}
-        </h3>
-
-        {/* Location & Duration */}
-        <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-gray-500">
-          {experience.location.name && (
-            <span className="flex items-center gap-1">
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                />
-              </svg>
-              {experience.location.name}
-            </span>
-          )}
-          {experience.duration.formatted && (
-            <span className="flex items-center gap-1">
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              {experience.duration.formatted}
-            </span>
-          )}
-        </div>
-
-        {/* Rating */}
-        {experience.rating && experience.rating.count > 0 && (
-          <div className="mt-2 flex items-center gap-1">
-            <span className="text-yellow-400">★</span>
-            <span className="text-sm font-medium text-gray-900">
-              {experience.rating.average.toFixed(1)}
-            </span>
-            <span className="text-sm text-gray-500">({experience.rating.count})</span>
-          </div>
-        )}
-
-        {/* Price with discount */}
-        <div className="mt-auto pt-3">
-          <PriceDisplay
-            priceFormatted={experience.price.formatted}
-            priceAmount={experience.price.amount}
-            currency={experience.price.currency}
-            pricingConfig={pricingConfig}
-            variant="card"
-            primaryColor={primaryColor}
-          />
-        </div>
-
-        {/* Trust Signals */}
-        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-500">
-          {experience.cancellationPolicy?.type === 'FREE' && (
-            <span className="flex items-center gap-1">
-              <svg className="h-3 w-3 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
-                <path
-                  fillRule="evenodd"
-                  d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              Free cancellation
-            </span>
-          )}
-          <span className="flex items-center gap-1">
-            <svg className="h-3 w-3 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
-              <path
-                fillRule="evenodd"
-                d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z"
-                clipRule="evenodd"
-              />
-            </svg>
-            Best price guarantee
-          </span>
-        </div>
-
-        {/* PPC: Prominent Book Now button */}
-        {isPpc && (
-          <div
-            className="mt-3 rounded-lg py-2.5 text-center text-sm font-semibold text-white"
-            style={{ backgroundColor: primaryColor }}
-          >
-            Book Now
-          </div>
-        )}
-      </div>
-    </Link>
   );
 }

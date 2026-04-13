@@ -140,10 +140,10 @@ describe('Booking API Route - POST (L2B Step 6: Create Booking)', () => {
     expect(response.status).toBe(201);
     expect(data.success).toBe(true);
     expect(data.data.id).toBe('booking-123');
+    // partnerExternalReference defaults to the site base URL when no cookie/input is provided
     expect(mockCreateBooking).toHaveBeenCalledWith({
       autoFillQuestions: true,
-      partnerExternalReference: undefined,
-      consumerTripId: undefined,
+      partnerExternalReference: 'https://localhost:3000',
     });
   });
 
@@ -170,8 +170,7 @@ describe('Booking API Route - POST (L2B Step 6: Create Booking)', () => {
     expect(data.success).toBe(true);
     expect(mockCreateBooking).toHaveBeenCalledWith({
       autoFillQuestions: false,
-      partnerExternalReference: undefined,
-      consumerTripId: undefined,
+      partnerExternalReference: 'https://localhost:3000',
     });
   });
 

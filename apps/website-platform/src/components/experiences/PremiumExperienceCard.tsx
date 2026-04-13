@@ -4,8 +4,11 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useBrand } from '@/lib/site-context';
 import { BLUR_PLACEHOLDER } from '@/lib/image-utils';
-import { PriceDisplay, DiscountBadge } from '@/components/ui/PriceDisplay';
+import { PriceDisplay } from '@/components/ui/PriceDisplay';
+import { ShareButton } from '@/components/ui/ShareButton';
 import { getProductPricingConfig } from '@/lib/pricing';
+import { useWishlist } from '@/hooks/useWishlist';
+import { getOccasionTags, OCCASION_TAG_CONFIG } from '@/lib/experience-tags';
 import type { ExperienceListItem } from '@/lib/holibob';
 
 type BadgeType =
@@ -48,21 +51,33 @@ const BADGE_STYLES: Record<BadgeType, { bg: string; text: string; icon?: string;
 // StarRating component - can be used for detailed rating display
 // function StarRating({ rating, count }: { rating: number; count: number }) { ... }
 
-function QuickActionButtons() {
+function QuickActionButtons({ experience }: { experience: ExperienceListItem }) {
+  const { isInWishlist, toggleWishlist } = useWishlist();
+  const saved = isInWishlist(experience.id);
+
+  const handleWishlist = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    toggleWishlist({
+      id: experience.id,
+      title: experience.title,
+      imageUrl: experience.imageUrl,
+      price: experience.price,
+      slug: experience.slug,
+    });
+  };
+
   return (
     <div className="flex gap-2">
       <button
         type="button"
-        className="flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-gray-600 shadow-sm backdrop-blur-sm transition-all hover:bg-white hover:text-rose-500"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-        }}
-        aria-label="Add to favorites"
+        className={`flex h-11 w-11 items-center justify-center rounded-full bg-white/90 shadow-sm backdrop-blur-sm transition-all hover:bg-white hover:scale-110 ${saved ? 'text-rose-500' : 'text-gray-600 hover:text-rose-500'}`}
+        onClick={handleWishlist}
+        aria-label={saved ? 'Remove from favorites' : 'Add to favorites'}
       >
         <svg
           className="h-5 w-5"
-          fill="none"
+          fill={saved ? 'currentColor' : 'none'}
           viewBox="0 0 24 24"
           strokeWidth="2"
           stroke="currentColor"
@@ -74,51 +89,50 @@ function QuickActionButtons() {
           />
         </svg>
       </button>
-      <button
-        type="button"
-        className="flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-gray-600 shadow-sm backdrop-blur-sm transition-all hover:bg-white hover:text-blue-500"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-        }}
-        aria-label="Share"
-      >
-        <svg
-          className="h-5 w-5"
-          fill="none"
-          viewBox="0 0 24 24"
-          strokeWidth="2"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z"
-          />
-        </svg>
-      </button>
+      <ShareButton
+        title={experience.title}
+        url={`/experiences/${experience.slug}`}
+        variant="card-overlay"
+      />
     </div>
   );
 }
 
 // Heart/Wishlist button component - always visible for better UX
-function WishlistButton({ size = 'default' }: { size?: 'default' | 'small' }) {
+function WishlistButton({
+  experience,
+  size = 'default',
+}: {
+  experience: ExperienceListItem;
+  size?: 'default' | 'small';
+}) {
+  const { isInWishlist, toggleWishlist } = useWishlist();
+  const saved = isInWishlist(experience.id);
   const sizeClasses = size === 'small' ? 'h-10 w-10' : 'h-11 w-11';
   const iconSize = size === 'small' ? 'h-4 w-4' : 'h-5 w-5';
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    toggleWishlist({
+      id: experience.id,
+      title: experience.title,
+      imageUrl: experience.imageUrl,
+      price: experience.price,
+      slug: experience.slug,
+    });
+  };
 
   return (
     <button
       type="button"
-      className={`flex ${sizeClasses} items-center justify-center rounded-full bg-white/95 text-gray-600 shadow-sm backdrop-blur-sm transition-all hover:bg-white hover:text-rose-500 hover:scale-110`}
-      onClick={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-      }}
-      aria-label="Add to wishlist"
+      className={`flex ${sizeClasses} items-center justify-center rounded-full bg-white/95 shadow-sm backdrop-blur-sm transition-all hover:bg-white hover:scale-110 ${saved ? 'text-rose-500' : 'text-gray-600 hover:text-rose-500'}`}
+      onClick={handleClick}
+      aria-label={saved ? 'Remove from wishlist' : 'Add to wishlist'}
     >
       <svg
         className={iconSize}
-        fill="none"
+        fill={saved ? 'currentColor' : 'none'}
         viewBox="0 0 24 24"
         strokeWidth="2"
         stroke="currentColor"
@@ -130,6 +144,34 @@ function WishlistButton({ size = 'default' }: { size?: 'default' | 'small' }) {
         />
       </svg>
     </button>
+  );
+}
+
+/** Occasion tag chips derived from experience data */
+function OccasionTags({ experience }: { experience: ExperienceListItem }) {
+  const tags = getOccasionTags({
+    title: experience.title,
+    shortDescription: experience.shortDescription,
+    categories: experience.categories,
+  });
+
+  if (tags.length === 0) return null;
+
+  return (
+    <div className="mt-1.5 flex flex-wrap gap-1">
+      {tags.slice(0, 2).map((tag) => {
+        const config = OCCASION_TAG_CONFIG[tag];
+        return (
+          <span
+            key={tag}
+            className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-medium ${config.color}`}
+          >
+            <span className="text-[10px]">{config.icon}</span>
+            {config.label}
+          </span>
+        );
+      })}
+    </div>
   );
 }
 
@@ -201,7 +243,7 @@ export function PremiumExperienceCard({
         {/* Quick Actions */}
         {showQuickActions && (
           <div className="absolute right-6 top-6">
-            <QuickActionButtons />
+            <QuickActionButtons experience={experience} />
           </div>
         )}
 
@@ -335,7 +377,7 @@ export function PremiumExperienceCard({
         {/* Quick Actions */}
         {showQuickActions && (
           <div className="absolute right-4 top-4 opacity-0 transition-opacity group-hover:opacity-100">
-            <QuickActionButtons />
+            <QuickActionButtons experience={experience} />
           </div>
         )}
 
@@ -479,15 +521,19 @@ export function PremiumExperienceCard({
           ))}
         </div>
 
-        {/* Discount Badge - Top Right */}
+        {/* Top Right: always-visible wishlist heart */}
         <div className="absolute right-3 top-3">
-          <DiscountBadge pricingConfig={pricingConfig} />
+          <WishlistButton experience={experience} size="small" />
         </div>
 
-        {/* Quick Actions (hover) - Bottom Right */}
-        {showQuickActions && !showHeartAlways && (
+        {/* Share button (hover) - Bottom Right */}
+        {showQuickActions && (
           <div className="absolute bottom-3 right-3 opacity-0 transition-all duration-200 group-hover:opacity-100">
-            <QuickActionButtons />
+            <ShareButton
+              title={experience.title}
+              url={`/experiences/${experience.slug}`}
+              variant="card-overlay"
+            />
           </div>
         )}
       </div>
@@ -529,6 +575,11 @@ export function PremiumExperienceCard({
           </div>
         )}
 
+        {/* Provider name */}
+        {experience.providerName && (
+          <p className="mt-1.5 text-[11px] text-gray-400 truncate">by {experience.providerName}</p>
+        )}
+
         {/* Rating with Review Count - Social Proof */}
         {experience.rating && experience.rating.count > 0 && (
           <div className="mt-2 flex items-center gap-1.5">
@@ -546,12 +597,47 @@ export function PremiumExperienceCard({
           </div>
         )}
 
+        {/* Occasion tags - hidden on mobile for compactness */}
+        <div className="hidden sm:block">
+          <OccasionTags experience={experience} />
+        </div>
+
+        {/* Top inclusions preview - hidden on mobile */}
+        {experience.topInclusions && experience.topInclusions.length > 0 && (
+          <div className="mt-1.5 hidden sm:flex flex-wrap gap-1">
+            {experience.topInclusions.slice(0, 2).map((inclusion) => (
+              <span
+                key={inclusion}
+                className="inline-flex items-center gap-0.5 text-[10px] text-gray-500"
+              >
+                <svg
+                  className="h-2.5 w-2.5 text-emerald-400"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                {inclusion}
+              </span>
+            ))}
+          </div>
+        )}
+
         {/* Spacer to push price to bottom */}
         <div className="flex-1" />
 
         {/* Price - Primary CTA anchor */}
         <div className="mt-3 flex items-baseline justify-between border-t border-gray-100 pt-3">
-          {experience.price.amount > 0 && <span className="text-xs text-gray-500">From</span>}
+          {experience.price.amount > 0 && (
+            <div className="flex flex-col">
+              <span className="text-xs text-gray-500">From</span>
+              <span className="text-[10px] text-gray-400">per adult</span>
+            </div>
+          )}
           <PriceDisplay
             priceFormatted={experience.price.formatted}
             priceAmount={experience.price.amount}

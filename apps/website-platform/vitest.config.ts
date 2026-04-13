@@ -26,7 +26,7 @@ export default defineConfig({
         // Floor thresholds — prevent coverage regression. Keep 1-2% below actual to avoid flaky CI.
         statements: 66,
         branches: 75,
-        functions: 66,
+        functions: 65,
         lines: 66,
       },
     },

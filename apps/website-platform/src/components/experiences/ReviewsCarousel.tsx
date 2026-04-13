@@ -10,6 +10,7 @@ interface Review {
   authorName: string;
   publishedDate: string;
   images: string[];
+  productTitle?: string;
 }
 
 interface ReviewsCarouselProps {
@@ -127,6 +128,15 @@ export function ReviewsCarousel({ reviews, rating }: ReviewsCarouselProps) {
                     </p>
                   </div>
                 </div>
+
+                {/* Product Tag */}
+                {review.productTitle && (
+                  <div className="mb-2">
+                    <span className="inline-block rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
+                      {review.productTitle}
+                    </span>
+                  </div>
+                )}
 
                 {/* Review Content */}
                 <p className="line-clamp-4 text-sm leading-relaxed text-gray-600">

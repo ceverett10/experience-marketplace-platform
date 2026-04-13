@@ -25,6 +25,9 @@ const emptyFilters: FilterState = {
   duration: null,
   minRating: null,
   search: null,
+  timeOfDay: null,
+  accessibility: null,
+  perfectFor: null,
 };
 
 const populatedFilterCounts: FilterCounts = {

@@ -108,73 +108,44 @@ export function Footer() {
             <SocialLinks links={socialLinks} />
           </div>
 
-          {/* Navigation */}
-          <div className="mt-16 grid grid-cols-2 gap-8 xl:col-span-2 xl:mt-0">
-            <div className="md:grid md:grid-cols-2 md:gap-8">
-              <div>
-                <h3 className="text-sm font-semibold leading-6 text-white">Experiences</h3>
-                <ul role="list" className="mt-6 space-y-4">
-                  {footerNavigation.experiences.map((item) => (
-                    <li key={item.name}>
-                      <Link
-                        href={item.href}
-                        className="text-sm leading-6 text-gray-300 hover:text-white"
-                      >
-                        {item.name}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div className="mt-10 md:mt-0">
-                <h3 className="text-sm font-semibold leading-6 text-white">Company</h3>
-                <ul role="list" className="mt-6 space-y-4">
-                  {footerNavigation.company.map((item) => (
-                    <li key={item.name}>
-                      <Link
-                        href={item.href}
-                        className="text-sm leading-6 text-gray-300 hover:text-white"
-                      >
-                        {item.name}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+          {/* Navigation — flat grid so columns adapt when sections are hidden */}
+          <div className="mt-16 grid grid-cols-2 gap-8 md:grid-cols-4 xl:col-span-2 xl:mt-0">
+            <div>
+              <h3 className="text-sm font-semibold leading-6 text-white">Experiences</h3>
+              <ul role="list" className="mt-6 space-y-4">
+                {footerNavigation.experiences.map((item) => (
+                  <li key={item.name}>
+                    <Link
+                      href={item.href}
+                      className="text-sm leading-6 text-gray-300 hover:text-white"
+                    >
+                      {item.name}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
             </div>
-            <div className="md:grid md:grid-cols-2 md:gap-8">
-              {/* Destinations column */}
-              {footerNavigation.destinations && !site.micrositeContext && (
-                <div>
-                  <h3 className="text-sm font-semibold leading-6 text-white">Destinations</h3>
-                  <ul role="list" className="mt-6 space-y-4">
-                    {footerNavigation.destinations.map((item) => (
-                      <li key={item.name}>
-                        <Link
-                          href={item.href}
-                          className="text-sm leading-6 text-gray-300 hover:text-white"
-                        >
-                          {item.name}
-                        </Link>
-                      </li>
-                    ))}
-                    <li>
-                      <Link
-                        href="/destinations"
-                        className="text-sm leading-6 text-indigo-400 hover:text-indigo-300"
-                      >
-                        All destinations &rarr;
-                      </Link>
-                    </li>
-                  </ul>
-                </div>
-              )}
+            <div>
+              <h3 className="text-sm font-semibold leading-6 text-white">Company</h3>
+              <ul role="list" className="mt-6 space-y-4">
+                {footerNavigation.company.map((item) => (
+                  <li key={item.name}>
+                    <Link
+                      href={item.href}
+                      className="text-sm leading-6 text-gray-300 hover:text-white"
+                    >
+                      {item.name}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
             </div>
-            <div className="md:grid md:grid-cols-2 md:gap-8">
+            {/* Destinations column — only shown on non-microsite sites */}
+            {footerNavigation.destinations && !site.micrositeContext && (
               <div>
-                <h3 className="text-sm font-semibold leading-6 text-white">Legal</h3>
+                <h3 className="text-sm font-semibold leading-6 text-white">Destinations</h3>
                 <ul role="list" className="mt-6 space-y-4">
-                  {footerNavigation.legal.map((item) => (
+                  {footerNavigation.destinations.map((item) => (
                     <li key={item.name}>
                       <Link
                         href={item.href}
@@ -184,35 +155,58 @@ export function Footer() {
                       </Link>
                     </li>
                   ))}
+                  <li>
+                    <Link
+                      href="/destinations"
+                      className="text-sm leading-6 text-indigo-400 hover:text-indigo-300"
+                    >
+                      All destinations &rarr;
+                    </Link>
+                  </li>
                 </ul>
               </div>
-              {/* Cross-site links to related microsites (hidden on PPC) */}
-              {!isPaid && site.relatedMicrosites && site.relatedMicrosites.length > 0 && (
-                <div className="mt-10 md:mt-0">
-                  <h3 className="text-sm font-semibold leading-6 text-white">More Experiences</h3>
-                  <ul role="list" className="mt-6 space-y-4">
-                    {site.relatedMicrosites.slice(0, 5).map((ms) => (
-                      <li key={ms.fullDomain}>
-                        <a
-                          href={`https://${ms.fullDomain}`}
-                          className="text-sm leading-6 text-gray-300 hover:text-white"
-                        >
-                          {ms.siteName}
-                        </a>
-                      </li>
-                    ))}
-                    <li>
+            )}
+            <div>
+              <h3 className="text-sm font-semibold leading-6 text-white">Legal</h3>
+              <ul role="list" className="mt-6 space-y-4">
+                {footerNavigation.legal.map((item) => (
+                  <li key={item.name}>
+                    <Link
+                      href={item.href}
+                      className="text-sm leading-6 text-gray-300 hover:text-white"
+                    >
+                      {item.name}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            {/* Cross-site links to related microsites (hidden on PPC) */}
+            {!isPaid && site.relatedMicrosites && site.relatedMicrosites.length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold leading-6 text-white">More Experiences</h3>
+                <ul role="list" className="mt-6 space-y-4">
+                  {site.relatedMicrosites.slice(0, 5).map((ms) => (
+                    <li key={ms.fullDomain}>
                       <a
-                        href="https://experiencess.com"
-                        className="text-sm leading-6 text-indigo-400 hover:text-indigo-300"
+                        href={`https://${ms.fullDomain}`}
+                        className="text-sm leading-6 text-gray-300 hover:text-white"
                       >
-                        Experiencess Network &rarr;
+                        {ms.siteName}
                       </a>
                     </li>
-                  </ul>
-                </div>
-              )}
-            </div>
+                  ))}
+                  <li>
+                    <a
+                      href="https://experiencess.com"
+                      className="text-sm leading-6 text-indigo-400 hover:text-indigo-300"
+                    >
+                      Experiencess Network &rarr;
+                    </a>
+                  </li>
+                </ul>
+              </div>
+            )}
           </div>
         </div>
 

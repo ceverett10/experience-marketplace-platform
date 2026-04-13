@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { getSiteFromHostname } from '@/lib/tenant';
 import { cleanPlainText } from '@/lib/seo';
 import { prisma } from '@/lib/prisma';
+import { FAQPageTemplate } from '@/components/content/FAQPageTemplate';
 
 interface SearchParams {
   page?: string;
@@ -33,13 +34,19 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   // For paginated content, include page in canonical (except page 1)
   const canonicalUrl = currentPage > 1 ? `${baseUrl}?page=${currentPage}` : baseUrl;
 
+  // For microsites, query by micrositeId; for regular sites, query by siteId
+  const isMicrosite = !!site.micrositeContext?.micrositeId;
+  const pageWhereClause = isMicrosite
+    ? {
+        micrositeId: site.micrositeContext!.micrositeId,
+        type: 'FAQ' as const,
+        status: 'PUBLISHED' as const,
+      }
+    : { siteId: site.id, type: 'FAQ' as const, status: 'PUBLISHED' as const };
+
   // Get total pages for rel-next/prev
   const totalCount = await prisma.page.count({
-    where: {
-      siteId: site.id,
-      type: 'FAQ',
-      status: 'PUBLISHED',
-    },
+    where: pageWhereClause,
   });
   const totalPages = Math.ceil(totalCount / FAQS_PER_PAGE);
 
@@ -73,21 +80,26 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 /**
  * Fetch FAQ pages with pagination
  */
-async function getFAQPages(siteId: string, page: number = 1) {
+async function getFAQPages(siteId: string, page: number = 1, micrositeId?: string) {
   const skip = (page - 1) * FAQS_PER_PAGE;
+
+  const whereClause = micrositeId
+    ? { micrositeId, type: 'FAQ' as const, status: 'PUBLISHED' as const }
+    : { siteId, type: 'FAQ' as const, status: 'PUBLISHED' as const };
 
   const [faqs, totalCount] = await Promise.all([
     prisma.page.findMany({
-      where: {
-        siteId,
-        type: 'FAQ',
-        status: 'PUBLISHED',
-      },
+      where: whereClause,
       include: {
         content: {
           select: {
+            id: true,
             body: true,
+            bodyFormat: true,
             qualityScore: true,
+            readabilityScore: true,
+            isAiGenerated: true,
+            aiModel: true,
           },
         },
       },
@@ -98,11 +110,7 @@ async function getFAQPages(siteId: string, page: number = 1) {
       take: FAQS_PER_PAGE,
     }),
     prisma.page.count({
-      where: {
-        siteId,
-        type: 'FAQ',
-        status: 'PUBLISHED',
-      },
+      where: whereClause,
     }),
   ]);
 
@@ -145,7 +153,12 @@ export default async function FAQPage({ searchParams }: Props) {
   const resolvedParams = await searchParams;
   const currentPage = Math.max(1, parseInt(resolvedParams.page || '1', 10));
 
-  const { faqs, totalCount, totalPages } = await getFAQPages(site.id, currentPage);
+  const isMicrositePage = !!site.micrositeContext?.micrositeId;
+  const { faqs, totalCount, totalPages } = await getFAQPages(
+    site.id,
+    currentPage,
+    isMicrositePage ? site.micrositeContext!.micrositeId : undefined
+  );
 
   // JSON-LD structured data for FAQ listing
   const jsonLd = {
@@ -227,7 +240,10 @@ export default async function FAQPage({ searchParams }: Props) {
       {/* FAQ List */}
       <section className="py-12 sm:py-16">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          {faqs.length === 0 ? (
+          {/* Single FAQ page with content (e.g., microsite) — render inline */}
+          {faqs.length === 1 && faqs[0]?.content?.body ? (
+            <FAQPageTemplate page={faqs[0]} siteName={site.name} />
+          ) : faqs.length === 0 ? (
             <div className="text-center py-16">
               <div className="mx-auto h-24 w-24 rounded-full bg-teal-100 flex items-center justify-center mb-6">
                 <svg

@@ -15,9 +15,13 @@ vi.mock('next/navigation', () => ({
 
 const mockGetSiteFromHostname = vi.fn();
 
-vi.mock('@/lib/tenant', () => ({
-  getSiteFromHostname: (...args: unknown[]) => mockGetSiteFromHostname(...args),
-}));
+vi.mock('@/lib/tenant', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/tenant')>();
+  return {
+    ...actual,
+    getSiteFromHostname: (...args: unknown[]) => mockGetSiteFromHostname(...args),
+  };
+});
 
 const mockPageFindUnique = vi.fn();
 
@@ -33,6 +37,20 @@ vi.mock('@/lib/prisma', () => ({
 vi.mock('@/lib/microsite-experiences', () => ({
   getRelatedMicrosites: vi.fn(async () => []),
   getNetworkRelatedBlogPosts: vi.fn(async () => []),
+}));
+
+vi.mock('@/lib/related-content', () => ({
+  extractContentKeywords: vi.fn(() => []),
+  getRelatedPagesByKeywords: vi.fn(async () => []),
+  getRelatedExperiencesForContent: vi.fn(async () => []),
+}));
+
+vi.mock('@/components/experiences/RelatedExperiences', () => ({
+  RelatedExperiences: () => null,
+}));
+
+vi.mock('@/components/experiences/RelatedArticles', () => ({
+  RelatedArticles: () => null,
 }));
 
 const defaultSite = {

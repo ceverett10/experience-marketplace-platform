@@ -7,6 +7,8 @@ import { prisma } from '@/lib/prisma';
 import { cleanPlainText, generateFaqJsonLd } from '@/lib/seo';
 import { FAQPageTemplate } from '@/components/content/FAQPageTemplate';
 import { TrackFunnelEvent } from '@/components/analytics/TrackFunnelEvent';
+import { RelatedArticles } from '@/components/experiences/RelatedArticles';
+import { extractContentKeywords, getRelatedPagesByKeywords } from '@/lib/related-content';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -17,9 +19,24 @@ interface Props {
  * Note: FAQ pages are stored with 'faq/' prefix in slug (e.g., 'faq/booking-questions')
  * The URL /faq/booking-questions maps to slug 'faq/booking-questions' in the database
  */
-async function getFAQPage(siteId: string, slug: string) {
-  // Slugs are stored with 'faq/' prefix, so prepend it for the query
+async function getFAQPage(siteId: string, slug: string, micrositeId?: string) {
   const fullSlug = `faq/${slug}`;
+
+  if (micrositeId) {
+    return await prisma.page.findUnique({
+      where: {
+        micrositeId_slug: {
+          micrositeId,
+          slug: fullSlug,
+        },
+        type: 'FAQ',
+        status: 'PUBLISHED',
+      },
+      include: {
+        content: true,
+      },
+    });
+  }
 
   return await prisma.page.findUnique({
     where: {
@@ -89,7 +106,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const hostname = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
   const site = await getSiteFromHostname(hostname);
 
-  const page = await getFAQPage(site.id, slug);
+  const page = await getFAQPage(site.id, slug, site.micrositeContext?.micrositeId);
 
   if (!page) {
     return {
@@ -137,7 +154,7 @@ export default async function FAQDetailPage({ params }: Props) {
   const hostname = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
   const site = await getSiteFromHostname(hostname);
 
-  const page = await getFAQPage(site.id, slug);
+  const page = await getFAQPage(site.id, slug, site.micrositeContext?.micrositeId);
 
   if (!page) {
     notFound();
@@ -220,9 +237,50 @@ export default async function FAQDetailPage({ params }: Props) {
 
       {/* FAQ Content */}
       <FAQPageTemplate page={page} siteName={site.name} faqs={faqs} />
+      <FaqRelatedContent site={site} faqTitle={page.title} faqId={page.id} />
       <TrackFunnelEvent step="LANDING_PAGE_VIEW" />
     </>
   );
+}
+
+async function FaqRelatedContent({
+  site,
+  faqTitle,
+  faqId,
+}: {
+  site: Awaited<ReturnType<typeof getSiteFromHostname>>;
+  faqTitle: string;
+  faqId: string;
+}) {
+  try {
+    const keywords = extractContentKeywords(faqTitle);
+    if (keywords.length === 0) return null;
+    const isMicrosite = !!site.micrositeContext?.micrositeId;
+    const relatedBlogs = await getRelatedPagesByKeywords({
+      siteId: site.id,
+      micrositeId: isMicrosite ? site.micrositeContext?.micrositeId : undefined,
+      pageType: 'BLOG',
+      keywords,
+      excludePageId: faqId,
+      limit: 2,
+    });
+    if (relatedBlogs.length === 0) return null;
+    return (
+      <RelatedArticles
+        posts={relatedBlogs.map((p) => ({
+          id: p.id,
+          slug: p.slug,
+          title: p.title,
+          metaDescription: p.metaDescription,
+          createdAt: p.publishedAt ?? new Date(),
+          content: p.content,
+        }))}
+        experienceTitle={faqTitle}
+      />
+    );
+  } catch {
+    return null;
+  }
 }
 
 // Dynamic rendering - pages generated on-demand

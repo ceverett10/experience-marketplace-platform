@@ -143,7 +143,7 @@ interface BrandConfig {
  * Creates a new micro-site with brand identity and initial structure
  */
 export async function handleSiteCreate(job: Job<SiteCreatePayload>): Promise<JobResult> {
-  const { opportunityId, domain, brandConfig, autoPublish = false } = job.data;
+  const { opportunityId, domain, brandConfig, themeGuidance, autoPublish = false } = job.data;
 
   try {
     console.log(`[Site Create] Starting site creation for opportunity ${opportunityId}`);
@@ -227,6 +227,7 @@ export async function handleSiteCreate(job: Job<SiteCreatePayload>): Promise<Job
         niche: effectiveNiche,
         searchVolume: opportunity.searchVolume,
         intent: opportunity.intent,
+        themeGuidance,
       },
       brandConfig
         ? {
@@ -356,6 +357,7 @@ export async function handleSiteCreate(job: Job<SiteCreatePayload>): Promise<Job
         niche: effectiveNiche,
         searchVolume: opportunity.searchVolume,
         intent: opportunity.intent,
+        themeGuidance,
       },
       brandIdentity
     );

@@ -146,7 +146,11 @@ export async function POST(request: NextRequest) {
           landingPage = utm.landingPage || undefined;
           gclid = utm.gclid || undefined;
           fbclid = utm.fbclid || undefined;
-          partnerExternalReference = utm.ref || undefined;
+          // Build partner external reference: site base URL + ref param (if present)
+          const ref = utm.ref || '';
+          const protocol = request.headers.get('x-forwarded-proto') || 'https';
+          const siteBaseUrl = `${protocol}://${host}`;
+          partnerExternalReference = ref ? `${siteBaseUrl}?ref=${ref}` : siteBaseUrl;
         } catch {
           // Invalid cookie JSON — ignore
         }

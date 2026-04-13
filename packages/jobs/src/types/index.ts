@@ -199,6 +199,22 @@ export interface MicrositeGA4SyncPayload {
   date?: string; // YYYY-MM-DD, defaults to yesterday
 }
 
+/** Optional user-provided creative direction for AI brand/homepage generation */
+export interface ThemeGuidance {
+  /** Free-text description of the desired vibe/aesthetic
+   *  e.g. "Luxury, minimalist, earth tones — targeting affluent couples" */
+  description?: string;
+  /** Desired brand personality traits, e.g. ["adventurous", "premium", "warm"] */
+  personality?: string[];
+  /** Target audience description, e.g. "Young professional couples aged 28-40" */
+  targetAudience?: string;
+  /** Specific color preferences (guidance for the AI, not hard overrides)
+   *  e.g. "earthy greens and terracotta, avoid blues" */
+  colorDirection?: string;
+  /** Overall mood/style keywords, e.g. ["bohemian", "rustic", "sophisticated"] */
+  moodKeywords?: string[];
+}
+
 // Site Management Jobs
 export interface SiteCreatePayload {
   opportunityId: string;
@@ -212,6 +228,7 @@ export interface SiteCreatePayload {
     font?: string;
     logoUrl?: string;
   };
+  themeGuidance?: ThemeGuidance;
   autoPublish?: boolean;
 }
 
@@ -323,10 +340,12 @@ export interface MicrositeCreatePayload {
     niche?: string;
     searchTerms?: string[];
   };
+  themeGuidance?: ThemeGuidance;
 }
 
 export interface MicrositeBrandGeneratePayload {
   micrositeId: string;
+  themeGuidance?: ThemeGuidance;
 }
 
 export interface MicrositeContentGeneratePayload {
