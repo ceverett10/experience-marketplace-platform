@@ -81,17 +81,25 @@ export async function POST(request: Request): Promise<NextResponse> {
 
         console.log(`[Brand Identity] Generating for site ${site.id} (${site.name})`);
 
+        // When themeGuidance is provided, the user explicitly wants a NEW brand based on
+        // their creative direction — passing existing brand as providedConfig would override
+        // the AI-generated values. Only use providedConfig when no theme guidance is given
+        // (e.g. backfilling brand identity for an existing brand).
+        const providedConfig = themeGuidance
+          ? undefined
+          : {
+              name: site.brand?.name || site.name,
+              tagline: site.brand?.tagline || site.description || undefined,
+              primaryColor: site.brand?.primaryColor || undefined,
+              secondaryColor: site.brand?.secondaryColor || undefined,
+              accentColor: site.brand?.accentColor || undefined,
+              headingFont: site.brand?.headingFont || undefined,
+              bodyFont: site.brand?.bodyFont || undefined,
+              logoUrl: site.brand?.logoUrl || undefined,
+            };
+
         // Generate comprehensive brand identity
-        const brandIdentity = await generateComprehensiveBrandIdentity(context, {
-          name: site.brand?.name || site.name,
-          tagline: site.brand?.tagline || site.description || undefined,
-          primaryColor: site.brand?.primaryColor || undefined,
-          secondaryColor: site.brand?.secondaryColor || undefined,
-          accentColor: site.brand?.accentColor || undefined,
-          headingFont: site.brand?.headingFont || undefined,
-          bodyFont: site.brand?.bodyFont || undefined,
-          logoUrl: site.brand?.logoUrl || undefined,
-        });
+        const brandIdentity = await generateComprehensiveBrandIdentity(context, providedConfig);
 
         // Store brand identity in seoConfig
         await storeBrandIdentity(site.id, site.brand?.id || '', brandIdentity);
