@@ -130,31 +130,12 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
     description = description.substring(0, 157).replace(/\s+\S*$/, '') + '...';
   }
 
-  // Build canonical URL with SEO-relevant parameters
-  const baseUrl = `https://${site.primaryDomain || hostname}/experiences`;
-  const canonicalParams = new URLSearchParams();
-
-  if (destination) {
-    canonicalParams.set('destination', destination);
-  }
-  if (searchQuery) {
-    canonicalParams.set('q', searchQuery);
-  }
-  // For microsites, include city/category filters in canonical (distinct PPC landing pages)
-  if (isMicrosite && resolvedParams.cities) {
-    canonicalParams.set('cities', resolvedParams.cities);
-  }
-  if (isMicrosite && resolvedParams.categories) {
-    canonicalParams.set('categories', resolvedParams.categories);
-  }
-  const pageNum = parseInt(resolvedParams.page ?? '1', 10);
-  if (pageNum > 1) {
-    canonicalParams.set('page', String(pageNum));
-  }
-
-  const canonicalUrl = canonicalParams.toString()
-    ? `${baseUrl}?${canonicalParams.toString()}`
-    : baseUrl;
+  // Canonical URL always points to the clean base path — query param variants
+  // (destination, q, cities, categories, page) are filtered views of the same
+  // content and must NOT have distinct canonicals. Including them creates
+  // thousands of duplicate URLs in Google Search Console ("Discovered - currently
+  // not indexed" or "Duplicate, Google chose different canonical").
+  const canonicalUrl = `https://${site.primaryDomain || hostname}/experiences`;
 
   // OG image fallback chain
   const ogImage = site.brand?.ogImageUrl || site.homepageConfig?.hero?.backgroundImage;

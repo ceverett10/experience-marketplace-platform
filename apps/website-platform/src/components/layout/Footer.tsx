@@ -58,11 +58,11 @@ export function Footer() {
     };
   });
 
-  // Build destination links from homepage config
+  // Build destination links from homepage config — link to detail pages, not the listing
   const configDestinations = homepageConfig?.destinations ?? [];
   const destinationLinks = configDestinations.slice(0, 5).map((dest) => ({
     name: dest.name,
-    href: `/destinations`,
+    href: `/destinations/${dest.slug}`,
   }));
 
   const footerNavigation = {

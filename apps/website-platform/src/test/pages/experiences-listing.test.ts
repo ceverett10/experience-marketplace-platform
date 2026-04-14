@@ -137,20 +137,22 @@ describe('Experiences listing generateMetadata', () => {
     expect(meta.title).toContain('Paris');
   });
 
-  it('includes canonical URL with search params', async () => {
+  it('uses clean canonical URL without query params', async () => {
     const { generateMetadata } = await import('@/app/experiences/page');
     const meta = await generateMetadata({
       searchParams: Promise.resolve({ destination: 'London' }),
     });
-    expect(meta.alternates?.canonical).toContain('destination=London');
+    // Canonical should always be the clean base path — query param variants
+    // are filtered views, not distinct indexable content
+    expect(meta.alternates?.canonical).toBe('https://test.example.com/experiences');
   });
 
-  it('includes page number in canonical when page > 1', async () => {
+  it('excludes page param from canonical even for page > 1', async () => {
     const { generateMetadata } = await import('@/app/experiences/page');
     const meta = await generateMetadata({
       searchParams: Promise.resolve({ page: '3' }),
     });
-    expect(meta.alternates?.canonical).toContain('page=3');
+    expect(meta.alternates?.canonical).toBe('https://test.example.com/experiences');
   });
 
   it('excludes page from canonical when page is 1', async () => {
@@ -193,7 +195,7 @@ describe('Experiences listing generateMetadata', () => {
     }
   });
 
-  it('includes cities and categories in canonical for microsites', async () => {
+  it('excludes cities and categories from canonical for microsites', async () => {
     mockGetSiteFromHostname.mockResolvedValue({
       ...defaultSite,
       micrositeContext: {
@@ -206,9 +208,8 @@ describe('Experiences listing generateMetadata', () => {
     const meta = await generateMetadata({
       searchParams: Promise.resolve({ cities: 'London', categories: 'Tours' }),
     });
-    const canonical = meta.alternates?.canonical as string;
-    expect(canonical).toContain('cities=London');
-    expect(canonical).toContain('categories=Tours');
+    // Canonical should be clean — filter params are not distinct indexable content
+    expect(meta.alternates?.canonical).toBe('https://test.example.com/experiences');
   });
 
   it('omits ogImage from openGraph when not available', async () => {
