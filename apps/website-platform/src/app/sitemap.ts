@@ -12,6 +12,19 @@ import { isMicrosite } from '@/lib/microsite-experiences';
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const headersList = await headers();
   const hostname = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
+
+  // Return empty sitemap for non-production hostnames to prevent Google from
+  // indexing the raw Heroku app URL or other preview deployments.
+  const cleanHostname = hostname.split(':')[0] ?? hostname;
+  if (
+    cleanHostname.includes('.herokuapp.com') ||
+    cleanHostname.includes('.vercel.app') ||
+    cleanHostname === 'localhost' ||
+    cleanHostname.includes('127.0.0.1')
+  ) {
+    return [];
+  }
+
   const site = await getSiteFromHostname(hostname);
 
   const baseUrl = site.primaryDomain ? `https://${site.primaryDomain}` : `https://${hostname}`;

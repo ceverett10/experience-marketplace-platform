@@ -5,6 +5,22 @@ import { getSiteFromHostname } from '@/lib/tenant';
 export default async function robots(): Promise<MetadataRoute.Robots> {
   const headersList = await headers();
   const hostname = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
+
+  // Block indexing for non-production hostnames (Heroku, Vercel, localhost).
+  // Google discovers .herokuapp.com via CNAME chains and Certificate Transparency
+  // logs — if we serve a permissive robots.txt it will index the raw app URL.
+  const cleanHostname = hostname.split(':')[0] ?? hostname;
+  if (
+    cleanHostname.includes('.herokuapp.com') ||
+    cleanHostname.includes('.vercel.app') ||
+    cleanHostname === 'localhost' ||
+    cleanHostname.includes('127.0.0.1')
+  ) {
+    return {
+      rules: [{ userAgent: '*', disallow: ['/'] }],
+    };
+  }
+
   const site = await getSiteFromHostname(hostname);
 
   const baseUrl = site.primaryDomain ? `https://${site.primaryDomain}` : `https://${hostname}`;
