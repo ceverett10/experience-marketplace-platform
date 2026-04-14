@@ -23,23 +23,19 @@ vi.mock('@/lib/microsite-experiences', () => ({
   isMicrosite: vi.fn((ctx: unknown) => !!ctx),
 }));
 
-const { mockPageFindMany, mockProductFindMany, mockPageCount, mockProductCount } = vi.hoisted(
-  () => ({
-    mockPageFindMany: vi.fn(),
-    mockProductFindMany: vi.fn(),
-    mockPageCount: vi.fn(),
-    mockProductCount: vi.fn(),
-  })
-);
+const { mockPageFindMany, mockProductFindMany } = vi.hoisted(() => ({
+  mockPageFindMany: vi.fn(),
+  mockProductFindMany: vi.fn(),
+}));
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
-    page: { findMany: mockPageFindMany, count: mockPageCount },
-    product: { findMany: mockProductFindMany, count: mockProductCount },
+    page: { findMany: mockPageFindMany },
+    product: { findMany: mockProductFindMany },
   },
 }));
 
-import sitemap, { generateSitemaps } from './sitemap';
+import sitemap from './sitemap';
 
 const baseSite = {
   id: 'site-1',
@@ -54,12 +50,10 @@ describe('sitemap', () => {
     mockGetSiteFromHostname.mockResolvedValue(baseSite);
     mockPageFindMany.mockResolvedValue([]);
     mockProductFindMany.mockResolvedValue([]);
-    mockPageCount.mockResolvedValue(0);
-    mockProductCount.mockResolvedValue(0);
   });
 
   it('includes static pages for non-microsite', async () => {
-    const entries = await sitemap({ id: 0 });
+    const entries = await sitemap();
 
     const urls = entries.map((e) => e.url);
     expect(urls).toContain('https://test.example.com');
@@ -77,7 +71,7 @@ describe('sitemap', () => {
       micrositeContext: { supplierId: 'sup-1' },
     });
 
-    const entries = await sitemap({ id: 0 });
+    const entries = await sitemap();
     const urls = entries.map((e) => e.url);
 
     expect(urls).toContain('https://test.example.com');
@@ -91,7 +85,7 @@ describe('sitemap', () => {
       { slug: 'blog/my-post', type: 'BLOG', priority: 0.6, updatedAt: new Date('2025-01-01') },
     ]);
 
-    const entries = await sitemap({ id: 0 });
+    const entries = await sitemap();
     const blogEntry = entries.find((e) => e.url.includes('my-post'));
 
     expect(blogEntry!.url).toBe('https://test.example.com/blog/my-post');
@@ -103,7 +97,7 @@ describe('sitemap', () => {
       { slug: 'food-tours', type: 'CATEGORY', priority: 0.7, updatedAt: new Date('2025-01-01') },
     ]);
 
-    const entries = await sitemap({ id: 0 });
+    const entries = await sitemap();
     const catEntry = entries.find((e) => e.url.includes('food-tours'));
 
     expect(catEntry!.url).toBe('https://test.example.com/categories/food-tours');
@@ -120,7 +114,7 @@ describe('sitemap', () => {
       },
     ]);
 
-    const entries = await sitemap({ id: 0 });
+    const entries = await sitemap();
     const landingEntry = entries.find((e) => e.url.includes('little-italy'));
 
     expect(landingEntry!.url).toBe('https://test.example.com/destinations/little-italy');
@@ -131,7 +125,7 @@ describe('sitemap', () => {
       { slug: 'prod-123', type: 'PRODUCT', priority: 0.6, updatedAt: new Date('2025-01-01') },
     ]);
 
-    const entries = await sitemap({ id: 0 });
+    const entries = await sitemap();
     const productEntry = entries.find((e) => e.url.includes('prod-123'));
 
     expect(productEntry!.url).toBe('https://test.example.com/experiences/prod-123');
@@ -142,7 +136,7 @@ describe('sitemap', () => {
       { slug: 'about', type: 'HOMEPAGE', priority: 0.5, updatedAt: new Date('2025-01-01') },
     ]);
 
-    const entries = await sitemap({ id: 0 });
+    const entries = await sitemap();
     const aboutUrls = entries.filter((e) => e.url === 'https://test.example.com/about');
 
     expect(aboutUrls).toHaveLength(1);
@@ -158,7 +152,7 @@ describe('sitemap', () => {
       { holibobProductId: 'hb-prod-2', updatedAt: new Date('2025-01-01'), rating: null },
     ]);
 
-    const entries = await sitemap({ id: 0 });
+    const entries = await sitemap();
     const prodUrls = entries.filter((e) => e.url.includes('/experiences/hb-prod'));
 
     expect(prodUrls).toHaveLength(2);
@@ -169,8 +163,25 @@ describe('sitemap', () => {
     expect(prodUrls[1]!.priority).toBe(0.6);
   });
 
+  it('caps product pages at 44,000 to stay under Google 50k limit', async () => {
+    mockGetSiteFromHostname.mockResolvedValue({
+      ...baseSite,
+      micrositeContext: { supplierId: 'sup-1' },
+    });
+    mockProductFindMany.mockResolvedValue([]);
+
+    await sitemap();
+
+    // Verify the query includes a take limit
+    expect(mockProductFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        take: 44_000,
+      })
+    );
+  });
+
   it('does not fetch products for non-microsite', async () => {
-    await sitemap({ id: 0 });
+    await sitemap();
     expect(mockProductFindMany).not.toHaveBeenCalled();
   });
 
@@ -180,42 +191,7 @@ describe('sitemap', () => {
       primaryDomain: null,
     });
 
-    const entries = await sitemap({ id: 0 });
+    const entries = await sitemap();
     expect(entries[0]!.url).toBe('https://test.example.com');
-  });
-
-  it('returns empty entries for bucket > 0 on non-microsite', async () => {
-    const entries = await sitemap({ id: 1 });
-    expect(entries).toHaveLength(0);
-  });
-});
-
-describe('generateSitemaps', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockGetSiteFromHostname.mockResolvedValue(baseSite);
-    mockPageCount.mockResolvedValue(0);
-    mockProductCount.mockResolvedValue(0);
-  });
-
-  it('returns single bucket for small site', async () => {
-    mockPageCount.mockResolvedValue(50);
-
-    const buckets = await generateSitemaps();
-    expect(buckets).toEqual([{ id: 0 }]);
-  });
-
-  it('returns multiple buckets for large supplier microsite', async () => {
-    mockGetSiteFromHostname.mockResolvedValue({
-      ...baseSite,
-      micrositeContext: { supplierId: 'sup-1', micrositeId: 'ms-1' },
-    });
-    mockPageCount.mockResolvedValue(100);
-    mockProductCount.mockResolvedValue(90_000);
-
-    const buckets = await generateSitemaps();
-    // 5 static + 100 pages + 90,000 products = 90,105 total → ceil(90105/45000) = 3 buckets
-    expect(buckets).toHaveLength(3);
-    expect(buckets).toEqual([{ id: 0 }, { id: 1 }, { id: 2 }]);
   });
 });
