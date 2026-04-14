@@ -5,13 +5,20 @@ import { prisma } from '@/lib/prisma';
  * Add domain (root + www) to Heroku via API.
  * Uses an existing SNI endpoint for routing — SSL is handled by Cloudflare.
  */
-async function addDomainToHeroku(domain: string): Promise<{ success: boolean; error?: string }> {
+interface HerokuDomainResult {
+  success: boolean;
+  error?: string;
+  /** Heroku DNS targets keyed by hostname (e.g. "example.com" -> "xyz.herokudns.com") */
+  dnsTargets: Record<string, string>;
+}
+
+async function addDomainToHeroku(domain: string): Promise<HerokuDomainResult> {
   const herokuApiKey = process.env['HEROKU_API_KEY'];
   const herokuAppName = process.env['HEROKU_APP_NAME'];
 
   if (!herokuApiKey || !herokuAppName) {
-    console.log('[Heroku] Skipping - HEROKU_API_KEY or HEROKU_APP_NAME not configured');
-    return { success: false, error: 'Heroku credentials not configured' };
+    console.error('[Heroku] Skipping - HEROKU_API_KEY or HEROKU_APP_NAME not configured');
+    return { success: false, error: 'Heroku credentials not configured', dnsTargets: {} };
   }
 
   try {
@@ -31,9 +38,11 @@ async function addDomainToHeroku(domain: string): Promise<{ success: boolean; er
       const withEndpoint = domains.find((d) => d.sni_endpoint);
       if (withEndpoint?.sni_endpoint) {
         sniEndpointId = withEndpoint.sni_endpoint.id;
-        console.log(`[Heroku] Using existing SNI endpoint: ${withEndpoint.sni_endpoint.name}`);
+        console.info(`[Heroku] Using existing SNI endpoint: ${withEndpoint.sni_endpoint.name}`);
       }
     }
+
+    const dnsTargets: Record<string, string> = {};
 
     for (const hostname of [domain, `www.${domain}`]) {
       const body: Record<string, unknown> = { hostname };
@@ -55,14 +64,24 @@ async function addDomainToHeroku(domain: string): Promise<{ success: boolean; er
         const error = await response.json().catch(() => ({}));
         console.error(`[Heroku] Error adding ${hostname}:`, error);
       } else {
-        console.log(`[Heroku] Added ${hostname}`);
+        const result = (await response.json().catch(() => null)) as {
+          cname?: string;
+        } | null;
+        if (result?.cname) {
+          dnsTargets[hostname] = result.cname;
+        }
+        console.info(`[Heroku] Added ${hostname} -> ${result?.cname ?? 'unknown'}`);
       }
     }
 
-    return { success: true };
+    return { success: true, dnsTargets };
   } catch (error) {
     console.error(`[Heroku] Error adding domain:`, error);
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      dnsTargets: {},
+    };
   }
 }
 
@@ -389,7 +408,10 @@ export async function POST(request: Request) {
               if (zoneData.success && zoneData.result.length > 0) {
                 const zone = zoneData.result[0];
 
-                // Check if DNS records already exist
+                // Add domain to Heroku FIRST to get per-domain DNS targets
+                const herokuResult = await addDomainToHeroku(cfDomain.name);
+
+                // Fetch existing DNS records
                 const recordsResponse = await fetch(
                   `https://api.cloudflare.com/client/v4/zones/${zone.id}/dns_records`,
                   {
@@ -402,13 +424,22 @@ export async function POST(request: Request) {
                 const recordsData = await recordsResponse.json();
                 const existingRecords = recordsData.success ? recordsData.result : [];
 
-                // Check if we already have the correct records pointing to Heroku
-                const hasRootRecord = existingRecords.some(
+                // Determine correct CNAME targets: use per-domain Heroku DNS targets if
+                // available, otherwise fall back to the app hostname
+                const rootTarget = herokuResult.dnsTargets[cfDomain.name] || herokuHostname;
+                const wwwTarget = herokuResult.dnsTargets[`www.${cfDomain.name}`] || herokuHostname;
+
+                // Find existing root and www CNAME records
+                const rootRecord = existingRecords.find(
                   (r: any) => (r.type === 'CNAME' || r.type === 'A') && r.name === cfDomain.name
                 );
+                const wwwRecord = existingRecords.find(
+                  (r: any) =>
+                    (r.type === 'CNAME' || r.type === 'A') && r.name === `www.${cfDomain.name}`
+                );
 
-                if (!hasRootRecord) {
-                  // Create root CNAME record pointing to Heroku (Cloudflare supports CNAME flattening)
+                if (!rootRecord) {
+                  // Create root CNAME record pointing to Heroku DNS target
                   await fetch(`https://api.cloudflare.com/client/v4/zones/${zone.id}/dns_records`, {
                     method: 'POST',
                     headers: {
@@ -419,12 +450,37 @@ export async function POST(request: Request) {
                     body: JSON.stringify({
                       type: 'CNAME',
                       name: '@',
-                      content: herokuHostname,
+                      content: rootTarget,
                       ttl: 1, // Auto
                       proxied: true, // Enable Cloudflare proxy for SSL
                     }),
                   });
+                  dnsConfigured.push(cfDomain.name);
+                } else if (
+                  rootRecord.type === 'CNAME' &&
+                  rootRecord.content !== rootTarget &&
+                  rootTarget !== herokuHostname
+                ) {
+                  // Update existing root CNAME to use correct per-domain DNS target
+                  await fetch(
+                    `https://api.cloudflare.com/client/v4/zones/${zone.id}/dns_records/${rootRecord.id}`,
+                    {
+                      method: 'PATCH',
+                      headers: {
+                        'X-Auth-Email': email,
+                        'X-Auth-Key': apiKey,
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({
+                        content: rootTarget,
+                        proxied: true,
+                      }),
+                    }
+                  );
+                  dnsConfigured.push(cfDomain.name);
+                }
 
+                if (!wwwRecord) {
                   // Create www CNAME record
                   await fetch(`https://api.cloudflare.com/client/v4/zones/${zone.id}/dns_records`, {
                     method: 'POST',
@@ -436,18 +492,33 @@ export async function POST(request: Request) {
                     body: JSON.stringify({
                       type: 'CNAME',
                       name: 'www',
-                      content: herokuHostname,
+                      content: wwwTarget,
                       ttl: 1,
                       proxied: true,
                     }),
                   });
-
-                  dnsConfigured.push(cfDomain.name);
+                } else if (
+                  wwwRecord.type === 'CNAME' &&
+                  wwwRecord.content !== wwwTarget &&
+                  wwwTarget !== herokuHostname
+                ) {
+                  // Update existing www CNAME to use correct per-domain DNS target
+                  await fetch(
+                    `https://api.cloudflare.com/client/v4/zones/${zone.id}/dns_records/${wwwRecord.id}`,
+                    {
+                      method: 'PATCH',
+                      headers: {
+                        'X-Auth-Email': email,
+                        'X-Auth-Key': apiKey,
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({
+                        content: wwwTarget,
+                        proxied: true,
+                      }),
+                    }
+                  );
                 }
-
-                // Add domain to Heroku BEFORE marking active - without this, Heroku
-                // returns "no such app" errors even though DNS points to it
-                const herokuResult = await addDomainToHeroku(cfDomain.name);
 
                 // Update domain record with zone ID and set status
                 await prisma.domain.update({
@@ -530,6 +601,9 @@ export async function POST(request: Request) {
               if (zoneData.success && zoneData.result.length > 0) {
                 const zone = zoneData.result[0];
 
+                // Add domain to Heroku FIRST to get per-domain DNS targets
+                const herokuResult = await addDomainToHeroku(cfDomain.name);
+
                 const recordsResponse = await fetch(
                   `https://api.cloudflare.com/client/v4/zones/${zone.id}/dns_records`,
                   {
@@ -542,11 +616,18 @@ export async function POST(request: Request) {
                 const recordsData = await recordsResponse.json();
                 const existingRecords = recordsData.success ? recordsData.result : [];
 
-                const hasRootRecord = existingRecords.some(
+                const rootTarget = herokuResult.dnsTargets[cfDomain.name] || herokuHostname;
+                const wwwTarget = herokuResult.dnsTargets[`www.${cfDomain.name}`] || herokuHostname;
+
+                const rootRecord = existingRecords.find(
                   (r: any) => (r.type === 'CNAME' || r.type === 'A') && r.name === cfDomain.name
                 );
+                const wwwRecord = existingRecords.find(
+                  (r: any) =>
+                    (r.type === 'CNAME' || r.type === 'A') && r.name === `www.${cfDomain.name}`
+                );
 
-                if (!hasRootRecord) {
+                if (!rootRecord) {
                   await fetch(`https://api.cloudflare.com/client/v4/zones/${zone.id}/dns_records`, {
                     method: 'POST',
                     headers: {
@@ -557,12 +638,36 @@ export async function POST(request: Request) {
                     body: JSON.stringify({
                       type: 'CNAME',
                       name: '@',
-                      content: herokuHostname,
+                      content: rootTarget,
                       ttl: 1,
                       proxied: true,
                     }),
                   });
+                  dnsConfigured.push(cfDomain.name);
+                } else if (
+                  rootRecord.type === 'CNAME' &&
+                  rootRecord.content !== rootTarget &&
+                  rootTarget !== herokuHostname
+                ) {
+                  await fetch(
+                    `https://api.cloudflare.com/client/v4/zones/${zone.id}/dns_records/${rootRecord.id}`,
+                    {
+                      method: 'PATCH',
+                      headers: {
+                        'X-Auth-Email': email,
+                        'X-Auth-Key': apiKey,
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({
+                        content: rootTarget,
+                        proxied: true,
+                      }),
+                    }
+                  );
+                  dnsConfigured.push(cfDomain.name);
+                }
 
+                if (!wwwRecord) {
                   await fetch(`https://api.cloudflare.com/client/v4/zones/${zone.id}/dns_records`, {
                     method: 'POST',
                     headers: {
@@ -573,17 +678,32 @@ export async function POST(request: Request) {
                     body: JSON.stringify({
                       type: 'CNAME',
                       name: 'www',
-                      content: herokuHostname,
+                      content: wwwTarget,
                       ttl: 1,
                       proxied: true,
                     }),
                   });
-
-                  dnsConfigured.push(cfDomain.name);
+                } else if (
+                  wwwRecord.type === 'CNAME' &&
+                  wwwRecord.content !== wwwTarget &&
+                  wwwTarget !== herokuHostname
+                ) {
+                  await fetch(
+                    `https://api.cloudflare.com/client/v4/zones/${zone.id}/dns_records/${wwwRecord.id}`,
+                    {
+                      method: 'PATCH',
+                      headers: {
+                        'X-Auth-Email': email,
+                        'X-Auth-Key': apiKey,
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({
+                        content: wwwTarget,
+                        proxied: true,
+                      }),
+                    }
+                  );
                 }
-
-                // Add domain to Heroku BEFORE marking active
-                const herokuResult = await addDomainToHeroku(cfDomain.name);
 
                 await prisma.domain.update({
                   where: { id: orphanRecord.id },
@@ -591,7 +711,7 @@ export async function POST(request: Request) {
                     cloudflareZoneId: zone.id,
                     dnsConfigured: true,
                     sslEnabled: true,
-                    verifiedAt: new Date(), // Mark as verified so roadmap DOMAIN_VERIFY passes
+                    verifiedAt: new Date(),
                     status: herokuResult.success ? 'ACTIVE' : 'SSL_PENDING',
                   },
                 });
