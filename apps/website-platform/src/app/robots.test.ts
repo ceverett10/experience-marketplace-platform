@@ -19,6 +19,18 @@ vi.mock('@/lib/tenant', () => ({
   }),
 }));
 
+vi.mock('@/lib/parent-domain', () => ({
+  isParentDomain: vi.fn(() => false),
+}));
+
+vi.mock('@/lib/prisma', () => ({
+  prisma: {
+    micrositeConfig: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
+  },
+}));
+
 import robots from './robots';
 
 describe('robots', () => {
@@ -28,7 +40,8 @@ describe('robots', () => {
 
   it('returns sitemap URL using primary domain', async () => {
     const result = await robots();
-    expect(result.sitemap).toBe('https://test.example.com/sitemap.xml');
+    // sitemap is now an array; first entry is always the current site
+    expect(result.sitemap).toContain('https://test.example.com/sitemap.xml');
   });
 
   it('allows all crawlers on /', async () => {

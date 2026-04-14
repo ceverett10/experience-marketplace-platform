@@ -68,7 +68,7 @@ export async function generateMetadata(): Promise<Metadata> {
         type: 'website',
       },
       alternates: {
-        canonical: `https://${hostname}/about`,
+        canonical: 'https://experiencess.com/about',
       },
     };
   }

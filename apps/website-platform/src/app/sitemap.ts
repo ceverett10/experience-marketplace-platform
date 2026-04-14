@@ -5,9 +5,26 @@ import { prisma } from '@/lib/prisma';
 import { isMicrosite } from '@/lib/microsite-experiences';
 
 /**
- * Generate dynamic sitemap for SEO
- * Includes all static pages and database-generated content
- * Microsite-aware: includes supplier products for operator microsites
+ * Maximum URLs per sitemap — Google limits sitemaps to 50,000 URLs.
+ * We cap product queries at 44,000 to leave room for static + database pages.
+ */
+const MAX_PRODUCT_URLS = 44_000;
+
+/** Slugs excluded from sitemap (noindex pages with identical content across all sites) */
+const EXCLUDED_SLUGS = ['privacy', 'terms', 'prize-draw-terms', 'unsubscribed'];
+
+/**
+ * Generate dynamic sitemap for SEO.
+ * Includes all static pages, database-generated content, and supplier products.
+ * Microsite-aware: includes supplier products for operator microsites.
+ *
+ * Product pages are capped at 44,000 to stay under Google's 50k URL-per-sitemap
+ * limit. Products are ordered by rating desc so highest-value pages are always
+ * included even if the supplier catalog exceeds the cap.
+ *
+ * Note: We cannot use generateSitemaps() for pagination because it runs at
+ * build time where headers() is unavailable (no request context). Since this
+ * app resolves tenants from the hostname, pagination requires runtime context.
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const headersList = await headers();
@@ -81,9 +98,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ];
 
-  // Slugs to exclude from sitemap (noindex pages with identical content across all sites)
-  const excludedSlugs = new Set(['privacy', 'terms', 'prize-draw-terms', 'unsubscribed']);
-
   // Query database for all published pages for this site/microsite
   // Microsite pages are stored with micrositeId (not siteId), so we must branch here
   const pageWhereClause =
@@ -96,7 +110,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       ...pageWhereClause,
       status: 'PUBLISHED',
       noIndex: false, // Exclude pages marked as noIndex
-      slug: { notIn: [...excludedSlugs] },
+      slug: { notIn: EXCLUDED_SLUGS },
     },
     select: {
       slug: true,
@@ -158,7 +172,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     })
     .filter((entry) => !staticPaths.has(entry.url));
 
-  // For microsites, also include all supplier products as experience pages
+  // For microsites, also include supplier products as experience pages.
+  // Capped at MAX_PRODUCT_URLS to stay under Google's 50k sitemap limit.
+  // Ordered by rating desc so highest-value products are always included.
   let productPages: MetadataRoute.Sitemap = [];
   if (isMicrositePage && site.micrositeContext?.supplierId) {
     const products = await prisma.product.findMany({
@@ -169,6 +185,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         rating: true,
       },
       orderBy: { rating: 'desc' },
+      take: MAX_PRODUCT_URLS,
     });
 
     productPages = products.map((product) => ({

@@ -22,8 +22,10 @@ const nextConfig = {
   experimental: {
     serverComponentsExternalPackages: ['@prisma/client'],
     // Cap ISR in-memory page cache — without this, 100k+ pages across microsites
-    // accumulate in RAM indefinitely and push web.1 past 1GB (R14/R15 OOM kills)
-    isrMemoryCacheSize: 50,
+    // accumulate in RAM indefinitely and push web.1 past 1GB (R14/R15 OOM kills).
+    // 256 pages × ~100KB avg ≈ 25MB — well within 1GB dyno headroom while
+    // significantly improving cache hit rate under Googlebot crawl load.
+    isrMemoryCacheSize: 256,
   },
 
   // Image Optimization

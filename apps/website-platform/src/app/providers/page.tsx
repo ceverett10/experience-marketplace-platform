@@ -100,7 +100,7 @@ export async function generateMetadata({
         ? `Browse ${params.category} experience providers across our network. Book with instant confirmation.`
         : 'Browse all experience providers in our network. Free cancellation, instant confirmation.',
     alternates: {
-      canonical: `https://${hostname}/providers`,
+      canonical: 'https://experiencess.com/providers',
     },
   };
 }

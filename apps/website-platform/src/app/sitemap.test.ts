@@ -163,6 +163,23 @@ describe('sitemap', () => {
     expect(prodUrls[1]!.priority).toBe(0.6);
   });
 
+  it('caps product pages at 44,000 to stay under Google 50k limit', async () => {
+    mockGetSiteFromHostname.mockResolvedValue({
+      ...baseSite,
+      micrositeContext: { supplierId: 'sup-1' },
+    });
+    mockProductFindMany.mockResolvedValue([]);
+
+    await sitemap();
+
+    // Verify the query includes a take limit
+    expect(mockProductFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        take: 44_000,
+      })
+    );
+  });
+
   it('does not fetch products for non-microsite', async () => {
     await sitemap();
     expect(mockProductFindMany).not.toHaveBeenCalled();
