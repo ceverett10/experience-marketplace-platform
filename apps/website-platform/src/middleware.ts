@@ -29,6 +29,14 @@ export function middleware(request: NextRequest) {
     request.headers.get('x-forwarded-host') ?? request.headers.get('host') ?? 'localhost';
   const response = NextResponse.next();
 
+  // Tell search engines not to index non-production hostnames (Heroku, Vercel).
+  // This is a safety net on top of robots.txt — HTTP headers take effect even
+  // if Google has already cached a permissive robots.txt from a previous crawl.
+  const cleanHostname = hostname.split(':')[0] ?? hostname;
+  if (cleanHostname.includes('.herokuapp.com') || cleanHostname.includes('.vercel.app')) {
+    response.headers.set('X-Robots-Tag', 'noindex, nofollow');
+  }
+
   // Extract site identifier from hostname
   const siteId = getSiteIdFromHostname(hostname);
 
