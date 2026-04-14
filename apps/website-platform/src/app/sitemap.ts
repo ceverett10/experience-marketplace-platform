@@ -5,23 +5,98 @@ import { prisma } from '@/lib/prisma';
 import { isMicrosite } from '@/lib/microsite-experiences';
 
 /**
- * Generate dynamic sitemap for SEO
- * Includes all static pages and database-generated content
- * Microsite-aware: includes supplier products for operator microsites
+ * Maximum URLs per sitemap file — Google limits sitemaps to 50,000 URLs.
+ * We use 45,000 to leave headroom for edge cases.
  */
-export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+const MAX_URLS_PER_SITEMAP = 45_000;
+
+/** Slugs excluded from sitemap (noindex pages with identical content across all sites) */
+const EXCLUDED_SLUGS = ['privacy', 'terms', 'prize-draw-terms', 'unsubscribed'];
+
+/** Check if a hostname is a non-production environment */
+function isNonProductionHost(hostname: string): boolean {
+  const clean = hostname.split(':')[0] ?? hostname;
+  return (
+    clean.includes('.herokuapp.com') ||
+    clean.includes('.vercel.app') ||
+    clean === 'localhost' ||
+    clean.includes('127.0.0.1')
+  );
+}
+
+/**
+ * Build the where-clause for querying pages by site or microsite.
+ */
+function getPageWhereClause(
+  isMicrositePage: boolean,
+  micrositeId: string | undefined,
+  siteId: string
+) {
+  return isMicrositePage && micrositeId ? { micrositeId } : { siteId };
+}
+
+/**
+ * Generate sitemap buckets for pagination.
+ * Next.js uses this to create a sitemap index at /sitemap.xml
+ * and individual sitemaps at /sitemap/0.xml, /sitemap/1.xml, etc.
+ *
+ * This ensures we never exceed Google's 50,000 URL-per-sitemap limit,
+ * which is critical for supplier microsites with large product catalogs.
+ */
+export async function generateSitemaps() {
   const headersList = await headers();
   const hostname = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
 
-  // Return empty sitemap for non-production hostnames to prevent Google from
-  // indexing the raw Heroku app URL or other preview deployments.
-  const cleanHostname = hostname.split(':')[0] ?? hostname;
-  if (
-    cleanHostname.includes('.herokuapp.com') ||
-    cleanHostname.includes('.vercel.app') ||
-    cleanHostname === 'localhost' ||
-    cleanHostname.includes('127.0.0.1')
-  ) {
+  if (isNonProductionHost(hostname)) {
+    return [{ id: 0 }];
+  }
+
+  const site = await getSiteFromHostname(hostname);
+  const isMicrositePage = isMicrosite(site.micrositeContext);
+
+  const pageWhere = getPageWhereClause(
+    isMicrositePage,
+    site.micrositeContext?.micrositeId,
+    site.id
+  );
+
+  // Count total URLs with cheap count() queries instead of fetching all records
+  const [pageCount, productCount] = await Promise.all([
+    prisma.page.count({
+      where: {
+        ...pageWhere,
+        status: 'PUBLISHED',
+        noIndex: false,
+        slug: { notIn: EXCLUDED_SLUGS },
+      },
+    }),
+    isMicrositePage && site.micrositeContext?.supplierId
+      ? prisma.product.count({
+          where: { supplierId: site.micrositeContext.supplierId },
+        })
+      : Promise.resolve(0),
+  ]);
+
+  const staticPageCount = isMicrositePage ? 5 : 7;
+  const totalUrls = staticPageCount + pageCount + productCount;
+  const numSitemaps = Math.max(1, Math.ceil(totalUrls / MAX_URLS_PER_SITEMAP));
+
+  return Array.from({ length: numSitemaps }, (_, i) => ({ id: i }));
+}
+
+/**
+ * Generate dynamic sitemap for SEO.
+ * Includes static pages, database-generated content, and supplier products.
+ * Microsite-aware: includes supplier products for operator microsites.
+ *
+ * Bucket 0 always contains static pages + all database pages.
+ * Products are paginated across buckets when they exceed the per-sitemap limit.
+ */
+export default async function sitemap({ id }: { id: number }): Promise<MetadataRoute.Sitemap> {
+  const headersList = await headers();
+  const hostname = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
+
+  if (isNonProductionHost(hostname)) {
     return [];
   }
 
@@ -30,91 +105,94 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = site.primaryDomain ? `https://${site.primaryDomain}` : `https://${hostname}`;
   const isMicrositePage = isMicrosite(site.micrositeContext);
 
-  // Static pages - adjust for microsites
-  const staticPages: MetadataRoute.Sitemap = [
-    {
-      url: baseUrl,
-      lastModified: new Date(),
-      changeFrequency: 'daily',
-      priority: 1,
-    },
-    {
-      url: `${baseUrl}/experiences`,
-      lastModified: new Date(),
-      changeFrequency: 'daily',
-      priority: 0.9,
-    },
+  const entries: MetadataRoute.Sitemap = [];
+
+  // --- Static pages + database pages always go in bucket 0 ---
+  if (id === 0) {
+    // Static pages
+    entries.push(
+      {
+        url: baseUrl,
+        lastModified: new Date(),
+        changeFrequency: 'daily',
+        priority: 1,
+      },
+      {
+        url: `${baseUrl}/experiences`,
+        lastModified: new Date(),
+        changeFrequency: 'daily',
+        priority: 0.9,
+      }
+    );
+
     // Destinations and categories are less relevant for single-operator microsites
-    ...(isMicrositePage
-      ? []
-      : [
-          {
-            url: `${baseUrl}/destinations`,
-            lastModified: new Date(),
-            changeFrequency: 'weekly' as const,
-            priority: 0.8,
-          },
-          {
-            url: `${baseUrl}/categories`,
-            lastModified: new Date(),
-            changeFrequency: 'weekly' as const,
-            priority: 0.8,
-          },
-        ]),
-    {
-      url: `${baseUrl}/blog`,
-      lastModified: new Date(),
-      changeFrequency: 'daily',
-      priority: 0.7,
-    },
-    {
-      url: `${baseUrl}/about`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.5,
-    },
-    {
-      url: `${baseUrl}/contact`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.5,
-    },
-  ];
+    if (!isMicrositePage) {
+      entries.push(
+        {
+          url: `${baseUrl}/destinations`,
+          lastModified: new Date(),
+          changeFrequency: 'weekly',
+          priority: 0.8,
+        },
+        {
+          url: `${baseUrl}/categories`,
+          lastModified: new Date(),
+          changeFrequency: 'weekly',
+          priority: 0.8,
+        }
+      );
+    }
 
-  // Slugs to exclude from sitemap (noindex pages with identical content across all sites)
-  const excludedSlugs = new Set(['privacy', 'terms', 'prize-draw-terms', 'unsubscribed']);
+    entries.push(
+      {
+        url: `${baseUrl}/blog`,
+        lastModified: new Date(),
+        changeFrequency: 'daily',
+        priority: 0.7,
+      },
+      {
+        url: `${baseUrl}/about`,
+        lastModified: new Date(),
+        changeFrequency: 'monthly',
+        priority: 0.5,
+      },
+      {
+        url: `${baseUrl}/contact`,
+        lastModified: new Date(),
+        changeFrequency: 'monthly',
+        priority: 0.5,
+      }
+    );
 
-  // Query database for all published pages for this site/microsite
-  // Microsite pages are stored with micrositeId (not siteId), so we must branch here
-  const pageWhereClause =
-    isMicrositePage && site.micrositeContext?.micrositeId
-      ? { micrositeId: site.micrositeContext.micrositeId }
-      : { siteId: site.id };
+    // Database pages (blogs, destinations, categories, etc.)
+    const pageWhere = getPageWhereClause(
+      isMicrositePage,
+      site.micrositeContext?.micrositeId,
+      site.id
+    );
 
-  const dbPages = await prisma.page.findMany({
-    where: {
-      ...pageWhereClause,
-      status: 'PUBLISHED',
-      noIndex: false, // Exclude pages marked as noIndex
-      slug: { notIn: [...excludedSlugs] },
-    },
-    select: {
-      slug: true,
-      type: true,
-      priority: true,
-      updatedAt: true,
-    },
-  });
+    const dbPages = await prisma.page.findMany({
+      where: {
+        ...pageWhere,
+        status: 'PUBLISHED',
+        noIndex: false,
+        slug: { notIn: EXCLUDED_SLUGS },
+      },
+      select: {
+        slug: true,
+        type: true,
+        priority: true,
+        updatedAt: true,
+      },
+    });
 
-  // Collect static page paths for deduplication
-  const staticPaths = new Set(staticPages.map((p) => p.url));
+    const staticPaths = new Set(entries.map((p) => p.url));
 
-  // Map database pages to sitemap entries
-  // Note: BLOG slugs include 'blog/' prefix (e.g., 'blog/my-post')
-  // and LANDING slugs include 'destinations/' prefix (e.g., 'destinations/little-italy')
-  // so we use /${slug} directly for these types to avoid double-prefixing.
-  const databasePages: MetadataRoute.Sitemap = dbPages
-    .map((page) => {
+    // Map database pages to sitemap entries
+    // Note: BLOG slugs include 'blog/' prefix (e.g., 'blog/my-post')
+    // and LANDING slugs include 'destinations/' prefix (e.g., 'destinations/little-italy')
+    // so we use /${slug} directly for these types to avoid double-prefixing.
+    for (const page of dbPages) {
       let urlPath: string;
       let changeFrequency:
         | 'always'
@@ -127,7 +205,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
       switch (page.type) {
         case 'BLOG':
-          // Slug already has 'blog/' prefix (e.g., 'blog/my-post')
           urlPath = `/${page.slug}`;
           changeFrequency = 'monthly';
           break;
@@ -136,7 +213,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           changeFrequency = 'weekly';
           break;
         case 'LANDING':
-          // Slug already has 'destinations/' prefix (e.g., 'destinations/little-italy')
           urlPath = `/${page.slug}`;
           changeFrequency = 'weekly';
           break;
@@ -149,36 +225,74 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           changeFrequency = 'monthly';
       }
 
-      return {
-        url: `${baseUrl}${urlPath}`,
-        lastModified: page.updatedAt,
-        changeFrequency,
-        priority: page.priority,
-      };
-    })
-    .filter((entry) => !staticPaths.has(entry.url));
-
-  // For microsites, also include all supplier products as experience pages
-  let productPages: MetadataRoute.Sitemap = [];
-  if (isMicrositePage && site.micrositeContext?.supplierId) {
-    const products = await prisma.product.findMany({
-      where: { supplierId: site.micrositeContext.supplierId },
-      select: {
-        holibobProductId: true,
-        updatedAt: true,
-        rating: true,
-      },
-      orderBy: { rating: 'desc' },
-    });
-
-    productPages = products.map((product) => ({
-      url: `${baseUrl}/experiences/${product.holibobProductId}`,
-      lastModified: product.updatedAt,
-      changeFrequency: 'weekly' as const,
-      // Higher priority for highly-rated products
-      priority: product.rating ? Math.min(0.8, 0.6 + product.rating * 0.04) : 0.6,
-    }));
+      const fullUrl = `${baseUrl}${urlPath}`;
+      if (!staticPaths.has(fullUrl)) {
+        entries.push({
+          url: fullUrl,
+          lastModified: page.updatedAt,
+          changeFrequency,
+          priority: page.priority,
+        });
+      }
+    }
   }
 
-  return [...staticPages, ...databasePages, ...productPages];
+  // --- Products are paginated across all buckets ---
+  if (isMicrositePage && site.micrositeContext?.supplierId) {
+    let productSkip: number;
+    let productTake: number;
+
+    if (id === 0) {
+      // Bucket 0: fill remaining capacity with products
+      const remainingCapacity = MAX_URLS_PER_SITEMAP - entries.length;
+      productSkip = 0;
+      productTake = Math.max(0, remainingCapacity);
+    } else {
+      // Bucket 1+: calculate offset based on how many products fit in bucket 0.
+      // Use count queries to stay consistent with generateSitemaps().
+      const pageWhere = getPageWhereClause(
+        isMicrositePage,
+        site.micrositeContext?.micrositeId,
+        site.id
+      );
+      const dbPageCount = await prisma.page.count({
+        where: {
+          ...pageWhere,
+          status: 'PUBLISHED',
+          noIndex: false,
+          slug: { notIn: EXCLUDED_SLUGS },
+        },
+      });
+      const staticCount = isMicrositePage ? 5 : 7;
+      const bucket0ProductCapacity = MAX_URLS_PER_SITEMAP - staticCount - dbPageCount;
+
+      productSkip = bucket0ProductCapacity + (id - 1) * MAX_URLS_PER_SITEMAP;
+      productTake = MAX_URLS_PER_SITEMAP;
+    }
+
+    if (productTake > 0) {
+      const products = await prisma.product.findMany({
+        where: { supplierId: site.micrositeContext.supplierId },
+        select: {
+          holibobProductId: true,
+          updatedAt: true,
+          rating: true,
+        },
+        orderBy: { rating: 'desc' },
+        skip: productSkip,
+        take: productTake,
+      });
+
+      for (const product of products) {
+        entries.push({
+          url: `${baseUrl}/experiences/${product.holibobProductId}`,
+          lastModified: product.updatedAt,
+          changeFrequency: 'weekly',
+          priority: product.rating ? Math.min(0.8, 0.6 + product.rating * 0.04) : 0.6,
+        });
+      }
+    }
+  }
+
+  return entries;
 }

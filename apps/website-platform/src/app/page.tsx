@@ -597,13 +597,14 @@ export async function generateMetadata() {
   const headersList = await headers();
   const hostname = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'localhost';
 
-  // Parent domain has its own metadata
+  // Parent domain has its own metadata — always use the bare domain for canonical
+  // to prevent www vs non-www duplicates in Google Search Console
   if (isParentDomain(hostname)) {
     return {
       title: 'Experiencess - Discover Amazing Experiences',
       description: 'Find and book unique experiences, tours, and activities worldwide.',
       alternates: {
-        canonical: `https://${hostname}`,
+        canonical: 'https://experiencess.com',
       },
     };
   }
