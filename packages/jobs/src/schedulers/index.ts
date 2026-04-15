@@ -249,6 +249,22 @@ export async function initializeScheduledJobs(): Promise<void> {
     '[Scheduler] ✓ Booking Status Sync - Every 15 minutes (no-ops if no pending bookings)'
   );
 
+  // =========================================================================
+  // BOOKING HEALTH MONITORING (incident 2026-04-15 follow-up)
+  // =========================================================================
+  // BOOKING_ERROR_ALERT polls BookingFunnelEvent every 5 min for fresh
+  // errorCode entries and pages via sendAlert if a threshold is crossed.
+  // Catches user-visible failures within ~5-10 minutes of the first occurrence.
+  await scheduleJob('BOOKING_ERROR_ALERT' as any, {} as any, '*/5 * * * *');
+  console.info('[Scheduler] ✓ Booking Error Alert - Every 5 minutes (passive monitor)');
+
+  // BOOKING_HEALTH_CANARY actively probes Holibob (discoverProducts +
+  // createBooking) every 10 min. Catches API contract breaks before users hit
+  // them. Basket is abandoned (no payment, no commit). Skipped in non-prod
+  // unless BOOKING_CANARY_ENABLED=true.
+  await scheduleJob('BOOKING_HEALTH_CANARY' as any, {} as any, '*/10 * * * *');
+  console.info('[Scheduler] ✓ Booking Health Canary - Every 10 minutes (synthetic probe)');
+
   await scheduleJob('SUPPLIER_SYNC' as any, { forceSync: false }, '0 2 * * *');
   console.info('[Scheduler] ✓ Supplier Sync - Daily at 2 AM');
 

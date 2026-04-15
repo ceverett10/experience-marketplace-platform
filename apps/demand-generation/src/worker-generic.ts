@@ -56,6 +56,8 @@ import {
   handleKeywordEnrichment,
   handleSupplierEnrich,
   handleBookingStatusSync,
+  handleBookingErrorAlert,
+  handleBookingHealthCanary,
   // Ads handlers
   handlePaidKeywordScan,
   handleAdCampaignSync,
@@ -180,6 +182,8 @@ const QUEUE_PROCESSORS: Record<string, Record<string, JobProcessor>> = {
     KEYWORD_ENRICHMENT: (job) => handleKeywordEnrichment(job),
     SUPPLIER_ENRICH: (job) => handleSupplierEnrich(job),
     BOOKING_STATUS_SYNC: (job) => handleBookingStatusSync(job),
+    BOOKING_ERROR_ALERT: (job) => handleBookingErrorAlert(job),
+    BOOKING_HEALTH_CANARY: (job) => handleBookingHealthCanary(job),
   },
   [QUEUE_NAMES.ADS]: {
     PAID_KEYWORD_SCAN: (job) => handlePaidKeywordScan(job),

@@ -77,6 +77,8 @@ Key schedules (UTC):
 - Pipeline health check: 9 AM daily
 - Meta title maintenance: Sundays 8 AM
 - Booking status sync: every 15 minutes (no-ops if no pending bookings)
+- Booking error alert: every 5 minutes (passive funnel-event monitor)
+- Booking health canary: every 10 minutes (synthetic Holibob probe)
 
 ## Paid Traffic / Bidding Engine
 
@@ -266,11 +268,53 @@ beforeEach(async () => {
 - `isFeatureEnabled(featureName)`: checks feature-specific flags (enableContentGeneration, etc.)
 - Per-site pause: `site.autonomousProcessesPaused` — independent of global pause
 
+## Alerting
+
+Use `sendAlert({ level, title, message, context })` from `errors/alerts.ts` for any
+out-of-band notification (booking outage, infra incident, etc.). Behaviour:
+
+- Always logs a structured `[ALERT]` line to stderr (Heroku log drains pick this up).
+- If `ALERT_WEBHOOK_URL` is set, also POSTs a Slack-compatible payload (works with
+  native Slack incoming webhooks, Microsoft Teams via gateway, custom relays).
+- Failures to POST never throw — alerting must not take down a worker.
+- In dev/test the webhook env var is unset, so alerts just log. Set the secret in
+  Heroku to enable push delivery.
+
+The legacy `sendAlert` stub on `errors/tracking.ts` (private method on
+`ErrorTrackingService`) is no longer the right path — prefer the standalone
+`sendAlert` export.
+
+## Booking Health Monitoring (incident 2026-04-15)
+
+Two scheduled jobs detect booking-funnel outages early. Added after the
+2026-04-15 P0 where a Holibob API contract mismatch broke 100% of bookings on
+production for ~2 weeks before anyone noticed (PR #391 → fixed in PR #401).
+
+| Job                     | Cron           | Purpose                                                                   |
+| ----------------------- | -------------- | ------------------------------------------------------------------------- |
+| `BOOKING_ERROR_ALERT`   | `*/5 * * * *`  | Polls `BookingFunnelEvent` for fresh `errorCode` rows; pages on threshold |
+| `BOOKING_HEALTH_CANARY` | `*/10 * * * *` | Synthetic `discoverProducts` + `createBooking` against live Holibob       |
+
+Both run on `worker-infra` (the only dyno with `ENABLE_SCHEDULER=true`) and
+queue onto `SYNC`. Implementation: `workers/booking-health.ts`.
+
+- `BOOKING_ERROR_ALERT` de-dupes per-`errorCode` for 1h via Redis SET NX so a
+  sustained outage doesn't fire every 5 minutes. Threshold: 3 events / 10-min
+  window per code.
+- `BOOKING_HEALTH_CANARY` skips itself when not in production unless
+  `BOOKING_CANARY_ENABLED=true`. The basket it creates is abandoned (no
+  availability added, no commit) so no payment is taken — Holibob sees the same
+  shape as a real user who closes the tab. Last successful run is recorded at
+  `booking-health:canary:last-success` in Redis for ops visibility.
+
+To enable Slack delivery in production, set `ALERT_WEBHOOK_URL` on every dyno
+that runs the SYNC queue (currently `worker-infra` and `worker-heavy`). With
+no webhook, alerts still appear as `[ALERT]` lines in Heroku logs.
+
 ## Known Stubs (Not Yet Implemented)
 
 These features have TODO placeholders in the code — do not try to integrate with them:
 
-- **Notifications** (Slack/email/PagerDuty): `errors/tracking.ts`, `workers/content.ts` — stubs only
 - **Email service**: `workers/analytics.ts` — no email provider wired in
 - **Logo generation**: `workers/microsite.ts` — intentionally disabled, awaiting higher quality
 - **Seasonality scoring**: `workers/opportunity.ts` — hardcoded placeholder

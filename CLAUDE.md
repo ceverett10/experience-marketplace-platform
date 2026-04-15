@@ -696,7 +696,7 @@ npm run lint && npm run typecheck && npm run format:check && npm run test
 - Dedup hit → silently dropped with warning log only
 - `isProcessingAllowed()` → fails open on DB error (allows work through)
 - Server component try/catch → `return null` for non-critical sections (renders nothing)
-- **Booking DB write** (`/api/booking/commit`) → DB upsert is wrapped in try/catch; if Postgres is at connection limit, the booking commits in Holibob and Stripe charges the customer, but the record is never saved to our DB. The API still returns 200. A `BookingFunnelEvent` with `errorCode: DB_SAVE_FAILED` is logged but there is no active alert on it. **TODO**: build an alert on `DB_SAVE_FAILED` funnel events and a reconciliation job to auto-backfill missing bookings from Holibob.
+- **Booking DB write** (`/api/booking/commit`) → DB upsert is wrapped in try/catch; if Postgres is at connection limit, the booking commits in Holibob and Stripe charges the customer, but the record is never saved to our DB. The API still returns 200. A `BookingFunnelEvent` with `errorCode: DB_SAVE_FAILED` is logged. **`BOOKING_ERROR_ALERT`** (every 5 min, see `packages/jobs/src/workers/booking-health.ts`) now pages on this and any other funnel `errorCode` once 3+ events appear in a 10-min window. Reconciliation job to auto-backfill missing bookings from Holibob is still **TODO**.
 
 ### Database Backups
 

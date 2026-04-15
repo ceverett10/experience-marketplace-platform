@@ -18,6 +18,7 @@ export * from './workers/sync';
 export * from './workers/microsite';
 export * from './workers/social';
 export * from './workers/ads';
+export * from './workers/booking-health';
 
 // Export schedulers
 export * from './schedulers';
@@ -111,4 +112,6 @@ export type { RateLimiterConfig } from './utils/rate-limiter';
 // Export error handling
 export * from './errors';
 export { errorTracking } from './errors/tracking';
+export { sendAlert } from './errors/alerts';
+export type { AlertLevel, AlertPayload } from './errors/alerts';
 export { circuitBreakers } from './errors/circuit-breaker';
