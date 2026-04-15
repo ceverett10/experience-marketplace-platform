@@ -330,10 +330,16 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       console.info('[Questions API] Lead passenger:', leadPassengerName);
       console.info('[Questions API] Answer list:', JSON.stringify(answerList, null, 2));
 
-      // Submit answers to Holibob
-      // NOTE: partnerExternalReference is set at booking creation time (POST /api/booking),
-      // NOT here. The BookingInput.reference field is a different Holibob concept and must
-      // not be used for the site URL — it gets concatenated with the customer name.
+      // Submit answers to Holibob.
+      //
+      // Do NOT set BookingInput.reference here for site-URL tracking — Holibob
+      // concatenates it with the customer name (produces e.g.
+      // "EVERETT Craighttps://harry-potter-tours.com" on the lead passenger).
+      //
+      // Holibob's BookingCreateInput also does not accept partnerExternalReference
+      // (verified 2026-04-15 — sending it returns UserInputError and breaks every
+      // booking). The site URL is recorded in our own DB at commit time instead;
+      // see apps/website-platform/src/app/api/booking/commit/route.ts.
       if (answerList.length > 0 || leadPassengerName) {
         try {
           const answeredBooking = await client.answerBookingQuestions(bookingId, {

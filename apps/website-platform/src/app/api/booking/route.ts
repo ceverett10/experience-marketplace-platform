@@ -16,8 +16,13 @@ import { getHolibobClient } from '@/lib/holibob';
 import { trackFunnelEvent, BookingFunnelStep } from '@/lib/funnel-tracking';
 
 // Create booking request schema
+//
+// NOTE: We do NOT pass partnerExternalReference to Holibob. The live Holibob
+// GraphQL schema does not define that field on BookingCreateInput — sending it
+// causes the mutation to fail with a UserInputError and breaks every booking.
+// PR #391 added it on the assumption that it was accepted; it is not.
+// (See incident: 2026-04-15 — bookings 100% broken across all sites.)
 const CreateBookingSchema = z.object({
-  partnerExternalReference: z.string().optional(),
   consumerTripId: z.string().optional(),
   autoFillQuestions: z.boolean().optional().default(true),
 });
@@ -103,29 +108,11 @@ export async function POST(request: NextRequest) {
     // Get Holibob client
     const client = await getHolibobClient(site);
 
-    // Build partner external reference: site base URL + ?ref= tracking code (if present)
-    let partnerExternalReference = input.partnerExternalReference;
-    if (!partnerExternalReference) {
-      const protocol = request.headers.get('x-forwarded-proto') || 'https';
-      const siteBaseUrl = `${protocol}://${host}`;
-      const utmCookie = request.cookies.get('utm_params')?.value;
-      if (utmCookie) {
-        try {
-          const utm = JSON.parse(utmCookie);
-          const ref = utm.ref || '';
-          partnerExternalReference = ref ? `${siteBaseUrl}?ref=${ref}` : siteBaseUrl;
-        } catch {
-          partnerExternalReference = siteBaseUrl;
-        }
-      } else {
-        partnerExternalReference = siteBaseUrl;
-      }
-    }
-
-    // Create booking with recommended settings
+    // Create booking with recommended settings.
+    // partnerExternalReference is intentionally not sent — see schema comment above.
     const booking = await client.createBooking({
       autoFillQuestions: input.autoFillQuestions ?? true,
-      ...(partnerExternalReference ? { partnerExternalReference } : {}),
+      ...(input.consumerTripId ? { consumerTripId: input.consumerTripId } : {}),
     });
 
     trackFunnelEvent({

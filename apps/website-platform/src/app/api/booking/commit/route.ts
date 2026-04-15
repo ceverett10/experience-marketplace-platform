@@ -146,9 +146,12 @@ export async function POST(request: NextRequest) {
           landingPage = utm.landingPage || undefined;
           gclid = utm.gclid || undefined;
           fbclid = utm.fbclid || undefined;
-          // Build partner external reference: site base URL + ref param (if present)
+          // Build partner external reference: site base URL + ref param (if present).
+          // x-forwarded-proto can be a comma-separated chain when multiple proxies
+          // (Cloudflare → Heroku) are in front; take the first scheme.
           const ref = utm.ref || '';
-          const protocol = request.headers.get('x-forwarded-proto') || 'https';
+          const protoHeader = request.headers.get('x-forwarded-proto') || 'https';
+          const protocol = protoHeader.split(',')[0]?.trim() || 'https';
           const siteBaseUrl = `${protocol}://${host}`;
           partnerExternalReference = ref ? `${siteBaseUrl}?ref=${ref}` : siteBaseUrl;
         } catch {
