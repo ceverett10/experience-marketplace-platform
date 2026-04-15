@@ -696,10 +696,14 @@ export type Booking = z.infer<typeof BookingSchema>;
 
 /**
  * Input for creating a booking
+ *
+ * NOTE: Do NOT add `partnerExternalReference` here. It is a returned field on
+ * Booking but is NOT accepted by the live Holibob `BookingCreateInput` schema —
+ * sending it produces a UserInputError and breaks every booking. See incident
+ * 2026-04-15 (PR #391 regression).
  */
 export const BookingCreateInputSchema = z.object({
   consumerTripId: z.string().optional(),
-  partnerExternalReference: z.string().optional(),
   autoFillQuestions: z.boolean().optional(), // STRONGLY RECOMMENDED: true
   paymentType: z.enum(['ON_ACCOUNT', 'CREDIT_CARD']).optional(),
   siteId: z.string().optional(), // Legacy

@@ -140,10 +140,10 @@ describe('Booking API Route - POST (L2B Step 6: Create Booking)', () => {
     expect(response.status).toBe(201);
     expect(data.success).toBe(true);
     expect(data.data.id).toBe('booking-123');
-    // partnerExternalReference defaults to the site base URL when no cookie/input is provided
+    // partnerExternalReference is intentionally NOT passed — Holibob's
+    // BookingCreateInput schema does not accept it (regression from PR #391).
     expect(mockCreateBooking).toHaveBeenCalledWith({
       autoFillQuestions: true,
-      partnerExternalReference: 'https://localhost:3000',
     });
   });
 
@@ -170,11 +170,10 @@ describe('Booking API Route - POST (L2B Step 6: Create Booking)', () => {
     expect(data.success).toBe(true);
     expect(mockCreateBooking).toHaveBeenCalledWith({
       autoFillQuestions: false,
-      partnerExternalReference: 'https://localhost:3000',
     });
   });
 
-  it('creates booking with optional reference IDs', async () => {
+  it('passes consumerTripId through when provided', async () => {
     const mockBooking = {
       id: 'booking-123',
       state: 'OPEN',
@@ -186,7 +185,6 @@ describe('Booking API Route - POST (L2B Step 6: Create Booking)', () => {
     const request = new NextRequest('http://localhost:3000/api/booking', {
       method: 'POST',
       body: JSON.stringify({
-        partnerExternalReference: 'partner-ref-123',
         consumerTripId: 'trip-456',
       }),
     });
@@ -196,10 +194,9 @@ describe('Booking API Route - POST (L2B Step 6: Create Booking)', () => {
 
     expect(response.status).toBe(201);
     expect(data.success).toBe(true);
-    // partnerExternalReference is now passed through to Holibob for reconciliation
     expect(mockCreateBooking).toHaveBeenCalledWith({
       autoFillQuestions: true,
-      partnerExternalReference: 'partner-ref-123',
+      consumerTripId: 'trip-456',
     });
   });
 
