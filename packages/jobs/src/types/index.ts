@@ -473,6 +473,16 @@ export interface BookingStatusSyncPayload {
 }
 
 /**
+ * Booking-health monitoring payloads.
+ *
+ * Both jobs are scheduled and take no inputs at runtime — the empty
+ * interfaces exist so they can be added to the JobPayload union without
+ * widening it to `unknown`.
+ */
+export type BookingErrorAlertPayload = Record<string, never>;
+export type BookingHealthCanaryPayload = Record<string, never>;
+
+/**
  * Union type of all job payloads
  */
 export type JobPayload =
@@ -527,6 +537,8 @@ export type JobPayload =
   | BiddingEngineRunPayload
   | KeywordEnrichmentPayload
   | BookingStatusSyncPayload
+  | BookingErrorAlertPayload
+  | BookingHealthCanaryPayload
   | AdsReviewAgentPayload;
 
 /**
@@ -644,6 +656,8 @@ export const JOB_TYPE_TO_QUEUE: Record<string, QueueName> & Record<JobType, Queu
 
   // Booking
   BOOKING_STATUS_SYNC: QUEUE_NAMES.SYNC,
+  BOOKING_ERROR_ALERT: QUEUE_NAMES.SYNC,
+  BOOKING_HEALTH_CANARY: QUEUE_NAMES.SYNC,
 
   // Analytics (scheduled jobs)
   GA4_DAILY_SYNC: QUEUE_NAMES.ANALYTICS,

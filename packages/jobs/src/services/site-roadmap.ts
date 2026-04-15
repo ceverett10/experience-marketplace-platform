@@ -305,6 +305,8 @@ async function validateTaskArtifacts(
     BIDDING_ENGINE_RUN: { valid: true },
     KEYWORD_ENRICHMENT: { valid: true },
     BOOKING_STATUS_SYNC: { valid: true },
+    BOOKING_ERROR_ALERT: { valid: true },
+    BOOKING_HEALTH_CANARY: { valid: true },
     ADS_REVIEW_AGENT: { valid: true },
     TREND_DATA_COLLECT: { valid: true },
   };
@@ -603,6 +605,15 @@ export const TASK_DESCRIPTIONS: Record<JobType, { label: string; description: st
   BOOKING_STATUS_SYNC: {
     label: 'Booking Status Sync',
     description: 'Check pending bookings against Holibob and update their status',
+  },
+  BOOKING_ERROR_ALERT: {
+    label: 'Booking Error Alert',
+    description: 'Poll BookingFunnelEvent every 5 min and page on a sustained spike in error codes',
+  },
+  BOOKING_HEALTH_CANARY: {
+    label: 'Booking Health Canary',
+    description:
+      'Synthetic Holibob discoverProducts + createBooking probe; pages on contract breakage',
   },
   ADS_REVIEW_AGENT: {
     label: 'Ads Review Agent',

@@ -1057,6 +1057,8 @@ enum JobType {
 
   // Booking
   BOOKING_STATUS_SYNC
+  BOOKING_ERROR_ALERT      // Polls BookingFunnelEvent for recent errors and alerts
+  BOOKING_HEALTH_CANARY    // Synthetic booking against Holibob to detect API contract breaks
 
   // Social Media
   SOCIAL_POST_GENERATE
