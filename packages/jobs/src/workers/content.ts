@@ -1595,10 +1595,27 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
       });
       console.log(`[Content Generate] Updated existing page ${pageId} with content`);
     } else {
+      // Apply slug prefix per the website-platform routing convention.
+      // BLOG/LANDING/FAQ slugs are stored WITH their route prefix in the DB so
+      // sitemap.ts and page resolvers can use `/${slug}` directly without needing
+      // type-specific URL building. CATEGORY/PRODUCT do not get a prefix because
+      // their routes are /categories/{slug} and /experiences/{slug} respectively.
+      // See apps/website-platform/CLAUDE.md "Slug Prefix Convention".
+      const SLUG_PREFIXES: Record<string, string> = {
+        blog: 'blog/',
+        destination: 'destinations/',
+        faq: 'faq/',
+      };
+      const prefix = SLUG_PREFIXES[contentType] ?? '';
+      const prefixedSlug =
+        prefix && !result.content.slug.startsWith(prefix)
+          ? `${prefix}${result.content.slug}`
+          : result.content.slug;
+
       // Check if page with same slug already exists (idempotency on retry)
       // Site-only path (microsites handled by early return above)
       const existingPage = await prisma.page.findFirst({
-        where: { siteId: siteId!, slug: result.content.slug },
+        where: { siteId: siteId!, slug: prefixedSlug },
       });
 
       if (existingPage) {
@@ -1613,9 +1630,7 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
             status: newStatus as any,
           },
         });
-        console.log(
-          `[Content Generate] Updated existing page ${page.id} (slug: ${result.content.slug})`
-        );
+        console.log(`[Content Generate] Updated existing page ${page.id} (slug: ${prefixedSlug})`);
       } else {
         // Map content type to PageType enum — destination content uses LANDING
         const pageTypeMap: Record<string, string> = {
@@ -1630,7 +1645,7 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
           data: {
             // Site-only path (microsites handled by early return above)
             siteId: siteId!,
-            slug: result.content.slug,
+            slug: prefixedSlug,
             type: (pageTypeMap[contentType] || contentType.toUpperCase()) as any,
             title: result.content.title,
             metaTitle: optimizedMetaTitle,
@@ -1640,7 +1655,7 @@ export async function handleContentGenerate(job: Job<ContentGeneratePayload>): P
             status: newStatus as any,
           },
         });
-        console.log(`[Content Generate] Created new page ${page.id}`);
+        console.log(`[Content Generate] Created new page ${page.id} (slug: ${prefixedSlug})`);
       }
     }
 

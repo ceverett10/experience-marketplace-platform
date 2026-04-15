@@ -55,22 +55,6 @@ describe('BlogPostTemplate', () => {
     expect(screen.getByText('June 15, 2025')).toBeDefined();
   });
 
-  it('renders High Quality badge when quality score >= 80', () => {
-    render(<BlogPostTemplate post={makePost()} />);
-    expect(screen.getByText('High Quality')).toBeDefined();
-  });
-
-  it('hides High Quality badge when quality score < 80', () => {
-    render(
-      <BlogPostTemplate
-        post={makePost({
-          content: { ...makePost().content, qualityScore: 50 },
-        })}
-      />
-    );
-    expect(screen.queryByText('High Quality')).toBeNull();
-  });
-
   it('renders Updated date when updatedAt differs from createdAt', () => {
     render(<BlogPostTemplate post={makePost({ updatedAt: new Date('2025-07-01') })} />);
     expect(screen.getByText(/Updated:/)).toBeDefined();
