@@ -196,14 +196,25 @@ function buildHolibobClient() {
 }
 
 export async function handleBookingHealthCanary(_job: Job): Promise<JobResult> {
-  // Skip in any non-production environment unless explicitly enabled. This
-  // prevents dev/CI runs from churning real Holibob baskets.
+  // Decide whether to actually probe Holibob. We don't want CI / local dev
+  // runs creating real abandoned baskets, but on Heroku we always want the
+  // canary running.
+  //
+  // Heroku doesn't set NODE_ENV by default, but it always sets DYNO (e.g.
+  // "worker-heavy.1"). Use DYNO as the production marker. BOOKING_CANARY_ENABLED
+  // can override in either direction:
+  //   - "true"  → run the probe regardless
+  //   - "false" → skip even on Heroku (handy if Holibob is having an outage
+  //     and we want to silence the canary temporarily)
+  const explicit = process.env['BOOKING_CANARY_ENABLED'];
+  const onHeroku = !!process.env['DYNO'];
   const enabled =
-    process.env['BOOKING_CANARY_ENABLED'] === 'true' || process.env['NODE_ENV'] === 'production';
+    explicit === 'true' ||
+    (explicit !== 'false' && (onHeroku || process.env['NODE_ENV'] === 'production'));
   if (!enabled) {
     return {
       success: true,
-      message: 'Canary skipped — not in production and BOOKING_CANARY_ENABLED is not "true"',
+      message: 'Canary skipped — not on Heroku/production and BOOKING_CANARY_ENABLED is not "true"',
       timestamp: new Date(),
     };
   }
