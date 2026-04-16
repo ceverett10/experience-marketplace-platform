@@ -78,7 +78,7 @@ Key schedules (UTC):
 - Meta title maintenance: Sundays 8 AM
 - Booking status sync: every 15 minutes (no-ops if no pending bookings)
 - Booking error alert: every 5 minutes (passive funnel-event monitor)
-- Booking health canary: every 10 minutes (synthetic Holibob probe)
+- Booking health canary: every 12 hours at 6 AM/6 PM UTC (synthetic Holibob probe)
 
 ## Paid Traffic / Bidding Engine
 
@@ -293,7 +293,7 @@ production for ~2 weeks before anyone noticed (PR #391 → fixed in PR #401).
 | Job                     | Cron           | Purpose                                                                   |
 | ----------------------- | -------------- | ------------------------------------------------------------------------- |
 | `BOOKING_ERROR_ALERT`   | `*/5 * * * *`  | Polls `BookingFunnelEvent` for fresh `errorCode` rows; pages on threshold |
-| `BOOKING_HEALTH_CANARY` | `*/10 * * * *` | Synthetic `discoverProducts` + `createBooking` against live Holibob       |
+| `BOOKING_HEALTH_CANARY` | `0 6,18 * * *` | Synthetic `discoverProducts` + `createBooking` against live Holibob       |
 
 Both run on `worker-infra` (the only dyno with `ENABLE_SCHEDULER=true`) and
 queue onto `SYNC`. Implementation: `workers/booking-health.ts`.
