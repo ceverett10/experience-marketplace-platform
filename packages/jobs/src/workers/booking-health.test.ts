@@ -144,21 +144,36 @@ describe('handleBookingHealthCanary', () => {
       HOLIBOB_PARTNER_ID: 'partner-1',
       HOLIBOB_API_KEY: 'key-1',
     };
+    delete process.env.DYNO;
+    delete process.env.BOOKING_CANARY_ENABLED;
   });
 
   afterEach(() => {
     process.env = originalEnv;
   });
 
-  it('skips entirely when not in production and not explicitly enabled', async () => {
+  it('skips entirely when not on Heroku/production and not explicitly enabled', async () => {
     process.env.NODE_ENV = 'development';
-    delete process.env.BOOKING_CANARY_ENABLED;
 
     const result = await handleBookingHealthCanary(emptyJob());
 
     expect(result.success).toBe(true);
     expect(mockHolibobClient.createBooking).not.toHaveBeenCalled();
     expect(mockSendAlert).not.toHaveBeenCalled();
+  });
+
+  it('runs on Heroku (DYNO env var present) even with NODE_ENV unset', async () => {
+    delete process.env.NODE_ENV;
+    process.env.DYNO = 'worker-heavy.1';
+    mockHolibobClient.discoverProducts.mockResolvedValue({
+      products: [{ id: 'p1' }, { id: 'p2' }],
+    });
+    mockHolibobClient.createBooking.mockResolvedValue({ id: 'basket-heroku' });
+
+    const result = await handleBookingHealthCanary(emptyJob());
+
+    expect(result.success).toBe(true);
+    expect(mockHolibobClient.createBooking).toHaveBeenCalledWith({ autoFillQuestions: true });
   });
 
   it('runs in non-prod when BOOKING_CANARY_ENABLED=true', async () => {
@@ -173,6 +188,16 @@ describe('handleBookingHealthCanary', () => {
 
     expect(result.success).toBe(true);
     expect(mockHolibobClient.createBooking).toHaveBeenCalledWith({ autoFillQuestions: true });
+  });
+
+  it('skips on Heroku when BOOKING_CANARY_ENABLED=false (kill switch)', async () => {
+    process.env.DYNO = 'worker-heavy.1';
+    process.env.BOOKING_CANARY_ENABLED = 'false';
+
+    const result = await handleBookingHealthCanary(emptyJob());
+
+    expect(result.success).toBe(true);
+    expect(mockHolibobClient.createBooking).not.toHaveBeenCalled();
   });
 
   it('returns success and does not alert when both probes succeed', async () => {
