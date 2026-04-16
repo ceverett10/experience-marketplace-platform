@@ -1012,6 +1012,44 @@ export async function createAndLinkStructuredSnippets(
 }
 
 /**
+ * Set device bid adjustments on a campaign.
+ * bidModifier: 1.0 = no change, 1.10 = +10%, 0.85 = -15%.
+ * Omit a device to leave it at the default (no adjustment).
+ */
+export async function setCampaignDeviceBidAdjustments(
+  campaignId: string,
+  adjustments: Array<{ device: 'MOBILE' | 'DESKTOP' | 'TABLET'; bidModifier: number }>
+): Promise<number> {
+  const config = getConfig();
+  if (!config || adjustments.length === 0) return 0;
+
+  const campaignResourceName = `customers/${config.customerId}/campaigns/${campaignId}`;
+
+  try {
+    const operations = adjustments.map((adj) => ({
+      create: {
+        campaign: campaignResourceName,
+        device: { type: adj.device },
+        bidModifier: adj.bidModifier,
+      },
+    }));
+
+    await apiRequest(config, 'POST', '/campaignCriteria:mutate', { operations });
+
+    console.info(
+      `[GoogleAds] Set device bid adjustments on campaign ${campaignId}: ${adjustments.map((a) => `${a.device} ${a.bidModifier}`).join(', ')}`
+    );
+    return adjustments.length;
+  } catch (error) {
+    console.error(
+      `[GoogleAds] Set device bid adjustments failed for campaign ${campaignId}:`,
+      error
+    );
+    return 0;
+  }
+}
+
+/**
  * ISO 3166-1 alpha-2 → Google Ads Geo Target Constant ID mapping.
  * Full list: https://developers.google.com/google-ads/api/reference/data/geotargets
  */
