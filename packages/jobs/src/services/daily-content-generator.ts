@@ -169,24 +169,26 @@ export async function generateDailyContent(
     await sleep(2000);
   }
 
-  // Also process microsites for certain content types.
+  // Microsite content generation — PAUSED.
   //
-  // OPPORTUNITY microsites: faq_hub, comparison, seasonal_event (NOT destination_landing —
-  // they already have destination-specific content from their discovery config).
+  // Google's March 2026 core update penalized scaled AI content across the
+  // 39k microsite network. Generating FAQ/blog/comparison/seasonal content
+  // for microsites burns API budget on pages Google is actively demoting.
+  // All content budget is redirected to main sites.
   //
-  // SUPPLIER microsites: destination_landing only — for suppliers operating in 2+ cities.
-  // Each job receives a specific city name/slug so the worker creates a properly named page
-  // (without city data the worker creates "destinations/unknown" pages).
+  // Previously: OPPORTUNITY microsites got faq_hub, comparison, seasonal_event.
+  //             SUPPLIER microsites got destination_landing.
   //
-  const opportunityContentTypes: ContentGenerationType[] = [
+  // To re-enable, restore the arrays below and remove the forced-false flags.
+  const _opportunityContentTypes: ContentGenerationType[] = [
     'faq_hub',
     'comparison',
     'seasonal_event',
   ];
-  const supplierContentTypes: ContentGenerationType[] = ['destination_landing'];
+  const _supplierContentTypes: ContentGenerationType[] = ['destination_landing'];
 
-  const shouldProcessOpportunity = opportunityContentTypes.includes(contentType);
-  const shouldProcessSupplier = supplierContentTypes.includes(contentType);
+  const shouldProcessOpportunity = false; // Paused — was: _opportunityContentTypes.includes(contentType)
+  const shouldProcessSupplier = false; // Paused — was: _supplierContentTypes.includes(contentType)
 
   if (shouldProcessOpportunity || shouldProcessSupplier) {
     try {

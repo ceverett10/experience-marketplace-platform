@@ -295,21 +295,33 @@ export async function generateDailyBlogPostsForAllSitesAndMicrosites(): Promise<
   sites: DailyBlogGenerationResult[];
   microsites: MicrositeBlogGenerationSummary;
 }> {
-  console.info('[Daily Blog] Starting daily blog generation...');
+  console.info('[Daily Blog] Starting daily blog generation (main sites only)...');
 
-  // Phase 1: Main sites — re-enabled to build organic authority on custom domains.
-  // The 3-day recency gate inside generateDailyBlogPostForSite caps output at
-  // ~2-3 posts/week per site, which our GSC analysis showed is the optimal cadence.
+  // Main sites — build organic authority on custom domains (exact-match domains
+  // with high-value striking-distance queries). The 3-day recency gate caps
+  // output at ~2-3 posts/week per site, the optimal cadence per our GSC analysis.
   const siteResults = await generateDailyBlogPostsForAllSites();
 
-  // Phase 2: Supplier microsites — 80/day hard cap, oldest-first, 14-day gate
-  const micrositeResults = await generateDailyBlogPostsForMicrosites();
+  // Supplier microsites — PAUSED. Google's March 2026 core update penalized
+  // scaled AI content across the 39k microsite network (1,169 top-10 pages lost,
+  // impressions dropped from 25k to 4k). Generating more microsite content
+  // burns API budget on pages Google is actively demoting. All content budget
+  // is redirected to main sites where ROI is 10-50x higher.
+  const micrositeResults: MicrositeBlogGenerationSummary = {
+    totalMicrosites: 0,
+    processedCount: 0,
+    postsQueued: 0,
+    skipped: 0,
+    errors: 0,
+    durationMs: 0,
+  };
+  console.info(
+    '[Daily Blog] Supplier microsite blog generation paused (budget redirected to main sites)'
+  );
 
   console.info(
     `[Daily Blog] Complete. ` +
-      `Main sites: ${siteResults.filter((r) => r.postQueued).length} posts, ` +
-      `Supplier microsites: ${micrositeResults.postsQueued} posts ` +
-      `(${micrositeResults.processedCount}/${micrositeResults.totalMicrosites} eligible processed)`
+      `Main sites: ${siteResults.filter((r) => r.postQueued).length} posts queued`
   );
 
   return {
