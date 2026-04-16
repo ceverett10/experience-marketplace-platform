@@ -24,8 +24,12 @@ import { findSimilarTitle } from './blog-dedup.js';
  * Maximum number of PUBLISHED blog posts per site. Once reached, no new blogs
  * are generated. This prevents narrow-niche sites from accumulating
  * near-duplicate content indefinitely.
+ *
+ * Microsites: 20 (narrow niche, limited topic variety)
+ * Main sites: 50 (broader scope, destination/category depth)
  */
 const MAX_BLOGS_PER_SITE = 20;
+const MAX_BLOGS_PER_MAIN_SITE = 50;
 
 export interface DailyBlogGenerationResult {
   siteId: string;
@@ -69,9 +73,11 @@ export async function generateDailyBlogPostForSite(
     };
   }
 
-  // Recency gate: skip if a blog was published within the last 14 days.
-  // This caps main sites at ~2 posts/month regardless of daily run frequency.
-  const recencyCutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+  // Recency gate: skip if a blog was published recently.
+  // Main sites: 3-day gate (~2-3 posts/week) — the sweet spot per our GSC analysis
+  // showing that quality at this cadence outperforms higher-volume publishing.
+  const recencyDays = 3;
+  const recencyCutoff = new Date(Date.now() - recencyDays * 24 * 60 * 60 * 1000);
   const recentBlog = await prisma.page.findFirst({
     where: {
       siteId,
@@ -85,7 +91,7 @@ export async function generateDailyBlogPostForSite(
 
   if (recentBlog) {
     console.info(
-      `[Daily Blog] Skipping ${site.name} — blog published ${Math.floor((Date.now() - recentBlog.updatedAt.getTime()) / (1000 * 60 * 60 * 24))}d ago (< 14d recency gate)`
+      `[Daily Blog] Skipping ${site.name} — blog published ${Math.floor((Date.now() - recentBlog.updatedAt.getTime()) / (1000 * 60 * 60 * 24))}d ago (< ${recencyDays}d recency gate)`
     );
     return {
       siteId: site.id,
@@ -96,20 +102,22 @@ export async function generateDailyBlogPostForSite(
     };
   }
 
-  // Blog cap: prevent narrow-niche sites from accumulating near-duplicate content
+  // Blog cap: prevent sites from accumulating near-duplicate content.
+  // Main sites have a higher cap than microsites (broader topic scope).
+  const blogCap = MAX_BLOGS_PER_MAIN_SITE;
   const blogCount = await prisma.page.count({
     where: { siteId, type: PageType.BLOG, status: { in: ['PUBLISHED', 'DRAFT'] } },
   });
-  if (blogCount >= MAX_BLOGS_PER_SITE) {
+  if (blogCount >= blogCap) {
     console.info(
-      `[Daily Blog] Skipping ${site.name} — already has ${blogCount} blogs (cap: ${MAX_BLOGS_PER_SITE})`
+      `[Daily Blog] Skipping ${site.name} — already has ${blogCount} blogs (cap: ${blogCap})`
     );
     return {
       siteId: site.id,
       siteName: site.name,
       topicGenerated: false,
       postQueued: false,
-      error: `Blog cap reached (${blogCount}/${MAX_BLOGS_PER_SITE})`,
+      error: `Blog cap reached (${blogCount}/${blogCap})`,
     };
   }
 
@@ -287,17 +295,19 @@ export async function generateDailyBlogPostsForAllSitesAndMicrosites(): Promise<
   sites: DailyBlogGenerationResult[];
   microsites: MicrositeBlogGenerationSummary;
 }> {
-  console.info('[Daily Blog] Starting daily blog generation (supplier microsites only)...');
+  console.info('[Daily Blog] Starting daily blog generation...');
 
-  // Main sites excluded — focusing on supplier microsites to build SEO authority
-  // at scale before turning attention back to main sites.
-  const siteResults: DailyBlogGenerationResult[] = [];
+  // Phase 1: Main sites — re-enabled to build organic authority on custom domains.
+  // The 3-day recency gate inside generateDailyBlogPostForSite caps output at
+  // ~2-3 posts/week per site, which our GSC analysis showed is the optimal cadence.
+  const siteResults = await generateDailyBlogPostsForAllSites();
 
-  // Supplier microsites — 80/day hard cap, oldest-first ordering, 14-day recency gate
+  // Phase 2: Supplier microsites — 80/day hard cap, oldest-first, 14-day gate
   const micrositeResults = await generateDailyBlogPostsForMicrosites();
 
   console.info(
     `[Daily Blog] Complete. ` +
+      `Main sites: ${siteResults.filter((r) => r.postQueued).length} posts, ` +
       `Supplier microsites: ${micrositeResults.postsQueued} posts ` +
       `(${micrositeResults.processedCount}/${micrositeResults.totalMicrosites} eligible processed)`
   );
