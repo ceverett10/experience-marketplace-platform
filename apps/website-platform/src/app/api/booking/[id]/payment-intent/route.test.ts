@@ -72,10 +72,16 @@ describe('Payment Intent Route - GET', () => {
     expect(data.error).toBe('Booking not found');
   });
 
-  it('returns 400 when booking cannot be committed', async () => {
+  it('proceeds to payment even when canCommit is false (Holibob sets canCommit after payment)', async () => {
     mockGetBookingQuestions.mockResolvedValue({
       id: 'booking-123',
       canCommit: false,
+    });
+    mockGetStripePaymentIntent.mockResolvedValue({
+      id: 'pi_123',
+      clientSecret: 'cs_test',
+      apiKey: 'pk_test',
+      amount: 7400,
     });
 
     const request = new NextRequest('http://localhost:3000/api/booking/booking-123/payment-intent');
@@ -85,8 +91,9 @@ describe('Payment Intent Route - GET', () => {
     });
     const data = await response.json();
 
-    expect(response.status).toBe(400);
-    expect(data.error).toContain('complete all required information');
+    expect(response.status).toBe(200);
+    expect(data.success).toBe(true);
+    expect(data.data.clientSecret).toBe('cs_test');
   });
 
   it('returns payment intent data for ready booking', async () => {
