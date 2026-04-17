@@ -31,7 +31,7 @@ import { RelatedArticles } from '@/components/experiences/RelatedArticles';
 import { RelatedMicrosites } from '@/components/microsites/RelatedMicrosites';
 import { TrackViewItem } from '@/components/analytics/TrackViewItem';
 import { TrackFunnelEvent } from '@/components/analytics/TrackFunnelEvent';
-import { LiveActivityIndicator } from '@/components/ui/TrustSignals';
+import { LiveActivityIndicator, TrustBadges, PopularityBadge } from '@/components/ui/TrustSignals';
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs';
 import { ShareButton } from '@/components/ui/ShareButton';
 
@@ -341,6 +341,111 @@ async function getRelatedBlogPosts(
   }
 }
 
+/**
+ * Fetch supplier aggregate rating for products that lack individual reviews.
+ * Also resolves the supplier's microsite URL for the "verified operator" link.
+ */
+interface SupplierRating {
+  rating: number;
+  reviewCount: number;
+  supplierName: string;
+  micrositeUrl: string | null;
+}
+
+async function getSupplierRating(providerId: string | undefined): Promise<SupplierRating | null> {
+  if (!providerId) return null;
+  try {
+    const supplier = await prisma.supplier.findUnique({
+      where: { holibobSupplierId: providerId },
+      select: {
+        id: true,
+        name: true,
+        rating: true,
+        reviewCount: true,
+        microsite: {
+          select: { fullDomain: true, status: true },
+        },
+      },
+    });
+    if (!supplier || !supplier.rating || supplier.reviewCount === 0) return null;
+    const activeMicrosite = supplier.microsite?.status === 'ACTIVE' ? supplier.microsite : null;
+    return {
+      rating: supplier.rating,
+      reviewCount: supplier.reviewCount,
+      supplierName: supplier.name,
+      micrositeUrl: activeMicrosite ? `https://${activeMicrosite.fullDomain}` : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fetch related products from the same supplier that have ratings.
+ * Used as a trust-building fallback when the current product has no reviews.
+ */
+async function getSupplierRelatedExperiences(
+  providerId: string,
+  currentProductId: string,
+  currency: string,
+  limit: number = 4
+): Promise<ExperienceListItem[]> {
+  try {
+    const supplier = await prisma.supplier.findUnique({
+      where: { holibobSupplierId: providerId },
+      select: { id: true },
+    });
+    if (!supplier) return [];
+
+    const products = await prisma.product.findMany({
+      where: {
+        supplierId: supplier.id,
+        holibobProductId: { not: currentProductId },
+        rating: { not: null },
+      },
+      orderBy: [{ rating: 'desc' }, { reviewCount: 'desc' }],
+      take: limit,
+      select: {
+        holibobProductId: true,
+        title: true,
+        shortDescription: true,
+        primaryImageUrl: true,
+        priceFrom: true,
+        currency: true,
+        duration: true,
+        city: true,
+        rating: true,
+        reviewCount: true,
+      },
+    });
+
+    if (products.length === 0) return [];
+
+    return products.map((p) => ({
+      id: p.holibobProductId,
+      title: p.title,
+      slug: p.holibobProductId,
+      shortDescription: p.shortDescription ?? '',
+      imageUrl: p.primaryImageUrl ?? '/placeholder-experience.jpg',
+      price: {
+        amount: p.priceFrom ? Number(p.priceFrom) : 0,
+        currency: p.currency,
+        formatted: p.priceFrom
+          ? new Intl.NumberFormat(currencyToLocale(p.currency || currency), {
+              style: 'currency',
+              currency: p.currency || currency,
+            }).format(Number(p.priceFrom))
+          : 'Check price',
+      },
+      duration: { formatted: p.duration ?? '' },
+      rating: p.rating ? { average: p.rating, count: p.reviewCount } : null,
+      location: { name: p.city ?? '' },
+    }));
+  } catch {
+    return [];
+  }
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const headersList = await headers();
@@ -393,11 +498,26 @@ export default async function ExperienceDetailPage({ params }: Props) {
     notFound();
   }
 
-  // Fetch related experiences, booking stats, and blog posts in parallel
-  const [relatedExperiences, bookingStats, relatedBlogPosts] = await Promise.all([
-    getRelatedExperiences(site, experience),
+  // For products without reviews, prefer same-supplier experiences that have ratings
+  const useSupplierRelated =
+    !experience.rating && !!experience.provider?.id && !isMicrosite(site.micrositeContext);
+
+  // Fetch related experiences, booking stats, blog posts, and supplier rating in parallel
+  const [relatedExperiences, bookingStats, relatedBlogPosts, supplierRating] = await Promise.all([
+    useSupplierRelated
+      ? getSupplierRelatedExperiences(
+          experience.provider!.id,
+          experience.id,
+          site.primaryCurrency ?? 'GBP'
+        ).then(async (supplierResults: ExperienceListItem[]) => {
+          if (supplierResults.length >= 2) return supplierResults;
+          const discoveryResults = await getRelatedExperiences(site, experience);
+          return [...supplierResults, ...discoveryResults].slice(0, 4);
+        })
+      : getRelatedExperiences(site, experience),
     getProductBookingStats(site.id, experience.id, site.micrositeContext?.micrositeId),
     getRelatedBlogPosts(site, experience),
+    getSupplierRating(experience.provider?.id),
   ]);
 
   // Check if experience has free cancellation
@@ -642,8 +762,8 @@ export default async function ExperienceDetailPage({ params }: Props) {
 
                 {/* Quick Stats Row */}
                 <div className="mt-4 flex flex-wrap items-center gap-4 text-sm">
-                  {/* Rating */}
-                  {experience.rating && (
+                  {/* Rating — product-level, or supplier-level fallback */}
+                  {experience.rating ? (
                     <div className="flex items-center gap-1.5">
                       <div className="flex items-center gap-0.5 rounded-md bg-teal-600 px-2 py-1 text-white">
                         <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
@@ -657,6 +777,32 @@ export default async function ExperienceDetailPage({ params }: Props) {
                         {experience.rating.count.toLocaleString()} reviews
                       </span>
                     </div>
+                  ) : supplierRating ? (
+                    <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-0.5 rounded-md bg-gray-600 px-2 py-1 text-white">
+                        <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                        </svg>
+                        <span className="font-semibold">{supplierRating.rating.toFixed(1)}</span>
+                      </div>
+                      <span className="text-gray-600">
+                        Operator rated across {supplierRating.reviewCount.toLocaleString()} reviews
+                      </span>
+                    </div>
+                  ) : null}
+
+                  {/* Social proof for products without reviews */}
+                  {!experience.rating && (
+                    <>
+                      {bookingStats.bookingsToday >= 2 && (
+                        <PopularityBadge bookingsLast24h={bookingStats.bookingsToday} />
+                      )}
+                      {bookingStats.bookingsThisWeek >= 3 && (
+                        <span className="flex items-center gap-1.5 text-sm font-medium text-amber-700">
+                          Booked {bookingStats.bookingsThisWeek} times this week
+                        </span>
+                      )}
+                    </>
                   )}
 
                   {/* Duration */}
@@ -727,7 +873,7 @@ export default async function ExperienceDetailPage({ params }: Props) {
                     </div>
                   )}
 
-                  {/* Operator */}
+                  {/* Verified Operator */}
                   {experience.provider?.name && (
                     <div className="flex items-center gap-1.5 text-gray-600">
                       <svg
@@ -745,10 +891,30 @@ export default async function ExperienceDetailPage({ params }: Props) {
                       </svg>
                       <span>
                         Operated by{' '}
-                        <span className="font-medium text-gray-900">
-                          {experience.provider.name}
-                        </span>
+                        {supplierRating?.micrositeUrl ? (
+                          <a
+                            href={supplierRating.micrositeUrl}
+                            className="font-medium text-gray-900 underline decoration-gray-300 hover:decoration-gray-900"
+                          >
+                            {experience.provider.name}
+                          </a>
+                        ) : (
+                          <span className="font-medium text-gray-900">
+                            {experience.provider.name}
+                          </span>
+                        )}
                       </span>
+                      <svg
+                        className="h-4 w-4 flex-shrink-0 text-blue-500"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
                     </div>
                   )}
                 </div>
@@ -1118,7 +1284,12 @@ export default async function ExperienceDetailPage({ params }: Props) {
                 {isTickittoSite(site) ? (
                   <TickittoBookingWidget eventId={experience.id} experience={experience} />
                 ) : (
-                  <BookingWidget experience={experience} bookingStats={bookingStats} />
+                  <BookingWidget
+                    experience={experience}
+                    bookingStats={bookingStats}
+                    supplierRating={supplierRating}
+                    productImage={experience.imageUrl}
+                  />
                 )}
               </div>
             </div>
@@ -1246,7 +1417,11 @@ export default async function ExperienceDetailPage({ params }: Props) {
           title={
             isMicrosite(site.micrositeContext)
               ? `More from ${site.name}`
-              : `More things to do in ${experience.location.name || 'this area'}`
+              : useSupplierRelated &&
+                  experience.provider?.name &&
+                  relatedExperiences.some((e: ExperienceListItem) => e.rating)
+                ? `Travelers also booked from ${experience.provider.name}`
+                : `More things to do in ${experience.location.name || 'this area'}`
           }
         />
 

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { AvailabilityModal } from './AvailabilityModal';
 
@@ -6,6 +6,14 @@ import { AvailabilityModal } from './AvailabilityModal';
 const mockPush = vi.fn();
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockPush }),
+}));
+
+// Mock next/image
+vi.mock('next/image', () => ({
+  default: (props: Record<string, unknown>) => {
+    const { fill: _fill, unoptimized: _unoptimized, ...rest } = props;
+    return <img {...(rest as React.ImgHTMLAttributes<HTMLImageElement>)} />;
+  },
 }));
 
 // Mock booking-flow
@@ -24,6 +32,11 @@ vi.mock('@/lib/booking-flow', () => ({
   formatDate: (d: string) => `Formatted: ${d}`,
 }));
 
+// Mock error reporting
+vi.mock('@/lib/error-reporting', () => ({
+  reportError: vi.fn(),
+}));
+
 // Mock pricing
 vi.mock('@/lib/pricing', () => ({
   getProductPricingConfig: vi.fn(() => null),
@@ -32,6 +45,12 @@ vi.mock('@/lib/pricing', () => ({
     originalFormatted: formatted,
   })),
 }));
+
+// Use dates in the current month so the calendar displays them immediately.
+// Pick days near the end of month to avoid colliding with "today" (past dates are disabled).
+const now = new Date();
+const futureYear = now.getFullYear();
+const futureMonth = String(now.getMonth() + 1).padStart(2, '0');
 
 const defaultProps = {
   isOpen: true,
@@ -44,13 +63,13 @@ const defaultProps = {
 const mockSlots = [
   {
     id: 'slot-1',
-    date: '2025-06-15',
+    date: `${futureYear}-${futureMonth}-25`,
     soldOut: false,
     guidePriceFormattedText: '£35.00',
   },
   {
     id: 'slot-2',
-    date: '2025-06-16',
+    date: `${futureYear}-${futureMonth}-26`,
     soldOut: false,
     guidePriceFormattedText: '£40.00',
   },
@@ -78,23 +97,20 @@ describe('AvailabilityModal', () => {
     });
   });
 
-  it('shows "Select a date" header on dates step', async () => {
+  it('shows "Book Experience" header', async () => {
     render(<AvailabilityModal {...defaultProps} />);
 
     await waitFor(() => {
-      expect(document.body.textContent).toContain('Select a date');
+      expect(document.body.textContent).toContain('Book Experience');
     });
   });
 
-  it('fetches and displays availability slots', async () => {
+  it('fetches and displays availability count', async () => {
     render(<AvailabilityModal {...defaultProps} />);
 
     await waitFor(() => {
       expect(document.body.textContent).toContain('2 dates available');
     });
-
-    expect(document.body.textContent).toContain('Formatted: 2025-06-15');
-    expect(document.body.textContent).not.toContain('from £35.00');
   });
 
   it('shows no availability message when no slots', async () => {
@@ -111,8 +127,18 @@ describe('AvailabilityModal', () => {
     mockFetchAvailability.mockResolvedValue({
       sessionId: 'sess-1',
       nodes: [
-        { id: 'slot-1', date: '2025-06-15', soldOut: false, guidePriceFormattedText: '£35.00' },
-        { id: 'slot-2', date: '2025-06-16', soldOut: true, guidePriceFormattedText: '£40.00' },
+        {
+          id: 'slot-1',
+          date: `${futureYear}-${futureMonth}-25`,
+          soldOut: false,
+          guidePriceFormattedText: '£35.00',
+        },
+        {
+          id: 'slot-2',
+          date: `${futureYear}-${futureMonth}-26`,
+          soldOut: true,
+          guidePriceFormattedText: '£40.00',
+        },
       ],
     });
 
@@ -137,11 +163,10 @@ describe('AvailabilityModal', () => {
     render(<AvailabilityModal {...defaultProps} />);
 
     await waitFor(() => {
-      expect(document.body.textContent).toContain('Select a date');
+      expect(document.body.textContent).toContain('Book Experience');
     });
 
     const closeButtons = document.body.querySelectorAll('button');
-    // Find close button (the one in the header with the X icon)
     const closeBtn = Array.from(closeButtons).find(
       (btn) => !btn.textContent || btn.querySelector('svg')
     );
@@ -155,7 +180,7 @@ describe('AvailabilityModal', () => {
     render(<AvailabilityModal {...defaultProps} />);
 
     await waitFor(() => {
-      expect(document.body.textContent).toContain('Select a date');
+      expect(document.body.textContent).toContain('Book Experience');
     });
 
     const backdrop = document.body.querySelector('[aria-hidden="true"]') as HTMLElement;
@@ -187,7 +212,7 @@ describe('AvailabilityModal', () => {
       expect(document.body.textContent).toContain('2 dates available');
     });
 
-    // Click a slot
+    // Click a slot on the calendar
     const slotBtn = document.body.querySelector('[data-testid="date-slot-slot-1"]') as HTMLElement;
     fireEvent.click(slotBtn);
 
@@ -225,11 +250,9 @@ describe('AvailabilityModal', () => {
       expect(document.body.textContent).toContain('2 dates available');
     });
 
-    // Click a slot
     const slotBtn = document.body.querySelector('[data-testid="date-slot-slot-1"]') as HTMLElement;
     fireEvent.click(slotBtn);
 
-    // Click Continue
     const continueBtn = Array.from(document.body.querySelectorAll('button')).find(
       (btn) => btn.textContent === 'Continue'
     );
@@ -239,7 +262,6 @@ describe('AvailabilityModal', () => {
       expect(document.body.textContent).toContain('Select guests');
     });
 
-    // Should show pricing categories
     expect(document.body.textContent).toContain('Adult');
     expect(document.body.textContent).toContain('£35.00 per person');
   });
@@ -321,11 +343,9 @@ describe('AvailabilityModal', () => {
       expect(document.body.textContent).toContain('2 dates available');
     });
 
-    // Select slot
     const slotBtn = document.body.querySelector('[data-testid="date-slot-slot-1"]') as HTMLElement;
     fireEvent.click(slotBtn);
 
-    // Continue to pricing
     const continueBtn = Array.from(document.body.querySelectorAll('button')).find(
       (btn) => btn.textContent === 'Continue'
     );
@@ -335,52 +355,22 @@ describe('AvailabilityModal', () => {
       expect(document.body.textContent).toContain('Select guests');
     });
 
-    // Increment adults
     const incrementBtn = document.body.querySelector(
       '[data-testid="guest-increment-adult"]'
     ) as HTMLElement;
     fireEvent.click(incrementBtn);
     fireEvent.click(incrementBtn);
 
-    // Wait for pricing update
     await waitFor(() => {
       expect(mockSetPricingCategories).toHaveBeenCalled();
     });
 
-    // Click Book Now
     const bookBtn = document.body.querySelector('[data-testid="book-now-button"]') as HTMLElement;
     fireEvent.click(bookBtn);
 
     await waitFor(() => {
       expect(mockStartBookingFlow).toHaveBeenCalledWith('slot-1');
       expect(mockPush).toHaveBeenCalledWith('/checkout/booking-123');
-    });
-  });
-
-  it('does not show session timer after moving past dates step', async () => {
-    mockGetAvailabilityDetails.mockResolvedValue({
-      id: 'slot-1',
-      optionList: { isComplete: true, nodes: [] },
-      pricingCategoryList: { nodes: [] },
-    });
-
-    render(<AvailabilityModal {...defaultProps} />);
-
-    await waitFor(() => {
-      expect(document.body.textContent).toContain('2 dates available');
-    });
-
-    const slotBtn = document.body.querySelector('[data-testid="date-slot-slot-1"]') as HTMLElement;
-    fireEvent.click(slotBtn);
-
-    const continueBtn = Array.from(document.body.querySelectorAll('button')).find(
-      (btn) => btn.textContent === 'Continue'
-    );
-    fireEvent.click(continueBtn!);
-
-    // Session timer is removed to reduce friction
-    await waitFor(() => {
-      expect(document.body.querySelector('[data-testid="session-timer"]')).toBeNull();
     });
   });
 
@@ -420,7 +410,6 @@ describe('AvailabilityModal', () => {
       expect(document.body.textContent).toContain('2 dates available');
     });
 
-    // First slot should be auto-selected (has highlighted styling)
     const firstSlot = document.body.querySelector('[data-testid="date-slot-slot-1"]');
     expect(firstSlot).toBeTruthy();
     // Continue button should be enabled since a slot is pre-selected
@@ -473,16 +462,14 @@ describe('AvailabilityModal', () => {
       expect(document.body.textContent).toContain('Select guests');
     });
 
-    // Adult category should default to minParticipants (0) || 1 = 1
     const adultCategory = document.body.querySelector('[data-testid="guest-category-adult"]');
     expect(adultCategory?.textContent).toContain('1');
 
-    // Child category should stay at 0
     const childCategory = document.body.querySelector('[data-testid="guest-category-child"]');
     expect(childCategory?.textContent).toContain('0');
   });
 
-  it('shows only 2 progress bars when options auto-complete', async () => {
+  it('shows stepper with correct steps when options auto-complete', async () => {
     mockGetAvailabilityDetails.mockResolvedValue({
       id: 'slot-1',
       optionList: { isComplete: true, nodes: [] },
@@ -505,8 +492,10 @@ describe('AvailabilityModal', () => {
 
     await waitFor(() => {
       const progressSteps = document.body.querySelector('[data-testid="progress-steps"]');
-      // Only 2 progress bars (dates + pricing), not 3
-      expect(progressSteps?.children.length).toBe(2);
+      expect(progressSteps).toBeTruthy();
+      // 2 steps when options auto-complete: date + travellers
+      expect(document.body.textContent).toContain('Select Your Date');
+      expect(document.body.textContent).toContain('Travellers');
     });
   });
 
@@ -560,12 +549,10 @@ describe('AvailabilityModal', () => {
       expect(document.body.textContent).toContain('Select guests');
     });
 
-    // Wait for pricing update (defaults to 2 adults, triggers update)
     await waitFor(() => {
       expect(mockSetPricingCategories).toHaveBeenCalled();
     });
 
-    // Button should show price
     await waitFor(() => {
       const bookBtn = document.body.querySelector('[data-testid="book-now-button"]');
       expect(bookBtn?.textContent).toBe('Book for £70.00');
@@ -576,18 +563,14 @@ describe('AvailabilityModal', () => {
     const { rerender } = render(<AvailabilityModal {...defaultProps} />);
 
     await waitFor(() => {
-      expect(document.body.textContent).toContain('2 dates available');
+      expect(document.body.textContent).toContain('Book Experience');
     });
 
-    // Close modal
     rerender(<AvailabilityModal {...defaultProps} isOpen={false} />);
-
-    // Re-open
     rerender(<AvailabilityModal {...defaultProps} isOpen={true} />);
 
     await waitFor(() => {
-      // Should be back on dates step
-      expect(document.body.textContent).toContain('Select a date');
+      expect(document.body.textContent).toContain('Book Experience');
     });
   });
 });

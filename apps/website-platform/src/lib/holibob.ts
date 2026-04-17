@@ -355,8 +355,17 @@ export function mapProductToExperience(product: {
 
   // Handle rating - may not be available from all API responses
   // Product Discovery/Detail API uses reviewRating and reviewCount
-  const ratingValue = product.reviewRating ?? product.reviews?.averageRating ?? product.rating;
-  const reviewCount = product.reviewCount ?? product.reviews?.totalCount ?? 0;
+  let ratingValue = product.reviewRating ?? product.reviews?.averageRating ?? product.rating;
+  let reviewCount = product.reviewCount ?? product.reviews?.totalCount ?? 0;
+
+  // Fallback: if no aggregate rating but individual reviews exist, compute from reviewList.nodes
+  if (ratingValue == null && product.reviewList?.nodes && product.reviewList.nodes.length > 0) {
+    const validReviews = product.reviewList.nodes.filter((r) => r.rating != null && r.rating > 0);
+    if (validReviews.length > 0) {
+      ratingValue = validReviews.reduce((sum, r) => sum + (r.rating ?? 0), 0) / validReviews.length;
+      reviewCount = validReviews.length;
+    }
+  }
 
   // Handle cancellation policy - can be string or object with description and/or penaltyList
   let cancellationPolicy = '';

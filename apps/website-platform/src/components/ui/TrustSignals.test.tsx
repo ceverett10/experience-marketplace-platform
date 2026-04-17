@@ -127,8 +127,8 @@ describe('LiveActivityIndicator', () => {
 });
 
 describe('PopularityBadge', () => {
-  it('renders nothing when bookings < 5', () => {
-    const { container } = render(<PopularityBadge bookingsLast24h={4} />);
+  it('renders nothing when bookings < 2', () => {
+    const { container } = render(<PopularityBadge bookingsLast24h={1} />);
     expect(container.innerHTML).toBe('');
   });
 
@@ -137,9 +137,9 @@ describe('PopularityBadge', () => {
     expect(container.innerHTML).toBe('');
   });
 
-  it('renders when bookings >= 5', () => {
-    render(<PopularityBadge bookingsLast24h={10} />);
-    expect(screen.getByText(/Booked 10 times/)).toBeDefined();
+  it('renders when bookings >= 2', () => {
+    render(<PopularityBadge bookingsLast24h={3} />);
+    expect(screen.getByText(/Booked 3 times/)).toBeDefined();
   });
 
   it('shows exact count in text', () => {

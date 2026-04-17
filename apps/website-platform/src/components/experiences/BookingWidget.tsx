@@ -12,9 +12,18 @@ interface BookingWidgetProps {
   experience: Experience;
   /** Booking statistics for urgency messaging */
   bookingStats?: BookingStats;
+  /** Supplier aggregate rating — shown when product has no individual reviews */
+  supplierRating?: { rating: number; reviewCount: number; supplierName: string } | null;
+  /** Product hero image for the availability modal summary panel */
+  productImage?: string;
 }
 
-export function BookingWidget({ experience, bookingStats }: BookingWidgetProps) {
+export function BookingWidget({
+  experience,
+  bookingStats,
+  supplierRating,
+  productImage,
+}: BookingWidgetProps) {
   const brand = useBrand();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -87,6 +96,14 @@ export function BookingWidget({ experience, bookingStats }: BookingWidgetProps) 
               <span className="text-yellow-400">★</span>
               Rated {experience.rating!.average.toFixed(1)} by{' '}
               {experience.rating!.count.toLocaleString()} travelers
+            </p>
+          )}
+          {/* Supplier rating fallback when product has no booking stats or reviews */}
+          {!showWeeklyCount && !showMonthlyCount && !showRatingProof && supplierRating && (
+            <p className="mt-2 flex items-center gap-1.5 text-sm text-gray-600">
+              <span className="text-yellow-400">★</span>
+              Operator rated {supplierRating.rating.toFixed(1)} by{' '}
+              {supplierRating.reviewCount.toLocaleString()} travelers
             </p>
           )}
         </div>
@@ -221,6 +238,7 @@ export function BookingWidget({ experience, bookingStats }: BookingWidgetProps) 
         productId={experience.id}
         productName={experience.title}
         primaryColor={primaryColor}
+        productImage={productImage || experience.imageUrl}
       />
     </div>
   );
