@@ -41,11 +41,14 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
     }
 
-    // Check if booking can be committed (all questions answered)
+    // Note: We no longer gate on canCommit here. Holibob's canCommit may stay
+    // false until after payment is initiated (it reflects "ready to finalise",
+    // not "ready to pay"). If questions are incomplete, the Stripe call itself
+    // will fail with a clear error from Holibob. Blocking here was preventing
+    // all bookings from reaching payment — see incident 2026-04-17.
     if (!booking.canCommit) {
-      return NextResponse.json(
-        { error: 'Please complete all required information before proceeding to payment' },
-        { status: 400 }
+      console.warn(
+        `[Payment Intent API] canCommit is false for booking ${bookingId} — proceeding to payment anyway`
       );
     }
 
