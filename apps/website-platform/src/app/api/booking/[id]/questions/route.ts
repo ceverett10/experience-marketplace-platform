@@ -349,51 +349,107 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           console.info('[Questions API] Holibob response canCommit:', answeredBooking.canCommit);
           booking = answeredBooking;
 
-          // Log remaining unanswered questions
+          // Log full booking question state when canCommit is false
           if (!answeredBooking.canCommit) {
-            console.info('[Questions API] === REMAINING UNANSWERED QUESTIONS ===');
+            console.info('[Questions API] === CANCOMMIT FALSE — FULL STATE ===');
 
-            // Booking-level - show ALL unanswered
-            const unansweredBooking = (answeredBooking.questionList?.nodes ?? []).filter(
-              (q: { answerValue?: string | null }) => !q.answerValue
+            // Booking-level — show ALL questions with types and values
+            const allBQ = answeredBooking.questionList?.nodes ?? [];
+            console.info(
+              `[Questions API] Booking questions (${allBQ.length}):`,
+              JSON.stringify(
+                allBQ.map(
+                  (q: {
+                    id: string;
+                    label?: string;
+                    type?: string;
+                    isRequired?: boolean;
+                    answerValue?: string | null;
+                  }) => ({
+                    id: q.id,
+                    label: q.label,
+                    type: q.type,
+                    required: q.isRequired,
+                    answered: !!q.answerValue,
+                    value: q.answerValue?.substring(0, 40),
+                  })
+                )
+              )
             );
-            if (unansweredBooking.length > 0) {
-              console.info(
-                '[Questions API] Booking-level:',
-                JSON.stringify(unansweredBooking, null, 2)
-              );
-            }
 
             // Availability and Person-level
             for (const avail of answeredBooking.availabilityList?.nodes ?? []) {
-              const unansweredAvail = (avail.questionList?.nodes ?? []).filter(
-                (q: { answerValue?: string | null }) => !q.answerValue
-              );
-              if (unansweredAvail.length > 0) {
+              const aq = avail.questionList?.nodes ?? [];
+              if (aq.length > 0) {
                 console.info(
-                  `[Questions API] Availability ${avail.id}:`,
-                  JSON.stringify(unansweredAvail, null, 2)
+                  `[Questions API] Availability ${avail.id} questions:`,
+                  JSON.stringify(
+                    aq.map(
+                      (q: {
+                        id: string;
+                        label?: string;
+                        type?: string;
+                        answerValue?: string | null;
+                      }) => ({
+                        label: q.label,
+                        type: q.type,
+                        answered: !!q.answerValue,
+                      })
+                    )
+                  )
                 );
               }
-
               for (const person of avail.personList?.nodes ?? []) {
-                // Check isQuestionsComplete flag
                 console.info(
-                  `[Questions API] Person ${person.id} (${person.pricingCategoryLabel}) isQuestionsComplete:`,
-                  person.isQuestionsComplete
+                  `[Questions API] Person ${person.id} (${person.pricingCategoryLabel}): isComplete=${person.isQuestionsComplete}`
                 );
-                const unansweredPerson = (person.questionList?.nodes ?? []).filter(
+                const pq = (person.questionList?.nodes ?? []).filter(
                   (q: { answerValue?: string | null }) => !q.answerValue
                 );
-                if (unansweredPerson.length > 0) {
-                  console.info(
-                    `[Questions API] Person ${person.id} unanswered:`,
-                    JSON.stringify(unansweredPerson, null, 2)
-                  );
+                if (pq.length > 0) {
+                  console.info(`[Questions API]   ${pq.length} unanswered person questions`);
                 }
               }
             }
-            console.info('[Questions API] === END UNANSWERED QUESTIONS ===');
+            console.info('[Questions API] === END STATE ===');
+
+            // RETRY: Re-fetch and try answering any newly surfaced questions
+            console.info('[Questions API] Retrying — re-fetching for second answer round...');
+            const refreshed = await client.getBookingQuestions(bookingId);
+            const answerList2: Array<{ questionId: string; value: string }> = [];
+            const refreshedBQ = refreshed.questionList?.nodes ?? [];
+            for (const q of refreshedBQ) {
+              if ((q as { answerValue?: string | null }).answerValue) continue;
+              const lbl = ((q as { label?: string }).label ?? '').toLowerCase();
+              const g = guests[0];
+              if (!g) continue;
+              let val: string | undefined;
+              if (lbl.includes('first') && lbl.includes('name')) val = g.firstName;
+              else if (
+                (lbl.includes('last') && lbl.includes('name')) ||
+                lbl.includes('surname') ||
+                lbl.includes('family')
+              )
+                val = g.lastName;
+              else if (lbl.includes('email')) val = input.customerEmail ?? g.email;
+              else if (lbl.includes('phone') || lbl.includes('tel') || lbl.includes('mobile'))
+                val = input.customerPhone ?? g.phone;
+              else if (lbl.includes('full name') || lbl === 'name')
+                val = `${g.firstName} ${g.lastName}`;
+              if (val) answerList2.push({ questionId: (q as { id: string }).id, value: val });
+            }
+
+            if (answerList2.length > 0) {
+              console.info('[Questions API] Second round answers:', JSON.stringify(answerList2));
+              const secondAnswer = await client.answerBookingQuestions(bookingId, {
+                leadPassengerName,
+                answerList: answerList2,
+              });
+              console.info('[Questions API] Second round canCommit:', secondAnswer.canCommit);
+              booking = secondAnswer;
+            } else {
+              booking = refreshed;
+            }
           }
         } catch (answerError) {
           console.error('[Questions API] Error submitting answers:', answerError);
