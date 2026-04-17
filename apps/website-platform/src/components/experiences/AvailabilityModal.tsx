@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import {
@@ -15,6 +15,9 @@ import {
   type AvailabilityDetail,
 } from '@/lib/booking-flow';
 import { reportError } from '@/lib/error-reporting';
+import { CalendarGrid } from './CalendarGrid';
+import { BookingStepper } from './BookingStepper';
+import { BookingSummaryPanel } from './BookingSummaryPanel';
 
 interface AvailabilityModalProps {
   isOpen: boolean;
@@ -22,6 +25,8 @@ interface AvailabilityModalProps {
   productId: string;
   productName: string;
   primaryColor?: string;
+  /** Product hero image for the summary panel */
+  productImage?: string;
 }
 
 type Step = 'dates' | 'options' | 'pricing' | 'review';
@@ -39,24 +44,20 @@ export function AvailabilityModal({
   productId,
   productName,
   primaryColor = '#0d9488',
+  productImage,
 }: AvailabilityModalProps) {
   const router = useRouter();
 
   // Step state
   const [step, setStep] = useState<Step>('dates');
 
+  // Calendar month state
+  const [calendarYear, setCalendarYear] = useState(() => new Date().getFullYear());
+  const [calendarMonth, setCalendarMonth] = useState(() => new Date().getMonth());
+
   // Date selection state
   const [availabilitySlots, setAvailabilitySlots] = useState<AvailabilitySlot[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<AvailabilitySlot | null>(null);
-  const [dateRange, setDateRange] = useState<{ from: string; to: string }>(() => {
-    const today = new Date();
-    const nextMonth = new Date(today);
-    nextMonth.setDate(today.getDate() + 30);
-    return {
-      from: today.toISOString().split('T')[0] ?? '',
-      to: nextMonth.toISOString().split('T')[0] ?? '',
-    };
-  });
 
   // Options state
   const [availabilityDetail, setAvailabilityDetail] = useState<AvailabilityDetail | null>(null);
@@ -72,9 +73,10 @@ export function AvailabilityModal({
     currency: string;
   } | null>(null);
   const [isValid, setIsValid] = useState(false);
-  // True once the first setPricingCategories response has come back — prevents
-  // the validation hint from flashing during the initial 300ms debounce window
   const [hasPricingResult, setHasPricingResult] = useState(false);
+  // Stable max participants cap — set once when options/pricing first load,
+  // not overwritten by subsequent setPricingCategories responses.
+  const [maxGuestsCap, setMaxGuestsCap] = useState<number | null>(null);
 
   // Loading and error states
   const [isLoading, setIsLoading] = useState(false);
@@ -88,55 +90,116 @@ export function AvailabilityModal({
     setMounted(true);
   }, []);
 
-  // Fetch availability when modal opens or date range changes
-  useEffect(() => {
-    if (!isOpen || step !== 'dates') return;
-    if (!dateRange.from || !dateRange.to || dateRange.from >= dateRange.to) return;
+  // All available slots from the single 90-day lookahead fetch.
+  // Stored separately so we never re-fetch and invalidate Holibob session IDs.
+  const [allSlots, setAllSlots] = useState<AvailabilitySlot[]>([]);
+  const hasFetchedRef = useRef(false);
 
-    const loadAvailability = async () => {
+  // Single fetch on modal open — 90-day lookahead. No per-month re-fetches.
+  useEffect(() => {
+    if (!isOpen || step !== 'dates' || hasFetchedRef.current) return;
+    let cancelled = false;
+
+    const load = async () => {
       setIsLoading(true);
       setError(null);
       try {
-        const result = await fetchAvailability(productId, dateRange.from, dateRange.to);
+        const today = new Date();
+        const lookahead = new Date(today);
+        lookahead.setDate(today.getDate() + 90);
+        const pad = (n: number) => n.toString().padStart(2, '0');
+        const fromStr = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+        const toStr = `${lookahead.getFullYear()}-${pad(lookahead.getMonth() + 1)}-${pad(lookahead.getDate())}`;
+
+        const result = await fetchAvailability(productId, fromStr, toStr);
+        if (cancelled) return;
+
         const available = (result?.nodes ?? [])
           .filter((slot) => !slot.soldOut)
           .sort((a, b) => a.date.localeCompare(b.date));
-        setAvailabilitySlots(available);
-        // Pre-select the first available date
-        if (available.length > 0 && !selectedSlot) {
+
+        hasFetchedRef.current = true;
+        setAllSlots(available);
+
+        // Jump calendar to the month of the first available date
+        if (available.length > 0) {
+          const firstDate = new Date(available[0]!.date + 'T00:00:00');
+          setCalendarYear(firstDate.getFullYear());
+          setCalendarMonth(firstDate.getMonth());
           setSelectedSlot(available[0]!);
         }
       } catch (err) {
+        if (cancelled) return;
         setError(err instanceof Error ? err.message : 'Failed to load availability');
         if (err instanceof Error)
           reportError(err, { component: 'AvailabilityModal', action: 'loadAvailability' });
+        hasFetchedRef.current = true;
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
     };
 
-    loadAvailability();
-  }, [isOpen, productId, dateRange, step]);
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, step, productId]);
 
-  // Initialize guest counts — default to 2 adults for the first adult-like category
+  // Filter allSlots to the currently displayed calendar month (client-side only, no API call)
+  useEffect(() => {
+    const monthSlots = allSlots.filter((s) => {
+      const d = new Date(s.date + 'T00:00:00');
+      return d.getFullYear() === calendarYear && d.getMonth() === calendarMonth;
+    });
+    setAvailabilitySlots(monthSlots);
+  }, [allSlots, calendarYear, calendarMonth]);
+
+  // Derived calendar data
+  const availableDates = useMemo(
+    () => new Set(availabilitySlots.map((s) => s.date)),
+    [availabilitySlots]
+  );
+  const dateToSlotId = useMemo(
+    () => new Map(availabilitySlots.map((s) => [s.date, s.id])),
+    [availabilitySlots]
+  );
+
+  const handleCalendarDateSelect = (dateStr: string) => {
+    const slot = availabilitySlots.find((s) => s.date === dateStr);
+    if (slot) setSelectedSlot(slot);
+  };
+
+  const handlePrevMonth = () => {
+    if (calendarMonth === 0) {
+      setCalendarYear((y) => y - 1);
+      setCalendarMonth(11);
+    } else {
+      setCalendarMonth((m) => m - 1);
+    }
+  };
+
+  const handleNextMonth = () => {
+    if (calendarMonth === 11) {
+      setCalendarYear((y) => y + 1);
+      setCalendarMonth(0);
+    } else {
+      setCalendarMonth((m) => m + 1);
+    }
+  };
+
+  // Initialize guest counts — default to minParticipants (or 1) for the first adult-like category
   const initializeGuestCounts = (categories: PricingCategory[]) => {
     const initialUnits: Record<string, number> = {};
     let defaultApplied = false;
     categories.forEach((cat) => {
       const isAdultCategory = /adult/i.test(cat.label);
       if (!defaultApplied && (isAdultCategory || categories.length === 1)) {
-        // Default to minParticipants (the guaranteed valid minimum).
-        // Defaulting higher (e.g. 2) risks an immediately-invalid state for
-        // products where the API only accepts exactly the minimum count.
         initialUnits[cat.id] = cat.minParticipants || 1;
         defaultApplied = true;
       } else {
-        // Non-primary categories (children, infants) always start at 0.
-        // minParticipants is the minimum IF the category is used, not a required default.
         initialUnits[cat.id] = 0;
       }
     });
-    // If no adult category found, default first category to its minimum
     if (!defaultApplied && categories.length > 0) {
       const first = categories[0]!;
       initialUnits[first.id] = first.minParticipants || 1;
@@ -155,23 +218,39 @@ export function AvailabilityModal({
         return;
       }
       setAvailabilityDetail(detail);
+      // Capture max participants cap from the first detail response
+      if (detail.maxParticipants) {
+        setMaxGuestsCap(detail.maxParticipants);
+      }
 
-      // Check if options are already complete
       if (detail.optionList?.isComplete) {
         setOptionsComplete(true);
-        // Load pricing directly — skip options step entirely
         const pricingDetail = await getAvailabilityDetails(slotId, true);
         if (!pricingDetail) {
           setError('Failed to load pricing. Please try again.');
           return;
         }
         setAvailabilityDetail(pricingDetail);
+        // Also capture from pricing detail if not set yet
+        if (pricingDetail.maxParticipants && !detail.maxParticipants) {
+          setMaxGuestsCap(pricingDetail.maxParticipants);
+        }
         const cats = pricingDetail.pricingCategoryList?.nodes ?? [];
         setPricingCategoriesState(cats);
         setCategoryUnits(initializeGuestCounts(cats));
         setStep('pricing');
       } else {
         setOptionsComplete(false);
+        // Auto-select options that have only one choice
+        const autoSelections: Record<string, string> = {};
+        for (const opt of detail.optionList?.nodes ?? []) {
+          if (opt.availableOptions?.length === 1) {
+            autoSelections[opt.id] = opt.availableOptions[0]!.value;
+          }
+        }
+        if (Object.keys(autoSelections).length > 0) {
+          setOptionSelections((prev) => ({ ...prev, ...autoSelections }));
+        }
         setStep('options');
       }
     } catch (err) {
@@ -205,7 +284,6 @@ export function AvailabilityModal({
 
       if (result.optionList?.isComplete) {
         setOptionsComplete(true);
-        // Load pricing
         const pricingDetail = await getAvailabilityDetails(selectedSlot.id, true);
         if (!pricingDetail) {
           setError('Failed to load pricing. Please try again.');
@@ -217,8 +295,7 @@ export function AvailabilityModal({
         setCategoryUnits(initializeGuestCounts(cats));
         setStep('pricing');
       } else {
-        // More options needed - update selections for new options
-        setError('Please select all required options');
+        // More options surfaced — update detail so the UI shows them; no error needed
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to set options');
@@ -229,14 +306,34 @@ export function AvailabilityModal({
     }
   };
 
-  // Handle category unit change
+  // Stable per-category caps — updated whenever we get category data from the API
+  const categoryMaxRef = useRef<Map<string, number>>(new Map());
+
+  // Keep categoryMaxRef in sync with the latest pricingCategories
+  useEffect(() => {
+    for (const cat of pricingCategories) {
+      if (cat.maxParticipants && cat.maxParticipants > 0) {
+        categoryMaxRef.current.set(cat.id, cat.maxParticipants);
+      }
+    }
+  }, [pricingCategories]);
+
+  // Handle category unit change — enforces per-category and availability-level caps
   const handleUnitChange = (categoryId: string, delta: number) => {
     setCategoryUnits((prev) => {
-      const category = pricingCategories.find((c) => c.id === categoryId);
-      if (!category) return prev;
-
       const currentUnits = prev[categoryId] ?? 0;
-      const newUnits = Math.max(0, Math.min(category.maxParticipants || 99, currentUnits + delta));
+      // Per-category cap: use the stable ref (survives re-renders), fall back to 99
+      const categoryMax = categoryMaxRef.current.get(categoryId) ?? 99;
+      let newUnits = Math.max(0, Math.min(categoryMax, currentUnits + delta));
+
+      // Enforce total guest cap across all categories
+      if (maxGuestsCap && delta > 0) {
+        const otherGuests = Object.entries(prev)
+          .filter(([id]) => id !== categoryId)
+          .reduce((sum, [, u]) => sum + u, 0);
+        newUnits = Math.min(newUnits, maxGuestsCap - otherGuests);
+      }
+
       return { ...prev, [categoryId]: newUnits };
     });
   };
@@ -258,6 +355,20 @@ export function AvailabilityModal({
 
       try {
         const result = await setPricingCategories(selectedSlot.id, categories);
+        console.info('[AvailabilityModal] Pricing response:', {
+          isValid: result.isValid,
+          soldOut: result.soldOut,
+          minParticipants: result.minParticipants,
+          maxParticipants: result.maxParticipants,
+          totalPrice: result.totalPrice,
+          categories: result.pricingCategoryList?.nodes?.map((c) => ({
+            id: c.id,
+            label: c.label,
+            units: c.units,
+            min: c.minParticipants,
+            max: c.maxParticipants,
+          })),
+        });
         setAvailabilityDetail(result);
         setIsValid(result.isValid ?? false);
         setHasPricingResult(true);
@@ -270,7 +381,6 @@ export function AvailabilityModal({
           });
         }
 
-        // Update pricing categories with new totals
         if (result.pricingCategoryList) {
           setPricingCategoriesState(result.pricingCategoryList.nodes);
         }
@@ -315,37 +425,39 @@ export function AvailabilityModal({
       setTotalPrice(null);
       setIsValid(false);
       setHasPricingResult(false);
+      hasFetchedRef.current = false;
+      setAllSlots([]);
+      setMaxGuestsCap(null);
       setError(null);
+      // Reset calendar to current month
+      const now = new Date();
+      setCalendarYear(now.getFullYear());
+      setCalendarMonth(now.getMonth());
     }
   }, [isOpen]);
 
   // Calculate total guests
   const totalGuests = Object.values(categoryUnits).reduce((sum, units) => sum + units, 0);
 
-  // Format option/category labels to be user-friendly
+  // Format option/category labels
   const formatLabel = (label: string): string => {
-    // Transform "6 PAX" -> "Group of 6"
     const paxMatch = label.match(/^(\d+)\s*PAX$/i);
     if (paxMatch?.[1]) return `Group of ${paxMatch[1]}`;
-    // Transform "N pax" variations
     const paxMatch2 = label.match(/^(\d+)\s*pax$/i);
     if (paxMatch2?.[1]) return `Group of ${paxMatch2[1]}`;
     return label;
   };
 
-  // Derive a human-readable validation hint from API constraints when isValid = false
+  // Validation hint
   const validationHint: string | null = (() => {
     if (isValid || isLoading || totalGuests === 0 || !hasPricingResult) return null;
 
-    // Sold out takes priority — Holibob sets this when the chosen configuration
-    // exceeds remaining capacity for the slot
     if (availabilityDetail?.soldOut) {
       return 'The selected options are currently sold out. Try selecting different options';
     }
 
-    // Total participant bounds (at availability level)
     const minTotal = availabilityDetail?.minParticipants;
-    const maxTotal = availabilityDetail?.maxParticipants;
+    const maxTotal = maxGuestsCap ?? availabilityDetail?.maxParticipants;
     if (minTotal && totalGuests < minTotal) {
       return `Minimum ${minTotal} guest${minTotal !== 1 ? 's' : ''} required for this date`;
     }
@@ -353,7 +465,6 @@ export function AvailabilityModal({
       return `Maximum ${maxTotal} guest${maxTotal !== 1 ? 's' : ''} allowed for this date`;
     }
 
-    // Per-category minimum (applies only when the category is in use)
     for (const cat of pricingCategories) {
       const units = categoryUnits[cat.id] ?? 0;
       if (units > 0 && cat.minParticipants > 0 && units < cat.minParticipants) {
@@ -361,7 +472,6 @@ export function AvailabilityModal({
       }
     }
 
-    // Cross-category dependency (e.g. children cannot exceed adults)
     for (const cat of pricingCategories) {
       const units = categoryUnits[cat.id] ?? 0;
       if (units > 0 && cat.maxParticipantsDepends) {
@@ -383,6 +493,41 @@ export function AvailabilityModal({
     return 'Please adjust your guest selection to continue';
   })();
 
+  // Stepper always shows all three steps
+  const stepperSteps = useMemo(
+    () => [
+      { key: 'dates', label: 'Select Your Date' },
+      { key: 'options', label: 'Configure Options' },
+      { key: 'pricing', label: 'Travellers' },
+    ],
+    []
+  );
+
+  const completedSteps = useMemo(() => {
+    const set = new Set<string>();
+    const stepOrder: Step[] = ['dates', 'options', 'pricing'];
+    const currentIdx = stepOrder.indexOf(step);
+    for (let i = 0; i < currentIdx; i++) {
+      set.add(stepOrder[i]!);
+    }
+    return set;
+  }, [step]);
+
+  // Build selected options summary for the panel
+  const selectedOptionsSummary = useMemo(() => {
+    if (!availabilityDetail?.optionList?.nodes) return [];
+    return availabilityDetail.optionList.nodes
+      .filter((opt) => optionSelections[opt.id])
+      .map((opt) => {
+        const selected = opt.availableOptions?.find((o) => o.value === optionSelections[opt.id]);
+        return {
+          label: formatLabel(opt.label),
+          value: selected ? formatLabel(selected.label) : '',
+        };
+      })
+      .filter((s) => s.value);
+  }, [availabilityDetail, optionSelections]);
+
   // Don't render until mounted (client-side) and isOpen
   if (!mounted || !isOpen) return null;
 
@@ -391,404 +536,442 @@ export function AvailabilityModal({
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden="true" />
 
-      {/* Modal */}
+      {/* Modal — wide two-panel layout on desktop, single column on mobile */}
       <div
-        className="relative z-10 mx-4 max-h-[90vh] w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl"
+        className="relative z-10 mx-4 flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl lg:min-h-[560px] lg:flex-row"
         data-testid="availability-modal"
       >
-        {/* Header */}
-        <div className="border-b border-gray-200 px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900">
-                {step === 'dates' && 'Select a date'}
-                {step === 'options' && 'Choose options'}
-                {step === 'pricing' && 'Select guests'}
-                {step === 'review' && 'Review booking'}
-              </h2>
-              <p className="mt-1 line-clamp-1 text-sm text-gray-500">{productName}</p>
+        {/* LEFT PANEL — Stepper + step content */}
+        <div className="flex min-w-0 flex-1 flex-col">
+          {/* Header */}
+          <div className="border-b border-gray-200 px-6 py-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900">Book Experience</h2>
+              <button
+                onClick={onClose}
+                className="rounded-full p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-500 lg:hidden"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
             </div>
-            <button
-              onClick={onClose}
-              className="rounded-full p-3 text-gray-400 hover:bg-gray-100 hover:text-gray-500"
-            >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
           </div>
 
-          {/* Progress steps — skip options bar when options auto-complete */}
-          {(() => {
-            const steps = optionsComplete ? ['dates', 'pricing'] : ['dates', 'options', 'pricing'];
-            return (
-              <div className="mt-4 flex gap-2" data-testid="progress-steps">
-                {steps.map((s, i) => (
-                  <div
-                    key={s}
-                    className={`h-1 flex-1 rounded-full transition-colors ${
-                      i <= steps.indexOf(step) ? 'bg-teal-500' : 'bg-gray-200'
-                    }`}
-                    style={i <= steps.indexOf(step) ? { backgroundColor: primaryColor } : {}}
-                  />
-                ))}
-              </div>
-            );
-          })()}
-        </div>
-
-        {/* Content */}
-        <div className="max-h-[60vh] overflow-y-auto p-6">
-          {/* Error message */}
-          {error && (
-            <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</div>
-          )}
-
-          {/* Loading */}
-          {isLoading && (
-            <div className="flex items-center justify-center py-12">
-              <svg className="h-8 w-8 animate-spin text-gray-400" fill="none" viewBox="0 0 24 24">
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                />
-              </svg>
+          {/* Stepper + Content */}
+          <div className="flex flex-1 overflow-hidden">
+            {/* Stepper sidebar — hidden on mobile */}
+            <div className="hidden w-48 shrink-0 border-r border-gray-100 p-4 lg:block">
+              <BookingStepper
+                steps={stepperSteps}
+                currentStepKey={step}
+                completedStepKeys={completedSteps}
+                primaryColor={primaryColor}
+              />
             </div>
-          )}
 
-          {/* Step 1: Date Selection */}
-          {step === 'dates' && !isLoading && (
-            <div className="space-y-4">
-              {/* Date range selector */}
-              <div className="flex gap-3">
-                <div className="flex-1">
-                  <label className="block text-xs font-medium text-gray-500">From</label>
-                  <input
-                    type="date"
-                    value={dateRange.from}
-                    min={new Date().toISOString().split('T')[0]}
-                    onChange={(e) => {
-                      const newFrom = e.target.value;
-                      setDateRange((prev) => {
-                        if (newFrom >= prev.to) {
-                          const newTo = new Date(newFrom);
-                          newTo.setDate(newTo.getDate() + 30);
-                          return {
-                            from: newFrom,
-                            to: newTo.toISOString().split('T')[0] ?? prev.to,
-                          };
-                        }
-                        return { ...prev, from: newFrom };
-                      });
-                    }}
-                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
-                  />
-                </div>
-                <div className="flex-1">
-                  <label className="block text-xs font-medium text-gray-500">To</label>
-                  <input
-                    type="date"
-                    value={dateRange.to}
-                    min={(() => {
-                      const d = new Date(dateRange.from);
-                      d.setDate(d.getDate() + 1);
-                      return d.toISOString().split('T')[0];
-                    })()}
-                    onChange={(e) => setDateRange((prev) => ({ ...prev, to: e.target.value }))}
-                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
-                  />
-                </div>
-              </div>
+            {/* Step content */}
+            <div className="flex flex-1 flex-col overflow-hidden">
+              <div className="flex-1 overflow-y-auto p-6 lg:min-h-[340px]">
+                {/* Error message */}
+                {error && (
+                  <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</div>
+                )}
 
-              {/* Available slots */}
-              {availabilitySlots.length === 0 ? (
-                <div className="py-8 text-center text-sm text-gray-500">
-                  No availability found for the selected dates. Try a different date range.
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-gray-700">
-                    {availabilitySlots.length} date{availabilitySlots.length !== 1 ? 's' : ''}{' '}
-                    available
-                  </p>
-                  <div className="grid gap-2">
-                    {availabilitySlots.map((slot) => (
-                      <button
-                        key={slot.id}
-                        onClick={() => setSelectedSlot(slot)}
-                        data-testid={`date-slot-${slot.id}`}
-                        className={`flex items-center justify-between gap-2 rounded-lg border p-3 sm:rounded-xl sm:border-2 sm:p-4 text-left transition-all ${
-                          selectedSlot?.id === slot.id
-                            ? 'border-teal-500 bg-teal-50'
-                            : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                        }`}
-                        style={
-                          selectedSlot?.id === slot.id
-                            ? { borderColor: primaryColor, backgroundColor: `${primaryColor}10` }
-                            : {}
-                        }
-                      >
-                        <div className="min-w-0">
-                          <p className="text-sm sm:text-base font-medium text-gray-900">
-                            {formatDate(slot.date)}
-                          </p>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Step 2: Options Selection */}
-          {step === 'options' && !isLoading && availabilityDetail && (
-            <div className="space-y-4">
-              {(availabilityDetail.optionList?.nodes ?? [])
-                .filter((opt) => opt.availableOptions && opt.availableOptions.length > 0)
-                .map((option) => (
-                  <div key={option.id}>
-                    <label className="block text-sm font-medium text-gray-700">
-                      {formatLabel(option.label)}
-                    </label>
-                    <select
-                      data-testid={`option-select-${option.id}`}
-                      value={optionSelections[option.id] ?? ''}
-                      onChange={(e) => handleOptionChange(option.id, e.target.value)}
-                      className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                {/* Loading */}
+                {isLoading && (
+                  <div className="flex items-center justify-center py-12">
+                    <svg
+                      className="h-8 w-8 animate-spin text-gray-400"
+                      fill="none"
+                      viewBox="0 0 24 24"
                     >
-                      <option value="">Select {formatLabel(option.label).toLowerCase()}</option>
-                      {option.availableOptions?.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {formatLabel(opt.label)}
-                        </option>
-                      ))}
-                    </select>
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      />
+                    </svg>
                   </div>
-                ))}
+                )}
 
-              {(availabilityDetail.optionList?.nodes ?? []).filter(
-                (opt) => opt.availableOptions && opt.availableOptions.length > 0
-              ).length === 0 && (
-                <p className="py-4 text-center text-sm text-gray-500">No options to configure</p>
-              )}
-            </div>
-          )}
+                {/* Step 1: Date Selection — Calendar */}
+                {step === 'dates' && !isLoading && (
+                  <div className="space-y-4">
+                    {selectedSlot && (
+                      <p className="text-sm text-gray-600">
+                        <span className="font-medium text-gray-900">
+                          {formatDate(selectedSlot.date)}
+                        </span>
+                      </p>
+                    )}
 
-          {/* Step 3: Pricing Categories */}
-          {step === 'pricing' && !isLoading && (
-            <div className="space-y-4">
-              {pricingCategories.map((category) => (
-                <div
-                  key={category.id}
-                  className="flex items-start justify-between gap-3 rounded-xl border border-gray-200 p-4"
-                  data-testid={`guest-category-${category.id}`}
-                >
-                  <div className="min-w-0 pt-1">
-                    <p className="font-medium text-gray-900">{formatLabel(category.label)}</p>
-                    <p className="text-sm text-gray-500">
-                      {category.unitPrice?.grossFormattedText ?? '—'} per person
-                    </p>
-                    {category.minParticipants > 0 && (
-                      <p className="text-xs text-gray-400">Min: {category.minParticipants}</p>
+                    <CalendarGrid
+                      year={calendarYear}
+                      month={calendarMonth}
+                      availableDates={availableDates}
+                      selectedDate={selectedSlot?.date ?? null}
+                      dateToSlotId={dateToSlotId}
+                      onSelectDate={handleCalendarDateSelect}
+                      onPrevMonth={handlePrevMonth}
+                      onNextMonth={handleNextMonth}
+                      primaryColor={primaryColor}
+                    />
+
+                    {availabilitySlots.length > 0 && (
+                      <p className="text-xs text-gray-400">
+                        {availabilitySlots.length} date
+                        {availabilitySlots.length !== 1 ? 's' : ''} available
+                      </p>
+                    )}
+                    {!isLoading && availabilitySlots.length === 0 && (
+                      <div className="py-4 text-center text-sm text-gray-500">
+                        No availability found for this month. Try another month.
+                      </div>
                     )}
                   </div>
-                  <div className="flex shrink-0 items-center gap-3">
-                    <button
-                      onClick={() => handleUnitChange(category.id, -1)}
-                      disabled={(categoryUnits[category.id] ?? 0) <= 0}
-                      className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-50"
-                      data-testid={`guest-decrement-${category.id}`}
-                    >
-                      <svg
-                        className="h-4 w-4"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth="2"
-                        stroke="currentColor"
+                )}
+
+                {/* Step 2: Options Selection — chips for ≤8 options, dropdown for more */}
+                {step === 'options' && !isLoading && availabilityDetail && (
+                  <div className="space-y-5">
+                    <p className="text-sm font-medium text-gray-700">Choose options</p>
+                    {(availabilityDetail.optionList?.nodes ?? [])
+                      .filter((opt) => opt.availableOptions && opt.availableOptions.length > 0)
+                      .map((option) => {
+                        const MAX_CHIPS = 8;
+                        const choices = option.availableOptions ?? [];
+                        const useChips = choices.length <= MAX_CHIPS;
+                        const selectedValue = optionSelections[option.id] ?? '';
+
+                        return (
+                          <div key={option.id}>
+                            <label className="mb-2 block text-sm font-medium text-gray-700">
+                              {formatLabel(option.label)}
+                            </label>
+                            {useChips ? (
+                              <div
+                                className="flex flex-wrap gap-2"
+                                data-testid={`option-select-${option.id}`}
+                              >
+                                {choices.map((opt) => {
+                                  const isSelected = selectedValue === opt.value;
+                                  return (
+                                    <button
+                                      key={opt.value}
+                                      type="button"
+                                      onClick={() => handleOptionChange(option.id, opt.value)}
+                                      className={`rounded-full border px-4 py-2 text-sm font-medium transition-colors ${
+                                        isSelected
+                                          ? 'border-transparent text-white'
+                                          : 'border-gray-300 text-gray-700 hover:border-gray-400 hover:bg-gray-50'
+                                      }`}
+                                      style={
+                                        isSelected ? { backgroundColor: primaryColor } : undefined
+                                      }
+                                    >
+                                      {formatLabel(opt.label)}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <select
+                                data-testid={`option-select-${option.id}`}
+                                value={selectedValue}
+                                onChange={(e) => handleOptionChange(option.id, e.target.value)}
+                                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                              >
+                                <option value="">
+                                  Select {formatLabel(option.label).toLowerCase()}
+                                </option>
+                                {choices.map((opt) => (
+                                  <option key={opt.value} value={opt.value}>
+                                    {formatLabel(opt.label)}
+                                  </option>
+                                ))}
+                              </select>
+                            )}
+                          </div>
+                        );
+                      })}
+
+                    {(availabilityDetail.optionList?.nodes ?? []).filter(
+                      (opt) => opt.availableOptions && opt.availableOptions.length > 0
+                    ).length === 0 && (
+                      <p className="py-4 text-center text-sm text-gray-500">
+                        No options to configure
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Step 3: Pricing / Travellers */}
+                {step === 'pricing' && !isLoading && (
+                  <div className="space-y-4">
+                    <p className="text-sm font-medium text-gray-700">Select guests</p>
+                    {pricingCategories.map((category) => (
+                      <div
+                        key={category.id}
+                        className="flex items-start justify-between gap-3 rounded-xl border border-gray-200 p-4"
+                        data-testid={`guest-category-${category.id}`}
                       >
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12h-15" />
-                      </svg>
-                    </button>
-                    <span className="w-8 text-center font-medium text-gray-900">
-                      {categoryUnits[category.id] ?? 0}
-                    </span>
-                    <button
-                      onClick={() => handleUnitChange(category.id, 1)}
-                      disabled={
-                        (categoryUnits[category.id] ?? 0) >= (category.maxParticipants || 99)
-                      }
-                      className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-50"
-                      data-testid={`guest-increment-${category.id}`}
-                    >
-                      <svg
-                        className="h-4 w-4"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth="2"
-                        stroke="currentColor"
+                        <div className="min-w-0 pt-1">
+                          <p className="font-medium text-gray-900">{formatLabel(category.label)}</p>
+                          <p className="text-sm text-gray-500">
+                            {category.unitPrice?.grossFormattedText ?? '—'} per person
+                          </p>
+                          {category.minParticipants > 0 && (
+                            <p className="text-xs text-gray-400">Min: {category.minParticipants}</p>
+                          )}
+                        </div>
+                        <div className="flex shrink-0 items-center gap-3">
+                          <button
+                            onClick={() => handleUnitChange(category.id, -1)}
+                            disabled={(categoryUnits[category.id] ?? 0) <= 0}
+                            className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                            data-testid={`guest-decrement-${category.id}`}
+                          >
+                            <svg
+                              className="h-4 w-4"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              strokeWidth="2"
+                              stroke="currentColor"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12h-15" />
+                            </svg>
+                          </button>
+                          <span className="w-8 text-center font-medium text-gray-900">
+                            {categoryUnits[category.id] ?? 0}
+                          </span>
+                          <button
+                            onClick={() => handleUnitChange(category.id, 1)}
+                            disabled={
+                              (categoryUnits[category.id] ?? 0) >=
+                                (categoryMaxRef.current.get(category.id) ??
+                                  (category.maxParticipants || 99)) ||
+                              (!!maxGuestsCap && totalGuests >= maxGuestsCap)
+                            }
+                            className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                            data-testid={`guest-increment-${category.id}`}
+                          >
+                            <svg
+                              className="h-4 w-4"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              strokeWidth="2"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M12 4.5v15m7.5-7.5h-15"
+                              />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* Max guests message */}
+                    {(() => {
+                      const categoryCaps = pricingCategories
+                        .map((c) => categoryMaxRef.current.get(c.id) ?? c.maxParticipants)
+                        .filter((v): v is number => v != null && v > 0);
+                      const lowestCategoryCap =
+                        categoryCaps.length > 0 ? Math.min(...categoryCaps) : null;
+                      const effectiveCap = [maxGuestsCap, lowestCategoryCap]
+                        .filter((v): v is number => v != null && v > 0)
+                        .sort((a, b) => a - b)[0];
+                      if (!effectiveCap) return null;
+                      return (
+                        <p className="text-xs text-gray-500">
+                          Maximum {effectiveCap} {effectiveCap === 1 ? 'guest' : 'guests'} per
+                          booking
+                        </p>
+                      );
+                    })()}
+
+                    {/* Price discrepancy notice */}
+                    {(() => {
+                      const guidePrice = selectedSlot?.guidePriceFormattedText
+                        ? parsePrice(selectedSlot.guidePriceFormattedText)
+                        : null;
+                      const unitPrices = pricingCategories
+                        .map((c) => c.unitPrice?.gross ?? 0)
+                        .filter((p) => p > 0);
+                      const lowestUnit = unitPrices.length > 0 ? Math.min(...unitPrices) : null;
+                      if (
+                        guidePrice == null ||
+                        guidePrice === 0 ||
+                        lowestUnit == null ||
+                        lowestUnit === 0
+                      )
+                        return null;
+                      const diff = Math.abs(lowestUnit - guidePrice) / guidePrice;
+                      if (diff <= 0.3) return null;
+                      return (
+                        <div className="rounded-lg border border-blue-100 bg-blue-50/70 px-3 py-2.5 text-xs text-blue-700">
+                          <p className="font-medium">Just a heads up on pricing!</p>
+                          <p className="mt-0.5 text-blue-500">
+                            We have noticed that the per-person pricing is slightly higher than what
+                            you saw before. Our apologies for this. However, this is completely
+                            normal, pricing varies by date, group size, and availability. All prices
+                            come directly from our incredible suppliers.
+                          </p>
+                        </div>
+                      );
+                    })()}
+                    {pricingCategories.length === 0 && (
+                      <p className="py-4 text-center text-sm text-gray-500">
+                        Loading pricing options...
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="border-t border-gray-200 px-6 py-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    {step === 'pricing' && totalPrice && (
+                      <div>
+                        <p className="text-sm text-gray-500">
+                          {totalGuests} {totalGuests === 1 ? 'guest' : 'guests'}
+                        </p>
+                        <p className="text-lg font-bold" style={{ color: primaryColor }}>
+                          {totalPrice.formatted}
+                        </p>
+                      </div>
+                    )}
+                    {step === 'pricing' && validationHint && (
+                      <p className="text-xs text-amber-600">{validationHint}</p>
+                    )}
+                    {step === 'dates' && selectedSlot && (
+                      <p className="text-sm text-gray-600">{formatDate(selectedSlot.date)}</p>
+                    )}
+                  </div>
+
+                  <div className="flex gap-3 self-end sm:self-auto">
+                    {step !== 'dates' && (
+                      <button
+                        onClick={() => {
+                          if (step === 'options') setStep('dates');
+                          if (step === 'pricing') setStep(optionsComplete ? 'dates' : 'options');
+                        }}
+                        className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
                       >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M12 4.5v15m7.5-7.5h-15"
-                        />
-                      </svg>
-                    </button>
+                        Back
+                      </button>
+                    )}
+
+                    {step === 'dates' && (
+                      <button
+                        onClick={() => selectedSlot && loadOptions(selectedSlot.id)}
+                        disabled={!selectedSlot || isLoading}
+                        className="rounded-lg px-6 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                        style={{ backgroundColor: primaryColor }}
+                      >
+                        Continue
+                      </button>
+                    )}
+
+                    {step === 'options' && (
+                      <button
+                        onClick={submitOptions}
+                        disabled={isLoading || Object.keys(optionSelections).length === 0}
+                        className="rounded-lg px-6 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                        style={{ backgroundColor: primaryColor }}
+                      >
+                        Continue
+                      </button>
+                    )}
+
+                    {step === 'pricing' && (
+                      <button
+                        onClick={handleBook}
+                        disabled={!isValid || totalGuests === 0 || isBooking}
+                        className="rounded-lg px-6 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                        style={{ backgroundColor: primaryColor }}
+                        data-testid="book-now-button"
+                      >
+                        {isBooking ? (
+                          <span className="flex items-center gap-2">
+                            <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                              <circle
+                                className="opacity-25"
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                strokeWidth="4"
+                              />
+                              <path
+                                className="opacity-75"
+                                fill="currentColor"
+                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                              />
+                            </svg>
+                            Creating...
+                          </span>
+                        ) : totalPrice ? (
+                          `Book for ${totalPrice.formatted}`
+                        ) : (
+                          'Book Now'
+                        )}
+                      </button>
+                    )}
                   </div>
                 </div>
-              ))}
-
-              {/* Price discrepancy notice — guide price vs actual per-person pricing */}
-              {(() => {
-                const guidePrice = selectedSlot?.guidePriceFormattedText
-                  ? parsePrice(selectedSlot.guidePriceFormattedText)
-                  : null;
-                const unitPrices = pricingCategories
-                  .map((c) => c.unitPrice?.gross ?? 0)
-                  .filter((p) => p > 0);
-                const lowestUnit = unitPrices.length > 0 ? Math.min(...unitPrices) : null;
-                if (
-                  guidePrice == null ||
-                  guidePrice === 0 ||
-                  lowestUnit == null ||
-                  lowestUnit === 0
-                )
-                  return null;
-                const diff = Math.abs(lowestUnit - guidePrice) / guidePrice;
-                if (diff <= 0.3) return null;
-                return (
-                  <div className="rounded-lg bg-blue-50/70 border border-blue-100 px-3 py-2.5 text-xs text-blue-700">
-                    <p className="font-medium">Just a heads up on pricing!</p>
-                    <p className="mt-0.5 text-blue-500">
-                      We have noticed that the per-person pricing is slightly higher than what you
-                      saw before. Our apologies for this. However, this is completely normal,
-                      pricing varies by date, group size, and availability. All prices come directly
-                      from our incredible suppliers.
-                    </p>
-                  </div>
-                );
-              })()}
-              {pricingCategories.length === 0 && (
-                <p className="py-4 text-center text-sm text-gray-500">Loading pricing options...</p>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="border-t border-gray-200 px-6 py-4">
-          {/* Total and action buttons */}
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              {step === 'pricing' && totalPrice && (
-                <div>
-                  <p className="text-sm text-gray-500">
-                    {totalGuests} {totalGuests === 1 ? 'guest' : 'guests'}
-                  </p>
-                  <p className="text-lg font-bold" style={{ color: primaryColor }}>
-                    {totalPrice.formatted}
-                  </p>
-                </div>
-              )}
-              {step === 'pricing' && validationHint && (
-                <p className="text-xs text-amber-600">{validationHint}</p>
-              )}
-              {step === 'dates' && selectedSlot && (
-                <p className="text-sm text-gray-600">{formatDate(selectedSlot.date)}</p>
-              )}
-            </div>
-
-            <div className="flex gap-3 self-end sm:self-auto">
-              {step !== 'dates' && (
-                <button
-                  onClick={() => {
-                    if (step === 'options') setStep('dates');
-                    if (step === 'pricing') setStep(optionsComplete ? 'dates' : 'options');
-                  }}
-                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                >
-                  Back
-                </button>
-              )}
-
-              {step === 'dates' && (
-                <button
-                  onClick={() => selectedSlot && loadOptions(selectedSlot.id)}
-                  disabled={!selectedSlot || isLoading}
-                  className="rounded-lg px-6 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-                  style={{ backgroundColor: primaryColor }}
-                >
-                  Continue
-                </button>
-              )}
-
-              {step === 'options' && (
-                <button
-                  onClick={submitOptions}
-                  disabled={isLoading || Object.keys(optionSelections).length === 0}
-                  className="rounded-lg px-6 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-                  style={{ backgroundColor: primaryColor }}
-                >
-                  Continue
-                </button>
-              )}
-
-              {step === 'pricing' && (
-                <button
-                  onClick={handleBook}
-                  disabled={!isValid || totalGuests === 0 || isBooking}
-                  className="rounded-lg px-6 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-                  style={{ backgroundColor: primaryColor }}
-                  data-testid="book-now-button"
-                >
-                  {isBooking ? (
-                    <span className="flex items-center gap-2">
-                      <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        />
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        />
-                      </svg>
-                      Creating...
-                    </span>
-                  ) : totalPrice ? (
-                    `Book for ${totalPrice.formatted}`
-                  ) : (
-                    'Book Now'
-                  )}
-                </button>
-              )}
+              </div>
             </div>
           </div>
+        </div>
+
+        {/* RIGHT PANEL — Product summary (hidden on mobile) */}
+        <div className="hidden w-72 shrink-0 flex-col border-l border-gray-200 bg-gray-50 p-5 lg:flex">
+          <button
+            onClick={onClose}
+            className="mb-4 self-end rounded-full p-2 text-gray-400 hover:bg-gray-200 hover:text-gray-500"
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+
+          <BookingSummaryPanel
+            productName={productName}
+            productImage={productImage}
+            selectedDate={selectedSlot?.date}
+            selectedOptions={selectedOptionsSummary}
+            totalGuests={totalGuests}
+            totalPrice={totalPrice}
+            primaryColor={primaryColor}
+          />
         </div>
       </div>
     </div>
   );
 
-  // Use portal to render at document body level
   return createPortal(modalContent, document.body);
 }
