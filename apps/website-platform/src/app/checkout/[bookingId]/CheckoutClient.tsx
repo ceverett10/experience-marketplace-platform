@@ -158,19 +158,9 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
         setAvailabilities(refreshed.booking.availabilityList?.nodes ?? []);
         setCanCommit(refreshed.summary.canCommit);
 
-        if (refreshed.summary.canCommit) {
-          setQuestionsAnswered(true);
-          // Skip review step — go directly to payment
-          setShowPayment(true);
-          setError(null);
-          trackAddPaymentInfo({
-            id: bookingId,
-            value: refreshed.booking.totalPrice?.gross,
-            currency: refreshed.booking.totalPrice?.currency ?? 'GBP',
-          });
-        } else {
-          // Count remaining unanswered required questions
-          let unanswered = 0;
+        // Count remaining unanswered required questions
+        let unanswered = 0;
+        if (!refreshed.summary.canCommit) {
           unanswered += refreshed.summary.bookingQuestions.filter((q) => !q.answerValue).length;
           for (const avail of refreshed.summary.availabilityQuestions) {
             unanswered += avail.questions.filter((q) => !q.answerValue).length;
@@ -180,14 +170,25 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
               }
             }
           }
+        }
 
+        // Proceed to payment if canCommit is true OR all visible questions are answered.
+        // Holibob's canCommit may stay false until after payment is initiated —
+        // it reflects "ready to finalise", not "ready to pay".
+        if (refreshed.summary.canCommit || unanswered === 0) {
+          setQuestionsAnswered(true);
+          setShowPayment(true);
+          setError(null);
+          trackAddPaymentInfo({
+            id: bookingId,
+            value: refreshed.booking.totalPrice?.gross,
+            currency: refreshed.booking.totalPrice?.currency ?? 'GBP',
+          });
+        } else {
           setSubmitAttempts((prev) => prev + 1);
           setError(
-            unanswered > 0
-              ? `There ${unanswered === 1 ? 'is' : 'are'} ${unanswered} additional question${unanswered === 1 ? '' : 's'} that require${unanswered === 1 ? 's' : ''} your attention. Please complete all fields below.`
-              : 'Please complete all required information to continue.'
+            `There ${unanswered === 1 ? 'is' : 'are'} ${unanswered} additional question${unanswered === 1 ? '' : 's'} that require${unanswered === 1 ? 's' : ''} your attention. Please complete all fields below.`
           );
-          // Scroll to error banner
           setTimeout(() => {
             const errorBanner = document.querySelector('[data-testid="checkout-error"]');
             errorBanner?.scrollIntoView({ behavior: 'smooth', block: 'center' });
