@@ -329,8 +329,10 @@ describe('QuestionsForm - Dynamic Questions', () => {
     render(<QuestionsForm {...props} />);
 
     const dynamicField = screen.getByTestId('dynamic-question-aq-dob');
-    const dateInput = dynamicField.querySelector('input[type="date"]');
-    expect(dateInput).toBeInTheDocument();
+    // DatePickerInput renders a button with "Select date" placeholder
+    const dateButton = dynamicField.querySelector('button');
+    expect(dateButton).toBeInTheDocument();
+    expect(dateButton?.textContent).toContain('Select date');
   });
 
   it('renders NUMBER question', () => {
