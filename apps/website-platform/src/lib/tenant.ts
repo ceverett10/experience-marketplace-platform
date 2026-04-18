@@ -314,48 +314,120 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
         icon: '🇬🇧',
         description:
           'Experience world-class culture, history, and entertainment in the UK capital.',
+        imageUrl:
+          'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?w=800&q=80&fit=crop&auto=format',
+        imageAttribution: {
+          photographerName: 'Benjamin Davies',
+          photographerUrl:
+            'https://unsplash.com/@bendavisual?utm_source=experience_marketplace&utm_medium=referral',
+          unsplashUrl:
+            'https://unsplash.com/?utm_source=experience_marketplace&utm_medium=referral',
+        },
       },
       {
         name: 'Paris',
         slug: 'paris',
         icon: '🇫🇷',
         description: 'Discover romance, art, and culinary excellence in the City of Light.',
+        imageUrl:
+          'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=800&q=80&fit=crop&auto=format',
+        imageAttribution: {
+          photographerName: 'Chris Karidis',
+          photographerUrl:
+            'https://unsplash.com/@chriskaridis?utm_source=experience_marketplace&utm_medium=referral',
+          unsplashUrl:
+            'https://unsplash.com/?utm_source=experience_marketplace&utm_medium=referral',
+        },
       },
       {
         name: 'Barcelona',
         slug: 'barcelona',
         icon: '🇪🇸',
         description: 'Enjoy stunning architecture, beaches, and vibrant Catalan culture.',
+        imageUrl:
+          'https://images.unsplash.com/photo-1583422409516-2895a77efded?w=800&q=80&fit=crop&auto=format',
+        imageAttribution: {
+          photographerName: 'Enes',
+          photographerUrl:
+            'https://unsplash.com/@royalee13?utm_source=experience_marketplace&utm_medium=referral',
+          unsplashUrl:
+            'https://unsplash.com/?utm_source=experience_marketplace&utm_medium=referral',
+        },
       },
       {
         name: 'Rome',
         slug: 'rome',
         icon: '🇮🇹',
         description: 'Walk through ancient history and savor authentic Italian experiences.',
+        imageUrl:
+          'https://images.unsplash.com/photo-1552832230-c0197dd311b5?w=800&q=80&fit=crop&auto=format',
+        imageAttribution: {
+          photographerName: 'David Köhler',
+          photographerUrl:
+            'https://unsplash.com/@davidkhlr?utm_source=experience_marketplace&utm_medium=referral',
+          unsplashUrl:
+            'https://unsplash.com/?utm_source=experience_marketplace&utm_medium=referral',
+        },
       },
       {
         name: 'Amsterdam',
         slug: 'amsterdam',
         icon: '🇳🇱',
         description: 'Explore charming canals, world-class museums, and Dutch hospitality.',
+        imageUrl:
+          'https://images.unsplash.com/photo-1534351590666-13e3e96b5017?w=800&q=80&fit=crop&auto=format',
+        imageAttribution: {
+          photographerName: 'Gaurav Jain',
+          photographerUrl:
+            'https://unsplash.com/@gauravjain?utm_source=experience_marketplace&utm_medium=referral',
+          unsplashUrl:
+            'https://unsplash.com/?utm_source=experience_marketplace&utm_medium=referral',
+        },
       },
       {
         name: 'Edinburgh',
         slug: 'edinburgh',
         icon: '🏴󠁧󠁢󠁳󠁣󠁴󠁿',
         description: 'Discover medieval charm and Scottish heritage in this historic capital.',
+        imageUrl:
+          'https://images.unsplash.com/photo-1506377585622-bedcbb027afc?w=800&q=80&fit=crop&auto=format',
+        imageAttribution: {
+          photographerName: 'Adam Wilson',
+          photographerUrl:
+            'https://unsplash.com/@fourcolourblack?utm_source=experience_marketplace&utm_medium=referral',
+          unsplashUrl:
+            'https://unsplash.com/?utm_source=experience_marketplace&utm_medium=referral',
+        },
       },
       {
         name: 'Lisbon',
         slug: 'lisbon',
         icon: '🇵🇹',
         description: 'Experience colorful neighborhoods, delicious cuisine, and coastal beauty.',
+        imageUrl:
+          'https://images.unsplash.com/photo-1585208798174-6cedd86e019a?w=800&q=80&fit=crop&auto=format',
+        imageAttribution: {
+          photographerName: 'Daniel Adventures',
+          photographerUrl:
+            'https://unsplash.com/@danieladventures?utm_source=experience_marketplace&utm_medium=referral',
+          unsplashUrl:
+            'https://unsplash.com/?utm_source=experience_marketplace&utm_medium=referral',
+        },
       },
       {
         name: 'Berlin',
         slug: 'berlin',
         icon: '🇩🇪',
         description: 'Explore modern culture, fascinating history, and creative energy.',
+        imageUrl:
+          'https://images.unsplash.com/photo-1560969184-10fe8719e047?w=800&q=80&fit=crop&auto=format',
+        imageAttribution: {
+          photographerName: 'Stefan Widua',
+          photographerUrl:
+            'https://unsplash.com/@stefanwidua?utm_source=experience_marketplace&utm_medium=referral',
+          unsplashUrl:
+            'https://unsplash.com/?utm_source=experience_marketplace&utm_medium=referral',
+        },
       },
     ],
     categories: [
@@ -365,6 +437,15 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
         icon: '🗺️',
         description:
           'Guided tours to discover the best of your destination with expert local guides.',
+        imageUrl:
+          'https://images.unsplash.com/photo-1467269204594-9661b134dd2b?w=800&q=80&fit=crop&auto=format',
+        imageAttribution: {
+          photographerName: 'Florian Wehde',
+          photographerUrl:
+            'https://unsplash.com/@florianwehde?utm_source=experience_marketplace&utm_medium=referral',
+          unsplashUrl:
+            'https://unsplash.com/?utm_source=experience_marketplace&utm_medium=referral',
+        },
       },
       {
         name: 'Food & Drink',
@@ -372,6 +453,15 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
         icon: '🍷',
         description:
           'Culinary adventures from street food to fine dining, wine tastings, and cooking classes.',
+        imageUrl:
+          'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&q=80&fit=crop&auto=format',
+        imageAttribution: {
+          photographerName: 'Lily Banse',
+          photographerUrl:
+            'https://unsplash.com/@lvnatikk?utm_source=experience_marketplace&utm_medium=referral',
+          unsplashUrl:
+            'https://unsplash.com/?utm_source=experience_marketplace&utm_medium=referral',
+        },
       },
       {
         name: 'Adventure',
@@ -379,6 +469,15 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
         icon: '🏔️',
         description:
           'Thrilling outdoor activities and adrenaline-pumping experiences for adventurers.',
+        imageUrl:
+          'https://images.unsplash.com/photo-1533692328991-08159ff19fca?w=800&q=80&fit=crop&auto=format',
+        imageAttribution: {
+          photographerName: 'Dino Reichmuth',
+          photographerUrl:
+            'https://unsplash.com/@dinoreichmuth?utm_source=experience_marketplace&utm_medium=referral',
+          unsplashUrl:
+            'https://unsplash.com/?utm_source=experience_marketplace&utm_medium=referral',
+        },
       },
       {
         name: 'Culture & History',
@@ -386,12 +485,30 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
         icon: '🏛️',
         description:
           'Immerse yourself in local heritage, museums, art galleries, and historical landmarks.',
+        imageUrl:
+          'https://images.unsplash.com/photo-1582555172866-f73bb12a2ab3?w=800&q=80&fit=crop&auto=format',
+        imageAttribution: {
+          photographerName: 'Matteo Vistocco',
+          photographerUrl:
+            'https://unsplash.com/@mrsunflower94?utm_source=experience_marketplace&utm_medium=referral',
+          unsplashUrl:
+            'https://unsplash.com/?utm_source=experience_marketplace&utm_medium=referral',
+        },
       },
       {
         name: 'Water Activities',
         slug: 'water',
         icon: '🚤',
         description: 'Boats, cruises, kayaking, diving, and everything aquatic for water lovers.',
+        imageUrl:
+          'https://images.unsplash.com/photo-1530053969600-caed2596d242?w=800&q=80&fit=crop&auto=format',
+        imageAttribution: {
+          photographerName: 'Ishan Seefromthesky',
+          photographerUrl:
+            'https://unsplash.com/@seefromthesky?utm_source=experience_marketplace&utm_medium=referral',
+          unsplashUrl:
+            'https://unsplash.com/?utm_source=experience_marketplace&utm_medium=referral',
+        },
       },
       {
         name: 'Day Trips',
@@ -399,6 +516,15 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
         icon: '🚗',
         description:
           'Explore beyond the city on exciting excursions to nearby attractions and hidden gems.',
+        imageUrl:
+          'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=800&q=80&fit=crop&auto=format',
+        imageAttribution: {
+          photographerName: 'Luca Bravo',
+          photographerUrl:
+            'https://unsplash.com/@lucabravo?utm_source=experience_marketplace&utm_medium=referral',
+          unsplashUrl:
+            'https://unsplash.com/?utm_source=experience_marketplace&utm_medium=referral',
+        },
       },
     ],
   },

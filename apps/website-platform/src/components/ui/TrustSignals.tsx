@@ -108,11 +108,13 @@ export function TrustSignals({ className = '' }: TrustSignalProps) {
 
 export function TrustBadges({ className = '' }: TrustSignalProps) {
   return (
-    <div className={`flex flex-wrap items-center justify-center gap-6 ${className}`}>
+    <div
+      className={`flex flex-wrap items-center justify-center gap-2 sm:gap-4 md:gap-6 ${className}`}
+    >
       {/* Secure Payment */}
-      <div className="flex items-center gap-2 rounded-full bg-gray-100 px-4 py-2">
+      <div className="flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 sm:gap-2 sm:px-4 sm:py-2">
         <svg
-          className="h-5 w-5 text-green-600"
+          className="h-3.5 w-3.5 text-green-600 sm:h-5 sm:w-5"
           fill="none"
           viewBox="0 0 24 24"
           strokeWidth="2"
@@ -124,13 +126,13 @@ export function TrustBadges({ className = '' }: TrustSignalProps) {
             d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"
           />
         </svg>
-        <span className="text-sm font-medium text-gray-700">Secure Payment</span>
+        <span className="text-xs font-medium text-gray-700 sm:text-sm">Secure Payment</span>
       </div>
 
       {/* Free Cancellation */}
-      <div className="flex items-center gap-2 rounded-full bg-gray-100 px-4 py-2">
+      <div className="flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 sm:gap-2 sm:px-4 sm:py-2">
         <svg
-          className="h-5 w-5 text-teal-600"
+          className="h-3.5 w-3.5 text-teal-600 sm:h-5 sm:w-5"
           fill="none"
           viewBox="0 0 24 24"
           strokeWidth="2"
@@ -142,13 +144,13 @@ export function TrustBadges({ className = '' }: TrustSignalProps) {
             d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5m-9-6h.008v.008H12v-.008zM12 15h.008v.008H12V15zm0 2.25h.008v.008H12v-.008zM9.75 15h.008v.008H9.75V15zm0 2.25h.008v.008H9.75v-.008zM7.5 15h.008v.008H7.5V15zm0 2.25h.008v.008H7.5v-.008zm6.75-4.5h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008V15zm0 2.25h.008v.008h-.008v-.008zm2.25-4.5h.008v.008H16.5v-.008zm0 2.25h.008v.008H16.5V15z"
           />
         </svg>
-        <span className="text-sm font-medium text-gray-700">Flexible Cancellation</span>
+        <span className="text-xs font-medium text-gray-700 sm:text-sm">Flexible Cancellation</span>
       </div>
 
       {/* Instant Confirmation */}
-      <div className="flex items-center gap-2 rounded-full bg-gray-100 px-4 py-2">
+      <div className="flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 sm:gap-2 sm:px-4 sm:py-2">
         <svg
-          className="h-5 w-5 text-purple-600"
+          className="h-3.5 w-3.5 text-purple-600 sm:h-5 sm:w-5"
           fill="none"
           viewBox="0 0 24 24"
           strokeWidth="2"
@@ -160,19 +162,23 @@ export function TrustBadges({ className = '' }: TrustSignalProps) {
             d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"
           />
         </svg>
-        <span className="text-sm font-medium text-gray-700">Instant Confirmation</span>
+        <span className="text-xs font-medium text-gray-700 sm:text-sm">Instant Confirmation</span>
       </div>
 
       {/* Verified Operators */}
-      <div className="flex items-center gap-2 rounded-full bg-gray-100 px-4 py-2">
-        <svg className="h-5 w-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+      <div className="flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 sm:gap-2 sm:px-4 sm:py-2">
+        <svg
+          className="h-3.5 w-3.5 text-blue-600 sm:h-5 sm:w-5"
+          fill="currentColor"
+          viewBox="0 0 20 20"
+        >
           <path
             fillRule="evenodd"
             d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
             clipRule="evenodd"
           />
         </svg>
-        <span className="text-sm font-medium text-gray-700">Verified Operators</span>
+        <span className="text-xs font-medium text-gray-700 sm:text-sm">Verified Operators</span>
       </div>
     </div>
   );

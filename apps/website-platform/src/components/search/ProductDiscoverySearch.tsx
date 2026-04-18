@@ -897,25 +897,25 @@ export function ProductDiscoverySearch({
       <button
         type="button"
         onClick={() => setActiveSection(isActive ? null : section)}
-        className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-all ${
+        className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-all ${
           isActive ? 'bg-gray-50' : 'hover:bg-gray-50/50'
         }`}
         style={
           isActive
-            ? { borderLeft: `3px solid ${primaryColor}`, paddingLeft: '9px' }
-            : { borderLeft: '3px solid transparent', paddingLeft: '9px' }
+            ? { borderLeft: `3px solid ${primaryColor}`, paddingLeft: '7px' }
+            : { borderLeft: '3px solid transparent', paddingLeft: '7px' }
         }
       >
         <div
-          className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full"
+          className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full"
           style={{ backgroundColor: `${primaryColor}15` }}
         >
-          <Icon className="h-4 w-4" style={{ color: primaryColor }} />
+          <Icon className="h-3.5 w-3.5" style={{ color: primaryColor }} />
         </div>
         <div className="min-w-0 flex-1">
-          <span className="block text-xs font-semibold text-gray-800">{config.label}</span>
+          <span className="block text-[11px] font-semibold text-gray-800">{config.label}</span>
           <span
-            className={`block truncate text-sm ${
+            className={`block truncate text-xs ${
               isFilled ? 'font-medium text-gray-900' : 'text-gray-400'
             }`}
           >
@@ -950,7 +950,7 @@ export function ProductDiscoverySearch({
   return (
     <div ref={searchBarRef} className={`relative w-full ${className}`}>
       {/* Main Search Bar - Desktop: horizontal pill, Mobile: vertical card */}
-      <div className="rounded-2xl bg-white p-2 shadow-2xl shadow-black/10 md:rounded-full">
+      <div className="rounded-2xl bg-white p-1.5 shadow-2xl shadow-black/10 md:rounded-full md:p-2">
         {/* Mobile Layout - Stacked with icons */}
         <div className="flex flex-col md:hidden">
           {renderMobileField('where')}
@@ -965,13 +965,13 @@ export function ProductDiscoverySearch({
           <button
             type="button"
             onClick={navigateToResults}
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl py-4 text-sm font-semibold text-white shadow-lg transition-all hover:opacity-90 active:scale-[0.98]"
+            className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold text-white shadow-lg transition-all hover:opacity-90 active:scale-[0.98]"
             style={{
               background: `linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}dd 100%)`,
               boxShadow: `0 4px 14px ${primaryColor}40`,
             }}
           >
-            <SearchIcon className="h-5 w-5" />
+            <SearchIcon className="h-4 w-4" />
             Search Experiences
           </button>
         </div>

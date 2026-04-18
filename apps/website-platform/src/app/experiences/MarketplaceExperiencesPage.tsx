@@ -259,9 +259,9 @@ export function MarketplaceExperiencesPage({
             </h1>
             <p className="mt-2 text-lg text-gray-600">{pageSubtitle}</p>
 
-            {/* Trust Badges & Mobile Filter Button */}
-            <div className="mt-6 flex items-center justify-between">
-              <TrustBadges />
+            {/* Trust Badges (desktop only, mobile has header bar) & Mobile Filter Button */}
+            <div className="mt-4 flex items-center justify-between sm:mt-6">
+              <TrustBadges className="hidden sm:flex" />
               <MobileFilterButton
                 filterCount={activeFilterCount}
                 onClick={() => setIsMobileFilterOpen(true)}
