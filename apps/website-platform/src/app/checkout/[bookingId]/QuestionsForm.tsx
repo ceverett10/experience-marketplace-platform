@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { TermsModal } from '@/components/checkout/TermsModal';
+import { DatePickerInput } from '@/components/ui/DatePickerInput';
+import { SearchableSelect } from '@/components/ui/SearchableSelect';
 
 interface BookingQuestion {
   id: string;
@@ -131,7 +133,24 @@ function DynamicQuestionField({
       : 'border-gray-300 focus:border-teal-500 focus:ring-teal-500'
   }`;
 
-  const type = question.type?.toUpperCase() ?? 'TEXT';
+  // Resolve the effective input type from Holibob's two fields:
+  // - dataType: the input format (BOOLEAN, DATE, OPTIONS, NUMBER, STRING)
+  // - type: can be a more specific UI hint (SELECT, TEXTAREA, TEXT)
+  const GENERIC_TYPES = new Set(['STRING', 'TEXT', '']);
+  const dt = question.dataType?.toUpperCase() ?? '';
+  const t = question.type?.toUpperCase() ?? '';
+  const hasOptions = question.availableOptions && question.availableOptions.length > 0;
+  let type: string;
+  if (!GENERIC_TYPES.has(dt)) {
+    type = dt;
+  } else if (!GENERIC_TYPES.has(t)) {
+    type = t;
+  } else {
+    type = 'TEXT';
+  }
+  if (hasOptions && (type === 'TEXT' || type === 'STRING')) {
+    type = 'SELECT';
+  }
 
   const renderField = () => {
     switch (type) {
@@ -152,26 +171,40 @@ function DynamicQuestionField({
         );
 
       case 'SELECT':
+      case 'OPTIONS': {
+        const options = question.availableOptions ?? [];
+        const SEARCH_THRESHOLD = 8;
         return (
           <>
             <label className="mb-1 block text-sm font-medium text-gray-700">
               {question.label}
               {question.isRequired && <span className="text-red-500"> *</span>}
             </label>
-            <select
-              value={value}
-              onChange={(e) => onChange(e.target.value)}
-              className={`${inputClass} bg-white`}
-            >
-              <option value="">Select...</option>
-              {(question.availableOptions ?? []).map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+            {options.length > SEARCH_THRESHOLD ? (
+              <SearchableSelect
+                options={options}
+                value={value}
+                onChange={onChange}
+                placeholder={`Search ${question.label.toLowerCase()}...`}
+                error={!!error}
+              />
+            ) : (
+              <select
+                value={value}
+                onChange={(e) => onChange(e.target.value)}
+                className={`${inputClass} bg-white`}
+              >
+                <option value="">Select...</option>
+                {options.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            )}
           </>
         );
+      }
 
       case 'MULTISELECT': {
         const selectedValues = value ? value.split(',').filter(Boolean) : [];
@@ -227,11 +260,12 @@ function DynamicQuestionField({
               {question.label}
               {question.isRequired && <span className="text-red-500"> *</span>}
             </label>
-            <input
-              type="date"
+            <DatePickerInput
               value={value}
-              onChange={(e) => onChange(e.target.value)}
-              className={inputClass}
+              onChange={onChange}
+              placeholder="Select date"
+              max={new Date().toISOString().split('T')[0]}
+              error={!!error}
             />
           </>
         );
@@ -406,9 +440,15 @@ export function QuestionsForm({
     for (const question of allDynamicQuestions) {
       if (!question.isRequired) continue;
       const answer = dynamicAnswers[question.id];
-      const type = question.type?.toUpperCase() ?? 'TEXT';
+      const vdt = question.dataType?.toUpperCase() ?? '';
+      const vt = question.type?.toUpperCase() ?? '';
+      const qType = !['STRING', 'TEXT', ''].includes(vdt)
+        ? vdt
+        : !['STRING', 'TEXT', ''].includes(vt)
+          ? vt
+          : 'TEXT';
 
-      if (type === 'BOOLEAN') {
+      if (qType === 'BOOLEAN') {
         if (answer !== 'true') {
           newErrors[`q_${question.id}`] = 'This acknowledgment is required';
         }
