@@ -1316,7 +1316,7 @@ export default async function ExperiencesPage({ searchParams }: Props) {
         <header className="bg-white shadow-sm">
           <div
             className={`mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 ${
-              isPpcTraffic ? 'py-3 sm:py-4' : 'py-8'
+              isPpcTraffic ? 'py-3 sm:py-4' : 'py-4 sm:py-8'
             }`}
           >
             {/* Breadcrumb — hidden for PPC (users came from ad, don't need nav crumbs) */}
@@ -1366,9 +1366,10 @@ export default async function ExperiencesPage({ searchParams }: Props) {
             </h1>
             {!isPpcTraffic && <p className="mt-2 text-lg text-gray-600">{pageSubtitle}</p>}
 
-            {/* Search Bar — full for organic, collapsed accordion for PPC, hidden on microsites */}
+            {/* Search Bar — collapsed accordion when user already has search params or PPC,
+                full form only on initial browse (/experiences with no params), hidden on microsites */}
             {!isMicrosite &&
-              (isPpcTraffic ? (
+              (isPpcTraffic || destination || resolvedSearchParams.q ? (
                 <PpcSearchAccordion
                   defaultDestination={destination}
                   defaultWhat={resolvedSearchParams.q}
@@ -1378,7 +1379,7 @@ export default async function ExperiencesPage({ searchParams }: Props) {
                   }}
                 />
               ) : (
-                <div className="mt-6">
+                <div className="mt-4 sm:mt-6">
                   <ProductDiscoverySearch
                     variant="hero"
                     defaultDestination={destination}
@@ -1391,13 +1392,13 @@ export default async function ExperiencesPage({ searchParams }: Props) {
                 </div>
               ))}
 
-            {/* Trust — inline text for PPC, full badges for organic */}
+            {/* Trust — inline text for PPC, badges for organic (desktop only, mobile has header bar) */}
             {isPpcTraffic ? (
               <p className="mt-2 text-xs text-gray-500">
                 Free cancellation &middot; Instant confirmation &middot; Secure payment
               </p>
             ) : (
-              <div className="mt-6">
+              <div className="mt-6 hidden sm:block">
                 <TrustBadges />
               </div>
             )}

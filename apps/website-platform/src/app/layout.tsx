@@ -202,6 +202,16 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <link rel="dns-prefetch" href="https://res.cloudinary.com" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        {/* Load brand fonts from Google Fonts dynamically */}
+        {site.brand && (
+          <link
+            rel="stylesheet"
+            href={`https://fonts.googleapis.com/css2?${[site.brand.headingFont, site.brand.bodyFont]
+              .filter((f, i, arr) => f && f !== 'Inter' && arr.indexOf(f) === i)
+              .map((f) => `family=${encodeURIComponent(f)}:wght@400;500;600;700`)
+              .join('&')}&display=swap`}
+          />
+        )}
         {brandCSS && <style dangerouslySetInnerHTML={{ __html: brandCSS }} />}
         {/* Hotjar Tracking Code */}
         <script

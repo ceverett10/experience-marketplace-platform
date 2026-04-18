@@ -4,6 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { getSiteFromHostname } from '@/lib/tenant';
 import { UnsplashAttribution } from '@/components/common/UnsplashAttribution';
+import { getCategoryImage } from '@/lib/category-images';
 
 // Revalidate every 5 minutes
 export const revalidate = 300;
@@ -114,20 +115,40 @@ export default async function CategoriesPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      {/* Hero Section */}
-      <section className="bg-gradient-to-br from-purple-900 via-indigo-800 to-indigo-900 py-16 sm:py-24">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <h1 className="text-4xl font-bold tracking-tight text-white sm:text-5xl lg:text-6xl">
+      {/* Hero Section — uses site hero image when available, compact header when not */}
+      {site.homepageConfig?.hero?.backgroundImage ? (
+        <section className="relative overflow-hidden py-16 sm:py-24">
+          <Image
+            src={site.homepageConfig.hero.backgroundImage}
+            alt="Experience Categories"
+            fill
+            className="object-cover"
+            priority
+          />
+          <div className="absolute inset-0 bg-black/50" />
+          <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="text-center">
+              <h1 className="font-display text-4xl font-bold tracking-tight text-white sm:text-5xl">
+                Experience Categories
+              </h1>
+              <p className="mx-auto mt-4 max-w-2xl text-lg text-white/80">
+                Find the perfect experience for your interests
+              </p>
+            </div>
+          </div>
+        </section>
+      ) : (
+        <section className="border-b border-gray-200 bg-white py-8 sm:py-12">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <h1 className="font-display text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
               Experience Categories
             </h1>
-            <p className="mx-auto mt-4 max-w-2xl text-lg text-purple-200 sm:text-xl">
-              Find the perfect experience for your interests. Browse our curated categories and
-              discover something amazing.
+            <p className="mt-2 max-w-2xl text-base text-gray-600">
+              Find the perfect experience for your interests
             </p>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Breadcrumb */}
       <div className="border-b border-gray-200 bg-white">
@@ -161,6 +182,11 @@ export default async function CategoriesPage() {
               searchParams.set('q', category.name);
               const href = `/experiences?${searchParams.toString()}`;
 
+              // Use category's own image, or fall back to keyword-matched Unsplash image
+              const fallbackImage = getCategoryImage(category.name);
+              const imgUrl = category.imageUrl || fallbackImage.imageUrl;
+              const imgAttribution = category.imageAttribution || fallbackImage.imageAttribution;
+
               return (
                 <Link
                   key={category.slug}
@@ -169,19 +195,13 @@ export default async function CategoriesPage() {
                 >
                   {/* Image Container */}
                   <div className="relative h-56 w-full overflow-hidden">
-                    {category.imageUrl ? (
-                      <Image
-                        src={category.imageUrl}
-                        alt={category.name}
-                        fill
-                        className="object-cover transition-transform duration-500 group-hover:scale-110"
-                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                      />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-purple-500 to-indigo-600">
-                        <span className="text-7xl">{category.icon}</span>
-                      </div>
-                    )}
+                    <Image
+                      src={imgUrl}
+                      alt={category.name}
+                      fill
+                      className="object-cover transition-transform duration-500 group-hover:scale-110"
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                    />
                     {/* Gradient Overlay */}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
 
@@ -198,15 +218,13 @@ export default async function CategoriesPage() {
                     </div>
 
                     {/* Unsplash Attribution - REQUIRED by Unsplash API Guidelines */}
-                    {category.imageUrl && category.imageAttribution && (
-                      <UnsplashAttribution
-                        photographerName={category.imageAttribution.photographerName}
-                        photographerUrl={category.imageAttribution.photographerUrl}
-                        unsplashUrl={category.imageAttribution.unsplashUrl}
-                        variant="overlay-compact"
-                        className="bottom-auto left-auto right-1 top-1 text-[8px]"
-                      />
-                    )}
+                    <UnsplashAttribution
+                      photographerName={imgAttribution.photographerName}
+                      photographerUrl={imgAttribution.photographerUrl}
+                      unsplashUrl={imgAttribution.unsplashUrl}
+                      variant="overlay-compact"
+                      className="bottom-auto left-auto right-1 top-1 text-[8px]"
+                    />
                   </div>
 
                   {/* Content */}

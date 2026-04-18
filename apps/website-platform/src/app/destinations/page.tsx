@@ -45,48 +45,112 @@ const DEFAULT_DESTINATIONS: Array<{
     slug: 'london',
     icon: '🇬🇧',
     description: 'Experience world-class culture, history, and entertainment in the UK capital.',
+    imageUrl:
+      'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?w=800&q=80&fit=crop&auto=format',
+    imageAttribution: {
+      photographerName: 'Benjamin Davies',
+      photographerUrl:
+        'https://unsplash.com/@bendavisual?utm_source=experience_marketplace&utm_medium=referral',
+      unsplashUrl: 'https://unsplash.com/?utm_source=experience_marketplace&utm_medium=referral',
+    },
   },
   {
     name: 'Paris',
     slug: 'paris',
     icon: '🇫🇷',
     description: 'Discover romance, art, and culinary excellence in the City of Light.',
+    imageUrl:
+      'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=800&q=80&fit=crop&auto=format',
+    imageAttribution: {
+      photographerName: 'Chris Karidis',
+      photographerUrl:
+        'https://unsplash.com/@chriskaridis?utm_source=experience_marketplace&utm_medium=referral',
+      unsplashUrl: 'https://unsplash.com/?utm_source=experience_marketplace&utm_medium=referral',
+    },
   },
   {
     name: 'Barcelona',
     slug: 'barcelona',
     icon: '🇪🇸',
     description: 'Enjoy stunning architecture, beaches, and vibrant Catalan culture.',
+    imageUrl:
+      'https://images.unsplash.com/photo-1583422409516-2895a77efded?w=800&q=80&fit=crop&auto=format',
+    imageAttribution: {
+      photographerName: 'Enes',
+      photographerUrl:
+        'https://unsplash.com/@royalee13?utm_source=experience_marketplace&utm_medium=referral',
+      unsplashUrl: 'https://unsplash.com/?utm_source=experience_marketplace&utm_medium=referral',
+    },
   },
   {
     name: 'Rome',
     slug: 'rome',
     icon: '🇮🇹',
     description: 'Walk through ancient history and savor authentic Italian experiences.',
+    imageUrl:
+      'https://images.unsplash.com/photo-1552832230-c0197dd311b5?w=800&q=80&fit=crop&auto=format',
+    imageAttribution: {
+      photographerName: 'David Köhler',
+      photographerUrl:
+        'https://unsplash.com/@davidkhlr?utm_source=experience_marketplace&utm_medium=referral',
+      unsplashUrl: 'https://unsplash.com/?utm_source=experience_marketplace&utm_medium=referral',
+    },
   },
   {
     name: 'Amsterdam',
     slug: 'amsterdam',
     icon: '🇳🇱',
     description: 'Explore charming canals, world-class museums, and Dutch hospitality.',
+    imageUrl:
+      'https://images.unsplash.com/photo-1534351590666-13e3e96b5017?w=800&q=80&fit=crop&auto=format',
+    imageAttribution: {
+      photographerName: 'Gaurav Jain',
+      photographerUrl:
+        'https://unsplash.com/@gauravjain?utm_source=experience_marketplace&utm_medium=referral',
+      unsplashUrl: 'https://unsplash.com/?utm_source=experience_marketplace&utm_medium=referral',
+    },
   },
   {
     name: 'Edinburgh',
     slug: 'edinburgh',
     icon: '🏴󠁧󠁢󠁳󠁣󠁴󠁿',
     description: 'Discover medieval charm and Scottish heritage in this historic capital.',
+    imageUrl:
+      'https://images.unsplash.com/photo-1506377585622-bedcbb027afc?w=800&q=80&fit=crop&auto=format',
+    imageAttribution: {
+      photographerName: 'Adam Wilson',
+      photographerUrl:
+        'https://unsplash.com/@fourcolourblack?utm_source=experience_marketplace&utm_medium=referral',
+      unsplashUrl: 'https://unsplash.com/?utm_source=experience_marketplace&utm_medium=referral',
+    },
   },
   {
     name: 'Lisbon',
     slug: 'lisbon',
     icon: '🇵🇹',
     description: 'Experience colorful neighborhoods, delicious cuisine, and coastal beauty.',
+    imageUrl:
+      'https://images.unsplash.com/photo-1585208798174-6cedd86e019a?w=800&q=80&fit=crop&auto=format',
+    imageAttribution: {
+      photographerName: 'Daniel Adventures',
+      photographerUrl:
+        'https://unsplash.com/@danieladventures?utm_source=experience_marketplace&utm_medium=referral',
+      unsplashUrl: 'https://unsplash.com/?utm_source=experience_marketplace&utm_medium=referral',
+    },
   },
   {
     name: 'Berlin',
     slug: 'berlin',
     icon: '🇩🇪',
     description: 'Explore modern culture, fascinating history, and creative energy.',
+    imageUrl:
+      'https://images.unsplash.com/photo-1560969184-10fe8719e047?w=800&q=80&fit=crop&auto=format',
+    imageAttribution: {
+      photographerName: 'Stefan Widua',
+      photographerUrl:
+        'https://unsplash.com/@stefanwidua?utm_source=experience_marketplace&utm_medium=referral',
+      unsplashUrl: 'https://unsplash.com/?utm_source=experience_marketplace&utm_medium=referral',
+    },
   },
 ];
 
@@ -175,19 +239,40 @@ export default async function DestinationsPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      {/* Hero Section */}
-      <section className="bg-gradient-to-br from-indigo-900 via-indigo-800 to-purple-900 py-16 sm:py-24">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <h1 className="text-4xl font-bold tracking-tight text-white sm:text-5xl lg:text-6xl">
+      {/* Hero Section — uses site hero image when available, compact header when not */}
+      {site.homepageConfig?.hero?.backgroundImage ? (
+        <section className="relative overflow-hidden py-16 sm:py-24">
+          <Image
+            src={site.homepageConfig.hero.backgroundImage}
+            alt="Explore Destinations"
+            fill
+            className="object-cover"
+            priority
+          />
+          <div className="absolute inset-0 bg-black/50" />
+          <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="text-center">
+              <h1 className="font-display text-4xl font-bold tracking-tight text-white sm:text-5xl">
+                Explore Destinations
+              </h1>
+              <p className="mx-auto mt-4 max-w-2xl text-lg text-white/80">
+                Discover amazing places and find unforgettable experiences in each destination
+              </p>
+            </div>
+          </div>
+        </section>
+      ) : (
+        <section className="border-b border-gray-200 bg-white py-8 sm:py-12">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <h1 className="font-display text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
               Explore Destinations
             </h1>
-            <p className="mx-auto mt-4 max-w-2xl text-lg text-indigo-200 sm:text-xl">
+            <p className="mt-2 max-w-2xl text-base text-gray-600">
               Discover amazing places and find unforgettable experiences in each destination
             </p>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Breadcrumb */}
       <div className="border-b border-gray-200 bg-white">
