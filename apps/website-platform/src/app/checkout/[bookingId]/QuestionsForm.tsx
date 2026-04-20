@@ -152,6 +152,21 @@ function DynamicQuestionField({
     type = 'SELECT';
   }
 
+  // Detect acknowledgement/consent questions that Holibob sends as STRING
+  // but should render as checkboxes (e.g. risk waivers, T&C acceptances)
+  if (type === 'TEXT') {
+    const label = question.label.toLowerCase();
+    if (
+      (label.includes('accept') && (label.includes('risk') || label.includes('terms'))) ||
+      (label.includes('understand') && label.includes('risk')) ||
+      (label.includes('acknowledge') && (label.includes('risk') || label.includes('liability'))) ||
+      (label.includes('agree') &&
+        (label.includes('waiver') || label.includes('terms') || label.includes('conditions')))
+    ) {
+      type = 'BOOLEAN';
+    }
+  }
+
   const renderField = () => {
     switch (type) {
       case 'BOOLEAN':

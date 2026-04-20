@@ -78,6 +78,9 @@ export function AvailabilityModal({
   // not overwritten by subsequent setPricingCategories responses.
   const [maxGuestsCap, setMaxGuestsCap] = useState<number | null>(null);
 
+  // Track initial per-person prices to detect group savings
+  const initialUnitPricesRef = useRef<Record<string, number>>({});
+
   // Loading and error states
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -166,7 +169,11 @@ export function AvailabilityModal({
 
   const handleCalendarDateSelect = (dateStr: string) => {
     const slot = availabilitySlots.find((s) => s.date === dateStr);
-    if (slot) setSelectedSlot(slot);
+    if (slot) {
+      setSelectedSlot(slot);
+      // Reset initial prices — new date may have different base pricing
+      initialUnitPricesRef.current = {};
+    }
   };
 
   const handlePrevMonth = () => {
@@ -382,7 +389,19 @@ export function AvailabilityModal({
         }
 
         if (result.pricingCategoryList) {
-          setPricingCategoriesState(result.pricingCategoryList.nodes);
+          const nodes = result.pricingCategoryList.nodes;
+          setPricingCategoriesState(nodes);
+
+          // Capture initial unit prices on first pricing load (for group savings comparison)
+          if (Object.keys(initialUnitPricesRef.current).length === 0) {
+            const initial: Record<string, number> = {};
+            for (const cat of nodes) {
+              if (cat.unitPrice?.gross != null) {
+                initial[cat.id] = cat.unitPrice.gross;
+              }
+            }
+            initialUnitPricesRef.current = initial;
+          }
         }
       } catch (err) {
         console.error('Pricing update error:', err);
@@ -532,13 +551,13 @@ export function AvailabilityModal({
   if (!mounted || !isOpen) return null;
 
   const modalContent = (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center">
+    <div className="fixed inset-0 z-[9999] flex items-end justify-center lg:items-center">
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden="true" />
 
-      {/* Modal — wide two-panel layout on desktop, single column on mobile */}
+      {/* Modal — full-screen sheet on mobile, wide two-panel on desktop */}
       <div
-        className="relative z-10 mx-4 flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl lg:min-h-[560px] lg:flex-row"
+        className="relative z-10 flex h-[100dvh] w-full flex-col overflow-hidden bg-white shadow-2xl lg:mx-4 lg:h-auto lg:max-h-[90vh] lg:max-w-4xl lg:min-h-[560px] lg:flex-row lg:rounded-2xl"
         data-testid="availability-modal"
       >
         {/* LEFT PANEL — Stepper + step content */}
@@ -723,69 +742,102 @@ export function AvailabilityModal({
                 {step === 'pricing' && !isLoading && (
                   <div className="space-y-4">
                     <p className="text-sm font-medium text-gray-700">Select guests</p>
-                    {pricingCategories.map((category) => (
-                      <div
-                        key={category.id}
-                        className="flex items-start justify-between gap-3 rounded-xl border border-gray-200 p-4"
-                        data-testid={`guest-category-${category.id}`}
-                      >
-                        <div className="min-w-0 pt-1">
-                          <p className="font-medium text-gray-900">{formatLabel(category.label)}</p>
-                          <p className="text-sm text-gray-500">
-                            {category.unitPrice?.grossFormattedText ?? '—'} per person
-                          </p>
-                          {category.minParticipants > 0 && (
-                            <p className="text-xs text-gray-400">Min: {category.minParticipants}</p>
-                          )}
-                        </div>
-                        <div className="flex shrink-0 items-center gap-3">
-                          <button
-                            onClick={() => handleUnitChange(category.id, -1)}
-                            disabled={(categoryUnits[category.id] ?? 0) <= 0}
-                            className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-50"
-                            data-testid={`guest-decrement-${category.id}`}
-                          >
-                            <svg
-                              className="h-4 w-4"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              strokeWidth="2"
-                              stroke="currentColor"
+                    {pricingCategories.map((category) => {
+                      const currentPrice = category.unitPrice?.gross ?? 0;
+                      const initialPrice = initialUnitPricesRef.current[category.id] ?? 0;
+                      // Only show saving when price genuinely dropped by at least 1%
+                      const priceDiff =
+                        initialPrice > 0 && currentPrice > 0
+                          ? (initialPrice - currentPrice) / initialPrice
+                          : 0;
+                      const hasSaving = priceDiff >= 0.01;
+                      const savingPct = hasSaving ? Math.round(priceDiff * 100) : 0;
+
+                      return (
+                        <div
+                          key={category.id}
+                          className="flex items-start justify-between gap-3 rounded-xl border border-gray-200 p-4"
+                          data-testid={`guest-category-${category.id}`}
+                        >
+                          <div className="min-w-0 pt-1">
+                            <p className="font-medium text-gray-900">
+                              {formatLabel(category.label)}
+                            </p>
+                            <p className="text-sm text-gray-500">
+                              {category.unitPrice?.grossFormattedText ?? '—'} per person
+                            </p>
+                            {hasSaving && (
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs text-gray-400 line-through">
+                                  {new Intl.NumberFormat(undefined, {
+                                    style: 'currency',
+                                    currency: category.unitPrice?.currency ?? 'GBP',
+                                  }).format(initialPrice)}
+                                </span>
+                                <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">
+                                  Save {savingPct}%
+                                </span>
+                              </div>
+                            )}
+                            {category.minParticipants > 0 && (
+                              <p className="text-xs text-gray-400">
+                                Min: {category.minParticipants}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex shrink-0 items-center gap-3">
+                            <button
+                              onClick={() => handleUnitChange(category.id, -1)}
+                              disabled={(categoryUnits[category.id] ?? 0) <= 0}
+                              className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                              data-testid={`guest-decrement-${category.id}`}
                             >
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12h-15" />
-                            </svg>
-                          </button>
-                          <span className="w-8 text-center font-medium text-gray-900">
-                            {categoryUnits[category.id] ?? 0}
-                          </span>
-                          <button
-                            onClick={() => handleUnitChange(category.id, 1)}
-                            disabled={
-                              (categoryUnits[category.id] ?? 0) >=
-                                (categoryMaxRef.current.get(category.id) ??
-                                  (category.maxParticipants || 99)) ||
-                              (!!maxGuestsCap && totalGuests >= maxGuestsCap)
-                            }
-                            className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-50"
-                            data-testid={`guest-increment-${category.id}`}
-                          >
-                            <svg
-                              className="h-4 w-4"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              strokeWidth="2"
-                              stroke="currentColor"
+                              <svg
+                                className="h-4 w-4"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                strokeWidth="2"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  d="M19.5 12h-15"
+                                />
+                              </svg>
+                            </button>
+                            <span className="w-8 text-center font-medium text-gray-900">
+                              {categoryUnits[category.id] ?? 0}
+                            </span>
+                            <button
+                              onClick={() => handleUnitChange(category.id, 1)}
+                              disabled={
+                                (categoryUnits[category.id] ?? 0) >=
+                                  (categoryMaxRef.current.get(category.id) ??
+                                    (category.maxParticipants || 99)) ||
+                                (!!maxGuestsCap && totalGuests >= maxGuestsCap)
+                              }
+                              className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                              data-testid={`guest-increment-${category.id}`}
                             >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M12 4.5v15m7.5-7.5h-15"
-                              />
-                            </svg>
-                          </button>
+                              <svg
+                                className="h-4 w-4"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                strokeWidth="2"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  d="M12 4.5v15m7.5-7.5h-15"
+                                />
+                              </svg>
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
 
                     {/* Max guests message */}
                     {(() => {
@@ -853,6 +905,16 @@ export function AvailabilityModal({
                       <div>
                         <p className="text-sm text-gray-500">
                           {totalGuests} {totalGuests === 1 ? 'guest' : 'guests'}
+                          {totalGuests > 0 && (
+                            <span className="ml-1 text-gray-400">
+                              &middot;{' '}
+                              {new Intl.NumberFormat(undefined, {
+                                style: 'currency',
+                                currency: totalPrice.currency,
+                              }).format(totalPrice.amount / totalGuests)}
+                              /person
+                            </span>
+                          )}
                         </p>
                         <p className="text-lg font-bold" style={{ color: primaryColor }}>
                           {totalPrice.formatted}
