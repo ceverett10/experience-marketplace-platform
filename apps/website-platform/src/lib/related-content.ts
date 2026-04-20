@@ -221,10 +221,26 @@ export async function getRelatedExperiencesForContent(
   try {
     const client = await getHolibobClient(site);
     const searchText = keywords.slice(0, 3).join(' ');
-    const filter = {
-      freeText: searchText,
+
+    // Keywords are activity/category descriptors (e.g., "wine tasting", "walking tours")
+    // — they belong in searchTerm (what.data.searchTerm), NOT freeText (where.freeText).
+    // freeText must be a geographic destination so the API can resolve a location.
+    const destination =
+      site.homepageConfig?.popularExperiences?.destination ||
+      site.homepageConfig?.destinations?.[0]?.name ||
+      undefined;
+
+    const filter: {
+      freeText?: string;
+      searchTerm: string;
+      currency: string;
+    } = {
+      searchTerm: searchText,
       currency: site.primaryCurrency ?? 'GBP',
     };
+    if (destination) {
+      filter.freeText = destination;
+    }
 
     const response = await client.discoverProducts(filter, { pageSize: limit });
 
