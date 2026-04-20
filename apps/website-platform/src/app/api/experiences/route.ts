@@ -131,12 +131,13 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Product Discovery API requires where.freeText — fall back to site's default destination
+    // Only send a real geographic destination as freeText — site.name (e.g., "Experience
+    // Marketplace") is not a location and causes Holibob API errors when sent as where.freeText.
     const freeText =
       destination ||
       site.homepageConfig?.popularExperiences?.destination ||
       site.homepageConfig?.destinations?.[0]?.name ||
-      site.name;
+      undefined;
 
     const response = await client.discoverProducts(
       {

@@ -60,11 +60,12 @@ async function getRelatedExperiences(
 
   try {
     const client = await getHolibobClient(site);
-    // Product Discovery API requires where.freeText — use site's default destination
+    // Only use a real geographic destination — site.name (e.g., "Experience Marketplace")
+    // is not a location and causes Holibob API errors when sent as where.freeText.
     const freeText =
       site.homepageConfig?.popularExperiences?.destination ||
       site.homepageConfig?.destinations?.[0]?.name ||
-      site.name;
+      undefined;
     const response = await client.discoverProducts(
       {
         categoryIds: [categoryId],

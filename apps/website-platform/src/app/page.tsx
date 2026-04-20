@@ -201,11 +201,15 @@ async function getFeaturedExperiences(
     };
 
     // "Where" - location as freeText (e.g., "London")
-    // Product Discovery API requires where.freeText when no consumerTripSelector is provided
-    filter.freeText =
+    // Only send a real geographic destination — site.name (e.g., "Experience Marketplace")
+    // is not a location and causes Holibob API errors when sent as where.freeText.
+    const destination =
       popularExperiencesConfig?.destination ||
       siteConfig.homepageConfig?.destinations?.[0]?.name ||
-      siteConfig.name;
+      undefined;
+    if (destination) {
+      filter.freeText = destination;
+    }
 
     // "What" - combined search terms for filtering by category/niche
     if (searchTermParts.length > 0) {

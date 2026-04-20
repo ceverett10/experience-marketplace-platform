@@ -1089,11 +1089,18 @@ async function fetchExperiencesForFAQ(
 
   try {
     const client = createHolibobClient({ apiUrl, partnerId, apiKey, apiSecret });
-    const query = location ? `${niche} ${location}` : niche;
-    const response = await client.discoverProducts(
-      { freeText: query, currency: 'GBP' },
-      { pageSize: 8 }
-    );
+    // freeText = location/destination only; searchTerm = activity/category descriptors.
+    // Previously these were combined into freeText which caused Holibob API errors.
+    const filter: { freeText?: string; searchTerm?: string; currency: string } = {
+      currency: 'GBP',
+    };
+    if (location) {
+      filter.freeText = location;
+    }
+    if (niche) {
+      filter.searchTerm = niche;
+    }
+    const response = await client.discoverProducts(filter, { pageSize: 8 });
     return response.products.map((p) => ({
       title: p.name,
       city: p.place?.cityName ?? undefined,
