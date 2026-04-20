@@ -555,15 +555,15 @@ export function AvailabilityModal({
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden="true" />
 
-      {/* Modal — full-screen sheet on mobile, wide two-panel on desktop */}
+      {/* Modal — fixed full-screen on mobile, centred panel on desktop */}
       <div
-        className="relative z-10 flex h-[100dvh] w-full flex-col overflow-hidden bg-white shadow-2xl lg:mx-4 lg:h-auto lg:max-h-[90vh] lg:max-w-4xl lg:min-h-[560px] lg:flex-row lg:rounded-2xl"
+        className="fixed inset-0 z-10 flex flex-col bg-white lg:relative lg:inset-auto lg:mx-4 lg:max-h-[90vh] lg:w-full lg:max-w-4xl lg:min-h-[560px] lg:flex-row lg:overflow-hidden lg:rounded-2xl lg:shadow-2xl"
         data-testid="availability-modal"
       >
         {/* LEFT PANEL — Stepper + step content */}
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           {/* Header */}
-          <div className="border-b border-gray-200 px-6 py-4">
+          <div className="shrink-0 border-b border-gray-200 px-6 py-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900">Book Experience</h2>
               <button
@@ -900,8 +900,8 @@ export function AvailabilityModal({
                 )}
               </div>
 
-              {/* Footer */}
-              <div className="border-t border-gray-200 px-6 py-4">
+              {/* Footer — pinned at bottom */}
+              <div className="shrink-0 border-t border-gray-200 px-6 py-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     {step === 'pricing' && totalPrice && (
