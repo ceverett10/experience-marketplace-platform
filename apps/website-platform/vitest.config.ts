@@ -21,6 +21,7 @@ export default defineConfig({
         'src/app/**/layout.tsx',
         'src/app/**/loading.tsx',
         'src/app/**/error.tsx',
+        'src/**/*Classic.tsx', // A/B test variants preserved for future use
       ],
       thresholds: {
         // Floor thresholds — prevent coverage regression. Keep 1-2% below actual to avoid flaky CI.

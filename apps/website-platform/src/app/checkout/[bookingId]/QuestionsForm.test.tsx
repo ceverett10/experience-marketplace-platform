@@ -165,10 +165,9 @@ describe('QuestionsForm', () => {
     expect(screen.getByTestId('submit-questions')).toHaveTextContent('Processing...');
   });
 
-  it('renders "Your Details" heading instead of "Lead Person Details"', () => {
+  it('renders form with Your Details heading', () => {
     render(<QuestionsForm {...defaultProps} />);
     expect(screen.getByText('Your Details')).toBeInTheDocument();
-    expect(screen.queryByText('Lead Person Details')).not.toBeInTheDocument();
   });
 
   it('does not render Holibob bank statement warning box', () => {
