@@ -479,7 +479,7 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
         <div className="mb-4 sm:mb-8">
           <Link
             href="/experiences"
-            className="hidden items-center gap-2 text-sm text-gray-600 hover:text-gray-900 sm:inline-flex"
+            className="inline-flex items-center gap-2 text-xs text-gray-500 hover:text-gray-900 sm:text-sm sm:text-gray-600"
           >
             <svg
               className="h-4 w-4"
