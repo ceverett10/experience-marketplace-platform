@@ -583,7 +583,7 @@ export function AvailabilityModal({
           </div>
 
           {/* Stepper + Content */}
-          <div className="flex flex-1 overflow-hidden">
+          <div className="flex min-h-0 flex-1">
             {/* Stepper sidebar — hidden on mobile */}
             <div className="hidden w-48 shrink-0 border-r border-gray-100 p-4 lg:block">
               <BookingStepper
@@ -595,8 +595,11 @@ export function AvailabilityModal({
             </div>
 
             {/* Step content */}
-            <div className="flex flex-1 flex-col overflow-hidden">
-              <div className="flex-1 overflow-y-auto p-6 lg:min-h-[340px]">
+            <div className="flex min-h-0 flex-1 flex-col">
+              <div
+                className="flex-1 overflow-y-auto overscroll-contain p-6 lg:min-h-[340px]"
+                style={{ WebkitOverflowScrolling: 'touch' }}
+              >
                 {/* Error message */}
                 {error && (
                   <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</div>
