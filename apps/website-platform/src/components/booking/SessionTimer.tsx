@@ -94,25 +94,42 @@ export function SessionTimer({
 
   const colors = getColors();
 
+  const totalSeconds = durationMinutes * 60;
+  const progressPct = Math.max(0, (timeLeft / totalSeconds) * 100);
+
   if (variant === 'banner') {
     return (
-      <div
-        className={`flex items-center justify-center gap-2 px-4 py-2 ${colors.bg} ${colors.text} ${colors.border} border-b`}
-      >
-        <svg
-          className={`h-4 w-4 ${colors.icon} ${isCritical ? 'animate-pulse' : ''}`}
-          fill="none"
-          viewBox="0 0 24 24"
-          strokeWidth="2"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
+      <div className={`${colors.bg} ${colors.border} border-b`}>
+        {/* Progress bar */}
+        <div className="h-1 w-full bg-gray-200">
+          <div
+            className={`h-full transition-all duration-1000 ease-linear ${
+              isCritical ? 'bg-red-500' : isWarning ? 'bg-amber-500' : 'bg-emerald-500'
+            }`}
+            style={{ width: `${progressPct}%` }}
           />
-        </svg>
-        <span className="text-sm font-medium">Complete your booking in {formatTime(timeLeft)}</span>
+        </div>
+        {/* Timer text */}
+        <div className="flex items-center justify-center gap-2 px-4 py-2">
+          <svg
+            className={`h-4 w-4 ${colors.icon} ${isCritical ? 'animate-pulse' : ''}`}
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth="2"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </svg>
+          <span className={`text-sm font-semibold ${colors.text}`}>
+            {isCritical
+              ? `Hurry! Only ${formatTime(timeLeft)} left to complete your booking`
+              : `Complete your booking in ${formatTime(timeLeft)}`}
+          </span>
+        </div>
       </div>
     );
   }

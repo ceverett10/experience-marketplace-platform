@@ -462,14 +462,16 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
 
   return (
     <main className="min-h-screen bg-gray-50">
-      {/* Session timer banner — shows countdown across the top */}
+      {/* Session timer banner — sticky at top, visible while scrolling */}
       {!isCommitting && !paymentComplete && (
-        <SessionTimer
-          startTime={sessionStart}
-          durationMinutes={15}
-          onExpire={handleSessionExpire}
-          variant="banner"
-        />
+        <div className="sticky top-0 z-40">
+          <SessionTimer
+            startTime={sessionStart}
+            durationMinutes={15}
+            onExpire={handleSessionExpire}
+            variant="banner"
+          />
+        </div>
       )}
 
       <div className="mx-auto max-w-4xl px-4 py-8">
