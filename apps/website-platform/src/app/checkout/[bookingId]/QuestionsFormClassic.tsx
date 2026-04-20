@@ -127,7 +127,7 @@ function DynamicQuestionField({
   onChange: (value: string) => void;
   error?: string;
 }) {
-  const inputClass = `w-full rounded-lg border px-4 py-3 text-base transition-colors focus:outline-none focus:ring-2 ${
+  const inputClass = `w-full rounded-lg border px-4 py-3 text-base sm:text-sm transition-colors focus:outline-none focus:ring-2 ${
     error
       ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
       : 'border-gray-300 focus:border-teal-500 focus:ring-teal-500'
@@ -176,9 +176,9 @@ function DynamicQuestionField({
               type="checkbox"
               checked={value === 'true'}
               onChange={(e) => onChange(e.target.checked ? 'true' : 'false')}
-              className="mt-1 h-5 w-5 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+              className="mt-1 h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
             />
-            <span className="text-base text-gray-700">
+            <span className="text-sm text-gray-700">
               {question.label}
               {question.isRequired && <span className="text-red-500"> *</span>}
             </span>
@@ -191,7 +191,7 @@ function DynamicQuestionField({
         const SEARCH_THRESHOLD = 8;
         return (
           <>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">
+            <label className="mb-1 block text-sm font-medium text-gray-700">
               {question.label}
               {question.isRequired && <span className="text-red-500"> *</span>}
             </label>
@@ -241,9 +241,9 @@ function DynamicQuestionField({
                         : selectedValues.filter((v) => v !== opt.value);
                       onChange(next.join(','));
                     }}
-                    className="h-5 w-5 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+                    className="h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
                   />
-                  <span className="text-base text-gray-700">{opt.label}</span>
+                  <span className="text-sm text-gray-700">{opt.label}</span>
                 </label>
               ))}
             </div>
@@ -254,7 +254,7 @@ function DynamicQuestionField({
       case 'TEXTAREA':
         return (
           <>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">
+            <label className="mb-1 block text-sm font-medium text-gray-700">
               {question.label}
               {question.isRequired && <span className="text-red-500"> *</span>}
             </label>
@@ -271,7 +271,7 @@ function DynamicQuestionField({
       case 'DATE':
         return (
           <>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">
+            <label className="mb-1 block text-sm font-medium text-gray-700">
               {question.label}
               {question.isRequired && <span className="text-red-500"> *</span>}
             </label>
@@ -288,7 +288,7 @@ function DynamicQuestionField({
       case 'NUMBER':
         return (
           <>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">
+            <label className="mb-1 block text-sm font-medium text-gray-700">
               {question.label}
               {question.isRequired && <span className="text-red-500"> *</span>}
             </label>
@@ -307,7 +307,7 @@ function DynamicQuestionField({
         const inputType = type === 'EMAIL' ? 'email' : type === 'PHONE' ? 'tel' : 'text';
         return (
           <>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">
+            <label className="mb-1 block text-sm font-medium text-gray-700">
               {question.label}
               {question.isRequired && <span className="text-red-500"> *</span>}
             </label>
@@ -332,7 +332,7 @@ function DynamicQuestionField({
   );
 }
 
-export function QuestionsForm({
+export function QuestionsFormClassic({
   bookingQuestions,
   availabilities,
   onSubmit,
@@ -549,151 +549,121 @@ export function QuestionsForm({
     await onSubmit(data);
   };
 
-  const inputBaseClass = (errorKey: string) =>
-    `w-full rounded-lg border px-4 py-3 text-base transition-colors focus:outline-none focus:ring-2 ${
-      errors[errorKey]
-        ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
-        : 'border-gray-300 focus:border-teal-500 focus:ring-teal-500'
-    }`;
-
   return (
     <form onSubmit={handleSubmit} noValidate className="space-y-6" data-testid="questions-form">
-      {/* Section: Your personal details */}
-      <div className="rounded-xl bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-gray-900" style={{ color: primaryColor }}>
+      {/* Lead Person Details */}
+      <div className="rounded-xl bg-white p-6 shadow-lg">
+        <h2 className="mb-6 text-lg font-semibold" style={{ color: primaryColor }}>
           Your Details
         </h2>
 
-        <div className="mt-6 space-y-5">
-          {/* Email — first field, autoFocus */}
+        <div className="space-y-4">
           <div>
-            <label
-              htmlFor="checkout-email"
-              className="mb-1.5 block text-sm font-medium text-gray-700"
-            >
-              Email address <span className="text-red-500">*</span>
-            </label>
             <input
-              id="checkout-email"
+              type="text"
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              className={`w-full rounded-lg border px-4 py-3 text-sm transition-colors focus:outline-none focus:ring-2 ${
+                errors['firstName']
+                  ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
+                  : 'border-gray-300 focus:border-teal-500 focus:ring-teal-500'
+              }`}
+              placeholder="First name *"
+              autoComplete="given-name"
+              data-testid="lead-first-name"
+            />
+            {errors['firstName'] && (
+              <p className="mt-1 text-xs text-red-500">{errors['firstName']}</p>
+            )}
+          </div>
+
+          <div>
+            <input
+              type="text"
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              className={`w-full rounded-lg border px-4 py-3 text-sm transition-colors focus:outline-none focus:ring-2 ${
+                errors['lastName']
+                  ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
+                  : 'border-gray-300 focus:border-teal-500 focus:ring-teal-500'
+              }`}
+              placeholder="Last name *"
+              autoComplete="family-name"
+              data-testid="lead-last-name"
+            />
+            {errors['lastName'] && (
+              <p className="mt-1 text-xs text-red-500">{errors['lastName']}</p>
+            )}
+          </div>
+
+          <div>
+            <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className={inputBaseClass('email')}
+              className={`w-full rounded-lg border px-4 py-3 text-sm transition-colors focus:outline-none focus:ring-2 ${
+                errors['email']
+                  ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
+                  : 'border-gray-300 focus:border-teal-500 focus:ring-teal-500'
+              }`}
               placeholder="Email Address *"
               autoComplete="email"
-              autoFocus
               data-testid="lead-email"
             />
             {errors['email'] && <p className="mt-1 text-xs text-red-500">{errors['email']}</p>}
           </div>
 
-          {/* First + Last name — 2 columns on sm+ */}
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label
-                htmlFor="checkout-first-name"
-                className="mb-1.5 block text-sm font-medium text-gray-700"
-              >
-                First name <span className="text-red-500">*</span>
-              </label>
-              <input
-                id="checkout-first-name"
-                type="text"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                className={inputBaseClass('firstName')}
-                placeholder="First name *"
-                autoComplete="given-name"
-                data-testid="lead-first-name"
-              />
-              {errors['firstName'] && (
-                <p className="mt-1 text-xs text-red-500">{errors['firstName']}</p>
-              )}
-            </div>
-            <div>
-              <label
-                htmlFor="checkout-last-name"
-                className="mb-1.5 block text-sm font-medium text-gray-700"
-              >
-                Last name <span className="text-red-500">*</span>
-              </label>
-              <input
-                id="checkout-last-name"
-                type="text"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                className={inputBaseClass('lastName')}
-                placeholder="Last name *"
-                autoComplete="family-name"
-                data-testid="lead-last-name"
-              />
-              {errors['lastName'] && (
-                <p className="mt-1 text-xs text-red-500">{errors['lastName']}</p>
-              )}
-            </div>
-          </div>
-
-          {/* Phone number */}
-          <div>
-            <label
-              htmlFor="checkout-phone"
-              className="mb-1.5 block text-sm font-medium text-gray-700"
+          <div className="flex gap-2">
+            <select
+              value={phoneCountryCode}
+              onChange={(e) => setPhoneCountryCode(e.target.value)}
+              className="w-24 rounded-lg border border-gray-300 bg-white px-3 py-3 text-sm focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500"
+              autoComplete="tel-country-code"
             >
-              Phone number <span className="text-red-500">*</span>
-            </label>
-            <div className="flex gap-2">
-              <select
-                value={phoneCountryCode}
-                onChange={(e) => setPhoneCountryCode(e.target.value)}
-                className="w-24 rounded-lg border border-gray-300 bg-white px-3 py-3 text-base focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                autoComplete="tel-country-code"
-              >
-                <option value="+44">+44</option>
-                <option value="+1">+1</option>
-                <option value="+33">+33</option>
-                <option value="+34">+34</option>
-                <option value="+39">+39</option>
-                <option value="+49">+49</option>
-                <option value="+31">+31</option>
-                <option value="+32">+32</option>
-                <option value="+41">+41</option>
-                <option value="+43">+43</option>
-                <option value="+351">+351</option>
-                <option value="+353">+353</option>
-                <option value="+61">+61</option>
-                <option value="+64">+64</option>
-                <option value="+81">+81</option>
-                <option value="+82">+82</option>
-                <option value="+86">+86</option>
-                <option value="+91">+91</option>
-              </select>
-              <input
-                id="checkout-phone"
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className={`flex-1 rounded-lg border px-4 py-3 text-base transition-colors focus:outline-none focus:ring-2 ${
-                  errors['phone']
-                    ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
-                    : 'border-gray-300 focus:border-teal-500 focus:ring-teal-500'
-                }`}
-                placeholder="Phone Number *"
-                autoComplete="tel-national"
-                data-testid="lead-phone"
-              />
-            </div>
-            {errors['phone'] && <p className="mt-1 text-xs text-red-500">{errors['phone']}</p>}
+              <option value="+44">+44</option>
+              <option value="+1">+1</option>
+              <option value="+33">+33</option>
+              <option value="+34">+34</option>
+              <option value="+39">+39</option>
+              <option value="+49">+49</option>
+              <option value="+31">+31</option>
+              <option value="+32">+32</option>
+              <option value="+41">+41</option>
+              <option value="+43">+43</option>
+              <option value="+351">+351</option>
+              <option value="+353">+353</option>
+              <option value="+61">+61</option>
+              <option value="+64">+64</option>
+              <option value="+81">+81</option>
+              <option value="+82">+82</option>
+              <option value="+86">+86</option>
+              <option value="+91">+91</option>
+            </select>
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className={`flex-1 rounded-lg border px-4 py-3 text-sm transition-colors focus:outline-none focus:ring-2 ${
+                errors['phone']
+                  ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
+                  : 'border-gray-300 focus:border-teal-500 focus:ring-teal-500'
+              }`}
+              placeholder="Phone Number *"
+              autoComplete="tel-national"
+              data-testid="lead-phone"
+            />
           </div>
+          {errors['phone'] && <p className="-mt-2 text-xs text-red-500">{errors['phone']}</p>}
         </div>
       </div>
 
-      {/* Section: Booking-level additional questions */}
+      {/* Additional Booking-Level Questions */}
       {additionalBookingQuestions.length > 0 && (
-        <div className="rounded-xl bg-white p-6 shadow-sm">
-          <h2 className="mb-6 text-lg font-semibold text-gray-900">
-            Experience &mdash; Additional Questions
+        <div className="rounded-xl bg-white p-6 shadow-lg">
+          <h2 className="mb-4 text-lg font-semibold" style={{ color: primaryColor }}>
+            Additional Information
           </h2>
-          <div className="space-y-5">
+          <div className="space-y-4">
             {additionalBookingQuestions.map((question) => (
               <DynamicQuestionField
                 key={question.id}
@@ -707,13 +677,13 @@ export function QuestionsForm({
         </div>
       )}
 
-      {/* Section: Availability-level questions (per experience) */}
+      {/* Availability-Level Questions (per experience) */}
       {availabilityQuestionSections.map(({ availability, questions }) => (
-        <div key={availability.id} className="rounded-xl bg-white p-6 shadow-sm">
-          <h2 className="mb-6 text-lg font-semibold text-gray-900">
-            {availability.product?.name ?? 'Experience'} &mdash; Additional Questions
+        <div key={availability.id} className="rounded-xl bg-white p-6 shadow-lg">
+          <h2 className="mb-4 text-lg font-semibold" style={{ color: primaryColor }}>
+            {availability.product?.name ?? 'Experience'} — Additional Questions
           </h2>
-          <div className="space-y-5">
+          <div className="space-y-4">
             {questions.map((question) => (
               <DynamicQuestionField
                 key={question.id}
@@ -727,19 +697,21 @@ export function QuestionsForm({
         </div>
       ))}
 
-      {/* Section: Per-person questions */}
+      {/* Per-Person Questions */}
       {personQuestionSections.length > 0 && (
-        <div className="rounded-xl bg-white p-6 shadow-sm">
-          <div className="mb-6 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">Guest Details</h2>
+        <div className="rounded-xl bg-white p-6 shadow-lg">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold" style={{ color: primaryColor }}>
+              Guest Details
+            </h2>
             {personQuestionSections.length > 1 && (
-              <span className="text-sm text-gray-500">
+              <span className="text-xs text-gray-500">
                 {personQuestionSections.filter((s) => isPersonSectionComplete(s.questions)).length}/
                 {personQuestionSections.length} complete
               </span>
             )}
           </div>
-          <div className="space-y-4">
+          <div className="space-y-3">
             {personQuestionSections.map(({ person, guestIndex, questions }) => {
               const isExpanded = expandedPersons[person.id] ?? guestIndex === 0; // only lead guest open by default
               const label = person.pricingCategoryLabel ?? `Guest ${guestIndex + 1}`;
@@ -748,22 +720,22 @@ export function QuestionsForm({
               return (
                 <div
                   key={person.id}
-                  className={`rounded-xl border ${isComplete && !isExpanded ? 'border-green-200 bg-green-50/50' : 'border-gray-200'}`}
+                  className={`rounded-lg border ${isComplete && !isExpanded ? 'border-green-200 bg-green-50/50' : 'border-gray-200'}`}
                   data-testid={`person-section-${person.id}`}
                 >
                   <button
                     type="button"
                     onClick={() => togglePerson(person.id)}
-                    className="flex w-full items-center justify-between px-5 py-4 text-left"
+                    className="flex w-full items-center justify-between px-4 py-3 text-left"
                   >
-                    <span className="flex items-center gap-2 text-base font-medium text-gray-900">
+                    <span className="flex items-center gap-2 text-sm font-medium text-gray-900">
                       {label}
                       {guestIndex === 0 && (
-                        <span className="text-sm text-gray-500">(Lead guest)</span>
+                        <span className="text-xs text-gray-500">(Lead guest)</span>
                       )}
                       {isComplete && !isExpanded && (
                         <svg
-                          className="h-5 w-5 text-green-500"
+                          className="h-4 w-4 text-green-500"
                           fill="none"
                           viewBox="0 0 24 24"
                           strokeWidth="2"
@@ -778,7 +750,7 @@ export function QuestionsForm({
                       )}
                     </span>
                     <svg
-                      className={`h-5 w-5 text-gray-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                      className={`h-4 w-4 text-gray-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
                       fill="none"
                       viewBox="0 0 24 24"
                       strokeWidth="2"
@@ -792,7 +764,7 @@ export function QuestionsForm({
                     </svg>
                   </button>
                   {isExpanded && (
-                    <div className="space-y-5 border-t border-gray-200 px-5 py-5">
+                    <div className="space-y-4 border-t border-gray-200 px-4 py-4">
                       {questions.map((question) => (
                         <DynamicQuestionField
                           key={question.id}
@@ -811,17 +783,17 @@ export function QuestionsForm({
         </div>
       )}
 
-      {/* Section: Confirm */}
-      <div className="rounded-xl bg-white p-6 shadow-sm">
+      {/* Terms and Total */}
+      <div className="rounded-xl bg-white p-6 shadow-lg">
         <label className="flex cursor-pointer items-start gap-3">
           <input
             type="checkbox"
             checked={termsAccepted}
             onChange={(e) => setTermsAccepted(e.target.checked)}
-            className="mt-1 h-5 w-5 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+            className="mt-1 h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
             data-testid="terms-checkbox"
           />
-          <span className="text-base text-gray-700">
+          <span className="text-sm text-gray-700">
             I accept the{' '}
             <button
               type="button"
@@ -835,20 +807,20 @@ export function QuestionsForm({
         {errors['terms'] && <p className="mt-2 text-xs text-red-500">{errors['terms']}</p>}
 
         {/* Total Cost Display */}
-        <div className="mt-6 flex items-center justify-between border-t border-gray-200 pt-5">
-          <span className="text-lg font-bold text-gray-900">Total cost:</span>
-          <span className="text-2xl font-bold" style={{ color: primaryColor }}>
+        <div className="mt-6 flex items-center justify-between border-t border-gray-200 pt-4">
+          <span className="text-lg font-semibold text-gray-900">Total cost:</span>
+          <span className="text-xl font-bold" style={{ color: primaryColor }}>
             {totalPrice ?? '-'}
           </span>
         </div>
         <p className="mt-2 text-center text-xs text-gray-400">Payment processed by Holibob Ltd</p>
       </div>
 
-      {/* Submit Button — full width, prominent */}
+      {/* Submit Button */}
       <button
         type="submit"
         disabled={isSubmitting}
-        className="w-full rounded-lg py-3.5 text-base font-semibold text-white transition-all hover:shadow-lg disabled:opacity-50"
+        className="w-full rounded-xl py-4 text-base font-semibold text-white transition-all hover:shadow-lg disabled:opacity-50"
         style={{ backgroundColor: primaryColor }}
         data-testid="submit-questions"
       >
@@ -873,52 +845,10 @@ export function QuestionsForm({
           </span>
         ) : isResubmission ? (
           'Submit Answers'
-        ) : totalPrice ? (
-          `Proceed to Payment \u2014 ${totalPrice}`
         ) : (
           'Proceed to Payment'
         )}
       </button>
-
-      {/* Bottom trust signals */}
-      <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6">
-        <span className="flex items-center gap-1.5 text-sm text-gray-500">
-          <svg
-            className="h-4 w-4 text-emerald-500"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth="2"
-            stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-          </svg>
-          Free cancellation
-        </span>
-        <span className="flex items-center gap-1.5 text-sm text-gray-500">
-          <svg
-            className="h-4 w-4 text-emerald-500"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth="2"
-            stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-          </svg>
-          Secure booking
-        </span>
-        <span className="flex items-center gap-1.5 text-sm text-gray-500">
-          <svg
-            className="h-4 w-4 text-emerald-500"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth="2"
-            stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-          </svg>
-          Instant confirmation
-        </span>
-      </div>
 
       {/* Guest count info */}
       {totalGuests > 1 && !hasAdditionalQuestions && (

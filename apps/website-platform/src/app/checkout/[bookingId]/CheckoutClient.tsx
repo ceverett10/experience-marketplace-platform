@@ -474,12 +474,12 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
         </div>
       )}
 
-      <div className="mx-auto max-w-4xl px-4 py-8">
-        {/* Header */}
-        <div className="mb-8">
+      <div className="mx-auto max-w-4xl px-4 py-4 sm:py-8">
+        {/* Header — compact on mobile */}
+        <div className="mb-4 sm:mb-8">
           <Link
             href="/experiences"
-            className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
+            className="hidden items-center gap-2 text-sm text-gray-600 hover:text-gray-900 sm:inline-flex"
           >
             <svg
               className="h-4 w-4"
@@ -496,8 +496,10 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
             </svg>
             Back to experiences
           </Link>
-          <h1 className="mt-4 text-3xl font-bold text-gray-900">Complete Your Booking</h1>
-          <p className="mt-2 text-gray-600">
+          <h1 className="text-2xl font-bold text-gray-900 sm:mt-4 sm:text-3xl">
+            Complete Your Booking
+          </h1>
+          <p className="mt-1 text-sm text-gray-600 sm:mt-2 sm:text-base">
             {showPayment
               ? 'Complete your payment to confirm'
               : 'Fill in your details to complete your booking'}
@@ -520,7 +522,7 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
               }`;
 
             return (
-              <div className="mt-6" data-testid="step-indicator">
+              <div className="mt-4 hidden sm:block" data-testid="step-indicator">
                 <div className="flex items-center">
                   {/* Step 1 circle */}
                   <div
@@ -579,15 +581,17 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
           })()}
         </div>
 
-        {/* Mobile Order Summary - sticky bar visible only on mobile */}
-        <MobileOrderSummary
-          experienceName={firstAvailability?.product?.name ?? 'Experience'}
-          date={firstAvailability ? formatDate(firstAvailability.date) : undefined}
-          totalPrice={booking.totalPrice?.grossFormattedText}
-          guestCount={totalGuests}
-          imageUrl={firstAvailability?.product?.imageList?.nodes?.[0]?.url}
-          primaryColor={primaryColor}
-        />
+        {/* Mobile Order Summary - hidden during form entry to reduce clutter, shown on payment step */}
+        {showPayment && (
+          <MobileOrderSummary
+            experienceName={firstAvailability?.product?.name ?? 'Experience'}
+            date={firstAvailability ? formatDate(firstAvailability.date) : undefined}
+            totalPrice={booking.totalPrice?.grossFormattedText}
+            guestCount={totalGuests}
+            imageUrl={firstAvailability?.product?.imageList?.nodes?.[0]?.url}
+            primaryColor={primaryColor}
+          />
+        )}
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
           {/* Main Content */}
@@ -602,9 +606,9 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
               </div>
             )}
 
-            {/* Cancellation Policy Banner — mobile only, visible during guest entry */}
+            {/* Cancellation Policy Banner — hidden on mobile to reduce clutter above form */}
             {!questionsAnswered && (
-              <div className="mb-4 flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm lg:hidden">
+              <div className="mb-4 hidden items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm lg:flex">
                 {hasFreeCancellation ? (
                   <svg
                     className="h-5 w-5 flex-shrink-0 text-green-500"
