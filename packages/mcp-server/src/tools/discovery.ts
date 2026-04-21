@@ -416,6 +416,18 @@ export function registerDiscoveryTools(
       _meta: {},
     },
     async ({ destination, searchTerm }) => {
+      // Product Discovery API requires where.freeText — return helpful message if missing
+      if (!destination) {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: 'Please provide a destination to get suggestions. For example: "Barcelona", "London", "Tokyo".',
+            },
+          ],
+        };
+      }
+
       const suggestions = await client.getSuggestions({
         currency: 'GBP',
         freeText: destination,

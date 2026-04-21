@@ -80,43 +80,37 @@ describe('Suggestions Route - GET', () => {
     );
   });
 
-  it('calls API when "what" is provided', async () => {
-    mockGetSuggestions.mockResolvedValue({ destinations: [] });
-
+  it('returns empty suggestions when only "what" is provided (no where)', async () => {
     const request = new NextRequest('http://localhost:3000/api/suggestions?what=food+tour');
 
     const response = await GET(request);
-    expect(response.status).toBe(200);
+    const data = await response.json();
 
-    expect(mockGetSuggestions).toHaveBeenCalledWith(
-      expect.objectContaining({
-        searchTerm: 'food tour',
-      })
-    );
+    expect(response.status).toBe(200);
+    expect(data.destinations).toEqual([]);
+    expect(mockGetSuggestions).not.toHaveBeenCalled();
   });
 
-  it('calls API when "adults" is provided', async () => {
-    mockGetSuggestions.mockResolvedValue({ destinations: [] });
-
+  it('returns empty suggestions when only "adults" is provided (no where)', async () => {
     const request = new NextRequest('http://localhost:3000/api/suggestions?adults=3');
 
     const response = await GET(request);
-    expect(response.status).toBe(200);
+    const data = await response.json();
 
-    expect(mockGetSuggestions).toHaveBeenCalledWith(expect.objectContaining({ adults: 3 }));
+    expect(response.status).toBe(200);
+    expect(data.destinations).toEqual([]);
+    expect(mockGetSuggestions).not.toHaveBeenCalled();
   });
 
-  it('calls API when "startDate" is provided', async () => {
-    mockGetSuggestions.mockResolvedValue({ destinations: [] });
-
+  it('returns empty suggestions when only "startDate" is provided (no where)', async () => {
     const request = new NextRequest('http://localhost:3000/api/suggestions?startDate=2025-06-01');
 
     const response = await GET(request);
-    expect(response.status).toBe(200);
+    const data = await response.json();
 
-    expect(mockGetSuggestions).toHaveBeenCalledWith(
-      expect.objectContaining({ dateFrom: '2025-06-01' })
-    );
+    expect(response.status).toBe(200);
+    expect(data.destinations).toEqual([]);
+    expect(mockGetSuggestions).not.toHaveBeenCalled();
   });
 
   it('passes all parameters including children and endDate', async () => {

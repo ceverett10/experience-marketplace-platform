@@ -139,6 +139,15 @@ export async function GET(request: NextRequest) {
       site.homepageConfig?.destinations?.[0]?.name ||
       undefined;
 
+    // Product Discovery API requires where.freeText — return empty results without calling API.
+    // searchTerm alone is not sufficient (it maps to "what", not "where").
+    if (!freeText) {
+      return NextResponse.json(
+        { experiences: [], hasMore: false, totalCount: 0 },
+        { headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=30' } }
+      );
+    }
+
     const response = await client.discoverProducts(
       {
         currency,

@@ -18,8 +18,9 @@ export async function GET(request: NextRequest) {
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
 
-    // Only call API if we have at least some input
-    if (!where && !what && !startDate && !adults) {
+    // Product Discovery API requires where.freeText — don't call without a location.
+    // Other params (what, startDate, adults) map to "what"/"when"/"who", not "where".
+    if (!where) {
       return NextResponse.json({
         destination: null,
         destinations: [],
