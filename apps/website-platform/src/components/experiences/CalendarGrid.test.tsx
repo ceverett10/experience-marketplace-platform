@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { CalendarGrid } from './CalendarGrid';
 
@@ -18,6 +18,15 @@ const defaultProps = {
 };
 
 describe('CalendarGrid', () => {
+  // Pin "today" to before the test dates so past-date filtering doesn't hide the fixture dates
+  beforeAll(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-04-01T00:00:00Z'));
+  });
+  afterAll(() => {
+    vi.useRealTimers();
+  });
+
   it('renders month and year header', () => {
     render(<CalendarGrid {...defaultProps} />);
     expect(screen.getByText('April 2026')).toBeDefined();
