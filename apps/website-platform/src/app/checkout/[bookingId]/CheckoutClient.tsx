@@ -462,9 +462,9 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
 
   return (
     <main className="min-h-screen bg-gray-50">
-      {/* Session timer banner — sticky at top, visible while scrolling */}
+      {/* Session timer banner — fixed below header, always visible */}
       {!isCommitting && !paymentComplete && (
-        <div className="sticky top-0 z-40">
+        <div className="sticky top-0 z-[51]">
           <SessionTimer
             startTime={sessionStart}
             durationMinutes={15}
