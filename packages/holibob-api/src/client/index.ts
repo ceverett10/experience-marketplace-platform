@@ -160,6 +160,27 @@ export class HolibobClient {
     // API uses separate arguments (where, when, who, what), not a single input object
     const variables = this.mapProductDiscoveryInput(filter);
 
+    // Product Discovery API requires at least where.freeText (or destinationId/circle/boundingBox/
+    // consumerTripSelector, but we only use freeText). Return empty results instead of sending an
+    // invalid request that errors on Holibob's side.
+    if (!variables['where']) {
+      console.warn(
+        '[HolibobClient] discoverProducts skipped — no where.freeText provided.',
+        'Product Discovery API requires at least one of: where.freeText, where.data.destinationId,',
+        'where.data.circle, where.data.boundingBox, or consumerTripSelector.'
+      );
+      return {
+        products: [],
+        pageInfo: {
+          hasNextPage: false,
+          hasPreviousPage: false,
+          startCursor: undefined,
+          endCursor: undefined,
+        },
+        totalCount: 0,
+      };
+    }
+
     // Add pagination parameters
     const productCount = options?.pageSize ?? 20;
     const seenProductIdList = options?.seenProductIdList;
@@ -259,13 +280,20 @@ export class HolibobClient {
     tags: Array<{ id: string; name: string }>;
     searchTerms: string[];
   }> {
+    // Product Discovery API requires at least where.freeText — return empty suggestions if missing
+    if (!filter.freeText) {
+      console.warn(
+        '[HolibobClient] getSuggestions skipped — no freeText provided.',
+        'Product Discovery API requires at least where.freeText.'
+      );
+      return { destination: null, destinations: [], tags: [], searchTerms: [] };
+    }
+
     // Build variables matching Holibob Hub format
     const variables: Record<string, unknown> = {};
 
     // Where - location as free text
-    if (filter.freeText) {
-      variables['where'] = { freeText: filter.freeText };
-    }
+    variables['where'] = { freeText: filter.freeText };
 
     // When - dates or free text (must be full ISO 8601 DateTime format)
     if (filter.dateFrom) {
@@ -1078,14 +1106,8 @@ export class HolibobClient {
       whereInput['freeText'] = filter.placeIds[0];
     }
     // Note: geoPoint is NOT supported by ProductDiscoveryWhere — use freeText for location
-    // Product Discovery API requires where — warn if missing
     if (Object.keys(whereInput).length > 0) {
       input['where'] = whereInput;
-    } else {
-      console.warn(
-        '[HolibobClient] discoverProducts called without where (no freeText or placeIds).',
-        'Product Discovery API requires a location. Caller should provide freeText or placeIds.'
-      );
     }
 
     // When - dates must be full ISO 8601 DateTime format

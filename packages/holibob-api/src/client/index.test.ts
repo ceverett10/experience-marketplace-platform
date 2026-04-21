@@ -858,6 +858,7 @@ describe('HolibobClient - Product Filter Mapping', () => {
     mockEmptyDiscovery();
 
     await client.discoverProducts({
+      freeText: 'London',
       priceMin: 50,
       priceMax: 200,
       currency: 'GBP',
@@ -870,6 +871,7 @@ describe('HolibobClient - Product Filter Mapping', () => {
     mockEmptyDiscovery();
 
     await client.discoverProducts({
+      freeText: 'London',
       categoryIds: ['cat-1', 'cat-2'],
     });
 
@@ -880,6 +882,7 @@ describe('HolibobClient - Product Filter Mapping', () => {
     mockEmptyDiscovery();
 
     await client.discoverProducts({
+      freeText: 'London',
       dateFrom: '2024-06-01',
       dateTo: '2024-06-30',
     });
@@ -891,6 +894,7 @@ describe('HolibobClient - Product Filter Mapping', () => {
     mockEmptyDiscovery();
 
     await client.discoverProducts({
+      freeText: 'London',
       adults: 2,
       children: 1,
       infants: 1,
@@ -903,11 +907,23 @@ describe('HolibobClient - Product Filter Mapping', () => {
     mockEmptyDiscovery();
 
     await client.discoverProducts({
+      freeText: 'London',
       dateFrom: '2024-06-01T12:00:00.000Z',
       dateTo: '2024-06-30T23:59:59.999Z',
     });
 
     expect(mockRequest).toHaveBeenCalled();
+  });
+
+  it('should return empty results when no freeText provided', async () => {
+    const result = await client.discoverProducts({
+      priceMin: 50,
+      currency: 'GBP',
+    });
+
+    expect(mockRequest).not.toHaveBeenCalled();
+    expect(result.products).toEqual([]);
+    expect(result.totalCount).toBe(0);
   });
 });
 
@@ -986,6 +1002,7 @@ describe('HolibobClient - Bulk Operations', () => {
       });
 
       await client.discoverProducts({
+        freeText: 'Barcelona',
         searchTerm: 'wine tasting',
       });
 
