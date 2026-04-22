@@ -487,11 +487,6 @@ export default async function ExperienceDetailPage({ params }: Props) {
         <div className="bg-white">
           <ExperienceGallery
             images={experience.images.length > 0 ? experience.images : [experience.imageUrl]}
-            lightboxImages={
-              experience.lightboxImages.length > 0
-                ? experience.lightboxImages
-                : [experience.imageUrl]
-            }
             title={experience.title}
           />
         </div>
