@@ -6,16 +6,12 @@ import { BLUR_PLACEHOLDER, shouldSkipOptimization } from '@/lib/image-utils';
 
 interface ExperienceGalleryProps {
   images: string[];
-  lightboxImages?: string[];
   title: string;
 }
 
-export function ExperienceGallery({ images, lightboxImages, title }: ExperienceGalleryProps) {
+export function ExperienceGallery({ images, title }: ExperienceGalleryProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
-
-  // Use lightbox-quality images for the modal, fall back to gallery images
-  const fullImages = lightboxImages && lightboxImages.length > 0 ? lightboxImages : images;
 
   // Touch/swipe handling for lightbox
   const touchStartX = useRef(0);
@@ -199,17 +195,19 @@ export function ExperienceGallery({ images, lightboxImages, title }: ExperienceG
             </>
           )}
 
-          {/* Image - using lightbox-quality images for full-screen viewing */}
+          {/* Image — reuses the gallery URLs so the first frame is served from
+              the browser cache, avoiding a grey-flash while a separate
+              lightbox-quality URL fetches. */}
           <div className="relative h-[90vh] w-[90vw]" onClick={(e) => e.stopPropagation()}>
             <Image
-              src={fullImages[selectedIndex] ?? fullImages[0] ?? '/placeholder-experience.jpg'}
+              src={images[selectedIndex] ?? images[0] ?? '/placeholder-experience.jpg'}
               alt={`${title} - Image ${selectedIndex + 1}`}
               fill
               sizes="90vw"
               className="object-contain"
               placeholder="blur"
               blurDataURL={BLUR_PLACEHOLDER}
-              unoptimized={shouldSkipOptimization(fullImages[selectedIndex] ?? fullImages[0] ?? '')}
+              unoptimized={shouldSkipOptimization(images[selectedIndex] ?? images[0] ?? '')}
             />
           </div>
 
