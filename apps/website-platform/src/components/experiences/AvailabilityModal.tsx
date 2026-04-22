@@ -15,6 +15,7 @@ import {
   type AvailabilityDetail,
 } from '@/lib/booking-flow';
 import { reportError } from '@/lib/error-reporting';
+import { trackHolibob } from '@/lib/holibob-analytics';
 import { CalendarGrid } from './CalendarGrid';
 import { BookingStepper } from './BookingStepper';
 import { BookingSummaryPanel } from './BookingSummaryPanel';
@@ -116,6 +117,8 @@ export function AvailabilityModal({
 
         const result = await fetchAvailability(productId, fromStr, toStr);
         if (cancelled) return;
+
+        trackHolibob('availability_check', { productId });
 
         const available = (result?.nodes ?? [])
           .filter((slot) => !slot.soldOut)
@@ -421,6 +424,12 @@ export function AvailabilityModal({
     setIsBooking(true);
     setError(null);
     try {
+      trackHolibob('add_to_cart', {
+        productId,
+        price: totalPrice?.amount,
+        currency: totalPrice?.currency,
+        guests: totalGuests,
+      });
       const bookingId = await startBookingFlow(selectedSlot.id);
       router.push(`/checkout/${bookingId}`);
     } catch (err) {

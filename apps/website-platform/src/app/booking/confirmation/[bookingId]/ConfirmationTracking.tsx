@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { trackPurchase, trackGoogleAdsConversion } from '@/lib/analytics';
 import { trackMetaPurchase } from '@/components/analytics/MetaPixel';
+import { trackHolibob } from '@/lib/holibob-analytics';
 
 interface ConfirmationTrackingProps {
   bookingId: string;
@@ -39,6 +40,16 @@ export function ConfirmationTracking({
 
     // GA4 ecommerce purchase event
     trackPurchase({ id: transactionId, value, currency, itemName, itemId });
+
+    // Holibob analytics pipeline
+    trackHolibob('checkout_complete', {
+      bookingId,
+      transactionId,
+      value,
+      currency,
+      productId: itemId,
+      productName: itemName,
+    });
 
     // Meta Pixel purchase (client-side, deduped server-side via CAPI event_id = bookingId)
     trackMetaPurchase({ id: transactionId, value, currency });

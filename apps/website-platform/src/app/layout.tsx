@@ -49,6 +49,7 @@ import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { GoogleAnalytics } from '@/components/analytics/GoogleAnalytics';
 import { MetaPixel } from '@/components/analytics/MetaPixel';
+import { HolibobAnalytics } from '@/components/analytics/HolibobAnalytics';
 import { EmailPopup } from '@/components/marketing/EmailPopup';
 import { SocialProofToast } from '@/components/marketing/SocialProofToast';
 import { CookieConsent } from '@/components/marketing/CookieConsent';
@@ -273,6 +274,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
         />
         {/* Meta Pixel - Dynamic per site */}
         <MetaPixel pixelId={site.seoConfig?.metaPixelId} />
+        {/* Holibob analytics pipeline — funnel events to BigQuery */}
+        <HolibobAnalytics />
       </body>
     </html>
   );

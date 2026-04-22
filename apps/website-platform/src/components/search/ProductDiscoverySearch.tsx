@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef, type KeyboardEvent } from 're
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useBrand } from '@/lib/site-context';
 import { trackSearch } from '@/lib/analytics';
+import { trackHolibob } from '@/lib/holibob-analytics';
 
 interface ProductDiscoverySearchProps {
   variant?: 'hero' | 'inline' | 'sidebar';
@@ -530,6 +531,7 @@ export function ProductDiscoverySearch({
     }
 
     trackSearch(what || where || 'browse', where || undefined);
+    trackHolibob('search', { query: what || where || 'browse', destination: where || undefined });
     router.push(`/experiences?${urlParams.toString()}`);
   }, [where, when, who, what, router]);
 

@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { trackViewItem } from '@/lib/analytics';
+import { trackHolibob } from '@/lib/holibob-analytics';
 
 interface TrackViewItemProps {
   id: string;
@@ -17,6 +18,7 @@ interface TrackViewItemProps {
 export function TrackViewItem({ id, name, price, currency }: TrackViewItemProps) {
   useEffect(() => {
     trackViewItem({ id, name, price, currency });
+    trackHolibob('product_detail_view', { productId: id, productName: name, price, currency });
   }, [id, name, price, currency]);
 
   return null;
