@@ -271,9 +271,12 @@ export function Header() {
   const isMicrosite = !!site.micrositeContext;
   const isParentDomainSite = !!site.isParentDomain;
 
-  // Paid traffic: simplified nav — only Experiences + Book Now (reduce distraction)
+  // Paid traffic: minimal nav — Experiences + About for trust, everything else stripped
   const navigation = isPaid
-    ? [{ name: 'Experiences', href: '/experiences' }]
+    ? [
+        { name: 'Experiences', href: '/experiences' },
+        { name: 'About', href: '/about' },
+      ]
     : isParentDomainSite
       ? [
           { name: 'Our Brands', href: '/#our-brands' },
@@ -299,45 +302,35 @@ export function Header() {
   return (
     <>
       <header className="sticky top-0 z-50 w-full border-b border-gray-200/80 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
-        {/* Trust bar - always visible at the top */}
-        <div className="border-b border-gray-100 bg-gray-50">
-          {/* Desktop: show all items with icons */}
-          <div className="mx-auto hidden max-w-7xl items-center justify-center gap-6 px-4 py-1.5 sm:flex sm:px-6 lg:gap-8 lg:px-8">
-            {trustItems.map((item) => (
-              <div
-                key={item.text}
-                className="flex items-center gap-1.5 text-xs font-medium text-gray-600"
-              >
-                <svg
-                  className="h-3.5 w-3.5 text-emerald-500"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                {item.text}
+        {/* Trust bar — subtle, premium feel */}
+        <div className="border-b border-gray-100 bg-white">
+          {/* Desktop: icons + text, bullet separators */}
+          <div className="mx-auto hidden max-w-7xl items-center justify-center px-4 py-2 sm:flex sm:px-6 lg:px-8">
+            {trustItems.map((item, index) => (
+              <div key={item.text} className="flex items-center">
+                {index > 0 && <span className="mx-4 text-gray-300">&middot;</span>}
+                <span className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-gray-500">
+                  <TrustIcon type={item.icon} className="h-3 w-3 text-emerald-500" />
+                  {item.text}
+                </span>
               </div>
             ))}
           </div>
-          {/* Mobile: compact row with small icons, wraps to 2 rows on narrow screens */}
-          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-0.5 px-3 py-1 sm:hidden">
-            {trustItems.slice(0, 4).map((item) => (
-              <div
-                key={item.text}
-                className="flex items-center gap-1 text-[11px] font-medium text-gray-600"
-              >
-                <TrustIcon type={item.icon} className="h-2.5 w-2.5 text-emerald-500" />
-                <span>{item.text}</span>
+          {/* Mobile: scrollable row with small icons */}
+          <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 px-3 py-1.5 sm:hidden">
+            {trustItems.slice(0, 4).map((item, index) => (
+              <div key={item.text} className="flex items-center">
+                {index > 0 && <span className="mr-2 text-gray-300">&middot;</span>}
+                <span className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-wider text-gray-500">
+                  <TrustIcon type={item.icon} className="h-2.5 w-2.5 text-emerald-500" />
+                  {item.text}
+                </span>
               </div>
             ))}
           </div>
         </div>
 
-        <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-2 sm:px-6 lg:px-8">
+        <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:gap-12 lg:px-8">
           {/* Logo */}
           <div className="lg:flex-1">
             <div className="flex items-center">
@@ -423,7 +416,7 @@ export function Header() {
               <Link
                 key={item.name}
                 href={item.href}
-                className="font-display text-sm font-medium text-gray-700 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-gray-500 rounded"
+                className="font-display text-[15px] font-semibold tracking-tight text-gray-900 transition-colors hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-gray-500 rounded"
               >
                 {item.name}
               </Link>
@@ -460,12 +453,7 @@ export function Header() {
             </Link>
             <Link
               href={isParentDomainSite ? '/#our-brands' : '/experiences'}
-              className="rounded-md px-4 py-2 text-sm font-semibold text-white shadow-sm"
-              style={{
-                backgroundColor: isMicrosite
-                  ? `var(--supplier-brand, ${brand?.primaryColor ?? '#6366f1'})`
-                  : (brand?.primaryColor ?? '#6366f1'),
-              }}
+              className="rounded-full bg-gray-900 px-5 py-2 font-display text-sm font-semibold text-white transition-opacity hover:opacity-90"
             >
               {isParentDomainSite ? 'Explore Brands' : 'Book Now'}
             </Link>
