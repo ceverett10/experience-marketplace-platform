@@ -1,6 +1,7 @@
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import Image from 'next/image';
+import ReactDOM from 'react-dom';
 import type { Metadata } from 'next';
 import { getSiteFromHostname } from '@/lib/tenant';
 import { isMicrosite } from '@/lib/microsite-experiences';
@@ -431,6 +432,13 @@ export default async function ExperienceDetailPage({ params }: Props) {
           ]),
     ],
   };
+
+  // Preload the LCP hero image so the browser starts fetching it before React
+  // hydrates. Matches the first image rendered by ExperienceGallery.
+  const heroImage = experience.images[0] ?? experience.imageUrl;
+  if (heroImage) {
+    ReactDOM.preload(heroImage, { as: 'image', fetchPriority: 'high' });
+  }
 
   return (
     <>
