@@ -6,19 +6,8 @@ import type { Metadata } from 'next';
 import { getSiteFromHostname } from '@/lib/tenant';
 import { isMicrosite } from '@/lib/microsite-experiences';
 import { isTickittoSite } from '@/lib/supplier';
-import {
-  getHolibobClient,
-  mapProductToExperience,
-  parseIsoDuration,
-  optimizeHolibobImageWithPreset,
-  type Experience,
-  type ExperienceListItem,
-} from '@/lib/holibob';
-import {
-  getTickittoClient,
-  mapTickittoEventToExperience,
-  mapTickittoEventToExperienceListItem,
-} from '@/lib/tickitto';
+import { getHolibobClient, mapProductToExperience, type Experience } from '@/lib/holibob';
+import { getTickittoClient, mapTickittoEventToExperience } from '@/lib/tickitto';
 import { prisma } from '@/lib/prisma';
 import { ExperienceGallery } from '@/components/experiences/ExperienceGallery';
 import { BookingWidget } from '@/components/experiences/BookingWidget';
@@ -27,7 +16,6 @@ import { ReviewsCarousel } from '@/components/experiences/ReviewsCarousel';
 import { ReviewsSection } from '@/components/experiences/ReviewsSection';
 import { AboutActivity } from '@/components/experiences/AboutActivity';
 import { MobileBookingCTA } from '@/components/experiences/MobileBookingCTA';
-import { RelatedExperiences } from '@/components/experiences/RelatedExperiences';
 import { RelatedArticles } from '@/components/experiences/RelatedArticles';
 import { RelatedMicrosites } from '@/components/microsites/RelatedMicrosites';
 import { TrackViewItem } from '@/components/analytics/TrackViewItem';
@@ -40,7 +28,6 @@ import { LocalTips } from '@/components/experiences/LocalTips';
 import { RecentlyViewed } from '@/components/experiences/RecentlyViewed';
 import { RecentlyViewedTracker } from '@/components/experiences/RecentlyViewedTracker';
 import { getProductBookingStats } from '@/lib/booking-analytics';
-import { currencyToLocale } from '@/lib/currency';
 
 /** Deterministic "viewers" count from product ID (3-18 range) */
 function getViewerCount(productId: string): number {
@@ -108,164 +95,6 @@ async function getExperience(
     };
   }
 }
-
-async function getRelatedExperiences(
-  site: Awaited<ReturnType<typeof getSiteFromHostname>>,
-  experience: Experience
-): Promise<ExperienceListItem[]> {
-  try {
-    // === TICKITTO: Fetch related events from Tickitto API ===
-    if (isTickittoSite(site)) {
-      const tickittoClient = getTickittoClient();
-      const result = await tickittoClient.searchEvents({
-        city: experience.location.name ? [experience.location.name] : undefined,
-        limit: 5,
-        currency: site.primaryCurrency ?? 'GBP',
-      });
-      return result.events
-        .filter((e) => e.event_id !== experience.id)
-        .slice(0, 4)
-        .map(mapTickittoEventToExperienceListItem);
-    }
-
-    const client = await getHolibobClient(site);
-
-    // === MICROSITE: Show other products from the SAME provider ===
-    if (isMicrosite(site.micrositeContext) && site.micrositeContext.holibobSupplierId) {
-      const response = await client.getProductsByProvider(site.micrositeContext.holibobSupplierId, {
-        pageSize: 5,
-        page: 1,
-      });
-
-      return response.nodes
-        .filter((p) => p.id !== experience.id)
-        .slice(0, 4)
-        .map((product) => {
-          const primaryImage =
-            product.imageList?.[0]?.url ?? product.imageUrl ?? '/placeholder-experience.jpg';
-          // ProductList API returns guidePrice in MAJOR units (e.g., 71 EUR, not 7100 cents)
-          const priceAmount = product.guidePrice ?? product.priceFrom ?? 0;
-          const priceCurrency = product.guidePriceCurrency ?? product.priceCurrency ?? 'GBP';
-          const priceFormatted =
-            priceAmount > 0
-              ? (product.guidePriceFormattedText ??
-                new Intl.NumberFormat(currencyToLocale(priceCurrency), {
-                  style: 'currency',
-                  currency: priceCurrency,
-                }).format(priceAmount))
-              : 'Check price';
-
-          let durationFormatted = '';
-          if (product.durationText && !product.durationText.includes('NaN')) {
-            durationFormatted = product.durationText;
-          } else if (product.maxDuration != null) {
-            const minutes = parseIsoDuration(product.maxDuration);
-            if (minutes > 0) {
-              const hours = Math.floor(minutes / 60);
-              const mins = minutes % 60;
-              durationFormatted =
-                hours > 0 ? (mins > 0 ? `${hours}h ${mins}m` : `${hours}h`) : `${minutes}m`;
-            }
-          }
-
-          return {
-            id: product.id,
-            title: product.name ?? 'Experience',
-            slug: product.id,
-            shortDescription: product.description?.slice(0, 200) ?? '',
-            imageUrl: primaryImage,
-            price: { amount: priceAmount, currency: priceCurrency, formatted: priceFormatted },
-            duration: { formatted: durationFormatted },
-            rating: product.reviewRating
-              ? { average: product.reviewRating, count: product.reviewCount ?? 0 }
-              : null,
-            location: { name: '' },
-          };
-        });
-    }
-
-    // === REGULAR SITE: Use discovery with location context ===
-    const siteSearchTerm = site.homepageConfig?.popularExperiences?.searchTerms?.[0];
-    const siteDestination = site.homepageConfig?.popularExperiences?.destination;
-
-    const filter: {
-      currency: string;
-      freeText?: string;
-      searchTerm?: string;
-    } = {
-      currency: site.primaryCurrency ?? 'GBP',
-    };
-
-    // Product Discovery API REQUIRES where.freeText — always provide a location.
-    // Fall back through experience location → site destination → site name.
-    filter.freeText = experience.location.name || siteDestination || site.name;
-
-    if (siteSearchTerm) {
-      filter.searchTerm = siteSearchTerm;
-    }
-
-    const response = await client.discoverProducts(filter, { pageSize: 5 });
-
-    return response.products
-      .filter((p) => p.id !== experience.id)
-      .slice(0, 4)
-      .map((product) => {
-        // Prefer pre-sized urlMedium (~500px) from discovery API
-        const firstImg = product.imageList?.[0];
-        const primaryImage =
-          firstImg?.urlMedium ??
-          optimizeHolibobImageWithPreset(
-            firstImg?.url ?? product.imageUrl ?? '/placeholder-experience.jpg',
-            'card'
-          );
-        const priceAmount = product.guidePrice ?? product.priceFrom ?? 0;
-        const priceCurrency =
-          product.guidePriceCurrency ?? product.priceCurrency ?? product.currency ?? 'GBP';
-
-        let durationFormatted = '';
-        if (product.durationText && !product.durationText.includes('NaN')) {
-          durationFormatted = product.durationText;
-        } else if (product.maxDuration != null) {
-          const minutes = parseIsoDuration(product.maxDuration);
-          if (minutes > 0) {
-            const hours = Math.floor(minutes / 60);
-            const mins = minutes % 60;
-            durationFormatted =
-              hours > 0 ? (mins > 0 ? `${hours}h ${mins}m` : `${hours}h`) : `${minutes}m`;
-          }
-        }
-
-        const priceFormatted =
-          priceAmount > 0
-            ? (product.guidePriceFormattedText ??
-              product.priceFromFormatted ??
-              new Intl.NumberFormat(currencyToLocale(priceCurrency), {
-                style: 'currency',
-                currency: priceCurrency,
-              }).format(priceAmount))
-            : 'Check price';
-
-        return {
-          id: product.id,
-          title: product.name ?? 'Experience',
-          slug: product.id,
-          shortDescription: product.shortDescription ?? '',
-          imageUrl: primaryImage,
-          price: { amount: priceAmount, currency: priceCurrency, formatted: priceFormatted },
-          duration: { formatted: durationFormatted },
-          rating: product.reviewRating
-            ? { average: product.reviewRating, count: product.reviewCount ?? 0 }
-            : null,
-          location: { name: product.location?.name ?? '' },
-        };
-      });
-  } catch (error) {
-    console.error('Error fetching related experiences:', error);
-    return [];
-  }
-}
-
-// No mock data - all data comes from Holibob API
 
 /**
  * Fetch related blog posts for an experience
@@ -381,72 +210,6 @@ async function getSupplierRating(providerId: string | undefined): Promise<Suppli
   }
 }
 
-/**
- * Fetch related products from the same supplier that have ratings.
- * Used as a trust-building fallback when the current product has no reviews.
- */
-async function getSupplierRelatedExperiences(
-  providerId: string,
-  currentProductId: string,
-  currency: string,
-  limit: number = 4
-): Promise<ExperienceListItem[]> {
-  try {
-    const supplier = await prisma.supplier.findUnique({
-      where: { holibobSupplierId: providerId },
-      select: { id: true },
-    });
-    if (!supplier) return [];
-
-    const products = await prisma.product.findMany({
-      where: {
-        supplierId: supplier.id,
-        holibobProductId: { not: currentProductId },
-        rating: { not: null },
-      },
-      orderBy: [{ rating: 'desc' }, { reviewCount: 'desc' }],
-      take: limit,
-      select: {
-        holibobProductId: true,
-        title: true,
-        shortDescription: true,
-        primaryImageUrl: true,
-        priceFrom: true,
-        currency: true,
-        duration: true,
-        city: true,
-        rating: true,
-        reviewCount: true,
-      },
-    });
-
-    if (products.length === 0) return [];
-
-    return products.map((p) => ({
-      id: p.holibobProductId,
-      title: p.title,
-      slug: p.holibobProductId,
-      shortDescription: p.shortDescription ?? '',
-      imageUrl: p.primaryImageUrl ?? '/placeholder-experience.jpg',
-      price: {
-        amount: p.priceFrom ? Number(p.priceFrom) : 0,
-        currency: p.currency,
-        formatted: p.priceFrom
-          ? new Intl.NumberFormat(currencyToLocale(p.currency || currency), {
-              style: 'currency',
-              currency: p.currency || currency,
-            }).format(Number(p.priceFrom))
-          : 'Check price',
-      },
-      duration: { formatted: p.duration ?? '' },
-      rating: p.rating ? { average: p.rating, count: p.reviewCount } : null,
-      location: { name: p.city ?? '' },
-    }));
-  } catch {
-    return [];
-  }
-}
-
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const headersList = await headers();
@@ -499,23 +262,7 @@ export default async function ExperienceDetailPage({ params }: Props) {
     notFound();
   }
 
-  // For products without reviews, prefer same-supplier experiences that have ratings
-  const useSupplierRelated =
-    !experience.rating && !!experience.provider?.id && !isMicrosite(site.micrositeContext);
-
-  // Fetch related experiences, booking stats, blog posts, and supplier rating in parallel
-  const [relatedExperiences, bookingStats, relatedBlogPosts, supplierRating] = await Promise.all([
-    useSupplierRelated
-      ? getSupplierRelatedExperiences(
-          experience.provider!.id,
-          experience.id,
-          site.primaryCurrency ?? 'GBP'
-        ).then(async (supplierResults: ExperienceListItem[]) => {
-          if (supplierResults.length >= 2) return supplierResults;
-          const discoveryResults = await getRelatedExperiences(site, experience);
-          return [...supplierResults, ...discoveryResults].slice(0, 4);
-        })
-      : getRelatedExperiences(site, experience),
+  const [bookingStats, relatedBlogPosts, supplierRating] = await Promise.all([
     getProductBookingStats(site.id, experience.id, site.micrositeContext?.micrositeId),
     getRelatedBlogPosts(site, experience),
     getSupplierRating(experience.provider?.id),
@@ -1418,20 +1165,6 @@ export default async function ExperienceDetailPage({ params }: Props) {
             primaryColor={site.brand?.primaryColor}
           />
         )}
-
-        {/* Related Experiences */}
-        <RelatedExperiences
-          experiences={relatedExperiences}
-          title={
-            isMicrosite(site.micrositeContext)
-              ? `More from ${site.name}`
-              : useSupplierRelated &&
-                  experience.provider?.name &&
-                  relatedExperiences.some((e: ExperienceListItem) => e.rating)
-                ? `Travelers also booked from ${experience.provider.name}`
-                : `More things to do in ${experience.location.name || 'this area'}`
-          }
-        />
 
         {/* Related Microsites (microsites only) */}
         {site.relatedMicrosites && site.relatedMicrosites.length > 0 && (
