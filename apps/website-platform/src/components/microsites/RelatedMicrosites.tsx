@@ -30,11 +30,11 @@ export function RelatedMicrosites({
             <a
               key={microsite.fullDomain}
               href={`https://${microsite.fullDomain}`}
-              className="group flex flex-col rounded-xl bg-white p-6 shadow-sm transition-all hover:shadow-md"
+              className="group flex flex-col overflow-hidden rounded-xl bg-white p-6 shadow-sm transition-all hover:shadow-md"
               rel="noopener"
             >
               {/* Logo and Name */}
-              <div className="flex items-start gap-4">
+              <div className="flex min-w-0 items-start gap-4">
                 {microsite.logoUrl ? (
                   <img
                     src={microsite.logoUrl}
