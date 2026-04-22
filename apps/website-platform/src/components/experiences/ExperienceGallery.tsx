@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { useState, useCallback, useRef } from 'react';
-import { BLUR_PLACEHOLDER } from '@/lib/image-utils';
+import { BLUR_PLACEHOLDER, shouldSkipOptimization } from '@/lib/image-utils';
 
 interface ExperienceGalleryProps {
   images: string[];
@@ -71,6 +71,7 @@ export function ExperienceGallery({ images, lightboxImages, title }: ExperienceG
               className="object-cover transition-opacity hover:opacity-90"
               placeholder="blur"
               blurDataURL={BLUR_PLACEHOLDER}
+              unoptimized={shouldSkipOptimization(displayImages[0] || '')}
             />
           </div>
 
@@ -88,11 +89,11 @@ export function ExperienceGallery({ images, lightboxImages, title }: ExperienceG
                 src={image}
                 alt={`${title} - Image ${idx + 2}`}
                 fill
-                loading="lazy"
                 sizes="25vw"
                 className="object-cover transition-opacity hover:opacity-90"
                 placeholder="blur"
                 blurDataURL={BLUR_PLACEHOLDER}
+                unoptimized={shouldSkipOptimization(image)}
               />
               {/* Show more overlay on last image */}
               {idx === 3 && remainingCount > 0 && (
@@ -206,6 +207,9 @@ export function ExperienceGallery({ images, lightboxImages, title }: ExperienceG
               fill
               sizes="90vw"
               className="object-contain"
+              placeholder="blur"
+              blurDataURL={BLUR_PLACEHOLDER}
+              unoptimized={shouldSkipOptimization(fullImages[selectedIndex] ?? fullImages[0] ?? '')}
             />
           </div>
 
