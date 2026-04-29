@@ -186,8 +186,11 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
  */
 export async function POST(request: NextRequest, { params }: RouteParams) {
   const startTime = Date.now();
+  let resolvedSiteId = 'unknown';
+  let resolvedBookingId: string | undefined;
   try {
     const { id: bookingId } = await params;
+    resolvedBookingId = bookingId;
 
     // Parse and validate request body
     const body = await request.json();
@@ -217,6 +220,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const headersList = await headers();
     const host = headersList.get('host') ?? 'localhost:3000';
     const site = await getSiteFromHostname(host);
+    resolvedSiteId = site.id;
 
     // Get Holibob client
     const client = await getHolibobClient(site);
@@ -225,6 +229,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     let booking = await client.getBookingQuestions(bookingId);
 
     if (!booking) {
+      trackFunnelEvent({
+        step: BookingFunnelStep.QUESTIONS_ANSWERED,
+        siteId: resolvedSiteId,
+        bookingId: resolvedBookingId,
+        errorCode: 'QUESTIONS_BOOKING_NOT_FOUND',
+        durationMs: Date.now() - startTime,
+      });
       return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
     }
 
@@ -441,18 +452,40 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
             if (answerList2.length > 0) {
               console.info('[Questions API] Second round answers:', JSON.stringify(answerList2));
-              const secondAnswer = await client.answerBookingQuestions(bookingId, {
-                leadPassengerName,
-                answerList: answerList2,
-              });
-              console.info('[Questions API] Second round canCommit:', secondAnswer.canCommit);
-              booking = secondAnswer;
+              try {
+                const secondAnswer = await client.answerBookingQuestions(bookingId, {
+                  leadPassengerName,
+                  answerList: answerList2,
+                });
+                console.info('[Questions API] Second round canCommit:', secondAnswer.canCommit);
+                booking = secondAnswer;
+              } catch (retryError) {
+                console.error('[Questions API] Retry answer submission failed:', retryError);
+                trackFunnelEvent({
+                  step: BookingFunnelStep.QUESTIONS_ANSWERED,
+                  siteId: resolvedSiteId,
+                  bookingId: resolvedBookingId,
+                  errorCode: 'QUESTIONS_RETRY_SUBMIT_FAILED',
+                  errorMessage:
+                    retryError instanceof Error ? retryError.message : String(retryError),
+                  durationMs: Date.now() - startTime,
+                });
+                booking = refreshed;
+              }
             } else {
               booking = refreshed;
             }
           }
         } catch (answerError) {
           console.error('[Questions API] Error submitting answers:', answerError);
+          trackFunnelEvent({
+            step: BookingFunnelStep.QUESTIONS_ANSWERED,
+            siteId: resolvedSiteId,
+            bookingId: resolvedBookingId,
+            errorCode: 'QUESTIONS_ANSWER_SUBMIT_FAILED',
+            errorMessage: answerError instanceof Error ? answerError.message : String(answerError),
+            durationMs: Date.now() - startTime,
+          });
           // Re-fetch to get current state
           booking = await client.getBookingQuestions(bookingId);
         }
@@ -492,18 +525,26 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   } catch (error) {
     console.error('Process booking questions error:', error);
 
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    let errorCode = 'QUESTIONS_ERROR';
+    if (error instanceof Error) {
+      if (error.message.includes('not found')) errorCode = 'QUESTIONS_BOOKING_NOT_FOUND';
+      else if (error.message.toLowerCase().includes('timeout')) errorCode = 'QUESTIONS_TIMEOUT';
+      else if (error.message.toLowerCase().includes('validation'))
+        errorCode = 'QUESTIONS_VALIDATION_ERROR';
+    }
+
     trackFunnelEvent({
       step: BookingFunnelStep.QUESTIONS_ANSWERED,
-      siteId: 'unknown',
-      errorCode: 'QUESTIONS_ERROR',
-      errorMessage: error instanceof Error ? error.message : 'Unknown error',
+      siteId: resolvedSiteId,
+      bookingId: resolvedBookingId,
+      errorCode,
+      errorMessage: message,
       durationMs: Date.now() - startTime,
     });
 
-    if (error instanceof Error) {
-      if (error.message.includes('not found')) {
-        return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
-      }
+    if (errorCode === 'QUESTIONS_BOOKING_NOT_FOUND') {
+      return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
     }
 
     return NextResponse.json({ error: 'Failed to process booking' }, { status: 500 });

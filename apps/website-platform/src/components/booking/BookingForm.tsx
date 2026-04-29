@@ -12,6 +12,11 @@ import {
   type GuestCount,
   type GuestDetails,
 } from './GuestSelector';
+import {
+  trackClientFunnelEvent,
+  errorMessageFrom,
+  BookingFunnelStep,
+} from '@/lib/client-funnel-tracking';
 
 interface BookingFormProps {
   experience: Experience;
@@ -135,6 +140,10 @@ export function BookingForm({ experience, onBookingCreated }: BookingFormProps) 
     setIsSubmitting(true);
     setError(null);
 
+    // Track which sub-step failed when the chain throws.
+    let phase: 'CREATE_BOOKING' | 'ADD_AVAILABILITY' | 'SUBMIT_QUESTIONS' = 'CREATE_BOOKING';
+    let bookingId: string | undefined;
+
     try {
       // Step 1: Create booking (empty basket)
       const createResponse = await fetch('/api/booking', {
@@ -149,10 +158,12 @@ export function BookingForm({ experience, onBookingCreated }: BookingFormProps) 
       }
 
       const createData = await createResponse.json();
-      const bookingId = createData.data.id;
+      const createdBookingId: string = createData.data.id;
+      bookingId = createdBookingId;
 
       // Step 2: Add availability to booking
-      const addAvailabilityResponse = await fetch(`/api/booking/${bookingId}/availability`, {
+      phase = 'ADD_AVAILABILITY';
+      const addAvailabilityResponse = await fetch(`/api/booking/${createdBookingId}/availability`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ availabilityId: selectedTimeSlot.id }),
@@ -164,7 +175,8 @@ export function BookingForm({ experience, onBookingCreated }: BookingFormProps) 
       }
 
       // Step 3: Answer booking questions (guest details)
-      const questionsResponse = await fetch(`/api/booking/${bookingId}/questions`, {
+      phase = 'SUBMIT_QUESTIONS';
+      const questionsResponse = await fetch(`/api/booking/${createdBookingId}/questions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -185,13 +197,26 @@ export function BookingForm({ experience, onBookingCreated }: BookingFormProps) 
       }
 
       if (onBookingCreated) {
-        onBookingCreated(bookingId);
+        onBookingCreated(createdBookingId);
       } else {
         // Redirect to checkout
-        router.push(`/checkout/${bookingId}`);
+        router.push(`/checkout/${createdBookingId}`);
       }
     } catch (err) {
       console.error('Booking error:', err);
+      // Map the failed phase to the funnel step it would have advanced.
+      const stepByPhase: Record<typeof phase, BookingFunnelStep> = {
+        CREATE_BOOKING: BookingFunnelStep.BOOKING_CREATED,
+        ADD_AVAILABILITY: BookingFunnelStep.AVAILABILITY_ADDED,
+        SUBMIT_QUESTIONS: BookingFunnelStep.QUESTIONS_ANSWERED,
+      };
+      trackClientFunnelEvent({
+        step: stepByPhase[phase],
+        bookingId,
+        productId: experience.id,
+        errorCode: `CLIENT_BOOKING_FORM_${phase}_FAILED`,
+        errorMessage: errorMessageFrom(err),
+      });
       setError(err instanceof Error ? err.message : 'Failed to create booking');
     } finally {
       setIsSubmitting(false);

@@ -21,6 +21,11 @@ import {
 } from '@/lib/booking-flow';
 import { trackBeginCheckout, trackAddPaymentInfo } from '@/lib/analytics';
 import {
+  trackClientFunnelEvent,
+  errorMessageFrom,
+  BookingFunnelStep,
+} from '@/lib/client-funnel-tracking';
+import {
   getProductPricingConfig,
   calculatePromoPrice,
   DEFAULT_PRICING_CONFIG,
@@ -118,6 +123,12 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
         setCanCommit(result.summary.canCommit);
       } catch (err) {
         console.error('Error loading booking:', err);
+        trackClientFunnelEvent({
+          step: BookingFunnelStep.CHECKOUT_LOADED,
+          bookingId,
+          errorCode: 'CLIENT_BOOKING_LOAD_FAILED',
+          errorMessage: errorMessageFrom(err),
+        });
         setBookingNotFound(true);
       } finally {
         setIsLoading(false);
@@ -219,8 +230,20 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
           return;
         } catch (recoveryErr) {
           console.error('[Checkout] Questions recovery failed:', recoveryErr);
+          trackClientFunnelEvent({
+            step: BookingFunnelStep.QUESTIONS_ANSWERED,
+            bookingId,
+            errorCode: 'CLIENT_QUESTIONS_RECOVERY_FAILED',
+            errorMessage: errorMessageFrom(recoveryErr),
+          });
         }
       }
+      trackClientFunnelEvent({
+        step: BookingFunnelStep.QUESTIONS_ANSWERED,
+        bookingId,
+        errorCode: 'CLIENT_QUESTIONS_SUBMIT_FAILED',
+        errorMessage: errorMessageFrom(err),
+      });
       setError(err instanceof Error ? err.message : 'Failed to save guest information');
     } finally {
       setIsSubmitting(false);
@@ -330,6 +353,12 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
           return;
         } catch (recoveryErr) {
           console.error('[Checkout] Session recovery failed:', recoveryErr);
+          trackClientFunnelEvent({
+            step: BookingFunnelStep.BOOKING_COMPLETED,
+            bookingId,
+            errorCode: 'CLIENT_COMMIT_RECOVERY_FAILED',
+            errorMessage: errorMessageFrom(recoveryErr),
+          });
           setRecoveryInProgress(false);
           setError(
             'Your booking session expired and we couldn\u2019t recover it automatically. Please start a new booking.'
@@ -339,6 +368,12 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
         }
       }
 
+      trackClientFunnelEvent({
+        step: BookingFunnelStep.BOOKING_COMPLETED,
+        bookingId,
+        errorCode: 'CLIENT_COMMIT_FAILED',
+        errorMessage: errorMessageFrom(err),
+      });
       setError(err instanceof Error ? err.message : 'Failed to complete booking');
       setIsCommitting(false);
     }
@@ -347,6 +382,12 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
   // Handle payment error
   const handlePaymentError = (errorMessage: string) => {
     console.error('[Checkout] Payment error:', errorMessage);
+    trackClientFunnelEvent({
+      step: BookingFunnelStep.PAYMENT_STARTED,
+      bookingId,
+      errorCode: 'CLIENT_STRIPE_PAYMENT_FAILED',
+      errorMessage,
+    });
     setError(errorMessage);
     setShowPayment(false);
   };

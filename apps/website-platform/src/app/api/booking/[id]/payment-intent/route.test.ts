@@ -208,7 +208,8 @@ describe('Payment Intent Route - GET', () => {
     expect(mockTrackFunnelEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         step: 'PAYMENT_STARTED',
-        errorCode: 'PAYMENT_ERROR',
+        // Error message includes "timeout" → classified as PAYMENT_TIMEOUT
+        errorCode: 'PAYMENT_TIMEOUT',
         errorMessage: 'Network timeout',
       })
     );
