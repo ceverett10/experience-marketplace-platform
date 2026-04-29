@@ -27,6 +27,7 @@ const CommitBookingSchema = z.object({
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
+  let resolvedSiteId = 'unknown';
   try {
     // Parse request body
     const body = await request.json();
@@ -58,6 +59,7 @@ export async function POST(request: NextRequest) {
     const headersList = await headers();
     const host = headersList.get('host') ?? 'localhost:3000';
     const site = await getSiteFromHostname(host);
+    resolvedSiteId = site.id;
 
     // Get Holibob client
     const client = await getHolibobClient(site);
@@ -239,34 +241,43 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Commit booking error:', error);
 
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    let errorCode = 'COMMIT_ERROR';
     if (error instanceof Error) {
-      if (error.message.includes('expired')) {
-        return NextResponse.json(
-          { error: 'Booking has expired. Please start a new booking.' },
-          { status: 410 }
-        );
-      }
-      if (error.message.includes('availability')) {
-        return NextResponse.json(
-          { error: 'One or more items are no longer available' },
-          { status: 409 }
-        );
-      }
-      if (error.message.includes('REJECTED')) {
-        return NextResponse.json({ error: 'Booking was rejected by supplier' }, { status: 409 });
-      }
-      if (error.message.includes('CANCELLED')) {
-        return NextResponse.json({ error: 'Booking was cancelled' }, { status: 409 });
-      }
+      if (error.message.includes('expired')) errorCode = 'COMMIT_EXPIRED';
+      else if (error.message.includes('availability')) errorCode = 'COMMIT_UNAVAILABLE';
+      else if (error.message.includes('REJECTED')) errorCode = 'COMMIT_REJECTED';
+      else if (error.message.includes('CANCELLED')) errorCode = 'COMMIT_CANCELLED';
+      else if (error.message.toLowerCase().includes('timeout')) errorCode = 'COMMIT_TIMEOUT';
     }
 
     trackFunnelEvent({
       step: BookingFunnelStep.BOOKING_COMPLETED,
-      siteId: 'unknown',
-      errorCode: 'COMMIT_ERROR',
-      errorMessage: error instanceof Error ? error.message : 'Unknown error',
+      siteId: resolvedSiteId,
+      errorCode,
+      errorMessage: message,
       durationMs: Date.now() - startTime,
     });
+
+    if (errorCode === 'COMMIT_EXPIRED') {
+      return NextResponse.json(
+        { error: 'Booking has expired. Please start a new booking.' },
+        { status: 410 }
+      );
+    }
+    if (errorCode === 'COMMIT_UNAVAILABLE') {
+      return NextResponse.json(
+        { error: 'One or more items are no longer available' },
+        { status: 409 }
+      );
+    }
+    if (errorCode === 'COMMIT_REJECTED') {
+      return NextResponse.json({ error: 'Booking was rejected by supplier' }, { status: 409 });
+    }
+    if (errorCode === 'COMMIT_CANCELLED') {
+      return NextResponse.json({ error: 'Booking was cancelled' }, { status: 409 });
+    }
+
     return NextResponse.json({ error: 'Failed to commit booking' }, { status: 500 });
   }
 }

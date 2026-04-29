@@ -30,8 +30,11 @@ interface RouteParams {
  */
 export async function POST(request: NextRequest, { params }: RouteParams) {
   const startTime = Date.now();
+  let resolvedSiteId = 'unknown';
+  let resolvedBookingId: string | undefined;
   try {
     const { id: bookingId } = await params;
+    resolvedBookingId = bookingId;
 
     // Parse and validate request body
     const body = await request.json();
@@ -53,6 +56,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const headersList = await headers();
     const host = headersList.get('host') ?? 'localhost:3000';
     const site = await getSiteFromHostname(host);
+    resolvedSiteId = site.id;
 
     // Get Holibob client
     const client = await getHolibobClient(site);
@@ -83,24 +87,32 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   } catch (error) {
     console.error('Add availability to booking error:', error);
 
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    let errorCode = 'AVAILABILITY_ADD_ERROR';
+    if (error instanceof Error) {
+      if (error.message.includes('not found')) errorCode = 'AVAILABILITY_NOT_FOUND';
+      else if (error.message.includes('invalid') || error.message.includes('not valid'))
+        errorCode = 'AVAILABILITY_OPTIONS_INCOMPLETE';
+      else if (error.message.toLowerCase().includes('timeout')) errorCode = 'AVAILABILITY_TIMEOUT';
+    }
+
     trackFunnelEvent({
       step: BookingFunnelStep.AVAILABILITY_ADDED,
-      siteId: 'unknown',
-      errorCode: 'AVAILABILITY_ADD_ERROR',
-      errorMessage: error instanceof Error ? error.message : 'Unknown error',
+      siteId: resolvedSiteId,
+      bookingId: resolvedBookingId,
+      errorCode,
+      errorMessage: message,
       durationMs: Date.now() - startTime,
     });
 
-    if (error instanceof Error) {
-      if (error.message.includes('not found')) {
-        return NextResponse.json({ error: 'Booking or availability not found' }, { status: 404 });
-      }
-      if (error.message.includes('invalid') || error.message.includes('not valid')) {
-        return NextResponse.json(
-          { error: 'Availability is not valid for booking (options/pricing incomplete)' },
-          { status: 400 }
-        );
-      }
+    if (errorCode === 'AVAILABILITY_NOT_FOUND') {
+      return NextResponse.json({ error: 'Booking or availability not found' }, { status: 404 });
+    }
+    if (errorCode === 'AVAILABILITY_OPTIONS_INCOMPLETE') {
+      return NextResponse.json(
+        { error: 'Availability is not valid for booking (options/pricing incomplete)' },
+        { status: 400 }
+      );
     }
 
     return NextResponse.json({ error: 'Failed to add availability to booking' }, { status: 500 });

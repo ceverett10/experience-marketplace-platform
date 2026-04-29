@@ -23,13 +23,19 @@ interface RouteParams {
  */
 export async function GET(request: NextRequest, { params }: RouteParams) {
   const startTime = Date.now();
+  // Bound outside the try so the error path can attribute the event to the
+  // correct site when resolution succeeded before the failure.
+  let resolvedSiteId = 'unknown';
+  let resolvedBookingId: string | undefined;
   try {
     const { id: bookingId } = await params;
+    resolvedBookingId = bookingId;
 
     // Get site configuration
     const headersList = await headers();
     const host = headersList.get('host') ?? 'localhost:3000';
     const site = await getSiteFromHostname(host);
+    resolvedSiteId = site.id;
 
     // Get Holibob client
     const client = await getHolibobClient(site);
@@ -38,6 +44,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const booking = await client.getBookingQuestions(bookingId);
 
     if (!booking) {
+      trackFunnelEvent({
+        step: BookingFunnelStep.PAYMENT_STARTED,
+        siteId: resolvedSiteId,
+        bookingId,
+        errorCode: 'PAYMENT_BOOKING_NOT_FOUND',
+        durationMs: Date.now() - startTime,
+      });
       return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
     }
 
@@ -84,25 +97,33 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   } catch (error) {
     console.error('Get payment intent error:', error);
 
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    let errorCode = 'PAYMENT_ERROR';
+    if (error instanceof Error) {
+      if (error.message.includes('not found')) errorCode = 'PAYMENT_BOOKING_NOT_FOUND';
+      else if (error.message.includes('payment') || error.message.includes('stripe'))
+        errorCode = 'PAYMENT_NOT_REQUIRED';
+      else if (error.message.toLowerCase().includes('timeout')) errorCode = 'PAYMENT_TIMEOUT';
+      else if (error.message.toLowerCase().includes('network')) errorCode = 'PAYMENT_NETWORK_ERROR';
+    }
+
     trackFunnelEvent({
       step: BookingFunnelStep.PAYMENT_STARTED,
-      siteId: 'unknown',
-      errorCode: 'PAYMENT_ERROR',
-      errorMessage: error instanceof Error ? error.message : 'Unknown error',
+      siteId: resolvedSiteId,
+      bookingId: resolvedBookingId,
+      errorCode,
+      errorMessage: message,
       durationMs: Date.now() - startTime,
     });
 
-    if (error instanceof Error) {
-      if (error.message.includes('not found')) {
-        return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
-      }
-      // If Holibob doesn't support payment intent (ON_ACCOUNT mode)
-      if (error.message.includes('payment') || error.message.includes('stripe')) {
-        return NextResponse.json(
-          { error: 'Payment not required for this booking', skipPayment: true },
-          { status: 400 }
-        );
-      }
+    if (errorCode === 'PAYMENT_BOOKING_NOT_FOUND') {
+      return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+    }
+    if (errorCode === 'PAYMENT_NOT_REQUIRED') {
+      return NextResponse.json(
+        { error: 'Payment not required for this booking', skipPayment: true },
+        { status: 400 }
+      );
     }
 
     return NextResponse.json({ error: 'Failed to get payment intent' }, { status: 500 });
