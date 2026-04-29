@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { PoweredByHolibob } from '@/components/ui/PoweredByHolibob';
 
 interface MobileOrderSummaryProps {
   experienceName: string;
@@ -89,6 +90,10 @@ export function MobileOrderSummary({
             <span className="text-base font-bold" style={{ color: primaryColor }}>
               {totalPrice ?? '-'}
             </span>
+          </div>
+
+          <div className="mt-3 flex justify-center">
+            <PoweredByHolibob variant="header" />
           </div>
         </div>
       )}

@@ -58,18 +58,20 @@ describe('MobileBookingCTA', () => {
       expect(priceDisplay).toHaveAttribute('data-variant', 'compact');
     });
 
-    it('renders best price guarantee text without free cancellation by default', () => {
+    it('renders Powered by Holibob mark by default', () => {
       render(<MobileBookingCTA {...defaultProps} />);
-      const infoText = screen.getByText(/best price guarantee/i);
-      expect(infoText).toBeInTheDocument();
-      expect(infoText.textContent).not.toMatch(/free cancellation/i);
+      expect(screen.getByAltText('Holibob')).toBeInTheDocument();
     });
 
-    it('renders free cancellation when hasFreeCancellation is true', () => {
+    it('does not show free cancellation by default', () => {
+      render(<MobileBookingCTA {...defaultProps} />);
+      expect(screen.queryByText(/free cancellation/i)).not.toBeInTheDocument();
+    });
+
+    it('renders free cancellation alongside Powered by Holibob when hasFreeCancellation is true', () => {
       render(<MobileBookingCTA {...defaultProps} hasFreeCancellation />);
-      const infoText = screen.getByText(/best price guarantee/i);
-      expect(infoText).toBeInTheDocument();
-      expect(infoText.textContent).toMatch(/free cancellation/i);
+      expect(screen.getByText(/free cancellation/i)).toBeInTheDocument();
+      expect(screen.getByAltText('Holibob')).toBeInTheDocument();
     });
 
     it('renders Book Now button', () => {

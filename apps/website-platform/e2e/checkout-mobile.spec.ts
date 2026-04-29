@@ -195,8 +195,11 @@ test.describe('Checkout Flow - Mobile', () => {
     // Header should be visible
     await expect(page.getByRole('heading', { name: 'Complete Your Booking' })).toBeVisible();
 
-    // Back link should be visible and tappable
-    const backLink = page.getByText('Back to experiences');
+    // Back link should be visible and tappable. Copy is "Back to experience"
+    // (singular) when the booking has a product attached — which is the
+    // common case; the listing fallback ("Back to experiences") only shows
+    // for orphaned bookings.
+    const backLink = page.getByRole('link', { name: /back to experience/i });
     await expect(backLink).toBeVisible();
   });
 });

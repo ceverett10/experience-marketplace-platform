@@ -19,6 +19,7 @@ import { trackHolibob } from '@/lib/holibob-analytics';
 import { CalendarGrid } from './CalendarGrid';
 import { BookingStepper } from './BookingStepper';
 import { BookingSummaryPanel } from './BookingSummaryPanel';
+import { PoweredByHolibob } from '@/components/ui/PoweredByHolibob';
 
 interface AvailabilityModalProps {
   isOpen: boolean;
@@ -28,6 +29,10 @@ interface AvailabilityModalProps {
   primaryColor?: string;
   /** Product hero image for the summary panel */
   productImage?: string;
+  /** From experience.hasFreeCancellation (the Holibob API boolean). Forwarded
+      to BookingSummaryPanel so the "Free cancellation" trust row only
+      renders for products that actually offer it. */
+  hasFreeCancellation?: boolean;
 }
 
 type Step = 'dates' | 'options' | 'pricing' | 'review';
@@ -46,6 +51,7 @@ export function AvailabilityModal({
   productName,
   primaryColor = '#0d9488',
   productImage,
+  hasFreeCancellation = false,
 }: AvailabilityModalProps) {
   const router = useRouter();
 
@@ -573,8 +579,16 @@ export function AvailabilityModal({
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           {/* Header */}
           <div className="shrink-0 border-b border-gray-200 px-6 py-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">Book Experience</h2>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Book Experience</h2>
+                {/* Mobile-only "Powered by" subtitle — desktop shows it in the
+                    right summary panel. Sits under the title so it reads as
+                    attribution, not a tacked-on footer afterthought. */}
+                <div className="mt-1 lg:hidden">
+                  <PoweredByHolibob variant="header" />
+                </div>
+              </div>
               <button
                 onClick={onClose}
                 className="rounded-full p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-500 lg:hidden"
@@ -913,20 +927,13 @@ export function AvailabilityModal({
               <div className="shrink-0 border-t border-gray-200 px-6 py-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
+                    {/* Footer-left summary — guest count + total only.
+                        Per-person rate (with strikethrough on volume discounts)
+                        lives next to each category in the Adult section above. */}
                     {step === 'pricing' && totalPrice && (
                       <div>
                         <p className="text-sm text-gray-500">
                           {totalGuests} {totalGuests === 1 ? 'guest' : 'guests'}
-                          {totalGuests > 0 && (
-                            <span className="ml-1 text-gray-400">
-                              &middot;{' '}
-                              {new Intl.NumberFormat(undefined, {
-                                style: 'currency',
-                                currency: totalPrice.currency,
-                              }).format(totalPrice.amount / totalGuests)}
-                              /person
-                            </span>
-                          )}
                         </p>
                         <p className="text-lg font-bold" style={{ color: primaryColor }}>
                           {totalPrice.formatted}
@@ -1039,8 +1046,8 @@ export function AvailabilityModal({
             selectedDate={selectedSlot?.date}
             selectedOptions={selectedOptionsSummary}
             totalGuests={totalGuests}
-            totalPrice={totalPrice}
             primaryColor={primaryColor}
+            hasFreeCancellation={hasFreeCancellation}
           />
         </div>
       </div>

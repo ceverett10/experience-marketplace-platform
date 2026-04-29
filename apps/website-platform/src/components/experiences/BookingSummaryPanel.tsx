@@ -1,6 +1,7 @@
 'use client';
 
 import Image from 'next/image';
+import { PoweredByHolibob } from '@/components/ui/PoweredByHolibob';
 
 interface BookingSummaryPanelProps {
   productName: string;
@@ -8,8 +9,11 @@ interface BookingSummaryPanelProps {
   selectedDate?: string | null;
   selectedOptions?: Array<{ label: string; value: string }>;
   totalGuests?: number;
-  totalPrice?: { formatted: string } | null;
   primaryColor?: string;
+  /** From experience.hasFreeCancellation — controls whether the
+      "Free cancellation" trust row is rendered. Defaults to false so we
+      never claim free cancellation for products that don't offer it. */
+  hasFreeCancellation?: boolean;
 }
 
 function formatDisplayDate(dateStr: string): string {
@@ -28,8 +32,8 @@ export function BookingSummaryPanel({
   selectedDate,
   selectedOptions,
   totalGuests,
-  totalPrice,
   primaryColor = '#0d9488',
+  hasFreeCancellation = false,
 }: BookingSummaryPanelProps) {
   return (
     <div className="flex h-full flex-col">
@@ -124,17 +128,43 @@ export function BookingSummaryPanel({
         )}
       </div>
 
-      {/* Total price at bottom */}
-      {totalPrice && (
-        <div className="mt-auto border-t border-gray-200 pt-3">
-          <div className="flex items-baseline justify-between">
-            <span className="text-sm text-gray-500">Total</span>
-            <span className="text-lg font-bold" style={{ color: primaryColor }}>
-              {totalPrice.formatted}
-            </span>
-          </div>
-        </div>
-      )}
+      {/* Trust signals — labelled "Includes" section, sitting tightly under
+          "Your selection" so the visual weight stays at the top of the panel
+          and the Powered-by mark gets the empty space below. */}
+      <div className="mt-5">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Includes</p>
+        <ul className="space-y-1.5">
+          {[
+            // Product-level: only render when the API confirms it. We never
+            // fabricate free cancellation for products that don't offer it.
+            ...(hasFreeCancellation ? ['Free cancellation'] : []),
+            // Platform-level — true for every booking on the platform:
+            'Instant confirmation',
+            'Secure payments',
+            'Best price guarantee',
+            '24/7 support',
+          ].map((signal) => (
+            <li key={signal} className="flex items-center gap-2 text-xs text-gray-700">
+              <svg
+                className="h-3 w-3 flex-shrink-0 text-emerald-500"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth="2.5"
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+              </svg>
+              {signal}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* Powered-by mark anchored to the bottom of the panel — uses mt-auto
+          to absorb any extra vertical space below the trust list. */}
+      <div className="mt-auto pt-6 flex justify-center">
+        <PoweredByHolibob variant="widget" />
+      </div>
     </div>
   );
 }

@@ -87,9 +87,12 @@ export function mapTickittoEventToExperience(event: TickittoEvent): Experience {
     inclusions: event.product_includes,
     exclusions: event.product_excludes,
     cancellationPolicy: event.cancellation_policy,
+    hasFreeCancellation: /free cancellation|full refund/i.test(event.cancellation_policy ?? ''),
     itinerary: [],
     additionalInfo: [...event.ticket_instructions, ...event.entry_notes],
     languages: [],
+    goodToKnow: [],
+    contentSections: [],
     provider: {
       id: 'tickitto',
       name: 'Tickitto',

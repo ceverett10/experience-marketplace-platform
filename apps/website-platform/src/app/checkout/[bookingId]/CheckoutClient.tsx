@@ -32,6 +32,7 @@ import {
 } from '@/lib/pricing';
 import { MobileOrderSummary } from '@/components/checkout/MobileOrderSummary';
 import { SessionTimer } from '@/components/booking/SessionTimer';
+import { PoweredByHolibob } from '@/components/ui/PoweredByHolibob';
 
 interface CheckoutClientProps {
   bookingId: string;
@@ -518,25 +519,35 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
       <div className="mx-auto max-w-4xl px-4 py-4 sm:py-8">
         {/* Header — compact on mobile */}
         <div className="mb-4 sm:mb-8">
-          <Link
-            href="/experiences"
-            className="inline-flex items-center gap-2 text-xs text-gray-500 hover:text-gray-900 sm:text-sm sm:text-gray-600"
-          >
-            <svg
-              className="h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth="2"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"
-              />
-            </svg>
-            Back to experiences
-          </Link>
+          {/* Back to the specific product the user was just on, not the
+              listing — falls back to the listing only when the booking
+              somehow has no product attached. */}
+          {(() => {
+            const productId = firstAvailability?.product?.id;
+            const backHref = productId ? `/experiences/${productId}` : '/experiences';
+            const backLabel = productId ? 'Back to experience' : 'Back to experiences';
+            return (
+              <Link
+                href={backHref}
+                className="inline-flex items-center gap-2 text-xs text-gray-500 hover:text-gray-900 sm:text-sm sm:text-gray-600"
+              >
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth="2"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"
+                  />
+                </svg>
+                {backLabel}
+              </Link>
+            );
+          })()}
           <h1 className="text-2xl font-bold text-gray-900 sm:mt-4 sm:text-3xl">
             Complete Your Booking
           </h1>
@@ -1126,12 +1137,25 @@ export function CheckoutClient({ bookingId, site }: CheckoutClientProps) {
                 </div>
               </div>
 
+              {/* Powered-by trust mark — sits at the bottom of the sticky
+                  order summary so it's visible across every checkout step
+                  (questions, review, payment) on desktop. */}
+              <div className="mt-4 flex justify-center border-t border-gray-100 pt-4">
+                <PoweredByHolibob variant="widget" />
+              </div>
+
               {/* Payment processor footnote */}
-              <p className="mt-4 text-center text-xs text-gray-400">
+              <p className="mt-2 text-center text-xs text-gray-400">
                 Payment processed by Holibob Ltd
               </p>
             </div>
           </div>
+        </div>
+
+        {/* Mobile-only attribution at the bottom of the checkout content.
+            Desktop has the mark inside the sticky sidebar above. */}
+        <div className="mt-6 flex justify-center pb-4 lg:hidden">
+          <PoweredByHolibob variant="widget" />
         </div>
       </div>
     </main>

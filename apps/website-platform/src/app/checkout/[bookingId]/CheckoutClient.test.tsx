@@ -328,9 +328,14 @@ describe('CheckoutClient', () => {
       expect(document.body.textContent).toContain('Secured by Stripe');
     });
 
-    it('shows back to experiences link', async () => {
+    it('shows a back link to the product the booking was created from', async () => {
       await renderAndWaitForLoad();
-      expect(screen.getByText('Back to experiences')).toBeDefined();
+      // When the booking has a product attached, the link is "Back to experience"
+      // and points at /experiences/{productId}; the listing fallback is reserved
+      // for bookings with no product context.
+      const link = screen.getByRole('link', { name: /back to experience/i });
+      expect(link).toBeDefined();
+      expect(link.getAttribute('href')).toMatch(/^\/experiences\//);
     });
 
     it('shows session timer on the checkout page', async () => {

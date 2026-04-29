@@ -268,10 +268,10 @@ export default async function ExperienceDetailPage({ params }: Props) {
     getSupplierRating(experience.provider?.id),
   ]);
 
-  // Check if experience has free cancellation
-  const hasFreeCancellation =
-    experience.cancellationPolicy?.toLowerCase().includes('free') ||
-    experience.cancellationPolicy?.toLowerCase().includes('full refund');
+  // Source of truth: the boolean we now pull from cancellationPolicy.hasFreeCancellation
+  // in the Holibob API. The mapper falls back to a regex on the policy text when the
+  // API's structured boolean is absent (older suppliers).
+  const hasFreeCancellation = experience.hasFreeCancellation;
 
   // Generate JSON-LD structured data - use Product type for review/rating support
   // Note: TouristAttraction doesn't support aggregateRating/review per Schema.org spec
@@ -359,16 +359,17 @@ export default async function ExperienceDetailPage({ params }: Props) {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',
     mainEntity: [
-      ...(hasFreeCancellation
+      // Only emit the FAQ entry when we actually have policy text from the API.
+      // We never fabricate "24 hours / full refund" — Google would index that as
+      // the product's policy, and Holibob suppliers vary widely on real terms.
+      ...(hasFreeCancellation && experience.cancellationPolicy
         ? [
             {
               '@type': 'Question',
               name: 'What is the cancellation policy?',
               acceptedAnswer: {
                 '@type': 'Answer',
-                text:
-                  experience.cancellationPolicy ||
-                  'You can cancel free of charge up to 24 hours before the activity starts for a full refund.',
+                text: experience.cancellationPolicy,
               },
             },
           ]
@@ -829,14 +830,50 @@ export default async function ExperienceDetailPage({ params }: Props) {
                           )}
                         </div>
                         <div className="flex-1 pb-4">
-                          {stop.name && <h3 className="font-medium text-gray-900">{stop.name}</h3>}
+                          {stop.name && (
+                            <h3 className="flex flex-wrap items-center gap-x-2 gap-y-1 font-medium text-gray-900">
+                              <span>{stop.name}</span>
+                              {stop.isPassBy && (
+                                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+                                  Pass by
+                                </span>
+                              )}
+                              {stop.day != null && (
+                                <span className="text-xs font-normal text-gray-500">
+                                  Day {stop.day}
+                                </span>
+                              )}
+                            </h3>
+                          )}
                           {stop.description && (
                             <p className="mt-1 text-sm text-gray-600">{stop.description}</p>
+                          )}
+                          {stop.address && (
+                            <p className="mt-1 text-xs text-gray-500">{stop.address}</p>
                           )}
                         </div>
                       </div>
                     ))}
                   </div>
+                </section>
+              )}
+
+              {/* Good to know — quick-scan factoid grid sourced from Holibob's
+                  product-level fields (bestTimeToVisit, dressAdvice, etc.).
+                  Only renders rows the supplier filled in. */}
+              {experience.goodToKnow && experience.goodToKnow.length > 0 && (
+                <section className="mb-8 rounded-xl border border-gray-200 bg-white p-6">
+                  <h2 className="mb-4 text-xl font-semibold text-gray-900">Good to know</h2>
+                  <dl className="grid gap-4 sm:grid-cols-2">
+                    {experience.goodToKnow.map((item) => (
+                      <div key={item.label}>
+                        <dt className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                          {item.label}
+                        </dt>
+                        <dd className="mt-1 text-sm text-gray-700">{item.body}</dd>
+                      </div>
+                    ))}
+                  </dl>
                 </section>
               )}
 
@@ -896,6 +933,30 @@ export default async function ExperienceDetailPage({ params }: Props) {
                       </li>
                     ))}
                   </ul>
+                </section>
+              )}
+
+              {/* Holibob-supplied content sections — meeting point details,
+                  requirements, safety measures, opening hours, etc. Rendered
+                  in supplier-defined order from contentSections. */}
+              {experience.contentSections && experience.contentSections.length > 0 && (
+                <section className="mb-8 space-y-6 rounded-xl border border-gray-200 bg-white p-6">
+                  {experience.contentSections.map((section, idx) => (
+                    <div
+                      key={`${section.type}-${idx}`}
+                      className={idx > 0 ? 'border-t border-gray-100 pt-6' : ''}
+                    >
+                      <h3 className="mb-2 text-base font-semibold text-gray-900">
+                        {section.label}
+                      </h3>
+                      {section.name && (
+                        <p className="mb-1 text-sm font-medium text-gray-700">{section.name}</p>
+                      )}
+                      {section.body && (
+                        <p className="whitespace-pre-line text-sm text-gray-600">{section.body}</p>
+                      )}
+                    </div>
+                  ))}
                 </section>
               )}
 
@@ -1056,7 +1117,9 @@ export default async function ExperienceDetailPage({ params }: Props) {
           <div className="rounded-xl border border-gray-200 bg-white p-6">
             <h2 className="mb-4 text-xl font-semibold text-gray-900">Frequently asked questions</h2>
             <div className="divide-y divide-gray-200">
-              {hasFreeCancellation && (
+              {/* Only show the cancellation FAQ when we have real policy text
+                  from the API — never fabricate terms. */}
+              {hasFreeCancellation && experience.cancellationPolicy && (
                 <details className="group py-4">
                   <summary className="flex cursor-pointer items-center justify-between text-sm font-medium text-gray-900">
                     What is the cancellation policy?
@@ -1074,10 +1137,7 @@ export default async function ExperienceDetailPage({ params }: Props) {
                       />
                     </svg>
                   </summary>
-                  <p className="mt-2 text-sm text-gray-600">
-                    {experience.cancellationPolicy ||
-                      'Free cancellation is available for this experience. See the cancellation policy section for full terms.'}
-                  </p>
+                  <p className="mt-2 text-sm text-gray-600">{experience.cancellationPolicy}</p>
                 </details>
               )}
               <details className="group py-4">
