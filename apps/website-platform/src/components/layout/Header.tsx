@@ -309,9 +309,9 @@ export function Header() {
           <div className="mx-auto hidden max-w-7xl items-center justify-center px-4 py-2 sm:flex sm:px-6 lg:px-8">
             {trustItems.map((item, index) => (
               <div key={item.text} className="flex items-center">
-                {index > 0 && <span className="mx-4 text-gray-300">&middot;</span>}
-                <span className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-gray-500">
-                  <TrustIcon type={item.icon} className="h-3 w-3 text-emerald-500" />
+                {index > 0 && <span className="mx-4 text-gray-400">&middot;</span>}
+                <span className="flex items-center gap-1.5 text-xs font-medium tracking-wide text-gray-700">
+                  <TrustIcon type={item.icon} className="h-3.5 w-3.5 text-emerald-500" />
                   {item.text}
                 </span>
               </div>
@@ -321,7 +321,7 @@ export function Header() {
                 domain (which IS the Holibob network). */}
             {!isMicrosite && !isParentDomainSite && (
               <div className="flex items-center">
-                <span className="mx-4 text-gray-300">&middot;</span>
+                <span className="mx-4 text-gray-400">&middot;</span>
                 <PoweredByHolibob variant="header" />
               </div>
             )}
@@ -334,16 +334,16 @@ export function Header() {
               .filter((item) => item.text !== 'Secure Payments' && item.text !== '24/7 Support')
               .map((item, index) => (
                 <div key={item.text} className="flex items-center">
-                  {index > 0 && <span className="mr-2 text-gray-300">&middot;</span>}
-                  <span className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-wider text-gray-500">
-                    <TrustIcon type={item.icon} className="h-2.5 w-2.5 text-emerald-500" />
+                  {index > 0 && <span className="mr-2 text-gray-400">&middot;</span>}
+                  <span className="flex items-center gap-1 text-[11px] font-medium tracking-wide text-gray-700">
+                    <TrustIcon type={item.icon} className="h-3 w-3 text-emerald-500" />
                     {item.text}
                   </span>
                 </div>
               ))}
             {!isMicrosite && !isParentDomainSite && (
               <div className="flex items-center">
-                <span className="mr-2 text-gray-300">&middot;</span>
+                <span className="mr-2 text-gray-400">&middot;</span>
                 <PoweredByHolibob variant="header" />
               </div>
             )}
