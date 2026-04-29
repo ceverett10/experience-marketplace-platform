@@ -52,10 +52,13 @@ const createExperience = (overrides: Partial<Experience> = {}): Experience => ({
   inclusions: ['Entry ticket'],
   exclusions: ['Food'],
   cancellationPolicy: 'Free cancellation up to 24 hours',
+  hasFreeCancellation: true,
   reviews: [],
   itinerary: [],
   additionalInfo: [],
   languages: ['English'],
+  goodToKnow: [],
+  contentSections: [],
   ...overrides,
 });
 
@@ -84,9 +87,9 @@ describe('BookingWidget', () => {
       expect(screen.getByRole('button', { name: /book now/i })).toBeInTheDocument();
     });
 
-    it('renders "Free cancellation available" text below button', () => {
+    it('does not duplicate "Free cancellation" below the button (it lives in the trust block)', () => {
       render(<BookingWidget experience={createExperience()} />);
-      expect(screen.getByText('Free cancellation available')).toBeInTheDocument();
+      expect(screen.queryByText('Free cancellation available')).not.toBeInTheDocument();
     });
 
     it('opens AvailabilityModal when Book Now is clicked', () => {
@@ -246,11 +249,12 @@ describe('BookingWidget', () => {
       expect(screen.getByText('Free cancellation')).toBeInTheDocument();
     });
 
-    it('does not render free cancellation when policy is restrictive', () => {
+    it('does not render free cancellation when the API flag is false', () => {
       render(
         <BookingWidget
           experience={createExperience({
             cancellationPolicy: 'No refunds allowed',
+            hasFreeCancellation: false,
           })}
         />
       );
@@ -263,9 +267,14 @@ describe('BookingWidget', () => {
       expect(screen.getByText('Payments processed securely via Stripe')).toBeInTheDocument();
     });
 
-    it('renders Stripe footer', () => {
+    it('renders Stripe trust mark in the footer strip', () => {
       render(<BookingWidget experience={createExperience()} />);
-      expect(screen.getByText('Payments secured by Stripe')).toBeInTheDocument();
+      expect(screen.getByText('Payments by Stripe')).toBeInTheDocument();
+    });
+
+    it('renders Powered by Holibob mark in the footer strip', () => {
+      render(<BookingWidget experience={createExperience()} />);
+      expect(screen.getByAltText('Holibob')).toBeInTheDocument();
     });
   });
 

@@ -103,6 +103,21 @@ export const ProductSchema = z.object({
   description: z.string().optional(),
   shortDescription: z.string().optional(),
 
+  // Extended product-level content — surfaced on the product page where
+  // available (Holibob fills these inconsistently across suppliers).
+  abstract: z.string().nullable().optional(),
+  bestTimeToVisit: z.string().nullable().optional(),
+  difficultyLevel: z.string().nullable().optional(),
+  cultureShockLevel: z.string().nullable().optional(),
+  dressAdvice: z.string().nullable().optional(),
+  tippingAdvice: z.string().nullable().optional(),
+  maxGroupSize: z.string().nullable().optional(),
+  isPickupAvailable: z.boolean().nullable().optional(),
+  bookingCutoffDuration: z.string().nullable().optional(),
+  advanceArrivalDuration: z.string().nullable().optional(),
+  priceType: z.string().nullable().optional(),
+  minDuration: z.union([z.number(), z.string()]).nullable().optional(),
+
   // Pricing (guide price for display - Product Detail)
   guidePrice: z.number().optional(),
   guidePriceFormattedText: z.string().optional(),
@@ -168,17 +183,62 @@ export const ProductSchema = z.object({
     .optional(),
 
   // Content list from Product Detail API - contains typed content items
-  // Types: INCLUSION, EXCLUSION, HIGHLIGHT, NOTE (additional info), ITINERARY, etc.
+  // Types: INCLUSION, EXCLUSION, HIGHLIGHT, NOTE (additional info), etc.
+  // NOTE: ITINERARY items are NOT here — Holibob exposes them via the
+  // dedicated `itinerary.itemList.nodes` field (see below) which carries the
+  // location name, "(Pass By)" tag, and address.
   contentList: z
     .object({
       nodes: z.array(
         z.object({
           type: z.string().optional(),
+          typeLabel: z.string().nullable().optional(),
+          ordinalPosition: z.number().nullable().optional(),
           name: z.string().optional(),
           description: z.string().optional(),
         })
       ),
     })
+    .optional(),
+
+  // Itinerary from Product Detail API — separate from contentList.
+  // Each stop has its own location name, optional "Pass By" flag, address,
+  // and a description (Holibob's HBML wrapper, we read .text).
+  itinerary: z
+    .object({
+      itemList: z
+        .object({
+          nodes: z.array(
+            z.object({
+              id: z.string().optional(),
+              name: z.string().optional(),
+              description: z
+                .object({
+                  text: z.string().optional(),
+                })
+                .nullable()
+                .optional(),
+              extraInformation: z
+                .object({
+                  day: z.number().nullable().optional(),
+                  passByWithoutStopping: z.boolean().nullable().optional(),
+                  isAdmissionIncluded: z.boolean().nullable().optional(),
+                })
+                .nullable()
+                .optional(),
+              place: z
+                .object({
+                  name: z.string().nullable().optional(),
+                  formattedAddress: z.string().nullable().optional(),
+                })
+                .nullable()
+                .optional(),
+            })
+          ),
+        })
+        .optional(),
+    })
+    .nullable()
     .optional(),
 
   // Guide languages from Product Detail API
@@ -211,6 +271,8 @@ export const ProductSchema = z.object({
       type: z.string().optional(),
       description: z.string().optional(),
       cutoffHours: z.number().optional(),
+      isCancellable: z.boolean().nullable().optional(),
+      hasFreeCancellation: z.boolean().nullable().optional(),
       penaltyList: z
         .object({
           nodes: z.array(
@@ -237,6 +299,23 @@ export const ProductSchema = z.object({
       formattedAddress: z.string().optional(),
       mapImageUrl: z.string().optional(),
     })
+    .optional(),
+
+  // End place — set when the tour ends somewhere different from the start.
+  endPlace: z
+    .object({
+      timeZone: z.string().optional(),
+      geoCoordinate: z
+        .object({
+          latitude: z.number().optional(),
+          longitude: z.number().optional(),
+        })
+        .optional(),
+      googlePlaceId: z.string().optional(),
+      formattedAddress: z.string().optional(),
+      mapImageUrl: z.string().optional(),
+    })
+    .nullable()
     .optional(),
 
   // Review list with individual reviews

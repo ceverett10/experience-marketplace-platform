@@ -123,6 +123,17 @@ export const PRODUCT_DETAIL_QUERY = gql`
       id
       name
       description
+      abstract
+      bestTimeToVisit
+      difficultyLevel
+      cultureShockLevel
+      dressAdvice
+      tippingAdvice
+      maxGroupSize
+      isPickupAvailable
+      bookingCutoffDuration
+      advanceArrivalDuration
+      priceType
       guidePrice
       guidePriceFormattedText
       guidePriceCurrency
@@ -130,14 +141,37 @@ export const PRODUCT_DETAIL_QUERY = gql`
         id
         url
       }
+      minDuration
       maxDuration
       reviewRating
       reviewCount
       contentList {
         nodes {
           type
+          typeLabel
+          ordinalPosition
           name
           description
+        }
+      }
+      itinerary {
+        itemList {
+          nodes {
+            id
+            name
+            description {
+              text
+            }
+            extraInformation {
+              day
+              passByWithoutStopping
+              isAdmissionIncluded
+            }
+            place {
+              name
+              formattedAddress
+            }
+          }
         }
       }
       guideLanguageList {
@@ -147,6 +181,8 @@ export const PRODUCT_DETAIL_QUERY = gql`
         }
       }
       cancellationPolicy {
+        isCancellable
+        hasFreeCancellation
         penaltyList {
           nodes {
             formattedText
@@ -154,6 +190,16 @@ export const PRODUCT_DETAIL_QUERY = gql`
         }
       }
       startPlace {
+        timeZone
+        geoCoordinate {
+          latitude
+          longitude
+        }
+        googlePlaceId
+        formattedAddress
+        mapImageUrl
+      }
+      endPlace {
         timeZone
         geoCoordinate {
           latitude

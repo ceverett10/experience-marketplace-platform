@@ -5,6 +5,7 @@ import { useBrand } from '@/lib/site-context';
 import type { BookingStats } from '@/lib/booking-analytics';
 import { AvailabilityModal } from './AvailabilityModal';
 import { PriceDisplay } from '@/components/ui/PriceDisplay';
+import { PoweredByHolibob } from '@/components/ui/PoweredByHolibob';
 import { getProductPricingConfig } from '@/lib/pricing';
 
 interface MobileBookingCTAProps {
@@ -64,9 +65,17 @@ export function MobileBookingCTA({
               variant="compact"
               primaryColor={primaryColor}
             />
-            <p className="mt-0.5 text-xs text-emerald-600">
-              {hasFreeCancellation ? 'Free cancellation \u00B7 ' : ''}Best price guarantee
-            </p>
+            <div className="mt-1 flex flex-wrap items-center gap-x-1 text-[11px] leading-none">
+              {hasFreeCancellation && (
+                <>
+                  <span className="font-medium text-emerald-600">Free cancellation</span>
+                  <span className="text-gray-300" aria-hidden>
+                    &middot;
+                  </span>
+                </>
+              )}
+              <PoweredByHolibob variant="header" />
+            </div>
           </div>
           <button
             type="button"
@@ -89,6 +98,7 @@ export function MobileBookingCTA({
         productId={productId}
         productName={productName}
         primaryColor={primaryColor}
+        hasFreeCancellation={hasFreeCancellation}
       />
     </>
   );

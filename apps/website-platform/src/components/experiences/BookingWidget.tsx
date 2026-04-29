@@ -6,6 +6,7 @@ import type { Experience } from '@/lib/holibob';
 import type { BookingStats } from '@/lib/booking-analytics';
 import { AvailabilityModal } from './AvailabilityModal';
 import { PriceDisplay } from '@/components/ui/PriceDisplay';
+import { PoweredByHolibob } from '@/components/ui/PoweredByHolibob';
 import { getProductPricingConfig } from '@/lib/pricing';
 
 interface BookingWidgetProps {
@@ -27,10 +28,10 @@ export function BookingWidget({
   const brand = useBrand();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Check for free cancellation
-  const hasFreeCancellation =
-    experience.cancellationPolicy?.toLowerCase().includes('free') ||
-    experience.cancellationPolicy?.toLowerCase().includes('full refund');
+  // Source of truth: the boolean from cancellationPolicy.hasFreeCancellation
+  // in the Holibob API. The mapper falls back to a regex on the policy text
+  // only when that structured boolean is missing on legacy products.
+  const hasFreeCancellation = experience.hasFreeCancellation;
 
   // Show urgency badge based on real booking data or review count
   const isPopular =
@@ -121,11 +122,9 @@ export function BookingWidget({
         >
           Book Now
         </button>
-        {hasFreeCancellation && (
-          <p className="mt-2 text-center text-xs text-emerald-600">Free cancellation available</p>
-        )}
 
-        {/* Trust Signals */}
+        {/* Trust Signals — "Free cancellation" lives here only; the small caption
+            that used to appear directly under the button was duplicating this row. */}
         <div className="mt-6 space-y-3">
           {/* Free Cancellation */}
           {hasFreeCancellation && (
@@ -172,22 +171,26 @@ export function BookingWidget({
           </div>
         </div>
 
-        {/* Secured by Stripe */}
-        <div className="mt-4 flex items-center justify-center gap-1.5 text-xs text-gray-400">
-          <svg
-            className="h-3.5 w-3.5"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth="1.5"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
-            />
-          </svg>
-          Payments secured by Stripe
+        {/* Trust strip: Holibob (platform) + Stripe (payments) */}
+        <div className="mt-4 flex items-center justify-center gap-4 border-t border-gray-100 pt-3">
+          <PoweredByHolibob variant="widget" />
+          <span className="h-3 w-px bg-gray-200" aria-hidden />
+          <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs text-gray-500">
+            <svg
+              className="h-3.5 w-3.5"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth="1.5"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
+              />
+            </svg>
+            Payments by Stripe
+          </span>
         </div>
 
         {/* Duration & Language Quick Info */}
@@ -239,6 +242,7 @@ export function BookingWidget({
         productName={experience.title}
         primaryColor={primaryColor}
         productImage={productImage || experience.imageUrl}
+        hasFreeCancellation={experience.hasFreeCancellation}
       />
     </div>
   );

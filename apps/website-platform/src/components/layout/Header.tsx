@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useSite, useBrand } from '@/lib/site-context';
 import { CurrencySelector } from '@/components/ui/CurrencySelector';
+import { PoweredByHolibob } from '@/components/ui/PoweredByHolibob';
 import { useWishlist } from '@/hooks/useWishlist';
 
 /**
@@ -315,18 +316,37 @@ export function Header() {
                 </span>
               </div>
             ))}
-          </div>
-          {/* Mobile: scrollable row with small icons */}
-          <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 px-3 py-1.5 sm:hidden">
-            {trustItems.slice(0, 4).map((item, index) => (
-              <div key={item.text} className="flex items-center">
-                {index > 0 && <span className="mr-2 text-gray-300">&middot;</span>}
-                <span className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-wider text-gray-500">
-                  <TrustIcon type={item.icon} className="h-2.5 w-2.5 text-emerald-500" />
-                  {item.text}
-                </span>
+            {/* Main sites only: "Powered by Holibob" trust mark.
+                Hidden on microsites (already supplier-branded) and parent
+                domain (which IS the Holibob network). */}
+            {!isMicrosite && !isParentDomainSite && (
+              <div className="flex items-center">
+                <span className="mx-4 text-gray-300">&middot;</span>
+                <PoweredByHolibob variant="header" />
               </div>
-            ))}
+            )}
+          </div>
+          {/* Mobile: scrollable row with small icons.
+              Drop "Secure Payments" and "24/7 Support" to save horizontal space —
+              still surfaced on desktop and inside the BookingWidget / checkout. */}
+          <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 px-3 py-1.5 sm:hidden">
+            {trustItems
+              .filter((item) => item.text !== 'Secure Payments' && item.text !== '24/7 Support')
+              .map((item, index) => (
+                <div key={item.text} className="flex items-center">
+                  {index > 0 && <span className="mr-2 text-gray-300">&middot;</span>}
+                  <span className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-wider text-gray-500">
+                    <TrustIcon type={item.icon} className="h-2.5 w-2.5 text-emerald-500" />
+                    {item.text}
+                  </span>
+                </div>
+              ))}
+            {!isMicrosite && !isParentDomainSite && (
+              <div className="flex items-center">
+                <span className="mr-2 text-gray-300">&middot;</span>
+                <PoweredByHolibob variant="header" />
+              </div>
+            )}
           </div>
         </div>
 

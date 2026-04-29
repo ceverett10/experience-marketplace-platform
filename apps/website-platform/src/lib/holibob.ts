@@ -128,17 +128,53 @@ export interface Experience {
   inclusions: string[];
   exclusions: string[];
   cancellationPolicy: string;
+  /** True only when Holibob explicitly says the experience supports free cancellation */
+  hasFreeCancellation: boolean;
   // New fields for complete product content
   itinerary: {
     name: string;
     description: string;
+    /** True for stops the tour passes by without stopping */
+    isPassBy: boolean;
+    /** Optional admission-included indicator from Holibob */
+    isAdmissionIncluded?: boolean;
+    /** Optional day number for multi-day tours (1, 2, 3...) */
+    day?: number;
+    /** Optional formatted address for the stop */
+    address?: string;
   }[];
   additionalInfo: string[];
   languages: string[];
+  /** Optional structured "Good to know" content extracted from Holibob's
+      product-level fields and content list. Each entry is a labeled chunk
+      (e.g. label: "Best time to visit", body: "April–September"). */
+  goodToKnow: {
+    label: string;
+    body: string;
+  }[];
+  /** Optional rendered content sections (e.g. Meeting point, Safety,
+      Requirements). Sourced from contentList content types we recognise.
+      Sorted by Holibob's ordinalPosition where available. */
+  contentSections: {
+    type: string;
+    /** Holibob's translated label for the type, falling back to a humanised
+        version of the enum value. */
+    label: string;
+    /** Optional title for the section content (e.g. specific meeting point name). */
+    name?: string;
+    body: string;
+  }[];
   /** Provider/supplier info - used for dynamic indexing rules */
   provider?: {
     id: string;
     name: string;
+  };
+  /** End place when the tour ends somewhere different from the start */
+  endLocation?: {
+    name: string;
+    address: string;
+    lat: number;
+    lng: number;
   };
 }
 
@@ -185,6 +221,19 @@ export function mapProductToExperience(product: {
   slug?: string;
   shortDescription?: string;
   description?: string;
+  // Extended product-level content (Holibob fills these inconsistently)
+  abstract?: string | null;
+  bestTimeToVisit?: string | null;
+  difficultyLevel?: string | null;
+  cultureShockLevel?: string | null;
+  dressAdvice?: string | null;
+  tippingAdvice?: string | null;
+  maxGroupSize?: string | null;
+  isPickupAvailable?: boolean | null;
+  bookingCutoffDuration?: string | null;
+  advanceArrivalDuration?: string | null;
+  priceType?: string | null;
+  minDuration?: number | string | null;
   // Image fields - different formats from different API endpoints
   primaryImage?: { url?: string };
   primaryImageUrl?: string; // Product Discovery API
@@ -255,14 +304,37 @@ export function mapProductToExperience(product: {
   // additionList has nested structure with nodes
   additionList?: { nodes?: { text?: string }[] } | string[];
   // contentList from Product Detail API - contains typed content items
-  // Types: INCLUSION, EXCLUSION, HIGHLIGHT, NOTE, ITINERARY, etc.
+  // Types: INCLUSION, EXCLUSION, HIGHLIGHT, NOTE, MEETING_POINT, REQUIREMENT,
+  // SAFETY_MEASURE, KNOW_BEFORE_YOU_GO, etc.
+  // Itinerary is NOT in contentList — see `itinerary` field below.
   contentList?: {
     nodes?: {
       type?: string;
+      typeLabel?: string | null;
+      ordinalPosition?: number | null;
       name?: string;
       description?: string;
     }[];
   };
+  // Itinerary from Product Detail API — separate field with structured stops.
+  itinerary?: {
+    itemList?: {
+      nodes?: {
+        id?: string;
+        name?: string;
+        description?: { text?: string } | null;
+        extraInformation?: {
+          day?: number | null;
+          passByWithoutStopping?: boolean | null;
+          isAdmissionIncluded?: boolean | null;
+        } | null;
+        place?: {
+          name?: string | null;
+          formattedAddress?: string | null;
+        } | null;
+      }[];
+    };
+  } | null;
   // Guide languages from Product Detail API
   guideLanguageList?: {
     nodes?: {
@@ -275,6 +347,8 @@ export function mapProductToExperience(product: {
     | {
         type?: string;
         description?: string;
+        isCancellable?: boolean | null;
+        hasFreeCancellation?: boolean | null;
         penaltyList?: { nodes?: { formattedText?: string }[] };
       }
     | string;
@@ -289,6 +363,17 @@ export function mapProductToExperience(product: {
     formattedAddress?: string;
     mapImageUrl?: string;
   };
+  // End place — set when the tour ends somewhere different from the start
+  endPlace?: {
+    timeZone?: string;
+    geoCoordinate?: {
+      latitude?: number;
+      longitude?: number;
+    };
+    googlePlaceId?: string;
+    formattedAddress?: string;
+    mapImageUrl?: string;
+  } | null;
   // Provider/supplier info
   provider?: {
     id?: string;
@@ -469,18 +554,130 @@ export function mapProductToExperience(product: {
       .join(' ');
   }
 
-  // Extract itinerary from contentList (ITINERARY type)
-  const itineraryNodes = contentNodes.filter((n) => n.type === 'ITINERARY');
+  // Extract itinerary from the dedicated `itinerary.itemList.nodes` field.
+  // Each stop carries its own location name, "(Pass By)" flag, address, and
+  // an HBML description (we read .text). The legacy contentList ITINERARY
+  // path was missing the location name on most products, leaving the section
+  // showing four numbered "View from cruise" lines — see the schema notes in
+  // packages/holibob-api/src/queries/index.ts.
+  const itineraryNodes = product.itinerary?.itemList?.nodes ?? [];
   const itinerary = itineraryNodes
-    .map((n) => ({
-      name: n.name || '',
-      description: n.description || '',
-    }))
+    .map((n) => {
+      const locationName = n.name || n.place?.name || '';
+      const description = n.description?.text || '';
+      return {
+        name: locationName,
+        description,
+        isPassBy: !!n.extraInformation?.passByWithoutStopping,
+        ...(n.extraInformation?.isAdmissionIncluded != null && {
+          isAdmissionIncluded: n.extraInformation.isAdmissionIncluded,
+        }),
+        ...(n.extraInformation?.day != null && { day: n.extraInformation.day }),
+        ...(n.place?.formattedAddress && { address: n.place.formattedAddress }),
+      };
+    })
     .filter((item) => item.name || item.description);
 
-  // Extract additional information from contentList (NOTE type)
-  const noteNodes = contentNodes.filter((n) => n.type === 'NOTE');
-  const additionalInfo = noteNodes.map((n) => n.description || n.name || '').filter(Boolean);
+  // Extract additional information from contentList. NOTE has historically
+  // been the catch-all bucket; KNOW_BEFORE_YOU_GO carries the same kind of
+  // free-form pre-trip info on newer products. Treat both the same way.
+  const additionalInfoNodes = contentNodes.filter(
+    (n) => n.type === 'NOTE' || n.type === 'KNOW_BEFORE_YOU_GO'
+  );
+  const additionalInfo = additionalInfoNodes
+    .map((n) => n.description || n.name || '')
+    .filter(Boolean);
+
+  // Build the structured "Good to know" block from the product-level fields
+  // Holibob fills inconsistently — we emit only entries that have a value so
+  // empty rows never show. ISO 8601 durations are humanised for display.
+  const goodToKnow: { label: string; body: string }[] = [];
+  const pushGtk = (label: string, value: string | null | undefined) => {
+    if (value && value.trim()) goodToKnow.push({ label, body: value.trim() });
+  };
+  pushGtk('Best time to visit', product.bestTimeToVisit);
+  pushGtk('Difficulty', product.difficultyLevel);
+  pushGtk('Culture shock', product.cultureShockLevel);
+  pushGtk('Dress advice', product.dressAdvice);
+  pushGtk('Tipping advice', product.tippingAdvice);
+  pushGtk('Max group size', product.maxGroupSize);
+  if (product.isPickupAvailable) {
+    goodToKnow.push({ label: 'Pickup', body: 'Pickup available — confirm at booking' });
+  }
+  if (product.bookingCutoffDuration) {
+    const minutes = parseIsoDuration(product.bookingCutoffDuration);
+    if (minutes > 0) {
+      const hours = Math.round(minutes / 60);
+      goodToKnow.push({
+        label: 'Booking cutoff',
+        body: `Book at least ${hours >= 24 ? `${Math.round(hours / 24)} day${hours >= 48 ? 's' : ''}` : `${hours} hour${hours !== 1 ? 's' : ''}`} ahead`,
+      });
+    }
+  }
+  if (product.advanceArrivalDuration) {
+    const minutes = parseIsoDuration(product.advanceArrivalDuration);
+    if (minutes > 0) {
+      goodToKnow.push({
+        label: 'Arrival',
+        body: `Arrive ${minutes} minutes before start time`,
+      });
+    }
+  }
+
+  // Surface other recognised content types as labelled sections, sorted by
+  // Holibob's ordinalPosition so they render in the supplier's intended order.
+  // These are the types we display today; the full enum has 30 values but most
+  // are admin/structural. Itinerary/Inclusion/Exclusion/Highlight/Note are
+  // handled separately above.
+  const sectionTypes = new Set([
+    'MEETING_POINT',
+    'STARTING_POINT',
+    'FINISHING_POINT',
+    'OPENING_HOURS',
+    'REQUIREMENT',
+    'SAFETY_MEASURE',
+    'TIMING_NOTE',
+    'PRE_ARRIVAL_INSTRUCTIONS',
+    'VOUCHER_NOTE',
+    'VENUE',
+  ]);
+  const humaniseType = (t: string): string =>
+    t
+      .toLowerCase()
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+  const contentSections = contentNodes
+    .filter((n) => n.type && sectionTypes.has(n.type))
+    .map((n) => ({
+      type: n.type ?? '',
+      label: n.typeLabel || humaniseType(n.type ?? ''),
+      ...(n.name ? { name: n.name } : {}),
+      body: n.description || '',
+      _ord: n.ordinalPosition ?? Number.MAX_SAFE_INTEGER,
+    }))
+    .filter((s) => s.body || s.name)
+    .sort((a, b) => a._ord - b._ord)
+    .map(({ _ord: _ord, ...s }) => s);
+
+  // Free cancellation flag — prefer Holibob's structured boolean. Falls back
+  // to a substring check on the policy text for older products that only
+  // populate the description.
+  const hasFreeCancellationFlag =
+    typeof product.cancellationPolicy === 'object' &&
+    product.cancellationPolicy?.hasFreeCancellation === true
+      ? true
+      : /free cancellation|full refund/i.test(cancellationPolicy);
+
+  // End place — only set if Holibob explicitly provides one (most tours
+  // start and end at the same place, in which case endPlace is null).
+  const endLocation = product.endPlace?.formattedAddress
+    ? {
+        name: '',
+        address: product.endPlace.formattedAddress ?? '',
+        lat: product.endPlace.geoCoordinate?.latitude ?? 0,
+        lng: product.endPlace.geoCoordinate?.longitude ?? 0,
+      }
+    : undefined;
 
   // Extract guide languages from guideLanguageList
   const languages =
@@ -490,7 +687,13 @@ export function mapProductToExperience(product: {
     id: product.id,
     title: product.title ?? product.name ?? 'Untitled Experience',
     slug: product.slug ?? product.id,
-    shortDescription: product.shortDescription ?? '',
+    // Prefer Holibob's `abstract` (curated short summary) when present, then
+    // the discovery-API `shortDescription`, then a clipped form of the full
+    // description as a last resort.
+    shortDescription:
+      product.abstract?.trim() ||
+      product.shortDescription ||
+      (product.description ? product.description.slice(0, 200) : ''),
     description: product.description ?? '',
     imageUrl: primaryImageUrl,
     images:
@@ -563,9 +766,13 @@ export function mapProductToExperience(product: {
     inclusions,
     exclusions,
     cancellationPolicy,
+    hasFreeCancellation: hasFreeCancellationFlag,
     itinerary,
     additionalInfo,
     languages,
+    goodToKnow,
+    contentSections,
+    ...(endLocation ? { endLocation } : {}),
     // Provider/supplier info - used for dynamic indexing rules
     provider: product.provider?.id
       ? {
