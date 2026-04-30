@@ -10,7 +10,7 @@ type Status = (typeof STATUSES)[number];
  */
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
-    const searchParams = request.nextUrl.searchParams;
+    const searchParams = new URL(request.url).searchParams;
     const siteId = searchParams.get('siteId');
     const status = searchParams.get('status');
     const subject = searchParams.get('subject');
