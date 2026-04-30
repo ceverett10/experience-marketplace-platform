@@ -13,6 +13,7 @@ import { headers } from 'next/headers';
 import { z } from 'zod';
 import { getSiteFromHostname } from '@/lib/tenant';
 import { prisma } from '@/lib/prisma';
+import { sendContactNotification } from '@/lib/email';
 
 const ContactFormSchema = z.object({
   name: z.string().min(1, 'Name is required').max(200),
@@ -42,7 +43,7 @@ export async function POST(request: NextRequest) {
 
     const isMicrosite = !!site.micrositeContext;
 
-    await prisma.contactMessage.create({
+    const created = await prisma.contactMessage.create({
       data: {
         name: name.trim(),
         email: email.toLowerCase().trim(),
@@ -53,6 +54,18 @@ export async function POST(request: NextRequest) {
         siteId: isMicrosite ? undefined : site.id !== 'default' ? site.id : undefined,
         micrositeId: isMicrosite ? site.micrositeContext?.micrositeId : undefined,
       },
+    });
+
+    // Notify by email — fail-soft so a Resend outage never breaks the form
+    void sendContactNotification({
+      id: created.id,
+      name: created.name,
+      email: created.email,
+      phone: created.phone,
+      subject: created.subject,
+      message: created.message,
+      domain: created.domain,
+      createdAt: created.createdAt,
     });
 
     return NextResponse.json(

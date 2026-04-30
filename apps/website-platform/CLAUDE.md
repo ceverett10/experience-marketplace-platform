@@ -168,6 +168,20 @@ API routes in `api/booking/`, `api/products/`, `api/payment/`.
 | Image utilities               | `src/lib/image-utils.ts`                               |
 | Structured data               | `src/components/seo/StructuredData.tsx`                |
 | Brand CSS variables           | `src/lib/brand-css.ts` (generateBrandCSSVariables)     |
+| Contact form notification     | `src/lib/email.ts` (sendContactNotification, Resend)   |
+
+## Transactional Email (Resend)
+
+Contact form submissions trigger a notification email via Resend in `src/lib/email.ts`.
+
+- **Send is fire-and-forget and fail-soft**: failure to send never fails the request — the DB record + admin page are the source of truth
+- **Reply-To is set to the customer's email**, so replying from your inbox replies to them directly
+- **Required env vars** (skipped silently if any are missing):
+  - `RESEND_API_KEY`
+  - `RESEND_FROM_EMAIL` (e.g., `Holibob Creators <info@creators.holibob.tech>` — the domain MUST be verified in Resend)
+  - `CONTACT_NOTIFICATION_EMAIL` (where notifications are delivered)
+- **Optional**: `ADMIN_BASE_URL` for the "view in admin" link (defaults to `https://admin.experiencess.com`)
+- New transactional email types should reuse this module — don't add a second Resend client
 
 ## Testing Commands
 
