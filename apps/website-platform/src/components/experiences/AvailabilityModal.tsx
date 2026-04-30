@@ -16,6 +16,11 @@ import {
 } from '@/lib/booking-flow';
 import { reportError } from '@/lib/error-reporting';
 import { trackHolibob } from '@/lib/holibob-analytics';
+import {
+  trackClientFunnelEvent,
+  errorMessageFrom,
+  BookingFunnelStep,
+} from '@/lib/client-funnel-tracking';
 import { CalendarGrid } from './CalendarGrid';
 import { BookingStepper } from './BookingStepper';
 import { BookingSummaryPanel } from './BookingSummaryPanel';
@@ -63,6 +68,24 @@ export function AvailabilityModal({
   const [availabilityDetail, setAvailabilityDetail] = useState<AvailabilityDetail | null>(null);
   const [optionSelections, setOptionSelections] = useState<Record<string, string>>({});
   const [optionsComplete, setOptionsComplete] = useState(false);
+
+  // Tracks the slot we last logged a soldOut event for, so we don't spam.
+  const lastSoldOutSlotRef = useRef<string | null>(null);
+
+  // Track when the pricing detail comes back with soldOut=true. This is the
+  // most user-visible failure mode in this modal — user picks a date, configures
+  // options, then sees "The selected options are currently sold out".
+  useEffect(() => {
+    if (!availabilityDetail?.soldOut || !selectedSlot) return;
+    if (lastSoldOutSlotRef.current === selectedSlot.id) return;
+    lastSoldOutSlotRef.current = selectedSlot.id;
+    trackClientFunnelEvent({
+      step: BookingFunnelStep.AVAILABILITY_SEARCH,
+      productId,
+      errorCode: 'CLIENT_PRICING_SOLD_OUT',
+      errorMessage: `slotId=${selectedSlot.id}, date=${selectedSlot.date}`,
+    });
+  }, [availabilityDetail, selectedSlot, productId]);
 
   // Pricing state
   const [pricingCategories, setPricingCategoriesState] = useState<PricingCategory[]>([]);
@@ -132,10 +155,33 @@ export function AvailabilityModal({
           setCalendarYear(firstDate.getFullYear());
           setCalendarMonth(firstDate.getMonth());
           setSelectedSlot(available[0]!);
+          trackClientFunnelEvent({
+            step: BookingFunnelStep.AVAILABILITY_SEARCH,
+            productId,
+            errorCode: 'CLIENT_AVAILABILITY_RENDERED',
+            errorMessage: `availableDateCount=${available.length}, range=90d`,
+          });
+        } else {
+          // No availability in the next 90 days — show a clear message
+          setError(
+            'This experience has no available dates in the next 90 days. Please check back later or try another experience.'
+          );
+          trackClientFunnelEvent({
+            step: BookingFunnelStep.AVAILABILITY_SEARCH,
+            productId,
+            errorCode: 'CLIENT_NO_AVAILABILITY_90_DAYS',
+            errorMessage: 'No bookable dates in next 90 days',
+          });
         }
       } catch (err) {
         if (cancelled) return;
         setError(err instanceof Error ? err.message : 'Failed to load availability');
+        trackClientFunnelEvent({
+          step: BookingFunnelStep.AVAILABILITY_SEARCH,
+          productId,
+          errorCode: 'CLIENT_AVAILABILITY_LOAD_FAILED',
+          errorMessage: errorMessageFrom(err),
+        });
         if (err instanceof Error)
           reportError(err, { component: 'AvailabilityModal', action: 'loadAvailability' });
         hasFetchedRef.current = true;
@@ -217,59 +263,80 @@ export function AvailabilityModal({
   };
 
   // Load options when a slot is selected
-  const loadOptions = useCallback(async (slotId: string) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const detail = await getAvailabilityDetails(slotId);
-      if (!detail) {
-        setError('Availability details not found. Please select a different date.');
-        return;
-      }
-      setAvailabilityDetail(detail);
-      // Capture max participants cap from the first detail response
-      if (detail.maxParticipants) {
-        setMaxGuestsCap(detail.maxParticipants);
-      }
-
-      if (detail.optionList?.isComplete) {
-        setOptionsComplete(true);
-        const pricingDetail = await getAvailabilityDetails(slotId, true);
-        if (!pricingDetail) {
-          setError('Failed to load pricing. Please try again.');
+  const loadOptions = useCallback(
+    async (slotId: string) => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const detail = await getAvailabilityDetails(slotId);
+        if (!detail) {
+          setError('Availability details not found. Please select a different date.');
+          trackClientFunnelEvent({
+            step: BookingFunnelStep.AVAILABILITY_SEARCH,
+            productId,
+            errorCode: 'CLIENT_AVAILABILITY_DETAILS_NULL',
+            errorMessage: `slotId=${slotId}`,
+          });
           return;
         }
-        setAvailabilityDetail(pricingDetail);
-        // Also capture from pricing detail if not set yet
-        if (pricingDetail.maxParticipants && !detail.maxParticipants) {
-          setMaxGuestsCap(pricingDetail.maxParticipants);
+        setAvailabilityDetail(detail);
+        // Capture max participants cap from the first detail response
+        if (detail.maxParticipants) {
+          setMaxGuestsCap(detail.maxParticipants);
         }
-        const cats = pricingDetail.pricingCategoryList?.nodes ?? [];
-        setPricingCategoriesState(cats);
-        setCategoryUnits(initializeGuestCounts(cats));
-        setStep('pricing');
-      } else {
-        setOptionsComplete(false);
-        // Auto-select options that have only one choice
-        const autoSelections: Record<string, string> = {};
-        for (const opt of detail.optionList?.nodes ?? []) {
-          if (opt.availableOptions?.length === 1) {
-            autoSelections[opt.id] = opt.availableOptions[0]!.value;
+
+        if (detail.optionList?.isComplete) {
+          setOptionsComplete(true);
+          const pricingDetail = await getAvailabilityDetails(slotId, true);
+          if (!pricingDetail) {
+            setError('Failed to load pricing. Please try again.');
+            trackClientFunnelEvent({
+              step: BookingFunnelStep.AVAILABILITY_SEARCH,
+              productId,
+              errorCode: 'CLIENT_PRICING_FETCH_NULL',
+              errorMessage: `slotId=${slotId}, source=loadOptions`,
+            });
+            return;
           }
+          setAvailabilityDetail(pricingDetail);
+          // Also capture from pricing detail if not set yet
+          if (pricingDetail.maxParticipants && !detail.maxParticipants) {
+            setMaxGuestsCap(pricingDetail.maxParticipants);
+          }
+          const cats = pricingDetail.pricingCategoryList?.nodes ?? [];
+          setPricingCategoriesState(cats);
+          setCategoryUnits(initializeGuestCounts(cats));
+          setStep('pricing');
+        } else {
+          setOptionsComplete(false);
+          // Auto-select options that have only one choice
+          const autoSelections: Record<string, string> = {};
+          for (const opt of detail.optionList?.nodes ?? []) {
+            if (opt.availableOptions?.length === 1) {
+              autoSelections[opt.id] = opt.availableOptions[0]!.value;
+            }
+          }
+          if (Object.keys(autoSelections).length > 0) {
+            setOptionSelections((prev) => ({ ...prev, ...autoSelections }));
+          }
+          setStep('options');
         }
-        if (Object.keys(autoSelections).length > 0) {
-          setOptionSelections((prev) => ({ ...prev, ...autoSelections }));
-        }
-        setStep('options');
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load availability details');
+        trackClientFunnelEvent({
+          step: BookingFunnelStep.AVAILABILITY_SEARCH,
+          productId,
+          errorCode: 'CLIENT_OPTIONS_LOAD_FAILED',
+          errorMessage: errorMessageFrom(err),
+        });
+        if (err instanceof Error)
+          reportError(err, { component: 'AvailabilityModal', action: 'loadOptions' });
+      } finally {
+        setIsLoading(false);
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load availability details');
-      if (err instanceof Error)
-        reportError(err, { component: 'AvailabilityModal', action: 'loadOptions' });
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+    },
+    [productId]
+  );
 
   // Handle option selection
   const handleOptionChange = (optionId: string, value: string) => {
@@ -287,6 +354,12 @@ export function AvailabilityModal({
       const result = await setAvailabilityOptions(selectedSlot.id, options);
       if (!result) {
         setError('Failed to set options. Please try again.');
+        trackClientFunnelEvent({
+          step: BookingFunnelStep.AVAILABILITY_SEARCH,
+          productId,
+          errorCode: 'CLIENT_OPTIONS_SUBMIT_NULL',
+          errorMessage: `slotId=${selectedSlot.id}, optionCount=${options.length}`,
+        });
         return;
       }
       setAvailabilityDetail(result);
@@ -296,6 +369,12 @@ export function AvailabilityModal({
         const pricingDetail = await getAvailabilityDetails(selectedSlot.id, true);
         if (!pricingDetail) {
           setError('Failed to load pricing. Please try again.');
+          trackClientFunnelEvent({
+            step: BookingFunnelStep.AVAILABILITY_SEARCH,
+            productId,
+            errorCode: 'CLIENT_PRICING_FETCH_NULL',
+            errorMessage: `slotId=${selectedSlot.id}, source=submitOptions`,
+          });
           return;
         }
         setAvailabilityDetail(pricingDetail);
@@ -308,6 +387,12 @@ export function AvailabilityModal({
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to set options');
+      trackClientFunnelEvent({
+        step: BookingFunnelStep.AVAILABILITY_SEARCH,
+        productId,
+        errorCode: 'CLIENT_OPTIONS_SUBMIT_FAILED',
+        errorMessage: errorMessageFrom(err),
+      });
       if (err instanceof Error)
         reportError(err, { component: 'AvailabilityModal', action: 'submitOptions' });
     } finally {
@@ -433,6 +518,12 @@ export function AvailabilityModal({
       router.push(`/checkout/${bookingId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create booking');
+      trackClientFunnelEvent({
+        step: BookingFunnelStep.BOOKING_CREATED,
+        productId,
+        errorCode: 'CLIENT_START_BOOKING_FAILED',
+        errorMessage: errorMessageFrom(err),
+      });
       if (err instanceof Error)
         reportError(err, { component: 'AvailabilityModal', action: 'startBooking' });
       setIsBooking(false);
