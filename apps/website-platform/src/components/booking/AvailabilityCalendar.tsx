@@ -1,8 +1,13 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useBrand } from '@/lib/site-context';
 import { currencyToLocale } from '@/lib/currency';
+import {
+  trackClientFunnelEvent,
+  errorMessageFrom,
+  BookingFunnelStep,
+} from '@/lib/client-funnel-tracking';
 
 export interface TimeSlot {
   id: string;
@@ -84,6 +89,12 @@ export function AvailabilityCalendar({
       setAvailability(data.data?.options ?? []);
     } catch (err) {
       console.error('Error fetching availability:', err);
+      trackClientFunnelEvent({
+        step: BookingFunnelStep.AVAILABILITY_SEARCH,
+        productId,
+        errorCode: 'CLIENT_AVAILABILITY_LOAD_FAILED',
+        errorMessage: errorMessageFrom(err),
+      });
       setError('Unable to load availability. Please try again.');
     } finally {
       setIsLoading(false);
@@ -102,6 +113,52 @@ export function AvailabilityCalendar({
     });
     return dates;
   }, [availability]);
+
+  // Track when the calendar finishes rendering — emit one event per (product, month)
+  // pair recording how many available dates the user actually sees. Lets us
+  // distinguish "search returned 0 dates" from "search returned 12 dates".
+  const lastTrackedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (isLoading || error) return;
+    const monthKey = `${productId}|${monthStart.toISOString().slice(0, 7)}`;
+    if (lastTrackedRef.current === monthKey) return;
+    lastTrackedRef.current = monthKey;
+
+    const range = `${formatDate(monthStart)}..${formatDate(monthEnd)}`;
+    const dateCount = availableDates.size;
+    if (dateCount === 0) {
+      trackClientFunnelEvent({
+        step: BookingFunnelStep.AVAILABILITY_SEARCH,
+        productId,
+        errorCode: 'CLIENT_NO_AVAILABLE_DATES_SHOWN',
+        errorMessage: `range=${range}, availableDates=0`,
+      });
+    } else {
+      trackClientFunnelEvent({
+        step: BookingFunnelStep.AVAILABILITY_SEARCH,
+        productId,
+        errorCode: 'CLIENT_AVAILABILITY_RENDERED',
+        errorMessage: `range=${range}, availableDates=${dateCount}`,
+      });
+    }
+  }, [isLoading, error, productId, monthStart, monthEnd, availableDates]);
+
+  // Track when the user picks a date that the calendar deems "available" but
+  // we somehow have no time slots for — currently a defensive case but
+  // worth knowing if it ever fires.
+  useEffect(() => {
+    if (!selectedDate) return;
+    if (availability.length === 0) return; // calendar still loading
+    const slotsForDate = availability.filter((opt) => opt.date === selectedDate);
+    if (slotsForDate.length === 0) {
+      trackClientFunnelEvent({
+        step: BookingFunnelStep.AVAILABILITY_SEARCH,
+        productId,
+        errorCode: 'CLIENT_NO_SLOTS_FOR_SELECTED_DATE',
+        errorMessage: `selectedDate=${selectedDate}, availableDatesInMonth=${availableDates.size}`,
+      });
+    }
+  }, [selectedDate, availability, productId, availableDates]);
 
   // Get time slots for selected date
   const timeSlotsForDate = useMemo(() => {
