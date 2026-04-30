@@ -126,11 +126,18 @@ export async function GET(request: NextRequest) {
         JSON.stringify(availability).substring(0, 200)
       );
 
+      const slotCount = availability?.nodes?.length ?? 0;
       trackFunnelEvent({
         step: BookingFunnelStep.AVAILABILITY_SEARCH,
         siteId: site.id,
         productId,
         durationMs: Date.now() - startTime,
+        ...(slotCount === 0
+          ? {
+              errorCode: 'NO_AVAILABILITY_IN_RANGE',
+              errorMessage: `range=${dateFrom}..${dateTo}, slotCount=0`,
+            }
+          : {}),
       });
       return NextResponse.json({
         success: true,
@@ -146,11 +153,18 @@ export async function GET(request: NextRequest) {
       optionList
     );
 
+    const slotCount = availability?.nodes?.length ?? 0;
     trackFunnelEvent({
       step: BookingFunnelStep.AVAILABILITY_SEARCH,
       siteId: site.id,
       productId,
       durationMs: Date.now() - startTime,
+      ...(slotCount === 0
+        ? {
+            errorCode: 'NO_AVAILABILITY_IN_RANGE',
+            errorMessage: 'slotCount=0, source=getAvailabilityList',
+          }
+        : {}),
     });
     return NextResponse.json({
       success: true,
