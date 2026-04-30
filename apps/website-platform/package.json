@@ -33,6 +33,7 @@
     "rehype-raw": "^7.0.0",
     "rehype-sanitize": "^6.0.0",
     "remark-gfm": "^4.0.1",
+    "resend": "^6.12.2",
     "stripe": "^14.10.0",
     "zod": "^3.22.0"
   },

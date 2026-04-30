@@ -18,6 +18,7 @@ const navItems: NavItem[] = [
   { href: '/sites', label: 'Sites', icon: '🌐' },
   { href: '/bookings', label: 'Bookings', icon: '📅' },
   { href: '/subscribers', label: 'Subscribers', icon: '📧' },
+  { href: '/contact-messages', label: 'Contact Messages', icon: '✉️' },
   { href: '/opportunities', label: 'Opportunities', icon: '🔍' },
   { href: '/domains', label: 'Domains', icon: '🌍' },
   { href: '/partners', label: 'Partners', icon: '🤝' },
