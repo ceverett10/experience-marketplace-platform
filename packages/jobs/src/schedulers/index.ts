@@ -265,6 +265,14 @@ export async function initializeScheduledJobs(): Promise<void> {
   await scheduleJob('BOOKING_HEALTH_CANARY' as any, {} as any, '0 6,18 * * *');
   console.info('[Scheduler] ✓ Booking Health Canary - Every 12 hours (6 AM, 6 PM UTC)');
 
+  // =========================================================================
+  // DAILY OPS DIGEST
+  // =========================================================================
+  // Aggregates the last 24h of errors / bookings / contact messages and emails
+  // a summary at 7am UTC. Sent via Resend to CONTACT_NOTIFICATION_EMAIL.
+  await scheduleJob('DAILY_DIGEST_EMAIL' as any, {} as any, '0 7 * * *');
+  console.info('[Scheduler] ✓ Daily Ops Digest - Every day at 7 AM UTC');
+
   await scheduleJob('SUPPLIER_SYNC' as any, { forceSync: false }, '0 2 * * *');
   console.info('[Scheduler] ✓ Supplier Sync - Daily at 2 AM');
 

@@ -259,7 +259,31 @@ export default async function ExperienceDetailPage({ params }: Props) {
   const { experience, apiError } = await getExperience(site, slug);
 
   if (!experience) {
-    // Return 404 if product not found or API error
+    // Persist for the daily ops digest so we can spot dead URLs in 24h windows.
+    // Fail-soft so the not-found response still renders if the DB is down.
+    void prisma.errorLog
+      .create({
+        data: {
+          jobType: 'EXPERIENCE_NOT_FOUND',
+          errorName: apiError ? 'HolibobApiError' : 'HolibobProductNotFound',
+          errorMessage: apiError
+            ? `Holibob API error fetching /experiences/${slug}: ${apiError}`
+            : `Holibob returned no product for /experiences/${slug}`,
+          errorCategory: apiError ? 'EXTERNAL_API' : 'NOT_FOUND',
+          errorSeverity: 'MEDIUM',
+          siteId: site.id !== 'default' ? site.id : null,
+          retryable: false,
+          context: {
+            slug,
+            hostname,
+            partnerId: site.holibobPartnerId,
+            apiError: apiError ?? null,
+          },
+        },
+      })
+      .catch((e: unknown) => {
+        console.error('[experience-not-found] failed to log to ErrorLog:', e);
+      });
     notFound();
   }
 
