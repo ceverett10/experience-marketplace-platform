@@ -307,6 +307,7 @@ async function validateTaskArtifacts(
     BOOKING_STATUS_SYNC: { valid: true },
     BOOKING_ERROR_ALERT: { valid: true },
     BOOKING_HEALTH_CANARY: { valid: true },
+    DAILY_DIGEST_EMAIL: { valid: true },
     ADS_REVIEW_AGENT: { valid: true },
     TREND_DATA_COLLECT: { valid: true },
   };
@@ -614,6 +615,10 @@ export const TASK_DESCRIPTIONS: Record<JobType, { label: string; description: st
     label: 'Booking Health Canary',
     description:
       'Synthetic Holibob discoverProducts + createBooking probe; pages on contract breakage',
+  },
+  DAILY_DIGEST_EMAIL: {
+    label: 'Daily Ops Digest Email',
+    description: 'Aggregate 24h errors, bookings, contact messages and email a summary at 7am UTC',
   },
   ADS_REVIEW_AGENT: {
     label: 'Ads Review Agent',

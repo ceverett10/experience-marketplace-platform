@@ -67,6 +67,7 @@ import {
   handleBookingStatusSync,
   handleBookingErrorAlert,
   handleBookingHealthCanary,
+  handleDailyDigestEmail,
   // Microsite handlers
   handleMicrositeCreate,
   handleMicrositeBrandGenerate,
@@ -542,6 +543,8 @@ const syncWorker = new Worker(
         return await handleBookingErrorAlert(job);
       case 'BOOKING_HEALTH_CANARY':
         return await handleBookingHealthCanary(job);
+      case 'DAILY_DIGEST_EMAIL':
+        return await handleDailyDigestEmail(job);
       default:
         throw new Error(`Unknown job type: ${job.name}`);
     }

@@ -483,6 +483,11 @@ export type BookingErrorAlertPayload = Record<string, never>;
 export type BookingHealthCanaryPayload = Record<string, never>;
 
 /**
+ * Daily ops digest. Scheduled at 7am UTC, no inputs at runtime.
+ */
+export type DailyDigestEmailPayload = Record<string, never>;
+
+/**
  * Union type of all job payloads
  */
 export type JobPayload =
@@ -539,6 +544,7 @@ export type JobPayload =
   | BookingStatusSyncPayload
   | BookingErrorAlertPayload
   | BookingHealthCanaryPayload
+  | DailyDigestEmailPayload
   | AdsReviewAgentPayload;
 
 /**
@@ -658,6 +664,7 @@ export const JOB_TYPE_TO_QUEUE: Record<string, QueueName> & Record<JobType, Queu
   BOOKING_STATUS_SYNC: QUEUE_NAMES.SYNC,
   BOOKING_ERROR_ALERT: QUEUE_NAMES.SYNC,
   BOOKING_HEALTH_CANARY: QUEUE_NAMES.SYNC,
+  DAILY_DIGEST_EMAIL: QUEUE_NAMES.SYNC,
 
   // Analytics (scheduled jobs)
   GA4_DAILY_SYNC: QUEUE_NAMES.ANALYTICS,

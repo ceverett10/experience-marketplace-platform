@@ -19,6 +19,7 @@ export * from './workers/microsite';
 export * from './workers/social';
 export * from './workers/ads';
 export * from './workers/booking-health';
+export * from './workers/daily-digest';
 
 // Export schedulers
 export * from './schedulers';
