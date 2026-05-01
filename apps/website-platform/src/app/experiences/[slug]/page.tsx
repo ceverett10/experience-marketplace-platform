@@ -220,7 +220,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   if (!experience) {
     return {
-      title: 'Experience Not Found',
+      title: 'Experience not available',
+      robots: { index: false, follow: true },
     };
   }
 
