@@ -109,10 +109,15 @@ describe('Availability API Route', () => {
     expect(data.error).toBe('Dates must be in YYYY-MM-DD format');
   });
 
-  it('returns 400 when dateFrom is in the past', async () => {
+  it('clamps dateFrom to today when in the past (timezone-tolerant)', async () => {
+    // Past dates are no longer rejected — they're clamped to today and the
+    // request proceeds. This handles users in timezones behind UTC whose
+    // local "today" is the server's "yesterday", and calendar-month-start
+    // requests that get stale through the month.
     const pastDate = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0] ?? '';
     const futureDate =
       new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] ?? '';
+    const todayStr = new Date(new Date().setHours(0, 0, 0, 0)).toISOString().split('T')[0] ?? '';
 
     const request = new NextRequest(
       `http://localhost:3000/api/availability?productId=test-product&dateFrom=${pastDate}&dateTo=${futureDate}`
@@ -121,8 +126,10 @@ describe('Availability API Route', () => {
     const response = await GET(request);
     const data = await response.json();
 
-    expect(response.status).toBe(400);
-    expect(data.error).toBe('dateFrom cannot be in the past');
+    expect(response.status).toBe(200);
+    expect(data.success).toBe(true);
+    // Verify Holibob was called with today, not the past date
+    expect(mockDiscoverAvailability).toHaveBeenCalledWith('test-product', todayStr, futureDate);
   });
 
   it('returns 400 when dateTo is before dateFrom', async () => {

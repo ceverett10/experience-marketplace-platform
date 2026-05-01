@@ -63,13 +63,27 @@ export async function GET(request: NextRequest) {
       }
 
       // Validate date range
-      const fromDate = new Date(dateFrom);
+      let fromDate = new Date(dateFrom);
       const toDate = new Date(dateTo);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
+      // Clamp fromDate to today when it's in the past, rather than rejecting.
+      // Two real cases this covers, both observed in production:
+      //   1. Users in timezones behind UTC whose browser-local "today" is
+      //      already server's "yesterday" UTC — e.g. a US user at 23:00 PDT
+      //      (06:00 UTC the next day) computes today=YYYY-MM-DD locally and
+      //      sends it; server rejected it with "dateFrom cannot be in the
+      //      past" (incident 2026-04-30, Paris Food Tours funnel error).
+      //   2. Calendar requests starting at month boundary (AvailabilityCalendar
+      //      sends "first of current month") — fine on the 1st, increasingly
+      //      stale through the month.
+      // Holibob handles past dates gracefully on its end, so there's no value
+      // in 400'ing — just normalise to today.
+      let effectiveDateFrom = dateFrom;
       if (fromDate < today) {
-        return NextResponse.json({ error: 'dateFrom cannot be in the past' }, { status: 400 });
+        fromDate = today;
+        effectiveDateFrom = today.toISOString().split('T')[0]!;
       }
 
       if (toDate < fromDate) {
@@ -85,10 +99,10 @@ export async function GET(request: NextRequest) {
       if (daysDiff <= MAX_DAYS_PER_CHUNK) {
         console.info('[Availability API] Calling discoverAvailability:', {
           productId,
-          dateFrom,
+          dateFrom: effectiveDateFrom,
           dateTo,
         });
-        availability = await client.discoverAvailability(productId, dateFrom, dateTo);
+        availability = await client.discoverAvailability(productId, effectiveDateFrom, dateTo);
       } else {
         // Split into 40-day chunks and fetch in parallel
         const chunks: Array<{ from: string; to: string }> = [];
@@ -135,7 +149,7 @@ export async function GET(request: NextRequest) {
         ...(slotCount === 0
           ? {
               errorCode: 'NO_AVAILABILITY_IN_RANGE',
-              errorMessage: `range=${dateFrom}..${dateTo}, slotCount=0`,
+              errorMessage: `range=${effectiveDateFrom}..${dateTo}, slotCount=0`,
             }
           : {}),
       });
