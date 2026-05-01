@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { loadStripe, type Stripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
-import { PoweredByHolibob } from '@/components/ui/PoweredByHolibob';
 
 interface PaymentFormProps {
   onSuccess: () => void;
@@ -210,7 +209,6 @@ function PaymentForm({
           <span>|</span>
           <span>Statement: HOLIBOB LTD UK</span>
         </div>
-        <PoweredByHolibob variant="stacked" />
       </div>
     </form>
   );
