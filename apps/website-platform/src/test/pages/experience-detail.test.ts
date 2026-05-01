@@ -97,11 +97,12 @@ beforeEach(() => {
 });
 
 describe('Experience detail generateMetadata', () => {
-  it('returns "Experience Not Found" when product not found', async () => {
+  it('returns a not-available title and noindex when product not found', async () => {
     mockGetProduct.mockResolvedValue(null);
     const { generateMetadata } = await import('@/app/experiences/[slug]/page');
     const meta = await generateMetadata({ params: Promise.resolve({ slug: 'nonexistent' }) });
-    expect(meta.title).toBe('Experience Not Found');
+    expect(meta.title).toBe('Experience not available');
+    expect(meta.robots).toEqual({ index: false, follow: true });
   });
 
   it('returns experience title as page title', async () => {
@@ -210,7 +211,8 @@ describe('Experience detail generateMetadata', () => {
     mockGetProduct.mockRejectedValue(new Error('API timeout'));
     const { generateMetadata } = await import('@/app/experiences/[slug]/page');
     const meta = await generateMetadata({ params: Promise.resolve({ slug: 'error-prod' }) });
-    expect(meta.title).toBe('Experience Not Found');
+    expect(meta.title).toBe('Experience not available');
+    expect(meta.robots).toEqual({ index: false, follow: true });
   });
 
   it('includes experience image in openGraph', async () => {
